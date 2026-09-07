@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -89,7 +89,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -doc(#{equiv => buttonDown(This, [])}).
 -spec buttonDown(This) -> boolean() when
-	This::wxJoystickEvent().
+        This::wxJoystickEvent().
 
 buttonDown(This)
  when is_record(This, wx_ref) ->
@@ -110,7 +110,7 @@ buttonDown(#wx_ref{type=ThisT}=This, Options)
 
 -doc(#{equiv => buttonIsDown(This, [])}).
 -spec buttonIsDown(This) -> boolean() when
-	This::wxJoystickEvent().
+        This::wxJoystickEvent().
 
 buttonIsDown(This)
  when is_record(This, wx_ref) ->
@@ -131,7 +131,7 @@ buttonIsDown(#wx_ref{type=ThisT}=This, Options)
 
 -doc(#{equiv => buttonUp(This, [])}).
 -spec buttonUp(This) -> boolean() when
-	This::wxJoystickEvent().
+        This::wxJoystickEvent().
 
 buttonUp(This)
  when is_record(This, wx_ref) ->
@@ -161,7 +161,7 @@ which can be used for more clarity, however these constants are not defined for 
 buttons beyond the first four.
 """.
 -spec getButtonChange(This) -> integer() when
-	This::wxJoystickEvent().
+        This::wxJoystickEvent().
 getButtonChange(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxJoystickEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxJoystickEvent_GetButtonChange),
@@ -173,7 +173,7 @@ Returns the down state of the buttons.
 This is a `wxJOY_BUTTONn` identifier, where `n` is one of 1, 2, 3, 4.
 """.
 -spec getButtonState(This) -> integer() when
-	This::wxJoystickEvent().
+        This::wxJoystickEvent().
 getButtonState(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxJoystickEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxJoystickEvent_GetButtonState),
@@ -184,7 +184,7 @@ Returns the identifier of the joystick generating the event - one of wxJOYSTICK1
 wxJOYSTICK2.
 """.
 -spec getJoystick(This) -> integer() when
-	This::wxJoystickEvent().
+        This::wxJoystickEvent().
 getJoystick(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxJoystickEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxJoystickEvent_GetJoystick),
@@ -196,7 +196,7 @@ Returns the x, y position of the joystick event.
 These coordinates are valid for all the events except wxEVT_JOY_ZMOVE.
 """.
 -spec getPosition(This) -> {X::integer(), Y::integer()} when
-	This::wxJoystickEvent().
+        This::wxJoystickEvent().
 getPosition(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxJoystickEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxJoystickEvent_GetPosition),
@@ -208,7 +208,7 @@ Returns the z position of the joystick event.
 This method can only be used for wxEVT_JOY_ZMOVE events.
 """.
 -spec getZPosition(This) -> integer() when
-	This::wxJoystickEvent().
+        This::wxJoystickEvent().
 getZPosition(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxJoystickEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxJoystickEvent_GetZPosition),
@@ -216,7 +216,7 @@ getZPosition(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns true if this was a button up or down event (`not` 'is any button down?').".
 -spec isButton(This) -> boolean() when
-	This::wxJoystickEvent().
+        This::wxJoystickEvent().
 isButton(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxJoystickEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxJoystickEvent_IsButton),
@@ -224,7 +224,7 @@ isButton(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns true if this was an x, y move event.".
 -spec isMove(This) -> boolean() when
-	This::wxJoystickEvent().
+        This::wxJoystickEvent().
 isMove(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxJoystickEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxJoystickEvent_IsMove),
@@ -232,7 +232,7 @@ isMove(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns true if this was a z move event.".
 -spec isZMove(This) -> boolean() when
-	This::wxJoystickEvent().
+        This::wxJoystickEvent().
 isZMove(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxJoystickEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxJoystickEvent_IsZMove),

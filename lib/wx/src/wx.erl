@@ -63,42 +63,6 @@
 %%%-------------------------------------------------------------------
 
 
-%% @doc A port of <a href="http://www.wxwidgets.org/">wxWidgets</a>.
-%%
-%% This is the base api of <a href="http://www.wxwidgets.org/">wxWidgets</a>.
-%% This module contains functions for
-%% starting and stopping the wx-server, as well as  other utility functions.
-%%
-%% wxWidgets is object oriented, and not functional. Thus, in Wx a
-%% module represents a class, and the object created by this class
-%% has an own type, wxCLASS().  This module represents the base
-%% class, and all other wxMODULE's are sub-classes of this class.
-%%
-%% Objects of a class are created with wxCLASS:new(...) and destroyed with
-%% wxCLASS:destroy(). Member functions are called with wxCLASS:member(Object, ...)
-%% instead of as in C++ Object.member(...).
-%%
-%% Sub class modules inherit (non static) functions from their parents.
-%% The inherited functions are not documented in the sub-classes.
-%%
-%% This erlang port of wxWidgets tries to be a one-to-one mapping with
-%% the original wxWidgets library. Some things are different though,
-%% as the optional arguments use property lists and can be in any
-%% order. The main difference is the event handling which is different
-%% from the original library. See {@link wxEvtHandler}.
-%%
-%% The following classes are implemented directly as erlang types: <br />
-%% wxPoint={x,y},wxSize={w,h},wxRect={x,y,w,h},wxColour={r,g,b [,a]},
-%% wxString={@link //stdlib/unicode:chardata()},
-%% wxGBPosition={r,c},wxGBSpan={rs,cs},wxGridCellCoords={r,c}.
-%%
-%% wxWidgets uses a process specific environment, which is created by
-%% {@link wx:new/0}.  To be able to use the environment from other
-%% processes, call {@link get_env/0} to retrieve the environment and
-%% {@link set_env/1} to assign the environment in the other process.
-%%
-%% Global (classless) functions are located in the wx_misc module.
-
 -module(wx).
 -moduledoc """
 A port of [wxWidgets](http://www.wxwidgets.org/).
@@ -217,7 +181,6 @@ Global (classless) functions are located in the wx_misc module.
 -spec parent_class(Wx_ref :: wx_object()) -> boolean().
 parent_class(_) -> true. %% Let the null pointers be sent down.
 
-%% @doc Starts a wx server.
 -doc """
 Starts a wx server.
 """.
@@ -225,11 +188,6 @@ Starts a wx server.
 new() ->
     new([]).
 
-%% @doc Starts a wx server.
-%% Option may be {debug, Level}, see debug/1.
-%% Or {silent_start, Bool}, which causes error messages at startup to
-%% be suppressed. The latter can be used as a silent test of whether
-%% wx is properly installed or not.
 -doc """
 Starts a wx server.
 
@@ -249,7 +207,6 @@ new(Options) when is_list(Options) ->
     set_debug(Level),
     null().
 
-%% @doc Stops a wx server.
 -doc """
 Stops a wx server.
 """.
@@ -259,9 +216,6 @@ destroy() ->
     erase(?WXE_IDENTIFIER),
     ok.
 
-%% @doc Gets this process's current wx environment.
-%% Can be sent to other processes to allow them use this process wx environment.
-%% @see set_env/1
 -doc """
 Gets this process's current wx environment. Can be sent to other processes to
 allow them use this process wx environment.
@@ -275,8 +229,6 @@ get_env() ->
 	Env = #wx_env{} -> Env
     end.
 
-%% @doc Sets the process wx environment, allows this process to use
-%% another process wx environment.
 -doc """
 Sets the process wx environment, allows this process to use another process wx
 environment.
@@ -289,19 +241,6 @@ set_env(#wx_env{sv=Pid} = Env) ->
     wxe_server:register_me(Pid),
     ok.
 
-%% @doc Adds the calling process to the list of of processes that are
-%% listening to wx application events. At the moment these are
-%% all MacOSX specific events corresponding to MacNewFile() and friends
-%% from wxWidgets wxApp https://docs.wxwidgets.org/trunk/classwx_app.html
-%%
-%% * `{new_file, ""}`
-%% * `{open_file, Filename}`
-%% * `{print_file, Filename}`
-%% * `{open_url, Url}`
-%% * `{reopen_app, ""}`
-%%
-%% The call always returns ok but will have sent any already received
-%% events to the calling process.
 -doc """
 Adds the calling process to the list of of processes that are listening to wx
 application events.
@@ -323,7 +262,6 @@ calling process.
 subscribe_events() ->
     gen_server:call(wxe_master, subscribe_msgs, infinity).
 
-%% @doc Returns the null object
 -doc """
 Returns the null object
 """.
@@ -331,21 +269,18 @@ Returns the null object
 null() ->
     #wx_ref{ref=0, type=wx}.
 
-%% @doc Returns true if object is null, false otherwise
 -doc """
 Returns true if object is null, false otherwise
 """.
 -spec is_null(Wx_ref :: wx_object()) -> boolean().
 is_null(#wx_ref{ref=NULL}) -> NULL =:= 0.
 
-%% @doc Returns true if both arguments references the same object, false otherwise
 -doc """
 Returns true if both arguments references the same object, false otherwise
 """.
 -spec equal(Ref1 :: wx_object(), Ref2 :: wx_object()) -> boolean().
 equal(#wx_ref{ref=Ref1}, #wx_ref{ref=Ref2}) -> Ref1 =:= Ref2.
 
-%% @doc Returns the object type
 -doc """
 Returns the object type
 """.
@@ -353,9 +288,6 @@ Returns the object type
 getObjectType(#wx_ref{type=Type}) ->
     Type.
 
-%% @doc Casts the object to class NewType.
-%%  It is needed when using functions like wxWindow:findWindow/2, which
-%%  returns a generic wxObject type.
 -doc """
 Casts the object to class NewType. It is needed when using functions like
 wxWindow:findWindow/2, which returns a generic wxObject type.
@@ -364,15 +296,6 @@ wxWindow:findWindow/2, which returns a generic wxObject type.
 typeCast(Old=#wx_ref{}, NewType) when is_atom(NewType) ->
     Old#wx_ref{type=NewType}.
 
-%% @doc Batches all <c>wx</c> commands
-%% used in the fun.  Improves performance of the command processing by
-%% grabbing the wxWidgets thread so that no event processing will be
-%% done before the complete batch of commands is invoked.
-%%
-%% @see map/2
-%% @see foreach/2
-%% @see foldl/3
-%% @see foldr/3
 -doc """
 Batches all `wx` commands used in the fun. Improves performance of the command
 processing by grabbing the wxWidgets thread so that no event processing will be
@@ -392,7 +315,6 @@ batch(Fun) ->
         ok = wxe_util:queue_cmd(?BATCH_END)
     end.
 
-%% @doc Behaves like {@link //stdlib/lists:foreach/2} but batches wx commands. See {@link batch/1}.
 -doc """
 Behaves like `lists:foreach/2` but batches wx commands. See `batch/1`.
 """.
@@ -408,7 +330,6 @@ foreach(Fun, List) ->
         ok = wxe_util:queue_cmd(?BATCH_END)
     end.
 
-%% @doc Behaves like {@link //stdlib/lists:map/2} but batches wx commands. See {@link batch/1}.
 -doc """
 Behaves like `lists:map/2` but batches wx commands. See `batch/1`.
 """.
@@ -424,7 +345,6 @@ map(Fun, List) ->
         ok = wxe_util:queue_cmd(?BATCH_END)
     end.
 
-%% @doc Behaves like {@link //stdlib/lists:foldl/3} but batches wx commands. See {@link batch/1}.
 -doc """
 Behaves like `lists:foldl/3` but batches wx commands. See `batch/1`.
 """.
@@ -440,7 +360,6 @@ foldl(Fun, Acc, List) ->
         ok = wxe_util:queue_cmd(?BATCH_END)
     end.
 
-%% @doc Behaves like {@link //stdlib/lists:foldr/3} but batches wx commands. See {@link batch/1}.
 -doc """
 Behaves like `lists:foldr/3` but batches wx commands. See `batch/1`.
 """.
@@ -458,14 +377,6 @@ foldr(Fun, Acc, List) ->
 
 -define(MIN_BIN_SIZE, 64).  %% Current emulator min off heap size
 
-%% @doc Creates a memory area (of Size in bytes) which can be used by an external library (i.e. opengl).
-%% It is up to the client to keep a reference to this object so it does
-%% not get garbage collected by erlang while still in use by the external
-%% library.
-%%
-%% This is far from erlang's intentional usage and can crash the erlang emulator.
-%% Use it carefully.
-
 -doc """
 Creates a memory area (of Size in bytes) which can be used by an external
 library (i.e. opengl). It is up to the client to keep a reference to this object
@@ -481,19 +392,16 @@ create_memory(Size) when Size > ?MIN_BIN_SIZE ->
 create_memory(Size) ->
     #wx_mem{bin = <<0:((?MIN_BIN_SIZE+1)*8)>>, size = Size}.
 
-%% @doc Returns the memory area as a binary.
 -doc """
 Returns the memory area as a binary.
 """.
--spec get_memory_bin(Wx_mem :: wx_memory()) -> binary().
+-spec get_memory_bin(Wx_mem :: #wx_mem{}) -> binary().
 get_memory_bin(#wx_mem{bin=Bin, size=Size}) when Size > ?MIN_BIN_SIZE ->
     Bin;
 get_memory_bin(#wx_mem{bin=Bin, size=Size}) ->
     <<WithCorrectSize:Size/binary, _/binary>> = Bin,
     WithCorrectSize.
 
-%% @doc Saves the memory from deletion until release_memory/1 is called.
-%% If release_memory/1 is not called the memory will not be garbage collected.
 -doc """
 Saves the memory from deletion until `release_memory/1` is called. If
 `release_memory/1` is not called the memory will not be garbage collected.
@@ -501,7 +409,7 @@ Saves the memory from deletion until `release_memory/1` is called. If
 -spec retain_memory(Wx_mem :: wx_memory()) -> 'ok'.
 retain_memory(#wx_mem{}=Mem) ->
     case get(Mem) of
-        {Mem, N} -> put(Mem, N+1);
+        N when is_integer(N) -> put(Mem, N+1);
         undefined -> put(Mem, 1)
     end,
     ok;
@@ -516,6 +424,7 @@ retain_memory(Bin) when is_binary(Bin) ->
 -spec release_memory(Wx_mem :: wx_memory()) -> 'ok'.
 release_memory(#wx_mem{}=Mem) ->
     case erase(Mem) of
+        undefined -> ok;
         1 -> ok;
         N -> put(Mem, N-1),
              ok
@@ -523,15 +432,12 @@ release_memory(#wx_mem{}=Mem) ->
 release_memory(Bin) when is_binary(Bin) ->
     release_memory(#wx_mem{bin=Bin, size=byte_size(Bin)}).
 
-%% @doc Sets debug level. If debug level is 'verbose' or 'trace'
-%% each call is printed on console. If Level is 'driver' each allocated
-%% object and deletion is printed on the console.
 -doc """
 debug(Level)
 
-Sets debug level. If debug level is 'verbose' or 'trace' each call is printed on
-console. If Level is 'driver' each allocated object and deletion is printed on
-the console.
+Sets debug level. If Level is 'driver' each call, allocated object
+and deletion is printed on the console. Other levels are currently
+no-ops but are accepted without error.
 """.
 -spec debug(Level | [Level]) -> 'ok'
      when Level :: 'none' | 'verbose' | 'trace' | 'driver' | integer().
@@ -540,39 +446,33 @@ debug(Debug) ->
     Level = calc_level(Debug),
     set_debug(Level).
 
-calc_level(none) -> calc_level(0);
-calc_level(verbose) -> calc_level(1);
-calc_level(trace) -> calc_level(2);
-calc_level(driver) -> calc_level(16);
-calc_level([]) -> calc_level(0);
+calc_level(none) -> 0;
+calc_level(verbose) -> 0;
+calc_level(trace) -> 0;
+calc_level(driver) -> 16;
+calc_level([]) -> 0;
 calc_level(List) when is_list(List) ->
-    {Drv,Erl} =
-	lists:foldl(fun(verbose, {Drv,_Erl}) ->
-			    {Drv,1};
-		       (trace, {Drv,_Erl}) ->
-			    {Drv,2};
-		       (driver, {_Drv,Erl}) ->
-			    {16, Erl}
-		    end, {0,0}, List),
-    Drv + Erl;
+    case lists:member(driver, List) of
+        true -> 16;
+        false -> 0
+    end;
 calc_level(Level) when is_integer(Level) ->
     Level.
 
 set_debug(Level) when is_integer(Level) ->
     case get_env() of
-	#wx_env{debug=Old} when Old =:= Level -> ok;
-	Env = #wx_env{sv=Server, debug=Old} ->
-	    if
-		Old > 16, Level > 16 -> ok;
-		Old < 16, Level < 16 -> ok;
-		true -> wxe_util:debug_driver(Level bsr 4)
-	    end,
-	    put(?WXE_IDENTIFIER, Env#wx_env{debug=Level}),
-	    wxe_server:set_debug(Server,Level),
-	    ok
+        #wx_env{debug=Old} when Old =:= Level -> ok;
+        Env = #wx_env{sv=Server, debug=Old} ->
+            if
+                Old >= 16, Level >= 16 -> ok;
+                Old < 16, Level < 16 -> ok;
+                true -> wxe_util:debug_driver(Level bsr 4)
+            end,
+            put(?WXE_IDENTIFIER, Env#wx_env{debug=Level}),
+            wxe_server:set_debug(Server,Level),
+            ok
     end.
 
-%% @doc Starts a Wx demo if examples directory exists and is compiled
 -doc """
 Starts a Wx demo if examples directory exists and is compiled
 """.

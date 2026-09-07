@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -136,7 +136,7 @@ argument is ignored in the other ports. If `dc` is NULL, a device context compat
 the screen is created, just as with the default constructor.
 """.
 -spec new(Dc) -> wxMemoryDC() when
-	Dc::wxDC:wxDC() | wxBitmap:wxBitmap().
+        Dc::wxDC:wxDC() | wxBitmap:wxBitmap().
 new(#wx_ref{type=DcT}=Dc) ->
   IswxDC = ?CLASS_T(DcT,wxDC),
   IswxBitmap = ?CLASS_T(DcT,wxBitmap),
@@ -166,7 +166,7 @@ selected in another context, the function asserts and drawing on the bitmap won'
 See: `wxDC:drawBitmap/4`
 """.
 -spec selectObject(This, Bitmap) -> 'ok' when
-	This::wxMemoryDC(), Bitmap::wxBitmap:wxBitmap().
+        This::wxMemoryDC(), Bitmap::wxBitmap:wxBitmap().
 selectObject(#wx_ref{type=ThisT}=This,#wx_ref{type=BitmapT}=Bitmap) ->
   ?CLASS(ThisT,wxMemoryDC),
   ?CLASS(BitmapT,wxBitmap),
@@ -184,7 +184,7 @@ bitmap is selected out of the device context, and the original bitmap restored, 
 the current bitmap to be destroyed safely.
 """.
 -spec selectObjectAsSource(This, Bitmap) -> 'ok' when
-	This::wxMemoryDC(), Bitmap::wxBitmap:wxBitmap().
+        This::wxMemoryDC(), Bitmap::wxBitmap:wxBitmap().
 selectObjectAsSource(#wx_ref{type=ThisT}=This,#wx_ref{type=BitmapT}=Bitmap) ->
   ?CLASS(ThisT,wxMemoryDC),
   ?CLASS(BitmapT,wxBitmap),

@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -108,7 +108,7 @@ wxWidgets docs: [wxPreviewControlBar](https://docs.wxwidgets.org/3.2/classwx_pre
   move/2,move/3,move/4,moveAfterInTabOrder/2,moveBeforeInTabOrder/2,
   navigate/1,navigate/2,pageDown/1,pageUp/1,parent_class/1,popupMenu/2,
   popupMenu/3,popupMenu/4,raise/1,refresh/1,refresh/2,refreshRect/2,refreshRect/3,
-  releaseMouse/1,removeChild/2,reparent/2,screenToClient/1,screenToClient/2,
+  releaseMouse/1,removeChild/2,reparent/2,screenToClient/2,screenToClient/3,
   scrollLines/2,scrollPages/2,scrollWindow/3,scrollWindow/4,setAcceleratorTable/2,
   setAutoLayout/2,setBackgroundColour/2,setBackgroundStyle/2,setCaret/2,
   setClientSize/2,setClientSize/3,setContainingSizer/2,setCursor/2,
@@ -134,7 +134,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -doc(#{equiv => new(Preview,Buttons,Parent, [])}).
 -spec new(Preview, Buttons, Parent) -> wxPreviewControlBar() when
-	Preview::wxPrintPreview:wxPrintPreview(), Buttons::integer(), Parent::wxWindow:wxWindow().
+        Preview::wxPrintPreview:wxPrintPreview(), Buttons::integer(), Parent::wxWindow:wxWindow().
 
 new(Preview,Buttons,Parent)
  when is_record(Preview, wx_ref),is_integer(Buttons),is_record(Parent, wx_ref) ->
@@ -175,14 +175,14 @@ new(#wx_ref{type=PreviewT}=Preview,Buttons,#wx_ref{type=ParentT}=Parent, Options
 
 -doc "Creates buttons, according to value of the button style flags.".
 -spec createButtons(This) -> 'ok' when
-	This::wxPreviewControlBar().
+        This::wxPreviewControlBar().
 createButtons(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPreviewControlBar),
   wxe_util:queue_cmd(This,?get_env(),?wxPreviewControlBar_CreateButtons).
 
 -doc "Gets the print preview object associated with the control bar.".
 -spec getPrintPreview(This) -> wxPrintPreview:wxPrintPreview() when
-	This::wxPreviewControlBar().
+        This::wxPreviewControlBar().
 getPrintPreview(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPreviewControlBar),
   wxe_util:queue_cmd(This,?get_env(),?wxPreviewControlBar_GetPrintPreview),
@@ -190,7 +190,7 @@ getPrintPreview(#wx_ref{type=ThisT}=This) ->
 
 -doc "Gets the current zoom setting in percent.".
 -spec getZoomControl(This) -> integer() when
-	This::wxPreviewControlBar().
+        This::wxPreviewControlBar().
 getZoomControl(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPreviewControlBar),
   wxe_util:queue_cmd(This,?get_env(),?wxPreviewControlBar_GetZoomControl),
@@ -198,7 +198,7 @@ getZoomControl(#wx_ref{type=ThisT}=This) ->
 
 -doc "Sets the zoom control.".
 -spec setZoomControl(This, Percent) -> 'ok' when
-	This::wxPreviewControlBar(), Percent::integer().
+        This::wxPreviewControlBar(), Percent::integer().
 setZoomControl(#wx_ref{type=ThisT}=This,Percent)
  when is_integer(Percent) ->
   ?CLASS(ThisT,wxPreviewControlBar),
@@ -353,9 +353,9 @@ scrollPages(This,Pages) -> wxWindow:scrollPages(This,Pages).
 -doc false.
 scrollLines(This,Lines) -> wxWindow:scrollLines(This,Lines).
 -doc false.
-screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
+screenToClient(This,X,Y) -> wxWindow:screenToClient(This,X,Y).
 -doc false.
-screenToClient(This) -> wxWindow:screenToClient(This).
+screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
 -doc false.
 reparent(This,NewParent) -> wxWindow:reparent(This,NewParent).
 -doc false.

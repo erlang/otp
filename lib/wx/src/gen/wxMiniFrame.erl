@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -145,8 +145,8 @@ wxWidgets docs: [wxMiniFrame](https://docs.wxwidgets.org/3.2/classwx_mini_frame.
   moveBeforeInTabOrder/2,navigate/1,navigate/2,pageDown/1,pageUp/1,parent_class/1,
   popupMenu/2,popupMenu/3,popupMenu/4,processCommand/2,raise/1,refresh/1,
   refresh/2,refreshRect/2,refreshRect/3,releaseMouse/1,removeChild/2,
-  reparent/2,requestUserAttention/1,requestUserAttention/2,screenToClient/1,
-  screenToClient/2,scrollLines/2,scrollPages/2,scrollWindow/3,scrollWindow/4,
+  reparent/2,requestUserAttention/1,requestUserAttention/2,screenToClient/2,
+  screenToClient/3,scrollLines/2,scrollPages/2,scrollWindow/3,scrollWindow/4,
   sendSizeEvent/1,sendSizeEvent/2,setAcceleratorTable/2,setAutoLayout/2,
   setBackgroundColour/2,setBackgroundStyle/2,setCaret/2,setClientSize/2,
   setClientSize/3,setContainingSizer/2,setCursor/2,setDoubleBuffered/2,
@@ -181,7 +181,7 @@ new() ->
 
 -doc(#{equiv => new(Parent,Id,Title, [])}).
 -spec new(Parent, Id, Title) -> wxMiniFrame() when
-	Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata().
+        Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata().
 
 new(Parent,Id,Title)
  when is_record(Parent, wx_ref),is_integer(Id),?is_chardata(Title) ->
@@ -213,7 +213,7 @@ new(#wx_ref{type=ParentT}=Parent,Id,Title, Options)
 
 -doc(#{equiv => create(This,Parent,Id,Title, [])}).
 -spec create(This, Parent, Id, Title) -> boolean() when
-	This::wxMiniFrame(), Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata().
+        This::wxMiniFrame(), Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata().
 
 create(This,Parent,Id,Title)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id),?is_chardata(Title) ->
@@ -472,9 +472,9 @@ scrollPages(This,Pages) -> wxWindow:scrollPages(This,Pages).
 -doc false.
 scrollLines(This,Lines) -> wxWindow:scrollLines(This,Lines).
 -doc false.
-screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
+screenToClient(This,X,Y) -> wxWindow:screenToClient(This,X,Y).
 -doc false.
-screenToClient(This) -> wxWindow:screenToClient(This).
+screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
 -doc false.
 reparent(This,NewParent) -> wxWindow:reparent(This,NewParent).
 -doc false.

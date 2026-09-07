@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -82,7 +82,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -doc "".
 -spec setChangedWindow(This, Win) -> 'ok' when
-	This::wxPaletteChangedEvent(), Win::wxWindow:wxWindow().
+        This::wxPaletteChangedEvent(), Win::wxWindow:wxWindow().
 setChangedWindow(#wx_ref{type=ThisT}=This,#wx_ref{type=WinT}=Win) ->
   ?CLASS(ThisT,wxPaletteChangedEvent),
   ?CLASS(WinT,wxWindow),
@@ -90,7 +90,7 @@ setChangedWindow(#wx_ref{type=ThisT}=This,#wx_ref{type=WinT}=Win) ->
 
 -doc "".
 -spec getChangedWindow(This) -> wxWindow:wxWindow() when
-	This::wxPaletteChangedEvent().
+        This::wxPaletteChangedEvent().
 getChangedWindow(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPaletteChangedEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxPaletteChangedEvent_GetChangedWindow),

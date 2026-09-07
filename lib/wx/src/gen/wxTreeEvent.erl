@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -104,7 +104,7 @@ Returns the key code if the event is a key event.
 Use `getKeyEvent/1` to get the values of the modifier keys for this event (i.e. Shift or Ctrl).
 """.
 -spec getKeyCode(This) -> integer() when
-	This::wxTreeEvent().
+        This::wxTreeEvent().
 getKeyCode(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTreeEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxTreeEvent_GetKeyCode),
@@ -112,7 +112,7 @@ getKeyCode(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the item (valid for all events).".
 -spec getItem(This) -> integer() when
-	This::wxTreeEvent().
+        This::wxTreeEvent().
 getItem(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTreeEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxTreeEvent_GetItem),
@@ -120,7 +120,7 @@ getItem(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the key event for `EVT\_TREE\_KEY\_DOWN` events.".
 -spec getKeyEvent(This) -> wxKeyEvent:wxKeyEvent() when
-	This::wxTreeEvent().
+        This::wxTreeEvent().
 getKeyEvent(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTreeEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxTreeEvent_GetKeyEvent),
@@ -128,7 +128,7 @@ getKeyEvent(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the label if the event is a begin or end edit label event.".
 -spec getLabel(This) -> unicode:charlist() when
-	This::wxTreeEvent().
+        This::wxTreeEvent().
 getLabel(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTreeEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxTreeEvent_GetLabel),
@@ -139,7 +139,7 @@ Returns the old item index (valid for `EVT\_TREE\_SEL\_CHANGING` and `EVT\_TREE\
 events).
 """.
 -spec getOldItem(This) -> integer() when
-	This::wxTreeEvent().
+        This::wxTreeEvent().
 getOldItem(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTreeEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxTreeEvent_GetOldItem),
@@ -152,7 +152,7 @@ In both cases the position is in client coordinates - i.e. relative to the `m:wx
 window (so that you can pass it directly to e.g. `wxWindow:popupMenu/4`).
 """.
 -spec getPoint(This) -> {X::integer(), Y::integer()} when
-	This::wxTreeEvent().
+        This::wxTreeEvent().
 getPoint(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTreeEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxTreeEvent_GetPoint),
@@ -164,7 +164,7 @@ Returns true if the label edit was cancelled.
 This should be called from within an `EVT_TREE_END_LABEL_EDIT` handler.
 """.
 -spec isEditCancelled(This) -> boolean() when
-	This::wxTreeEvent().
+        This::wxTreeEvent().
 isEditCancelled(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTreeEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxTreeEvent_IsEditCancelled),
@@ -176,7 +176,7 @@ Set the tooltip for the item (valid for `EVT\_TREE\_ITEM\_GETTOOLTIP` events).
 Windows only.
 """.
 -spec setToolTip(This, Tooltip) -> 'ok' when
-	This::wxTreeEvent(), Tooltip::unicode:chardata().
+        This::wxTreeEvent(), Tooltip::unicode:chardata().
 setToolTip(#wx_ref{type=ThisT}=This,Tooltip)
  when ?is_chardata(Tooltip) ->
   ?CLASS(ThisT,wxTreeEvent),

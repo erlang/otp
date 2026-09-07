@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -123,8 +123,8 @@ Event types emitted from this class:
   lineDown/1,lineUp/1,lower/1,move/2,move/3,move/4,moveAfterInTabOrder/2,
   moveBeforeInTabOrder/2,navigate/1,navigate/2,pageDown/1,pageUp/1,parent_class/1,
   popupMenu/2,popupMenu/3,popupMenu/4,raise/1,refresh/1,refresh/2,refreshRect/2,
-  refreshRect/3,releaseMouse/1,removeChild/2,reparent/2,screenToClient/1,
-  screenToClient/2,scrollLines/2,scrollPages/2,scrollWindow/3,scrollWindow/4,
+  refreshRect/3,releaseMouse/1,removeChild/2,reparent/2,screenToClient/2,
+  screenToClient/3,scrollLines/2,scrollPages/2,scrollWindow/3,scrollWindow/4,
   select/2,setAcceleratorTable/2,setAutoLayout/2,setBackgroundColour/2,
   setBackgroundStyle/2,setCaret/2,setClientData/3,setClientSize/2,setClientSize/3,
   setContainingSizer/2,setCursor/2,setDoubleBuffered/2,setDropTarget/2,
@@ -161,7 +161,7 @@ new() ->
 
 -doc(#{equiv => new(Parent,Id, [])}).
 -spec new(Parent, Id) -> wxChoice() when
-	Parent::wxWindow:wxWindow(), Id::integer().
+        Parent::wxWindow:wxWindow(), Id::integer().
 
 new(Parent,Id)
  when is_record(Parent, wx_ref),is_integer(Id) ->
@@ -194,7 +194,7 @@ new(#wx_ref{type=ParentT}=Parent,Id, Options)
 
 -doc(#{equiv => create(This,Parent,Id,Pos,Size,Choices, [])}).
 -spec create(This, Parent, Id, Pos, Size, Choices) -> boolean() when
-	This::wxChoice(), Parent::wxWindow:wxWindow(), Id::integer(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[unicode:chardata()].
+        This::wxChoice(), Parent::wxWindow:wxWindow(), Id::integer(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[unicode:chardata()].
 
 create(This,Parent,Id,{PosX,PosY} = Pos,{SizeW,SizeH} = Size,Choices)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id),is_integer(PosX),is_integer(PosY),is_integer(SizeW),is_integer(SizeH),is_list(Choices) ->
@@ -233,7 +233,7 @@ selection is preserved unchanged.
 See: `wxControlWithItems:clear/1`
 """.
 -spec delete(This, N) -> 'ok' when
-	This::wxChoice(), N::integer().
+        This::wxChoice(), N::integer().
 delete(#wx_ref{type=ThisT}=This,N)
  when is_integer(N) ->
   ?CLASS(ThisT,wxChoice),
@@ -246,7 +246,7 @@ Remark: This is implemented for GTK and Motif only and always returns 1 for the 
 platforms.
 """.
 -spec getColumns(This) -> integer() when
-	This::wxChoice().
+        This::wxChoice().
 getColumns(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxChoice),
   wxe_util:queue_cmd(This,?get_env(),?wxChoice_GetColumns),
@@ -254,7 +254,7 @@ getColumns(#wx_ref{type=ThisT}=This) ->
 
 -doc(#{equiv => setColumns(This, [])}).
 -spec setColumns(This) -> 'ok' when
-	This::wxChoice().
+        This::wxChoice().
 
 setColumns(This)
  when is_record(This, wx_ref) ->
@@ -469,9 +469,9 @@ scrollPages(This,Pages) -> wxWindow:scrollPages(This,Pages).
 -doc false.
 scrollLines(This,Lines) -> wxWindow:scrollLines(This,Lines).
 -doc false.
-screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
+screenToClient(This,X,Y) -> wxWindow:screenToClient(This,X,Y).
 -doc false.
-screenToClient(This) -> wxWindow:screenToClient(This).
+screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
 -doc false.
 reparent(This,NewParent) -> wxWindow:reparent(This,NewParent).
 -doc false.

@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -126,7 +126,7 @@ new() ->
 
 -doc(#{equiv => new(Title, [])}).
 -spec new(Title) -> wxNotificationMessage() when
-	Title::unicode:chardata().
+        Title::unicode:chardata().
 
 new(Title)
  when ?is_chardata(Title) ->
@@ -155,7 +155,7 @@ new(Title, Options)
 
 -doc(#{equiv => addAction(This,Actionid, [])}).
 -spec addAction(This, Actionid) -> boolean() when
-	This::wxNotificationMessage(), Actionid::integer().
+        This::wxNotificationMessage(), Actionid::integer().
 
 addAction(This,Actionid)
  when is_record(This, wx_ref),is_integer(Actionid) ->
@@ -190,7 +190,7 @@ Returns true if it was hidden or false if it couldn't be done (e.g. on some syst
 automatically hidden notifications can't be hidden manually).
 """.
 -spec close(This) -> boolean() when
-	This::wxNotificationMessage().
+        This::wxNotificationMessage().
 close(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxNotificationMessage),
   wxe_util:queue_cmd(This,?get_env(),?wxNotificationMessage_Close),
@@ -205,7 +205,7 @@ is not allowed here). Some implementations of this class may not support the ico
 See: `setIcon/2`
 """.
 -spec setFlags(This, Flags) -> 'ok' when
-	This::wxNotificationMessage(), Flags::integer().
+        This::wxNotificationMessage(), Flags::integer().
 setFlags(#wx_ref{type=ThisT}=This,Flags)
  when is_integer(Flags) ->
   ?CLASS(ThisT,wxNotificationMessage),
@@ -221,7 +221,7 @@ See: `setFlags/2`
 Since: 3.1.0
 """.
 -spec setIcon(This, Icon) -> 'ok' when
-	This::wxNotificationMessage(), Icon::wxIcon:wxIcon().
+        This::wxNotificationMessage(), Icon::wxIcon:wxIcon().
 setIcon(#wx_ref{type=ThisT}=This,#wx_ref{type=IconT}=Icon) ->
   ?CLASS(ThisT,wxNotificationMessage),
   ?CLASS(IconT,wxIcon),
@@ -234,7 +234,7 @@ This should be a more detailed description than the title but still limited to r
 length (not more than 256 characters).
 """.
 -spec setMessage(This, Message) -> 'ok' when
-	This::wxNotificationMessage(), Message::unicode:chardata().
+        This::wxNotificationMessage(), Message::unicode:chardata().
 setMessage(#wx_ref{type=ThisT}=This,Message)
  when ?is_chardata(Message) ->
   ?CLASS(ThisT,wxNotificationMessage),
@@ -247,7 +247,7 @@ level parent of this window or, if this method is not called, with the main appl
 window by default.
 """.
 -spec setParent(This, Parent) -> 'ok' when
-	This::wxNotificationMessage(), Parent::wxWindow:wxWindow().
+        This::wxNotificationMessage(), Parent::wxWindow:wxWindow().
 setParent(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent) ->
   ?CLASS(ThisT,wxNotificationMessage),
   ?CLASS(ParentT,wxWindow),
@@ -258,7 +258,7 @@ Set the title, it must be a concise string (not more than 64 characters), use `s
 to give the user more details.
 """.
 -spec setTitle(This, Title) -> 'ok' when
-	This::wxNotificationMessage(), Title::unicode:chardata().
+        This::wxNotificationMessage(), Title::unicode:chardata().
 setTitle(#wx_ref{type=ThisT}=This,Title)
  when ?is_chardata(Title) ->
   ?CLASS(ThisT,wxNotificationMessage),
@@ -267,7 +267,7 @@ setTitle(#wx_ref{type=ThisT}=This,Title)
 
 -doc(#{equiv => show(This, [])}).
 -spec show(This) -> boolean() when
-	This::wxNotificationMessage().
+        This::wxNotificationMessage().
 
 show(This)
  when is_record(This, wx_ref) ->
@@ -309,7 +309,7 @@ Return: the task bar icon which was used previously (may be `NULL`)
 Only for:wxmsw
 """.
 -spec useTaskBarIcon(Icon) -> wxTaskBarIcon:wxTaskBarIcon() when
-	Icon::wxTaskBarIcon:wxTaskBarIcon().
+        Icon::wxTaskBarIcon:wxTaskBarIcon().
 useTaskBarIcon(#wx_ref{type=IconT}=Icon) ->
   ?CLASS(IconT,wxTaskBarIcon),
   wxe_util:queue_cmd(Icon,?get_env(),?wxNotificationMessage_UseTaskBarIcon),

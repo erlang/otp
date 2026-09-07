@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -110,9 +110,9 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -doc "This constructor uses an already existing static box.".
 -spec new(Orient, Parent) -> wxStaticBoxSizer() when
-	Orient::integer(), Parent::wxWindow:wxWindow();
+        Orient::integer(), Parent::wxWindow:wxWindow();
       (Box, Orient) -> wxStaticBoxSizer() when
-	Box::wxStaticBox:wxStaticBox(), Orient::integer().
+        Box::wxStaticBox:wxStaticBox(), Orient::integer().
 
 new(Orient,Parent)
  when is_integer(Orient),is_record(Parent, wx_ref) ->
@@ -138,7 +138,7 @@ new(Orient,#wx_ref{type=ParentT}=Parent, Options)
 
 -doc "Returns the static box associated with the sizer.".
 -spec getStaticBox(This) -> wxStaticBox:wxStaticBox() when
-	This::wxStaticBoxSizer().
+        This::wxStaticBoxSizer().
 getStaticBox(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStaticBoxSizer),
   wxe_util:queue_cmd(This,?get_env(),?wxStaticBoxSizer_GetStaticBox),

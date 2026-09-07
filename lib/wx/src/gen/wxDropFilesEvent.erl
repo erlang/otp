@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -102,7 +102,7 @@ Returns the position at which the files were dropped.
 Returns an array of filenames.
 """.
 -spec getPosition(This) -> {X::integer(), Y::integer()} when
-	This::wxDropFilesEvent().
+        This::wxDropFilesEvent().
 getPosition(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxDropFilesEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxDropFilesEvent_GetPosition),
@@ -110,7 +110,7 @@ getPosition(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the number of files dropped.".
 -spec getNumberOfFiles(This) -> integer() when
-	This::wxDropFilesEvent().
+        This::wxDropFilesEvent().
 getNumberOfFiles(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxDropFilesEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxDropFilesEvent_GetNumberOfFiles),
@@ -118,7 +118,7 @@ getNumberOfFiles(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns an array of filenames.".
 -spec getFiles(This) -> [unicode:charlist()] when
-	This::wxDropFilesEvent().
+        This::wxDropFilesEvent().
 getFiles(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxDropFilesEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxDropFilesEvent_GetFiles),

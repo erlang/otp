@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -105,7 +105,7 @@ new() ->
 -spec new([Option]) -> wxBitmapDataObject() when
 	Option :: {'bitmap', wxBitmap:wxBitmap()};
       (Bitmap) -> wxBitmapDataObject() when
-	Bitmap::wxBitmap:wxBitmap().
+        Bitmap::wxBitmap:wxBitmap().
 new(Options)
  when is_list(Options) ->
   MOpts = fun({bitmap, #wx_ref{type=BitmapT}} = Arg) ->   ?CLASS(BitmapT,wxBitmap),Arg;
@@ -125,7 +125,7 @@ You may wish to override this method when offering data on-demand, but this is n
 required by wxWidgets' internals. Use this method to get data in bitmap form from the `m:wxClipboard`.
 """.
 -spec getBitmap(This) -> wxBitmap:wxBitmap() when
-	This::wxBitmapDataObject().
+        This::wxBitmapDataObject().
 getBitmap(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxBitmapDataObject),
   wxe_util:queue_cmd(This,?get_env(),?wxBitmapDataObject_GetBitmap),
@@ -138,7 +138,7 @@ This method is called when the data object receives data. Usually there will be 
 to override this function.
 """.
 -spec setBitmap(This, Bitmap) -> 'ok' when
-	This::wxBitmapDataObject(), Bitmap::wxBitmap:wxBitmap().
+        This::wxBitmapDataObject(), Bitmap::wxBitmap:wxBitmap().
 setBitmap(#wx_ref{type=ThisT}=This,#wx_ref{type=BitmapT}=Bitmap) ->
   ?CLASS(ThisT,wxBitmapDataObject),
   ?CLASS(BitmapT,wxBitmap),

@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -178,7 +178,7 @@ Event types emitted from this class:
   move/2,move/3,move/4,moveAfterInTabOrder/2,moveBeforeInTabOrder/2,
   navigate/1,navigate/2,pageDown/1,pageUp/1,parent_class/1,popupMenu/2,
   popupMenu/3,popupMenu/4,raise/1,refresh/1,refresh/2,refreshRect/2,refreshRect/3,
-  releaseMouse/1,removeChild/2,reparent/2,screenToClient/1,screenToClient/2,
+  releaseMouse/1,removeChild/2,reparent/2,screenToClient/2,screenToClient/3,
   scrollLines/2,scrollPages/2,scrollWindow/3,scrollWindow/4,setAcceleratorTable/2,
   setAutoLayout/2,setBackgroundColour/2,setBackgroundStyle/2,setCaret/2,
   setClientSize/2,setClientSize/3,setContainingSizer/2,setCursor/2,
@@ -210,7 +210,7 @@ new() ->
 
 -doc(#{equiv => new(Parent, [])}).
 -spec new(Parent) -> wxAuiNotebook() when
-	Parent::wxWindow:wxWindow().
+        Parent::wxWindow:wxWindow().
 
 new(Parent)
  when is_record(Parent, wx_ref) ->
@@ -241,7 +241,7 @@ new(#wx_ref{type=ParentT}=Parent, Options)
 
 -doc(#{equiv => addPage(This,Page,Caption, [])}).
 -spec addPage(This, Page, Caption) -> boolean() when
-	This::wxAuiNotebook(), Page::wxWindow:wxWindow(), Caption::unicode:chardata().
+        This::wxAuiNotebook(), Page::wxWindow:wxWindow(), Caption::unicode:chardata().
 
 addPage(This,Page,Caption)
  when is_record(This, wx_ref),is_record(Page, wx_ref),?is_chardata(Caption) ->
@@ -285,7 +285,7 @@ See: `insertPage/6`
 Since: 2.9.3
 """.
 -spec addPage(This, Page, Text, Select, ImageId) -> boolean() when
-	This::wxAuiNotebook(), Page::wxWindow:wxWindow(), Text::unicode:chardata(), Select::boolean(), ImageId::integer().
+        This::wxAuiNotebook(), Page::wxWindow:wxWindow(), Text::unicode:chardata(), Select::boolean(), ImageId::integer().
 addPage(#wx_ref{type=ThisT}=This,#wx_ref{type=PageT}=Page,Text,Select,ImageId)
  when ?is_chardata(Text),is_boolean(Select),is_integer(ImageId) ->
   ?CLASS(ThisT,wxAuiNotebook),
@@ -296,7 +296,7 @@ addPage(#wx_ref{type=ThisT}=This,#wx_ref{type=PageT}=Page,Text,Select,ImageId)
 
 -doc(#{equiv => create(This,Parent, [])}).
 -spec create(This, Parent) -> boolean() when
-	This::wxAuiNotebook(), Parent::wxWindow:wxWindow().
+        This::wxAuiNotebook(), Parent::wxWindow:wxWindow().
 
 create(This,Parent)
  when is_record(This, wx_ref),is_record(Parent, wx_ref) ->
@@ -304,7 +304,7 @@ create(This,Parent)
 
 -doc "Creates the notebook window.".
 -spec create(This, Parent, Winid) -> boolean() when
-	This::wxAuiNotebook(), Parent::wxWindow:wxWindow(), Winid::integer();
+        This::wxAuiNotebook(), Parent::wxWindow:wxWindow(), Winid::integer();
       (This, Parent, [Option]) -> boolean() when
 	This::wxAuiNotebook(), Parent::wxWindow:wxWindow(),
 	Option :: {'id', integer()}
@@ -352,7 +352,7 @@ Deletes a page at the given index.
 Calling this method will generate a page change event.
 """.
 -spec deletePage(This, Page) -> boolean() when
-	This::wxAuiNotebook(), Page::integer().
+        This::wxAuiNotebook(), Page::integer().
 deletePage(#wx_ref{type=ThisT}=This,Page)
  when is_integer(Page) ->
   ?CLASS(ThisT,wxAuiNotebook),
@@ -361,7 +361,7 @@ deletePage(#wx_ref{type=ThisT}=This,Page)
 
 -doc "Returns the associated art provider.".
 -spec getArtProvider(This) -> wxAuiTabArt:wxAuiTabArt() when
-	This::wxAuiNotebook().
+        This::wxAuiNotebook().
 getArtProvider(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiNotebook),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiNotebook_GetArtProvider),
@@ -369,7 +369,7 @@ getArtProvider(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the page specified by the given index.".
 -spec getPage(This, Page_idx) -> wxWindow:wxWindow() when
-	This::wxAuiNotebook(), Page_idx::integer().
+        This::wxAuiNotebook(), Page_idx::integer().
 getPage(#wx_ref{type=ThisT}=This,Page_idx)
  when is_integer(Page_idx) ->
   ?CLASS(ThisT,wxAuiNotebook),
@@ -378,7 +378,7 @@ getPage(#wx_ref{type=ThisT}=This,Page_idx)
 
 -doc "Returns the tab bitmap for the page.".
 -spec getPageBitmap(This, Page) -> wxBitmap:wxBitmap() when
-	This::wxAuiNotebook(), Page::integer().
+        This::wxAuiNotebook(), Page::integer().
 getPageBitmap(#wx_ref{type=ThisT}=This,Page)
  when is_integer(Page) ->
   ?CLASS(ThisT,wxAuiNotebook),
@@ -387,7 +387,7 @@ getPageBitmap(#wx_ref{type=ThisT}=This,Page)
 
 -doc "Returns the number of pages in the notebook.".
 -spec getPageCount(This) -> integer() when
-	This::wxAuiNotebook().
+        This::wxAuiNotebook().
 getPageCount(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiNotebook),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiNotebook_GetPageCount),
@@ -399,7 +399,7 @@ Returns the page index for the specified window.
 If the window is not found in the notebook, wxNOT_FOUND is returned.
 """.
 -spec getPageIndex(This, Page_wnd) -> integer() when
-	This::wxAuiNotebook(), Page_wnd::wxWindow:wxWindow().
+        This::wxAuiNotebook(), Page_wnd::wxWindow:wxWindow().
 getPageIndex(#wx_ref{type=ThisT}=This,#wx_ref{type=Page_wndT}=Page_wnd) ->
   ?CLASS(ThisT,wxAuiNotebook),
   ?CLASS(Page_wndT,wxWindow),
@@ -408,7 +408,7 @@ getPageIndex(#wx_ref{type=ThisT}=This,#wx_ref{type=Page_wndT}=Page_wnd) ->
 
 -doc "Returns the tab label for the page.".
 -spec getPageText(This, Page) -> unicode:charlist() when
-	This::wxAuiNotebook(), Page::integer().
+        This::wxAuiNotebook(), Page::integer().
 getPageText(#wx_ref{type=ThisT}=This,Page)
  when is_integer(Page) ->
   ?CLASS(ThisT,wxAuiNotebook),
@@ -417,7 +417,7 @@ getPageText(#wx_ref{type=ThisT}=This,Page)
 
 -doc "Returns the currently selected page.".
 -spec getSelection(This) -> integer() when
-	This::wxAuiNotebook().
+        This::wxAuiNotebook().
 getSelection(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiNotebook),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiNotebook_GetSelection),
@@ -425,7 +425,7 @@ getSelection(#wx_ref{type=ThisT}=This) ->
 
 -doc(#{equiv => insertPage(This,Page_idx,Page,Caption, [])}).
 -spec insertPage(This, Page_idx, Page, Caption) -> boolean() when
-	This::wxAuiNotebook(), Page_idx::integer(), Page::wxWindow:wxWindow(), Caption::unicode:chardata().
+        This::wxAuiNotebook(), Page_idx::integer(), Page::wxWindow:wxWindow(), Caption::unicode:chardata().
 
 insertPage(This,Page_idx,Page,Caption)
  when is_record(This, wx_ref),is_integer(Page_idx),is_record(Page, wx_ref),?is_chardata(Caption) ->
@@ -465,7 +465,7 @@ See: `addPage/5`
 Since: 2.9.3
 """.
 -spec insertPage(This, Index, Page, Text, Select, ImageId) -> boolean() when
-	This::wxAuiNotebook(), Index::integer(), Page::wxWindow:wxWindow(), Text::unicode:chardata(), Select::boolean(), ImageId::integer().
+        This::wxAuiNotebook(), Index::integer(), Page::wxWindow:wxWindow(), Text::unicode:chardata(), Select::boolean(), ImageId::integer().
 insertPage(#wx_ref{type=ThisT}=This,Index,#wx_ref{type=PageT}=Page,Text,Select,ImageId)
  when is_integer(Index),?is_chardata(Text),is_boolean(Select),is_integer(ImageId) ->
   ?CLASS(ThisT,wxAuiNotebook),
@@ -476,7 +476,7 @@ insertPage(#wx_ref{type=ThisT}=This,Index,#wx_ref{type=PageT}=Page,Text,Select,I
 
 -doc "Removes a page, without deleting the window pointer.".
 -spec removePage(This, Page) -> boolean() when
-	This::wxAuiNotebook(), Page::integer().
+        This::wxAuiNotebook(), Page::integer().
 removePage(#wx_ref{type=ThisT}=This,Page)
  when is_integer(Page) ->
   ?CLASS(ThisT,wxAuiNotebook),
@@ -485,7 +485,7 @@ removePage(#wx_ref{type=ThisT}=This,Page)
 
 -doc "Sets the art provider to be used by the notebook.".
 -spec setArtProvider(This, Art) -> 'ok' when
-	This::wxAuiNotebook(), Art::wxAuiTabArt:wxAuiTabArt().
+        This::wxAuiNotebook(), Art::wxAuiTabArt:wxAuiTabArt().
 setArtProvider(#wx_ref{type=ThisT}=This,#wx_ref{type=ArtT}=Art) ->
   ?CLASS(ThisT,wxAuiNotebook),
   ?CLASS(ArtT,wxAuiTabArt),
@@ -496,7 +496,7 @@ Sets the font for drawing the tab labels, using a bold version of the font for s
 tab labels.
 """.
 -spec setFont(This, Font) -> boolean() when
-	This::wxAuiNotebook(), Font::wxFont:wxFont().
+        This::wxAuiNotebook(), Font::wxFont:wxFont().
 setFont(#wx_ref{type=ThisT}=This,#wx_ref{type=FontT}=Font) ->
   ?CLASS(ThisT,wxAuiNotebook),
   ?CLASS(FontT,wxFont),
@@ -509,7 +509,7 @@ Sets the bitmap for the page.
 To remove a bitmap from the tab caption, pass wxNullBitmap.
 """.
 -spec setPageBitmap(This, Page, Bitmap) -> boolean() when
-	This::wxAuiNotebook(), Page::integer(), Bitmap::wxBitmap:wxBitmap().
+        This::wxAuiNotebook(), Page::integer(), Bitmap::wxBitmap:wxBitmap().
 setPageBitmap(#wx_ref{type=ThisT}=This,Page,#wx_ref{type=BitmapT}=Bitmap)
  when is_integer(Page) ->
   ?CLASS(ThisT,wxAuiNotebook),
@@ -519,7 +519,7 @@ setPageBitmap(#wx_ref{type=ThisT}=This,Page,#wx_ref{type=BitmapT}=Bitmap)
 
 -doc "Sets the tab label for the page.".
 -spec setPageText(This, Page, Text) -> boolean() when
-	This::wxAuiNotebook(), Page::integer(), Text::unicode:chardata().
+        This::wxAuiNotebook(), Page::integer(), Text::unicode:chardata().
 setPageText(#wx_ref{type=ThisT}=This,Page,Text)
  when is_integer(Page),?is_chardata(Text) ->
   ?CLASS(ThisT,wxAuiNotebook),
@@ -533,7 +533,7 @@ Sets the page selection.
 Calling this method will generate a page change event.
 """.
 -spec setSelection(This, New_page) -> integer() when
-	This::wxAuiNotebook(), New_page::integer().
+        This::wxAuiNotebook(), New_page::integer().
 setSelection(#wx_ref{type=ThisT}=This,New_page)
  when is_integer(New_page) ->
   ?CLASS(ThisT,wxAuiNotebook),
@@ -551,7 +551,7 @@ call to `setUniformBitmapSize/2`.
 Specifying -1 as the height will return the control to its default auto-sizing behaviour.
 """.
 -spec setTabCtrlHeight(This, Height) -> 'ok' when
-	This::wxAuiNotebook(), Height::integer().
+        This::wxAuiNotebook(), Height::integer().
 setTabCtrlHeight(#wx_ref{type=ThisT}=This,Height)
  when is_integer(Height) ->
   ?CLASS(ThisT,wxAuiNotebook),
@@ -564,7 +564,7 @@ Passing ?wxDefaultSize as `size` undoes the effect of a previous call to this fu
 and instructs the control to use dynamic tab height.
 """.
 -spec setUniformBitmapSize(This, Size) -> 'ok' when
-	This::wxAuiNotebook(), Size::{W::integer(), H::integer()}.
+        This::wxAuiNotebook(), Size::{W::integer(), H::integer()}.
 setUniformBitmapSize(#wx_ref{type=ThisT}=This,{SizeW,SizeH} = Size)
  when is_integer(SizeW),is_integer(SizeH) ->
   ?CLASS(ThisT,wxAuiNotebook),
@@ -715,9 +715,9 @@ scrollPages(This,Pages) -> wxWindow:scrollPages(This,Pages).
 -doc false.
 scrollLines(This,Lines) -> wxWindow:scrollLines(This,Lines).
 -doc false.
-screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
+screenToClient(This,X,Y) -> wxWindow:screenToClient(This,X,Y).
 -doc false.
-screenToClient(This) -> wxWindow:screenToClient(This).
+screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
 -doc false.
 reparent(This,NewParent) -> wxWindow:reparent(This,NewParent).
 -doc false.

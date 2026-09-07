@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -110,7 +110,7 @@ The return value is one of wxSASH_TOP, wxSASH_RIGHT, wxSASH_BOTTOM, wxSASH_LEFT.
 """.
 %%  Res = ?wxSASH_TOP | ?wxSASH_RIGHT | ?wxSASH_BOTTOM | ?wxSASH_LEFT | ?wxSASH_NONE
 -spec getEdge(This) -> wx:wx_enum() when
-	This::wxSashEvent().
+        This::wxSashEvent().
 getEdge(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSashEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxSashEvent_GetEdge),
@@ -123,7 +123,7 @@ applied.
 It is up to the application to set the window size if required.
 """.
 -spec getDragRect(This) -> {X::integer(), Y::integer(), W::integer(), H::integer()} when
-	This::wxSashEvent().
+        This::wxSashEvent().
 getDragRect(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSashEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxSashEvent_GetDragRect),
@@ -138,7 +138,7 @@ drag will be out of rage.
 """.
 %%  Res = ?wxSASH_STATUS_OK | ?wxSASH_STATUS_OUT_OF_RANGE
 -spec getDragStatus(This) -> wx:wx_enum() when
-	This::wxSashEvent().
+        This::wxSashEvent().
 getDragStatus(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSashEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxSashEvent_GetDragStatus),

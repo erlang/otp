@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -118,7 +118,7 @@ new(Options)
 
 -doc "Returns the value currently in the editor control.".
 -spec getValue(This) -> unicode:charlist() when
-	This::wxGridCellNumberEditor().
+        This::wxGridCellNumberEditor().
 getValue(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGridCellNumberEditor),
   wxe_util:queue_cmd(This,?get_env(),?wxGridCellNumberEditor_GetValue),
@@ -128,7 +128,7 @@ getValue(#wx_ref{type=ThisT}=This) ->
 Parameters string format is "min,max".
 """.
 -spec setParameters(This, Params) -> 'ok' when
-	This::wxGridCellNumberEditor(), Params::unicode:chardata().
+        This::wxGridCellNumberEditor(), Params::unicode:chardata().
 setParameters(#wx_ref{type=ThisT}=This,Params)
  when ?is_chardata(Params) ->
   ?CLASS(ThisT,wxGridCellNumberEditor),

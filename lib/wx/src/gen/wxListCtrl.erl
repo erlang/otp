@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -237,7 +237,7 @@ Event types emitted from this class:
   move/2,move/3,move/4,moveAfterInTabOrder/2,moveBeforeInTabOrder/2,
   navigate/1,navigate/2,pageDown/1,pageUp/1,parent_class/1,popupMenu/2,
   popupMenu/3,popupMenu/4,raise/1,refresh/1,refresh/2,refreshRect/2,refreshRect/3,
-  releaseMouse/1,removeChild/2,reparent/2,screenToClient/1,screenToClient/2,
+  releaseMouse/1,removeChild/2,reparent/2,screenToClient/2,screenToClient/3,
   scrollLines/2,scrollPages/2,scrollWindow/3,scrollWindow/4,setAcceleratorTable/2,
   setAutoLayout/2,setBackgroundStyle/2,setCaret/2,setClientSize/2,setClientSize/3,
   setContainingSizer/2,setCursor/2,setDoubleBuffered/2,setDropTarget/2,
@@ -302,7 +302,7 @@ new(#wx_ref{}=Parent, Options)
 
 -doc(#{equiv => arrange(This, [])}).
 -spec arrange(This) -> boolean() when
-	This::wxListCtrl().
+        This::wxListCtrl().
 
 arrange(This)
  when is_record(This, wx_ref) ->
@@ -342,7 +342,7 @@ the control will, unlike when using `setImageList/3`, delete the list when destr
 See: `setImageList/3`
 """.
 -spec assignImageList(This, ImageList, Which) -> 'ok' when
-	This::wxListCtrl(), ImageList::wxImageList:wxImageList(), Which::integer().
+        This::wxListCtrl(), ImageList::wxImageList:wxImageList(), Which::integer().
 assignImageList(#wx_ref{type=ThisT}=This,#wx_ref{type=ImageListT}=ImageList,Which)
  when is_integer(Which) ->
   ?CLASS(ThisT,wxListCtrl),
@@ -355,7 +355,7 @@ Deletes all items and all columns.
 Note: This sends an event of type `wxEVT_LIST_DELETE_ALL_ITEMS` under all platforms.
 """.
 -spec clearAll(This) -> 'ok' when
-	This::wxListCtrl().
+        This::wxListCtrl().
 clearAll(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxListCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxListCtrl_ClearAll).
@@ -414,7 +414,7 @@ Return: true if the items were successfully deleted or if the control was alread
 false if an error occurred while deleting the items.
 """.
 -spec deleteAllItems(This) -> boolean() when
-	This::wxListCtrl().
+        This::wxListCtrl().
 deleteAllItems(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxListCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxListCtrl_DeleteAllItems),
@@ -422,7 +422,7 @@ deleteAllItems(#wx_ref{type=ThisT}=This) ->
 
 -doc "Deletes a column.".
 -spec deleteColumn(This, Col) -> boolean() when
-	This::wxListCtrl(), Col::integer().
+        This::wxListCtrl(), Col::integer().
 deleteColumn(#wx_ref{type=ThisT}=This,Col)
  when is_integer(Col) ->
   ?CLASS(ThisT,wxListCtrl),
@@ -437,7 +437,7 @@ This function sends the `wxEVT_LIST_DELETE_ITEM` event for the item being delete
 See: `deleteAllItems/1`
 """.
 -spec deleteItem(This, Item) -> boolean() when
-	This::wxListCtrl(), Item::integer().
+        This::wxListCtrl(), Item::integer().
 deleteItem(#wx_ref{type=ThisT}=This,Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxListCtrl),
@@ -455,7 +455,7 @@ without changes, a `EVT_LIST_END_LABEL_EDIT` event will be sent which can be vet
 well.
 """.
 -spec editLabel(This, Item) -> wxTextCtrl:wxTextCtrl() when
-	This::wxListCtrl(), Item::integer().
+        This::wxListCtrl(), Item::integer().
 editLabel(#wx_ref{type=ThisT}=This,Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxListCtrl),
@@ -464,7 +464,7 @@ editLabel(#wx_ref{type=ThisT}=This,Item)
 
 -doc "Ensures this item is visible.".
 -spec ensureVisible(This, Item) -> boolean() when
-	This::wxListCtrl(), Item::integer().
+        This::wxListCtrl(), Item::integer().
 ensureVisible(#wx_ref{type=ThisT}=This,Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxListCtrl),
@@ -473,7 +473,7 @@ ensureVisible(#wx_ref{type=ThisT}=This,Item)
 
 -doc(#{equiv => findItem(This,Start,Str, [])}).
 -spec findItem(This, Start, Str) -> integer() when
-	This::wxListCtrl(), Start::integer(), Str::unicode:chardata().
+        This::wxListCtrl(), Start::integer(), Str::unicode:chardata().
 
 findItem(This,Start,Str)
  when is_record(This, wx_ref),is_integer(Start),?is_chardata(Str) ->
@@ -489,7 +489,7 @@ Return: The next matching item if any or `-1` (wxNOT_FOUND) otherwise.
 	This::wxListCtrl(), Start::integer(), Str::unicode:chardata(),
 	Option :: {'partial', boolean()};
       (This, Start, Pt, Direction) -> integer() when
-	This::wxListCtrl(), Start::integer(), Pt::{X::integer(), Y::integer()}, Direction::integer().
+        This::wxListCtrl(), Start::integer(), Pt::{X::integer(), Y::integer()}, Direction::integer().
 findItem(#wx_ref{type=ThisT}=This,Start,Str, Options)
  when is_integer(Start),?is_chardata(Str),is_list(Options) ->
   ?CLASS(ThisT,wxListCtrl),
@@ -511,7 +511,7 @@ Gets information about this column.
 See `setItem/5` for more information.
 """.
 -spec getColumn(This, Col, Item) -> boolean() when
-	This::wxListCtrl(), Col::integer(), Item::wxListItem:wxListItem().
+        This::wxListCtrl(), Col::integer(), Item::wxListItem:wxListItem().
 getColumn(#wx_ref{type=ThisT}=This,Col,#wx_ref{type=ItemT}=Item)
  when is_integer(Col) ->
   ?CLASS(ThisT,wxListCtrl),
@@ -521,7 +521,7 @@ getColumn(#wx_ref{type=ThisT}=This,Col,#wx_ref{type=ItemT}=Item)
 
 -doc "Returns the number of columns.".
 -spec getColumnCount(This) -> integer() when
-	This::wxListCtrl().
+        This::wxListCtrl().
 getColumnCount(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxListCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxListCtrl_GetColumnCount),
@@ -529,7 +529,7 @@ getColumnCount(#wx_ref{type=ThisT}=This) ->
 
 -doc "Gets the column width (report view only).".
 -spec getColumnWidth(This, Col) -> integer() when
-	This::wxListCtrl(), Col::integer().
+        This::wxListCtrl(), Col::integer().
 getColumnWidth(#wx_ref{type=ThisT}=This,Col)
  when is_integer(Col) ->
   ?CLASS(ThisT,wxListCtrl),
@@ -542,7 +542,7 @@ Gets the number of items that can fit vertically in the visible area of the list
 view).
 """.
 -spec getCountPerPage(This) -> integer() when
-	This::wxListCtrl().
+        This::wxListCtrl().
 getCountPerPage(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxListCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxListCtrl_GetCountPerPage),
@@ -557,7 +557,7 @@ Note: It is currently only implemented for wxMSW and the generic version, not fo
 native macOS version.
 """.
 -spec getEditControl(This) -> wxTextCtrl:wxTextCtrl() when
-	This::wxListCtrl().
+        This::wxListCtrl().
 getEditControl(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxListCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxListCtrl_GetEditControl),
@@ -575,7 +575,7 @@ Returns the specified image list.
 * wxIMAGE_LIST_STATE: The user-defined state image list (unimplemented).
 """.
 -spec getImageList(This, Which) -> wxImageList:wxImageList() when
-	This::wxListCtrl(), Which::integer().
+        This::wxListCtrl(), Which::integer().
 getImageList(#wx_ref{type=ThisT}=This,Which)
  when is_integer(Which) ->
   ?CLASS(ThisT,wxListCtrl),
@@ -592,7 +592,7 @@ this method, and `info.SetMask()` with the flags indicating what fields you need
 retrieve from `info`.
 """.
 -spec getItem(This, Info) -> boolean() when
-	This::wxListCtrl(), Info::wxListItem:wxListItem().
+        This::wxListCtrl(), Info::wxListItem:wxListItem().
 getItem(#wx_ref{type=ThisT}=This,#wx_ref{type=InfoT}=Info) ->
   ?CLASS(ThisT,wxListCtrl),
   ?CLASS(InfoT,wxListItem),
@@ -608,7 +608,7 @@ background control of the control itself).
 See: `getItemTextColour/2`
 """.
 -spec getItemBackgroundColour(This, Item) -> wx:wx_colour4() when
-	This::wxListCtrl(), Item::integer().
+        This::wxListCtrl(), Item::integer().
 getItemBackgroundColour(#wx_ref{type=ThisT}=This,Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxListCtrl),
@@ -617,7 +617,7 @@ getItemBackgroundColour(#wx_ref{type=ThisT}=This,Item)
 
 -doc "Returns the number of items in the list control.".
 -spec getItemCount(This) -> integer() when
-	This::wxListCtrl().
+        This::wxListCtrl().
 getItemCount(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxListCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxListCtrl_GetItemCount),
@@ -625,7 +625,7 @@ getItemCount(#wx_ref{type=ThisT}=This) ->
 
 -doc "Gets the application-defined data associated with this item.".
 -spec getItemData(This, Item) -> integer() when
-	This::wxListCtrl(), Item::integer().
+        This::wxListCtrl(), Item::integer().
 getItemData(#wx_ref{type=ThisT}=This,Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxListCtrl),
@@ -634,7 +634,7 @@ getItemData(#wx_ref{type=ThisT}=This,Item)
 
 -doc "Returns the item's font.".
 -spec getItemFont(This, Item) -> wxFont:wxFont() when
-	This::wxListCtrl(), Item::integer().
+        This::wxListCtrl(), Item::integer().
 getItemFont(#wx_ref{type=ThisT}=This,Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxListCtrl),
@@ -683,7 +683,7 @@ Retrieves the spacing between icons in pixels: horizontal spacing is returned as
 component of the {Width,Height} object and the vertical spacing as its `y` component.
 """.
 -spec getItemSpacing(This) -> {W::integer(), H::integer()} when
-	This::wxListCtrl().
+        This::wxListCtrl().
 getItemSpacing(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxListCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxListCtrl_GetItemSpacing),
@@ -696,7 +696,7 @@ For a list of state flags, see `setItem/5`. The `stateMask` indicates which stat
 interest.
 """.
 -spec getItemState(This, Item, StateMask) -> integer() when
-	This::wxListCtrl(), Item::integer(), StateMask::integer().
+        This::wxListCtrl(), Item::integer(), StateMask::integer().
 getItemState(#wx_ref{type=ThisT}=This,Item,StateMask)
  when is_integer(Item),is_integer(StateMask) ->
   ?CLASS(ThisT,wxListCtrl),
@@ -705,7 +705,7 @@ getItemState(#wx_ref{type=ThisT}=This,Item,StateMask)
 
 -doc(#{equiv => getItemText(This,Item, [])}).
 -spec getItemText(This, Item) -> unicode:charlist() when
-	This::wxListCtrl(), Item::integer().
+        This::wxListCtrl(), Item::integer().
 
 getItemText(This,Item)
  when is_record(This, wx_ref),is_integer(Item) ->
@@ -733,7 +733,7 @@ items having the same colour as the current control foreground and items with de
 colour which, hence, have always the same colour as the control).
 """.
 -spec getItemTextColour(This, Item) -> wx:wx_colour4() when
-	This::wxListCtrl(), Item::integer().
+        This::wxListCtrl(), Item::integer().
 getItemTextColour(#wx_ref{type=ThisT}=This,Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxListCtrl),
@@ -742,7 +742,7 @@ getItemTextColour(#wx_ref{type=ThisT}=This,Item)
 
 -doc(#{equiv => getNextItem(This,Item, [])}).
 -spec getNextItem(This, Item) -> integer() when
-	This::wxListCtrl(), Item::integer().
+        This::wxListCtrl(), Item::integer().
 
 getNextItem(This,Item)
  when is_record(This, wx_ref),is_integer(Item) ->
@@ -798,7 +798,7 @@ getNextItem(#wx_ref{type=ThisT}=This,Item, Options)
 
 -doc "Returns the number of selected items in the list control.".
 -spec getSelectedItemCount(This) -> integer() when
-	This::wxListCtrl().
+        This::wxListCtrl().
 getSelectedItemCount(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxListCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxListCtrl_GetSelectedItemCount),
@@ -806,7 +806,7 @@ getSelectedItemCount(#wx_ref{type=ThisT}=This) ->
 
 -doc "Gets the text colour of the list control.".
 -spec getTextColour(This) -> wx:wx_colour4() when
-	This::wxListCtrl().
+        This::wxListCtrl().
 getTextColour(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxListCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxListCtrl_GetTextColour),
@@ -814,7 +814,7 @@ getTextColour(#wx_ref{type=ThisT}=This) ->
 
 -doc "Gets the index of the topmost visible item when in list or report view.".
 -spec getTopItem(This) -> integer() when
-	This::wxListCtrl().
+        This::wxListCtrl().
 getTopItem(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxListCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxListCtrl_GetTopItem),
@@ -830,7 +830,7 @@ Note that this function only works in the icon and small icon views, not in list
 report views (this is a limitation of the native Win32 control).
 """.
 -spec getViewRect(This) -> {X::integer(), Y::integer(), W::integer(), H::integer()} when
-	This::wxListCtrl().
+        This::wxListCtrl().
 getViewRect(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxListCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxListCtrl_GetViewRect),
@@ -884,9 +884,9 @@ For more details, see `setItem/5`. Also see `insertColumn/4` overload for a usua
 this method and the description of how the item width is interpreted by this method.
 """.
 -spec insertColumn(This, Col, Heading) -> integer() when
-	This::wxListCtrl(), Col::integer(), Heading::unicode:chardata();
+        This::wxListCtrl(), Col::integer(), Heading::unicode:chardata();
       (This, Col, Info) -> integer() when
-	This::wxListCtrl(), Col::integer(), Info::wxListItem:wxListItem().
+        This::wxListCtrl(), Col::integer(), Info::wxListItem:wxListItem().
 
 insertColumn(This,Col,Heading)
  when is_record(This, wx_ref),is_integer(Col),?is_chardata(Heading) ->
@@ -926,7 +926,7 @@ insertColumn(#wx_ref{type=ThisT}=This,Col,Heading, Options)
 
 -doc "Inserts an item, returning the index of the new item if successful, -1 otherwise.".
 -spec insertItem(This, Info) -> integer() when
-	This::wxListCtrl(), Info::wxListItem:wxListItem().
+        This::wxListCtrl(), Info::wxListItem:wxListItem().
 insertItem(#wx_ref{type=ThisT}=This,#wx_ref{type=InfoT}=Info) ->
   ?CLASS(ThisT,wxListCtrl),
   ?CLASS(InfoT,wxListItem),
@@ -935,9 +935,9 @@ insertItem(#wx_ref{type=ThisT}=This,#wx_ref{type=InfoT}=Info) ->
 
 -doc "Insert a string item.".
 -spec insertItem(This, Index, ImageIndex) -> integer() when
-	This::wxListCtrl(), Index::integer(), ImageIndex::integer();
+        This::wxListCtrl(), Index::integer(), ImageIndex::integer();
       (This, Index, Label) -> integer() when
-	This::wxListCtrl(), Index::integer(), Label::unicode:chardata().
+        This::wxListCtrl(), Index::integer(), Label::unicode:chardata().
 insertItem(#wx_ref{type=ThisT}=This,Index,ImageIndex)
  when is_integer(Index),is_integer(ImageIndex) ->
   ?CLASS(ThisT,wxListCtrl),
@@ -952,7 +952,7 @@ insertItem(#wx_ref{type=ThisT}=This,Index,Label)
 
 -doc "Insert an image/string item.".
 -spec insertItem(This, Index, Label, ImageIndex) -> integer() when
-	This::wxListCtrl(), Index::integer(), Label::unicode:chardata(), ImageIndex::integer().
+        This::wxListCtrl(), Index::integer(), Label::unicode:chardata(), ImageIndex::integer().
 insertItem(#wx_ref{type=ThisT}=This,Index,Label,ImageIndex)
  when is_integer(Index),?is_chardata(Label),is_integer(ImageIndex) ->
   ?CLASS(ThisT,wxListCtrl),
@@ -969,7 +969,7 @@ displayed value of the item doesn't change even when the underlying data does ch
 See: `refreshItems/3`
 """.
 -spec refreshItem(This, Item) -> 'ok' when
-	This::wxListCtrl(), Item::integer().
+        This::wxListCtrl(), Item::integer().
 refreshItem(#wx_ref{type=ThisT}=This,Item)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxListCtrl),
@@ -983,7 +983,7 @@ The starting item must be less than or equal to the ending one.
 Just as `refreshItem/2` this is only useful for virtual list controls.
 """.
 -spec refreshItems(This, ItemFrom, ItemTo) -> 'ok' when
-	This::wxListCtrl(), ItemFrom::integer(), ItemTo::integer().
+        This::wxListCtrl(), ItemFrom::integer(), ItemTo::integer().
 refreshItems(#wx_ref{type=ThisT}=This,ItemFrom,ItemTo)
  when is_integer(ItemFrom),is_integer(ItemTo) ->
   ?CLASS(ThisT,wxListCtrl),
@@ -999,7 +999,7 @@ specifies the number of pixels to scroll vertically.
 Note: This method is currently only implemented in the Windows version.
 """.
 -spec scrollList(This, Dx, Dy) -> boolean() when
-	This::wxListCtrl(), Dx::integer(), Dy::integer().
+        This::wxListCtrl(), Dx::integer(), Dy::integer().
 scrollList(#wx_ref{type=ThisT}=This,Dx,Dy)
  when is_integer(Dx),is_integer(Dy) ->
   ?CLASS(ThisT,wxListCtrl),
@@ -1013,7 +1013,7 @@ Note that the `wxWindow:getBackgroundColour/1` function of `m:wxWindow` base cla
 background colour.
 """.
 -spec setBackgroundColour(This, Col) -> boolean() when
-	This::wxListCtrl(), Col::wx:wx_colour().
+        This::wxListCtrl(), Col::wx:wx_colour().
 setBackgroundColour(#wx_ref{type=ThisT}=This,Col)
  when ?is_colordata(Col) ->
   ?CLASS(ThisT,wxListCtrl),
@@ -1026,7 +1026,7 @@ Sets information about this column.
 See `setItem/5` for more information.
 """.
 -spec setColumn(This, Col, Item) -> boolean() when
-	This::wxListCtrl(), Col::integer(), Item::wxListItem:wxListItem().
+        This::wxListCtrl(), Col::integer(), Item::wxListItem:wxListItem().
 setColumn(#wx_ref{type=ThisT}=This,Col,#wx_ref{type=ItemT}=Item)
  when is_integer(Col) ->
   ?CLASS(ThisT,wxListCtrl),
@@ -1048,7 +1048,7 @@ In small or normal icon view, `col` must be -1, and the column width is set for 
 columns.
 """.
 -spec setColumnWidth(This, Col, Width) -> boolean() when
-	This::wxListCtrl(), Col::integer(), Width::integer().
+        This::wxListCtrl(), Col::integer(), Width::integer().
 setColumnWidth(#wx_ref{type=ThisT}=This,Col,Width)
  when is_integer(Col),is_integer(Width) ->
   ?CLASS(ThisT,wxListCtrl),
@@ -1066,7 +1066,7 @@ This method does not take ownership of the image list, you have to delete it you
 See: `assignImageList/3`
 """.
 -spec setImageList(This, ImageList, Which) -> 'ok' when
-	This::wxListCtrl(), ImageList::wxImageList:wxImageList(), Which::integer().
+        This::wxListCtrl(), ImageList::wxImageList:wxImageList(), Which::integer().
 setImageList(#wx_ref{type=ThisT}=This,#wx_ref{type=ImageListT}=ImageList,Which)
  when is_integer(Which) ->
   ?CLASS(ThisT,wxListCtrl),
@@ -1083,7 +1083,7 @@ Return: true if the item was successfully updated or false if the update failed 
 reason (e.g. an invalid item index).
 """.
 -spec setItem(This, Info) -> boolean() when
-	This::wxListCtrl(), Info::wxListItem:wxListItem().
+        This::wxListCtrl(), Info::wxListItem:wxListItem().
 setItem(#wx_ref{type=ThisT}=This,#wx_ref{type=InfoT}=Info) ->
   ?CLASS(ThisT,wxListCtrl),
   ?CLASS(InfoT,wxListItem),
@@ -1092,7 +1092,7 @@ setItem(#wx_ref{type=ThisT}=This,#wx_ref{type=InfoT}=Info) ->
 
 -doc(#{equiv => setItem(This,Index,Column,Label, [])}).
 -spec setItem(This, Index, Column, Label) -> boolean() when
-	This::wxListCtrl(), Index::integer(), Column::integer(), Label::unicode:chardata().
+        This::wxListCtrl(), Index::integer(), Column::integer(), Label::unicode:chardata().
 
 setItem(This,Index,Column,Label)
  when is_record(This, wx_ref),is_integer(Index),is_integer(Column),?is_chardata(Label) ->
@@ -1123,7 +1123,7 @@ Sets the background colour for this item.
 This function only works in report view mode. The colour can be retrieved using `getItemBackgroundColour/2`.
 """.
 -spec setItemBackgroundColour(This, Item, Col) -> 'ok' when
-	This::wxListCtrl(), Item::integer(), Col::wx:wx_colour().
+        This::wxListCtrl(), Item::integer(), Col::wx:wx_colour().
 setItemBackgroundColour(#wx_ref{type=ThisT}=This,Item,Col)
  when is_integer(Item),?is_colordata(Col) ->
   ?CLASS(ThisT,wxListCtrl),
@@ -1142,7 +1142,7 @@ from a control displaying many items, if you do need to refresh the display you 
 call `wxWindow:refresh/2` manually.
 """.
 -spec setItemCount(This, Count) -> 'ok' when
-	This::wxListCtrl(), Count::integer().
+        This::wxListCtrl(), Count::integer().
 setItemCount(#wx_ref{type=ThisT}=This,Count)
  when is_integer(Count) ->
   ?CLASS(ThisT,wxListCtrl),
@@ -1155,7 +1155,7 @@ Notice that this function cannot be used to associate pointers with the control 
 use `SetItemPtrData()` (not implemented in wx) instead.
 """.
 -spec setItemData(This, Item, Data) -> boolean() when
-	This::wxListCtrl(), Item::integer(), Data::integer().
+        This::wxListCtrl(), Item::integer(), Data::integer().
 setItemData(#wx_ref{type=ThisT}=This,Item,Data)
  when is_integer(Item),is_integer(Data) ->
   ?CLASS(ThisT,wxListCtrl),
@@ -1164,7 +1164,7 @@ setItemData(#wx_ref{type=ThisT}=This,Item,Data)
 
 -doc "Sets the item's font.".
 -spec setItemFont(This, Item, Font) -> 'ok' when
-	This::wxListCtrl(), Item::integer(), Font::wxFont:wxFont().
+        This::wxListCtrl(), Item::integer(), Font::wxFont:wxFont().
 setItemFont(#wx_ref{type=ThisT}=This,Item,#wx_ref{type=FontT}=Font)
  when is_integer(Item) ->
   ?CLASS(ThisT,wxListCtrl),
@@ -1173,7 +1173,7 @@ setItemFont(#wx_ref{type=ThisT}=This,Item,#wx_ref{type=FontT}=Font)
 
 -doc(#{equiv => setItemImage(This,Item,Image, [])}).
 -spec setItemImage(This, Item, Image) -> boolean() when
-	This::wxListCtrl(), Item::integer(), Image::integer().
+        This::wxListCtrl(), Item::integer(), Image::integer().
 
 setItemImage(This,Item,Image)
  when is_record(This, wx_ref),is_integer(Item),is_integer(Image) ->
@@ -1203,7 +1203,7 @@ In report view, you can specify the column. The image is an index into the image
 associated with the list control.
 """.
 -spec setItemColumnImage(This, Item, Column, Image) -> boolean() when
-	This::wxListCtrl(), Item::integer(), Column::integer(), Image::integer().
+        This::wxListCtrl(), Item::integer(), Column::integer(), Image::integer().
 setItemColumnImage(#wx_ref{type=ThisT}=This,Item,Column,Image)
  when is_integer(Item),is_integer(Column),is_integer(Image) ->
   ?CLASS(ThisT,wxListCtrl),
@@ -1216,7 +1216,7 @@ Sets the position of the item, in icon or small icon view.
 Windows only.
 """.
 -spec setItemPosition(This, Item, Pos) -> boolean() when
-	This::wxListCtrl(), Item::integer(), Pos::{X::integer(), Y::integer()}.
+        This::wxListCtrl(), Item::integer(), Pos::{X::integer(), Y::integer()}.
 setItemPosition(#wx_ref{type=ThisT}=This,Item,{PosX,PosY} = Pos)
  when is_integer(Item),is_integer(PosX),is_integer(PosY) ->
   ?CLASS(ThisT,wxListCtrl),
@@ -1239,7 +1239,7 @@ Also notice that contrary to the usual rule that only user actions generate even
 method does generate wxEVT_LIST_ITEM_SELECTED event when it is used to select an item.
 """.
 -spec setItemState(This, Item, State, StateMask) -> boolean() when
-	This::wxListCtrl(), Item::integer(), State::integer(), StateMask::integer().
+        This::wxListCtrl(), Item::integer(), State::integer(), StateMask::integer().
 setItemState(#wx_ref{type=ThisT}=This,Item,State,StateMask)
  when is_integer(Item),is_integer(State),is_integer(StateMask) ->
   ?CLASS(ThisT,wxListCtrl),
@@ -1248,7 +1248,7 @@ setItemState(#wx_ref{type=ThisT}=This,Item,State,StateMask)
 
 -doc "Sets the item text for this item.".
 -spec setItemText(This, Item, Text) -> 'ok' when
-	This::wxListCtrl(), Item::integer(), Text::unicode:chardata().
+        This::wxListCtrl(), Item::integer(), Text::unicode:chardata().
 setItemText(#wx_ref{type=ThisT}=This,Item,Text)
  when is_integer(Item),?is_chardata(Text) ->
   ?CLASS(ThisT,wxListCtrl),
@@ -1261,7 +1261,7 @@ Sets the colour for this item.
 This function only works in report view. The colour can be retrieved using `getItemTextColour/2`.
 """.
 -spec setItemTextColour(This, Item, Col) -> 'ok' when
-	This::wxListCtrl(), Item::integer(), Col::wx:wx_colour().
+        This::wxListCtrl(), Item::integer(), Col::wx:wx_colour().
 setItemTextColour(#wx_ref{type=ThisT}=This,Item,Col)
  when is_integer(Item),?is_colordata(Col) ->
   ?CLASS(ThisT,wxListCtrl),
@@ -1269,7 +1269,7 @@ setItemTextColour(#wx_ref{type=ThisT}=This,Item,Col)
 
 -doc(#{equiv => setSingleStyle(This,Style, [])}).
 -spec setSingleStyle(This, Style) -> 'ok' when
-	This::wxListCtrl(), Style::integer().
+        This::wxListCtrl(), Style::integer().
 
 setSingleStyle(This,Style)
  when is_record(This, wx_ref),is_integer(Style) ->
@@ -1289,7 +1289,7 @@ setSingleStyle(#wx_ref{type=ThisT}=This,Style, Options)
 
 -doc "Sets the text colour of the list control.".
 -spec setTextColour(This, Col) -> 'ok' when
-	This::wxListCtrl(), Col::wx:wx_colour().
+        This::wxListCtrl(), Col::wx:wx_colour().
 setTextColour(#wx_ref{type=ThisT}=This,Col)
  when ?is_colordata(Col) ->
   ?CLASS(ThisT,wxListCtrl),
@@ -1297,7 +1297,7 @@ setTextColour(#wx_ref{type=ThisT}=This,Col)
 
 -doc "Sets the whole window style, deleting all items.".
 -spec setWindowStyleFlag(This, Style) -> 'ok' when
-	This::wxListCtrl(), Style::integer().
+        This::wxListCtrl(), Style::integer().
 setWindowStyleFlag(#wx_ref{type=ThisT}=This,Style)
  when is_integer(Style) ->
   ?CLASS(ThisT,wxListCtrl),
@@ -1457,9 +1457,9 @@ scrollPages(This,Pages) -> wxWindow:scrollPages(This,Pages).
 -doc false.
 scrollLines(This,Lines) -> wxWindow:scrollLines(This,Lines).
 -doc false.
-screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
+screenToClient(This,X,Y) -> wxWindow:screenToClient(This,X,Y).
 -doc false.
-screenToClient(This) -> wxWindow:screenToClient(This).
+screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
 -doc false.
 reparent(This,NewParent) -> wxWindow:reparent(This,NewParent).
 -doc false.

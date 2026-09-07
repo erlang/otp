@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -143,8 +143,8 @@ Event types emitted from this class:
   layout/1,lineDown/1,lineUp/1,lower/1,move/2,move/3,move/4,moveAfterInTabOrder/2,
   moveBeforeInTabOrder/2,navigate/1,navigate/2,pageDown/1,pageUp/1,parent_class/1,
   popupMenu/2,popupMenu/3,popupMenu/4,raise/1,refresh/1,refresh/2,refreshRect/2,
-  refreshRect/3,releaseMouse/1,removeChild/2,reparent/2,screenToClient/1,
-  screenToClient/2,scrollLines/2,scrollPages/2,scrollWindow/3,scrollWindow/4,
+  refreshRect/3,releaseMouse/1,removeChild/2,reparent/2,screenToClient/2,
+  screenToClient/3,scrollLines/2,scrollPages/2,scrollWindow/3,scrollWindow/4,
   setAcceleratorTable/2,setAutoLayout/2,setBackgroundColour/2,setBackgroundStyle/2,
   setCaret/2,setClientSize/2,setClientSize/3,setContainingSizer/2,setCursor/2,
   setDoubleBuffered/2,setDropTarget/2,setExtraStyle/2,setFocus/1,setFocusFromKbd/1,
@@ -178,7 +178,7 @@ new() ->
 
 -doc(#{equiv => new(Parent,Id, [])}).
 -spec new(Parent, Id) -> wxDatePickerCtrl() when
-	Parent::wxWindow:wxWindow(), Id::integer().
+        Parent::wxWindow:wxWindow(), Id::integer().
 
 new(Parent,Id)
  when is_record(Parent, wx_ref),is_integer(Id) ->
@@ -221,7 +221,7 @@ dates later than year 1601.
 Return: false if no range limits are currently set, true if at least one bound is set.
 """.
 -spec getRange(This, Dt1, Dt2) -> boolean() when
-	This::wxDatePickerCtrl(), Dt1::wx:wx_datetime(), Dt2::wx:wx_datetime().
+        This::wxDatePickerCtrl(), Dt1::wx:wx_datetime(), Dt2::wx:wx_datetime().
 getRange(#wx_ref{type=ThisT}=This,{{Dt1Y,Dt1Mo,Dt1D},{Dt1H,Dt1Mi,Dt1S}},{{Dt2Y,Dt2Mo,Dt2D},{Dt2H,Dt2Mi,Dt2S}})
  when is_integer(Dt1D),is_integer(Dt1Mo),is_integer(Dt1Y),is_integer(Dt1H),is_integer(Dt1Mi),is_integer(Dt1S),is_integer(Dt2D),is_integer(Dt2Mo),is_integer(Dt2Y),is_integer(Dt2H),is_integer(Dt2Mi),is_integer(Dt2S) ->
   ?CLASS(ThisT,wxDatePickerCtrl),
@@ -235,7 +235,7 @@ For a control with `wxDP_ALLOWNONE` style the returned value may be invalid if n
 entered, otherwise it is always valid.
 """.
 -spec getValue(This) -> wx:wx_datetime() when
-	This::wxDatePickerCtrl().
+        This::wxDatePickerCtrl().
 getValue(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxDatePickerCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxDatePickerCtrl_GetValue),
@@ -255,7 +255,7 @@ Remark: If the current value of the control is outside of the newly set range bo
 behaviour is undefined.
 """.
 -spec setRange(This, Dt1, Dt2) -> 'ok' when
-	This::wxDatePickerCtrl(), Dt1::wx:wx_datetime(), Dt2::wx:wx_datetime().
+        This::wxDatePickerCtrl(), Dt1::wx:wx_datetime(), Dt2::wx:wx_datetime().
 setRange(#wx_ref{type=ThisT}=This,{{Dt1Y,Dt1Mo,Dt1D},{Dt1H,Dt1Mi,Dt1S}},{{Dt2Y,Dt2Mo,Dt2D},{Dt2H,Dt2Mi,Dt2S}})
  when is_integer(Dt1D),is_integer(Dt1Mo),is_integer(Dt1Y),is_integer(Dt1H),is_integer(Dt1Mi),is_integer(Dt1S),is_integer(Dt2D),is_integer(Dt2Mo),is_integer(Dt2Y),is_integer(Dt2H),is_integer(Dt2Mi),is_integer(Dt2S) ->
   ?CLASS(ThisT,wxDatePickerCtrl),
@@ -270,7 +270,7 @@ included in the currently selected range, if any.
 Calling this method does not result in a date change event.
 """.
 -spec setValue(This, Dt) -> 'ok' when
-	This::wxDatePickerCtrl(), Dt::wx:wx_datetime().
+        This::wxDatePickerCtrl(), Dt::wx:wx_datetime().
 setValue(#wx_ref{type=ThisT}=This,{{DtY,DtMo,DtD},{DtH,DtMi,DtS}})
  when is_integer(DtD),is_integer(DtMo),is_integer(DtY),is_integer(DtH),is_integer(DtMi),is_integer(DtS) ->
   ?CLASS(ThisT,wxDatePickerCtrl),
@@ -452,9 +452,9 @@ scrollPages(This,Pages) -> wxWindow:scrollPages(This,Pages).
 -doc false.
 scrollLines(This,Lines) -> wxWindow:scrollLines(This,Lines).
 -doc false.
-screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
+screenToClient(This,X,Y) -> wxWindow:screenToClient(This,X,Y).
 -doc false.
-screenToClient(This) -> wxWindow:screenToClient(This).
+screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
 -doc false.
 reparent(This,NewParent) -> wxWindow:reparent(This,NewParent).
 -doc false.

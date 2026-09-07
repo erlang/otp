@@ -105,6 +105,7 @@ bool EwxPrintout::OnBeginDocument(int startPage, int endPage)
       delete cb;
       return ret_value;
     }
+    if(cb) delete cb;
   }
   return wxPrintout::OnBeginDocument(startPage,endPage);
 }
@@ -115,7 +116,7 @@ void EwxPrintout::OnEndDocument()
   if(onEndDocument && memenv) {
     wxeReturn rt = wxeReturn(memenv, memenv->owner, false);
     ERL_NIF_TERM args = enif_make_list(rt.env, 0);
-    rt.send_callback(onEndDocument, this, "wxPrintOut", args);
+    rt.send_callback(onEndDocument, this, "wxPrintout", args);
 
   } else {
     wxPrintout::OnEndDocument();
@@ -171,6 +172,7 @@ bool EwxPrintout::HasPage(int page)
       delete cb;
       return ret_value;
     }
+    if(cb) delete cb;
   }
   return wxPrintout::HasPage(page);
 }
@@ -188,6 +190,7 @@ bool EwxPrintout::OnPrintPage(int page)
       delete cb;
       return ret_value;
     }
+    if(cb) delete cb;
   }
   return FALSE;
 }
@@ -200,14 +203,20 @@ void EwxPrintout::GetPageInfo(int *minPage, int *maxPage, int *pageFrom, int *pa
     ERL_NIF_TERM args = enif_make_list(rt.env, 0);
     rt.send_callback(getPageInfo, this, "wxPrintout", args);
     wxeCommand *cb = ((WxeApp *) wxTheApp)->cb_return;
+    int tpl_sz;
+    const ERL_NIF_TERM *tpl;
     if(cb
-       && enif_get_int(cb->env, cb->args[0], minPage)
-       && enif_get_int(cb->env, cb->args[0], maxPage)
-       && enif_get_int(cb->env, cb->args[0], pageFrom)
-       && enif_get_int(cb->env, cb->args[0], pageTo)
+       && enif_get_tuple(cb->env, cb->args[0], &tpl_sz, &tpl)
+       && tpl_sz == 4
+       && enif_get_int(cb->env, tpl[0], minPage)
+       && enif_get_int(cb->env, tpl[1], maxPage)
+       && enif_get_int(cb->env, tpl[2], pageFrom)
+       && enif_get_int(cb->env, tpl[3], pageTo)
        ) {
       delete cb;
+      return;
     }
+    if(cb) delete cb;
   }
   wxPrintout::GetPageInfo(minPage, maxPage, pageFrom, pageTo);
 }
@@ -229,6 +238,7 @@ wxString EwxListCtrl::OnGetItemText(long item, long col) const {
       delete cb;
       return str;
     }
+    if(cb) delete cb;
     return wxT("OnGetItemText must return a string");
   }
   return wxT("OnGetItemText not defined");
@@ -267,6 +277,7 @@ int EwxListCtrl::OnGetItemColumnImage(long item, long col) const {
       delete cb;
       return ret_value;
     }
+    if(cb) delete cb;
   }
   return -1;
 }
@@ -297,6 +308,7 @@ int wxCALLBACK wxEListCtrlCompare(wxeIntPtr item1, wxeIntPtr item2, wxeIntPtr ca
       delete cb;
       return ret_value;
     }
+    if(cb) delete cb;
   }
   return 0;
 }
@@ -319,6 +331,7 @@ wxMenu* EwxTaskBarIcon::CreatePopupMenu() {
         delete cb;
         return ret_value;
       }
+      if(cb) delete cb;
     }
   }
   return NULL;

@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -116,7 +116,7 @@ Remark: Since 3.1.3 this function can be used with `OPEN`, `CLOSE` and `HIGHLIGH
 events. Before 3.1.3, this method can only be used with the `OPEN` and `CLOSE` events.
 """.
 -spec getMenu(This) -> wxMenu:wxMenu() when
-	This::wxMenuEvent().
+        This::wxMenuEvent().
 getMenu(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxMenuEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxMenuEvent_GetMenu),
@@ -128,7 +128,7 @@ Returns the menu identifier associated with the event.
 This method should be only used with the `HIGHLIGHT` events.
 """.
 -spec getMenuId(This) -> integer() when
-	This::wxMenuEvent().
+        This::wxMenuEvent().
 getMenuId(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxMenuEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxMenuEvent_GetMenuId),
@@ -141,7 +141,7 @@ a normal one.
 This method should only be used with the `OPEN` and `CLOSE` events.
 """.
 -spec isPopup(This) -> boolean() when
-	This::wxMenuEvent().
+        This::wxMenuEvent().
 isPopup(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxMenuEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxMenuEvent_IsPopup),

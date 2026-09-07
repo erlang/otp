@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright Ericsson AB 2008-2025. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2026. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -536,7 +536,7 @@ void ecb_gluScaleImage(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
     int dataOut_a;
     const ERL_NIF_TERM *dataOut_t;
     if(enif_get_tuple(env, argv[8], &dataOut_a, &dataOut_t) &&
-         enif_is_binary(env, dataOut_t[1]))
+         dataOut_a >= 2 && enif_is_binary(env, dataOut_t[1]))
        enif_inspect_binary(env, dataOut_t[1], &dataOut);
     else Badarg(5033, "dataOut");
   } else Badarg(5033, "dataOut");

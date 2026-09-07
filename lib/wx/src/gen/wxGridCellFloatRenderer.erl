@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -113,7 +113,7 @@ new(Options)
 
 -doc "Returns the precision.".
 -spec getPrecision(This) -> integer() when
-	This::wxGridCellFloatRenderer().
+        This::wxGridCellFloatRenderer().
 getPrecision(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGridCellFloatRenderer),
   wxe_util:queue_cmd(This,?get_env(),?wxGridCellFloatRenderer_GetPrecision),
@@ -121,7 +121,7 @@ getPrecision(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the width.".
 -spec getWidth(This) -> integer() when
-	This::wxGridCellFloatRenderer().
+        This::wxGridCellFloatRenderer().
 getWidth(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGridCellFloatRenderer),
   wxe_util:queue_cmd(This,?get_env(),?wxGridCellFloatRenderer_GetWidth),
@@ -132,7 +132,7 @@ The parameters string format is "width[,precision[,format]]" where `format` shou
 chosen between f|e|g|E|G (f is used by default)
 """.
 -spec setParameters(This, Params) -> 'ok' when
-	This::wxGridCellFloatRenderer(), Params::unicode:chardata().
+        This::wxGridCellFloatRenderer(), Params::unicode:chardata().
 setParameters(#wx_ref{type=ThisT}=This,Params)
  when ?is_chardata(Params) ->
   ?CLASS(ThisT,wxGridCellFloatRenderer),
@@ -141,7 +141,7 @@ setParameters(#wx_ref{type=ThisT}=This,Params)
 
 -doc "Sets the precision.".
 -spec setPrecision(This, Precision) -> 'ok' when
-	This::wxGridCellFloatRenderer(), Precision::integer().
+        This::wxGridCellFloatRenderer(), Precision::integer().
 setPrecision(#wx_ref{type=ThisT}=This,Precision)
  when is_integer(Precision) ->
   ?CLASS(ThisT,wxGridCellFloatRenderer),
@@ -149,7 +149,7 @@ setPrecision(#wx_ref{type=ThisT}=This,Precision)
 
 -doc "Sets the width.".
 -spec setWidth(This, Width) -> 'ok' when
-	This::wxGridCellFloatRenderer(), Width::integer().
+        This::wxGridCellFloatRenderer(), Width::integer().
 setWidth(#wx_ref{type=ThisT}=This,Width)
  when is_integer(Width) ->
   ?CLASS(ThisT,wxGridCellFloatRenderer),

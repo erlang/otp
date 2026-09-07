@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -203,7 +203,7 @@ See:
 * `m:wxMenuItem`
 """.
 -spec append(This, MenuItem) -> wxMenuItem:wxMenuItem() when
-	This::wxMenu(), MenuItem::wxMenuItem:wxMenuItem().
+        This::wxMenu(), MenuItem::wxMenuItem:wxMenuItem().
 append(#wx_ref{type=ThisT}=This,#wx_ref{type=MenuItemT}=MenuItem) ->
   ?CLASS(ThisT,wxMenu),
   ?CLASS(MenuItemT,wxMenuItem),
@@ -212,7 +212,7 @@ append(#wx_ref{type=ThisT}=This,#wx_ref{type=MenuItemT}=MenuItem) ->
 
 -doc(#{equiv => append(This,Id,Item, [])}).
 -spec append(This, Id, Item) -> wxMenuItem:wxMenuItem() when
-	This::wxMenu(), Id::integer(), Item::unicode:chardata().
+        This::wxMenu(), Id::integer(), Item::unicode:chardata().
 
 append(This,Id,Item)
  when is_record(This, wx_ref),is_integer(Id),?is_chardata(Item) ->
@@ -245,7 +245,7 @@ See:
 """.
 %%  Kind = ?wxITEM_SEPARATOR | ?wxITEM_NORMAL | ?wxITEM_CHECK | ?wxITEM_RADIO | ?wxITEM_DROPDOWN | ?wxITEM_MAX
 -spec append(This, Id, Item, SubMenu) -> wxMenuItem:wxMenuItem() when
-	This::wxMenu(), Id::integer(), Item::unicode:chardata(), SubMenu::wxMenu();
+        This::wxMenu(), Id::integer(), Item::unicode:chardata(), SubMenu::wxMenu();
       (This, Id, Item, [Option]) -> wxMenuItem:wxMenuItem() when
 	This::wxMenu(), Id::integer(), Item::unicode:chardata(),
 	Option :: {'help', unicode:chardata()}
@@ -305,7 +305,7 @@ append(#wx_ref{type=ThisT}=This,Id,Item,#wx_ref{type=SubMenuT}=SubMenu, Options)
 
 -doc(#{equiv => appendCheckItem(This,Id,Item, [])}).
 -spec appendCheckItem(This, Id, Item) -> wxMenuItem:wxMenuItem() when
-	This::wxMenu(), Id::integer(), Item::unicode:chardata().
+        This::wxMenu(), Id::integer(), Item::unicode:chardata().
 
 appendCheckItem(This,Id,Item)
  when is_record(This, wx_ref),is_integer(Id),?is_chardata(Item) ->
@@ -334,7 +334,7 @@ appendCheckItem(#wx_ref{type=ThisT}=This,Id,Item, Options)
 
 -doc(#{equiv => appendRadioItem(This,Id,Item, [])}).
 -spec appendRadioItem(This, Id, Item) -> wxMenuItem:wxMenuItem() when
-	This::wxMenu(), Id::integer(), Item::unicode:chardata().
+        This::wxMenu(), Id::integer(), Item::unicode:chardata().
 
 appendRadioItem(This,Id,Item)
  when is_record(This, wx_ref),is_integer(Id),?is_chardata(Item) ->
@@ -375,7 +375,7 @@ See:
 * `insertSeparator/2`
 """.
 -spec appendSeparator(This) -> wxMenuItem:wxMenuItem() when
-	This::wxMenu().
+        This::wxMenu().
 appendSeparator(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxMenu),
   wxe_util:queue_cmd(This,?get_env(),?wxMenu_AppendSeparator),
@@ -388,7 +388,7 @@ This function only actually inserts a break in wxMSW and does nothing under the 
 platforms.
 """.
 -spec break(This) -> 'ok' when
-	This::wxMenu().
+        This::wxMenu().
 break(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxMenu),
   wxe_util:queue_cmd(This,?get_env(),?wxMenu_Break).
@@ -399,7 +399,7 @@ Checks or unchecks the menu item.
 See: `isChecked/2`
 """.
 -spec check(This, Id, Check) -> 'ok' when
-	This::wxMenu(), Id::integer(), Check::boolean().
+        This::wxMenu(), Id::integer(), Check::boolean().
 check(#wx_ref{type=ThisT}=This,Id,Check)
  when is_integer(Id),is_boolean(Check) ->
   ?CLASS(ThisT,wxMenu),
@@ -418,9 +418,9 @@ See:
 * `remove/2`
 """.
 -spec delete(This, Id) -> boolean() when
-	This::wxMenu(), Id::integer();
+        This::wxMenu(), Id::integer();
       (This, Item) -> boolean() when
-	This::wxMenu(), Item::wxMenuItem:wxMenuItem().
+        This::wxMenu(), Item::wxMenuItem:wxMenuItem().
 delete(#wx_ref{type=ThisT}=This,Id)
  when is_integer(Id) ->
   ?CLASS(ThisT,wxMenu),
@@ -446,9 +446,9 @@ See:
 * `remove/2`
 """.
 -spec 'Destroy'(This, Id) -> boolean() when
-	This::wxMenu(), Id::integer();
+        This::wxMenu(), Id::integer();
       (This, Item) -> boolean() when
-	This::wxMenu(), Item::wxMenuItem:wxMenuItem().
+        This::wxMenu(), Item::wxMenuItem:wxMenuItem().
 'Destroy'(#wx_ref{type=ThisT}=This,Id)
  when is_integer(Id) ->
   ?CLASS(ThisT,wxMenu),
@@ -466,7 +466,7 @@ Enables or disables (greys out) a menu item.
 See: `isEnabled/2`
 """.
 -spec enable(This, Id, Enable) -> 'ok' when
-	This::wxMenu(), Id::integer(), Enable::boolean().
+        This::wxMenu(), Id::integer(), Enable::boolean().
 enable(#wx_ref{type=ThisT}=This,Id,Enable)
  when is_integer(Id),is_boolean(Enable) ->
   ?CLASS(ThisT,wxMenu),
@@ -481,9 +481,9 @@ Remark: Any special menu codes are stripped out of source and target strings bef
 matching.
 """.
 -spec findItem(This, Id) -> wxMenuItem:wxMenuItem() when
-	This::wxMenu(), Id::integer();
+        This::wxMenu(), Id::integer();
       (This, ItemString) -> integer() when
-	This::wxMenu(), ItemString::unicode:chardata().
+        This::wxMenu(), ItemString::unicode:chardata().
 findItem(#wx_ref{type=ThisT}=This,Id)
  when is_integer(Id) ->
   ?CLASS(ThisT,wxMenu),
@@ -498,7 +498,7 @@ findItem(#wx_ref{type=ThisT}=This,ItemString)
 
 -doc "Returns the `m:wxMenuItem` given a position in the menu.".
 -spec findItemByPosition(This, Position) -> wxMenuItem:wxMenuItem() when
-	This::wxMenu(), Position::integer().
+        This::wxMenu(), Position::integer().
 findItemByPosition(#wx_ref{type=ThisT}=This,Position)
  when is_integer(Position) ->
   ?CLASS(ThisT,wxMenu),
@@ -517,7 +517,7 @@ See:
 * `append/5`
 """.
 -spec getHelpString(This, Id) -> unicode:charlist() when
-	This::wxMenu(), Id::integer().
+        This::wxMenu(), Id::integer().
 getHelpString(#wx_ref{type=ThisT}=This,Id)
  when is_integer(Id) ->
   ?CLASS(ThisT,wxMenu),
@@ -532,7 +532,7 @@ Return: The item label, or the empty string if the item was not found.
 See: `setLabel/3`
 """.
 -spec getLabel(This, Id) -> unicode:charlist() when
-	This::wxMenu(), Id::integer().
+        This::wxMenu(), Id::integer().
 getLabel(#wx_ref{type=ThisT}=This,Id)
  when is_integer(Id) ->
   ?CLASS(ThisT,wxMenu),
@@ -541,7 +541,7 @@ getLabel(#wx_ref{type=ThisT}=This,Id)
 
 -doc "Returns the number of items in the menu.".
 -spec getMenuItemCount(This) -> integer() when
-	This::wxMenu().
+        This::wxMenu().
 getMenuItemCount(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxMenu),
   wxe_util:queue_cmd(This,?get_env(),?wxMenu_GetMenuItemCount),
@@ -549,7 +549,7 @@ getMenuItemCount(#wx_ref{type=ThisT}=This) ->
 
 -doc "".
 -spec getMenuItems(This) -> [wxMenuItem:wxMenuItem()] when
-	This::wxMenu().
+        This::wxMenu().
 getMenuItems(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxMenu),
   wxe_util:queue_cmd(This,?get_env(),?wxMenu_GetMenuItems),
@@ -561,7 +561,7 @@ Returns the title of the menu.
 See: `setTitle/2`
 """.
 -spec getTitle(This) -> unicode:charlist() when
-	This::wxMenu().
+        This::wxMenu().
 getTitle(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxMenu),
   wxe_util:queue_cmd(This,?get_env(),?wxMenu_GetTitle),
@@ -579,9 +579,9 @@ See:
 """.
 %%  Kind = ?wxITEM_SEPARATOR | ?wxITEM_NORMAL | ?wxITEM_CHECK | ?wxITEM_RADIO | ?wxITEM_DROPDOWN | ?wxITEM_MAX
 -spec insert(This, Pos, Id) -> wxMenuItem:wxMenuItem() when
-	This::wxMenu(), Pos::integer(), Id::integer();
+        This::wxMenu(), Pos::integer(), Id::integer();
       (This, Pos, MenuItem) -> wxMenuItem:wxMenuItem() when
-	This::wxMenu(), Pos::integer(), MenuItem::wxMenuItem:wxMenuItem().
+        This::wxMenu(), Pos::integer(), MenuItem::wxMenuItem:wxMenuItem().
 
 insert(This,Pos,Id)
  when is_record(This, wx_ref),is_integer(Pos),is_integer(Id) ->
@@ -622,7 +622,7 @@ insert(#wx_ref{type=ThisT}=This,Pos,Id, Options)
 
 -doc(#{equiv => insert(This,Pos,Id,Text,Submenu, [])}).
 -spec insert(This, Pos, Id, Text, Submenu) -> wxMenuItem:wxMenuItem() when
-	This::wxMenu(), Pos::integer(), Id::integer(), Text::unicode:chardata(), Submenu::wxMenu().
+        This::wxMenu(), Pos::integer(), Id::integer(), Text::unicode:chardata(), Submenu::wxMenu().
 
 insert(This,Pos,Id,Text,Submenu)
  when is_record(This, wx_ref),is_integer(Pos),is_integer(Id),?is_chardata(Text),is_record(Submenu, wx_ref) ->
@@ -652,7 +652,7 @@ insert(#wx_ref{type=ThisT}=This,Pos,Id,Text,#wx_ref{type=SubmenuT}=Submenu, Opti
 
 -doc(#{equiv => insertCheckItem(This,Pos,Id,Item, [])}).
 -spec insertCheckItem(This, Pos, Id, Item) -> wxMenuItem:wxMenuItem() when
-	This::wxMenu(), Pos::integer(), Id::integer(), Item::unicode:chardata().
+        This::wxMenu(), Pos::integer(), Id::integer(), Item::unicode:chardata().
 
 insertCheckItem(This,Pos,Id,Item)
  when is_record(This, wx_ref),is_integer(Pos),is_integer(Id),?is_chardata(Item) ->
@@ -681,7 +681,7 @@ insertCheckItem(#wx_ref{type=ThisT}=This,Pos,Id,Item, Options)
 
 -doc(#{equiv => insertRadioItem(This,Pos,Id,Item, [])}).
 -spec insertRadioItem(This, Pos, Id, Item) -> wxMenuItem:wxMenuItem() when
-	This::wxMenu(), Pos::integer(), Id::integer(), Item::unicode:chardata().
+        This::wxMenu(), Pos::integer(), Id::integer(), Item::unicode:chardata().
 
 insertRadioItem(This,Pos,Id,Item)
  when is_record(This, wx_ref),is_integer(Pos),is_integer(Id),?is_chardata(Item) ->
@@ -717,7 +717,7 @@ See:
 * `appendSeparator/1`
 """.
 -spec insertSeparator(This, Pos) -> wxMenuItem:wxMenuItem() when
-	This::wxMenu(), Pos::integer().
+        This::wxMenu(), Pos::integer().
 insertSeparator(#wx_ref{type=ThisT}=This,Pos)
  when is_integer(Pos) ->
   ?CLASS(ThisT,wxMenu),
@@ -732,7 +732,7 @@ Return: true if the menu item is checked, false otherwise.
 See: `check/3`
 """.
 -spec isChecked(This, Id) -> boolean() when
-	This::wxMenu(), Id::integer().
+        This::wxMenu(), Id::integer().
 isChecked(#wx_ref{type=ThisT}=This,Id)
  when is_integer(Id) ->
   ?CLASS(ThisT,wxMenu),
@@ -747,7 +747,7 @@ Return: true if the menu item is enabled, false otherwise.
 See: `enable/3`
 """.
 -spec isEnabled(This, Id) -> boolean() when
-	This::wxMenu(), Id::integer().
+        This::wxMenu(), Id::integer().
 isEnabled(#wx_ref{type=ThisT}=This,Id)
  when is_integer(Id) ->
   ?CLASS(ThisT,wxMenu),
@@ -764,9 +764,9 @@ See:
 """.
 %%  Kind = ?wxITEM_SEPARATOR | ?wxITEM_NORMAL | ?wxITEM_CHECK | ?wxITEM_RADIO | ?wxITEM_DROPDOWN | ?wxITEM_MAX
 -spec prepend(This, Id) -> wxMenuItem:wxMenuItem() when
-	This::wxMenu(), Id::integer();
+        This::wxMenu(), Id::integer();
       (This, Item) -> wxMenuItem:wxMenuItem() when
-	This::wxMenu(), Item::wxMenuItem:wxMenuItem().
+        This::wxMenu(), Item::wxMenuItem:wxMenuItem().
 
 prepend(This,Id)
  when is_record(This, wx_ref),is_integer(Id) ->
@@ -804,7 +804,7 @@ prepend(#wx_ref{type=ThisT}=This,Id, Options)
 
 -doc(#{equiv => prepend(This,Id,Text,Submenu, [])}).
 -spec prepend(This, Id, Text, Submenu) -> wxMenuItem:wxMenuItem() when
-	This::wxMenu(), Id::integer(), Text::unicode:chardata(), Submenu::wxMenu().
+        This::wxMenu(), Id::integer(), Text::unicode:chardata(), Submenu::wxMenu().
 
 prepend(This,Id,Text,Submenu)
  when is_record(This, wx_ref),is_integer(Id),?is_chardata(Text),is_record(Submenu, wx_ref) ->
@@ -831,7 +831,7 @@ prepend(#wx_ref{type=ThisT}=This,Id,Text,#wx_ref{type=SubmenuT}=Submenu, Options
 
 -doc(#{equiv => prependCheckItem(This,Id,Item, [])}).
 -spec prependCheckItem(This, Id, Item) -> wxMenuItem:wxMenuItem() when
-	This::wxMenu(), Id::integer(), Item::unicode:chardata().
+        This::wxMenu(), Id::integer(), Item::unicode:chardata().
 
 prependCheckItem(This,Id,Item)
  when is_record(This, wx_ref),is_integer(Id),?is_chardata(Item) ->
@@ -860,7 +860,7 @@ prependCheckItem(#wx_ref{type=ThisT}=This,Id,Item, Options)
 
 -doc(#{equiv => prependRadioItem(This,Id,Item, [])}).
 -spec prependRadioItem(This, Id, Item) -> wxMenuItem:wxMenuItem() when
-	This::wxMenu(), Id::integer(), Item::unicode:chardata().
+        This::wxMenu(), Id::integer(), Item::unicode:chardata().
 
 prependRadioItem(This,Id,Item)
  when is_record(This, wx_ref),is_integer(Id),?is_chardata(Item) ->
@@ -896,7 +896,7 @@ See:
 * `appendSeparator/1`
 """.
 -spec prependSeparator(This) -> wxMenuItem:wxMenuItem() when
-	This::wxMenu().
+        This::wxMenu().
 prependSeparator(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxMenu),
   wxe_util:queue_cmd(This,?get_env(),?wxMenu_PrependSeparator),
@@ -911,9 +911,9 @@ useful with submenus).
 Return: A pointer to the item which was detached from the menu.
 """.
 -spec remove(This, Id) -> wxMenuItem:wxMenuItem() when
-	This::wxMenu(), Id::integer();
+        This::wxMenu(), Id::integer();
       (This, Item) -> wxMenuItem:wxMenuItem() when
-	This::wxMenu(), Item::wxMenuItem:wxMenuItem().
+        This::wxMenu(), Item::wxMenuItem:wxMenuItem().
 remove(#wx_ref{type=ThisT}=This,Id)
  when is_integer(Id) ->
   ?CLASS(ThisT,wxMenu),
@@ -931,7 +931,7 @@ Sets an item's help string.
 See: `getHelpString/2`
 """.
 -spec setHelpString(This, Id, HelpString) -> 'ok' when
-	This::wxMenu(), Id::integer(), HelpString::unicode:chardata().
+        This::wxMenu(), Id::integer(), HelpString::unicode:chardata().
 setHelpString(#wx_ref{type=ThisT}=This,Id,HelpString)
  when is_integer(Id),?is_chardata(HelpString) ->
   ?CLASS(ThisT,wxMenu),
@@ -947,7 +947,7 @@ See:
 * `getLabel/2`
 """.
 -spec setLabel(This, Id, Label) -> 'ok' when
-	This::wxMenu(), Id::integer(), Label::unicode:chardata().
+        This::wxMenu(), Id::integer(), Label::unicode:chardata().
 setLabel(#wx_ref{type=ThisT}=This,Id,Label)
  when is_integer(Id),?is_chardata(Label) ->
   ?CLASS(ThisT,wxMenu),
@@ -963,7 +963,7 @@ the title of a menu that is part of a menu bar you need to use `wxMenuBar:setLab
 See: `getTitle/1`
 """.
 -spec setTitle(This, Title) -> 'ok' when
-	This::wxMenu(), Title::unicode:chardata().
+        This::wxMenu(), Title::unicode:chardata().
 setTitle(#wx_ref{type=ThisT}=This,Title)
  when ?is_chardata(Title) ->
   ?CLASS(ThisT,wxMenu),

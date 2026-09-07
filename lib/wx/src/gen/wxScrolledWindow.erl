@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -211,7 +211,7 @@ Event types emitted from this class:
   move/2,move/3,move/4,moveAfterInTabOrder/2,moveBeforeInTabOrder/2,
   navigate/1,navigate/2,pageDown/1,pageUp/1,parent_class/1,popupMenu/2,
   popupMenu/3,popupMenu/4,raise/1,refresh/1,refresh/2,refreshRect/2,refreshRect/3,
-  releaseMouse/1,removeChild/2,reparent/2,screenToClient/1,screenToClient/2,
+  releaseMouse/1,removeChild/2,reparent/2,screenToClient/2,screenToClient/3,
   scrollLines/2,scrollPages/2,scrollWindow/3,scrollWindow/4,setAcceleratorTable/2,
   setAutoLayout/2,setBackgroundColour/2,setBackgroundStyle/2,setCaret/2,
   setClientSize/2,setClientSize/3,setContainingSizer/2,setCursor/2,
@@ -243,7 +243,7 @@ new() ->
 
 -doc(#{equiv => new(Parent, [])}).
 -spec new(Parent) -> wxScrolledWindow() when
-	Parent::wxWindow:wxWindow().
+        Parent::wxWindow:wxWindow().
 
 new(Parent)
  when is_record(Parent, wx_ref) ->
@@ -275,7 +275,7 @@ new(#wx_ref{type=ParentT}=Parent, Options)
 
 -doc "".
 -spec calcScrolledPosition(This, Pt) -> {X::integer(), Y::integer()} when
-	This::wxScrolledWindow(), Pt::{X::integer(), Y::integer()}.
+        This::wxScrolledWindow(), Pt::{X::integer(), Y::integer()}.
 calcScrolledPosition(#wx_ref{type=ThisT}=This,{PtX,PtY} = Pt)
  when is_integer(PtX),is_integer(PtY) ->
   ?CLASS(ThisT,wxScrolledWindow),
@@ -292,7 +292,7 @@ to CalcScrolledPosition(0, 10, xx, yy) will return 0 in yy.
 See: `calcUnscrolledPosition/3`
 """.
 -spec calcScrolledPosition(This, X, Y) -> {Xx::integer(), Yy::integer()} when
-	This::wxScrolledWindow(), X::integer(), Y::integer().
+        This::wxScrolledWindow(), X::integer(), Y::integer().
 calcScrolledPosition(#wx_ref{type=ThisT}=This,X,Y)
  when is_integer(X),is_integer(Y) ->
   ?CLASS(ThisT,wxScrolledWindow),
@@ -301,7 +301,7 @@ calcScrolledPosition(#wx_ref{type=ThisT}=This,X,Y)
 
 -doc "".
 -spec calcUnscrolledPosition(This, Pt) -> {X::integer(), Y::integer()} when
-	This::wxScrolledWindow(), Pt::{X::integer(), Y::integer()}.
+        This::wxScrolledWindow(), Pt::{X::integer(), Y::integer()}.
 calcUnscrolledPosition(#wx_ref{type=ThisT}=This,{PtX,PtY} = Pt)
  when is_integer(PtX),is_integer(PtY) ->
   ?CLASS(ThisT,wxScrolledWindow),
@@ -318,7 +318,7 @@ to CalcUnscrolledPosition(0, 0, xx, yy) will return 10 in yy.
 See: `calcScrolledPosition/3`
 """.
 -spec calcUnscrolledPosition(This, X, Y) -> {Xx::integer(), Yy::integer()} when
-	This::wxScrolledWindow(), X::integer(), Y::integer().
+        This::wxScrolledWindow(), X::integer(), Y::integer().
 calcUnscrolledPosition(#wx_ref{type=ThisT}=This,X,Y)
  when is_integer(X),is_integer(Y) ->
   ?CLASS(ThisT,wxScrolledWindow),
@@ -337,7 +337,7 @@ It should be rarely necessary to disable physical scrolling, so this method shou
 called in normal circumstances.
 """.
 -spec enableScrolling(This, XScrolling, YScrolling) -> 'ok' when
-	This::wxScrolledWindow(), XScrolling::boolean(), YScrolling::boolean().
+        This::wxScrolledWindow(), XScrolling::boolean(), YScrolling::boolean().
 enableScrolling(#wx_ref{type=ThisT}=This,XScrolling,YScrolling)
  when is_boolean(XScrolling),is_boolean(YScrolling) ->
   ?CLASS(ThisT,wxScrolledWindow),
@@ -354,7 +354,7 @@ See:
 * `wxWindow:getVirtualSize/1`
 """.
 -spec getScrollPixelsPerUnit(This) -> {XUnit::integer(), YUnit::integer()} when
-	This::wxScrolledWindow().
+        This::wxScrolledWindow().
 getScrollPixelsPerUnit(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxScrolledWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxScrolledWindow_GetScrollPixelsPerUnit),
@@ -362,7 +362,7 @@ getScrollPixelsPerUnit(#wx_ref{type=ThisT}=This) ->
 
 -doc "This is a simple overload of GetViewStart(int\*,int\*); see that function for more info.".
 -spec getViewStart(This) -> {X::integer(), Y::integer()} when
-	This::wxScrolledWindow().
+        This::wxScrolledWindow().
 getViewStart(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxScrolledWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxScrolledWindow_GetViewStart),
@@ -385,7 +385,7 @@ position, so you shouldn't change the origin before calling `doPrepareDC/2` or, 
 above, this problem doesn't arise, of course, so it is customary to do it like this.
 """.
 -spec doPrepareDC(This, Dc) -> 'ok' when
-	This::wxScrolledWindow(), Dc::wxDC:wxDC().
+        This::wxScrolledWindow(), Dc::wxDC:wxDC().
 doPrepareDC(#wx_ref{type=ThisT}=This,#wx_ref{type=DcT}=Dc) ->
   ?CLASS(ThisT,wxScrolledWindow),
   ?CLASS(DcT,wxDC),
@@ -398,7 +398,7 @@ Notice that it is not called by the default paint event handle (`doPrepareDC/2` 
 method in your derived class is useless.
 """.
 -spec prepareDC(This, Dc) -> 'ok' when
-	This::wxScrolledWindow(), Dc::wxDC:wxDC().
+        This::wxScrolledWindow(), Dc::wxDC:wxDC().
 prepareDC(#wx_ref{type=ThisT}=This,#wx_ref{type=DcT}=Dc) ->
   ?CLASS(ThisT,wxScrolledWindow),
   ?CLASS(DcT,wxDC),
@@ -406,7 +406,7 @@ prepareDC(#wx_ref{type=ThisT}=This,#wx_ref{type=DcT}=Dc) ->
 
 -doc "This is an overload of `scroll/3`;see that function for more info.".
 -spec scroll(This, Pt) -> 'ok' when
-	This::wxScrolledWindow(), Pt::{X::integer(), Y::integer()}.
+        This::wxScrolledWindow(), Pt::{X::integer(), Y::integer()}.
 scroll(#wx_ref{type=ThisT}=This,{PtX,PtY} = Pt)
  when is_integer(PtX),is_integer(PtY) ->
   ?CLASS(ThisT,wxScrolledWindow),
@@ -425,7 +425,7 @@ See:
 * `getScrollPixelsPerUnit/1`
 """.
 -spec scroll(This, X, Y) -> 'ok' when
-	This::wxScrolledWindow(), X::integer(), Y::integer().
+        This::wxScrolledWindow(), X::integer(), Y::integer().
 scroll(#wx_ref{type=ThisT}=This,X,Y)
  when is_integer(X),is_integer(Y) ->
   ?CLASS(ThisT,wxScrolledWindow),
@@ -433,7 +433,7 @@ scroll(#wx_ref{type=ThisT}=This,X,Y)
 
 -doc(#{equiv => setScrollbars(This,PixelsPerUnitX,PixelsPerUnitY,NoUnitsX,NoUnitsY, [])}).
 -spec setScrollbars(This, PixelsPerUnitX, PixelsPerUnitY, NoUnitsX, NoUnitsY) -> 'ok' when
-	This::wxScrolledWindow(), PixelsPerUnitX::integer(), PixelsPerUnitY::integer(), NoUnitsX::integer(), NoUnitsY::integer().
+        This::wxScrolledWindow(), PixelsPerUnitX::integer(), PixelsPerUnitY::integer(), NoUnitsX::integer(), NoUnitsY::integer().
 
 setScrollbars(This,PixelsPerUnitX,PixelsPerUnitY,NoUnitsX,NoUnitsY)
  when is_record(This, wx_ref),is_integer(PixelsPerUnitX),is_integer(PixelsPerUnitY),is_integer(NoUnitsX),is_integer(NoUnitsY) ->
@@ -481,7 +481,7 @@ Set the horizontal and vertical scrolling increment only.
 See the pixelsPerUnit parameter in `setScrollbars/6`.
 """.
 -spec setScrollRate(This, Xstep, Ystep) -> 'ok' when
-	This::wxScrolledWindow(), Xstep::integer(), Ystep::integer().
+        This::wxScrolledWindow(), Xstep::integer(), Ystep::integer().
 setScrollRate(#wx_ref{type=ThisT}=This,Xstep,Ystep)
  when is_integer(Xstep),is_integer(Ystep) ->
   ?CLASS(ThisT,wxScrolledWindow),
@@ -502,7 +502,7 @@ Notice that if this method is used, `GetSizeAvailableForScrollTarget()` (not imp
 in wx) method must be overridden.
 """.
 -spec setTargetWindow(This, Window) -> 'ok' when
-	This::wxScrolledWindow(), Window::wxWindow:wxWindow().
+        This::wxScrolledWindow(), Window::wxWindow:wxWindow().
 setTargetWindow(#wx_ref{type=ThisT}=This,#wx_ref{type=WindowT}=Window) ->
   ?CLASS(ThisT,wxScrolledWindow),
   ?CLASS(WindowT,wxWindow),
@@ -657,9 +657,9 @@ scrollPages(This,Pages) -> wxWindow:scrollPages(This,Pages).
 -doc false.
 scrollLines(This,Lines) -> wxWindow:scrollLines(This,Lines).
 -doc false.
-screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
+screenToClient(This,X,Y) -> wxWindow:screenToClient(This,X,Y).
 -doc false.
-screenToClient(This) -> wxWindow:screenToClient(This).
+screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
 -doc false.
 reparent(This,NewParent) -> wxWindow:reparent(This,NewParent).
 -doc false.

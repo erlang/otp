@@ -82,9 +82,7 @@ int start_native_gui(ErlNifEnv *env)
     enif_mutex_unlock(wxe_status_m);
     return wxe_status;
   } else {
-    wxString msg;
-    msg.Printf(wxT("Erlang failed to create wxe-thread %d\r\n"), res);
-    send_msg("error", &msg);
+    fprintf(stderr, "Erlang failed to create wxe-thread %d\r\n", res);
     return -1;
   }
 }

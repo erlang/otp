@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -111,7 +111,7 @@ Everything drawn on `m:wxMirrorDC` will appear (and maybe mirrored) on `dc`.
 `mirror` specifies if we do mirror (if it is true) or not (if it is false).
 """.
 -spec new(Dc, Mirror) -> wxMirrorDC() when
-	Dc::wxDC:wxDC(), Mirror::boolean().
+        Dc::wxDC:wxDC(), Mirror::boolean().
 new(#wx_ref{type=DcT}=Dc,Mirror)
  when is_boolean(Mirror) ->
   ?CLASS(DcT,wxDC),

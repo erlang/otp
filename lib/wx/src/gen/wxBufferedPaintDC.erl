@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -119,7 +119,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -doc(#{equiv => new(Window, [])}).
 -spec new(Window) -> wxBufferedPaintDC() when
-	Window::wxWindow:wxWindow().
+        Window::wxWindow:wxWindow().
 
 new(Window)
  when is_record(Window, wx_ref) ->
@@ -127,7 +127,7 @@ new(Window)
 
 -doc "".
 -spec new(Window, Buffer) -> wxBufferedPaintDC() when
-	Window::wxWindow:wxWindow(), Buffer::wxBitmap:wxBitmap();
+        Window::wxWindow:wxWindow(), Buffer::wxBitmap:wxBitmap();
       (Window, [Option]) -> wxBufferedPaintDC() when
 	Window::wxWindow:wxWindow(),
 	Option :: {'style', integer()}.

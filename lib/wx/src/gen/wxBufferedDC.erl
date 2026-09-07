@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -139,7 +139,7 @@ new() ->
 
 -doc(#{equiv => new(Dc, [])}).
 -spec new(Dc) -> wxBufferedDC() when
-	Dc::wxDC:wxDC().
+        Dc::wxDC:wxDC().
 
 new(Dc)
  when is_record(Dc, wx_ref) ->
@@ -151,7 +151,7 @@ Creates a buffer for the provided dc.
 `init/4` must not be called when using this constructor.
 """.
 -spec new(Dc, Area) -> wxBufferedDC() when
-	Dc::wxDC:wxDC(), Area::{W::integer(), H::integer()};
+        Dc::wxDC:wxDC(), Area::{W::integer(), H::integer()};
       (Dc, [Option]) -> wxBufferedDC() when
 	Dc::wxDC:wxDC(),
 	Option :: {'buffer', wxBitmap:wxBitmap()}
@@ -189,7 +189,7 @@ new(#wx_ref{type=DcT}=Dc,{AreaW,AreaH} = Area, Options)
 
 -doc(#{equiv => init(This,Dc, [])}).
 -spec init(This, Dc) -> 'ok' when
-	This::wxBufferedDC(), Dc::wxDC:wxDC().
+        This::wxBufferedDC(), Dc::wxDC:wxDC().
 
 init(This,Dc)
  when is_record(This, wx_ref),is_record(Dc, wx_ref) ->
@@ -197,7 +197,7 @@ init(This,Dc)
 
 -doc "".
 -spec init(This, Dc, Area) -> 'ok' when
-	This::wxBufferedDC(), Dc::wxDC:wxDC(), Area::{W::integer(), H::integer()};
+        This::wxBufferedDC(), Dc::wxDC:wxDC(), Area::{W::integer(), H::integer()};
       (This, Dc, [Option]) -> 'ok' when
 	This::wxBufferedDC(), Dc::wxDC:wxDC(),
 	Option :: {'buffer', wxBitmap:wxBitmap()}

@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -187,7 +187,7 @@ See:
 * `hasOption/1`
 """.
 -spec getOption(Name) -> unicode:charlist() when
-	Name::unicode:chardata().
+        Name::unicode:chardata().
 getOption(Name)
  when ?is_chardata(Name) ->
   Name_UC = unicode:characters_to_binary(Name),
@@ -208,7 +208,7 @@ See:
 * `hasOption/1`
 """.
 -spec getOptionInt(Name) -> integer() when
-	Name::unicode:chardata().
+        Name::unicode:chardata().
 getOptionInt(Name)
  when ?is_chardata(Name) ->
   Name_UC = unicode:characters_to_binary(Name),
@@ -228,7 +228,7 @@ See:
 * `getOptionInt/1`
 """.
 -spec hasOption(Name) -> boolean() when
-	Name::unicode:chardata().
+        Name::unicode:chardata().
 hasOption(Name)
  when ?is_chardata(Name) ->
   Name_UC = unicode:characters_to_binary(Name),
@@ -242,7 +242,7 @@ This is mostly useful for boolean options for which you can't use `GetOptionInt(
 0 as this would also be true if the option hadn't been set at all.
 """.
 -spec isFalse(Name) -> boolean() when
-	Name::unicode:chardata().
+        Name::unicode:chardata().
 isFalse(Name)
  when ?is_chardata(Name) ->
   Name_UC = unicode:characters_to_binary(Name),
@@ -255,9 +255,9 @@ Sets an option.
 The function is case-insensitive to `name`.
 """.
 -spec setOption(Name, Value) -> 'ok' when
-	Name::unicode:chardata(), Value::integer();
+        Name::unicode:chardata(), Value::integer();
       (Name, Value) -> 'ok' when
-	Name::unicode:chardata(), Value::unicode:chardata().
+        Name::unicode:chardata(), Value::unicode:chardata().
 setOption(Name,Value)
  when ?is_chardata(Name),is_integer(Value) ->
   Name_UC = unicode:characters_to_binary(Name),

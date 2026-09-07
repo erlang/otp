@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -100,7 +100,7 @@ Has no meaning under other platforms.
 The default value is true.
 """.
 -spec getChooseFull(This) -> boolean() when
-	This::wxColourData().
+        This::wxColourData().
 getChooseFull(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxColourData),
   wxe_util:queue_cmd(This,?get_env(),?wxColourData_GetChooseFull),
@@ -112,7 +112,7 @@ Gets the current colour associated with the colour dialog.
 The default colour is black.
 """.
 -spec getColour(This) -> wx:wx_colour4() when
-	This::wxColourData().
+        This::wxColourData().
 getColour(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxColourData),
   wxe_util:queue_cmd(This,?get_env(),?wxColourData_GetColour),
@@ -120,7 +120,7 @@ getColour(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns custom colours associated with the colour dialog.".
 -spec getCustomColour(This, I) -> wx:wx_colour4() when
-	This::wxColourData(), I::integer().
+        This::wxColourData(), I::integer().
 getCustomColour(#wx_ref{type=ThisT}=This,I)
  when is_integer(I) ->
   ?CLASS(ThisT,wxColourData),
@@ -136,7 +136,7 @@ Under other platforms, has no effect.
 The default value is true.
 """.
 -spec setChooseFull(This, Flag) -> 'ok' when
-	This::wxColourData(), Flag::boolean().
+        This::wxColourData(), Flag::boolean().
 setChooseFull(#wx_ref{type=ThisT}=This,Flag)
  when is_boolean(Flag) ->
   ?CLASS(ThisT,wxColourData),
@@ -148,7 +148,7 @@ Sets the default colour for the colour dialog.
 The default colour is black.
 """.
 -spec setColour(This, Colour) -> 'ok' when
-	This::wxColourData(), Colour::wx:wx_colour().
+        This::wxColourData(), Colour::wx:wx_colour().
 setColour(#wx_ref{type=ThisT}=This,Colour)
  when ?is_colordata(Colour) ->
   ?CLASS(ThisT,wxColourData),
@@ -156,7 +156,7 @@ setColour(#wx_ref{type=ThisT}=This,Colour)
 
 -doc "Sets custom colours for the colour dialog.".
 -spec setCustomColour(This, I, Colour) -> 'ok' when
-	This::wxColourData(), I::integer(), Colour::wx:wx_colour().
+        This::wxColourData(), I::integer(), Colour::wx:wx_colour().
 setCustomColour(#wx_ref{type=ThisT}=This,I,Colour)
  when is_integer(I),?is_colordata(Colour) ->
   ?CLASS(ThisT,wxColourData),
