@@ -3872,13 +3872,13 @@ inet_async_binary_data
 	 ErlDrvBinary   * bin,  int offs, int len, void *mp)
 {
     unsigned int hsz = desc->hsz + phsz;
-    const int spec_size = PACKET_ERL_DRV_TERM_DATA_LEN;
     ErlDrvTermData spec [PACKET_ERL_DRV_TERM_DATA_LEN];
     ErlDrvTermData caller;
     int aid;
     int req;
     int i = 0;
 #ifdef HAVE_SCTP
+    const int spec_size = PACKET_ERL_DRV_TERM_DATA_LEN;
     int ok_pos;
 #endif
 
@@ -4108,11 +4108,13 @@ static int packet_binary_message(inet_descriptor* desc,
                                  void *mp)
 {
     unsigned int hsz = desc->hsz;
-    const int spec_size = PACKET_ERL_DRV_TERM_DATA_LEN;
     ErlDrvTermData spec [PACKET_ERL_DRV_TERM_DATA_LEN];
     int i = 0;
     int alen;
     char* data = bin->orig_bytes+offs;
+#ifdef HAVE_SCTP
+    const int spec_size = PACKET_ERL_DRV_TERM_DATA_LEN;
+#endif
 
     DEBUGF(("packet_binary_message(%p): len = %d\r\n",
             desc->port, len));
