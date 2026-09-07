@@ -399,7 +399,7 @@ init_per_group(otp18323 = _GroupName, Config) ->
         true ->
             {skip, "Inet Drv specific bugs"};
         false ->
-            ok
+            Config
     end;
 init_per_group(_GroupName, Config) ->
     Config.
