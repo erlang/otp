@@ -67,4 +67,8 @@ ERL_NIF_TERM pkey_verify_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
 ERL_NIF_TERM pkey_crypt_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 ERL_NIF_TERM privkey_to_pubkey_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 
+#ifdef HAVE_CONTEXT_STRING
+#  define MAX_CONTEXT_STRING_SIZE 255
+#endif
+
 #endif /* E_PKEY_H__ */

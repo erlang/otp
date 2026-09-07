@@ -556,4 +556,8 @@ do {                                                    \
 //# define CRYPTO_DEVELOP_ERRORS
 #endif
 
+#if defined(HAVE_ML_DSA) || defined(HAVE_SLH_DSA)
+#  define HAVE_CONTEXT_STRING
+#endif
+
 #endif /* E_OPENSSL_CONFIG_H__ */
