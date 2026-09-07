@@ -7152,6 +7152,7 @@ setup_active_timeout_sink(Config, RNode, Addr, Timeout, AutoClose) ->
 	     end,
     {ok, C} = Remote(fun() ->
 			     ?CONNECT(Config, Addr, Port, [{ip,     Addr},
+                                                           {recbuf, 8192},
 			                                   {active, false}])
 		     end),
     {ok, A} = gen_tcp:accept(L),
@@ -7261,6 +7262,7 @@ do_send_timeout_resume(Config, RNode, BlockPow) ->
         [inet,
          binary,
          {backlog, 2},
+         {recbuf,  BlockSize bsr 1},
          {active,  false}],
     ConnectOpts =
         [inet,
