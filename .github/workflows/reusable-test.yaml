@@ -83,6 +83,7 @@ jobs:
             -e CTRUN_TIMEOUT=90 -e SPEC_POSTFIX=gh \
             -e TEST_NEEDS_RELEASE=true -e "RELEASE_ROOT=/buildroot/otp/Erlang ∅⊤℞" \
             -e EXTRA_ARGS="-ct_hooks cth_surefire [{path,\"/buildroot/otp/$DIR/make_test_dir/${MATRIX_TYPE}_junit.xml\"}]" \
+            -e CONFIG_FLAGS="--with-gmp" \
             -v "$PWD/make_test_dir:/buildroot/otp/$DIR/make_test_dir" \
             -v "$PWD/scripts:/buildroot/otp/scripts" \
             otp "./otp_build download_gdb_tools && make emulator && make TYPE=${TYPE} && make ${APP}_test TYPE=${TYPE}"
