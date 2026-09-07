@@ -5903,6 +5903,13 @@ native_records(Conf) ->
                     {{2,35},erl_lint,{redefine_field,r2,a}},
                     {{3,30},erl_lint,{redefine_field,r3,a}}],
             []}},
+          {update_redefine_record_field,
+           <<"-record #a{a, b}.
+              update_local(A) -> A#a{a = 1, a = b}.
+              update_ext(B) -> B#ext:b{a = 1, a = b}.">>,
+           [],
+           {errors,[{{2,45},erl_lint,{redefine_field,a,a}},
+                    {{3,47},erl_lint,{redefine_field,{ext,b},a}}],[]}},
           {undefined_field_1,
            <<"-record #r{a=a, c=c}.
                mk() -> #r{a = a, b = b}.
