@@ -2077,6 +2077,15 @@
         ],
         "not_affected": "vulnerable_code_not_present"
       }
+    },
+    {
+      "pkg:github.com/madler/zlib@da607da739fa6047df13e66a2af6b8bec7c2a498": "CVE-2026-85091",
+      "status": {
+        "apps": [
+          "pkg:otp/erts@16.0"
+        ],
+        "not_affected": "vulnerable_code_not_present"
+      }
     }
   ],
   "otp-29": [
@@ -2532,11 +2541,24 @@
         ],
         "not_affected": "vulnerable_code_not_present"
       }
+    },
+    {
+      "pkg:github/madler/zlib@da607da739fa6047df13e66a2af6b8bec7c2a498": "CVE-2026-85091",
+      "status": {
+        "apps": [
+          "pkg:otp/erts@17.0"
+        ],
+        "not_affected": "vulnerable_code_not_present"
+      }
     }
   ],
   "otp-30": [
     {
       "pkg:github/PCRE2Project/pcre2@f454e231fe5006dd7ff8f4693fd2b8eb94333429": "OSV-2026-343",
+      "status": { "not_affected": "vulnerable_code_not_present" }
+    },
+    {
+      "pkg:github/madler/zlib@1a8db63788c34a50e39e273d39b7e1033208aea2": "CVE-2026-85091",
       "status": { "not_affected": "vulnerable_code_not_present" }
     }
   ]

@@ -3,8 +3,8 @@
   "@id": "https://erlang.org/download/vex/otp-30.openvex.json",
   "author": "vexctl",
   "timestamp": "2026-06-17T09:56:01.322434+02:00",
-  "last_updated": "2026-06-17T09:56:07.142831143+02:00",
-  "version": 2,
+  "last_updated": "2026-09-07T13:28:56.842703224+02:00",
+  "version": 3,
   "statements": [
     {
       "vulnerability": {
@@ -14,6 +14,19 @@
       "products": [
         {
           "@id": "pkg:github/PCRE2Project/pcre2@f454e231fe5006dd7ff8f4693fd2b8eb94333429"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-85091"
+      },
+      "timestamp": "2026-09-07T13:28:56.842703783+02:00",
+      "products": [
+        {
+          "@id": "pkg:github/madler/zlib@1a8db63788c34a50e39e273d39b7e1033208aea2"
         }
       ],
       "status": "not_affected",
