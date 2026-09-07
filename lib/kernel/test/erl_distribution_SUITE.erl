@@ -158,13 +158,19 @@ init_per_testcase(TC, Config) when TC == hostnames;
     file:write_file("hostnames_nodedir/ignore_core_files",""),
     Config;
 init_per_testcase(epmd_reconnect, Config) ->
+    SavedEpmdPort = os:getenv("ERL_EPMD_PORT"),
+    true = os:unsetenv("ERL_EPMD_PORT"),
     [] = os:cmd(?ALT_EPMD_CMD++" -relaxed_command_check -daemon"),
-    Config;
+    [{saved_erl_epmd_port, SavedEpmdPort} | Config];
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Config.
 
-end_per_testcase(epmd_reconnect, _Config) ->
+end_per_testcase(epmd_reconnect, Config) ->
     os:cmd(?ALT_EPMD_CMD++" -kill"),
+    case ?config(saved_erl_epmd_port, Config) of
+        false -> ok;
+        SavedEpmdPort -> true = os:putenv("ERL_EPMD_PORT", SavedEpmdPort)
+    end,
     ok;
 end_per_testcase(_Func, _Config) ->
     ok.
