@@ -311,7 +311,8 @@ all() ->
               {options,                "ESOCK_TEST_API_OPTS",     include},
               {operation_with_timeout, "ESOCK_TEST_API_OPWTO",    include}
              ],
-    [use_group(Group, Env, Default) || {Group, Env, Default} <- Groups].
+    [Spec || {Group, Env, Default} <- Groups,
+             Spec <- use_group(Group, Env, Default)].
 
 use_group(_Group, undefined, exclude) ->
     [];

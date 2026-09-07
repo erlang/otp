@@ -228,7 +228,8 @@ all() ->
 	      {socket_close, "ESOCK_TEST_SOCK_CLOSE", include},
 	      {tickets,      "ESOCK_TEST_TICKETS",    include},
 	      {batch_cases,  "ESOCK_TEST_BATCH",      include}],
-    [use_group(Group, Env, Default) || {Group, Env, Default} <- Groups].
+    [Spec || {Group, Env, Default} <- Groups,
+             Spec <- use_group(Group, Env, Default)].
 
 use_group(_Group, undefined, exclude) ->
     [];
