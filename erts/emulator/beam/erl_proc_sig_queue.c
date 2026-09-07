@@ -9555,8 +9555,6 @@ erts_proc_sig_prio_item_added(Process *c_p, ErtsPrioItemType type)
             pq_info = get_prio_queue_info(c_p);
         else
             pq_info = create_prio_q_info(c_p);
-
-        ASSERT(!(c_p->sig_qs.flags & FS_PRIO_MQ_SAVE));
     }
 
     ASSERT(pq_info);
