@@ -854,7 +854,7 @@ untranslatable_names_1(Config) ->
     after
 	catch peer:stop(Peer),
 	file:set_cwd(OldCwd),
-	[file:delete(F) || {_,F} <- untranslatable_names()],
+        [file:delete(filename:join(Dir, F)) || {_,F} <- untranslatable_names()],
 	file:del_dir(Dir)
     end,
     ok.
@@ -890,7 +890,7 @@ untranslatable_names_error_1(Config) ->
     after
 	catch peer:stop(Peer),
 	file:set_cwd(OldCwd),
-	[file:delete(F) || {_,F} <- untranslatable_names()],
+        [file:delete(filename:join(Dir, F)) || {_,F} <- untranslatable_names()],
 	file:del_dir(Dir)
     end,
     ok.
@@ -4045,47 +4045,51 @@ otp_10852_1(Config) ->
     {ok, Peer, Node} = ?CT_PEER(["+fnu"]),
     Dir = proplists:get_value(priv_dir, Config),
     B = filename:join(Dir, <<"\xE4">>),
-    ok = rpc_call(Node, get_cwd, [B]),
-    {error, no_translation} = rpc_call(Node, set_cwd, [B]),
-    ok = rpc_call(Node, delete, [B]),
-    ok = rpc_call(Node, rename, [B, B]),
-    ok = rpc_call(Node, read_file_info, [B]),
-    ok = rpc_call(Node, read_link_info, [B]),
-    ok = rpc_call(Node, read_link, [B]),
-    ok = rpc_call(Node, write_file_info, [B,#file_info{}]),
-    ok = rpc_call(Node, list_dir, [B]),
-    ok = rpc_call(Node, list_dir_all, [B]),
-    ok = rpc_call(Node, read_file, [B]),
-    ok = rpc_call(Node, make_link, [B,B]),
-    case rpc_call(Node, make_symlink, [B,B]) of
-        {error, eilseq} ->
-            %% Some versions of OS X refuse to create files with illegal names.
-            {unix,darwin} = os:type();
-        {error, eperm} ->
-            %% The test user might not have permission to create symlinks.
-            {win32,_} = os:type();
-        ok ->
-            ok
+    try
+        ok = rpc_call(Node, get_cwd, [B]),
+        {error, no_translation} = rpc_call(Node, set_cwd, [B]),
+        ok = rpc_call(Node, delete, [B]),
+        ok = rpc_call(Node, rename, [B, B]),
+        ok = rpc_call(Node, read_file_info, [B]),
+        ok = rpc_call(Node, read_link_info, [B]),
+        ok = rpc_call(Node, read_link, [B]),
+        ok = rpc_call(Node, write_file_info, [B,#file_info{}]),
+        ok = rpc_call(Node, list_dir, [B]),
+        ok = rpc_call(Node, list_dir_all, [B]),
+        ok = rpc_call(Node, read_file, [B]),
+        ok = rpc_call(Node, make_link, [B,B]),
+        case rpc_call(Node, make_symlink, [B,B]) of
+            {error, eilseq} ->
+                %% Some versions of OS X refuse to create files with illegal names.
+                {unix,darwin} = os:type();
+            {error, eperm} ->
+                %% The test user might not have permission to create symlinks.
+                {win32,_} = os:type();
+            ok ->
+                ok
+        end,
+        ok = rpc_call(Node, delete, [B]),
+        case rpc_call(Node, make_dir, [B]) of
+            {error, eilseq} ->
+                {unix,darwin} = os:type();
+            ok ->
+                ok
+        end,
+        ok = rpc_call(Node, del_dir, [B]),
+        case rpc_call(Node, write_file, [B,B]) of
+            {error, eilseq} ->
+                {unix,darwin} = os:type();
+            ok ->
+                {ok, Fd} = rpc_call(Node, open, [B,[read]]),
+                ok = rpc_call(Node, close, [Fd]),
+                {ok,0} = rpc_call(Node, copy, [B,B]),
+                {ok, Fd2, B} = rpc_call(Node, path_open, [["."], B, [read]]),
+                ok = rpc_call(Node, close, [Fd2])
+        end
+    after
+        file:delete(B),
+        peer:stop(Peer)
     end,
-    ok = rpc_call(Node, delete, [B]),
-    case rpc_call(Node, make_dir, [B]) of
-        {error, eilseq} ->
-            {unix,darwin} = os:type();
-        ok ->
-            ok
-    end,
-    ok = rpc_call(Node, del_dir, [B]),
-    case rpc_call(Node, write_file, [B,B]) of
-        {error, eilseq} ->
-            {unix,darwin} = os:type();
-        ok ->
-            {ok, Fd} = rpc_call(Node, open, [B,[read]]),
-            ok = rpc_call(Node, close, [Fd]),
-            {ok,0} = rpc_call(Node, copy, [B,B]),
-            {ok, Fd2, B} = rpc_call(Node, path_open, [["."], B, [read]]),
-            ok = rpc_call(Node, close, [Fd2])
-    end,
-    peer:stop(Peer),
     ok.
 
 rpc_call(N, F, As) ->
