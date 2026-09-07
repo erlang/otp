@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -202,8 +202,8 @@ wxWidgets docs: [wxGrid](https://docs.wxwidgets.org/3.2/classwx_grid.html)
   move/2,move/3,move/4,moveAfterInTabOrder/2,moveBeforeInTabOrder/2,
   navigate/1,navigate/2,pageDown/1,pageUp/1,parent_class/1,popupMenu/2,
   popupMenu/3,popupMenu/4,prepareDC/2,raise/1,refresh/1,refresh/2,refreshRect/2,
-  refreshRect/3,releaseMouse/1,removeChild/2,reparent/2,screenToClient/1,
-  screenToClient/2,scroll/2,scroll/3,scrollLines/2,scrollPages/2,scrollWindow/3,
+  refreshRect/3,releaseMouse/1,removeChild/2,reparent/2,screenToClient/2,
+  screenToClient/3,scroll/2,scroll/3,scrollLines/2,scrollPages/2,scrollWindow/3,
   scrollWindow/4,setAcceleratorTable/2,setAutoLayout/2,setBackgroundColour/2,
   setBackgroundStyle/2,setCaret/2,setClientSize/2,setClientSize/3,setContainingSizer/2,
   setCursor/2,setDoubleBuffered/2,setDropTarget/2,setExtraStyle/2,setFocus/1,
@@ -242,7 +242,7 @@ new() ->
 
 -doc(#{equiv => new(Parent,Id, [])}).
 -spec new(Parent, Id) -> wxGrid() when
-	Parent::wxWindow:wxWindow(), Id::integer().
+        Parent::wxWindow:wxWindow(), Id::integer().
 
 new(Parent,Id)
  when is_record(Parent, wx_ref),is_integer(Id) ->
@@ -272,7 +272,7 @@ new(#wx_ref{type=ParentT}=Parent,Id, Options)
 
 -doc(#{equiv => appendCols(This, [])}).
 -spec appendCols(This) -> boolean() when
-	This::wxGrid().
+        This::wxGrid().
 
 appendCols(This)
  when is_record(This, wx_ref) ->
@@ -303,7 +303,7 @@ appendCols(#wx_ref{type=ThisT}=This, Options)
 
 -doc(#{equiv => appendRows(This, [])}).
 -spec appendRows(This) -> boolean() when
-	This::wxGrid().
+        This::wxGrid().
 
 appendRows(This)
  when is_record(This, wx_ref) ->
@@ -334,14 +334,14 @@ appendRows(#wx_ref{type=ThisT}=This, Options)
 
 -doc "Automatically sets the height and width of all rows and columns to fit their contents.".
 -spec autoSize(This) -> 'ok' when
-	This::wxGrid().
+        This::wxGrid().
 autoSize(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_AutoSize).
 
 -doc(#{equiv => autoSizeColumn(This,Col, [])}).
 -spec autoSizeColumn(This, Col) -> 'ok' when
-	This::wxGrid(), Col::integer().
+        This::wxGrid(), Col::integer().
 
 autoSizeColumn(This,Col)
  when is_record(This, wx_ref),is_integer(Col) ->
@@ -366,7 +366,7 @@ autoSizeColumn(#wx_ref{type=ThisT}=This,Col, Options)
 
 -doc(#{equiv => autoSizeColumns(This, [])}).
 -spec autoSizeColumns(This) -> 'ok' when
-	This::wxGrid().
+        This::wxGrid().
 
 autoSizeColumns(This)
  when is_record(This, wx_ref) ->
@@ -391,7 +391,7 @@ autoSizeColumns(#wx_ref{type=ThisT}=This, Options)
 
 -doc(#{equiv => autoSizeRow(This,Row, [])}).
 -spec autoSizeRow(This, Row) -> 'ok' when
-	This::wxGrid(), Row::integer().
+        This::wxGrid(), Row::integer().
 
 autoSizeRow(This,Row)
  when is_record(This, wx_ref),is_integer(Row) ->
@@ -416,7 +416,7 @@ autoSizeRow(#wx_ref{type=ThisT}=This,Row, Options)
 
 -doc(#{equiv => autoSizeRows(This, [])}).
 -spec autoSizeRows(This) -> 'ok' when
-	This::wxGrid().
+        This::wxGrid().
 
 autoSizeRows(This)
  when is_record(This, wx_ref) ->
@@ -452,7 +452,7 @@ that there is always a matching `endBatch/1` call for this `beginBatch/1` if pos
 directly.
 """.
 -spec beginBatch(This) -> 'ok' when
-	This::wxGrid().
+        This::wxGrid().
 beginBatch(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_BeginBatch).
@@ -468,7 +468,7 @@ Since: 3.1.3 Parameter `gridWindow` has been added.
 See: `cellToRect/3`
 """.
 -spec blockToDeviceRect(This, TopLeft, BottomRight) -> {X::integer(), Y::integer(), W::integer(), H::integer()} when
-	This::wxGrid(), TopLeft::{R::integer(), C::integer()}, BottomRight::{R::integer(), C::integer()}.
+        This::wxGrid(), TopLeft::{R::integer(), C::integer()}, BottomRight::{R::integer(), C::integer()}.
 blockToDeviceRect(#wx_ref{type=ThisT}=This,{TopLeftR,TopLeftC} = TopLeft,{BottomRightR,BottomRightC} = BottomRight)
  when is_integer(TopLeftR),is_integer(TopLeftC),is_integer(BottomRightR),is_integer(BottomRightC) ->
   ?CLASS(ThisT,wxGrid),
@@ -477,7 +477,7 @@ blockToDeviceRect(#wx_ref{type=ThisT}=This,{TopLeftR,TopLeftC} = TopLeft,{Bottom
 
 -doc "Return true if the dragging of cells is enabled or false otherwise.".
 -spec canDragCell(This) -> boolean() when
-	This::wxGrid().
+        This::wxGrid().
 canDragCell(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_CanDragCell),
@@ -489,7 +489,7 @@ Returns true if columns can be moved by dragging with the mouse.
 Columns can be moved by dragging on their labels.
 """.
 -spec canDragColMove(This) -> boolean() when
-	This::wxGrid().
+        This::wxGrid().
 canDragColMove(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_CanDragColMove),
@@ -506,7 +506,7 @@ See:
 Since: 3.1.4
 """.
 -spec canDragGridRowEdges(This) -> boolean() when
-	This::wxGrid().
+        This::wxGrid().
 canDragGridRowEdges(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_CanDragGridRowEdges),
@@ -520,7 +520,7 @@ i.e. if `disableDragColSize/1` hadn't been called, and if this column wasn't exp
 with `DisableColResize()` (not implemented in wx).
 """.
 -spec canDragColSize(This, Col) -> boolean() when
-	This::wxGrid(), Col::integer().
+        This::wxGrid(), Col::integer().
 canDragColSize(#wx_ref{type=ThisT}=This,Col)
  when is_integer(Col) ->
   ?CLASS(ThisT,wxGrid),
@@ -533,7 +533,7 @@ Returns true if the given row can be resized by dragging with the mouse.
 This is the same as `canDragColSize/2` but for rows.
 """.
 -spec canDragRowSize(This, Row) -> boolean() when
-	This::wxGrid(), Row::integer().
+        This::wxGrid(), Row::integer().
 canDragRowSize(#wx_ref{type=ThisT}=This,Row)
  when is_integer(Row) ->
   ?CLASS(ThisT,wxGrid),
@@ -545,7 +545,7 @@ Return true if the dragging of grid lines to resize rows and columns is enabled 
 otherwise.
 """.
 -spec canDragGridSize(This) -> boolean() when
-	This::wxGrid().
+        This::wxGrid().
 canDragGridSize(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_CanDragGridSize),
@@ -558,7 +558,7 @@ otherwise.
 This function always returns false for the read-only cells.
 """.
 -spec canEnableCellControl(This) -> boolean() when
-	This::wxGrid().
+        This::wxGrid().
 canEnableCellControl(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_CanEnableCellControl),
@@ -571,7 +571,7 @@ coordinates.
 See: `blockToDeviceRect/3`
 """.
 -spec cellToRect(This, Coords) -> {X::integer(), Y::integer(), W::integer(), H::integer()} when
-	This::wxGrid(), Coords::{R::integer(), C::integer()}.
+        This::wxGrid(), Coords::{R::integer(), C::integer()}.
 cellToRect(#wx_ref{type=ThisT}=This,{CoordsR,CoordsC} = Coords)
  when is_integer(CoordsR),is_integer(CoordsC) ->
   ?CLASS(ThisT,wxGrid),
@@ -585,7 +585,7 @@ coordinates.
 See: `blockToDeviceRect/3`
 """.
 -spec cellToRect(This, Row, Col) -> {X::integer(), Y::integer(), W::integer(), H::integer()} when
-	This::wxGrid(), Row::integer(), Col::integer().
+        This::wxGrid(), Row::integer(), Col::integer().
 cellToRect(#wx_ref{type=ThisT}=This,Row,Col)
  when is_integer(Row),is_integer(Col) ->
   ?CLASS(ThisT,wxGrid),
@@ -600,21 +600,21 @@ you need to override `wxGridTableBase::Clear()` (not implemented in wx) for this
 to have any effect.
 """.
 -spec clearGrid(This) -> 'ok' when
-	This::wxGrid().
+        This::wxGrid().
 clearGrid(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_ClearGrid).
 
 -doc "Deselects all cells that are currently selected.".
 -spec clearSelection(This) -> 'ok' when
-	This::wxGrid().
+        This::wxGrid().
 clearSelection(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_ClearSelection).
 
 -doc(#{equiv => createGrid(This,NumRows,NumCols, [])}).
 -spec createGrid(This, NumRows, NumCols) -> boolean() when
-	This::wxGrid(), NumRows::integer(), NumCols::integer().
+        This::wxGrid(), NumRows::integer(), NumCols::integer().
 
 createGrid(This,NumRows,NumCols)
  when is_record(This, wx_ref),is_integer(NumRows),is_integer(NumCols) ->
@@ -646,7 +646,7 @@ createGrid(#wx_ref{type=ThisT}=This,NumRows,NumCols, Options)
 
 -doc(#{equiv => deleteCols(This, [])}).
 -spec deleteCols(This) -> boolean() when
-	This::wxGrid().
+        This::wxGrid().
 
 deleteCols(This)
  when is_record(This, wx_ref) ->
@@ -679,7 +679,7 @@ deleteCols(#wx_ref{type=ThisT}=This, Options)
 
 -doc(#{equiv => deleteRows(This, [])}).
 -spec deleteRows(This) -> boolean() when
-	This::wxGrid().
+        This::wxGrid().
 
 deleteRows(This)
  when is_record(This, wx_ref) ->
@@ -716,7 +716,7 @@ Disables in-place editing of grid cells.
 Equivalent to calling EnableCellEditControl(false).
 """.
 -spec disableCellEditControl(This) -> 'ok' when
-	This::wxGrid().
+        This::wxGrid().
 disableCellEditControl(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_DisableCellEditControl).
@@ -727,7 +727,7 @@ Disables column sizing by dragging with the mouse.
 Equivalent to passing false to `enableDragColSize/2`.
 """.
 -spec disableDragColSize(This) -> 'ok' when
-	This::wxGrid().
+        This::wxGrid().
 disableDragColSize(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_DisableDragColSize).
@@ -738,7 +738,7 @@ Disable mouse dragging of grid lines to resize rows and columns.
 Equivalent to passing false to `enableDragGridSize/2`
 """.
 -spec disableDragGridSize(This) -> 'ok' when
-	This::wxGrid().
+        This::wxGrid().
 disableDragGridSize(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_DisableDragGridSize).
@@ -749,14 +749,14 @@ Disables row sizing by dragging with the mouse.
 Equivalent to passing false to `enableDragRowSize/2`.
 """.
 -spec disableDragRowSize(This) -> 'ok' when
-	This::wxGrid().
+        This::wxGrid().
 disableDragRowSize(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_DisableDragRowSize).
 
 -doc(#{equiv => enableCellEditControl(This, [])}).
 -spec enableCellEditControl(This) -> 'ok' when
-	This::wxGrid().
+        This::wxGrid().
 
 enableCellEditControl(This)
  when is_record(This, wx_ref) ->
@@ -788,7 +788,7 @@ enableCellEditControl(#wx_ref{type=ThisT}=This, Options)
 
 -doc(#{equiv => enableDragColSize(This, [])}).
 -spec enableDragColSize(This) -> 'ok' when
-	This::wxGrid().
+        This::wxGrid().
 
 enableDragColSize(This)
  when is_record(This, wx_ref) ->
@@ -808,7 +808,7 @@ enableDragColSize(#wx_ref{type=ThisT}=This, Options)
 
 -doc(#{equiv => enableDragGridSize(This, [])}).
 -spec enableDragGridSize(This) -> 'ok' when
-	This::wxGrid().
+        This::wxGrid().
 
 enableDragGridSize(This)
  when is_record(This, wx_ref) ->
@@ -828,7 +828,7 @@ enableDragGridSize(#wx_ref{type=ThisT}=This, Options)
 
 -doc(#{equiv => enableDragRowSize(This, [])}).
 -spec enableDragRowSize(This) -> 'ok' when
-	This::wxGrid().
+        This::wxGrid().
 
 enableDragRowSize(This)
  when is_record(This, wx_ref) ->
@@ -858,7 +858,7 @@ For more information about controlling grid cell attributes see the `m:wxGridCel
 class and the overview_grid.
 """.
 -spec enableEditing(This, Edit) -> 'ok' when
-	This::wxGrid(), Edit::boolean().
+        This::wxGrid(), Edit::boolean().
 enableEditing(#wx_ref{type=ThisT}=This,Edit)
  when is_boolean(Edit) ->
   ?CLASS(ThisT,wxGrid),
@@ -866,7 +866,7 @@ enableEditing(#wx_ref{type=ThisT}=This,Edit)
 
 -doc(#{equiv => enableGridLines(This, [])}).
 -spec enableGridLines(This) -> 'ok' when
-	This::wxGrid().
+        This::wxGrid().
 
 enableGridLines(This)
  when is_record(This, wx_ref) ->
@@ -893,14 +893,14 @@ can be enclosed between `beginBatch/1` and `endBatch/1` calls to avoid screen fl
 grid to be repainted.
 """.
 -spec endBatch(This) -> 'ok' when
-	This::wxGrid().
+        This::wxGrid().
 endBatch(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_EndBatch).
 
 -doc "Overridden `m:wxWindow` method.".
 -spec fit(This) -> 'ok' when
-	This::wxGrid().
+        This::wxGrid().
 fit(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_Fit).
@@ -911,7 +911,7 @@ Causes immediate repainting of the grid.
 Use this instead of the usual `wxWindow:refresh/2`.
 """.
 -spec forceRefresh(This) -> 'ok' when
-	This::wxGrid().
+        This::wxGrid().
 forceRefresh(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_ForceRefresh).
@@ -923,7 +923,7 @@ calls to `endBatch/1`.
 While the grid's batch count is greater than zero the display will not be updated.
 """.
 -spec getBatchCount(This) -> integer() when
-	This::wxGrid().
+        This::wxGrid().
 getBatchCount(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_GetBatchCount),
@@ -938,7 +938,7 @@ Horizontal alignment will be one of `wxALIGN_LEFT`, `wxALIGN_CENTRE` or `wxALIGN
 Vertical alignment will be one of `wxALIGN_TOP`, `wxALIGN_CENTRE` or `wxALIGN_BOTTOM`.
 """.
 -spec getCellAlignment(This, Row, Col) -> {Horiz::integer(), Vert::integer()} when
-	This::wxGrid(), Row::integer(), Col::integer().
+        This::wxGrid(), Row::integer(), Col::integer().
 getCellAlignment(#wx_ref{type=ThisT}=This,Row,Col)
  when is_integer(Row),is_integer(Col) ->
   ?CLASS(ThisT,wxGrid),
@@ -947,7 +947,7 @@ getCellAlignment(#wx_ref{type=ThisT}=This,Row,Col)
 
 -doc "Returns the background colour of the cell at the specified location.".
 -spec getCellBackgroundColour(This, Row, Col) -> wx:wx_colour4() when
-	This::wxGrid(), Row::integer(), Col::integer().
+        This::wxGrid(), Row::integer(), Col::integer().
 getCellBackgroundColour(#wx_ref{type=ThisT}=This,Row,Col)
  when is_integer(Row),is_integer(Col) ->
   ?CLASS(ThisT,wxGrid),
@@ -963,7 +963,7 @@ and renderers.
 The caller must call DecRef() on the returned pointer.
 """.
 -spec getCellEditor(This, Row, Col) -> wxGridCellEditor:wxGridCellEditor() when
-	This::wxGrid(), Row::integer(), Col::integer().
+        This::wxGrid(), Row::integer(), Col::integer().
 getCellEditor(#wx_ref{type=ThisT}=This,Row,Col)
  when is_integer(Row),is_integer(Col) ->
   ?CLASS(ThisT,wxGrid),
@@ -972,7 +972,7 @@ getCellEditor(#wx_ref{type=ThisT}=This,Row,Col)
 
 -doc "Returns the font for text in the grid cell at the specified location.".
 -spec getCellFont(This, Row, Col) -> wxFont:wxFont() when
-	This::wxGrid(), Row::integer(), Col::integer().
+        This::wxGrid(), Row::integer(), Col::integer().
 getCellFont(#wx_ref{type=ThisT}=This,Row,Col)
  when is_integer(Row),is_integer(Col) ->
   ?CLASS(ThisT,wxGrid),
@@ -988,7 +988,7 @@ and renderers.
 The caller must call DecRef() on the returned pointer.
 """.
 -spec getCellRenderer(This, Row, Col) -> wxGridCellRenderer:wxGridCellRenderer() when
-	This::wxGrid(), Row::integer(), Col::integer().
+        This::wxGrid(), Row::integer(), Col::integer().
 getCellRenderer(#wx_ref{type=ThisT}=This,Row,Col)
  when is_integer(Row),is_integer(Col) ->
   ?CLASS(ThisT,wxGrid),
@@ -997,7 +997,7 @@ getCellRenderer(#wx_ref{type=ThisT}=This,Row,Col)
 
 -doc "Returns the text colour for the grid cell at the specified location.".
 -spec getCellTextColour(This, Row, Col) -> wx:wx_colour4() when
-	This::wxGrid(), Row::integer(), Col::integer().
+        This::wxGrid(), Row::integer(), Col::integer().
 getCellTextColour(#wx_ref{type=ThisT}=This,Row,Col)
  when is_integer(Row),is_integer(Col) ->
   ?CLASS(ThisT,wxGrid),
@@ -1017,7 +1017,7 @@ See `wxGridTableBase::CanGetValueAs()` (not implemented in wx) and the overview_
 more information.
 """.
 -spec getCellValue(This, Coords) -> unicode:charlist() when
-	This::wxGrid(), Coords::{R::integer(), C::integer()}.
+        This::wxGrid(), Coords::{R::integer(), C::integer()}.
 getCellValue(#wx_ref{type=ThisT}=This,{CoordsR,CoordsC} = Coords)
  when is_integer(CoordsR),is_integer(CoordsC) ->
   ?CLASS(ThisT,wxGrid),
@@ -1037,7 +1037,7 @@ See `wxGridTableBase::CanGetValueAs()` (not implemented in wx) and the overview_
 more information.
 """.
 -spec getCellValue(This, Row, Col) -> unicode:charlist() when
-	This::wxGrid(), Row::integer(), Col::integer().
+        This::wxGrid(), Row::integer(), Col::integer().
 getCellValue(#wx_ref{type=ThisT}=This,Row,Col)
  when is_integer(Row),is_integer(Col) ->
   ?CLASS(ThisT,wxGrid),
@@ -1052,7 +1052,7 @@ Horizontal alignment will be one of `wxALIGN_LEFT`, `wxALIGN_CENTRE` or `wxALIGN
 Vertical alignment will be one of `wxALIGN_TOP`, `wxALIGN_CENTRE` or `wxALIGN_BOTTOM`.
 """.
 -spec getColLabelAlignment(This) -> {Horiz::integer(), Vert::integer()} when
-	This::wxGrid().
+        This::wxGrid().
 getColLabelAlignment(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_GetColLabelAlignment),
@@ -1060,7 +1060,7 @@ getColLabelAlignment(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the current height of the column labels.".
 -spec getColLabelSize(This) -> integer() when
-	This::wxGrid().
+        This::wxGrid().
 getColLabelSize(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_GetColLabelSize),
@@ -1074,7 +1074,7 @@ If you are using a custom grid table you can override `wxGridTableBase::GetColLa
 (not implemented in wx) to provide your own labels.
 """.
 -spec getColLabelValue(This, Col) -> unicode:charlist() when
-	This::wxGrid(), Col::integer().
+        This::wxGrid(), Col::integer().
 getColLabelValue(#wx_ref{type=ThisT}=This,Col)
  when is_integer(Col) ->
   ?CLASS(ThisT,wxGrid),
@@ -1089,7 +1089,7 @@ Use `setColMinimalAcceptableWidth/2` to change this value globally or `setColMin
 See: `getRowMinimalAcceptableHeight/1`
 """.
 -spec getColMinimalAcceptableWidth(This) -> integer() when
-	This::wxGrid().
+        This::wxGrid().
 getColMinimalAcceptableWidth(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_GetColMinimalAcceptableWidth),
@@ -1105,7 +1105,7 @@ Vertical alignment will be one of `wxALIGN_TOP`, `wxALIGN_CENTRE` or `wxALIGN_BO
 See: `setDefaultCellAlignment/3`
 """.
 -spec getDefaultCellAlignment(This) -> {Horiz::integer(), Vert::integer()} when
-	This::wxGrid().
+        This::wxGrid().
 getDefaultCellAlignment(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_GetDefaultCellAlignment),
@@ -1113,7 +1113,7 @@ getDefaultCellAlignment(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the current default background colour for grid cells.".
 -spec getDefaultCellBackgroundColour(This) -> wx:wx_colour4() when
-	This::wxGrid().
+        This::wxGrid().
 getDefaultCellBackgroundColour(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_GetDefaultCellBackgroundColour),
@@ -1121,7 +1121,7 @@ getDefaultCellBackgroundColour(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the current default font for grid cell text.".
 -spec getDefaultCellFont(This) -> wxFont:wxFont() when
-	This::wxGrid().
+        This::wxGrid().
 getDefaultCellFont(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_GetDefaultCellFont),
@@ -1129,7 +1129,7 @@ getDefaultCellFont(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the current default colour for grid cell text.".
 -spec getDefaultCellTextColour(This) -> wx:wx_colour4() when
-	This::wxGrid().
+        This::wxGrid().
 getDefaultCellTextColour(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_GetDefaultCellTextColour),
@@ -1137,7 +1137,7 @@ getDefaultCellTextColour(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the default height for column labels.".
 -spec getDefaultColLabelSize(This) -> integer() when
-	This::wxGrid().
+        This::wxGrid().
 getDefaultColLabelSize(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_GetDefaultColLabelSize),
@@ -1145,7 +1145,7 @@ getDefaultColLabelSize(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the current default width for grid columns.".
 -spec getDefaultColSize(This) -> integer() when
-	This::wxGrid().
+        This::wxGrid().
 getDefaultColSize(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_GetDefaultColSize),
@@ -1158,7 +1158,7 @@ See `m:wxGridCellEditor` and the overview_grid for more information about cell e
 and renderers.
 """.
 -spec getDefaultEditor(This) -> wxGridCellEditor:wxGridCellEditor() when
-	This::wxGrid().
+        This::wxGrid().
 getDefaultEditor(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_GetDefaultEditor),
@@ -1176,7 +1176,7 @@ editor with the given cell or cells.
 The caller must call DecRef() on the returned pointer.
 """.
 -spec getDefaultEditorForCell(This, C) -> wxGridCellEditor:wxGridCellEditor() when
-	This::wxGrid(), C::{R::integer(), C::integer()}.
+        This::wxGrid(), C::{R::integer(), C::integer()}.
 getDefaultEditorForCell(#wx_ref{type=ThisT}=This,{CR,CC} = C)
  when is_integer(CR),is_integer(CC) ->
   ?CLASS(ThisT,wxGrid),
@@ -1195,7 +1195,7 @@ editor with the given cell or cells.
 The caller must call DecRef() on the returned pointer.
 """.
 -spec getDefaultEditorForCell(This, Row, Col) -> wxGridCellEditor:wxGridCellEditor() when
-	This::wxGrid(), Row::integer(), Col::integer().
+        This::wxGrid(), Row::integer(), Col::integer().
 getDefaultEditorForCell(#wx_ref{type=ThisT}=This,Row,Col)
  when is_integer(Row),is_integer(Col) ->
   ?CLASS(ThisT,wxGrid),
@@ -1212,7 +1212,7 @@ different. This allows overriding an editor used for one of the standard types.
 The caller must call DecRef() on the returned pointer.
 """.
 -spec getDefaultEditorForType(This, TypeName) -> wxGridCellEditor:wxGridCellEditor() when
-	This::wxGrid(), TypeName::unicode:chardata().
+        This::wxGrid(), TypeName::unicode:chardata().
 getDefaultEditorForType(#wx_ref{type=ThisT}=This,TypeName)
  when ?is_chardata(TypeName) ->
   ?CLASS(ThisT,wxGrid),
@@ -1229,7 +1229,7 @@ and renderers.
 The caller must call DecRef() on the returned pointer.
 """.
 -spec getDefaultRenderer(This) -> wxGridCellRenderer:wxGridCellRenderer() when
-	This::wxGrid().
+        This::wxGrid().
 getDefaultRenderer(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_GetDefaultRenderer),
@@ -1245,7 +1245,7 @@ cells by default.
 The caller must call DecRef() on the returned pointer.
 """.
 -spec getDefaultRendererForCell(This, Row, Col) -> wxGridCellRenderer:wxGridCellRenderer() when
-	This::wxGrid(), Row::integer(), Col::integer().
+        This::wxGrid(), Row::integer(), Col::integer().
 getDefaultRendererForCell(#wx_ref{type=ThisT}=This,Row,Col)
  when is_integer(Row),is_integer(Col) ->
   ?CLASS(ThisT,wxGrid),
@@ -1258,7 +1258,7 @@ Returns the default renderer for the cell containing values of the given type.
 See: `getDefaultEditorForType/2`
 """.
 -spec getDefaultRendererForType(This, TypeName) -> wxGridCellRenderer:wxGridCellRenderer() when
-	This::wxGrid(), TypeName::unicode:chardata().
+        This::wxGrid(), TypeName::unicode:chardata().
 getDefaultRendererForType(#wx_ref{type=ThisT}=This,TypeName)
  when ?is_chardata(TypeName) ->
   ?CLASS(ThisT,wxGrid),
@@ -1268,7 +1268,7 @@ getDefaultRendererForType(#wx_ref{type=ThisT}=This,TypeName)
 
 -doc "Returns the default width for the row labels.".
 -spec getDefaultRowLabelSize(This) -> integer() when
-	This::wxGrid().
+        This::wxGrid().
 getDefaultRowLabelSize(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_GetDefaultRowLabelSize),
@@ -1276,7 +1276,7 @@ getDefaultRowLabelSize(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the current default height for grid rows.".
 -spec getDefaultRowSize(This) -> integer() when
-	This::wxGrid().
+        This::wxGrid().
 getDefaultRowSize(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_GetDefaultRowSize),
@@ -1284,7 +1284,7 @@ getDefaultRowSize(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the current grid cell column position.".
 -spec getGridCursorCol(This) -> integer() when
-	This::wxGrid().
+        This::wxGrid().
 getGridCursorCol(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_GetGridCursorCol),
@@ -1292,7 +1292,7 @@ getGridCursorCol(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the current grid cell row position.".
 -spec getGridCursorRow(This) -> integer() when
-	This::wxGrid().
+        This::wxGrid().
 getGridCursorRow(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_GetGridCursorRow),
@@ -1300,7 +1300,7 @@ getGridCursorRow(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the colour used for grid lines.".
 -spec getGridLineColour(This) -> wx:wx_colour4() when
-	This::wxGrid().
+        This::wxGrid().
 getGridLineColour(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_GetGridLineColour),
@@ -1308,7 +1308,7 @@ getGridLineColour(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns true if drawing of grid lines is turned on, false otherwise.".
 -spec gridLinesEnabled(This) -> boolean() when
-	This::wxGrid().
+        This::wxGrid().
 gridLinesEnabled(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_GridLinesEnabled),
@@ -1316,7 +1316,7 @@ gridLinesEnabled(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the colour used for the background of row and column labels.".
 -spec getLabelBackgroundColour(This) -> wx:wx_colour4() when
-	This::wxGrid().
+        This::wxGrid().
 getLabelBackgroundColour(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_GetLabelBackgroundColour),
@@ -1324,7 +1324,7 @@ getLabelBackgroundColour(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the font used for row and column labels.".
 -spec getLabelFont(This) -> wxFont:wxFont() when
-	This::wxGrid().
+        This::wxGrid().
 getLabelFont(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_GetLabelFont),
@@ -1332,7 +1332,7 @@ getLabelFont(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the colour used for row and column label text.".
 -spec getLabelTextColour(This) -> wx:wx_colour4() when
-	This::wxGrid().
+        This::wxGrid().
 getLabelTextColour(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_GetLabelTextColour),
@@ -1344,7 +1344,7 @@ Returns the total number of grid columns.
 This is the same as the number of columns in the underlying grid table.
 """.
 -spec getNumberCols(This) -> integer() when
-	This::wxGrid().
+        This::wxGrid().
 getNumberCols(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_GetNumberCols),
@@ -1356,7 +1356,7 @@ Returns the total number of grid rows.
 This is the same as the number of rows in the underlying grid table.
 """.
 -spec getNumberRows(This) -> integer() when
-	This::wxGrid().
+        This::wxGrid().
 getNumberRows(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_GetNumberRows),
@@ -1376,7 +1376,7 @@ This function may only be called if `CanHaveAttributes()` (not implemented in wx
 true.
 """.
 -spec getOrCreateCellAttr(This, Row, Col) -> wxGridCellAttr:wxGridCellAttr() when
-	This::wxGrid(), Row::integer(), Col::integer().
+        This::wxGrid(), Row::integer(), Col::integer().
 getOrCreateCellAttr(#wx_ref{type=ThisT}=This,Row,Col)
  when is_integer(Row),is_integer(Col) ->
   ?CLASS(ThisT,wxGrid),
@@ -1391,7 +1391,7 @@ Use `setRowMinimalAcceptableHeight/2` to change this value globally or `setRowMi
 See: `getColMinimalAcceptableWidth/1`
 """.
 -spec getRowMinimalAcceptableHeight(This) -> integer() when
-	This::wxGrid().
+        This::wxGrid().
 getRowMinimalAcceptableHeight(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_GetRowMinimalAcceptableHeight),
@@ -1405,7 +1405,7 @@ Horizontal alignment will be one of `wxALIGN_LEFT`, `wxALIGN_CENTRE` or `wxALIGN
 Vertical alignment will be one of `wxALIGN_TOP`, `wxALIGN_CENTRE` or `wxALIGN_BOTTOM`.
 """.
 -spec getRowLabelAlignment(This) -> {Horiz::integer(), Vert::integer()} when
-	This::wxGrid().
+        This::wxGrid().
 getRowLabelAlignment(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_GetRowLabelAlignment),
@@ -1413,7 +1413,7 @@ getRowLabelAlignment(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the current width of the row labels.".
 -spec getRowLabelSize(This) -> integer() when
-	This::wxGrid().
+        This::wxGrid().
 getRowLabelSize(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_GetRowLabelSize),
@@ -1427,7 +1427,7 @@ table you can override `wxGridTableBase::GetRowLabelValue()` (not implemented in
 provide your own labels.
 """.
 -spec getRowLabelValue(This, Row) -> unicode:charlist() when
-	This::wxGrid(), Row::integer().
+        This::wxGrid(), Row::integer().
 getRowLabelValue(#wx_ref{type=ThisT}=This,Row)
  when is_integer(Row) ->
   ?CLASS(ThisT,wxGrid),
@@ -1436,7 +1436,7 @@ getRowLabelValue(#wx_ref{type=ThisT}=This,Row)
 
 -doc "Returns the height of the specified row.".
 -spec getRowSize(This, Row) -> integer() when
-	This::wxGrid(), Row::integer().
+        This::wxGrid(), Row::integer().
 getRowSize(#wx_ref{type=ThisT}=This,Row)
  when is_integer(Row) ->
   ?CLASS(ThisT,wxGrid),
@@ -1456,7 +1456,7 @@ See:
 * `setScrollLineY/2`
 """.
 -spec getScrollLineX(This) -> integer() when
-	This::wxGrid().
+        This::wxGrid().
 getScrollLineX(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_GetScrollLineX),
@@ -1475,7 +1475,7 @@ See:
 * `setScrollLineY/2`
 """.
 -spec getScrollLineY(This) -> integer() when
-	This::wxGrid().
+        This::wxGrid().
 getScrollLineY(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_GetScrollLineY),
@@ -1497,7 +1497,7 @@ The function can be slow for the big grids, use `GetSelectedBlocks()` (not imple
 wx) in the new code.
 """.
 -spec getSelectedCells(This) -> [{R::integer(), C::integer()}] when
-	This::wxGrid().
+        This::wxGrid().
 getSelectedCells(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_GetSelectedCells),
@@ -1515,7 +1515,7 @@ The function can be slow for the big grids, use `GetSelectedBlocks()` (not imple
 wx) in the new code.
 """.
 -spec getSelectedCols(This) -> [integer()] when
-	This::wxGrid().
+        This::wxGrid().
 getSelectedCols(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_GetSelectedCols),
@@ -1533,7 +1533,7 @@ The function can be slow for the big grids, use `GetSelectedBlocks()` (not imple
 wx) in the new code.
 """.
 -spec getSelectedRows(This) -> [integer()] when
-	This::wxGrid().
+        This::wxGrid().
 getSelectedRows(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_GetSelectedRows),
@@ -1541,7 +1541,7 @@ getSelectedRows(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the colour used for drawing the selection background.".
 -spec getSelectionBackground(This) -> wx:wx_colour4() when
-	This::wxGrid().
+        This::wxGrid().
 getSelectionBackground(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_GetSelectionBackground),
@@ -1558,7 +1558,7 @@ wx) in the new code.
 See: `getSelectionBlockBottomRight/1`
 """.
 -spec getSelectionBlockTopLeft(This) -> [{R::integer(), C::integer()}] when
-	This::wxGrid().
+        This::wxGrid().
 getSelectionBlockTopLeft(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_GetSelectionBlockTopLeft),
@@ -1575,7 +1575,7 @@ wx) in the new code.
 See: `getSelectionBlockTopLeft/1`
 """.
 -spec getSelectionBlockBottomRight(This) -> [{R::integer(), C::integer()}] when
-	This::wxGrid().
+        This::wxGrid().
 getSelectionBlockBottomRight(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_GetSelectionBlockBottomRight),
@@ -1583,7 +1583,7 @@ getSelectionBlockBottomRight(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the colour used for drawing the selection foreground.".
 -spec getSelectionForeground(This) -> wx:wx_colour4() when
-	This::wxGrid().
+        This::wxGrid().
 getSelectionForeground(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_GetSelectionForeground),
@@ -1595,7 +1595,7 @@ Return the main grid window containing the grid cells.
 This window is always shown.
 """.
 -spec getGridWindow(This) -> wxWindow:wxWindow() when
-	This::wxGrid().
+        This::wxGrid().
 getGridWindow(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_GetGridWindow),
@@ -1608,7 +1608,7 @@ This window is not shown if the row labels were hidden using `HideRowLabels()` (
 implemented in wx).
 """.
 -spec getGridRowLabelWindow(This) -> wxWindow:wxWindow() when
-	This::wxGrid().
+        This::wxGrid().
 getGridRowLabelWindow(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_GetGridRowLabelWindow),
@@ -1627,7 +1627,7 @@ use `GetGridColHeader()` (not implemented in wx) to access it if you need
 wxHeaderCtrl-specific functionality.
 """.
 -spec getGridColLabelWindow(This) -> wxWindow:wxWindow() when
-	This::wxGrid().
+        This::wxGrid().
 getGridColLabelWindow(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_GetGridColLabelWindow),
@@ -1641,7 +1641,7 @@ contain anything. Clicking on it is handled by `m:wxGrid` however and can be use
 select the entire grid.
 """.
 -spec getGridCornerLabelWindow(This) -> wxWindow:wxWindow() when
-	This::wxGrid().
+        This::wxGrid().
 getGridCornerLabelWindow(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_GetGridCornerLabelWindow),
@@ -1649,14 +1649,14 @@ getGridCornerLabelWindow(#wx_ref{type=ThisT}=This) ->
 
 -doc "Hides the in-place cell edit control.".
 -spec hideCellEditControl(This) -> 'ok' when
-	This::wxGrid().
+        This::wxGrid().
 hideCellEditControl(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_HideCellEditControl).
 
 -doc(#{equiv => insertCols(This, [])}).
 -spec insertCols(This) -> boolean() when
-	This::wxGrid().
+        This::wxGrid().
 
 insertCols(This)
  when is_record(This, wx_ref) ->
@@ -1695,7 +1695,7 @@ insertCols(#wx_ref{type=ThisT}=This, Options)
 
 -doc(#{equiv => insertRows(This, [])}).
 -spec insertRows(This) -> boolean() when
-	This::wxGrid().
+        This::wxGrid().
 
 insertRows(This)
  when is_record(This, wx_ref) ->
@@ -1729,7 +1729,7 @@ insertRows(#wx_ref{type=ThisT}=This, Options)
 
 -doc "Returns true if the in-place edit control is currently enabled.".
 -spec isCellEditControlEnabled(This) -> boolean() when
-	This::wxGrid().
+        This::wxGrid().
 isCellEditControlEnabled(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_IsCellEditControlEnabled),
@@ -1744,7 +1744,7 @@ See:
 * `isReadOnly/3`
 """.
 -spec isCurrentCellReadOnly(This) -> boolean() when
-	This::wxGrid().
+        This::wxGrid().
 isCurrentCellReadOnly(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_IsCurrentCellReadOnly),
@@ -1756,7 +1756,7 @@ Returns false if the whole grid has been set as read-only or true otherwise.
 See `enableEditing/2` for more information about controlling the editing status of grid cells.
 """.
 -spec isEditable(This) -> boolean() when
-	This::wxGrid().
+        This::wxGrid().
 isEditable(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_IsEditable),
@@ -1764,7 +1764,7 @@ isEditable(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns true if the given cell is selected.".
 -spec isInSelection(This, Coords) -> boolean() when
-	This::wxGrid(), Coords::{R::integer(), C::integer()}.
+        This::wxGrid(), Coords::{R::integer(), C::integer()}.
 isInSelection(#wx_ref{type=ThisT}=This,{CoordsR,CoordsC} = Coords)
  when is_integer(CoordsR),is_integer(CoordsC) ->
   ?CLASS(ThisT,wxGrid),
@@ -1773,7 +1773,7 @@ isInSelection(#wx_ref{type=ThisT}=This,{CoordsR,CoordsC} = Coords)
 
 -doc "Returns true if the given cell is selected.".
 -spec isInSelection(This, Row, Col) -> boolean() when
-	This::wxGrid(), Row::integer(), Col::integer().
+        This::wxGrid(), Row::integer(), Col::integer().
 isInSelection(#wx_ref{type=ThisT}=This,Row,Col)
  when is_integer(Row),is_integer(Col) ->
   ?CLASS(ThisT,wxGrid),
@@ -1789,7 +1789,7 @@ See:
 * `isCurrentCellReadOnly/1`
 """.
 -spec isReadOnly(This, Row, Col) -> boolean() when
-	This::wxGrid(), Row::integer(), Col::integer().
+        This::wxGrid(), Row::integer(), Col::integer().
 isReadOnly(#wx_ref{type=ThisT}=This,Row,Col)
  when is_integer(Row),is_integer(Col) ->
   ?CLASS(ThisT,wxGrid),
@@ -1798,7 +1798,7 @@ isReadOnly(#wx_ref{type=ThisT}=This,Row,Col)
 
 -doc "Returns true if there are currently any selected cells, rows, columns or blocks.".
 -spec isSelection(This) -> boolean() when
-	This::wxGrid().
+        This::wxGrid().
 isSelection(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_IsSelection),
@@ -1806,7 +1806,7 @@ isSelection(#wx_ref{type=ThisT}=This) ->
 
 -doc(#{equiv => isVisible(This,Coords, [])}).
 -spec isVisible(This, Coords) -> boolean() when
-	This::wxGrid(), Coords::{R::integer(), C::integer()}.
+        This::wxGrid(), Coords::{R::integer(), C::integer()}.
 
 isVisible(This,{CoordsR,CoordsC} = Coords)
  when is_record(This, wx_ref),is_integer(CoordsR),is_integer(CoordsC) ->
@@ -1820,7 +1820,7 @@ By default, the cell must be entirely visible for this function to return true b
 is false, the function returns true even if the cell is only partially visible.
 """.
 -spec isVisible(This, Row, Col) -> boolean() when
-	This::wxGrid(), Row::integer(), Col::integer();
+        This::wxGrid(), Row::integer(), Col::integer();
       (This, Coords, [Option]) -> boolean() when
 	This::wxGrid(), Coords::{R::integer(), C::integer()},
 	Option :: {'wholeCellVisible', boolean()}.
@@ -1862,7 +1862,7 @@ Brings the specified cell into the visible grid cell area with minimal scrolling
 Does nothing if the cell is already visible.
 """.
 -spec makeCellVisible(This, Coords) -> 'ok' when
-	This::wxGrid(), Coords::{R::integer(), C::integer()}.
+        This::wxGrid(), Coords::{R::integer(), C::integer()}.
 makeCellVisible(#wx_ref{type=ThisT}=This,{CoordsR,CoordsC} = Coords)
  when is_integer(CoordsR),is_integer(CoordsC) ->
   ?CLASS(ThisT,wxGrid),
@@ -1874,7 +1874,7 @@ Brings the specified cell into the visible grid cell area with minimal scrolling
 Does nothing if the cell is already visible.
 """.
 -spec makeCellVisible(This, Row, Col) -> 'ok' when
-	This::wxGrid(), Row::integer(), Col::integer().
+        This::wxGrid(), Row::integer(), Col::integer().
 makeCellVisible(#wx_ref{type=ThisT}=This,Row,Col)
  when is_integer(Row),is_integer(Col) ->
   ?CLASS(ThisT,wxGrid),
@@ -1887,7 +1887,7 @@ If a block of cells was previously selected it will expand if the argument is tr
 cleared if the argument is false.
 """.
 -spec moveCursorDown(This, ExpandSelection) -> boolean() when
-	This::wxGrid(), ExpandSelection::boolean().
+        This::wxGrid(), ExpandSelection::boolean().
 moveCursorDown(#wx_ref{type=ThisT}=This,ExpandSelection)
  when is_boolean(ExpandSelection) ->
   ?CLASS(ThisT,wxGrid),
@@ -1901,7 +1901,7 @@ If a block of cells was previously selected it will expand if the argument is tr
 cleared if the argument is false.
 """.
 -spec moveCursorLeft(This, ExpandSelection) -> boolean() when
-	This::wxGrid(), ExpandSelection::boolean().
+        This::wxGrid(), ExpandSelection::boolean().
 moveCursorLeft(#wx_ref{type=ThisT}=This,ExpandSelection)
  when is_boolean(ExpandSelection) ->
   ?CLASS(ThisT,wxGrid),
@@ -1915,7 +1915,7 @@ If a block of cells was previously selected it will expand if the argument is tr
 cleared if the argument is false.
 """.
 -spec moveCursorRight(This, ExpandSelection) -> boolean() when
-	This::wxGrid(), ExpandSelection::boolean().
+        This::wxGrid(), ExpandSelection::boolean().
 moveCursorRight(#wx_ref{type=ThisT}=This,ExpandSelection)
  when is_boolean(ExpandSelection) ->
   ?CLASS(ThisT,wxGrid),
@@ -1929,7 +1929,7 @@ If a block of cells was previously selected it will expand if the argument is tr
 cleared if the argument is false.
 """.
 -spec moveCursorUp(This, ExpandSelection) -> boolean() when
-	This::wxGrid(), ExpandSelection::boolean().
+        This::wxGrid(), ExpandSelection::boolean().
 moveCursorUp(#wx_ref{type=ThisT}=This,ExpandSelection)
  when is_boolean(ExpandSelection) ->
   ?CLASS(ThisT,wxGrid),
@@ -1944,7 +1944,7 @@ If a block of cells was previously selected it will expand if the argument is tr
 cleared if the argument is false.
 """.
 -spec moveCursorDownBlock(This, ExpandSelection) -> boolean() when
-	This::wxGrid(), ExpandSelection::boolean().
+        This::wxGrid(), ExpandSelection::boolean().
 moveCursorDownBlock(#wx_ref{type=ThisT}=This,ExpandSelection)
  when is_boolean(ExpandSelection) ->
   ?CLASS(ThisT,wxGrid),
@@ -1959,7 +1959,7 @@ If a block of cells was previously selected it will expand if the argument is tr
 cleared if the argument is false.
 """.
 -spec moveCursorLeftBlock(This, ExpandSelection) -> boolean() when
-	This::wxGrid(), ExpandSelection::boolean().
+        This::wxGrid(), ExpandSelection::boolean().
 moveCursorLeftBlock(#wx_ref{type=ThisT}=This,ExpandSelection)
  when is_boolean(ExpandSelection) ->
   ?CLASS(ThisT,wxGrid),
@@ -1974,7 +1974,7 @@ If a block of cells was previously selected it will expand if the argument is tr
 cleared if the argument is false.
 """.
 -spec moveCursorRightBlock(This, ExpandSelection) -> boolean() when
-	This::wxGrid(), ExpandSelection::boolean().
+        This::wxGrid(), ExpandSelection::boolean().
 moveCursorRightBlock(#wx_ref{type=ThisT}=This,ExpandSelection)
  when is_boolean(ExpandSelection) ->
   ?CLASS(ThisT,wxGrid),
@@ -1989,7 +1989,7 @@ If a block of cells was previously selected it will expand if the argument is tr
 cleared if the argument is false.
 """.
 -spec moveCursorUpBlock(This, ExpandSelection) -> boolean() when
-	This::wxGrid(), ExpandSelection::boolean().
+        This::wxGrid(), ExpandSelection::boolean().
 moveCursorUpBlock(#wx_ref{type=ThisT}=This,ExpandSelection)
  when is_boolean(ExpandSelection) ->
   ?CLASS(ThisT,wxGrid),
@@ -2001,7 +2001,7 @@ Moves the grid cursor down by some number of rows so that the previous bottom vi
 becomes the top visible row.
 """.
 -spec movePageDown(This) -> boolean() when
-	This::wxGrid().
+        This::wxGrid().
 movePageDown(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_MovePageDown),
@@ -2012,7 +2012,7 @@ Moves the grid cursor up by some number of rows so that the previous top visible
 becomes the bottom visible row.
 """.
 -spec movePageUp(This) -> boolean() when
-	This::wxGrid().
+        This::wxGrid().
 movePageUp(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_MovePageUp),
@@ -2037,7 +2037,7 @@ your own custom renderers and editors. Just remember that the table must identif
 as being of the given type for them to be used for this cell.
 """.
 -spec registerDataType(This, TypeName, Renderer, Editor) -> 'ok' when
-	This::wxGrid(), TypeName::unicode:chardata(), Renderer::wxGridCellRenderer:wxGridCellRenderer(), Editor::wxGridCellEditor:wxGridCellEditor().
+        This::wxGrid(), TypeName::unicode:chardata(), Renderer::wxGridCellRenderer:wxGridCellRenderer(), Editor::wxGridCellEditor:wxGridCellEditor().
 registerDataType(#wx_ref{type=ThisT}=This,TypeName,#wx_ref{type=RendererT}=Renderer,#wx_ref{type=EditorT}=Editor)
  when ?is_chardata(TypeName) ->
   ?CLASS(ThisT,wxGrid),
@@ -2054,21 +2054,21 @@ cell. It is also a good idea to call this function when closing a grid since any
 the final cell location will not be saved otherwise.
 """.
 -spec saveEditControlValue(This) -> 'ok' when
-	This::wxGrid().
+        This::wxGrid().
 saveEditControlValue(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_SaveEditControlValue).
 
 -doc "Selects all cells in the grid.".
 -spec selectAll(This) -> 'ok' when
-	This::wxGrid().
+        This::wxGrid().
 selectAll(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_SelectAll).
 
 -doc(#{equiv => selectBlock(This,TopLeft,BottomRight, [])}).
 -spec selectBlock(This, TopLeft, BottomRight) -> 'ok' when
-	This::wxGrid(), TopLeft::{R::integer(), C::integer()}, BottomRight::{R::integer(), C::integer()}.
+        This::wxGrid(), TopLeft::{R::integer(), C::integer()}, BottomRight::{R::integer(), C::integer()}.
 
 selectBlock(This,{TopLeftR,TopLeftC} = TopLeft,{BottomRightR,BottomRightC} = BottomRight)
  when is_record(This, wx_ref),is_integer(TopLeftR),is_integer(TopLeftC),is_integer(BottomRightR),is_integer(BottomRightC) ->
@@ -2093,7 +2093,7 @@ selectBlock(#wx_ref{type=ThisT}=This,{TopLeftR,TopLeftC} = TopLeft,{BottomRightR
 
 -doc(#{equiv => selectBlock(This,TopRow,LeftCol,BottomRow,RightCol, [])}).
 -spec selectBlock(This, TopRow, LeftCol, BottomRow, RightCol) -> 'ok' when
-	This::wxGrid(), TopRow::integer(), LeftCol::integer(), BottomRow::integer(), RightCol::integer().
+        This::wxGrid(), TopRow::integer(), LeftCol::integer(), BottomRow::integer(), RightCol::integer().
 
 selectBlock(This,TopRow,LeftCol,BottomRow,RightCol)
  when is_record(This, wx_ref),is_integer(TopRow),is_integer(LeftCol),is_integer(BottomRow),is_integer(RightCol) ->
@@ -2118,7 +2118,7 @@ selectBlock(#wx_ref{type=ThisT}=This,TopRow,LeftCol,BottomRow,RightCol, Options)
 
 -doc(#{equiv => selectCol(This,Col, [])}).
 -spec selectCol(This, Col) -> 'ok' when
-	This::wxGrid(), Col::integer().
+        This::wxGrid(), Col::integer().
 
 selectCol(This,Col)
  when is_record(This, wx_ref),is_integer(Col) ->
@@ -2145,7 +2145,7 @@ selectCol(#wx_ref{type=ThisT}=This,Col, Options)
 
 -doc(#{equiv => selectRow(This,Row, [])}).
 -spec selectRow(This, Row) -> 'ok' when
-	This::wxGrid(), Row::integer().
+        This::wxGrid(), Row::integer().
 
 selectRow(This,Row)
  when is_record(This, wx_ref),is_integer(Row) ->
@@ -2178,7 +2178,7 @@ Horizontal alignment should be one of `wxALIGN_LEFT`, `wxALIGN_CENTRE` or `wxALI
 Vertical alignment should be one of `wxALIGN_TOP`, `wxALIGN_CENTRE` or `wxALIGN_BOTTOM`.
 """.
 -spec setCellAlignment(This, Row, Col, Horiz, Vert) -> 'ok' when
-	This::wxGrid(), Row::integer(), Col::integer(), Horiz::integer(), Vert::integer().
+        This::wxGrid(), Row::integer(), Col::integer(), Horiz::integer(), Vert::integer().
 setCellAlignment(#wx_ref{type=ThisT}=This,Row,Col,Horiz,Vert)
  when is_integer(Row),is_integer(Col),is_integer(Horiz),is_integer(Vert) ->
   ?CLASS(ThisT,wxGrid),
@@ -2186,7 +2186,7 @@ setCellAlignment(#wx_ref{type=ThisT}=This,Row,Col,Horiz,Vert)
 
 -doc "Set the background colour for the given cell or all cells by default.".
 -spec setCellBackgroundColour(This, Row, Col, Colour) -> 'ok' when
-	This::wxGrid(), Row::integer(), Col::integer(), Colour::wx:wx_colour().
+        This::wxGrid(), Row::integer(), Col::integer(), Colour::wx:wx_colour().
 setCellBackgroundColour(#wx_ref{type=ThisT}=This,Row,Col,Colour)
  when is_integer(Row),is_integer(Col),?is_colordata(Colour) ->
   ?CLASS(ThisT,wxGrid),
@@ -2201,7 +2201,7 @@ See `m:wxGridCellEditor` and the overview_grid for more information about cell e
 and renderers.
 """.
 -spec setCellEditor(This, Row, Col, Editor) -> 'ok' when
-	This::wxGrid(), Row::integer(), Col::integer(), Editor::wxGridCellEditor:wxGridCellEditor().
+        This::wxGrid(), Row::integer(), Col::integer(), Editor::wxGridCellEditor:wxGridCellEditor().
 setCellEditor(#wx_ref{type=ThisT}=This,Row,Col,#wx_ref{type=EditorT}=Editor)
  when is_integer(Row),is_integer(Col) ->
   ?CLASS(ThisT,wxGrid),
@@ -2210,7 +2210,7 @@ setCellEditor(#wx_ref{type=ThisT}=This,Row,Col,#wx_ref{type=EditorT}=Editor)
 
 -doc "Sets the font for text in the grid cell at the specified location.".
 -spec setCellFont(This, Row, Col, Font) -> 'ok' when
-	This::wxGrid(), Row::integer(), Col::integer(), Font::wxFont:wxFont().
+        This::wxGrid(), Row::integer(), Col::integer(), Font::wxFont:wxFont().
 setCellFont(#wx_ref{type=ThisT}=This,Row,Col,#wx_ref{type=FontT}=Font)
  when is_integer(Row),is_integer(Col) ->
   ?CLASS(ThisT,wxGrid),
@@ -2226,7 +2226,7 @@ See `m:wxGridCellRenderer` and the overview_grid for more information about cell
 and renderers.
 """.
 -spec setCellRenderer(This, Row, Col, Renderer) -> 'ok' when
-	This::wxGrid(), Row::integer(), Col::integer(), Renderer::wxGridCellRenderer:wxGridCellRenderer().
+        This::wxGrid(), Row::integer(), Col::integer(), Renderer::wxGridCellRenderer:wxGridCellRenderer().
 setCellRenderer(#wx_ref{type=ThisT}=This,Row,Col,#wx_ref{type=RendererT}=Renderer)
  when is_integer(Row),is_integer(Col) ->
   ?CLASS(ThisT,wxGrid),
@@ -2235,7 +2235,7 @@ setCellRenderer(#wx_ref{type=ThisT}=This,Row,Col,#wx_ref{type=RendererT}=Rendere
 
 -doc "Sets the text colour for the given cell.".
 -spec setCellTextColour(This, Row, Col, Colour) -> 'ok' when
-	This::wxGrid(), Row::integer(), Col::integer(), Colour::wx:wx_colour().
+        This::wxGrid(), Row::integer(), Col::integer(), Colour::wx:wx_colour().
 setCellTextColour(#wx_ref{type=ThisT}=This,Row,Col,Colour)
  when is_integer(Row),is_integer(Col),?is_colordata(Colour) ->
   ?CLASS(ThisT,wxGrid),
@@ -2254,7 +2254,7 @@ See `wxGridTableBase::CanSetValueAs()` (not implemented in wx) and the overview_
 more information.
 """.
 -spec setCellValue(This, Coords, S) -> 'ok' when
-	This::wxGrid(), Coords::{R::integer(), C::integer()}, S::unicode:chardata().
+        This::wxGrid(), Coords::{R::integer(), C::integer()}, S::unicode:chardata().
 setCellValue(#wx_ref{type=ThisT}=This,{CoordsR,CoordsC} = Coords,S)
  when is_integer(CoordsR),is_integer(CoordsC),?is_chardata(S) ->
   ?CLASS(ThisT,wxGrid),
@@ -2274,7 +2274,7 @@ See `wxGridTableBase::CanSetValueAs()` (not implemented in wx) and the overview_
 more information.
 """.
 -spec setCellValue(This, Row, Col, S) -> 'ok' when
-	This::wxGrid(), Row::integer(), Col::integer(), S::unicode:chardata().
+        This::wxGrid(), Row::integer(), Col::integer(), S::unicode:chardata().
 setCellValue(#wx_ref{type=ThisT}=This,Row,Col,S)
  when is_integer(Row),is_integer(Col),?is_chardata(S) ->
   ?CLASS(ThisT,wxGrid),
@@ -2288,7 +2288,7 @@ For more information about controlling grid cell attributes see the `m:wxGridCel
 cell attribute class and the overview_grid.
 """.
 -spec setColAttr(This, Col, Attr) -> 'ok' when
-	This::wxGrid(), Col::integer(), Attr::wxGridCellAttr:wxGridCellAttr().
+        This::wxGrid(), Col::integer(), Attr::wxGridCellAttr:wxGridCellAttr().
 setColAttr(#wx_ref{type=ThisT}=This,Col,#wx_ref{type=AttrT}=Attr)
  when is_integer(Col) ->
   ?CLASS(ThisT,wxGrid),
@@ -2301,7 +2301,7 @@ Sets the specified column to display boolean values.
 See: `setColFormatCustom/3`
 """.
 -spec setColFormatBool(This, Col) -> 'ok' when
-	This::wxGrid(), Col::integer().
+        This::wxGrid(), Col::integer().
 setColFormatBool(#wx_ref{type=ThisT}=This,Col)
  when is_integer(Col) ->
   ?CLASS(ThisT,wxGrid),
@@ -2313,7 +2313,7 @@ Sets the specified column to display integer values.
 See: `setColFormatCustom/3`
 """.
 -spec setColFormatNumber(This, Col) -> 'ok' when
-	This::wxGrid(), Col::integer().
+        This::wxGrid(), Col::integer().
 setColFormatNumber(#wx_ref{type=ThisT}=This,Col)
  when is_integer(Col) ->
   ?CLASS(ThisT,wxGrid),
@@ -2321,7 +2321,7 @@ setColFormatNumber(#wx_ref{type=ThisT}=This,Col)
 
 -doc(#{equiv => setColFormatFloat(This,Col, [])}).
 -spec setColFormatFloat(This, Col) -> 'ok' when
-	This::wxGrid(), Col::integer().
+        This::wxGrid(), Col::integer().
 
 setColFormatFloat(This,Col)
  when is_record(This, wx_ref),is_integer(Col) ->
@@ -2357,7 +2357,7 @@ used for the cells of the specified type with them.
 See the overview_grid for more information on working with custom data types.
 """.
 -spec setColFormatCustom(This, Col, TypeName) -> 'ok' when
-	This::wxGrid(), Col::integer(), TypeName::unicode:chardata().
+        This::wxGrid(), Col::integer(), TypeName::unicode:chardata().
 setColFormatCustom(#wx_ref{type=ThisT}=This,Col,TypeName)
  when is_integer(Col),?is_chardata(TypeName) ->
   ?CLASS(ThisT,wxGrid),
@@ -2371,7 +2371,7 @@ Horizontal alignment should be one of `wxALIGN_LEFT`, `wxALIGN_CENTRE` or `wxALI
 Vertical alignment should be one of `wxALIGN_TOP`, `wxALIGN_CENTRE` or `wxALIGN_BOTTOM`.
 """.
 -spec setColLabelAlignment(This, Horiz, Vert) -> 'ok' when
-	This::wxGrid(), Horiz::integer(), Vert::integer().
+        This::wxGrid(), Horiz::integer(), Vert::integer().
 setColLabelAlignment(#wx_ref{type=ThisT}=This,Horiz,Vert)
  when is_integer(Horiz),is_integer(Vert) ->
   ?CLASS(ThisT,wxGrid),
@@ -2384,7 +2384,7 @@ If `height` equals to `wxGRID_AUTOSIZE` then height is calculated automatically 
 no label is truncated. Note that this could be slow for a large table.
 """.
 -spec setColLabelSize(This, Height) -> 'ok' when
-	This::wxGrid(), Height::integer().
+        This::wxGrid(), Height::integer().
 setColLabelSize(#wx_ref{type=ThisT}=This,Height)
  when is_integer(Height) ->
   ?CLASS(ThisT,wxGrid),
@@ -2397,7 +2397,7 @@ If you are using a custom grid table you must override `wxGridTableBase::SetColL
 (not implemented in wx) for this to have any effect.
 """.
 -spec setColLabelValue(This, Col, Value) -> 'ok' when
-	This::wxGrid(), Col::integer(), Value::unicode:chardata().
+        This::wxGrid(), Col::integer(), Value::unicode:chardata().
 setColLabelValue(#wx_ref{type=ThisT}=This,Col,Value)
  when is_integer(Col),?is_chardata(Value) ->
   ?CLASS(ThisT,wxGrid),
@@ -2413,7 +2413,7 @@ resize the column to the given minimal width even if it is currently narrower th
 `width` must be greater than the minimal acceptable column width as returned by `getColMinimalAcceptableWidth/1`.
 """.
 -spec setColMinimalWidth(This, Col, Width) -> 'ok' when
-	This::wxGrid(), Col::integer(), Width::integer().
+        This::wxGrid(), Col::integer(), Width::integer().
 setColMinimalWidth(#wx_ref{type=ThisT}=This,Col,Width)
  when is_integer(Col),is_integer(Width) ->
   ?CLASS(ThisT,wxGrid),
@@ -2425,7 +2425,7 @@ Sets the minimal `width` to which the user can resize columns.
 See: `getColMinimalAcceptableWidth/1`
 """.
 -spec setColMinimalAcceptableWidth(This, Width) -> 'ok' when
-	This::wxGrid(), Width::integer().
+        This::wxGrid(), Width::integer().
 setColMinimalAcceptableWidth(#wx_ref{type=ThisT}=This,Width)
  when is_integer(Width) ->
   ?CLASS(ThisT,wxGrid),
@@ -2433,7 +2433,7 @@ setColMinimalAcceptableWidth(#wx_ref{type=ThisT}=This,Width)
 
 -doc "Sets the width of the specified column.".
 -spec setColSize(This, Col, Width) -> 'ok' when
-	This::wxGrid(), Col::integer(), Width::integer().
+        This::wxGrid(), Col::integer(), Width::integer().
 setColSize(#wx_ref{type=ThisT}=This,Col,Width)
  when is_integer(Col),is_integer(Width) ->
   ?CLASS(ThisT,wxGrid),
@@ -2446,7 +2446,7 @@ Horizontal alignment should be one of `wxALIGN_LEFT`, `wxALIGN_CENTRE` or `wxALI
 Vertical alignment should be one of `wxALIGN_TOP`, `wxALIGN_CENTRE` or `wxALIGN_BOTTOM`.
 """.
 -spec setDefaultCellAlignment(This, Horiz, Vert) -> 'ok' when
-	This::wxGrid(), Horiz::integer(), Vert::integer().
+        This::wxGrid(), Horiz::integer(), Vert::integer().
 setDefaultCellAlignment(#wx_ref{type=ThisT}=This,Horiz,Vert)
  when is_integer(Horiz),is_integer(Vert) ->
   ?CLASS(ThisT,wxGrid),
@@ -2454,7 +2454,7 @@ setDefaultCellAlignment(#wx_ref{type=ThisT}=This,Horiz,Vert)
 
 -doc "Sets the default background colour for grid cells.".
 -spec setDefaultCellBackgroundColour(This, Colour) -> 'ok' when
-	This::wxGrid(), Colour::wx:wx_colour().
+        This::wxGrid(), Colour::wx:wx_colour().
 setDefaultCellBackgroundColour(#wx_ref{type=ThisT}=This,Colour)
  when ?is_colordata(Colour) ->
   ?CLASS(ThisT,wxGrid),
@@ -2462,7 +2462,7 @@ setDefaultCellBackgroundColour(#wx_ref{type=ThisT}=This,Colour)
 
 -doc "Sets the default font to be used for grid cell text.".
 -spec setDefaultCellFont(This, Font) -> 'ok' when
-	This::wxGrid(), Font::wxFont:wxFont().
+        This::wxGrid(), Font::wxFont:wxFont().
 setDefaultCellFont(#wx_ref{type=ThisT}=This,#wx_ref{type=FontT}=Font) ->
   ?CLASS(ThisT,wxGrid),
   ?CLASS(FontT,wxFont),
@@ -2470,7 +2470,7 @@ setDefaultCellFont(#wx_ref{type=ThisT}=This,#wx_ref{type=FontT}=Font) ->
 
 -doc "Sets the current default colour for grid cell text.".
 -spec setDefaultCellTextColour(This, Colour) -> 'ok' when
-	This::wxGrid(), Colour::wx:wx_colour().
+        This::wxGrid(), Colour::wx:wx_colour().
 setDefaultCellTextColour(#wx_ref{type=ThisT}=This,Colour)
  when ?is_colordata(Colour) ->
   ?CLASS(ThisT,wxGrid),
@@ -2485,7 +2485,7 @@ See `m:wxGridCellEditor` and the overview_grid for more information about cell e
 and renderers.
 """.
 -spec setDefaultEditor(This, Editor) -> 'ok' when
-	This::wxGrid(), Editor::wxGridCellEditor:wxGridCellEditor().
+        This::wxGrid(), Editor::wxGridCellEditor:wxGridCellEditor().
 setDefaultEditor(#wx_ref{type=ThisT}=This,#wx_ref{type=EditorT}=Editor) ->
   ?CLASS(ThisT,wxGrid),
   ?CLASS(EditorT,wxGridCellEditor),
@@ -2500,7 +2500,7 @@ See `m:wxGridCellRenderer` and the overview_grid for more information about cell
 and renderers.
 """.
 -spec setDefaultRenderer(This, Renderer) -> 'ok' when
-	This::wxGrid(), Renderer::wxGridCellRenderer:wxGridCellRenderer().
+        This::wxGrid(), Renderer::wxGridCellRenderer:wxGridCellRenderer().
 setDefaultRenderer(#wx_ref{type=ThisT}=This,#wx_ref{type=RendererT}=Renderer) ->
   ?CLASS(ThisT,wxGrid),
   ?CLASS(RendererT,wxGridCellRenderer),
@@ -2508,7 +2508,7 @@ setDefaultRenderer(#wx_ref{type=ThisT}=This,#wx_ref{type=RendererT}=Renderer) ->
 
 -doc(#{equiv => setDefaultColSize(This,Width, [])}).
 -spec setDefaultColSize(This, Width) -> 'ok' when
-	This::wxGrid(), Width::integer().
+        This::wxGrid(), Width::integer().
 
 setDefaultColSize(This,Width)
  when is_record(This, wx_ref),is_integer(Width) ->
@@ -2535,7 +2535,7 @@ setDefaultColSize(#wx_ref{type=ThisT}=This,Width, Options)
 
 -doc(#{equiv => setDefaultRowSize(This,Height, [])}).
 -spec setDefaultRowSize(This, Height) -> 'ok' when
-	This::wxGrid(), Height::integer().
+        This::wxGrid(), Height::integer().
 
 setDefaultRowSize(This,Height)
  when is_record(This, wx_ref),is_integer(Height) ->
@@ -2572,7 +2572,7 @@ This function doesn't make the target call visible, use `GoToCell()` (not implem
 wx) to do this.
 """.
 -spec setGridCursor(This, Coords) -> 'ok' when
-	This::wxGrid(), Coords::{R::integer(), C::integer()}.
+        This::wxGrid(), Coords::{R::integer(), C::integer()}.
 setGridCursor(#wx_ref{type=ThisT}=This,{CoordsR,CoordsC} = Coords)
  when is_integer(CoordsR),is_integer(CoordsC) ->
   ?CLASS(ThisT,wxGrid),
@@ -2591,7 +2591,7 @@ This function doesn't make the target call visible, use `GoToCell()` (not implem
 wx) to do this.
 """.
 -spec setGridCursor(This, Row, Col) -> 'ok' when
-	This::wxGrid(), Row::integer(), Col::integer().
+        This::wxGrid(), Row::integer(), Col::integer().
 setGridCursor(#wx_ref{type=ThisT}=This,Row,Col)
  when is_integer(Row),is_integer(Col) ->
   ?CLASS(ThisT,wxGrid),
@@ -2599,7 +2599,7 @@ setGridCursor(#wx_ref{type=ThisT}=This,Row,Col)
 
 -doc "Sets the colour used to draw grid lines.".
 -spec setGridLineColour(This, Colour) -> 'ok' when
-	This::wxGrid(), Colour::wx:wx_colour().
+        This::wxGrid(), Colour::wx:wx_colour().
 setGridLineColour(#wx_ref{type=ThisT}=This,Colour)
  when ?is_colordata(Colour) ->
   ?CLASS(ThisT,wxGrid),
@@ -2607,7 +2607,7 @@ setGridLineColour(#wx_ref{type=ThisT}=This,Colour)
 
 -doc "Sets the background colour for row and column labels.".
 -spec setLabelBackgroundColour(This, Colour) -> 'ok' when
-	This::wxGrid(), Colour::wx:wx_colour().
+        This::wxGrid(), Colour::wx:wx_colour().
 setLabelBackgroundColour(#wx_ref{type=ThisT}=This,Colour)
  when ?is_colordata(Colour) ->
   ?CLASS(ThisT,wxGrid),
@@ -2615,7 +2615,7 @@ setLabelBackgroundColour(#wx_ref{type=ThisT}=This,Colour)
 
 -doc "Sets the font for row and column labels.".
 -spec setLabelFont(This, Font) -> 'ok' when
-	This::wxGrid(), Font::wxFont:wxFont().
+        This::wxGrid(), Font::wxFont:wxFont().
 setLabelFont(#wx_ref{type=ThisT}=This,#wx_ref{type=FontT}=Font) ->
   ?CLASS(ThisT,wxGrid),
   ?CLASS(FontT,wxFont),
@@ -2623,7 +2623,7 @@ setLabelFont(#wx_ref{type=ThisT}=This,#wx_ref{type=FontT}=Font) ->
 
 -doc "Sets the colour for row and column label text.".
 -spec setLabelTextColour(This, Colour) -> 'ok' when
-	This::wxGrid(), Colour::wx:wx_colour().
+        This::wxGrid(), Colour::wx:wx_colour().
 setLabelTextColour(#wx_ref{type=ThisT}=This,Colour)
  when ?is_colordata(Colour) ->
   ?CLASS(ThisT,wxGrid),
@@ -2636,7 +2636,7 @@ A grid may occupy more space than needed for its data display and this function 
 setting how big this extra space is
 """.
 -spec setMargins(This, ExtraWidth, ExtraHeight) -> 'ok' when
-	This::wxGrid(), ExtraWidth::integer(), ExtraHeight::integer().
+        This::wxGrid(), ExtraWidth::integer(), ExtraHeight::integer().
 setMargins(#wx_ref{type=ThisT}=This,ExtraWidth,ExtraHeight)
  when is_integer(ExtraWidth),is_integer(ExtraHeight) ->
   ?CLASS(ThisT,wxGrid),
@@ -2644,7 +2644,7 @@ setMargins(#wx_ref{type=ThisT}=This,ExtraWidth,ExtraHeight)
 
 -doc(#{equiv => setReadOnly(This,Row,Col, [])}).
 -spec setReadOnly(This, Row, Col) -> 'ok' when
-	This::wxGrid(), Row::integer(), Col::integer().
+        This::wxGrid(), Row::integer(), Col::integer().
 
 setReadOnly(This,Row,Col)
  when is_record(This, wx_ref),is_integer(Row),is_integer(Col) ->
@@ -2674,7 +2674,7 @@ The grid takes ownership of the attribute pointer.
 See the `m:wxGridCellAttr` class for more information about controlling cell attributes.
 """.
 -spec setRowAttr(This, Row, Attr) -> 'ok' when
-	This::wxGrid(), Row::integer(), Attr::wxGridCellAttr:wxGridCellAttr().
+        This::wxGrid(), Row::integer(), Attr::wxGridCellAttr:wxGridCellAttr().
 setRowAttr(#wx_ref{type=ThisT}=This,Row,#wx_ref{type=AttrT}=Attr)
  when is_integer(Row) ->
   ?CLASS(ThisT,wxGrid),
@@ -2688,7 +2688,7 @@ Horizontal alignment should be one of `wxALIGN_LEFT`, `wxALIGN_CENTRE` or `wxALI
 Vertical alignment should be one of `wxALIGN_TOP`, `wxALIGN_CENTRE` or `wxALIGN_BOTTOM`.
 """.
 -spec setRowLabelAlignment(This, Horiz, Vert) -> 'ok' when
-	This::wxGrid(), Horiz::integer(), Vert::integer().
+        This::wxGrid(), Horiz::integer(), Vert::integer().
 setRowLabelAlignment(#wx_ref{type=ThisT}=This,Horiz,Vert)
  when is_integer(Horiz),is_integer(Vert) ->
   ?CLASS(ThisT,wxGrid),
@@ -2701,7 +2701,7 @@ If `width` equals `wxGRID_AUTOSIZE` then width is calculated automatically so th
 label is truncated. Note that this could be slow for a large table.
 """.
 -spec setRowLabelSize(This, Width) -> 'ok' when
-	This::wxGrid(), Width::integer().
+        This::wxGrid(), Width::integer().
 setRowLabelSize(#wx_ref{type=ThisT}=This,Width)
  when is_integer(Width) ->
   ?CLASS(ThisT,wxGrid),
@@ -2714,7 +2714,7 @@ If you are using a derived grid table you must override `wxGridTableBase::SetRow
 (not implemented in wx) for this to have any effect.
 """.
 -spec setRowLabelValue(This, Row, Value) -> 'ok' when
-	This::wxGrid(), Row::integer(), Value::unicode:chardata().
+        This::wxGrid(), Row::integer(), Value::unicode:chardata().
 setRowLabelValue(#wx_ref{type=ThisT}=This,Row,Value)
  when is_integer(Row),?is_chardata(Value) ->
   ?CLASS(ThisT,wxGrid),
@@ -2727,7 +2727,7 @@ Sets the minimal `height` for the specified `row`.
 See `setColMinimalWidth/3` for more information.
 """.
 -spec setRowMinimalHeight(This, Row, Height) -> 'ok' when
-	This::wxGrid(), Row::integer(), Height::integer().
+        This::wxGrid(), Row::integer(), Height::integer().
 setRowMinimalHeight(#wx_ref{type=ThisT}=This,Row,Height)
  when is_integer(Row),is_integer(Height) ->
   ?CLASS(ThisT,wxGrid),
@@ -2739,7 +2739,7 @@ Sets the minimal row `height` used by default.
 See `setColMinimalAcceptableWidth/2` for more information.
 """.
 -spec setRowMinimalAcceptableHeight(This, Height) -> 'ok' when
-	This::wxGrid(), Height::integer().
+        This::wxGrid(), Height::integer().
 setRowMinimalAcceptableHeight(#wx_ref{type=ThisT}=This,Height)
  when is_integer(Height) ->
   ?CLASS(ThisT,wxGrid),
@@ -2751,7 +2751,7 @@ Sets the height of the specified row.
 See `setColSize/3` for more information.
 """.
 -spec setRowSize(This, Row, Height) -> 'ok' when
-	This::wxGrid(), Row::integer(), Height::integer().
+        This::wxGrid(), Row::integer(), Height::integer().
 setRowSize(#wx_ref{type=ThisT}=This,Row,Height)
  when is_integer(Row),is_integer(Height) ->
   ?CLASS(ThisT,wxGrid),
@@ -2770,7 +2770,7 @@ See:
 * `setScrollLineY/2`
 """.
 -spec setScrollLineX(This, X) -> 'ok' when
-	This::wxGrid(), X::integer().
+        This::wxGrid(), X::integer().
 setScrollLineX(#wx_ref{type=ThisT}=This,X)
  when is_integer(X) ->
   ?CLASS(ThisT,wxGrid),
@@ -2789,7 +2789,7 @@ See:
 * `setScrollLineX/2`
 """.
 -spec setScrollLineY(This, Y) -> 'ok' when
-	This::wxGrid(), Y::integer().
+        This::wxGrid(), Y::integer().
 setScrollLineY(#wx_ref{type=ThisT}=This,Y)
  when is_integer(Y) ->
   ?CLASS(ThisT,wxGrid),
@@ -2797,7 +2797,7 @@ setScrollLineY(#wx_ref{type=ThisT}=This,Y)
 
 -doc "Set the colour to be used for drawing the selection background.".
 -spec setSelectionBackground(This, C) -> 'ok' when
-	This::wxGrid(), C::wx:wx_colour().
+        This::wxGrid(), C::wx:wx_colour().
 setSelectionBackground(#wx_ref{type=ThisT}=This,C)
  when ?is_colordata(C) ->
   ?CLASS(ThisT,wxGrid),
@@ -2805,7 +2805,7 @@ setSelectionBackground(#wx_ref{type=ThisT}=This,C)
 
 -doc "Set the colour to be used for drawing the selection foreground.".
 -spec setSelectionForeground(This, C) -> 'ok' when
-	This::wxGrid(), C::wx:wx_colour().
+        This::wxGrid(), C::wx:wx_colour().
 setSelectionForeground(#wx_ref{type=ThisT}=This,C)
  when ?is_colordata(C) ->
   ?CLASS(ThisT,wxGrid),
@@ -2820,7 +2820,7 @@ the selection of the entire rows or columns).
 """.
 %%  Selmode = ?wxGrid_wxGridSelectCells | ?wxGrid_wxGridSelectRows | ?wxGrid_wxGridSelectColumns | ?wxGrid_wxGridSelectRowsOrColumns
 -spec setSelectionMode(This, Selmode) -> 'ok' when
-	This::wxGrid(), Selmode::wx:wx_enum().
+        This::wxGrid(), Selmode::wx:wx_enum().
 setSelectionMode(#wx_ref{type=ThisT}=This,Selmode)
  when is_integer(Selmode) ->
   ?CLASS(ThisT,wxGrid),
@@ -2833,14 +2833,14 @@ This method should only be called after calling `hideCellEditControl/1`, to star
 use `enableCellEditControl/2` instead.
 """.
 -spec showCellEditControl(This) -> 'ok' when
-	This::wxGrid().
+        This::wxGrid().
 showCellEditControl(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGrid),
   wxe_util:queue_cmd(This,?get_env(),?wxGrid_ShowCellEditControl).
 
 -doc(#{equiv => xToCol(This,X, [])}).
 -spec xToCol(This, X) -> integer() when
-	This::wxGrid(), X::integer().
+        This::wxGrid(), X::integer().
 
 xToCol(This,X)
  when is_record(This, wx_ref),is_integer(X) ->
@@ -2869,7 +2869,7 @@ Returns the column whose right hand edge is close to the given logical `x` posit
 If no column edge is near to this position `wxNOT_FOUND` is returned.
 """.
 -spec xToEdgeOfCol(This, X) -> integer() when
-	This::wxGrid(), X::integer().
+        This::wxGrid(), X::integer().
 xToEdgeOfCol(#wx_ref{type=ThisT}=This,X)
  when is_integer(X) ->
   ?CLASS(ThisT,wxGrid),
@@ -2882,7 +2882,7 @@ Returns the row whose bottom edge is close to the given logical `y` position.
 If no row edge is near to this position `wxNOT_FOUND` is returned.
 """.
 -spec yToEdgeOfRow(This, Y) -> integer() when
-	This::wxGrid(), Y::integer().
+        This::wxGrid(), Y::integer().
 yToEdgeOfRow(#wx_ref{type=ThisT}=This,Y)
  when is_integer(Y) ->
   ?CLASS(ThisT,wxGrid),
@@ -2891,7 +2891,7 @@ yToEdgeOfRow(#wx_ref{type=ThisT}=This,Y)
 
 -doc(#{equiv => yToRow(This,Y, [])}).
 -spec yToRow(This, Y) -> integer() when
-	This::wxGrid(), Y::integer().
+        This::wxGrid(), Y::integer().
 
 yToRow(This,Y)
  when is_record(This, wx_ref),is_integer(Y) ->
@@ -3099,9 +3099,9 @@ scrollPages(This,Pages) -> wxWindow:scrollPages(This,Pages).
 -doc false.
 scrollLines(This,Lines) -> wxWindow:scrollLines(This,Lines).
 -doc false.
-screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
+screenToClient(This,X,Y) -> wxWindow:screenToClient(This,X,Y).
 -doc false.
-screenToClient(This) -> wxWindow:screenToClient(This).
+screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
 -doc false.
 reparent(This,NewParent) -> wxWindow:reparent(This,NewParent).
 -doc false.

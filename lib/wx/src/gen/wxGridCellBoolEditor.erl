@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -100,7 +100,7 @@ Returns true if the given `value` is equal to the string representation of the t
 value we currently use (see `useStringValues/1`).
 """.
 -spec isTrueValue(Value) -> boolean() when
-	Value::unicode:chardata().
+        Value::unicode:chardata().
 isTrueValue(Value)
  when ?is_chardata(Value) ->
   Value_UC = unicode:characters_to_binary(Value),

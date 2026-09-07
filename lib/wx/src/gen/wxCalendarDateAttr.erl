@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -88,7 +88,7 @@ new() ->
 -doc "Constructor for specifying all `m:wxCalendarDateAttr` properties.".
 %%  Border = ?wxCAL_BORDER_NONE | ?wxCAL_BORDER_SQUARE | ?wxCAL_BORDER_ROUND
 -spec new(Border) -> wxCalendarDateAttr() when
-	Border::wx:wx_enum();
+        Border::wx:wx_enum();
       ([Option]) -> wxCalendarDateAttr() when
 	Option :: {'colText', wx:wx_colour()}
 		 | {'colBack', wx:wx_colour()}
@@ -126,7 +126,7 @@ new(Border, Options)
 
 -doc "Sets the text (foreground) colour to use.".
 -spec setTextColour(This, ColText) -> 'ok' when
-	This::wxCalendarDateAttr(), ColText::wx:wx_colour().
+        This::wxCalendarDateAttr(), ColText::wx:wx_colour().
 setTextColour(#wx_ref{type=ThisT}=This,ColText)
  when ?is_colordata(ColText) ->
   ?CLASS(ThisT,wxCalendarDateAttr),
@@ -134,7 +134,7 @@ setTextColour(#wx_ref{type=ThisT}=This,ColText)
 
 -doc "Sets the text background colour to use.".
 -spec setBackgroundColour(This, ColBack) -> 'ok' when
-	This::wxCalendarDateAttr(), ColBack::wx:wx_colour().
+        This::wxCalendarDateAttr(), ColBack::wx:wx_colour().
 setBackgroundColour(#wx_ref{type=ThisT}=This,ColBack)
  when ?is_colordata(ColBack) ->
   ?CLASS(ThisT,wxCalendarDateAttr),
@@ -142,7 +142,7 @@ setBackgroundColour(#wx_ref{type=ThisT}=This,ColBack)
 
 -doc "Sets the border colour to use.".
 -spec setBorderColour(This, Col) -> 'ok' when
-	This::wxCalendarDateAttr(), Col::wx:wx_colour().
+        This::wxCalendarDateAttr(), Col::wx:wx_colour().
 setBorderColour(#wx_ref{type=ThisT}=This,Col)
  when ?is_colordata(Col) ->
   ?CLASS(ThisT,wxCalendarDateAttr),
@@ -150,7 +150,7 @@ setBorderColour(#wx_ref{type=ThisT}=This,Col)
 
 -doc "Sets the font to use.".
 -spec setFont(This, Font) -> 'ok' when
-	This::wxCalendarDateAttr(), Font::wxFont:wxFont().
+        This::wxCalendarDateAttr(), Font::wxFont:wxFont().
 setFont(#wx_ref{type=ThisT}=This,#wx_ref{type=FontT}=Font) ->
   ?CLASS(ThisT,wxCalendarDateAttr),
   ?CLASS(FontT,wxFont),
@@ -159,7 +159,7 @@ setFont(#wx_ref{type=ThisT}=This,#wx_ref{type=FontT}=Font) ->
 -doc "Sets the border to use.".
 %%  Border = ?wxCAL_BORDER_NONE | ?wxCAL_BORDER_SQUARE | ?wxCAL_BORDER_ROUND
 -spec setBorder(This, Border) -> 'ok' when
-	This::wxCalendarDateAttr(), Border::wx:wx_enum().
+        This::wxCalendarDateAttr(), Border::wx:wx_enum().
 setBorder(#wx_ref{type=ThisT}=This,Border)
  when is_integer(Border) ->
   ?CLASS(ThisT,wxCalendarDateAttr),
@@ -167,7 +167,7 @@ setBorder(#wx_ref{type=ThisT}=This,Border)
 
 -doc "If `holiday` is true, this calendar day will be displayed as a holiday.".
 -spec setHoliday(This, Holiday) -> 'ok' when
-	This::wxCalendarDateAttr(), Holiday::boolean().
+        This::wxCalendarDateAttr(), Holiday::boolean().
 setHoliday(#wx_ref{type=ThisT}=This,Holiday)
  when is_boolean(Holiday) ->
   ?CLASS(ThisT,wxCalendarDateAttr),
@@ -175,7 +175,7 @@ setHoliday(#wx_ref{type=ThisT}=This,Holiday)
 
 -doc "Returns true if a non-default text foreground colour is set.".
 -spec hasTextColour(This) -> boolean() when
-	This::wxCalendarDateAttr().
+        This::wxCalendarDateAttr().
 hasTextColour(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxCalendarDateAttr),
   wxe_util:queue_cmd(This,?get_env(),?wxCalendarDateAttr_HasTextColour),
@@ -183,7 +183,7 @@ hasTextColour(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns true if a non-default text background colour is set.".
 -spec hasBackgroundColour(This) -> boolean() when
-	This::wxCalendarDateAttr().
+        This::wxCalendarDateAttr().
 hasBackgroundColour(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxCalendarDateAttr),
   wxe_util:queue_cmd(This,?get_env(),?wxCalendarDateAttr_HasBackgroundColour),
@@ -191,7 +191,7 @@ hasBackgroundColour(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns true if a non-default border colour is set.".
 -spec hasBorderColour(This) -> boolean() when
-	This::wxCalendarDateAttr().
+        This::wxCalendarDateAttr().
 hasBorderColour(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxCalendarDateAttr),
   wxe_util:queue_cmd(This,?get_env(),?wxCalendarDateAttr_HasBorderColour),
@@ -199,7 +199,7 @@ hasBorderColour(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns true if a non-default font is set.".
 -spec hasFont(This) -> boolean() when
-	This::wxCalendarDateAttr().
+        This::wxCalendarDateAttr().
 hasFont(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxCalendarDateAttr),
   wxe_util:queue_cmd(This,?get_env(),?wxCalendarDateAttr_HasFont),
@@ -207,7 +207,7 @@ hasFont(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns true if a non-default (i.e. any) border is set.".
 -spec hasBorder(This) -> boolean() when
-	This::wxCalendarDateAttr().
+        This::wxCalendarDateAttr().
 hasBorder(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxCalendarDateAttr),
   wxe_util:queue_cmd(This,?get_env(),?wxCalendarDateAttr_HasBorder),
@@ -215,7 +215,7 @@ hasBorder(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns true if this calendar day is displayed as a holiday.".
 -spec isHoliday(This) -> boolean() when
-	This::wxCalendarDateAttr().
+        This::wxCalendarDateAttr().
 isHoliday(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxCalendarDateAttr),
   wxe_util:queue_cmd(This,?get_env(),?wxCalendarDateAttr_IsHoliday),
@@ -223,7 +223,7 @@ isHoliday(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the text colour set for the calendar date.".
 -spec getTextColour(This) -> wx:wx_colour4() when
-	This::wxCalendarDateAttr().
+        This::wxCalendarDateAttr().
 getTextColour(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxCalendarDateAttr),
   wxe_util:queue_cmd(This,?get_env(),?wxCalendarDateAttr_GetTextColour),
@@ -231,7 +231,7 @@ getTextColour(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the background colour set for the calendar date.".
 -spec getBackgroundColour(This) -> wx:wx_colour4() when
-	This::wxCalendarDateAttr().
+        This::wxCalendarDateAttr().
 getBackgroundColour(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxCalendarDateAttr),
   wxe_util:queue_cmd(This,?get_env(),?wxCalendarDateAttr_GetBackgroundColour),
@@ -239,7 +239,7 @@ getBackgroundColour(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the border colour set for the calendar date.".
 -spec getBorderColour(This) -> wx:wx_colour4() when
-	This::wxCalendarDateAttr().
+        This::wxCalendarDateAttr().
 getBorderColour(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxCalendarDateAttr),
   wxe_util:queue_cmd(This,?get_env(),?wxCalendarDateAttr_GetBorderColour),
@@ -247,7 +247,7 @@ getBorderColour(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the font set for the calendar date.".
 -spec getFont(This) -> wxFont:wxFont() when
-	This::wxCalendarDateAttr().
+        This::wxCalendarDateAttr().
 getFont(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxCalendarDateAttr),
   wxe_util:queue_cmd(This,?get_env(),?wxCalendarDateAttr_GetFont),
@@ -256,7 +256,7 @@ getFont(#wx_ref{type=ThisT}=This) ->
 -doc "Returns the border set for the calendar date.".
 %%  Res = ?wxCAL_BORDER_NONE | ?wxCAL_BORDER_SQUARE | ?wxCAL_BORDER_ROUND
 -spec getBorder(This) -> wx:wx_enum() when
-	This::wxCalendarDateAttr().
+        This::wxCalendarDateAttr().
 getBorder(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxCalendarDateAttr),
   wxe_util:queue_cmd(This,?get_env(),?wxCalendarDateAttr_GetBorder),

@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -94,7 +94,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -doc "Sets the `m:wxAuiManager` this event is associated with.".
 -spec setManager(This, Manager) -> 'ok' when
-	This::wxAuiManagerEvent(), Manager::wxAuiManager:wxAuiManager().
+        This::wxAuiManagerEvent(), Manager::wxAuiManager:wxAuiManager().
 setManager(#wx_ref{type=ThisT}=This,#wx_ref{type=ManagerT}=Manager) ->
   ?CLASS(ThisT,wxAuiManagerEvent),
   ?CLASS(ManagerT,wxAuiManager),
@@ -102,7 +102,7 @@ setManager(#wx_ref{type=ThisT}=This,#wx_ref{type=ManagerT}=Manager) ->
 
 -doc "Return: The `m:wxAuiManager` this event is associated with.".
 -spec getManager(This) -> wxAuiManager:wxAuiManager() when
-	This::wxAuiManagerEvent().
+        This::wxAuiManagerEvent().
 getManager(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiManagerEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiManagerEvent_GetManager),
@@ -110,7 +110,7 @@ getManager(#wx_ref{type=ThisT}=This) ->
 
 -doc "Sets the pane this event is associated with.".
 -spec setPane(This, Pane) -> 'ok' when
-	This::wxAuiManagerEvent(), Pane::wxAuiPaneInfo:wxAuiPaneInfo().
+        This::wxAuiManagerEvent(), Pane::wxAuiPaneInfo:wxAuiPaneInfo().
 setPane(#wx_ref{type=ThisT}=This,#wx_ref{type=PaneT}=Pane) ->
   ?CLASS(ThisT,wxAuiManagerEvent),
   ?CLASS(PaneT,wxAuiPaneInfo),
@@ -118,7 +118,7 @@ setPane(#wx_ref{type=ThisT}=This,#wx_ref{type=PaneT}=Pane) ->
 
 -doc "Return: The pane this event is associated with.".
 -spec getPane(This) -> wxAuiPaneInfo:wxAuiPaneInfo() when
-	This::wxAuiManagerEvent().
+        This::wxAuiManagerEvent().
 getPane(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiManagerEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiManagerEvent_GetPane),
@@ -126,7 +126,7 @@ getPane(#wx_ref{type=ThisT}=This) ->
 
 -doc "Sets the ID of the button clicked that triggered this event.".
 -spec setButton(This, Button) -> 'ok' when
-	This::wxAuiManagerEvent(), Button::integer().
+        This::wxAuiManagerEvent(), Button::integer().
 setButton(#wx_ref{type=ThisT}=This,Button)
  when is_integer(Button) ->
   ?CLASS(ThisT,wxAuiManagerEvent),
@@ -134,7 +134,7 @@ setButton(#wx_ref{type=ThisT}=This,Button)
 
 -doc "Return: The ID of the button that was clicked.".
 -spec getButton(This) -> integer() when
-	This::wxAuiManagerEvent().
+        This::wxAuiManagerEvent().
 getButton(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiManagerEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiManagerEvent_GetButton),
@@ -142,7 +142,7 @@ getButton(#wx_ref{type=ThisT}=This) ->
 
 -doc "".
 -spec setDC(This, Pdc) -> 'ok' when
-	This::wxAuiManagerEvent(), Pdc::wxDC:wxDC().
+        This::wxAuiManagerEvent(), Pdc::wxDC:wxDC().
 setDC(#wx_ref{type=ThisT}=This,#wx_ref{type=PdcT}=Pdc) ->
   ?CLASS(ThisT,wxAuiManagerEvent),
   ?CLASS(PdcT,wxDC),
@@ -150,7 +150,7 @@ setDC(#wx_ref{type=ThisT}=This,#wx_ref{type=PdcT}=Pdc) ->
 
 -doc "".
 -spec getDC(This) -> wxDC:wxDC() when
-	This::wxAuiManagerEvent().
+        This::wxAuiManagerEvent().
 getDC(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiManagerEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiManagerEvent_GetDC),
@@ -158,7 +158,7 @@ getDC(#wx_ref{type=ThisT}=This) ->
 
 -doc(#{equiv => veto(This, [])}).
 -spec veto(This) -> 'ok' when
-	This::wxAuiManagerEvent().
+        This::wxAuiManagerEvent().
 
 veto(This)
  when is_record(This, wx_ref) ->
@@ -182,7 +182,7 @@ Return: true if this event was vetoed.
 See: `veto/2`
 """.
 -spec getVeto(This) -> boolean() when
-	This::wxAuiManagerEvent().
+        This::wxAuiManagerEvent().
 getVeto(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiManagerEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiManagerEvent_GetVeto),
@@ -190,7 +190,7 @@ getVeto(#wx_ref{type=ThisT}=This) ->
 
 -doc "Sets whether or not this event can be vetoed.".
 -spec setCanVeto(This, Can_veto) -> 'ok' when
-	This::wxAuiManagerEvent(), Can_veto::boolean().
+        This::wxAuiManagerEvent(), Can_veto::boolean().
 setCanVeto(#wx_ref{type=ThisT}=This,Can_veto)
  when is_boolean(Can_veto) ->
   ?CLASS(ThisT,wxAuiManagerEvent),
@@ -202,7 +202,7 @@ Return: true if this event can be vetoed.
 See: `veto/2`
 """.
 -spec canVeto(This) -> boolean() when
-	This::wxAuiManagerEvent().
+        This::wxAuiManagerEvent().
 canVeto(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiManagerEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiManagerEvent_CanVeto),

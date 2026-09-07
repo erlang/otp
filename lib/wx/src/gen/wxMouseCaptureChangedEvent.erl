@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -103,7 +103,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -doc "Returns the window that gained the capture, or NULL if it was a non-wxWidgets window.".
 -spec getCapturedWindow(This) -> wxWindow:wxWindow() when
-	This::wxMouseCaptureChangedEvent().
+        This::wxMouseCaptureChangedEvent().
 getCapturedWindow(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxMouseCaptureChangedEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxMouseCaptureChangedEvent_GetCapturedWindow),

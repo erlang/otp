@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -94,7 +94,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -doc "Returns the position of the window generating the move change event.".
 -spec getPosition(This) -> {X::integer(), Y::integer()} when
-	This::wxMoveEvent().
+        This::wxMoveEvent().
 getPosition(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxMoveEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxMoveEvent_GetPosition),
@@ -102,7 +102,7 @@ getPosition(#wx_ref{type=ThisT}=This) ->
 
 -doc "".
 -spec getRect(This) -> {X::integer(), Y::integer(), W::integer(), H::integer()} when
-	This::wxMoveEvent().
+        This::wxMoveEvent().
 getRect(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxMoveEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxMoveEvent_GetRect),

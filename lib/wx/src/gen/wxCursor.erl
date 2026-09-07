@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -126,11 +126,11 @@ new() ->
 %%  Type = ?wxBITMAP_TYPE_INVALID | ?wxBITMAP_TYPE_BMP | ?wxBITMAP_TYPE_BMP_RESOURCE | ?wxBITMAP_TYPE_RESOURCE | ?wxBITMAP_TYPE_ICO | ?wxBITMAP_TYPE_ICO_RESOURCE | ?wxBITMAP_TYPE_CUR | ?wxBITMAP_TYPE_CUR_RESOURCE | ?wxBITMAP_TYPE_XBM | ?wxBITMAP_TYPE_XBM_DATA | ?wxBITMAP_TYPE_XPM | ?wxBITMAP_TYPE_XPM_DATA | ?wxBITMAP_TYPE_TIFF | ?wxBITMAP_TYPE_TIF | ?wxBITMAP_TYPE_TIFF_RESOURCE | ?wxBITMAP_TYPE_TIF_RESOURCE | ?wxBITMAP_TYPE_GIF | ?wxBITMAP_TYPE_GIF_RESOURCE | ?wxBITMAP_TYPE_PNG | ?wxBITMAP_TYPE_PNG_RESOURCE | ?wxBITMAP_TYPE_JPEG | ?wxBITMAP_TYPE_JPEG_RESOURCE | ?wxBITMAP_TYPE_PNM | ?wxBITMAP_TYPE_PNM_RESOURCE | ?wxBITMAP_TYPE_PCX | ?wxBITMAP_TYPE_PCX_RESOURCE | ?wxBITMAP_TYPE_PICT | ?wxBITMAP_TYPE_PICT_RESOURCE | ?wxBITMAP_TYPE_ICON | ?wxBITMAP_TYPE_ICON_RESOURCE | ?wxBITMAP_TYPE_ANI | ?wxBITMAP_TYPE_IFF | ?wxBITMAP_TYPE_TGA | ?wxBITMAP_TYPE_MACCURSOR | ?wxBITMAP_TYPE_MACCURSOR_RESOURCE | ?wxBITMAP_TYPE_ANY
 %%  CursorId = ?wxCURSOR_NONE | ?wxCURSOR_ARROW | ?wxCURSOR_RIGHT_ARROW | ?wxCURSOR_BULLSEYE | ?wxCURSOR_CHAR | ?wxCURSOR_CROSS | ?wxCURSOR_HAND | ?wxCURSOR_IBEAM | ?wxCURSOR_LEFT_BUTTON | ?wxCURSOR_MAGNIFIER | ?wxCURSOR_MIDDLE_BUTTON | ?wxCURSOR_NO_ENTRY | ?wxCURSOR_PAINT_BRUSH | ?wxCURSOR_PENCIL | ?wxCURSOR_POINT_LEFT | ?wxCURSOR_POINT_RIGHT | ?wxCURSOR_QUESTION_ARROW | ?wxCURSOR_RIGHT_BUTTON | ?wxCURSOR_SIZENESW | ?wxCURSOR_SIZENS | ?wxCURSOR_SIZENWSE | ?wxCURSOR_SIZEWE | ?wxCURSOR_SIZING | ?wxCURSOR_SPRAYCAN | ?wxCURSOR_WAIT | ?wxCURSOR_WATCH | ?wxCURSOR_BLANK | ?wxCURSOR_DEFAULT | ?wxCURSOR_ARROWWAIT | ?wxCURSOR_MAX
 -spec new(CursorName) -> wxCursor() when
-	CursorName::unicode:chardata();
+        CursorName::unicode:chardata();
       (Image) -> wxCursor() when
-	Image::wxImage:wxImage() | wxCursor:wxCursor();
+        Image::wxImage:wxImage() | wxCursor:wxCursor();
       (CursorId) -> wxCursor() when
-	CursorId::wx:wx_enum().
+        CursorId::wx:wx_enum().
 
 new(CursorName)
  when ?is_chardata(CursorName) ->
@@ -176,7 +176,7 @@ new(CursorName, Options)
 
 -doc "Equivalent to: `isOk/1`".
 -spec ok(This) -> boolean() when
-	This::wxCursor().
+        This::wxCursor().
 
 ok(This)
  when is_record(This, wx_ref) ->
@@ -184,7 +184,7 @@ ok(This)
 
 -doc "Returns true if cursor data is present.".
 -spec isOk(This) -> boolean() when
-	This::wxCursor().
+        This::wxCursor().
 isOk(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxCursor),
   wxe_util:queue_cmd(This,?get_env(),?wxCursor_IsOk),

@@ -21,7 +21,7 @@
 %%%-------------------------------------------------------------------
 %%% File    : wx_test_lib.hrl
 %%% Author  : Dan Gudmundsson <dan.gudmundsson@ericsson.com>
-%%% Description : Testing Macros 
+%%% Description : Testing Macros
 %%%
 %%% Created : 30 Oct 2008 by Dan Gudmundsson <dan.gudmundsson@ericsson.com>
 %%%-------------------------------------------------------------------
@@ -34,79 +34,94 @@
 -define(verbose(Format,Args),wx_test_lib:verbose(Format,Args,?FILE,?LINE)).
 
 -define(fatal(Format,Args),
-	?error(Format, Args),
-	exit({test_case_fatal, Format, Args, ?FILE, ?LINE})).
+        ?error(Format, Args),
+        exit({test_case_fatal, Format, Args, ?FILE, ?LINE})).
 
 -define(skip(Format,Args),
-	?warning(Format, Args),
-	exit({skipped, ?flat_format(Format, Args)})).
+        ?warning(Format, Args),
+        exit({skipped, ?flat_format(Format, Args)})).
 
 -define(m(ExpectedRes, Expr),
-	fun() ->
-		AcTuAlReS = (catch (Expr)),
-		case AcTuAlReS of
-		    ExpectedRes ->
-			?verbose("ok: ~p~n",[AcTuAlReS]),
-			AcTuAlReS;
-		    _ ->
-			wx_test_lib:error("Not Matching Actual result was:~n ~p ~n Expected ~s~n",
-					  [AcTuAlReS, ??ExpectedRes],
-					  ?FILE,?LINE),
-			AcTuAlReS
-		end
-	end()).
+        fun() ->
+                AcTuAlReS = try (Expr)
+                            catch
+                                throw:R_ -> R_;
+                                exit:R_ -> {'EXIT',R_};
+                                error:R_:S_ -> {'EXIT',{R_,S_}}
+                            end,
+                case AcTuAlReS of
+                    ExpectedRes ->
+                        ?verbose("ok: ~p~n",[AcTuAlReS]),
+                        AcTuAlReS;
+                    _ ->
+                        wx_test_lib:error("Not Matching Actual result was:~n ~p ~n Expected ~s~n",
+                                          [AcTuAlReS, ??ExpectedRes],
+                                          ?FILE,?LINE),
+                        AcTuAlReS
+                end
+        end()).
 
 -define(mt(Expected, Expr),
-	fun() ->
-		{TeStFILe, TeSTLiNe} = {?FILE, ?LINE},
-		AcTuAlReS = (catch (Expr)),
-		case catch element(3,AcTuAlReS) of
-		    Expected -> 
-			wx_test_lib:verbose("ok: ~s~n",[??Expected],TeStFILe,TeSTLiNe),
-			AcTuAlReS;
-		    _ ->
-			wx_test_lib:error("Not Matching Actual result was:~n ~p ~n Expected ~s~n",
-					  [AcTuAlReS, ??Expected], 
-					  TeStFILe,TeSTLiNe),
-			AcTuAlReS
-		end
-	end()).
+        fun() ->
+                {TeStFILe, TeSTLiNe} = {?FILE, ?LINE},
+                AcTuAlReS = try (Expr)
+                            catch
+                                throw:R_ -> R_;
+                                exit:R_ -> {'EXIT',R_};
+                                error:R_:S_ -> {'EXIT',{R_,S_}}
+                            end,
+                case (try element(3,AcTuAlReS) catch _:_ -> '__mt_no_match__' end) of
+                    Expected ->
+                        wx_test_lib:verbose("ok: ~s~n",[??Expected],TeStFILe,TeSTLiNe),
+                        AcTuAlReS;
+                    _ ->
+                        wx_test_lib:error("Not Matching Actual result was:~n ~p ~n Expected ~s~n",
+                                          [AcTuAlReS, ??Expected],
+                                          TeStFILe,TeSTLiNe),
+                        AcTuAlReS
+                end
+        end()).
 
 -define(mr(Expected, Expr),
-	fun() ->
-		{TeStFILe, TeSTLiNe} = {?FILE, ?LINE},
-		AcTuAlReS = (catch (Expr)),
-		case catch element(1,AcTuAlReS) of
-		    Expected -> 
-			wx_test_lib:verbose("ok: ~s~n",[??Expected],TeStFILe,TeSTLiNe),
-			AcTuAlReS;
-		    _ ->
-			wx_test_lib:error("Not Matching Actual result was:~n ~p ~n Expected ~s~n",
-					  [AcTuAlReS, ??Expected], 
-					  TeStFILe,TeSTLiNe),
-			AcTuAlReS
-		end
-	end()).
-		    
+        fun() ->
+                {TeStFILe, TeSTLiNe} = {?FILE, ?LINE},
+                AcTuAlReS = try (Expr)
+                            catch
+                                throw:R_ -> R_;
+                                exit:R_ -> {'EXIT',R_};
+                                error:R_:S_ -> {'EXIT',{R_,S_}}
+                            end,
+                case (try element(1,AcTuAlReS) catch _:_ -> '__mr_no_match__' end) of
+                    Expected ->
+                        wx_test_lib:verbose("ok: ~s~n",[??Expected],TeStFILe,TeSTLiNe),
+                        AcTuAlReS;
+                    _ ->
+                        wx_test_lib:error("Not Matching Actual result was:~n ~p ~n Expected ~s~n",
+                                          [AcTuAlReS, ??Expected],
+                                          TeStFILe,TeSTLiNe),
+                        AcTuAlReS
+                end
+        end()).
+
 -define(m_receive(ExpectedMsg),
-	?m(ExpectedMsg,wx_test_lib:pick_msg())).
+        ?m(ExpectedMsg,wx_test_lib:pick_msg())).
 
 -define(m_multi_receive(ExpectedMsgs),
-	fun() ->
-		{TeStFILe, TeSTLiNe} = {?FILE, ?LINE},
-		TmPeXpCtEdMsGs = lists:sort(ExpectedMsgs),		
-		AcTuAlReS = 
-		    lists:sort(lists:map(fun(_) ->
-						 wx_test_lib:pick_msg()
-					 end, TmPeXpCtEdMsGs)),
-		case AcTuAlReS of
-		    TmPeXpCtEdMsGs ->
-			?verbose("ok: ~p~n",[AcTuAlReS]),
-			AcTuAlReS;
-		    _ ->
-			wx_test_lib:error("Not Matching Actual result was:~n ~p ~n Expected ~p~n",
-					  [AcTuAlReS, ExpectedMsgs], 
-					  TeStFILe,TeSTLiNe),
-			AcTuAlReS
-		end
-	end()).
+        fun() ->
+                {TeStFILe, TeSTLiNe} = {?FILE, ?LINE},
+                TmPeXpCtEdMsGs = lists:sort(ExpectedMsgs),
+                AcTuAlReS =
+                    lists:sort(lists:map(fun(_) ->
+                                                 wx_test_lib:pick_msg()
+                                         end, TmPeXpCtEdMsGs)),
+                case AcTuAlReS of
+                    TmPeXpCtEdMsGs ->
+                        ?verbose("ok: ~p~n",[AcTuAlReS]),
+                        AcTuAlReS;
+                    _ ->
+                        wx_test_lib:error("Not Matching Actual result was:~n ~p ~n Expected ~p~n",
+                                          [AcTuAlReS, ExpectedMsgs],
+                                          TeStFILe,TeSTLiNe),
+                        AcTuAlReS
+                end
+        end()).

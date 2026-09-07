@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -100,7 +100,7 @@ Constructor for a `m:wxBoxSizer`.
 or a row sizer.
 """.
 -spec new(Orient) -> wxBoxSizer() when
-	Orient::integer().
+        Orient::integer().
 new(Orient)
  when is_integer(Orient) ->
   wxe_util:queue_cmd(Orient,?get_env(),?wxBoxSizer_new),
@@ -108,7 +108,7 @@ new(Orient)
 
 -doc "Returns the orientation of the box sizer, either wxVERTICAL or wxHORIZONTAL.".
 -spec getOrientation(This) -> integer() when
-	This::wxBoxSizer().
+        This::wxBoxSizer().
 getOrientation(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxBoxSizer),
   wxe_util:queue_cmd(This,?get_env(),?wxBoxSizer_GetOrientation),

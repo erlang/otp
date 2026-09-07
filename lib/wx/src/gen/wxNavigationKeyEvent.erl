@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -94,7 +94,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -doc "Returns true if the navigation was in the forward direction.".
 -spec getDirection(This) -> boolean() when
-	This::wxNavigationKeyEvent().
+        This::wxNavigationKeyEvent().
 getDirection(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxNavigationKeyEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxNavigationKeyEvent_GetDirection),
@@ -102,7 +102,7 @@ getDirection(#wx_ref{type=ThisT}=This) ->
 
 -doc "Sets the direction to forward if `direction` is true, or backward if false.".
 -spec setDirection(This, Direction) -> 'ok' when
-	This::wxNavigationKeyEvent(), Direction::boolean().
+        This::wxNavigationKeyEvent(), Direction::boolean().
 setDirection(#wx_ref{type=ThisT}=This,Direction)
  when is_boolean(Direction) ->
   ?CLASS(ThisT,wxNavigationKeyEvent),
@@ -113,7 +113,7 @@ Returns true if the navigation event represents a window change (for example, fr
 Ctrl-Page Down in a notebook).
 """.
 -spec isWindowChange(This) -> boolean() when
-	This::wxNavigationKeyEvent().
+        This::wxNavigationKeyEvent().
 isWindowChange(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxNavigationKeyEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxNavigationKeyEvent_IsWindowChange),
@@ -121,7 +121,7 @@ isWindowChange(#wx_ref{type=ThisT}=This) ->
 
 -doc "Marks the event as a window change event.".
 -spec setWindowChange(This, WindowChange) -> 'ok' when
-	This::wxNavigationKeyEvent(), WindowChange::boolean().
+        This::wxNavigationKeyEvent(), WindowChange::boolean().
 setWindowChange(#wx_ref{type=ThisT}=This,WindowChange)
  when is_boolean(WindowChange) ->
   ?CLASS(ThisT,wxNavigationKeyEvent),
@@ -133,7 +133,7 @@ Returns true if the navigation event was from a tab key.
 This is required for proper navigation over radio buttons.
 """.
 -spec isFromTab(This) -> boolean() when
-	This::wxNavigationKeyEvent().
+        This::wxNavigationKeyEvent().
 isFromTab(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxNavigationKeyEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxNavigationKeyEvent_IsFromTab),
@@ -141,7 +141,7 @@ isFromTab(#wx_ref{type=ThisT}=This) ->
 
 -doc "Marks the navigation event as from a tab key.".
 -spec setFromTab(This, FromTab) -> 'ok' when
-	This::wxNavigationKeyEvent(), FromTab::boolean().
+        This::wxNavigationKeyEvent(), FromTab::boolean().
 setFromTab(#wx_ref{type=ThisT}=This,FromTab)
  when is_boolean(FromTab) ->
   ?CLASS(ThisT,wxNavigationKeyEvent),
@@ -149,7 +149,7 @@ setFromTab(#wx_ref{type=ThisT}=This,FromTab)
 
 -doc "Returns the child that has the focus, or NULL.".
 -spec getCurrentFocus(This) -> wxWindow:wxWindow() when
-	This::wxNavigationKeyEvent().
+        This::wxNavigationKeyEvent().
 getCurrentFocus(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxNavigationKeyEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxNavigationKeyEvent_GetCurrentFocus),
@@ -157,7 +157,7 @@ getCurrentFocus(#wx_ref{type=ThisT}=This) ->
 
 -doc "Sets the current focus window member.".
 -spec setCurrentFocus(This, CurrentFocus) -> 'ok' when
-	This::wxNavigationKeyEvent(), CurrentFocus::wxWindow:wxWindow().
+        This::wxNavigationKeyEvent(), CurrentFocus::wxWindow:wxWindow().
 setCurrentFocus(#wx_ref{type=ThisT}=This,#wx_ref{type=CurrentFocusT}=CurrentFocus) ->
   ?CLASS(ThisT,wxNavigationKeyEvent),
   ?CLASS(CurrentFocusT,wxWindow),

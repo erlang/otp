@@ -52,8 +52,8 @@ void ~s(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   ErlNifBinary title_bin;
   int onPrintPage;
-  if(!enif_inspect_binary(env, argv[0], &title_bin)) Badarg("title")
-  wxString(title_bin.data, wxConvUTF8, title_bin.size);
+  if(!enif_inspect_binary(env, argv[0], &title_bin)) Badarg("title");
+  title = wxString(title_bin.data, wxConvUTF8, title_bin.size);
   if(!enif_get_int(env, argv[1], &onPrintPage)) Badarg("onPrintPage");
 
   ERL_NIF_TERM lstHead, lstTail;

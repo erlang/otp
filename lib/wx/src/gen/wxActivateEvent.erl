@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -88,7 +88,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -doc "Returns true if the application or window is being activated, false otherwise.".
 -spec getActive(This) -> boolean() when
-	This::wxActivateEvent().
+        This::wxActivateEvent().
 getActive(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxActivateEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxActivateEvent_GetActive),

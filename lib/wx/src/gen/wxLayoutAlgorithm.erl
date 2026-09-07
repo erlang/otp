@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -142,7 +142,7 @@ new() ->
 
 -doc(#{equiv => layoutFrame(This,Frame, [])}).
 -spec layoutFrame(This, Frame) -> boolean() when
-	This::wxLayoutAlgorithm(), Frame::wxFrame:wxFrame().
+        This::wxLayoutAlgorithm(), Frame::wxFrame:wxFrame().
 
 layoutFrame(This,Frame)
  when is_record(This, wx_ref),is_record(Frame, wx_ref) ->
@@ -168,7 +168,7 @@ layoutFrame(#wx_ref{type=ThisT}=This,#wx_ref{type=FrameT}=Frame, Options)
 
 -doc(#{equiv => layoutMDIFrame(This,Frame, [])}).
 -spec layoutMDIFrame(This, Frame) -> boolean() when
-	This::wxLayoutAlgorithm(), Frame::wxMDIParentFrame:wxMDIParentFrame().
+        This::wxLayoutAlgorithm(), Frame::wxMDIParentFrame:wxMDIParentFrame().
 
 layoutMDIFrame(This,Frame)
  when is_record(This, wx_ref),is_record(Frame, wx_ref) ->
@@ -195,7 +195,7 @@ layoutMDIFrame(#wx_ref{type=ThisT}=This,#wx_ref{type=FrameT}=Frame, Options)
 
 -doc(#{equiv => layoutWindow(This,Parent, [])}).
 -spec layoutWindow(This, Parent) -> boolean() when
-	This::wxLayoutAlgorithm(), Parent::wxWindow:wxWindow().
+        This::wxLayoutAlgorithm(), Parent::wxWindow:wxWindow().
 
 layoutWindow(This,Parent)
  when is_record(This, wx_ref),is_record(Parent, wx_ref) ->

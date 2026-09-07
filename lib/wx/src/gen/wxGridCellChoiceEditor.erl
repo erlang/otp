@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -91,7 +91,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -doc(#{equiv => new(Choices, [])}).
 -spec new(Choices) -> wxGridCellChoiceEditor() when
-	Choices::[unicode:chardata()].
+        Choices::[unicode:chardata()].
 
 new(Choices)
  when is_list(Choices) ->
@@ -118,7 +118,7 @@ This method can be called before the editor is used for the first time, or later
 which case it replaces the previously specified strings with the new ones.
 """.
 -spec setParameters(This, Params) -> 'ok' when
-	This::wxGridCellChoiceEditor(), Params::unicode:chardata().
+        This::wxGridCellChoiceEditor(), Params::unicode:chardata().
 setParameters(#wx_ref{type=ThisT}=This,Params)
  when ?is_chardata(Params) ->
   ?CLASS(ThisT,wxGridCellChoiceEditor),

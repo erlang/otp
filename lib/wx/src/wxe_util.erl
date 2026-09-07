@@ -25,7 +25,6 @@
 %%%
 %%% Created :  9 Feb 2007 by Dan Gudmundsson <dgud@erix.ericsson.se>
 %%%-------------------------------------------------------------------
-%% @hidden
 -module(wxe_util).
 -moduledoc false.
 
@@ -68,7 +67,7 @@ color(RGBA) -> RGBA.
 
 get_name(Where, Id) when is_atom(Where), is_integer(Id) ->
     {_Atom2Id, EnumId2Atom} = persistent_term:get(wx_consts),
-    maps:get(Id, maps:get(Where, EnumId2Atom, undefined), undefined).
+    maps:get(Id, maps:get(Where, EnumId2Atom, #{}), undefined).
 
 get_const(Atom) when is_atom(Atom) ->
     {Atom2Id, _EnumId2Atom} = persistent_term:get(wx_consts),
@@ -115,13 +114,9 @@ queue_cmd(_,_,_,_,_,_,_,_,_,_,_,_,_,_,_) -> ?NIF_ERROR.
 
 rec(Op) ->
     receive
-	{'_wxe_result_', Res} -> Res;
-	{'_wxe_error_', Op, MFA, Error} ->
-	    erlang:error({Error, MFA});
-	{'_wxe_error_', Op, {M,F,A}, Error} ->
-	    Msg = io_lib:format("~p in ~w:~w/~w", [Error, M, F, A]),
-	    wxe_master ! {wxe_driver, error, Msg},
-	    rec(Op)
+        {'_wxe_result_', Res} -> Res;
+        {'_wxe_error_', Op, MFA, Error} ->
+            erlang:error({Error, MFA})
     end.
 
 register_pid(#wx_ref{ref=Index}) ->

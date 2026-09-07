@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -114,7 +114,7 @@ See: `setOrigin/2`
 """.
 %%  Res = ?wxHelpEvent_Origin_Unknown | ?wxHelpEvent_Origin_Keyboard | ?wxHelpEvent_Origin_HelpButton
 -spec getOrigin(This) -> wx:wx_enum() when
-	This::wxHelpEvent().
+        This::wxHelpEvent().
 getOrigin(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxHelpEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxHelpEvent_GetOrigin),
@@ -126,7 +126,7 @@ Returns the left-click position of the mouse, in screen coordinates.
 This allows the application to position the help appropriately.
 """.
 -spec getPosition(This) -> {X::integer(), Y::integer()} when
-	This::wxHelpEvent().
+        This::wxHelpEvent().
 getPosition(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxHelpEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxHelpEvent_GetPosition),
@@ -139,7 +139,7 @@ See: `getOrigin/1`
 """.
 %%  Origin = ?wxHelpEvent_Origin_Unknown | ?wxHelpEvent_Origin_Keyboard | ?wxHelpEvent_Origin_HelpButton
 -spec setOrigin(This, Origin) -> 'ok' when
-	This::wxHelpEvent(), Origin::wx:wx_enum().
+        This::wxHelpEvent(), Origin::wx:wx_enum().
 setOrigin(#wx_ref{type=ThisT}=This,Origin)
  when is_integer(Origin) ->
   ?CLASS(ThisT,wxHelpEvent),
@@ -147,7 +147,7 @@ setOrigin(#wx_ref{type=ThisT}=This,Origin)
 
 -doc "Sets the left-click position of the mouse, in screen coordinates.".
 -spec setPosition(This, Pt) -> 'ok' when
-	This::wxHelpEvent(), Pt::{X::integer(), Y::integer()}.
+        This::wxHelpEvent(), Pt::{X::integer(), Y::integer()}.
 setPosition(#wx_ref{type=ThisT}=This,{PtX,PtY} = Pt)
  when is_integer(PtX),is_integer(PtY) ->
   ?CLASS(ThisT,wxHelpEvent),

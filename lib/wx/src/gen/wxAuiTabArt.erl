@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -86,7 +86,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -doc "Sets flags.".
 -spec setFlags(This, Flags) -> 'ok' when
-	This::wxAuiTabArt(), Flags::integer().
+        This::wxAuiTabArt(), Flags::integer().
 setFlags(#wx_ref{type=ThisT}=This,Flags)
  when is_integer(Flags) ->
   ?CLASS(ThisT,wxAuiTabArt),
@@ -94,7 +94,7 @@ setFlags(#wx_ref{type=ThisT}=This,Flags)
 
 -doc "Sets the font used for calculating measurements.".
 -spec setMeasuringFont(This, Font) -> 'ok' when
-	This::wxAuiTabArt(), Font::wxFont:wxFont().
+        This::wxAuiTabArt(), Font::wxFont:wxFont().
 setMeasuringFont(#wx_ref{type=ThisT}=This,#wx_ref{type=FontT}=Font) ->
   ?CLASS(ThisT,wxAuiTabArt),
   ?CLASS(FontT,wxFont),
@@ -102,7 +102,7 @@ setMeasuringFont(#wx_ref{type=ThisT}=This,#wx_ref{type=FontT}=Font) ->
 
 -doc "Sets the normal font for drawing labels.".
 -spec setNormalFont(This, Font) -> 'ok' when
-	This::wxAuiTabArt(), Font::wxFont:wxFont().
+        This::wxAuiTabArt(), Font::wxFont:wxFont().
 setNormalFont(#wx_ref{type=ThisT}=This,#wx_ref{type=FontT}=Font) ->
   ?CLASS(ThisT,wxAuiTabArt),
   ?CLASS(FontT,wxFont),
@@ -110,7 +110,7 @@ setNormalFont(#wx_ref{type=ThisT}=This,#wx_ref{type=FontT}=Font) ->
 
 -doc "Sets the font for drawing text for selected UI elements.".
 -spec setSelectedFont(This, Font) -> 'ok' when
-	This::wxAuiTabArt(), Font::wxFont:wxFont().
+        This::wxAuiTabArt(), Font::wxFont:wxFont().
 setSelectedFont(#wx_ref{type=ThisT}=This,#wx_ref{type=FontT}=Font) ->
   ?CLASS(ThisT,wxAuiTabArt),
   ?CLASS(FontT,wxFont),
@@ -122,7 +122,7 @@ Sets the colour of the inactive tabs.
 Since: 2.9.2
 """.
 -spec setColour(This, Colour) -> 'ok' when
-	This::wxAuiTabArt(), Colour::wx:wx_colour().
+        This::wxAuiTabArt(), Colour::wx:wx_colour().
 setColour(#wx_ref{type=ThisT}=This,Colour)
  when ?is_colordata(Colour) ->
   ?CLASS(ThisT,wxAuiTabArt),
@@ -134,7 +134,7 @@ Sets the colour of the selected tab.
 Since: 2.9.2
 """.
 -spec setActiveColour(This, Colour) -> 'ok' when
-	This::wxAuiTabArt(), Colour::wx:wx_colour().
+        This::wxAuiTabArt(), Colour::wx:wx_colour().
 setActiveColour(#wx_ref{type=ThisT}=This,Colour)
  when ?is_colordata(Colour) ->
   ?CLASS(ThisT,wxAuiTabArt),

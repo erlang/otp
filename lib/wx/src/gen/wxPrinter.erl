@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -115,7 +115,7 @@ new(Options)
 
 -doc "Creates the default printing abort window, with a cancel button.".
 -spec createAbortWindow(This, Parent, Printout) -> wxDialog:wxDialog() when
-	This::wxPrinter(), Parent::wxWindow:wxWindow(), Printout::wxPrintout:wxPrintout().
+        This::wxPrinter(), Parent::wxWindow:wxWindow(), Printout::wxPrintout:wxPrintout().
 createAbortWindow(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,#wx_ref{type=PrintoutT}=Printout) ->
   ?CLASS(ThisT,wxPrinter),
   ?CLASS(ParentT,wxWindow),
@@ -125,7 +125,7 @@ createAbortWindow(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,#wx_ref{
 
 -doc "Returns true if the user has aborted the print job.".
 -spec getAbort(This) -> boolean() when
-	This::wxPrinter().
+        This::wxPrinter().
 getAbort(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPrinter),
   wxe_util:queue_cmd(This,?get_env(),?wxPrinter_GetAbort),
@@ -148,7 +148,7 @@ getLastError() ->
 
 -doc "Returns the print data associated with the printer object.".
 -spec getPrintDialogData(This) -> wxPrintDialogData:wxPrintDialogData() when
-	This::wxPrinter().
+        This::wxPrinter().
 getPrintDialogData(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPrinter),
   wxe_util:queue_cmd(This,?get_env(),?wxPrinter_GetPrintDialogData),
@@ -156,7 +156,7 @@ getPrintDialogData(#wx_ref{type=ThisT}=This) ->
 
 -doc(#{equiv => print(This,Parent,Printout, [])}).
 -spec print(This, Parent, Printout) -> boolean() when
-	This::wxPrinter(), Parent::wxWindow:wxWindow(), Printout::wxPrintout:wxPrintout().
+        This::wxPrinter(), Parent::wxWindow:wxWindow(), Printout::wxPrintout:wxPrintout().
 
 print(This,Parent,Printout)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_record(Printout, wx_ref) ->
@@ -196,7 +196,7 @@ about the kind of the error.
 Remark: The application must delete this device context to avoid a memory leak.
 """.
 -spec printDialog(This, Parent) -> wxDC:wxDC() when
-	This::wxPrinter(), Parent::wxWindow:wxWindow().
+        This::wxPrinter(), Parent::wxWindow:wxWindow().
 printDialog(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent) ->
   ?CLASS(ThisT,wxPrinter),
   ?CLASS(ParentT,wxWindow),
@@ -205,7 +205,7 @@ printDialog(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent) ->
 
 -doc "Default error-reporting function.".
 -spec reportError(This, Parent, Printout, Message) -> 'ok' when
-	This::wxPrinter(), Parent::wxWindow:wxWindow(), Printout::wxPrintout:wxPrintout(), Message::unicode:chardata().
+        This::wxPrinter(), Parent::wxWindow:wxWindow(), Printout::wxPrintout:wxPrintout(), Message::unicode:chardata().
 reportError(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,#wx_ref{type=PrintoutT}=Printout,Message)
  when ?is_chardata(Message) ->
   ?CLASS(ThisT,wxPrinter),
@@ -222,7 +222,7 @@ Deprecated:
 The setup dialog is obsolete, though retained for backward compatibility.
 """.
 -spec setup(This, Parent) -> boolean() when
-	This::wxPrinter(), Parent::wxWindow:wxWindow().
+        This::wxPrinter(), Parent::wxWindow:wxWindow().
 setup(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent) ->
   ?CLASS(ThisT,wxPrinter),
   ?CLASS(ParentT,wxWindow),

@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -128,7 +128,7 @@ Constructor.
 Pass a pointer to the window on which you wish to paint.
 """.
 -spec new(Window) -> wxPaintDC() when
-	Window::wxWindow:wxWindow().
+        Window::wxWindow:wxWindow().
 new(#wx_ref{type=WindowT}=Window) ->
   ?CLASS(WindowT,wxWindow),
   wxe_util:queue_cmd(Window,?get_env(),?wxPaintDC_new),

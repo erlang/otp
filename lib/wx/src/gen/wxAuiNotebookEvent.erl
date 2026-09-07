@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -103,7 +103,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -doc "Sets the selection member variable.".
 -spec setSelection(This, Page) -> 'ok' when
-	This::wxAuiNotebookEvent(), Page::integer().
+        This::wxAuiNotebookEvent(), Page::integer().
 setSelection(#wx_ref{type=ThisT}=This,Page)
  when is_integer(Page) ->
   ?CLASS(ThisT,wxAuiNotebookEvent),
@@ -116,7 +116,7 @@ Note: under Windows, `getSelection/1` will return the same value as `getOldSelec
 handler and not the page which is going to be selected.
 """.
 -spec getSelection(This) -> integer() when
-	This::wxAuiNotebookEvent().
+        This::wxAuiNotebookEvent().
 getSelection(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiNotebookEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiNotebookEvent_GetSelection),
@@ -124,7 +124,7 @@ getSelection(#wx_ref{type=ThisT}=This) ->
 
 -doc "Sets the id of the page selected before the change.".
 -spec setOldSelection(This, Page) -> 'ok' when
-	This::wxAuiNotebookEvent(), Page::integer().
+        This::wxAuiNotebookEvent(), Page::integer().
 setOldSelection(#wx_ref{type=ThisT}=This,Page)
  when is_integer(Page) ->
   ?CLASS(ThisT,wxAuiNotebookEvent),
@@ -135,7 +135,7 @@ Returns the page that was selected before the change, `wxNOT\_FOUND` if none was
 selected.
 """.
 -spec getOldSelection(This) -> integer() when
-	This::wxAuiNotebookEvent().
+        This::wxAuiNotebookEvent().
 getOldSelection(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiNotebookEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiNotebookEvent_GetOldSelection),
@@ -143,7 +143,7 @@ getOldSelection(#wx_ref{type=ThisT}=This) ->
 
 -doc "".
 -spec setDragSource(This, S) -> 'ok' when
-	This::wxAuiNotebookEvent(), S::wxAuiNotebook:wxAuiNotebook().
+        This::wxAuiNotebookEvent(), S::wxAuiNotebook:wxAuiNotebook().
 setDragSource(#wx_ref{type=ThisT}=This,#wx_ref{type=ST}=S) ->
   ?CLASS(ThisT,wxAuiNotebookEvent),
   ?CLASS(ST,wxAuiNotebook),
@@ -151,7 +151,7 @@ setDragSource(#wx_ref{type=ThisT}=This,#wx_ref{type=ST}=S) ->
 
 -doc "".
 -spec getDragSource(This) -> wxAuiNotebook:wxAuiNotebook() when
-	This::wxAuiNotebookEvent().
+        This::wxAuiNotebookEvent().
 getDragSource(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiNotebookEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiNotebookEvent_GetDragSource),

@@ -188,7 +188,7 @@ exportall(Config) when is_list(Config) ->
 check_export_all([]) ->
     ok;
 check_export_all([Mod|Mods]) ->
-    case (catch apply(Mod, module_info, [compile])) of
+    case (try apply(Mod, module_info, [compile]) catch _:_ -> {'EXIT', {undef, []}} end) of
 	{'EXIT', {undef, _}} ->
 	    check_export_all(Mods);
 	O ->

@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright Ericsson AB 2008-2025. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2026. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -158,6 +158,7 @@ void wxAcceleratorEntry_Set(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAcceleratorEntry *This;
   This = (wxAcceleratorEntry *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   int flags;
   if(!enif_get_int(env, argv[1], &flags)) Badarg("flags"); // int
   int keyCode;
@@ -176,7 +177,6 @@ void wxAcceleratorEntry_Set(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   item = (wxMenuItem *) memenv->getPtr(env, tpl[1], "item");
     } else        Badarg("Options");
   };
-  if(!This) throw wxe_badarg("This");
   This->Set(flags,keyCode,cmd,item);
 
 }
@@ -188,6 +188,7 @@ void wxAcceleratorEntry_destroy(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd
  ERL_NIF_TERM * argv = Ecmd.args;
   wxAcceleratorEntry *This;
   This = (wxAcceleratorEntry *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
  if(This) {   ((WxeApp *) wxTheApp)->clearPtr((void *) This);
    delete This;}
 }
@@ -341,9 +342,9 @@ void wxAuiDockArt_GetColour(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiDockArt *This;
   This = (wxAuiDockArt *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   int id;
   if(!enif_get_int(env, argv[1], &id)) Badarg("id"); // int
-  if(!This) throw wxe_badarg("This");
   wxColour Result = This->GetColour(id);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make(Result));
@@ -357,9 +358,9 @@ void wxAuiDockArt_GetFont(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiDockArt *This;
   This = (wxAuiDockArt *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   int id;
   if(!enif_get_int(env, argv[1], &id)) Badarg("id"); // int
-  if(!This) throw wxe_badarg("This");
   wxFont * Result = new wxFont(This->GetFont(id)); app->newPtr((void *) Result,3, memenv);;
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_ref(app->getRef((void *)Result,memenv), "wxFont"));
@@ -373,9 +374,9 @@ void wxAuiDockArt_GetMetric(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiDockArt *This;
   This = (wxAuiDockArt *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   int id;
   if(!enif_get_int(env, argv[1], &id)) Badarg("id"); // int
-  if(!This) throw wxe_badarg("This");
   int Result = This->GetMetric(id);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_int(Result));
@@ -389,6 +390,7 @@ void wxAuiDockArt_SetColour(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiDockArt *This;
   This = (wxAuiDockArt *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   int id;
   if(!enif_get_int(env, argv[1], &id)) Badarg("id"); // int
   const ERL_NIF_TERM *colour_t;
@@ -403,7 +405,6 @@ void wxAuiDockArt_SetColour(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   int colourA;
   if(!enif_get_int(env, colour_t[3], &colourA)) Badarg("colour");
   wxColour colour = wxColour(colourR,colourG,colourB,colourA);
-  if(!This) throw wxe_badarg("This");
   This->SetColour(id,colour);
 
 }
@@ -415,11 +416,11 @@ void wxAuiDockArt_SetFont(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiDockArt *This;
   This = (wxAuiDockArt *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   int id;
   if(!enif_get_int(env, argv[1], &id)) Badarg("id"); // int
   wxFont *font;
   font = (wxFont *) memenv->getPtr(env, argv[2], "font");
-  if(!This) throw wxe_badarg("This");
   This->SetFont(id,*font);
 
 }
@@ -431,11 +432,11 @@ void wxAuiDockArt_SetMetric(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiDockArt *This;
   This = (wxAuiDockArt *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   int id;
   if(!enif_get_int(env, argv[1], &id)) Badarg("id"); // int
   int new_val;
   if(!enif_get_int(env, argv[2], &new_val)) Badarg("new_val"); // int
-  if(!This) throw wxe_badarg("This");
   This->SetMetric(id,new_val);
 
 }
@@ -477,11 +478,11 @@ void wxAuiManager_AddPane_2_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiManager *This;
   This = (wxAuiManager *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   wxWindow *window;
   window = (wxWindow *) memenv->getPtr(env, argv[1], "window");
   wxAuiPaneInfo *pane_info;
   pane_info = (wxAuiPaneInfo *) memenv->getPtr(env, argv[2], "pane_info");
-  if(!This) throw wxe_badarg("This");
   bool Result = This->AddPane(window,*pane_info);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_bool(Result));
@@ -497,6 +498,7 @@ void wxAuiManager_AddPane_2_0(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiManager *This;
   This = (wxAuiManager *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   wxWindow *window;
   window = (wxWindow *) memenv->getPtr(env, argv[1], "window");
   ERL_NIF_TERM lstHead, lstTail;
@@ -515,7 +517,6 @@ void wxAuiManager_AddPane_2_0(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   caption = wxString(caption_bin.data, wxConvUTF8, caption_bin.size);
     } else        Badarg("Options");
   };
-  if(!This) throw wxe_badarg("This");
   bool Result = This->AddPane(window,direction,caption);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_bool(Result));
@@ -529,6 +530,7 @@ void wxAuiManager_AddPane_3(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiManager *This;
   This = (wxAuiManager *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   wxWindow *window;
   window = (wxWindow *) memenv->getPtr(env, argv[1], "window");
   wxAuiPaneInfo *pane_info;
@@ -541,7 +543,6 @@ void wxAuiManager_AddPane_3(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   int drop_posY;
   if(!enif_get_int(env, drop_pos_t[1], &drop_posY)) Badarg("drop_pos");
   wxPoint drop_pos = wxPoint(drop_posX,drop_posY);
-  if(!This) throw wxe_badarg("This");
   bool Result = This->AddPane(window,*pane_info,drop_pos);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_bool(Result));
@@ -555,9 +556,9 @@ void wxAuiManager_DetachPane(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiManager *This;
   This = (wxAuiManager *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   wxWindow *window;
   window = (wxWindow *) memenv->getPtr(env, argv[1], "window");
-  if(!This) throw wxe_badarg("This");
   bool Result = This->DetachPane(window);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_bool(Result));
@@ -659,9 +660,9 @@ void wxAuiManager_GetPane_1_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiManager *This;
   This = (wxAuiManager *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   wxWindow *window;
   window = (wxWindow *) memenv->getPtr(env, argv[1], "window");
-  if(!This) throw wxe_badarg("This");
   wxAuiPaneInfo * Result = &This->GetPane(window);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_ref(app->getRef((void *)Result,memenv), "wxAuiPaneInfo"));
@@ -675,11 +676,11 @@ void wxAuiManager_GetPane_1_0(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiManager *This;
   This = (wxAuiManager *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   ErlNifBinary name_bin;
   wxString name;
   if(!enif_inspect_binary(env, argv[1], &name_bin)) Badarg("name");
   name = wxString(name_bin.data, wxConvUTF8, name_bin.size);
-  if(!This) throw wxe_badarg("This");
   wxAuiPaneInfo * Result = &This->GetPane(name);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_ref(app->getRef((void *)Result,memenv), "wxAuiPaneInfo"));
@@ -706,6 +707,7 @@ void wxAuiManager_InsertPane(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiManager *This;
   This = (wxAuiManager *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   wxWindow *window;
   window = (wxWindow *) memenv->getPtr(env, argv[1], "window");
   wxAuiPaneInfo *insert_location;
@@ -722,7 +724,6 @@ void wxAuiManager_InsertPane(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   if(!enif_get_int(env, tpl[1], &insert_level)) Badarg("insert_level"); // int
     } else        Badarg("Options");
   };
-  if(!This) throw wxe_badarg("This");
   bool Result = This->InsertPane(window,*insert_location,insert_level);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_bool(Result));
@@ -736,13 +737,13 @@ void wxAuiManager_LoadPaneInfo(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiManager *This;
   This = (wxAuiManager *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   ErlNifBinary pane_part_bin;
   wxString pane_part;
   if(!enif_inspect_binary(env, argv[1], &pane_part_bin)) Badarg("pane_part");
   pane_part = wxString(pane_part_bin.data, wxConvUTF8, pane_part_bin.size);
   wxAuiPaneInfo *pane;
   pane = (wxAuiPaneInfo *) memenv->getPtr(env, argv[2], "pane");
-  if(!This) throw wxe_badarg("This");
   This->LoadPaneInfo(pane_part,*pane);
 
 }
@@ -755,6 +756,7 @@ void wxAuiManager_LoadPerspective(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ec
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiManager *This;
   This = (wxAuiManager *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   ErlNifBinary perspective_bin;
   wxString perspective;
   if(!enif_inspect_binary(env, argv[1], &perspective_bin)) Badarg("perspective");
@@ -771,7 +773,6 @@ void wxAuiManager_LoadPerspective(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ec
   update = enif_is_identical(tpl[1], WXE_ATOM_true);
     } else        Badarg("Options");
   };
-  if(!This) throw wxe_badarg("This");
   bool Result = This->LoadPerspective(perspective,update);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_bool(Result));
@@ -785,9 +786,9 @@ void wxAuiManager_SavePaneInfo(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiManager *This;
   This = (wxAuiManager *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   wxAuiPaneInfo *pane;
   pane = (wxAuiPaneInfo *) memenv->getPtr(env, argv[1], "pane");
-  if(!This) throw wxe_badarg("This");
   wxString Result = This->SavePaneInfo(*pane);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make(Result));
@@ -815,9 +816,9 @@ void wxAuiManager_SetArtProvider(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecm
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiManager *This;
   This = (wxAuiManager *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   wxAuiDockArt *art_provider;
   art_provider = (wxAuiDockArt *) memenv->getPtr(env, argv[1], "art_provider");
-  if(!This) throw wxe_badarg("This");
   This->SetArtProvider(art_provider);
 
 }
@@ -829,11 +830,11 @@ void wxAuiManager_SetDockSizeConstraint(WxeApp *app, wxeMemEnv *memenv, wxeComma
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiManager *This;
   This = (wxAuiManager *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   double widthpct;
   if(!wxe_get_double(env, argv[1], &widthpct)) Badarg("widthpct");
   double heightpct;
   if(!wxe_get_double(env, argv[2], &heightpct)) Badarg("heightpct");
-  if(!This) throw wxe_badarg("This");
   This->SetDockSizeConstraint(widthpct,heightpct);
 
 }
@@ -845,9 +846,9 @@ void wxAuiManager_SetFlags(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiManager *This;
   This = (wxAuiManager *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   unsigned int flags;
   if(!enif_get_uint(env, argv[1], &flags)) Badarg("flags");
-  if(!This) throw wxe_badarg("This");
   This->SetFlags(flags);
 
 }
@@ -859,9 +860,9 @@ void wxAuiManager_SetManagedWindow(WxeApp *app, wxeMemEnv *memenv, wxeCommand& E
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiManager *This;
   This = (wxAuiManager *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   wxWindow *managed_wnd;
   managed_wnd = (wxWindow *) memenv->getPtr(env, argv[1], "managed_wnd");
-  if(!This) throw wxe_badarg("This");
   This->SetManagedWindow(managed_wnd);
 
 }
@@ -873,6 +874,7 @@ void wxAuiManager_ShowHint(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiManager *This;
   This = (wxAuiManager *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   const ERL_NIF_TERM *rect_t;
   int rect_sz;
   if(!enif_get_tuple(env, argv[1], &rect_sz, &rect_t)) Badarg("rect");
@@ -885,7 +887,6 @@ void wxAuiManager_ShowHint(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   int rectH;
   if(!enif_get_int(env, rect_t[3], &rectH)) Badarg("rect");
   wxRect rect = wxRect(rectX,rectY,rectW,rectH);
-  if(!This) throw wxe_badarg("This");
   This->ShowHint(rect);
 
 }
@@ -922,9 +923,9 @@ void wxAuiManagerEvent_SetManager(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ec
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiManagerEvent *This;
   This = (wxAuiManagerEvent *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   wxAuiManager *manager;
   manager = (wxAuiManager *) memenv->getPtr(env, argv[1], "manager");
-  if(!This) throw wxe_badarg("This");
   This->SetManager(manager);
 
 }
@@ -950,9 +951,9 @@ void wxAuiManagerEvent_SetPane(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiManagerEvent *This;
   This = (wxAuiManagerEvent *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   wxAuiPaneInfo *pane;
   pane = (wxAuiPaneInfo *) memenv->getPtr(env, argv[1], "pane");
-  if(!This) throw wxe_badarg("This");
   This->SetPane(pane);
 
 }
@@ -978,9 +979,9 @@ void wxAuiManagerEvent_SetButton(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecm
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiManagerEvent *This;
   This = (wxAuiManagerEvent *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   int button;
   if(!enif_get_int(env, argv[1], &button)) Badarg("button"); // int
-  if(!This) throw wxe_badarg("This");
   This->SetButton(button);
 
 }
@@ -1006,9 +1007,9 @@ void wxAuiManagerEvent_SetDC(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiManagerEvent *This;
   This = (wxAuiManagerEvent *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   wxDC *pdc;
   pdc = (wxDC *) memenv->getPtr(env, argv[1], "pdc");
-  if(!This) throw wxe_badarg("This");
   This->SetDC(pdc);
 
 }
@@ -1035,6 +1036,7 @@ void wxAuiManagerEvent_Veto(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiManagerEvent *This;
   This = (wxAuiManagerEvent *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   ERL_NIF_TERM lstHead, lstTail;
   lstTail = argv[1];
   if(!enif_is_list(env, lstTail)) Badarg("Options");
@@ -1047,7 +1049,6 @@ void wxAuiManagerEvent_Veto(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   veto = enif_is_identical(tpl[1], WXE_ATOM_true);
     } else        Badarg("Options");
   };
-  if(!This) throw wxe_badarg("This");
   This->Veto(veto);
 
 }
@@ -1073,9 +1074,9 @@ void wxAuiManagerEvent_SetCanVeto(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ec
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiManagerEvent *This;
   This = (wxAuiManagerEvent *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   bool can_veto;
   can_veto = enif_is_identical(argv[1], WXE_ATOM_true);
-  if(!This) throw wxe_badarg("This");
   This->SetCanVeto(can_veto);
 
 }
@@ -1164,6 +1165,7 @@ void wxAuiNotebook_AddPage_3(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiNotebook *This;
   This = (wxAuiNotebook *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   wxWindow *page;
   page = (wxWindow *) memenv->getPtr(env, argv[1], "page");
   ErlNifBinary caption_bin;
@@ -1184,7 +1186,6 @@ void wxAuiNotebook_AddPage_3(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   bitmap = (wxBitmap *) memenv->getPtr(env, tpl[1], "bitmap");
     } else        Badarg("Options");
   };
-  if(!This) throw wxe_badarg("This");
   bool Result = This->AddPage(page,caption,select,*bitmap);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_bool(Result));
@@ -1198,6 +1199,7 @@ void wxAuiNotebook_AddPage_4(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiNotebook *This;
   This = (wxAuiNotebook *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   wxWindow *page;
   page = (wxWindow *) memenv->getPtr(env, argv[1], "page");
   ErlNifBinary text_bin;
@@ -1208,7 +1210,6 @@ void wxAuiNotebook_AddPage_4(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   select = enif_is_identical(argv[3], WXE_ATOM_true);
   int imageId;
   if(!enif_get_int(env, argv[4], &imageId)) Badarg("imageId"); // int
-  if(!This) throw wxe_badarg("This");
   bool Result = This->AddPage(page,text,select,imageId);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_bool(Result));
@@ -1226,6 +1227,7 @@ void wxAuiNotebook_Create_2(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiNotebook *This;
   This = (wxAuiNotebook *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   wxWindow *parent;
   parent = (wxWindow *) memenv->getPtr(env, argv[1], "parent");
   ERL_NIF_TERM lstHead, lstTail;
@@ -1260,7 +1262,6 @@ void wxAuiNotebook_Create_2(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   if(!enif_get_long(env, tpl[1], &style)) Badarg("style");
     } else        Badarg("Options");
   };
-  if(!This) throw wxe_badarg("This");
   bool Result = This->Create(parent,id,pos,size,style);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_bool(Result));
@@ -1277,6 +1278,7 @@ void wxAuiNotebook_Create_3(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiNotebook *This;
   This = (wxAuiNotebook *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   wxWindow *parent;
   parent = (wxWindow *) memenv->getPtr(env, argv[1], "parent");
   int winid;
@@ -1311,7 +1313,6 @@ void wxAuiNotebook_Create_3(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   if(!enif_get_long(env, tpl[1], &style)) Badarg("style");
     } else        Badarg("Options");
   };
-  if(!This) throw wxe_badarg("This");
   bool Result = This->Create(parent,winid,pos,size,style);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_bool(Result));
@@ -1325,9 +1326,9 @@ void wxAuiNotebook_DeletePage(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiNotebook *This;
   This = (wxAuiNotebook *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   size_t page;
   if(!wxe_get_size_t(env, argv[1], &page)) Badarg("page");
-  if(!This) throw wxe_badarg("This");
   bool Result = This->DeletePage(page);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_bool(Result));
@@ -1355,9 +1356,9 @@ void wxAuiNotebook_GetPage(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiNotebook *This;
   This = (wxAuiNotebook *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   size_t page_idx;
   if(!wxe_get_size_t(env, argv[1], &page_idx)) Badarg("page_idx");
-  if(!This) throw wxe_badarg("This");
   wxWindow * Result = (wxWindow*)This->GetPage(page_idx);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_ref(app->getRef((void *)Result,memenv), "wxWindow"));
@@ -1371,9 +1372,9 @@ void wxAuiNotebook_GetPageBitmap(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecm
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiNotebook *This;
   This = (wxAuiNotebook *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   size_t page;
   if(!wxe_get_size_t(env, argv[1], &page)) Badarg("page");
-  if(!This) throw wxe_badarg("This");
   wxBitmap * Result = new wxBitmap(This->GetPageBitmap(page)); app->newPtr((void *) Result,3, memenv);;
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_ref(app->getRef((void *)Result,memenv), "wxBitmap"));
@@ -1401,9 +1402,9 @@ void wxAuiNotebook_GetPageIndex(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiNotebook *This;
   This = (wxAuiNotebook *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   wxWindow *page_wnd;
   page_wnd = (wxWindow *) memenv->getPtr(env, argv[1], "page_wnd");
-  if(!This) throw wxe_badarg("This");
   int Result = This->GetPageIndex(page_wnd);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_int(Result));
@@ -1417,9 +1418,9 @@ void wxAuiNotebook_GetPageText(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiNotebook *This;
   This = (wxAuiNotebook *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   size_t page;
   if(!wxe_get_size_t(env, argv[1], &page)) Badarg("page");
-  if(!This) throw wxe_badarg("This");
   wxString Result = This->GetPageText(page);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make(Result));
@@ -1449,6 +1450,7 @@ void wxAuiNotebook_InsertPage_4(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiNotebook *This;
   This = (wxAuiNotebook *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   size_t page_idx;
   if(!wxe_get_size_t(env, argv[1], &page_idx)) Badarg("page_idx");
   wxWindow *page;
@@ -1471,7 +1473,6 @@ void wxAuiNotebook_InsertPage_4(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd
   bitmap = (wxBitmap *) memenv->getPtr(env, tpl[1], "bitmap");
     } else        Badarg("Options");
   };
-  if(!This) throw wxe_badarg("This");
   bool Result = This->InsertPage(page_idx,page,caption,select,*bitmap);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_bool(Result));
@@ -1485,6 +1486,7 @@ void wxAuiNotebook_InsertPage_5(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiNotebook *This;
   This = (wxAuiNotebook *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   size_t index;
   if(!wxe_get_size_t(env, argv[1], &index)) Badarg("index");
   wxWindow *page;
@@ -1497,7 +1499,6 @@ void wxAuiNotebook_InsertPage_5(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd
   select = enif_is_identical(argv[4], WXE_ATOM_true);
   int imageId;
   if(!enif_get_int(env, argv[5], &imageId)) Badarg("imageId"); // int
-  if(!This) throw wxe_badarg("This");
   bool Result = This->InsertPage(index,page,text,select,imageId);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_bool(Result));
@@ -1511,9 +1512,9 @@ void wxAuiNotebook_RemovePage(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiNotebook *This;
   This = (wxAuiNotebook *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   size_t page;
   if(!wxe_get_size_t(env, argv[1], &page)) Badarg("page");
-  if(!This) throw wxe_badarg("This");
   bool Result = This->RemovePage(page);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_bool(Result));
@@ -1527,9 +1528,9 @@ void wxAuiNotebook_SetArtProvider(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ec
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiNotebook *This;
   This = (wxAuiNotebook *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   wxAuiTabArt *art;
   art = (wxAuiTabArt *) memenv->getPtr(env, argv[1], "art");
-  if(!This) throw wxe_badarg("This");
   This->SetArtProvider(art);
 
 }
@@ -1541,9 +1542,9 @@ void wxAuiNotebook_SetFont(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiNotebook *This;
   This = (wxAuiNotebook *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   wxFont *font;
   font = (wxFont *) memenv->getPtr(env, argv[1], "font");
-  if(!This) throw wxe_badarg("This");
   bool Result = This->SetFont(*font);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_bool(Result));
@@ -1557,11 +1558,11 @@ void wxAuiNotebook_SetPageBitmap(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecm
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiNotebook *This;
   This = (wxAuiNotebook *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   size_t page;
   if(!wxe_get_size_t(env, argv[1], &page)) Badarg("page");
   wxBitmap *bitmap;
   bitmap = (wxBitmap *) memenv->getPtr(env, argv[2], "bitmap");
-  if(!This) throw wxe_badarg("This");
   bool Result = This->SetPageBitmap(page,*bitmap);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_bool(Result));
@@ -1575,13 +1576,13 @@ void wxAuiNotebook_SetPageText(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiNotebook *This;
   This = (wxAuiNotebook *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   size_t page;
   if(!wxe_get_size_t(env, argv[1], &page)) Badarg("page");
   ErlNifBinary text_bin;
   wxString text;
   if(!enif_inspect_binary(env, argv[2], &text_bin)) Badarg("text");
   text = wxString(text_bin.data, wxConvUTF8, text_bin.size);
-  if(!This) throw wxe_badarg("This");
   bool Result = This->SetPageText(page,text);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_bool(Result));
@@ -1595,9 +1596,9 @@ void wxAuiNotebook_SetSelection(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiNotebook *This;
   This = (wxAuiNotebook *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   size_t new_page;
   if(!wxe_get_size_t(env, argv[1], &new_page)) Badarg("new_page");
-  if(!This) throw wxe_badarg("This");
   int Result = This->SetSelection(new_page);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_int(Result));
@@ -1611,9 +1612,9 @@ void wxAuiNotebook_SetTabCtrlHeight(WxeApp *app, wxeMemEnv *memenv, wxeCommand& 
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiNotebook *This;
   This = (wxAuiNotebook *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   int height;
   if(!enif_get_int(env, argv[1], &height)) Badarg("height"); // int
-  if(!This) throw wxe_badarg("This");
   This->SetTabCtrlHeight(height);
 
 }
@@ -1625,6 +1626,7 @@ void wxAuiNotebook_SetUniformBitmapSize(WxeApp *app, wxeMemEnv *memenv, wxeComma
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiNotebook *This;
   This = (wxAuiNotebook *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   const ERL_NIF_TERM *size_t;
   int size_sz;
   if(!enif_get_tuple(env, argv[1], &size_sz, &size_t)) Badarg("size");
@@ -1633,7 +1635,6 @@ void wxAuiNotebook_SetUniformBitmapSize(WxeApp *app, wxeMemEnv *memenv, wxeComma
   int sizeH;
   if(!enif_get_int(env, size_t[1], &sizeH)) Badarg("size");
   wxSize size = wxSize(sizeW,sizeH);
-  if(!This) throw wxe_badarg("This");
   This->SetUniformBitmapSize(size);
 
 }
@@ -1646,9 +1647,9 @@ void wxAuiNotebookEvent_SetSelection(WxeApp *app, wxeMemEnv *memenv, wxeCommand&
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiNotebookEvent *This;
   This = (wxAuiNotebookEvent *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   int page;
   if(!enif_get_int(env, argv[1], &page)) Badarg("page"); // int
-  if(!This) throw wxe_badarg("This");
   This->SetSelection(page);
 
 }
@@ -1674,9 +1675,9 @@ void wxAuiNotebookEvent_SetOldSelection(WxeApp *app, wxeMemEnv *memenv, wxeComma
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiNotebookEvent *This;
   This = (wxAuiNotebookEvent *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   int page;
   if(!enif_get_int(env, argv[1], &page)) Badarg("page"); // int
-  if(!This) throw wxe_badarg("This");
   This->SetOldSelection(page);
 
 }
@@ -1702,9 +1703,9 @@ void wxAuiNotebookEvent_SetDragSource(WxeApp *app, wxeMemEnv *memenv, wxeCommand
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiNotebookEvent *This;
   This = (wxAuiNotebookEvent *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   wxAuiNotebook *s;
   s = (wxAuiNotebook *) memenv->getPtr(env, argv[1], "s");
-  if(!This) throw wxe_badarg("This");
   This->SetDragSource(s);
 
 }
@@ -1755,6 +1756,7 @@ void wxAuiPaneInfo_BestSize_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiPaneInfo *This;
   This = (wxAuiPaneInfo *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   const ERL_NIF_TERM *size_t;
   int size_sz;
   if(!enif_get_tuple(env, argv[1], &size_sz, &size_t)) Badarg("size");
@@ -1763,7 +1765,6 @@ void wxAuiPaneInfo_BestSize_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   int sizeH;
   if(!enif_get_int(env, size_t[1], &sizeH)) Badarg("size");
   wxSize size = wxSize(sizeW,sizeH);
-  if(!This) throw wxe_badarg("This");
   wxAuiPaneInfo * Result = &This->BestSize(size);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_ref(app->getRef((void *)Result,memenv), "wxAuiPaneInfo"));
@@ -1777,11 +1778,11 @@ void wxAuiPaneInfo_BestSize_2(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiPaneInfo *This;
   This = (wxAuiPaneInfo *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   int x;
   if(!enif_get_int(env, argv[1], &x)) Badarg("x"); // int
   int y;
   if(!enif_get_int(env, argv[2], &y)) Badarg("y"); // int
-  if(!This) throw wxe_badarg("This");
   wxAuiPaneInfo * Result = &This->BestSize(x,y);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_ref(app->getRef((void *)Result,memenv), "wxAuiPaneInfo"));
@@ -1810,6 +1811,7 @@ void wxAuiPaneInfo_BottomDockable(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ec
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiPaneInfo *This;
   This = (wxAuiPaneInfo *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   ERL_NIF_TERM lstHead, lstTail;
   lstTail = argv[1];
   if(!enif_is_list(env, lstTail)) Badarg("Options");
@@ -1822,7 +1824,6 @@ void wxAuiPaneInfo_BottomDockable(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ec
   b = enif_is_identical(tpl[1], WXE_ATOM_true);
     } else        Badarg("Options");
   };
-  if(!This) throw wxe_badarg("This");
   wxAuiPaneInfo * Result = &This->BottomDockable(b);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_ref(app->getRef((void *)Result,memenv), "wxAuiPaneInfo"));
@@ -1836,11 +1837,11 @@ void wxAuiPaneInfo_Caption(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiPaneInfo *This;
   This = (wxAuiPaneInfo *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   ErlNifBinary c_bin;
   wxString c;
   if(!enif_inspect_binary(env, argv[1], &c_bin)) Badarg("c");
   c = wxString(c_bin.data, wxConvUTF8, c_bin.size);
-  if(!This) throw wxe_badarg("This");
   wxAuiPaneInfo * Result = &This->Caption(c);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_ref(app->getRef((void *)Result,memenv), "wxAuiPaneInfo"));
@@ -1855,6 +1856,7 @@ void wxAuiPaneInfo_CaptionVisible(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ec
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiPaneInfo *This;
   This = (wxAuiPaneInfo *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   ERL_NIF_TERM lstHead, lstTail;
   lstTail = argv[1];
   if(!enif_is_list(env, lstTail)) Badarg("Options");
@@ -1867,7 +1869,6 @@ void wxAuiPaneInfo_CaptionVisible(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ec
   visible = enif_is_identical(tpl[1], WXE_ATOM_true);
     } else        Badarg("Options");
   };
-  if(!This) throw wxe_badarg("This");
   wxAuiPaneInfo * Result = &This->CaptionVisible(visible);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_ref(app->getRef((void *)Result,memenv), "wxAuiPaneInfo"));
@@ -1910,6 +1911,7 @@ void wxAuiPaneInfo_CloseButton(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiPaneInfo *This;
   This = (wxAuiPaneInfo *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   ERL_NIF_TERM lstHead, lstTail;
   lstTail = argv[1];
   if(!enif_is_list(env, lstTail)) Badarg("Options");
@@ -1922,7 +1924,6 @@ void wxAuiPaneInfo_CloseButton(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   visible = enif_is_identical(tpl[1], WXE_ATOM_true);
     } else        Badarg("Options");
   };
-  if(!This) throw wxe_badarg("This");
   wxAuiPaneInfo * Result = &This->CloseButton(visible);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_ref(app->getRef((void *)Result,memenv), "wxAuiPaneInfo"));
@@ -1951,6 +1952,7 @@ void wxAuiPaneInfo_DestroyOnClose(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ec
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiPaneInfo *This;
   This = (wxAuiPaneInfo *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   ERL_NIF_TERM lstHead, lstTail;
   lstTail = argv[1];
   if(!enif_is_list(env, lstTail)) Badarg("Options");
@@ -1963,7 +1965,6 @@ void wxAuiPaneInfo_DestroyOnClose(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ec
   b = enif_is_identical(tpl[1], WXE_ATOM_true);
     } else        Badarg("Options");
   };
-  if(!This) throw wxe_badarg("This");
   wxAuiPaneInfo * Result = &This->DestroyOnClose(b);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_ref(app->getRef((void *)Result,memenv), "wxAuiPaneInfo"));
@@ -1977,9 +1978,9 @@ void wxAuiPaneInfo_Direction(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiPaneInfo *This;
   This = (wxAuiPaneInfo *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   int direction;
   if(!enif_get_int(env, argv[1], &direction)) Badarg("direction"); // int
-  if(!This) throw wxe_badarg("This");
   wxAuiPaneInfo * Result = &This->Direction(direction);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_ref(app->getRef((void *)Result,memenv), "wxAuiPaneInfo"));
@@ -2008,6 +2009,7 @@ void wxAuiPaneInfo_Dockable(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiPaneInfo *This;
   This = (wxAuiPaneInfo *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   ERL_NIF_TERM lstHead, lstTail;
   lstTail = argv[1];
   if(!enif_is_list(env, lstTail)) Badarg("Options");
@@ -2020,7 +2022,6 @@ void wxAuiPaneInfo_Dockable(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   b = enif_is_identical(tpl[1], WXE_ATOM_true);
     } else        Badarg("Options");
   };
-  if(!This) throw wxe_badarg("This");
   wxAuiPaneInfo * Result = &This->Dockable(b);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_ref(app->getRef((void *)Result,memenv), "wxAuiPaneInfo"));
@@ -2063,6 +2064,7 @@ void wxAuiPaneInfo_Floatable(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiPaneInfo *This;
   This = (wxAuiPaneInfo *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   ERL_NIF_TERM lstHead, lstTail;
   lstTail = argv[1];
   if(!enif_is_list(env, lstTail)) Badarg("Options");
@@ -2075,7 +2077,6 @@ void wxAuiPaneInfo_Floatable(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   b = enif_is_identical(tpl[1], WXE_ATOM_true);
     } else        Badarg("Options");
   };
-  if(!This) throw wxe_badarg("This");
   wxAuiPaneInfo * Result = &This->Floatable(b);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_ref(app->getRef((void *)Result,memenv), "wxAuiPaneInfo"));
@@ -2089,6 +2090,7 @@ void wxAuiPaneInfo_FloatingPosition_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiPaneInfo *This;
   This = (wxAuiPaneInfo *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   const ERL_NIF_TERM *pos_t;
   int pos_sz;
   if(!enif_get_tuple(env, argv[1], &pos_sz, &pos_t)) Badarg("pos");
@@ -2097,7 +2099,6 @@ void wxAuiPaneInfo_FloatingPosition_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand
   int posY;
   if(!enif_get_int(env, pos_t[1], &posY)) Badarg("pos");
   wxPoint pos = wxPoint(posX,posY);
-  if(!This) throw wxe_badarg("This");
   wxAuiPaneInfo * Result = &This->FloatingPosition(pos);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_ref(app->getRef((void *)Result,memenv), "wxAuiPaneInfo"));
@@ -2111,11 +2112,11 @@ void wxAuiPaneInfo_FloatingPosition_2(WxeApp *app, wxeMemEnv *memenv, wxeCommand
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiPaneInfo *This;
   This = (wxAuiPaneInfo *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   int x;
   if(!enif_get_int(env, argv[1], &x)) Badarg("x"); // int
   int y;
   if(!enif_get_int(env, argv[2], &y)) Badarg("y"); // int
-  if(!This) throw wxe_badarg("This");
   wxAuiPaneInfo * Result = &This->FloatingPosition(x,y);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_ref(app->getRef((void *)Result,memenv), "wxAuiPaneInfo"));
@@ -2129,6 +2130,7 @@ void wxAuiPaneInfo_FloatingSize_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ec
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiPaneInfo *This;
   This = (wxAuiPaneInfo *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   const ERL_NIF_TERM *size_t;
   int size_sz;
   if(!enif_get_tuple(env, argv[1], &size_sz, &size_t)) Badarg("size");
@@ -2137,7 +2139,6 @@ void wxAuiPaneInfo_FloatingSize_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ec
   int sizeH;
   if(!enif_get_int(env, size_t[1], &sizeH)) Badarg("size");
   wxSize size = wxSize(sizeW,sizeH);
-  if(!This) throw wxe_badarg("This");
   wxAuiPaneInfo * Result = &This->FloatingSize(size);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_ref(app->getRef((void *)Result,memenv), "wxAuiPaneInfo"));
@@ -2151,11 +2152,11 @@ void wxAuiPaneInfo_FloatingSize_2(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ec
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiPaneInfo *This;
   This = (wxAuiPaneInfo *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   int x;
   if(!enif_get_int(env, argv[1], &x)) Badarg("x"); // int
   int y;
   if(!enif_get_int(env, argv[2], &y)) Badarg("y"); // int
-  if(!This) throw wxe_badarg("This");
   wxAuiPaneInfo * Result = &This->FloatingSize(x,y);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_ref(app->getRef((void *)Result,memenv), "wxAuiPaneInfo"));
@@ -2170,6 +2171,7 @@ void wxAuiPaneInfo_Gripper(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiPaneInfo *This;
   This = (wxAuiPaneInfo *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   ERL_NIF_TERM lstHead, lstTail;
   lstTail = argv[1];
   if(!enif_is_list(env, lstTail)) Badarg("Options");
@@ -2182,7 +2184,6 @@ void wxAuiPaneInfo_Gripper(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   visible = enif_is_identical(tpl[1], WXE_ATOM_true);
     } else        Badarg("Options");
   };
-  if(!This) throw wxe_badarg("This");
   wxAuiPaneInfo * Result = &This->Gripper(visible);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_ref(app->getRef((void *)Result,memenv), "wxAuiPaneInfo"));
@@ -2197,6 +2198,7 @@ void wxAuiPaneInfo_GripperTop(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiPaneInfo *This;
   This = (wxAuiPaneInfo *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   ERL_NIF_TERM lstHead, lstTail;
   lstTail = argv[1];
   if(!enif_is_list(env, lstTail)) Badarg("Options");
@@ -2209,7 +2211,6 @@ void wxAuiPaneInfo_GripperTop(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   attop = enif_is_identical(tpl[1], WXE_ATOM_true);
     } else        Badarg("Options");
   };
-  if(!This) throw wxe_badarg("This");
   wxAuiPaneInfo * Result = &This->GripperTop(attop);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_ref(app->getRef((void *)Result,memenv), "wxAuiPaneInfo"));
@@ -2265,9 +2266,9 @@ void wxAuiPaneInfo_HasFlag(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiPaneInfo *This;
   This = (wxAuiPaneInfo *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   int flag;
   if(!enif_get_int(env, argv[1], &flag)) Badarg("flag"); // int
-  if(!This) throw wxe_badarg("This");
   bool Result = This->HasFlag(flag);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_bool(Result));
@@ -2547,9 +2548,9 @@ void wxAuiPaneInfo_Layer(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiPaneInfo *This;
   This = (wxAuiPaneInfo *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   int layer;
   if(!enif_get_int(env, argv[1], &layer)) Badarg("layer"); // int
-  if(!This) throw wxe_badarg("This");
   wxAuiPaneInfo * Result = &This->Layer(layer);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_ref(app->getRef((void *)Result,memenv), "wxAuiPaneInfo"));
@@ -2578,6 +2579,7 @@ void wxAuiPaneInfo_LeftDockable(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiPaneInfo *This;
   This = (wxAuiPaneInfo *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   ERL_NIF_TERM lstHead, lstTail;
   lstTail = argv[1];
   if(!enif_is_list(env, lstTail)) Badarg("Options");
@@ -2590,7 +2592,6 @@ void wxAuiPaneInfo_LeftDockable(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd
   b = enif_is_identical(tpl[1], WXE_ATOM_true);
     } else        Badarg("Options");
   };
-  if(!This) throw wxe_badarg("This");
   wxAuiPaneInfo * Result = &This->LeftDockable(b);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_ref(app->getRef((void *)Result,memenv), "wxAuiPaneInfo"));
@@ -2604,6 +2605,7 @@ void wxAuiPaneInfo_MaxSize_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiPaneInfo *This;
   This = (wxAuiPaneInfo *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   const ERL_NIF_TERM *size_t;
   int size_sz;
   if(!enif_get_tuple(env, argv[1], &size_sz, &size_t)) Badarg("size");
@@ -2612,7 +2614,6 @@ void wxAuiPaneInfo_MaxSize_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   int sizeH;
   if(!enif_get_int(env, size_t[1], &sizeH)) Badarg("size");
   wxSize size = wxSize(sizeW,sizeH);
-  if(!This) throw wxe_badarg("This");
   wxAuiPaneInfo * Result = &This->MaxSize(size);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_ref(app->getRef((void *)Result,memenv), "wxAuiPaneInfo"));
@@ -2626,11 +2627,11 @@ void wxAuiPaneInfo_MaxSize_2(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiPaneInfo *This;
   This = (wxAuiPaneInfo *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   int x;
   if(!enif_get_int(env, argv[1], &x)) Badarg("x"); // int
   int y;
   if(!enif_get_int(env, argv[2], &y)) Badarg("y"); // int
-  if(!This) throw wxe_badarg("This");
   wxAuiPaneInfo * Result = &This->MaxSize(x,y);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_ref(app->getRef((void *)Result,memenv), "wxAuiPaneInfo"));
@@ -2645,6 +2646,7 @@ void wxAuiPaneInfo_MaximizeButton(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ec
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiPaneInfo *This;
   This = (wxAuiPaneInfo *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   ERL_NIF_TERM lstHead, lstTail;
   lstTail = argv[1];
   if(!enif_is_list(env, lstTail)) Badarg("Options");
@@ -2657,7 +2659,6 @@ void wxAuiPaneInfo_MaximizeButton(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ec
   visible = enif_is_identical(tpl[1], WXE_ATOM_true);
     } else        Badarg("Options");
   };
-  if(!This) throw wxe_badarg("This");
   wxAuiPaneInfo * Result = &This->MaximizeButton(visible);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_ref(app->getRef((void *)Result,memenv), "wxAuiPaneInfo"));
@@ -2671,6 +2672,7 @@ void wxAuiPaneInfo_MinSize_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiPaneInfo *This;
   This = (wxAuiPaneInfo *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   const ERL_NIF_TERM *size_t;
   int size_sz;
   if(!enif_get_tuple(env, argv[1], &size_sz, &size_t)) Badarg("size");
@@ -2679,7 +2681,6 @@ void wxAuiPaneInfo_MinSize_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   int sizeH;
   if(!enif_get_int(env, size_t[1], &sizeH)) Badarg("size");
   wxSize size = wxSize(sizeW,sizeH);
-  if(!This) throw wxe_badarg("This");
   wxAuiPaneInfo * Result = &This->MinSize(size);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_ref(app->getRef((void *)Result,memenv), "wxAuiPaneInfo"));
@@ -2693,11 +2694,11 @@ void wxAuiPaneInfo_MinSize_2(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiPaneInfo *This;
   This = (wxAuiPaneInfo *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   int x;
   if(!enif_get_int(env, argv[1], &x)) Badarg("x"); // int
   int y;
   if(!enif_get_int(env, argv[2], &y)) Badarg("y"); // int
-  if(!This) throw wxe_badarg("This");
   wxAuiPaneInfo * Result = &This->MinSize(x,y);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_ref(app->getRef((void *)Result,memenv), "wxAuiPaneInfo"));
@@ -2712,6 +2713,7 @@ void wxAuiPaneInfo_MinimizeButton(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ec
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiPaneInfo *This;
   This = (wxAuiPaneInfo *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   ERL_NIF_TERM lstHead, lstTail;
   lstTail = argv[1];
   if(!enif_is_list(env, lstTail)) Badarg("Options");
@@ -2724,7 +2726,6 @@ void wxAuiPaneInfo_MinimizeButton(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ec
   visible = enif_is_identical(tpl[1], WXE_ATOM_true);
     } else        Badarg("Options");
   };
-  if(!This) throw wxe_badarg("This");
   wxAuiPaneInfo * Result = &This->MinimizeButton(visible);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_ref(app->getRef((void *)Result,memenv), "wxAuiPaneInfo"));
@@ -2739,6 +2740,7 @@ void wxAuiPaneInfo_Movable(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiPaneInfo *This;
   This = (wxAuiPaneInfo *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   ERL_NIF_TERM lstHead, lstTail;
   lstTail = argv[1];
   if(!enif_is_list(env, lstTail)) Badarg("Options");
@@ -2751,7 +2753,6 @@ void wxAuiPaneInfo_Movable(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   b = enif_is_identical(tpl[1], WXE_ATOM_true);
     } else        Badarg("Options");
   };
-  if(!This) throw wxe_badarg("This");
   wxAuiPaneInfo * Result = &This->Movable(b);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_ref(app->getRef((void *)Result,memenv), "wxAuiPaneInfo"));
@@ -2765,11 +2766,11 @@ void wxAuiPaneInfo_Name(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiPaneInfo *This;
   This = (wxAuiPaneInfo *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   ErlNifBinary n_bin;
   wxString n;
   if(!enif_inspect_binary(env, argv[1], &n_bin)) Badarg("n");
   n = wxString(n_bin.data, wxConvUTF8, n_bin.size);
-  if(!This) throw wxe_badarg("This");
   wxAuiPaneInfo * Result = &This->Name(n);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_ref(app->getRef((void *)Result,memenv), "wxAuiPaneInfo"));
@@ -2784,6 +2785,7 @@ void wxAuiPaneInfo_PaneBorder(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiPaneInfo *This;
   This = (wxAuiPaneInfo *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   ERL_NIF_TERM lstHead, lstTail;
   lstTail = argv[1];
   if(!enif_is_list(env, lstTail)) Badarg("Options");
@@ -2796,7 +2798,6 @@ void wxAuiPaneInfo_PaneBorder(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   visible = enif_is_identical(tpl[1], WXE_ATOM_true);
     } else        Badarg("Options");
   };
-  if(!This) throw wxe_badarg("This");
   wxAuiPaneInfo * Result = &This->PaneBorder(visible);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_ref(app->getRef((void *)Result,memenv), "wxAuiPaneInfo"));
@@ -2811,6 +2812,7 @@ void wxAuiPaneInfo_PinButton(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiPaneInfo *This;
   This = (wxAuiPaneInfo *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   ERL_NIF_TERM lstHead, lstTail;
   lstTail = argv[1];
   if(!enif_is_list(env, lstTail)) Badarg("Options");
@@ -2823,7 +2825,6 @@ void wxAuiPaneInfo_PinButton(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   visible = enif_is_identical(tpl[1], WXE_ATOM_true);
     } else        Badarg("Options");
   };
-  if(!This) throw wxe_badarg("This");
   wxAuiPaneInfo * Result = &This->PinButton(visible);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_ref(app->getRef((void *)Result,memenv), "wxAuiPaneInfo"));
@@ -2837,9 +2838,9 @@ void wxAuiPaneInfo_Position(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiPaneInfo *This;
   This = (wxAuiPaneInfo *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   int pos;
   if(!enif_get_int(env, argv[1], &pos)) Badarg("pos"); // int
-  if(!This) throw wxe_badarg("This");
   wxAuiPaneInfo * Result = &This->Position(pos);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_ref(app->getRef((void *)Result,memenv), "wxAuiPaneInfo"));
@@ -2854,6 +2855,7 @@ void wxAuiPaneInfo_Resizable(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiPaneInfo *This;
   This = (wxAuiPaneInfo *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   ERL_NIF_TERM lstHead, lstTail;
   lstTail = argv[1];
   if(!enif_is_list(env, lstTail)) Badarg("Options");
@@ -2866,7 +2868,6 @@ void wxAuiPaneInfo_Resizable(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   resizable = enif_is_identical(tpl[1], WXE_ATOM_true);
     } else        Badarg("Options");
   };
-  if(!This) throw wxe_badarg("This");
   wxAuiPaneInfo * Result = &This->Resizable(resizable);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_ref(app->getRef((void *)Result,memenv), "wxAuiPaneInfo"));
@@ -2895,6 +2896,7 @@ void wxAuiPaneInfo_RightDockable(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecm
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiPaneInfo *This;
   This = (wxAuiPaneInfo *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   ERL_NIF_TERM lstHead, lstTail;
   lstTail = argv[1];
   if(!enif_is_list(env, lstTail)) Badarg("Options");
@@ -2907,7 +2909,6 @@ void wxAuiPaneInfo_RightDockable(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecm
   b = enif_is_identical(tpl[1], WXE_ATOM_true);
     } else        Badarg("Options");
   };
-  if(!This) throw wxe_badarg("This");
   wxAuiPaneInfo * Result = &This->RightDockable(b);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_ref(app->getRef((void *)Result,memenv), "wxAuiPaneInfo"));
@@ -2921,9 +2922,9 @@ void wxAuiPaneInfo_Row(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiPaneInfo *This;
   This = (wxAuiPaneInfo *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   int row;
   if(!enif_get_int(env, argv[1], &row)) Badarg("row"); // int
-  if(!This) throw wxe_badarg("This");
   wxAuiPaneInfo * Result = &This->Row(row);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_ref(app->getRef((void *)Result,memenv), "wxAuiPaneInfo"));
@@ -2937,9 +2938,9 @@ void wxAuiPaneInfo_SafeSet(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiPaneInfo *This;
   This = (wxAuiPaneInfo *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   wxAuiPaneInfo *source;
   source = (wxAuiPaneInfo *) memenv->getPtr(env, argv[1], "source");
-  if(!This) throw wxe_badarg("This");
   This->SafeSet(*source);
 
 }
@@ -2951,11 +2952,11 @@ void wxAuiPaneInfo_SetFlag(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiPaneInfo *This;
   This = (wxAuiPaneInfo *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   int flag;
   if(!enif_get_int(env, argv[1], &flag)) Badarg("flag"); // int
   bool option_state;
   option_state = enif_is_identical(argv[2], WXE_ATOM_true);
-  if(!This) throw wxe_badarg("This");
   wxAuiPaneInfo * Result = &This->SetFlag(flag,option_state);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_ref(app->getRef((void *)Result,memenv), "wxAuiPaneInfo"));
@@ -2970,6 +2971,7 @@ void wxAuiPaneInfo_Show(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiPaneInfo *This;
   This = (wxAuiPaneInfo *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   ERL_NIF_TERM lstHead, lstTail;
   lstTail = argv[1];
   if(!enif_is_list(env, lstTail)) Badarg("Options");
@@ -2982,7 +2984,6 @@ void wxAuiPaneInfo_Show(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   show = enif_is_identical(tpl[1], WXE_ATOM_true);
     } else        Badarg("Options");
   };
-  if(!This) throw wxe_badarg("This");
   wxAuiPaneInfo * Result = &This->Show(show);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_ref(app->getRef((void *)Result,memenv), "wxAuiPaneInfo"));
@@ -3025,6 +3026,7 @@ void wxAuiPaneInfo_TopDockable(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiPaneInfo *This;
   This = (wxAuiPaneInfo *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   ERL_NIF_TERM lstHead, lstTail;
   lstTail = argv[1];
   if(!enif_is_list(env, lstTail)) Badarg("Options");
@@ -3037,7 +3039,6 @@ void wxAuiPaneInfo_TopDockable(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   b = enif_is_identical(tpl[1], WXE_ATOM_true);
     } else        Badarg("Options");
   };
-  if(!This) throw wxe_badarg("This");
   wxAuiPaneInfo * Result = &This->TopDockable(b);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_ref(app->getRef((void *)Result,memenv), "wxAuiPaneInfo"));
@@ -3051,9 +3052,9 @@ void wxAuiPaneInfo_Window(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiPaneInfo *This;
   This = (wxAuiPaneInfo *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   wxWindow *w;
   w = (wxWindow *) memenv->getPtr(env, argv[1], "w");
-  if(!This) throw wxe_badarg("This");
   wxAuiPaneInfo * Result = &This->Window(w);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_ref(app->getRef((void *)Result,memenv), "wxAuiPaneInfo"));
@@ -3067,9 +3068,9 @@ void wxAuiPaneInfo_GetWindow(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiPaneInfo *This;
   This = (wxAuiPaneInfo *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
  #if 0
 ;
-  if(!This) throw wxe_badarg("This");
   wxWindow * Result = (wxWindow*)This->GetWindow();
  #endif
  if(!This) throw wxe_badarg(0);
@@ -3086,9 +3087,9 @@ void wxAuiPaneInfo_GetFrame(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiPaneInfo *This;
   This = (wxAuiPaneInfo *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
  #if 0
 ;
-  if(!This) throw wxe_badarg("This");
   wxFrame * Result = (wxFrame*)This->GetFrame();
  #endif
  if(!This) throw wxe_badarg(0);
@@ -3105,9 +3106,9 @@ void wxAuiPaneInfo_GetDirection(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiPaneInfo *This;
   This = (wxAuiPaneInfo *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
  #if 0
 ;
-  if(!This) throw wxe_badarg("This");
   int Result = This->GetDirection();
  #endif
  if(!This) throw wxe_badarg(0);
@@ -3124,9 +3125,9 @@ void wxAuiPaneInfo_GetLayer(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiPaneInfo *This;
   This = (wxAuiPaneInfo *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
  #if 0
 ;
-  if(!This) throw wxe_badarg("This");
   int Result = This->GetLayer();
  #endif
  if(!This) throw wxe_badarg(0);
@@ -3143,9 +3144,9 @@ void wxAuiPaneInfo_GetRow(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiPaneInfo *This;
   This = (wxAuiPaneInfo *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
  #if 0
 ;
-  if(!This) throw wxe_badarg("This");
   int Result = This->GetRow();
  #endif
  if(!This) throw wxe_badarg(0);
@@ -3162,9 +3163,9 @@ void wxAuiPaneInfo_GetPosition(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiPaneInfo *This;
   This = (wxAuiPaneInfo *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
  #if 0
 ;
-  if(!This) throw wxe_badarg("This");
   int Result = This->GetPosition();
  #endif
  if(!This) throw wxe_badarg(0);
@@ -3181,9 +3182,9 @@ void wxAuiPaneInfo_GetFloatingPosition(WxeApp *app, wxeMemEnv *memenv, wxeComman
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiPaneInfo *This;
   This = (wxAuiPaneInfo *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
  #if 0
 ;
-  if(!This) throw wxe_badarg("This");
   wxPoint Result = This->GetFloatingPosition();
  #endif
  if(!This) throw wxe_badarg(0);
@@ -3200,9 +3201,9 @@ void wxAuiPaneInfo_GetFloatingSize(WxeApp *app, wxeMemEnv *memenv, wxeCommand& E
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiPaneInfo *This;
   This = (wxAuiPaneInfo *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
  #if 0
 ;
-  if(!This) throw wxe_badarg("This");
   wxSize Result = This->GetFloatingSize();
  #endif
  if(!This) throw wxe_badarg(0);
@@ -3219,6 +3220,7 @@ void wxAuiPaneInfo_destroy(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
  ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiPaneInfo *This;
   This = (wxAuiPaneInfo *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
  if(This) {   ((WxeApp *) wxTheApp)->clearPtr((void *) This);
    delete This;}
 }
@@ -3242,6 +3244,7 @@ void wxAuiSimpleTabArt_destroy(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
  ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiSimpleTabArt *This;
   This = (wxAuiSimpleTabArt *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
  if(This) {   ((WxeApp *) wxTheApp)->clearPtr((void *) This);
    delete This;}
 }
@@ -3255,9 +3258,9 @@ void wxAuiTabArt_SetFlags(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiTabArt *This;
   This = (wxAuiTabArt *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   unsigned int flags;
   if(!enif_get_uint(env, argv[1], &flags)) Badarg("flags");
-  if(!This) throw wxe_badarg("This");
   This->SetFlags(flags);
 
 }
@@ -3269,9 +3272,9 @@ void wxAuiTabArt_SetMeasuringFont(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ec
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiTabArt *This;
   This = (wxAuiTabArt *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   wxFont *font;
   font = (wxFont *) memenv->getPtr(env, argv[1], "font");
-  if(!This) throw wxe_badarg("This");
   This->SetMeasuringFont(*font);
 
 }
@@ -3283,9 +3286,9 @@ void wxAuiTabArt_SetNormalFont(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiTabArt *This;
   This = (wxAuiTabArt *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   wxFont *font;
   font = (wxFont *) memenv->getPtr(env, argv[1], "font");
-  if(!This) throw wxe_badarg("This");
   This->SetNormalFont(*font);
 
 }
@@ -3297,9 +3300,9 @@ void wxAuiTabArt_SetSelectedFont(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecm
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiTabArt *This;
   This = (wxAuiTabArt *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   wxFont *font;
   font = (wxFont *) memenv->getPtr(env, argv[1], "font");
-  if(!This) throw wxe_badarg("This");
   This->SetSelectedFont(*font);
 
 }
@@ -3311,6 +3314,7 @@ void wxAuiTabArt_SetColour(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiTabArt *This;
   This = (wxAuiTabArt *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   const ERL_NIF_TERM *colour_t;
   int colour_sz;
   if(!enif_get_tuple(env, argv[1], &colour_sz, &colour_t)) Badarg("colour");
@@ -3323,7 +3327,6 @@ void wxAuiTabArt_SetColour(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   int colourA;
   if(!enif_get_int(env, colour_t[3], &colourA)) Badarg("colour");
   wxColour colour = wxColour(colourR,colourG,colourB,colourA);
-  if(!This) throw wxe_badarg("This");
   This->SetColour(colour);
 
 }
@@ -3335,6 +3338,7 @@ void wxAuiTabArt_SetActiveColour(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecm
   ERL_NIF_TERM * argv = Ecmd.args;
   wxAuiTabArt *This;
   This = (wxAuiTabArt *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   const ERL_NIF_TERM *colour_t;
   int colour_sz;
   if(!enif_get_tuple(env, argv[1], &colour_sz, &colour_t)) Badarg("colour");
@@ -3347,7 +3351,6 @@ void wxAuiTabArt_SetActiveColour(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecm
   int colourA;
   if(!enif_get_int(env, colour_t[3], &colourA)) Badarg("colour");
   wxColour colour = wxColour(colourR,colourG,colourB,colourA);
-  if(!This) throw wxe_badarg("This");
   This->SetActiveColour(colour);
 
 }
@@ -3554,9 +3557,9 @@ void wxBitmap_CopyFromIcon(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxBitmap *This;
   This = (wxBitmap *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   wxIcon *icon;
   icon = (wxIcon *) memenv->getPtr(env, argv[1], "icon");
-  if(!This) throw wxe_badarg("This");
   bool Result = This->CopyFromIcon(*icon);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_bool(Result));
@@ -3571,6 +3574,7 @@ void wxBitmap_Create_3_0(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxBitmap *This;
   This = (wxBitmap *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   int width;
   if(!enif_get_int(env, argv[1], &width)) Badarg("width"); // int
   int height;
@@ -3587,7 +3591,6 @@ void wxBitmap_Create_3_0(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   if(!enif_get_int(env, tpl[1], &depth)) Badarg("depth"); // int
     } else        Badarg("Options");
   };
-  if(!This) throw wxe_badarg("This");
   bool Result = This->Create(width,height,depth);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_bool(Result));
@@ -3602,6 +3605,7 @@ void wxBitmap_Create_2(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxBitmap *This;
   This = (wxBitmap *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   const ERL_NIF_TERM *sz_t;
   int sz_sz;
   if(!enif_get_tuple(env, argv[1], &sz_sz, &sz_t)) Badarg("sz");
@@ -3622,7 +3626,6 @@ void wxBitmap_Create_2(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   if(!enif_get_int(env, tpl[1], &depth)) Badarg("depth"); // int
     } else        Badarg("Options");
   };
-  if(!This) throw wxe_badarg("This");
   bool Result = This->Create(sz,depth);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_bool(Result));
@@ -3636,13 +3639,13 @@ void wxBitmap_Create_3_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxBitmap *This;
   This = (wxBitmap *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   int width;
   if(!enif_get_int(env, argv[1], &width)) Badarg("width"); // int
   int height;
   if(!enif_get_int(env, argv[2], &height)) Badarg("height"); // int
   wxDC *dc;
   dc = (wxDC *) memenv->getPtr(env, argv[3], "dc");
-  if(!This) throw wxe_badarg("This");
   bool Result = This->Create(width,height,*dc);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_bool(Result));
@@ -3726,6 +3729,7 @@ void wxBitmap_GetSubBitmap(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxBitmap *This;
   This = (wxBitmap *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   const ERL_NIF_TERM *rect_t;
   int rect_sz;
   if(!enif_get_tuple(env, argv[1], &rect_sz, &rect_t)) Badarg("rect");
@@ -3738,7 +3742,6 @@ void wxBitmap_GetSubBitmap(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   int rectH;
   if(!enif_get_int(env, rect_t[3], &rectH)) Badarg("rect");
   wxRect rect = wxRect(rectX,rectY,rectW,rectH);
-  if(!This) throw wxe_badarg("This");
   wxBitmap * Result = new wxBitmap(This->GetSubBitmap(rect)); app->newPtr((void *) Result,3, memenv);;
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_ref(app->getRef((void *)Result,memenv), "wxBitmap"));
@@ -3753,6 +3756,7 @@ void wxBitmap_LoadFile(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxBitmap *This;
   This = (wxBitmap *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   ErlNifBinary name_bin;
   wxString name;
   if(!enif_inspect_binary(env, argv[1], &name_bin)) Badarg("name");
@@ -3769,7 +3773,6 @@ void wxBitmap_LoadFile(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   if(!enif_get_int(env, tpl[1], (int *) &type)) Badarg("type"); // enum
     } else        Badarg("Options");
   };
-  if(!This) throw wxe_badarg("This");
   bool Result = This->LoadFile(name,type);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_bool(Result));
@@ -3798,6 +3801,7 @@ void wxBitmap_SaveFile(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxBitmap *This;
   This = (wxBitmap *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   ErlNifBinary name_bin;
   wxString name;
   if(!enif_inspect_binary(env, argv[1], &name_bin)) Badarg("name");
@@ -3816,7 +3820,6 @@ void wxBitmap_SaveFile(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   palette = (wxPalette *) memenv->getPtr(env, tpl[1], "palette");
     } else        Badarg("Options");
   };
-  if(!This) throw wxe_badarg("This");
   bool Result = This->SaveFile(name,type,palette);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_bool(Result));
@@ -3830,9 +3833,9 @@ void wxBitmap_SetDepth(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxBitmap *This;
   This = (wxBitmap *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   int depth;
   if(!enif_get_int(env, argv[1], &depth)) Badarg("depth"); // int
-  if(!This) throw wxe_badarg("This");
   This->SetDepth(depth);
 
 }
@@ -3844,9 +3847,9 @@ void wxBitmap_SetHeight(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxBitmap *This;
   This = (wxBitmap *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   int height;
   if(!enif_get_int(env, argv[1], &height)) Badarg("height"); // int
-  if(!This) throw wxe_badarg("This");
   This->SetHeight(height);
 
 }
@@ -3858,9 +3861,9 @@ void wxBitmap_SetMask(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxBitmap *This;
   This = (wxBitmap *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   wxMask *mask;
   mask = (wxMask *) memenv->getPtr(env, argv[1], "mask");
-  if(!This) throw wxe_badarg("This");
   This->SetMask(mask);
 
 }
@@ -3872,9 +3875,9 @@ void wxBitmap_SetPalette(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxBitmap *This;
   This = (wxBitmap *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   wxPalette *palette;
   palette = (wxPalette *) memenv->getPtr(env, argv[1], "palette");
-  if(!This) throw wxe_badarg("This");
   This->SetPalette(*palette);
 
 }
@@ -3886,9 +3889,9 @@ void wxBitmap_SetWidth(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxBitmap *This;
   This = (wxBitmap *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   int width;
   if(!enif_get_int(env, argv[1], &width)) Badarg("width"); // int
-  if(!This) throw wxe_badarg("This");
   This->SetWidth(width);
 
 }
@@ -3968,6 +3971,7 @@ void wxBitmapButton_Create(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxBitmapButton *This;
   This = (wxBitmapButton *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   wxWindow *parent;
   parent = (wxWindow *) memenv->getPtr(env, argv[1], "parent");
   int id;
@@ -4006,7 +4010,6 @@ void wxBitmapButton_Create(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   validator = (wxValidator *) memenv->getPtr(env, tpl[1], "validator");
     } else        Badarg("Options");
   };
-  if(!This) throw wxe_badarg("This");
   bool Result = This->Create(parent,id,*bitmap,pos,size,style,*validator);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_bool(Result));
@@ -4088,9 +4091,9 @@ void wxBitmapDataObject_SetBitmap(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ec
   ERL_NIF_TERM * argv = Ecmd.args;
   wxBitmapDataObject *This;
   This = (wxBitmapDataObject *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   wxBitmap *bitmap;
   bitmap = (wxBitmap *) memenv->getPtr(env, argv[1], "bitmap");
-  if(!This) throw wxe_badarg("This");
   This->SetBitmap(*bitmap);
 
 }
@@ -4102,6 +4105,7 @@ void wxBitmapDataObject_destroy(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd
  ERL_NIF_TERM * argv = Ecmd.args;
   wxBitmapDataObject *This;
   This = (wxBitmapDataObject *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
  if(This) {   ((WxeApp *) wxTheApp)->clearPtr((void *) This);
    delete This;}
 }
@@ -4115,6 +4119,7 @@ void wxBookCtrlBase_AddPage(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxBookCtrlBase *This;
   This = (wxBookCtrlBase *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   wxWindow *page;
   page = (wxWindow *) memenv->getPtr(env, argv[1], "page");
   ErlNifBinary text_bin;
@@ -4135,7 +4140,6 @@ void wxBookCtrlBase_AddPage(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   if(!enif_get_int(env, tpl[1], &imageId)) Badarg("imageId"); // int
     } else        Badarg("Options");
   };
-  if(!This) throw wxe_badarg("This");
   bool Result = This->AddPage(page,text,bSelect,imageId);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_bool(Result));
@@ -4151,6 +4155,7 @@ void wxBookCtrlBase_InsertPage(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxBookCtrlBase *This;
   This = (wxBookCtrlBase *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   size_t index;
   if(!wxe_get_size_t(env, argv[1], &index)) Badarg("index");
   wxWindow *page;
@@ -4173,7 +4178,6 @@ void wxBookCtrlBase_InsertPage(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   if(!enif_get_int(env, tpl[1], &imageId)) Badarg("imageId"); // int
     } else        Badarg("Options");
   };
-  if(!This) throw wxe_badarg("This");
   bool Result = This->InsertPage(index,page,text,bSelect,imageId);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_bool(Result));
@@ -4187,9 +4191,9 @@ void wxBookCtrlBase_DeletePage(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxBookCtrlBase *This;
   This = (wxBookCtrlBase *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   size_t page;
   if(!wxe_get_size_t(env, argv[1], &page)) Badarg("page");
-  if(!This) throw wxe_badarg("This");
   bool Result = This->DeletePage(page);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_bool(Result));
@@ -4203,9 +4207,9 @@ void wxBookCtrlBase_RemovePage(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxBookCtrlBase *This;
   This = (wxBookCtrlBase *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   size_t page;
   if(!wxe_get_size_t(env, argv[1], &page)) Badarg("page");
-  if(!This) throw wxe_badarg("This");
   bool Result = This->RemovePage(page);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_bool(Result));
@@ -4233,9 +4237,9 @@ void wxBookCtrlBase_GetPage(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxBookCtrlBase *This;
   This = (wxBookCtrlBase *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   size_t page;
   if(!wxe_get_size_t(env, argv[1], &page)) Badarg("page");
-  if(!This) throw wxe_badarg("This");
   wxWindow * Result = (wxWindow*)This->GetPage(page);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_ref(app->getRef((void *)Result,memenv), "wxWindow"));
@@ -4278,6 +4282,7 @@ void wxBookCtrlBase_AdvanceSelection(WxeApp *app, wxeMemEnv *memenv, wxeCommand&
   ERL_NIF_TERM * argv = Ecmd.args;
   wxBookCtrlBase *This;
   This = (wxBookCtrlBase *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   ERL_NIF_TERM lstHead, lstTail;
   lstTail = argv[1];
   if(!enif_is_list(env, lstTail)) Badarg("Options");
@@ -4290,7 +4295,6 @@ void wxBookCtrlBase_AdvanceSelection(WxeApp *app, wxeMemEnv *memenv, wxeCommand&
   forward = enif_is_identical(tpl[1], WXE_ATOM_true);
     } else        Badarg("Options");
   };
-  if(!This) throw wxe_badarg("This");
   This->AdvanceSelection(forward);
 
 }
@@ -4302,9 +4306,9 @@ void wxBookCtrlBase_SetSelection(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecm
   ERL_NIF_TERM * argv = Ecmd.args;
   wxBookCtrlBase *This;
   This = (wxBookCtrlBase *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   size_t page;
   if(!wxe_get_size_t(env, argv[1], &page)) Badarg("page");
-  if(!This) throw wxe_badarg("This");
   int Result = This->SetSelection(page);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_int(Result));
@@ -4332,9 +4336,9 @@ void wxBookCtrlBase_ChangeSelection(WxeApp *app, wxeMemEnv *memenv, wxeCommand& 
   ERL_NIF_TERM * argv = Ecmd.args;
   wxBookCtrlBase *This;
   This = (wxBookCtrlBase *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   size_t page;
   if(!wxe_get_size_t(env, argv[1], &page)) Badarg("page");
-  if(!This) throw wxe_badarg("This");
   int Result = This->ChangeSelection(page);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_int(Result));
@@ -4349,6 +4353,7 @@ void wxBookCtrlBase_HitTest(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxBookCtrlBase *This;
   This = (wxBookCtrlBase *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   const ERL_NIF_TERM *pt_t;
   int pt_sz;
   if(!enif_get_tuple(env, argv[1], &pt_sz, &pt_t)) Badarg("pt");
@@ -4357,7 +4362,6 @@ void wxBookCtrlBase_HitTest(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   int ptY;
   if(!enif_get_int(env, pt_t[1], &ptY)) Badarg("pt");
   wxPoint pt = wxPoint(ptX,ptY);
-  if(!This) throw wxe_badarg("This");
   int Result = This->HitTest(pt,&flags);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   ERL_NIF_TERM msg = enif_make_tuple2(rt.env,
@@ -4374,9 +4378,9 @@ void wxBookCtrlBase_GetPageText(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd
   ERL_NIF_TERM * argv = Ecmd.args;
   wxBookCtrlBase *This;
   This = (wxBookCtrlBase *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   size_t nPage;
   if(!wxe_get_size_t(env, argv[1], &nPage)) Badarg("nPage");
-  if(!This) throw wxe_badarg("This");
   wxString Result = This->GetPageText(nPage);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make(Result));
@@ -4390,13 +4394,13 @@ void wxBookCtrlBase_SetPageText(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd
   ERL_NIF_TERM * argv = Ecmd.args;
   wxBookCtrlBase *This;
   This = (wxBookCtrlBase *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   size_t page;
   if(!wxe_get_size_t(env, argv[1], &page)) Badarg("page");
   ErlNifBinary text_bin;
   wxString text;
   if(!enif_inspect_binary(env, argv[2], &text_bin)) Badarg("text");
   text = wxString(text_bin.data, wxConvUTF8, text_bin.size);
-  if(!This) throw wxe_badarg("This");
   bool Result = This->SetPageText(page,text);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_bool(Result));
@@ -4438,9 +4442,9 @@ void wxBookCtrlEvent_SetOldSelection(WxeApp *app, wxeMemEnv *memenv, wxeCommand&
   ERL_NIF_TERM * argv = Ecmd.args;
   wxBookCtrlEvent *This;
   This = (wxBookCtrlEvent *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   int page;
   if(!enif_get_int(env, argv[1], &page)) Badarg("page"); // int
-  if(!This) throw wxe_badarg("This");
   This->SetOldSelection(page);
 
 }
@@ -4452,9 +4456,9 @@ void wxBookCtrlEvent_SetSelection(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ec
   ERL_NIF_TERM * argv = Ecmd.args;
   wxBookCtrlEvent *This;
   This = (wxBookCtrlEvent *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   int page;
   if(!enif_get_int(env, argv[1], &page)) Badarg("page"); // int
-  if(!This) throw wxe_badarg("This");
   This->SetSelection(page);
 
 }
@@ -4630,6 +4634,7 @@ void wxBrush_SetColour_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxBrush *This;
   This = (wxBrush *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   const ERL_NIF_TERM *colour_t;
   int colour_sz;
   if(!enif_get_tuple(env, argv[1], &colour_sz, &colour_t)) Badarg("colour");
@@ -4642,7 +4647,6 @@ void wxBrush_SetColour_1(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   int colourA;
   if(!enif_get_int(env, colour_t[3], &colourA)) Badarg("colour");
   wxColour colour = wxColour(colourR,colourG,colourB,colourA);
-  if(!This) throw wxe_badarg("This");
   This->SetColour(colour);
 
 }
@@ -4654,13 +4658,13 @@ void wxBrush_SetColour_3(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxBrush *This;
   This = (wxBrush *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   unsigned int red;
   if(!enif_get_uint(env, argv[1], &red)) Badarg("red");
   unsigned int green;
   if(!enif_get_uint(env, argv[2], &green)) Badarg("green");
   unsigned int blue;
   if(!enif_get_uint(env, argv[3], &blue)) Badarg("blue");
-  if(!This) throw wxe_badarg("This");
   This->SetColour(red,green,blue);
 
 }
@@ -4672,9 +4676,9 @@ void wxBrush_SetStipple(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxBrush *This;
   This = (wxBrush *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   wxBitmap *bitmap;
   bitmap = (wxBitmap *) memenv->getPtr(env, argv[1], "bitmap");
-  if(!This) throw wxe_badarg("This");
   This->SetStipple(*bitmap);
 
 }
@@ -4686,9 +4690,9 @@ void wxBrush_SetStyle(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxBrush *This;
   This = (wxBrush *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   wxBrushStyle style;
   if(!enif_get_int(env, argv[1], (int *) &style)) Badarg("style"); // enum
-  if(!This) throw wxe_badarg("This");
   This->SetStyle(style);
 
 }
@@ -4776,6 +4780,7 @@ void wxBufferedDC_Init_3(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxBufferedDC *This;
   This = (wxBufferedDC *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   wxDC *dc;
   dc = (wxDC *) memenv->getPtr(env, argv[1], "dc");
   const ERL_NIF_TERM *area_t;
@@ -4798,7 +4803,6 @@ void wxBufferedDC_Init_3(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   if(!enif_get_int(env, tpl[1], &style)) Badarg("style"); // int
     } else        Badarg("Options");
   };
-  if(!This) throw wxe_badarg("This");
   This->Init(dc,area,style);
 
 }
@@ -4812,6 +4816,7 @@ void wxBufferedDC_Init_2(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxBufferedDC *This;
   This = (wxBufferedDC *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   wxDC *dc;
   dc = (wxDC *) memenv->getPtr(env, argv[1], "dc");
   ERL_NIF_TERM lstHead, lstTail;
@@ -4828,7 +4833,6 @@ void wxBufferedDC_Init_2(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   if(!enif_get_int(env, tpl[1], &style)) Badarg("style"); // int
     } else        Badarg("Options");
   };
-  if(!This) throw wxe_badarg("This");
   This->Init(dc,*buffer,style);
 
 }
@@ -4968,6 +4972,7 @@ void wxButton_Create(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxButton *This;
   This = (wxButton *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   wxWindow *parent;
   parent = (wxWindow *) memenv->getPtr(env, argv[1], "parent");
   int id;
@@ -5008,7 +5013,6 @@ void wxButton_Create(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   validator = (wxValidator *) memenv->getPtr(env, tpl[1], "validator");
     } else        Badarg("Options");
   };
-  if(!This) throw wxe_badarg("This");
   bool Result = This->Create(parent,id,label,pos,size,style,*validator);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_bool(Result));
@@ -5060,11 +5064,11 @@ void wxButton_SetLabel(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxButton *This;
   This = (wxButton *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   ErlNifBinary label_bin;
   wxString label;
   if(!enif_inspect_binary(env, argv[1], &label_bin)) Badarg("label");
   label = wxString(label_bin.data, wxConvUTF8, label_bin.size);
-  if(!This) throw wxe_badarg("This");
   This->SetLabel(label);
 
 }
@@ -5118,9 +5122,9 @@ void wxButton_SetBitmapDisabled(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd
   ERL_NIF_TERM * argv = Ecmd.args;
   wxButton *This;
   This = (wxButton *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   wxBitmap *bitmap;
   bitmap = (wxBitmap *) memenv->getPtr(env, argv[1], "bitmap");
-  if(!This) throw wxe_badarg("This");
   This->SetBitmapDisabled(*bitmap);
 
 }
@@ -5132,9 +5136,9 @@ void wxButton_SetBitmapFocus(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxButton *This;
   This = (wxButton *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   wxBitmap *bitmap;
   bitmap = (wxBitmap *) memenv->getPtr(env, argv[1], "bitmap");
-  if(!This) throw wxe_badarg("This");
   This->SetBitmapFocus(*bitmap);
 
 }
@@ -5146,9 +5150,9 @@ void wxButton_SetBitmapLabel(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ERL_NIF_TERM * argv = Ecmd.args;
   wxButton *This;
   This = (wxButton *) memenv->getPtr(env, argv[0], "This");
+  if(!This) throw wxe_badarg("This");
   wxBitmap *bitmap;
   bitmap = (wxBitmap *) memenv->getPtr(env, argv[1], "bitmap");
-  if(!This) throw wxe_badarg("This");
   This->SetBitmapLabel(*bitmap);
 
 }

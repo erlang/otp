@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -158,7 +158,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -doc(#{equiv => blit(This,Dest,Size,Source,Src, [])}).
 -spec blit(This, Dest, Size, Source, Src) -> boolean() when
-	This::wxDC(), Dest::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Source::wxDC(), Src::{X::integer(), Y::integer()}.
+        This::wxDC(), Dest::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Source::wxDC(), Src::{X::integer(), Y::integer()}.
 
 blit(This,{DestX,DestY} = Dest,{SizeW,SizeH} = Size,Source,{SrcX,SrcY} = Src)
  when is_record(This, wx_ref),is_integer(DestX),is_integer(DestY),is_integer(SizeW),is_integer(SizeH),is_record(Source, wx_ref),is_integer(SrcX),is_integer(SrcY) ->
@@ -209,7 +209,7 @@ and `minY/1`, `maxY/1` functions.
 See: `resetBoundingBox/1`
 """.
 -spec calcBoundingBox(This, X, Y) -> 'ok' when
-	This::wxDC(), X::integer(), Y::integer().
+        This::wxDC(), X::integer(), Y::integer().
 calcBoundingBox(#wx_ref{type=ThisT}=This,X,Y)
  when is_integer(X),is_integer(Y) ->
   ?CLASS(ThisT,wxDC),
@@ -224,7 +224,7 @@ shapes set by `setBrush/2` is ignored by it.
 If no background brush was set, solid white brush is used to clear the device context.
 """.
 -spec clear(This) -> 'ok' when
-	This::wxDC().
+        This::wxDC().
 clear(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxDC),
   wxe_util:queue_cmd(This,?get_env(),?wxDC_Clear).
@@ -234,7 +234,7 @@ This is an overloaded member function, provided for convenience. It differs from
 above function only in what argument(s) it accepts.
 """.
 -spec crossHair(This, Pt) -> 'ok' when
-	This::wxDC(), Pt::{X::integer(), Y::integer()}.
+        This::wxDC(), Pt::{X::integer(), Y::integer()}.
 crossHair(#wx_ref{type=ThisT}=This,{PtX,PtY} = Pt)
  when is_integer(PtX),is_integer(PtY) ->
   ?CLASS(ThisT,wxDC),
@@ -246,7 +246,7 @@ Destroys the current clipping region so that none of the DC is clipped.
 See: `setClippingRegion/3`
 """.
 -spec destroyClippingRegion(This) -> 'ok' when
-	This::wxDC().
+        This::wxDC().
 destroyClippingRegion(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxDC),
   wxe_util:queue_cmd(This,?get_env(),?wxDC_DestroyClippingRegion).
@@ -256,7 +256,7 @@ Convert `device` X coordinate to logical coordinate, using the current mapping m
 scale factor, device origin and axis orientation.
 """.
 -spec deviceToLogicalX(This, X) -> integer() when
-	This::wxDC(), X::integer().
+        This::wxDC(), X::integer().
 deviceToLogicalX(#wx_ref{type=ThisT}=This,X)
  when is_integer(X) ->
   ?CLASS(ThisT,wxDC),
@@ -270,7 +270,7 @@ mode and user scale factor but ignoring the axis orientation.
 Use this for converting a width, for example.
 """.
 -spec deviceToLogicalXRel(This, X) -> integer() when
-	This::wxDC(), X::integer().
+        This::wxDC(), X::integer().
 deviceToLogicalXRel(#wx_ref{type=ThisT}=This,X)
  when is_integer(X) ->
   ?CLASS(ThisT,wxDC),
@@ -282,7 +282,7 @@ Converts `device` Y coordinate to logical coordinate, using the current mapping 
 user scale factor, device origin and axis orientation.
 """.
 -spec deviceToLogicalY(This, Y) -> integer() when
-	This::wxDC(), Y::integer().
+        This::wxDC(), Y::integer().
 deviceToLogicalY(#wx_ref{type=ThisT}=This,Y)
  when is_integer(Y) ->
   ?CLASS(ThisT,wxDC),
@@ -296,7 +296,7 @@ mode and user scale factor but ignoring the axis orientation.
 Use this for converting a height, for example.
 """.
 -spec deviceToLogicalYRel(This, Y) -> integer() when
-	This::wxDC(), Y::integer().
+        This::wxDC(), Y::integer().
 deviceToLogicalYRel(#wx_ref{type=ThisT}=This,Y)
  when is_integer(Y) ->
   ?CLASS(ThisT,wxDC),
@@ -308,7 +308,7 @@ This is an overloaded member function, provided for convenience. It differs from
 above function only in what argument(s) it accepts.
 """.
 -spec drawArc(This, PtStart, PtEnd, Centre) -> 'ok' when
-	This::wxDC(), PtStart::{X::integer(), Y::integer()}, PtEnd::{X::integer(), Y::integer()}, Centre::{X::integer(), Y::integer()}.
+        This::wxDC(), PtStart::{X::integer(), Y::integer()}, PtEnd::{X::integer(), Y::integer()}, Centre::{X::integer(), Y::integer()}.
 drawArc(#wx_ref{type=ThisT}=This,{PtStartX,PtStartY} = PtStart,{PtEndX,PtEndY} = PtEnd,{CentreX,CentreY} = Centre)
  when is_integer(PtStartX),is_integer(PtStartY),is_integer(PtEndX),is_integer(PtEndY),is_integer(CentreX),is_integer(CentreY) ->
   ?CLASS(ThisT,wxDC),
@@ -316,7 +316,7 @@ drawArc(#wx_ref{type=ThisT}=This,{PtStartX,PtStartY} = PtStart,{PtEndX,PtEndY} =
 
 -doc(#{equiv => drawBitmap(This,Bmp,Pt, [])}).
 -spec drawBitmap(This, Bmp, Pt) -> 'ok' when
-	This::wxDC(), Bmp::wxBitmap:wxBitmap(), Pt::{X::integer(), Y::integer()}.
+        This::wxDC(), Bmp::wxBitmap:wxBitmap(), Pt::{X::integer(), Y::integer()}.
 
 drawBitmap(This,Bmp,{PtX,PtY} = Pt)
  when is_record(This, wx_ref),is_record(Bmp, wx_ref),is_integer(PtX),is_integer(PtY) ->
@@ -343,7 +343,7 @@ This is an overloaded member function, provided for convenience. It differs from
 above function only in what argument(s) it accepts.
 """.
 -spec drawCheckMark(This, Rect) -> 'ok' when
-	This::wxDC(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}.
+        This::wxDC(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}.
 drawCheckMark(#wx_ref{type=ThisT}=This,{RectX,RectY,RectW,RectH} = Rect)
  when is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH) ->
   ?CLASS(ThisT,wxDC),
@@ -354,7 +354,7 @@ This is an overloaded member function, provided for convenience. It differs from
 above function only in what argument(s) it accepts.
 """.
 -spec drawCircle(This, Pt, Radius) -> 'ok' when
-	This::wxDC(), Pt::{X::integer(), Y::integer()}, Radius::integer().
+        This::wxDC(), Pt::{X::integer(), Y::integer()}, Radius::integer().
 drawCircle(#wx_ref{type=ThisT}=This,{PtX,PtY} = Pt,Radius)
  when is_integer(PtX),is_integer(PtY),is_integer(Radius) ->
   ?CLASS(ThisT,wxDC),
@@ -365,7 +365,7 @@ This is an overloaded member function, provided for convenience. It differs from
 above function only in what argument(s) it accepts.
 """.
 -spec drawEllipse(This, Rect) -> 'ok' when
-	This::wxDC(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}.
+        This::wxDC(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}.
 drawEllipse(#wx_ref{type=ThisT}=This,{RectX,RectY,RectW,RectH} = Rect)
  when is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH) ->
   ?CLASS(ThisT,wxDC),
@@ -376,7 +376,7 @@ This is an overloaded member function, provided for convenience. It differs from
 above function only in what argument(s) it accepts.
 """.
 -spec drawEllipse(This, Pt, Size) -> 'ok' when
-	This::wxDC(), Pt::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}.
+        This::wxDC(), Pt::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}.
 drawEllipse(#wx_ref{type=ThisT}=This,{PtX,PtY} = Pt,{SizeW,SizeH} = Size)
  when is_integer(PtX),is_integer(PtY),is_integer(SizeW),is_integer(SizeH) ->
   ?CLASS(ThisT,wxDC),
@@ -387,7 +387,7 @@ This is an overloaded member function, provided for convenience. It differs from
 above function only in what argument(s) it accepts.
 """.
 -spec drawEllipticArc(This, Pt, Sz, Sa, Ea) -> 'ok' when
-	This::wxDC(), Pt::{X::integer(), Y::integer()}, Sz::{W::integer(), H::integer()}, Sa::number(), Ea::number().
+        This::wxDC(), Pt::{X::integer(), Y::integer()}, Sz::{W::integer(), H::integer()}, Sa::number(), Ea::number().
 drawEllipticArc(#wx_ref{type=ThisT}=This,{PtX,PtY} = Pt,{SzW,SzH} = Sz,Sa,Ea)
  when is_integer(PtX),is_integer(PtY),is_integer(SzW),is_integer(SzH),is_number(Sa),is_number(Ea) ->
   ?CLASS(ThisT,wxDC),
@@ -398,7 +398,7 @@ This is an overloaded member function, provided for convenience. It differs from
 above function only in what argument(s) it accepts.
 """.
 -spec drawIcon(This, Icon, Pt) -> 'ok' when
-	This::wxDC(), Icon::wxIcon:wxIcon(), Pt::{X::integer(), Y::integer()}.
+        This::wxDC(), Icon::wxIcon:wxIcon(), Pt::{X::integer(), Y::integer()}.
 drawIcon(#wx_ref{type=ThisT}=This,#wx_ref{type=IconT}=Icon,{PtX,PtY} = Pt)
  when is_integer(PtX),is_integer(PtY) ->
   ?CLASS(ThisT,wxDC),
@@ -407,7 +407,7 @@ drawIcon(#wx_ref{type=ThisT}=This,#wx_ref{type=IconT}=Icon,{PtX,PtY} = Pt)
 
 -doc(#{equiv => drawLabel(This,Text,Rect, [])}).
 -spec drawLabel(This, Text, Rect) -> 'ok' when
-	This::wxDC(), Text::unicode:chardata(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}.
+        This::wxDC(), Text::unicode:chardata(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}.
 
 drawLabel(This,Text,{RectX,RectY,RectW,RectH} = Rect)
  when is_record(This, wx_ref),?is_chardata(Text),is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH) ->
@@ -436,7 +436,7 @@ This is an overloaded member function, provided for convenience. It differs from
 above function only in what argument(s) it accepts.
 """.
 -spec drawLine(This, Pt1, Pt2) -> 'ok' when
-	This::wxDC(), Pt1::{X::integer(), Y::integer()}, Pt2::{X::integer(), Y::integer()}.
+        This::wxDC(), Pt1::{X::integer(), Y::integer()}, Pt2::{X::integer(), Y::integer()}.
 drawLine(#wx_ref{type=ThisT}=This,{Pt1X,Pt1Y} = Pt1,{Pt2X,Pt2Y} = Pt2)
  when is_integer(Pt1X),is_integer(Pt1Y),is_integer(Pt2X),is_integer(Pt2Y) ->
   ?CLASS(ThisT,wxDC),
@@ -444,7 +444,7 @@ drawLine(#wx_ref{type=ThisT}=This,{Pt1X,Pt1Y} = Pt1,{Pt2X,Pt2Y} = Pt2)
 
 -doc(#{equiv => drawLines(This,Points, [])}).
 -spec drawLines(This, Points) -> 'ok' when
-	This::wxDC(), Points::[{X::integer(), Y::integer()}].
+        This::wxDC(), Points::[{X::integer(), Y::integer()}].
 
 drawLines(This,Points)
  when is_record(This, wx_ref),is_list(Points) ->
@@ -470,7 +470,7 @@ drawLines(#wx_ref{type=ThisT}=This,Points, Options)
 
 -doc(#{equiv => drawPolygon(This,Points, [])}).
 -spec drawPolygon(This, Points) -> 'ok' when
-	This::wxDC(), Points::[{X::integer(), Y::integer()}].
+        This::wxDC(), Points::[{X::integer(), Y::integer()}].
 
 drawPolygon(This,Points)
  when is_record(This, wx_ref),is_list(Points) ->
@@ -508,7 +508,7 @@ This is an overloaded member function, provided for convenience. It differs from
 above function only in what argument(s) it accepts.
 """.
 -spec drawPoint(This, Pt) -> 'ok' when
-	This::wxDC(), Pt::{X::integer(), Y::integer()}.
+        This::wxDC(), Pt::{X::integer(), Y::integer()}.
 drawPoint(#wx_ref{type=ThisT}=This,{PtX,PtY} = Pt)
  when is_integer(PtX),is_integer(PtY) ->
   ?CLASS(ThisT,wxDC),
@@ -519,7 +519,7 @@ This is an overloaded member function, provided for convenience. It differs from
 above function only in what argument(s) it accepts.
 """.
 -spec drawRectangle(This, Rect) -> 'ok' when
-	This::wxDC(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}.
+        This::wxDC(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}.
 drawRectangle(#wx_ref{type=ThisT}=This,{RectX,RectY,RectW,RectH} = Rect)
  when is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH) ->
   ?CLASS(ThisT,wxDC),
@@ -530,7 +530,7 @@ This is an overloaded member function, provided for convenience. It differs from
 above function only in what argument(s) it accepts.
 """.
 -spec drawRectangle(This, Pt, Sz) -> 'ok' when
-	This::wxDC(), Pt::{X::integer(), Y::integer()}, Sz::{W::integer(), H::integer()}.
+        This::wxDC(), Pt::{X::integer(), Y::integer()}, Sz::{W::integer(), H::integer()}.
 drawRectangle(#wx_ref{type=ThisT}=This,{PtX,PtY} = Pt,{SzW,SzH} = Sz)
  when is_integer(PtX),is_integer(PtY),is_integer(SzW),is_integer(SzH) ->
   ?CLASS(ThisT,wxDC),
@@ -541,7 +541,7 @@ This is an overloaded member function, provided for convenience. It differs from
 above function only in what argument(s) it accepts.
 """.
 -spec drawRotatedText(This, Text, Point, Angle) -> 'ok' when
-	This::wxDC(), Text::unicode:chardata(), Point::{X::integer(), Y::integer()}, Angle::number().
+        This::wxDC(), Text::unicode:chardata(), Point::{X::integer(), Y::integer()}, Angle::number().
 drawRotatedText(#wx_ref{type=ThisT}=This,Text,{PointX,PointY} = Point,Angle)
  when ?is_chardata(Text),is_integer(PointX),is_integer(PointY),is_number(Angle) ->
   ?CLASS(ThisT,wxDC),
@@ -553,7 +553,7 @@ This is an overloaded member function, provided for convenience. It differs from
 above function only in what argument(s) it accepts.
 """.
 -spec drawRoundedRectangle(This, Rect, Radius) -> 'ok' when
-	This::wxDC(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}, Radius::number().
+        This::wxDC(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}, Radius::number().
 drawRoundedRectangle(#wx_ref{type=ThisT}=This,{RectX,RectY,RectW,RectH} = Rect,Radius)
  when is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH),is_number(Radius) ->
   ?CLASS(ThisT,wxDC),
@@ -564,7 +564,7 @@ This is an overloaded member function, provided for convenience. It differs from
 above function only in what argument(s) it accepts.
 """.
 -spec drawRoundedRectangle(This, Pt, Sz, Radius) -> 'ok' when
-	This::wxDC(), Pt::{X::integer(), Y::integer()}, Sz::{W::integer(), H::integer()}, Radius::number().
+        This::wxDC(), Pt::{X::integer(), Y::integer()}, Sz::{W::integer(), H::integer()}, Radius::number().
 drawRoundedRectangle(#wx_ref{type=ThisT}=This,{PtX,PtY} = Pt,{SzW,SzH} = Sz,Radius)
  when is_integer(PtX),is_integer(PtY),is_integer(SzW),is_integer(SzH),is_number(Radius) ->
   ?CLASS(ThisT,wxDC),
@@ -575,7 +575,7 @@ This is an overloaded member function, provided for convenience. It differs from
 above function only in what argument(s) it accepts.
 """.
 -spec drawText(This, Text, Pt) -> 'ok' when
-	This::wxDC(), Text::unicode:chardata(), Pt::{X::integer(), Y::integer()}.
+        This::wxDC(), Text::unicode:chardata(), Pt::{X::integer(), Y::integer()}.
 drawText(#wx_ref{type=ThisT}=This,Text,{PtX,PtY} = Pt)
  when ?is_chardata(Text),is_integer(PtX),is_integer(PtY) ->
   ?CLASS(ThisT,wxDC),
@@ -584,21 +584,21 @@ drawText(#wx_ref{type=ThisT}=This,Text,{PtX,PtY} = Pt)
 
 -doc "Ends a document (only relevant when outputting to a printer).".
 -spec endDoc(This) -> 'ok' when
-	This::wxDC().
+        This::wxDC().
 endDoc(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxDC),
   wxe_util:queue_cmd(This,?get_env(),?wxDC_EndDoc).
 
 -doc "Ends a document page (only relevant when outputting to a printer).".
 -spec endPage(This) -> 'ok' when
-	This::wxDC().
+        This::wxDC().
 endPage(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxDC),
   wxe_util:queue_cmd(This,?get_env(),?wxDC_EndPage).
 
 -doc(#{equiv => floodFill(This,Pt,Col, [])}).
 -spec floodFill(This, Pt, Col) -> boolean() when
-	This::wxDC(), Pt::{X::integer(), Y::integer()}, Col::wx:wx_colour().
+        This::wxDC(), Pt::{X::integer(), Y::integer()}, Col::wx:wx_colour().
 
 floodFill(This,{PtX,PtY} = Pt,Col)
  when is_record(This, wx_ref),is_integer(PtX),is_integer(PtY),?is_colordata(Col) ->
@@ -627,7 +627,7 @@ Gets the brush used for painting the background.
 See: `setBackground/2`
 """.
 -spec getBackground(This) -> wxBrush:wxBrush() when
-	This::wxDC().
+        This::wxDC().
 getBackground(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxDC),
   wxe_util:queue_cmd(This,?get_env(),?wxDC_GetBackground),
@@ -639,7 +639,7 @@ Returns the current background mode: `wxPENSTYLE\_SOLID` or `wxPENSTYLE\_TRANSPA
 See: `setBackgroundMode/2`
 """.
 -spec getBackgroundMode(This) -> integer() when
-	This::wxDC().
+        This::wxDC().
 getBackgroundMode(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxDC),
   wxe_util:queue_cmd(This,?get_env(),?wxDC_GetBackgroundMode),
@@ -651,7 +651,7 @@ Gets the current brush.
 See: `setBrush/2`
 """.
 -spec getBrush(This) -> wxBrush:wxBrush() when
-	This::wxDC().
+        This::wxDC().
 getBrush(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxDC),
   wxe_util:queue_cmd(This,?get_env(),?wxDC_GetBrush),
@@ -659,7 +659,7 @@ getBrush(#wx_ref{type=ThisT}=This) ->
 
 -doc "Gets the character height of the currently set font.".
 -spec getCharHeight(This) -> integer() when
-	This::wxDC().
+        This::wxDC().
 getCharHeight(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxDC),
   wxe_util:queue_cmd(This,?get_env(),?wxDC_GetCharHeight),
@@ -667,7 +667,7 @@ getCharHeight(#wx_ref{type=ThisT}=This) ->
 
 -doc "Gets the average character width of the currently set font.".
 -spec getCharWidth(This) -> integer() when
-	This::wxDC().
+        This::wxDC().
 getCharWidth(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxDC),
   wxe_util:queue_cmd(This,?get_env(),?wxDC_GetCharWidth),
@@ -706,7 +706,7 @@ creation, this method would return a ?wxNullFont initially and only after callin
 font is returned.
 """.
 -spec getFont(This) -> wxFont:wxFont() when
-	This::wxDC().
+        This::wxDC().
 getFont(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxDC),
   wxe_util:queue_cmd(This,?get_env(),?wxDC_GetFont),
@@ -722,7 +722,7 @@ See: `setLayoutDirection/2`
 """.
 %%  Res = ?wxLayout_Default | ?wxLayout_LeftToRight | ?wxLayout_RightToLeft
 -spec getLayoutDirection(This) -> wx:wx_enum() when
-	This::wxDC().
+        This::wxDC().
 getLayoutDirection(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxDC),
   wxe_util:queue_cmd(This,?get_env(),?wxDC_GetLayoutDirection),
@@ -735,7 +735,7 @@ See: `setLogicalFunction/2`
 """.
 %%  Res = ?wxCLEAR | ?wxXOR | ?wxINVERT | ?wxOR_REVERSE | ?wxAND_REVERSE | ?wxCOPY | ?wxAND | ?wxAND_INVERT | ?wxNO_OP | ?wxNOR | ?wxEQUIV | ?wxSRC_INVERT | ?wxOR_INVERT | ?wxNAND | ?wxOR | ?wxSET
 -spec getLogicalFunction(This) -> wx:wx_enum() when
-	This::wxDC().
+        This::wxDC().
 getLogicalFunction(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxDC),
   wxe_util:queue_cmd(This,?get_env(),?wxDC_GetLogicalFunction),
@@ -748,7 +748,7 @@ See: `setMapMode/2`
 """.
 %%  Res = ?wxMM_TEXT | ?wxMM_METRIC | ?wxMM_LOMETRIC | ?wxMM_TWIPS | ?wxMM_POINTS
 -spec getMapMode(This) -> wx:wx_enum() when
-	This::wxDC().
+        This::wxDC().
 getMapMode(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxDC),
   wxe_util:queue_cmd(This,?get_env(),?wxDC_GetMapMode),
@@ -773,7 +773,7 @@ See:
 * `getTextExtent/3`
 """.
 -spec getMultiLineTextExtent(This, String) -> {W::integer(), H::integer()} when
-	This::wxDC(), String::unicode:chardata().
+        This::wxDC(), String::unicode:chardata().
 getMultiLineTextExtent(#wx_ref{type=ThisT}=This,String)
  when ?is_chardata(String) ->
   ?CLASS(ThisT,wxDC),
@@ -850,7 +850,7 @@ Gets the current pen.
 See: `setPen/2`
 """.
 -spec getPen(This) -> wxPen:wxPen() when
-	This::wxDC().
+        This::wxDC().
 getPen(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxDC),
   wxe_util:queue_cmd(This,?get_env(),?wxDC_GetPen),
@@ -878,7 +878,7 @@ getPixel(#wx_ref{type=ThisT}=This,{PosX,PosY} = Pos)
 
 -doc "Returns the resolution of the device in pixels per inch.".
 -spec getPPI(This) -> {W::integer(), H::integer()} when
-	This::wxDC().
+        This::wxDC().
 getPPI(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxDC),
   wxe_util:queue_cmd(This,?get_env(),?wxDC_GetPPI),
@@ -889,7 +889,7 @@ This is an overloaded member function, provided for convenience. It differs from
 above function only in what argument(s) it accepts.
 """.
 -spec getSize(This) -> {W::integer(), H::integer()} when
-	This::wxDC().
+        This::wxDC().
 getSize(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxDC),
   wxe_util:queue_cmd(This,?get_env(),?wxDC_GetSize),
@@ -900,7 +900,7 @@ This is an overloaded member function, provided for convenience. It differs from
 above function only in what argument(s) it accepts.
 """.
 -spec getSizeMM(This) -> {W::integer(), H::integer()} when
-	This::wxDC().
+        This::wxDC().
 getSizeMM(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxDC),
   wxe_util:queue_cmd(This,?get_env(),?wxDC_GetSizeMM),
@@ -912,7 +912,7 @@ Gets the current text background colour.
 See: `setTextBackground/2`
 """.
 -spec getTextBackground(This) -> wx:wx_colour4() when
-	This::wxDC().
+        This::wxDC().
 getTextBackground(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxDC),
   wxe_util:queue_cmd(This,?get_env(),?wxDC_GetTextBackground),
@@ -923,7 +923,7 @@ This is an overloaded member function, provided for convenience. It differs from
 above function only in what argument(s) it accepts.
 """.
 -spec getTextExtent(This, String) -> {W::integer(), H::integer()} when
-	This::wxDC(), String::unicode:chardata().
+        This::wxDC(), String::unicode:chardata().
 getTextExtent(#wx_ref{type=ThisT}=This,String)
  when ?is_chardata(String) ->
   ?CLASS(ThisT,wxDC),
@@ -977,7 +977,7 @@ Gets the current text foreground colour.
 See: `setTextForeground/2`
 """.
 -spec getTextForeground(This) -> wx:wx_colour4() when
-	This::wxDC().
+        This::wxDC().
 getTextForeground(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxDC),
   wxe_util:queue_cmd(This,?get_env(),?wxDC_GetTextForeground),
@@ -989,7 +989,7 @@ Gets the current user scale factor.
 See: `setUserScale/3`
 """.
 -spec getUserScale(This) -> {X::number(), Y::number()} when
-	This::wxDC().
+        This::wxDC().
 getUserScale(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxDC),
   wxe_util:queue_cmd(This,?get_env(),?wxDC_GetUserScale),
@@ -1004,7 +1004,7 @@ The circle is placed at the centre of `rect`.
 Note: Currently this function is very slow, don't use it for real-time drawing.
 """.
 -spec gradientFillConcentric(This, Rect, InitialColour, DestColour) -> 'ok' when
-	This::wxDC(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}, InitialColour::wx:wx_colour(), DestColour::wx:wx_colour().
+        This::wxDC(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}, InitialColour::wx:wx_colour(), DestColour::wx:wx_colour().
 gradientFillConcentric(#wx_ref{type=ThisT}=This,{RectX,RectY,RectW,RectH} = Rect,InitialColour,DestColour)
  when is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH),?is_colordata(InitialColour),?is_colordata(DestColour) ->
   ?CLASS(ThisT,wxDC),
@@ -1019,7 +1019,7 @@ the centre of the circle and fading to `destColour` on the circle outside.
 Note: Currently this function is very slow, don't use it for real-time drawing.
 """.
 -spec gradientFillConcentric(This, Rect, InitialColour, DestColour, CircleCenter) -> 'ok' when
-	This::wxDC(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}, InitialColour::wx:wx_colour(), DestColour::wx:wx_colour(), CircleCenter::{X::integer(), Y::integer()}.
+        This::wxDC(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}, InitialColour::wx:wx_colour(), DestColour::wx:wx_colour(), CircleCenter::{X::integer(), Y::integer()}.
 gradientFillConcentric(#wx_ref{type=ThisT}=This,{RectX,RectY,RectW,RectH} = Rect,InitialColour,DestColour,{CircleCenterX,CircleCenterY} = CircleCenter)
  when is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH),?is_colordata(InitialColour),?is_colordata(DestColour),is_integer(CircleCenterX),is_integer(CircleCenterY) ->
   ?CLASS(ThisT,wxDC),
@@ -1027,7 +1027,7 @@ gradientFillConcentric(#wx_ref{type=ThisT}=This,{RectX,RectY,RectW,RectH} = Rect
 
 -doc(#{equiv => gradientFillLinear(This,Rect,InitialColour,DestColour, [])}).
 -spec gradientFillLinear(This, Rect, InitialColour, DestColour) -> 'ok' when
-	This::wxDC(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}, InitialColour::wx:wx_colour(), DestColour::wx:wx_colour().
+        This::wxDC(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}, InitialColour::wx:wx_colour(), DestColour::wx:wx_colour().
 
 gradientFillLinear(This,{RectX,RectY,RectW,RectH} = Rect,InitialColour,DestColour)
  when is_record(This, wx_ref),is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH),?is_colordata(InitialColour),?is_colordata(DestColour) ->
@@ -1057,7 +1057,7 @@ Converts logical X coordinate to device coordinate, using the current mapping mo
 scale factor, device origin and axis orientation.
 """.
 -spec logicalToDeviceX(This, X) -> integer() when
-	This::wxDC(), X::integer().
+        This::wxDC(), X::integer().
 logicalToDeviceX(#wx_ref{type=ThisT}=This,X)
  when is_integer(X) ->
   ?CLASS(ThisT,wxDC),
@@ -1071,7 +1071,7 @@ mode and user scale factor but ignoring the axis orientation.
 Use this for converting a width, for example.
 """.
 -spec logicalToDeviceXRel(This, X) -> integer() when
-	This::wxDC(), X::integer().
+        This::wxDC(), X::integer().
 logicalToDeviceXRel(#wx_ref{type=ThisT}=This,X)
  when is_integer(X) ->
   ?CLASS(ThisT,wxDC),
@@ -1083,7 +1083,7 @@ Converts logical Y coordinate to device coordinate, using the current mapping mo
 scale factor, device origin and axis orientation.
 """.
 -spec logicalToDeviceY(This, Y) -> integer() when
-	This::wxDC(), Y::integer().
+        This::wxDC(), Y::integer().
 logicalToDeviceY(#wx_ref{type=ThisT}=This,Y)
  when is_integer(Y) ->
   ?CLASS(ThisT,wxDC),
@@ -1097,7 +1097,7 @@ mode and user scale factor but ignoring the axis orientation.
 Use this for converting a height, for example.
 """.
 -spec logicalToDeviceYRel(This, Y) -> integer() when
-	This::wxDC(), Y::integer().
+        This::wxDC(), Y::integer().
 logicalToDeviceYRel(#wx_ref{type=ThisT}=This,Y)
  when is_integer(Y) ->
   ?CLASS(ThisT,wxDC),
@@ -1106,7 +1106,7 @@ logicalToDeviceYRel(#wx_ref{type=ThisT}=This,Y)
 
 -doc "Gets the maximum horizontal extent used in drawing commands so far.".
 -spec maxX(This) -> integer() when
-	This::wxDC().
+        This::wxDC().
 maxX(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxDC),
   wxe_util:queue_cmd(This,?get_env(),?wxDC_MaxX),
@@ -1114,7 +1114,7 @@ maxX(#wx_ref{type=ThisT}=This) ->
 
 -doc "Gets the maximum vertical extent used in drawing commands so far.".
 -spec maxY(This) -> integer() when
-	This::wxDC().
+        This::wxDC().
 maxY(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxDC),
   wxe_util:queue_cmd(This,?get_env(),?wxDC_MaxY),
@@ -1122,7 +1122,7 @@ maxY(#wx_ref{type=ThisT}=This) ->
 
 -doc "Gets the minimum horizontal extent used in drawing commands so far.".
 -spec minX(This) -> integer() when
-	This::wxDC().
+        This::wxDC().
 minX(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxDC),
   wxe_util:queue_cmd(This,?get_env(),?wxDC_MinX),
@@ -1130,7 +1130,7 @@ minX(#wx_ref{type=ThisT}=This) ->
 
 -doc "Gets the minimum vertical extent used in drawing commands so far.".
 -spec minY(This) -> integer() when
-	This::wxDC().
+        This::wxDC().
 minY(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxDC),
   wxe_util:queue_cmd(This,?get_env(),?wxDC_MinY),
@@ -1138,7 +1138,7 @@ minY(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns true if the DC is ok to use.".
 -spec isOk(This) -> boolean() when
-	This::wxDC().
+        This::wxDC().
 isOk(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxDC),
   wxe_util:queue_cmd(This,?get_env(),?wxDC_IsOk),
@@ -1151,7 +1151,7 @@ anything.
 See: `calcBoundingBox/3`
 """.
 -spec resetBoundingBox(This) -> 'ok' when
-	This::wxDC().
+        This::wxDC().
 resetBoundingBox(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxDC),
   wxe_util:queue_cmd(This,?get_env(),?wxDC_ResetBoundingBox).
@@ -1163,7 +1163,7 @@ the axis).
 The default orientation is x axis from left to right and y axis from top down.
 """.
 -spec setAxisOrientation(This, XLeftRight, YBottomUp) -> 'ok' when
-	This::wxDC(), XLeftRight::boolean(), YBottomUp::boolean().
+        This::wxDC(), XLeftRight::boolean(), YBottomUp::boolean().
 setAxisOrientation(#wx_ref{type=ThisT}=This,XLeftRight,YBottomUp)
  when is_boolean(XLeftRight),is_boolean(YBottomUp) ->
   ?CLASS(ThisT,wxDC),
@@ -1171,7 +1171,7 @@ setAxisOrientation(#wx_ref{type=ThisT}=This,XLeftRight,YBottomUp)
 
 -doc "Sets the current background brush for the DC.".
 -spec setBackground(This, Brush) -> 'ok' when
-	This::wxDC(), Brush::wxBrush:wxBrush().
+        This::wxDC(), Brush::wxBrush:wxBrush().
 setBackground(#wx_ref{type=ThisT}=This,#wx_ref{type=BrushT}=Brush) ->
   ?CLASS(ThisT,wxDC),
   ?CLASS(BrushT,wxBrush),
@@ -1183,7 +1183,7 @@ setBackground(#wx_ref{type=ThisT}=This,#wx_ref{type=BrushT}=Brush) ->
 This setting determines whether text will be drawn with a background colour or not.
 """.
 -spec setBackgroundMode(This, Mode) -> 'ok' when
-	This::wxDC(), Mode::integer().
+        This::wxDC(), Mode::integer().
 setBackgroundMode(#wx_ref{type=ThisT}=This,Mode)
  when is_integer(Mode) ->
   ?CLASS(ThisT,wxDC),
@@ -1202,7 +1202,7 @@ See:
 * `m:wxMemoryDC`
 """.
 -spec setBrush(This, Brush) -> 'ok' when
-	This::wxDC(), Brush::wxBrush:wxBrush().
+        This::wxDC(), Brush::wxBrush:wxBrush().
 setBrush(#wx_ref{type=ThisT}=This,#wx_ref{type=BrushT}=Brush) ->
   ?CLASS(ThisT,wxDC),
   ?CLASS(BrushT,wxBrush),
@@ -1213,7 +1213,7 @@ This is an overloaded member function, provided for convenience. It differs from
 above function only in what argument(s) it accepts.
 """.
 -spec setClippingRegion(This, Rect) -> 'ok' when
-	This::wxDC(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}.
+        This::wxDC(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}.
 setClippingRegion(#wx_ref{type=ThisT}=This,{RectX,RectY,RectW,RectH} = Rect)
  when is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH) ->
   ?CLASS(ThisT,wxDC),
@@ -1224,7 +1224,7 @@ This is an overloaded member function, provided for convenience. It differs from
 above function only in what argument(s) it accepts.
 """.
 -spec setClippingRegion(This, Pt, Sz) -> 'ok' when
-	This::wxDC(), Pt::{X::integer(), Y::integer()}, Sz::{W::integer(), H::integer()}.
+        This::wxDC(), Pt::{X::integer(), Y::integer()}, Sz::{W::integer(), H::integer()}.
 setClippingRegion(#wx_ref{type=ThisT}=This,{PtX,PtY} = Pt,{SzW,SzH} = Sz)
  when is_integer(PtX),is_integer(PtY),is_integer(SzW),is_integer(SzH) ->
   ?CLASS(ThisT,wxDC),
@@ -1237,7 +1237,7 @@ This function may be useful in Windows printing operations for placing a graphic
 page.
 """.
 -spec setDeviceOrigin(This, X, Y) -> 'ok' when
-	This::wxDC(), X::integer(), Y::integer().
+        This::wxDC(), X::integer(), Y::integer().
 setDeviceOrigin(#wx_ref{type=ThisT}=This,X,Y)
  when is_integer(X),is_integer(Y) ->
   ?CLASS(ThisT,wxDC),
@@ -1253,7 +1253,7 @@ current font to be destroyed safely.
 See: `m:wxFont`
 """.
 -spec setFont(This, Font) -> 'ok' when
-	This::wxDC(), Font::wxFont:wxFont().
+        This::wxDC(), Font::wxFont:wxFont().
 setFont(#wx_ref{type=ThisT}=This,#wx_ref{type=FontT}=Font) ->
   ?CLASS(ThisT,wxDC),
   ?CLASS(FontT,wxFont),
@@ -1266,7 +1266,7 @@ See: `getLayoutDirection/1`
 """.
 %%  Dir = ?wxLayout_Default | ?wxLayout_LeftToRight | ?wxLayout_RightToLeft
 -spec setLayoutDirection(This, Dir) -> 'ok' when
-	This::wxDC(), Dir::wx:wx_enum().
+        This::wxDC(), Dir::wx:wx_enum().
 setLayoutDirection(#wx_ref{type=ThisT}=This,Dir)
  when is_integer(Dir) ->
   ?CLASS(ThisT,wxDC),
@@ -1292,7 +1292,7 @@ the current colour and the background using a logical operation.
 """.
 %%  Function = ?wxCLEAR | ?wxXOR | ?wxINVERT | ?wxOR_REVERSE | ?wxAND_REVERSE | ?wxCOPY | ?wxAND | ?wxAND_INVERT | ?wxNO_OP | ?wxNOR | ?wxEQUIV | ?wxSRC_INVERT | ?wxOR_INVERT | ?wxNAND | ?wxOR | ?wxSET
 -spec setLogicalFunction(This, Function) -> 'ok' when
-	This::wxDC(), Function::wx:wx_enum().
+        This::wxDC(), Function::wx:wx_enum().
 setLogicalFunction(#wx_ref{type=ThisT}=This,Function)
  when is_integer(Function) ->
   ?CLASS(ThisT,wxDC),
@@ -1314,7 +1314,7 @@ mode is currently ignored for PostScript output.
 """.
 %%  Mode = ?wxMM_TEXT | ?wxMM_METRIC | ?wxMM_LOMETRIC | ?wxMM_TWIPS | ?wxMM_POINTS
 -spec setMapMode(This, Mode) -> 'ok' when
-	This::wxDC(), Mode::wx:wx_enum().
+        This::wxDC(), Mode::wx:wx_enum().
 setMapMode(#wx_ref{type=ThisT}=This,Mode)
  when is_integer(Mode) ->
   ?CLASS(ThisT,wxDC),
@@ -1330,7 +1330,7 @@ context, and the original palette restored.
 See: `m:wxPalette`
 """.
 -spec setPalette(This, Palette) -> 'ok' when
-	This::wxDC(), Palette::wxPalette:wxPalette().
+        This::wxDC(), Palette::wxPalette:wxPalette().
 setPalette(#wx_ref{type=ThisT}=This,#wx_ref{type=PaletteT}=Palette) ->
   ?CLASS(ThisT,wxDC),
   ?CLASS(PaletteT,wxPalette),
@@ -1346,7 +1346,7 @@ pen to be destroyed safely.
 See: `m:wxMemoryDC`
 """.
 -spec setPen(This, Pen) -> 'ok' when
-	This::wxDC(), Pen::wxPen:wxPen().
+        This::wxDC(), Pen::wxPen:wxPen().
 setPen(#wx_ref{type=ThisT}=This,#wx_ref{type=PenT}=Pen) ->
   ?CLASS(ThisT,wxDC),
   ?CLASS(PenT,wxPen),
@@ -1354,7 +1354,7 @@ setPen(#wx_ref{type=ThisT}=This,#wx_ref{type=PenT}=Pen) ->
 
 -doc "Sets the current text background colour for the DC.".
 -spec setTextBackground(This, Colour) -> 'ok' when
-	This::wxDC(), Colour::wx:wx_colour().
+        This::wxDC(), Colour::wx:wx_colour().
 setTextBackground(#wx_ref{type=ThisT}=This,Colour)
  when ?is_colordata(Colour) ->
   ?CLASS(ThisT,wxDC),
@@ -1366,7 +1366,7 @@ Sets the current text foreground colour for the DC.
 See: `m:wxMemoryDC`
 """.
 -spec setTextForeground(This, Colour) -> 'ok' when
-	This::wxDC(), Colour::wx:wx_colour().
+        This::wxDC(), Colour::wx:wx_colour().
 setTextForeground(#wx_ref{type=ThisT}=This,Colour)
  when ?is_colordata(Colour) ->
   ?CLASS(ThisT,wxDC),
@@ -1374,7 +1374,7 @@ setTextForeground(#wx_ref{type=ThisT}=This,Colour)
 
 -doc "Sets the user scaling factor, useful for applications which require 'zooming'.".
 -spec setUserScale(This, XScale, YScale) -> 'ok' when
-	This::wxDC(), XScale::number(), YScale::number().
+        This::wxDC(), XScale::number(), YScale::number().
 setUserScale(#wx_ref{type=ThisT}=This,XScale,YScale)
  when is_number(XScale),is_number(YScale) ->
   ?CLASS(ThisT,wxDC),
@@ -1386,7 +1386,7 @@ Starts a document (only relevant when outputting to a printer).
 `message` is a message to show while printing.
 """.
 -spec startDoc(This, Message) -> boolean() when
-	This::wxDC(), Message::unicode:chardata().
+        This::wxDC(), Message::unicode:chardata().
 startDoc(#wx_ref{type=ThisT}=This,Message)
  when ?is_chardata(Message) ->
   ?CLASS(ThisT,wxDC),
@@ -1396,7 +1396,7 @@ startDoc(#wx_ref{type=ThisT}=This,Message)
 
 -doc "Starts a document page (only relevant when outputting to a printer).".
 -spec startPage(This) -> 'ok' when
-	This::wxDC().
+        This::wxDC().
 startPage(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxDC),
   wxe_util:queue_cmd(This,?get_env(),?wxDC_StartPage).

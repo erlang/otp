@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -140,11 +140,11 @@ new() ->
 -doc "".
 %%  Type = ?wxBITMAP_TYPE_INVALID | ?wxBITMAP_TYPE_BMP | ?wxBITMAP_TYPE_BMP_RESOURCE | ?wxBITMAP_TYPE_RESOURCE | ?wxBITMAP_TYPE_ICO | ?wxBITMAP_TYPE_ICO_RESOURCE | ?wxBITMAP_TYPE_CUR | ?wxBITMAP_TYPE_CUR_RESOURCE | ?wxBITMAP_TYPE_XBM | ?wxBITMAP_TYPE_XBM_DATA | ?wxBITMAP_TYPE_XPM | ?wxBITMAP_TYPE_XPM_DATA | ?wxBITMAP_TYPE_TIFF | ?wxBITMAP_TYPE_TIF | ?wxBITMAP_TYPE_TIFF_RESOURCE | ?wxBITMAP_TYPE_TIF_RESOURCE | ?wxBITMAP_TYPE_GIF | ?wxBITMAP_TYPE_GIF_RESOURCE | ?wxBITMAP_TYPE_PNG | ?wxBITMAP_TYPE_PNG_RESOURCE | ?wxBITMAP_TYPE_JPEG | ?wxBITMAP_TYPE_JPEG_RESOURCE | ?wxBITMAP_TYPE_PNM | ?wxBITMAP_TYPE_PNM_RESOURCE | ?wxBITMAP_TYPE_PCX | ?wxBITMAP_TYPE_PCX_RESOURCE | ?wxBITMAP_TYPE_PICT | ?wxBITMAP_TYPE_PICT_RESOURCE | ?wxBITMAP_TYPE_ICON | ?wxBITMAP_TYPE_ICON_RESOURCE | ?wxBITMAP_TYPE_ANI | ?wxBITMAP_TYPE_IFF | ?wxBITMAP_TYPE_TGA | ?wxBITMAP_TYPE_MACCURSOR | ?wxBITMAP_TYPE_MACCURSOR_RESOURCE | ?wxBITMAP_TYPE_ANY
 -spec new(Name) -> wxBitmap() when
-	Name::unicode:chardata();
+        Name::unicode:chardata();
       (Sz) -> wxBitmap() when
-	Sz::{W::integer(), H::integer()};
+        Sz::{W::integer(), H::integer()};
       (Img) -> wxBitmap() when
-	Img::wxImage:wxImage() | wxBitmap:wxBitmap().
+        Img::wxImage:wxImage() | wxBitmap:wxBitmap().
 
 new(Name)
  when ?is_chardata(Name) ->
@@ -179,7 +179,7 @@ palette is currently ignored.
 """.
 %%  Type = ?wxBITMAP_TYPE_INVALID | ?wxBITMAP_TYPE_BMP | ?wxBITMAP_TYPE_BMP_RESOURCE | ?wxBITMAP_TYPE_RESOURCE | ?wxBITMAP_TYPE_ICO | ?wxBITMAP_TYPE_ICO_RESOURCE | ?wxBITMAP_TYPE_CUR | ?wxBITMAP_TYPE_CUR_RESOURCE | ?wxBITMAP_TYPE_XBM | ?wxBITMAP_TYPE_XBM_DATA | ?wxBITMAP_TYPE_XPM | ?wxBITMAP_TYPE_XPM_DATA | ?wxBITMAP_TYPE_TIFF | ?wxBITMAP_TYPE_TIF | ?wxBITMAP_TYPE_TIFF_RESOURCE | ?wxBITMAP_TYPE_TIF_RESOURCE | ?wxBITMAP_TYPE_GIF | ?wxBITMAP_TYPE_GIF_RESOURCE | ?wxBITMAP_TYPE_PNG | ?wxBITMAP_TYPE_PNG_RESOURCE | ?wxBITMAP_TYPE_JPEG | ?wxBITMAP_TYPE_JPEG_RESOURCE | ?wxBITMAP_TYPE_PNM | ?wxBITMAP_TYPE_PNM_RESOURCE | ?wxBITMAP_TYPE_PCX | ?wxBITMAP_TYPE_PCX_RESOURCE | ?wxBITMAP_TYPE_PICT | ?wxBITMAP_TYPE_PICT_RESOURCE | ?wxBITMAP_TYPE_ICON | ?wxBITMAP_TYPE_ICON_RESOURCE | ?wxBITMAP_TYPE_ANI | ?wxBITMAP_TYPE_IFF | ?wxBITMAP_TYPE_TGA | ?wxBITMAP_TYPE_MACCURSOR | ?wxBITMAP_TYPE_MACCURSOR_RESOURCE | ?wxBITMAP_TYPE_ANY
 -spec new(Width, Height) -> wxBitmap() when
-	Width::integer(), Height::integer();
+        Width::integer(), Height::integer();
       (Name, [Option]) -> wxBitmap() when
 	Name::unicode:chardata(),
 	Option :: {'type', wx:wx_enum()};
@@ -228,7 +228,7 @@ colour setting.
 A depth of 32 including an alpha channel is supported under MSW, Mac and GTK+.
 """.
 -spec new(Bits, Width, Height) -> wxBitmap() when
-	Bits::binary(), Width::integer(), Height::integer();
+        Bits::binary(), Width::integer(), Height::integer();
       (Width, Height, [Option]) -> wxBitmap() when
 	Width::integer(), Height::integer(),
 	Option :: {'depth', integer()}.
@@ -273,7 +273,7 @@ This preserves mask information so that bitmaps and images can be converted back
 forth without loss in that respect.
 """.
 -spec convertToImage(This) -> wxImage:wxImage() when
-	This::wxBitmap().
+        This::wxBitmap().
 convertToImage(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxBitmap),
   wxe_util:queue_cmd(This,?get_env(),?wxBitmap_ConvertToImage),
@@ -281,7 +281,7 @@ convertToImage(#wx_ref{type=ThisT}=This) ->
 
 -doc "Creates the bitmap from an icon.".
 -spec copyFromIcon(This, Icon) -> boolean() when
-	This::wxBitmap(), Icon::wxIcon:wxIcon().
+        This::wxBitmap(), Icon::wxIcon:wxIcon().
 copyFromIcon(#wx_ref{type=ThisT}=This,#wx_ref{type=IconT}=Icon) ->
   ?CLASS(ThisT,wxBitmap),
   ?CLASS(IconT,wxIcon),
@@ -290,7 +290,7 @@ copyFromIcon(#wx_ref{type=ThisT}=This,#wx_ref{type=IconT}=Icon) ->
 
 -doc(#{equiv => create(This,Sz, [])}).
 -spec create(This, Sz) -> boolean() when
-	This::wxBitmap(), Sz::{W::integer(), H::integer()}.
+        This::wxBitmap(), Sz::{W::integer(), H::integer()}.
 
 create(This,{SzW,SzH} = Sz)
  when is_record(This, wx_ref),is_integer(SzW),is_integer(SzH) ->
@@ -301,7 +301,7 @@ This is an overloaded member function, provided for convenience. It differs from
 above function only in what argument(s) it accepts.
 """.
 -spec create(This, Width, Height) -> boolean() when
-	This::wxBitmap(), Width::integer(), Height::integer();
+        This::wxBitmap(), Width::integer(), Height::integer();
       (This, Sz, [Option]) -> boolean() when
 	This::wxBitmap(), Sz::{W::integer(), H::integer()},
 	Option :: {'depth', integer()}.
@@ -329,7 +329,7 @@ Since: 3.1.0
 	This::wxBitmap(), Width::integer(), Height::integer(),
 	Option :: {'depth', integer()};
       (This, Width, Height, Dc) -> boolean() when
-	This::wxBitmap(), Width::integer(), Height::integer(), Dc::wxDC:wxDC().
+        This::wxBitmap(), Width::integer(), Height::integer(), Dc::wxDC:wxDC().
 create(#wx_ref{type=ThisT}=This,Width,Height, Options)
  when is_integer(Width),is_integer(Height),is_list(Options) ->
   ?CLASS(ThisT,wxBitmap),
@@ -351,7 +351,7 @@ Gets the colour depth of the bitmap.
 A value of 1 indicates a monochrome bitmap.
 """.
 -spec getDepth(This) -> integer() when
-	This::wxBitmap().
+        This::wxBitmap().
 getDepth(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxBitmap),
   wxe_util:queue_cmd(This,?get_env(),?wxBitmap_GetDepth),
@@ -363,7 +363,7 @@ Gets the height of the bitmap in pixels.
 See: `getWidth/1`
 """.
 -spec getHeight(This) -> integer() when
-	This::wxBitmap().
+        This::wxBitmap().
 getHeight(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxBitmap),
   wxe_util:queue_cmd(This,?get_env(),?wxBitmap_GetHeight),
@@ -376,7 +376,7 @@ the bitmap.
 See: `m:wxPalette`
 """.
 -spec getPalette(This) -> wxPalette:wxPalette() when
-	This::wxBitmap().
+        This::wxBitmap().
 getPalette(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxBitmap),
   wxe_util:queue_cmd(This,?get_env(),?wxBitmap_GetPalette),
@@ -392,7 +392,7 @@ See:
 * `m:wxMask`
 """.
 -spec getMask(This) -> wxMask:wxMask() when
-	This::wxBitmap().
+        This::wxBitmap().
 getMask(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxBitmap),
   wxe_util:queue_cmd(This,?get_env(),?wxBitmap_GetMask),
@@ -404,7 +404,7 @@ Gets the width of the bitmap in pixels.
 See: `getHeight/1`
 """.
 -spec getWidth(This) -> integer() when
-	This::wxBitmap().
+        This::wxBitmap().
 getWidth(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxBitmap),
   wxe_util:queue_cmd(This,?get_env(),?wxBitmap_GetWidth),
@@ -417,7 +417,7 @@ bitmap.
 This function preserves bit depth and mask information.
 """.
 -spec getSubBitmap(This, Rect) -> wxBitmap() when
-	This::wxBitmap(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}.
+        This::wxBitmap(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}.
 getSubBitmap(#wx_ref{type=ThisT}=This,{RectX,RectY,RectW,RectH} = Rect)
  when is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH) ->
   ?CLASS(ThisT,wxBitmap),
@@ -426,7 +426,7 @@ getSubBitmap(#wx_ref{type=ThisT}=This,{RectX,RectY,RectW,RectH} = Rect)
 
 -doc(#{equiv => loadFile(This,Name, [])}).
 -spec loadFile(This, Name) -> boolean() when
-	This::wxBitmap(), Name::unicode:chardata().
+        This::wxBitmap(), Name::unicode:chardata().
 
 loadFile(This,Name)
  when is_record(This, wx_ref),?is_chardata(Name) ->
@@ -459,7 +459,7 @@ loadFile(#wx_ref{type=ThisT}=This,Name, Options)
 
 -doc "Equivalent to: `isOk/1`".
 -spec ok(This) -> boolean() when
-	This::wxBitmap().
+        This::wxBitmap().
 
 ok(This)
  when is_record(This, wx_ref) ->
@@ -467,7 +467,7 @@ ok(This)
 
 -doc "Returns true if bitmap data is present.".
 -spec isOk(This) -> boolean() when
-	This::wxBitmap().
+        This::wxBitmap().
 isOk(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxBitmap),
   wxe_util:queue_cmd(This,?get_env(),?wxBitmap_IsOk),
@@ -475,7 +475,7 @@ isOk(#wx_ref{type=ThisT}=This) ->
 
 -doc(#{equiv => saveFile(This,Name,Type, [])}).
 -spec saveFile(This, Name, Type) -> boolean() when
-	This::wxBitmap(), Name::unicode:chardata(), Type::wx:wx_enum().
+        This::wxBitmap(), Name::unicode:chardata(), Type::wx:wx_enum().
 
 saveFile(This,Name,Type)
  when is_record(This, wx_ref),?is_chardata(Name),is_integer(Type) ->
@@ -513,7 +513,7 @@ construction time.
 Sets the depth member (does not affect the bitmap data).
 """.
 -spec setDepth(This, Depth) -> 'ok' when
-	This::wxBitmap(), Depth::integer().
+        This::wxBitmap(), Depth::integer().
 setDepth(#wx_ref{type=ThisT}=This,Depth)
  when is_integer(Depth) ->
   ?CLASS(ThisT,wxBitmap),
@@ -528,7 +528,7 @@ construction time.
 Sets the height member (does not affect the bitmap data).
 """.
 -spec setHeight(This, Height) -> 'ok' when
-	This::wxBitmap(), Height::integer().
+        This::wxBitmap(), Height::integer().
 setHeight(#wx_ref{type=ThisT}=This,Height)
  when is_integer(Height) ->
   ?CLASS(ThisT,wxBitmap),
@@ -548,7 +548,7 @@ See:
 * `m:wxMask`
 """.
 -spec setMask(This, Mask) -> 'ok' when
-	This::wxBitmap(), Mask::wxMask:wxMask().
+        This::wxBitmap(), Mask::wxMask:wxMask().
 setMask(#wx_ref{type=ThisT}=This,#wx_ref{type=MaskT}=Mask) ->
   ?CLASS(ThisT,wxBitmap),
   ?CLASS(MaskT,wxMask),
@@ -562,7 +562,7 @@ Sets the associated palette.
 See: `m:wxPalette`
 """.
 -spec setPalette(This, Palette) -> 'ok' when
-	This::wxBitmap(), Palette::wxPalette:wxPalette().
+        This::wxBitmap(), Palette::wxPalette:wxPalette().
 setPalette(#wx_ref{type=ThisT}=This,#wx_ref{type=PaletteT}=Palette) ->
   ?CLASS(ThisT,wxBitmap),
   ?CLASS(PaletteT,wxPalette),
@@ -577,7 +577,7 @@ construction time.
 Sets the width member (does not affect the bitmap data).
 """.
 -spec setWidth(This, Width) -> 'ok' when
-	This::wxBitmap(), Width::integer().
+        This::wxBitmap(), Width::integer().
 setWidth(#wx_ref{type=ThisT}=This,Width)
  when is_integer(Width) ->
   ?CLASS(ThisT,wxBitmap),
