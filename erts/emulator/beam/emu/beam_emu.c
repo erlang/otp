@@ -676,20 +676,6 @@ static void install_bifs(void) {
 static void
 init_emulator_finish(void)
 {
-#if defined(ARCH_64) && defined(CODE_MODEL_SMALL)
-    int i;
-
-    for (i = 0; i < NUMBER_OF_OPCODES; i++) {
-        BeamInstr instr = BeamOpCodeAddr(i);
-        if (instr >= (1ull << 32)) {
-            erts_exit(ERTS_ERROR_EXIT,
-                      "This run-time was supposed be compiled with all code below 2Gb,\n"
-                      "but the instruction '%s' is located at %016lx.\n",
-                      opc[i].name, instr);
-        }
-    }
-#endif
-
     beam_run_process_[0]       = BeamOpCodeAddr(op_i_apply_only);
     beam_run_process = (ErtsCodePtr)&beam_run_process_[0];
 
