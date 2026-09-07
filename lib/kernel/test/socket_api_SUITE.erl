@@ -1606,12 +1606,12 @@ do_api_b_open_and_maybe_close_raw(InitState) ->
                            end
                    end},
          #{desc => "close socket",
-           cmd  => fun(#{socket := Sock} = State) ->
+           cmd  => fun(#{sock := Sock} = State) ->
                            ?SEV_IPRINT("try socket close"),
                            case socket:close(Sock) of
                                ok ->
                                    ?SEV_IPRINT("socket closed"),
-                                   {ok, maps:remote(sock, State)};
+                                   {ok, maps:remove(sock, State)};
                                {error, Reason} = ERROR ->
                                    ?SEV_EPRINT("close failed:"
                                                "~n   Reason: ~p", [Reason]),
