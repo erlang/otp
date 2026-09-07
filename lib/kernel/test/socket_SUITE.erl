@@ -10297,6 +10297,7 @@ ioctl_nread(_Config) when is_list(_Config) ->
     ?TT(?SECS(5)),
     tc_try(?FUNCTION_NAME,
            fun() ->
+                   has_support_ipv4(),
                    has_support_ioctl_requests(),
                    has_support_ioctl_nread()
            end,

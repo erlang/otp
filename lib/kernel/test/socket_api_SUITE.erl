@@ -5353,6 +5353,7 @@ api_ffd_open_connect_and_open_wod_and_send_tcp6(_Config) when is_list(_Config) -
 api_ffd_open_connect_and_open_wd_and_send_tcp4(_Config) when is_list(_Config) ->
     ?TT(?SECS(5)),
     tc_try(api_ffd_open_connect_and_open_wd_and_send_tcp4,
+           fun() -> has_support_ipv4() end,
            fun() ->
                    InitState = #{domain   => inet,
                                  type     => stream,

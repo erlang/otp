@@ -294,6 +294,7 @@ end_per_suite(Config0) ->
     Config1.
 
 init_per_group(inet_backend_default = _GroupName, Config) ->
+    ?LIB:has_support_ipv4(),
     ?P("~w(~w) -> check explicit inet-backend when"
        "~n   Config: ~p", [?FUNCTION_NAME, _GroupName, Config]),
     case ?EXPLICIT_INET_BACKEND(Config) of
