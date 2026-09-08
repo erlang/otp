@@ -35,6 +35,7 @@
 #include "global.h"
 #include "erl_threads.h"
 #include "erl_cpu_topology.h"
+#include <limits.h>
 #include <malloc.h>
 
 #if defined(__WIN32__) && !defined(WINDOWS_H_INCLUDES_WINSOCK2_H)
@@ -2683,7 +2684,20 @@ ready_input(ErlDrvData drv_data, ErlDrvEvent ready_event)
                         ERTS_UNREACHABLE;
                     }
 
-                    dp->totalNeeded += packet_size;
+                    /* totalNeeded is a signed int and includes the header.
+                     * Cached fd readers outlive port failure, so arm the next
+                     * read before terminating this logical port. */
+                    if (packet_size > (Uint32) (INT_MAX - pb)) {
+                        if (dp == save_01_port || dp == save_22_port) {
+                            dp->bytesInBuffer = 0;
+                            dp->totalNeeded = pb;
+                            async_read_file(&dp->in, dp->inbuf, dp->inBufSize);
+                        }
+                        driver_failure_posix(dp->port_num, EINVAL);
+                        return;
+                    }
+
+                    dp->totalNeeded += (int) packet_size;
 		    
 		    /*
 		     * Make sure that the receive buffer is big enough.

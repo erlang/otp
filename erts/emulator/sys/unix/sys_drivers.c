@@ -36,6 +36,7 @@
 #include <sys/uio.h>
 #include <termios.h>
 #include <ctype.h>
+#include <limits.h>
 #include <sys/utsname.h>
 #include <sys/select.h>
 #include <arpa/inet.h>
@@ -1487,11 +1488,17 @@ static void ready_input(ErlDrvData e, ErlDrvEvent ready_fd)
 		    continue;
 		}
 		else {		/* The last message we got was split */
-                    char *buf = erts_alloc_fnf(ERTS_ALC_T_FD_ENTRY_BUF, h);
-		    if (!buf) {
-			errno = ENOMEM;
-			port_inp_failure(dd, -1);
-		    }
+                    char *buf;
+                    
+                    if (h > (Uint) INT_MAX ||
+                        !(buf = erts_alloc_fnf(ERTS_ALC_T_FD_ENTRY_BUF, h))) {
+                        int err = h > (Uint) INT_MAX ? EINVAL : ENOMEM;
+
+                        errno = err;
+                        port_inp_failure(dd, -1);
+                        if (!dd->terminating)
+                            driver_failure_posix(port_num, err);
+                    }
 		    else {
 			erts_atomic_add_nob(&sys_misc_mem_sz, h);
 			sys_memcpy(buf, cpos, bytes_left);
