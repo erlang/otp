@@ -1779,6 +1779,32 @@ No match
     AAA\x80BBXYZ 
 No match
 
+# Backward scans must not enter the invalid prefix before check_subject.
+
+/(?<=a{1,2})X/utf,match_invalid_utf
+\= Expect no match
+    \x80X
+No match
+
+/\X\X/utf,match_invalid_utf
+\= Expect no match
+    \x80\x{1f1e6}\x{1f1e7}
+No match
+
+/(?<=(.))/utf,match_invalid_utf
+    x\x80
+ 0: 
+ 1: x
+    \x{10000}\x80
+ 0: 
+ 1: \x{10000}
+
+/\b./utf,match_invalid_utf
+    \x{10000}s
+ 0: s
+    \xf0s
+ 0: s
+
 # -------------------------------------
 
 /(*UTF)(?=\x{123})/I

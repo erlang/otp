@@ -13630,6 +13630,14 @@ Failed: error 167 at offset 8: non-hex character in \x{} (closing brace missing?
 Failed: error 178 at offset 5: digits missing after \x or in \x{} or \o{} or \N{U+}
         here: ^A\x{ |<--|
 
+/\x{2/
+Failed: error 167 at offset 4: non-hex character in \x{} (closing brace missing?)
+        here: \x{2 |<--|
+
+/\o{7/
+Failed: error 164 at offset 4: non-octal character in \o{} (closing brace missing?)
+        here: \o{7 |<--|
+
 /[ab]++/B,no_auto_possess
 ------------------------------------------------------------------
         Bra
@@ -21765,6 +21773,23 @@ Failed: error 207 at offset 117: extended character class nesting is too deep
 Failed: error 106 at offset 3: missing terminating ] for character class
         here: [z& |<--|
 
+/(?<=[12[34]])/alt_extended_class
+    1
+ 0: 
+    2
+ 0: 
+    3
+ 0: 
+    4
+ 0: 
+    1]
+ 0: 
+\= Expect no match
+    5
+No match
+    []
+No match
+
 /[[^]~~[^]]/B,alt_extended_class,allow_empty_class
 ------------------------------------------------------------------
         Bra
@@ -21785,6 +21810,27 @@ No match
 ------------------------------------------------------------------
     a
  0: a
+
+/[\d--1].(?<!x)/alt_extended_class
+    0a
+ 0: 0a
+    90
+ 0: 90
+\= Expect no match
+    1
+No match
+    2
+No match
+    a
+No match
+    1a
+No match
+    0x
+No match
+    aa
+No match
+    xa
+No match
 
 # --------------
 
@@ -21997,6 +22043,17 @@ Failed: error 207 at offset 160: extended character class nesting is too deep
 /(?[\n+[a]&\n+(\n+[a]&\n+(\n+[a]&\n+(\n+[a]&\n+(\n+[a]&\n+(\n+[a]&\n+(\n+[a]&\n+(\n+[a]&\n+(\n+[a]&\n+(\n+[a]&\n+(\n+[a]&\n+(\n+[a]&\n+(\n+[a]&\n+(\n+[a]&\n+((\n)&\n))))))))))))))])/
 Failed: error 207 at offset 157: extended character class nesting is too deep
         here: ...n+[a]&\n+( |-->| (\n)&\n)))...
+
+/(?[\d-[1]]).(?<!x)/
+    0a
+ 0: 0a
+    90
+ 0: 90
+\= Expect no match
+    1a
+No match
+    0x
+No match
 
 # --------------
 
@@ -22261,6 +22318,149 @@ No match
  0: \xe1
 
 #endif
+
+# --------------
+
+# Test backreferences with possessive repeats
+
+/(..)\1*+/B
+------------------------------------------------------------------
+        Bra
+        CBra 1
+        Any
+        Any
+        Ket
+        \g{1}*+
+        Ket
+        End
+------------------------------------------------------------------
+  ab
+ 0: ab
+ 1: ab
+  abc
+ 0: ab
+ 1: ab
+  abababc
+ 0: ababab
+ 1: ab
+
+/(..)\1++/B
+------------------------------------------------------------------
+        Bra
+        CBra 1
+        Any
+        Any
+        Ket
+        \g{1}++
+        Ket
+        End
+------------------------------------------------------------------
+  abc
+No match
+  ababc
+ 0: abab
+ 1: ab
+  aababab
+ 0: ababab
+ 1: ab
+  aabababc
+ 0: ababab
+ 1: ab
+
+/(..)\1?+/B
+------------------------------------------------------------------
+        Bra
+        CBra 1
+        Any
+        Any
+        Ket
+        \g{1}?+
+        Ket
+        End
+------------------------------------------------------------------
+  aa
+ 0: aa
+ 1: aa
+  aac
+ 0: aa
+ 1: aa
+  ababab
+ 0: abab
+ 1: ab
+
+# The + is intentionally missing,
+# exact repeat is always possessive
+/(..)\1{3}/B
+------------------------------------------------------------------
+        Bra
+        CBra 1
+        Any
+        Any
+        Ket
+        \g{1}{3,3}
+        Ket
+        End
+------------------------------------------------------------------
+  abababac
+No match
+  abababab
+ 0: abababab
+ 1: ab
+  ababababc
+ 0: abababab
+ 1: ab
+
+/(..)\1{2,}+/B
+------------------------------------------------------------------
+        Bra
+        CBra 1
+        Any
+        Any
+        Ket
+        \g{1}{2,}+
+        Ket
+        End
+------------------------------------------------------------------
+  ababac
+No match
+  ababab
+ 0: ababab
+ 1: ab
+  abababab
+ 0: abababab
+ 1: ab
+  ababababab
+ 0: ababababab
+ 1: ab
+  abababababc
+ 0: ababababab
+ 1: ab
+
+/(..)\1{3,5}+/B
+------------------------------------------------------------------
+        Bra
+        CBra 1
+        Any
+        Any
+        Ket
+        \g{1}{3,5}+
+        Ket
+        End
+------------------------------------------------------------------
+  abababac
+No match
+  abababab
+ 0: abababab
+ 1: ab
+  ababababab
+ 0: ababababab
+ 1: ab
+  abababababab
+ 0: abababababab
+ 1: ab
+  ababababababab
+ 0: abababababab
+ 1: ab
 
 # --------------
 
@@ -23513,6 +23713,61 @@ Failed: error -72: substitute subject differs from prior match call
     foo|bar\=offset=1,substitute_subject=F|OOBAR,copy_matched_subject,zero_terminate
 Failed: error -72: substitute subject differs from prior match call
 
+# --------------
+# Some more tests for a substitution regression
+# --------------
+
+/foo(?<Bar>BAR)?/substitute_extended,replace=X${Bar:+\:\:text}Y
+    foo
+ 1: XY
+    fooBAR
+ 1: X::textY
+
+# --------------
+# Tests for substitution with partial
+# --------------
+
+/(a)b+/
+\= Expect to fail with "bad option"
+    ab\=ph,replace=FOO
+Failed: error -34: bad option value
+\= Expect to fail with "partial match"
+    ab\=ph,substitute_replacement_only,replace=FOO
+Failed: error -2: partial match
+\= Expect success
+    abc\=ph,substitute_replacement_only,replace=FOO
+ 1: FOO
+    zabc\=ph,substitute_replacement_only,replace=>$&|$1|$`<
+ 1: >ab|a|z<
+\= Expect to fail with PCRE2_ERROR_PARTIALSUBS
+    abc\=ph,substitute_replacement_only,replace=>$_<
+Failed: error -76 at offset 3 in replacement: replacement $' or $_ not supported with partial match
+        here: >$_ |<--| <
+    abc\=ph,substitute_replacement_only,replace=>$'<
+Failed: error -76 at offset 3 in replacement: replacement $' or $_ not supported with partial match
+        here: >$' |<--| <
+
+/(a)b+/
+\= Expect to fail with "bad option"
+    ab\=ps,replace=FOO
+Failed: error -34: bad option value
+\= Expect to fail with "partial match"
+    a\=ps,substitute_replacement_only,replace=FOO
+Failed: error -2: partial match
+\= Expect success
+    ab\=ps,substitute_replacement_only,replace=FOO
+ 1: FOO
+    abc\=ps,substitute_replacement_only,replace=FOO
+ 1: FOO
+    zabc\=ps,substitute_replacement_only,replace=>$&|$1|$`<
+ 1: >ab|a|z<
+\= Expect to fail with PCRE2_ERROR_PARTIALSUBS
+    abc\=ps,substitute_replacement_only,replace=>$_<
+Failed: error -76 at offset 3 in replacement: replacement $' or $_ not supported with partial match
+        here: >$_ |<--| <
+    abc\=ps,substitute_replacement_only,replace=>$'<
+Failed: error -76 at offset 3 in replacement: replacement $' or $_ not supported with partial match
+        here: >$' |<--| <
 
 # End of testinput2
 Error -80: PCRE2_ERROR_BADDATA (unknown error number)
