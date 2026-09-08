@@ -239,7 +239,7 @@ Available options:
   characters on any line, including indentation. The default value is 80.
 
 - **`{ribbon, integer()}`** - Specifies the preferred maximum number of
-  characters on any line, not counting indentation. The default value is 65.
+  characters on any line, not counting indentation. The default value is 56.
 
 - **`{user, term()}`** - User-specific data for use in hook functions. The
   default value is `undefined`.

@@ -62,8 +62,8 @@ _Options:_
   the default behaviour; this option is not really needed.)
 
 - **`--show-exported` (or `show_exported`)** - Same as `--show`, but print
-  specifications for exported functions only. Specs are displayed sorted
-  alphabetically according to the function's name.
+  specifications for exported functions only. Specs are displayed
+  in the module's export order.
 
 - **`--annotate`** - Annotate the specified files with type specifications.
 
@@ -94,8 +94,7 @@ _Options:_
 - **`-pz dir`** - Include `dir` in the path for Erlang. This is useful when
   analyzing files that use `-include_lib()` directives or parse transforms.
 
-- **`--version` (or `-v`)** - Print the TypEr version and some more information
-  and exit.
+- **`--version` (or `-v`)** - Print the TypEr version and exit.
 
 > #### Note {: .info }
 >
