@@ -214,6 +214,16 @@ all of their descendants, but against other versions the order is undefined.
 The possible return values of the `versions:compare/2` function are
 therefore: `same`, `ancestor`, `descendant` and `undefined`.
 
+It is quite common that order between entities is described in terms of
+*less than*, *greater than*, etc. Using that terminology:
+*   `same` is equivalent to **equal to** (`=`)
+*   `ancestor` is equivalent to **less than** (`<`)
+*   `descendant` is equivalent to **greater than** (`>`)
+*   `undefined` is, however, still **undefined**.
+
+That terminology is also used in our
+[security advisories](https://github.com/erlang/otp/security/advisories?state=published).
+
 If a version `V1` compares to a version `V2` as:
 *   `same`, then `V2` compares to `V1` as `same`.
 *   `ancestor`, then `V2` compares to `V1` as `descendant`.
