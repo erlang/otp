@@ -168,6 +168,7 @@
 -export([tps/3]).
 -export([otp_3906_forker/5, otp_3906_start_forker_starter/4]).
 -export([env_slave_main/1, fd_packet_endian_child/0,
+         fd_packet_oversize_child/1,
          fd_stream_replacement_child/0]).
 
 -include_lib("common_test/include/ct.hrl").
@@ -424,7 +425,29 @@ fd_packet_endian(Config) when is_list(Config) ->
             true = port_command(Port, <<1, 0, 0, $B>>),
             stream_receive_all1(Port, <<1, 0, 0, $B>>)
     end,
-    fd_packet_result(Port, <<>>, false).
+    fd_packet_result(Port, <<>>, false),
+
+    Marker = filename:join(proplists:get_value(priv_dir, Config),
+                           "fd_packet_endian.marker"),
+    _ = file:delete(Marker),
+    Oversize = open_fd_child(fd_packet_oversize_child, [Marker]),
+    try
+        wait_until(fun() ->
+                           file:read_file(Marker) =:= {ok, <<"oversize">>}
+                   end),
+        %% First body length that does not fit the platform's signed state.
+        Overflow =
+            case os:type() of
+                {win32, _} -> <<16#7ffffffc:32/little>>;
+                _ -> <<16#80000000:32/little>>
+            end,
+        true = port_command(Oversize, Overflow),
+        stream_receive_all1(Oversize, <<"reopen">>),
+        true = port_command(Oversize, <<"done">>),
+        fd_packet_result(Oversize, <<"done">>, false)
+    after
+        _ = file:delete(Marker)
+    end.
 
 fd_packet_endian_child() ->
     Port = open_port({fd, 0, 1}, [binary, {packet, {3, little}}]),
@@ -458,6 +481,27 @@ fd_packet_endian_child() ->
             ok
     end,
     ok.
+
+fd_packet_oversize_child([Marker]) ->
+    OldTrapExit = process_flag(trap_exit, true),
+    Oversize = open_port({fd, 0, 1},
+                         [binary, in, {packet, {4, little}}]),
+    ok = file:write_file(Marker, <<"oversize">>),
+    receive
+        {'EXIT', Oversize, einval} -> ok
+    after 5000 ->
+        halt(3)
+    end,
+    true = process_flag(trap_exit, OldTrapExit),
+    Reopened = open_port({fd, 0, 1}, [binary, stream]),
+    true = port_command(Reopened, <<"reopen">>),
+    receive
+        {Reopened, {data, <<"done">>}} ->
+            true = port_command(Reopened, <<"done">>)
+    after 5000 ->
+        halt(4)
+    end,
+    close_port_and_wait(Reopened, 5).
 
 fd_stream_replacement_child() ->
     Port = open_port({fd, 0, 1},
