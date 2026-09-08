@@ -4651,6 +4651,7 @@ void wxPalette_new_4(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ErlNifBinary blue_bin;
   if(!enif_inspect_binary(env, argv[2], &blue_bin)) Badarg("blue");
   blue = (unsigned const char*) blue_bin.data;
+  if(green_bin.size < red_bin.size || blue_bin.size < red_bin.size) Badarg("green");
   wxPalette * Result = new EwxPalette(red_bin.size,red,green,blue);
   app->newPtr((void *) Result, 1, memenv);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
@@ -4678,6 +4679,7 @@ void wxPalette_Create(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   ErlNifBinary blue_bin;
   if(!enif_inspect_binary(env, argv[3], &blue_bin)) Badarg("blue");
   blue = (unsigned const char*) blue_bin.data;
+  if(green_bin.size < red_bin.size || blue_bin.size < red_bin.size) Badarg("green");
   bool Result = This->Create(red_bin.size,red,green,blue);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   rt.send(  rt.make_bool(Result));

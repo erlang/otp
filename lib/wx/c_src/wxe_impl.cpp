@@ -873,27 +873,32 @@ void WxeApp::clearPtr(void * ptr) {
     if(refd->type == 1 && ((wxObject*)ptr)->IsKindOf(CLASSINFO(wxSizer))) {
       wxSizerItemList list = ((wxSizer*)ptr)->GetChildren();
       for(wxSizerItemList::compatibility_iterator node = list.GetFirst();
-	  node; node = node->GetNext()) {
-	wxSizerItem *item = node->GetData();
-	wxObject *content=NULL;
-	if((content = item->GetWindow()))
-	  if(ptr2ref.end() == ptr2ref.find(content)) {
-	    wxString msg;
-	    wxClassInfo *cinfo = ((wxObject *)ptr)->GetClassInfo();
-	    msg.Printf(wxT("Double usage detected of window at %p in sizer {wx_ref, %d, %s}"),
-		       content, ref, cinfo->GetClassName());
-	    send_msg("error", &msg);
-	    ((wxSizer*)ptr)->Detach((wxWindow*)content);
-	  }
-	if((content = item->GetSizer()))
-	  if(ptr2ref.end() == ptr2ref.find(content)) {
-	    wxString msg;
-	    wxClassInfo *cinfo = ((wxObject *)ptr)->GetClassInfo();
-	    msg.Printf(wxT("Double usage detected of sizer at %p in sizer {wx_ref, %d, %s}"),
-		       content, ref, cinfo->GetClassName());
-	    send_msg("error", &msg);
-	    ((wxSizer*)ptr)->Detach((wxSizer*)content);
-	  }
+          node; node = node->GetNext()) {
+        wxSizerItem *item = node->GetData();
+        // wxSizer::Detach() deletes the wxSizerItem, so read both members
+        // before any Detach and use else-if: a sizer item holds a window XOR
+        // a sizer, and re-reading item after a Detach would be use-after-free.
+        wxObject *win = item->GetWindow();
+        wxObject *childSizer = item->GetSizer();
+        if(win) {
+          if(ptr2ref.end() == ptr2ref.find(win)) {
+            wxString msg;
+            wxClassInfo *cinfo = ((wxObject *)ptr)->GetClassInfo();
+            msg.Printf(wxT("Double usage detected of window at %p in sizer {wx_ref, %d, %s}"),
+                       win, ref, cinfo->GetClassName());
+            send_msg("error", &msg);
+            ((wxSizer*)ptr)->Detach((wxWindow*)win);
+          }
+        } else if(childSizer) {
+          if(ptr2ref.end() == ptr2ref.find(childSizer)) {
+            wxString msg;
+            wxClassInfo *cinfo = ((wxObject *)ptr)->GetClassInfo();
+            msg.Printf(wxT("Double usage detected of sizer at %p in sizer {wx_ref, %d, %s}"),
+                       childSizer, ref, cinfo->GetClassName());
+            send_msg("error", &msg);
+            ((wxSizer*)ptr)->Detach((wxSizer*)childSizer);
+          }
+        }
       }
     }
 

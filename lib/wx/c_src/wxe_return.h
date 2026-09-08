@@ -41,9 +41,6 @@
 #include <wx/html/htmlcell.h>
 #include <wx/graphics.h>
 
-#define RT_BUFF_SZ 64
-
-
 
 class wxeReturn {
 
