@@ -292,9 +292,15 @@ drop_undecodable_certificate_authorities(_Config) ->
                  [[{'AttributeTypeAndValue', ?'id-at-commonName',
                     {utf8String, <<"Good CA">>}}]]},
     GoodDN = public_key:pkix_encode('Name', GoodAuth0, otp),
-    BadDN = base64:decode(<<"MHAxCzAJBgNVBAYMAkJSMRMwEQYDVQQKDApJQ1AtQnJhc2lsMTQwMgY",
-                            "DVQQLDCtBdXRvcmlkYWRlIENlcnRpZmljYWRvcmEgUmFpeiBCcmFz",
-                            "aWxlaXJhIHY1MRYwFAYDVQQDDA1BQyBTeW5ndWxhcklE">>),
+    %% emailAddress carried as PrintableString, which the type is not, and
+    %% which cannot hold "@" either. Advertised by nfe.svrs.rs.gov.br.
+    %% Rejected by public_key on OTP 27 as well as later releases, unlike a
+    %% countryName encoded as UTF8String, which OTP 27 still accepts.
+    BadDN = base64:decode(<<"MIGwMSkwJwYJKoZIhvcNAQkBExpkZnQtZGZlQHByb2NlcmdzLnJz",
+                            "Lmdvdi5icjELMAkGA1UECBMCUlMxHTAbBgNVBAsTFFRlc3RlIFBy",
+                            "b2pldG8gTkZlIFJTMR0wGwYDVQQKExRUZXN0ZSBQcm9qZXRvIE5G",
+                            "ZSBSUzEVMBMGA1UEBxMMUE9SVE8gQUxFR1JFMQswCQYDVQQGEwJC",
+                            "UjEUMBIGA1UEAxMLQUMgUkFJWiBERmU=">>),
     CertAuths = cert_auths_vector([BadDN, GoodDN]),
     HashSigns = <<(ssl_cipher:signature_scheme({sha256, rsa})):16>>,
     HashSignsLen = byte_size(HashSigns),
