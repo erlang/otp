@@ -271,16 +271,22 @@ win_massive_client(N) ->
 win_massive_loop(_,0) ->
     [];
 win_massive_loop(P,N) ->
-    case (catch gen_tcp:connect("localhost",?WIN_MASSIVE_PORT,[])) of
+    try gen_tcp:connect("localhost",?WIN_MASSIVE_PORT,[]) of
         {ok,A} ->
-            case (catch gen_tcp:accept(P)) of
+            try gen_tcp:accept(P) of
                 {ok,B} ->
                     %erlang:display(N),
                     [A,B|win_massive_loop(P,N-1)];
                 _Else ->
                     [A]
+            catch
+                _:_ ->
+                    [A]
             end;
-        _Else0 ->
+        _Else ->
+            []
+    catch
+        _:_ ->
             []
     end.
 
@@ -663,15 +669,8 @@ port_program_with_path(Config) when is_list(Config) ->
 badarg_port_with_atom(Config) when is_list(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),
     File = filename:join(PrivDir, "port_file"),
-    case catch open_port(File, [eof]) of
-        {'EXIT', {badarg, _}} ->
-            ok
-    end,
-
-    case catch open_port(atom_port, [eof]) of
-        {'EXIT', {badarg, _}} ->
-            ok
-    end,
+    ?assertError(badarg, open_port(File, [eof])),
+    ?assertError(badarg, open_port(atom_port, [eof])),
     ok.
 
 %% Tests that all appropriate fd's have been closed in the port program
@@ -781,24 +780,15 @@ open_ports(Name, Settings) ->
         _ ->
             test_server:sleep(5)
     end,
-    case catch open_port(Name, Settings) of
-        P when is_port(P) ->
-            [P| open_ports(Name, Settings)];
-        {'EXIT', {Code, _}} ->
-            case Code of
-                enfile ->
-                    [];
-                emfile ->
-                    [];
-                system_limit ->
-                    [];
-                enomem ->
-                    [];
-                Other ->
-                    ct:fail({open_ports, Other})
-            end;
-        Other ->
-            ct:fail({open_ports, Other})
+    try open_port(Name, Settings) of
+        P ->
+            [P| open_ports(Name, Settings)]
+    catch
+        error:R when R =:= enfile;
+                     R =:= emfile;
+                     R =:= system_limit;
+                     R =:= enomem -> [];
+        error:Other -> ct:fail({open_ports, Other})
     end.
 
 %% Tests that exit(Port, Term) works (has been known to crash the emulator).
@@ -908,10 +898,7 @@ stderr_to_stdout(Config) when is_list(Config) ->
 
 bad_argument(Config, ArgList) ->
     PortTest = port_test(Config),
-    case catch open_port({spawn, PortTest}, ArgList) of
-        {'EXIT', {badarg, _}} ->
-            ok
-    end.
+    ?assertError(badarg, open_port({spawn, PortTest}, ArgList)).
 
 
 %% 'env' option
@@ -1005,10 +992,7 @@ bad_env(Config) when is_list(Config) ->
     ok.
 
 try_bad_env(Env) ->
-    badarg = try open_port({spawn,"ls"}, [{env,Env}])
-	     catch
-		 error:badarg -> badarg
-	     end.
+    ?assertError(badarg, open_port({spawn,"ls"}, [{env,Env}])).
 
 
 %% Test that we can handle a very very large environment gracefully.
@@ -1114,10 +1098,7 @@ bad_args(Config) when is_list(Config) ->
     ok.
 
 try_bad_args(Args) ->
-    badarg = try open_port({spawn_executable,"ls"}, [Args])
-	     catch
-		 error:badarg -> badarg
-	     end.
+    ?assertError(badarg, open_port({spawn_executable,"ls"}, [Args])).
 
 
 
@@ -1275,7 +1256,6 @@ otp_3906(Config)  when is_list(Config) ->
 -define(OTP_3906_MAX_CONC_OSP, 50).
 
 otp_3906(Config, OSName) ->
-    DataDir = filename:dirname(proplists:get_value(data_dir,Config)),
     {ok, Variables, _} = file:path_consult(code:get_path(),"variables"),
     case lists:keysearch('CC', 1, Variables) of
         {value,{'CC', CC}} ->
@@ -1472,9 +1452,9 @@ otp_4389(Config)  when is_list(Config) ->
                                 spawn_link(
                                   fun() ->
                                           process_flag(trap_exit, true),
-                                          case catch open_port({spawn, True},
-                                                               [stream,exit_status]) of
-                                              P when is_port(P) ->
+                                          try open_port({spawn, True},
+                                                        [stream,exit_status]) of
+                                              P ->
                                                   receive
                                                       {P,{exit_status,_}} ->
                                                           TCR ! {self(),ok};
@@ -1486,15 +1466,16 @@ otp_4389(Config)  when is_list(Config) ->
                                                           TCR ! {self(),ok};
                                                       Err2 ->
                                                           TCR ! {self(),{msg,Err2}}
-                                                  end;
-                                              {'EXIT',{R1,_}}
+                                                  end
+                                          catch
+                                              error:R1
                                                 when R1 == emfile;
                                                      R1 == eagain;
                                                      R1 == enomem;
                                                      R1 == enoent andalso BrokenCWD ->
                                                   TCR ! {self(),ok};
-                                              Err1 ->
-                                                  TCR ! {self(), {open_port,Err1}}
+                                              _:Err1 ->
+                                                TCR ! {self(), {open_port,Err1}}
                                           end
                                   end)
                         end,
@@ -1518,16 +1499,18 @@ get_true_cmd() ->
                               _ -> not_found
                           end
                   end,
-    catch begin
-              %% First check in /usr/bin and /bin
-              DoFileExist("/usr/bin/true"),
-              DoFileExist("/bin/true"),
-              %% Try which
-              case filename:dirname(os:cmd("which true")) of
-                  "." -> not_found;
-                  TrueDir -> filename:join(TrueDir, "true")
-              end
-          end.
+    try
+        %% First check in /usr/bin and /bin
+        DoFileExist("/usr/bin/true"),
+        DoFileExist("/bin/true"),
+        %% Try which
+        case filename:dirname(os:cmd("which true")) of
+            "." -> not_found;
+            TrueDir -> filename:join(TrueDir, "true")
+        end
+    catch
+        throw:R -> R
+    end.
 
 %% 'exit_status' option
 %%
@@ -1566,9 +1549,9 @@ spawn_driver(Config) when is_list(Config) ->
     end,
     Port2 ! {self(), close},
     receive {Port2, closed} -> ok end,
-    {'EXIT',{badarg,_}} = (catch erlang:open_port({spawn_driver, "ls"}, [])),
-    {'EXIT',{badarg,_}} = (catch erlang:open_port({spawn_driver, "cmd"}, [])),
-    {'EXIT',{badarg,_}} = (catch erlang:open_port({spawn_driver, os:find_executable("erl")}, [])),
+    ?assertError(badarg, erlang:open_port({spawn_driver, "ls"}, [])),
+    ?assertError(badarg, erlang:open_port({spawn_driver, "cmd"}, [])),
+    ?assertError(badarg, erlang:open_port({spawn_driver, os:find_executable("erl")}, [])),
     ok.
 
 %% Test parallelism option of open_port
@@ -1685,18 +1668,17 @@ spawn_executable(Config) when is_list(Config) ->
     run_echo_args_2("\""++ExactFile3++"\" "++"\"hello world\" \"dlrow olleh\""),
     [ExactFile3,"hello world","dlrow olleh"] =
     run_echo_args_2(unicode:characters_to_binary("\""++ExactFile3++"\" "++"\"hello world\" \"dlrow olleh\"")),
-    {'EXIT',{enoent,_}} = (catch run_echo_args(SpaceDir,"fnurflmonfi",
-                                               [default,"hello world",
-                                                "dlrow olleh"])),
+    ?assertError(enoent, run_echo_args(SpaceDir,"fnurflmonfi",
+                                       [default,"hello world",
+                                        "dlrow olleh"])),
 
     NonExec = "kronxfrt"++ExeExt,
     file:write_file(filename:join([SpaceDir,NonExec]),
                     <<"Not an executable">>),
-    {'EXIT',{eacces,_}} = (catch run_echo_args(SpaceDir,NonExec,
-                                               [default,"hello world",
-                                                "dlrow olleh"])),
-    {'EXIT',{enoent,_}} = (catch open_port({spawn_executable,"cmd"},[])),
-    {'EXIT',{enoent,_}} = (catch open_port({spawn_executable,"sh"},[])),
+    ?assertError(eacces, run_echo_args(SpaceDir,NonExec,
+                                       [default,"hello world","dlrow olleh"])),
+    ?assertError(enoent, open_port({spawn_executable,"cmd"},[])),
+    ?assertError(enoent, open_port({spawn_executable,"sh"},[])),
     case os:type() of
         {win32,_} ->
             test_bat_file(SpaceDir);
@@ -1854,14 +1836,11 @@ mix_up_ports(Config) when is_list(Config) ->
     receive {Port, closed} -> ok end,
     loop(start, done,
          fun(P) ->
-                 Q =
-                 (catch erlang:open_port({spawn, "echo_drv"}, [])),
-                 %%		       io:format("~p ", [Q]),
-                 if is_port(Q) ->
-                        Q;
-                    true ->
-                        io:format("~p~n", [P]),
-                        done
+                 try erlang:open_port({spawn, "echo_drv"}, [])
+                 catch
+                     _:_ ->
+                         io:format("~p~n", [P]),
+                         done
                  end
          end),
     Port ! {self(), {command, "Hello again port!"}},
@@ -1913,10 +1892,11 @@ otp_5112_get_wrapped_port() ->
     end.
 
 otp_5112_wrap_port_ix(Ports) ->
-    case (catch erlang:open_port({spawn, "exit_drv"}, [])) of
-        Port when is_port(Port) ->
-            otp_5112_wrap_port_ix([Port|Ports]);
-        _ ->
+    try erlang:open_port({spawn, "exit_drv"}, []) of
+        Port ->
+            otp_5112_wrap_port_ix([Port|Ports])
+    catch
+        _:_ ->
             %% Port table now full; empty port table
             lists:foreach(fun (P) ->  P ! {self(), close} end,
                           Ports),
@@ -1947,10 +1927,11 @@ otp_5119(Config) when is_list(Config) ->
     ok.
 
 otp_5119_fill_empty_port_tab(Ports) ->
-    case (catch erlang:open_port({spawn, "exit_drv"}, [])) of
-        Port when is_port(Port) ->
-            otp_5119_fill_empty_port_tab([Port|Ports]);
-        _ ->
+    try erlang:open_port({spawn, "exit_drv"}, []) of
+        Port ->
+            otp_5119_fill_empty_port_tab([Port|Ports])
+    catch
+        _:_ ->
             %% Port table now full; empty port table
             lists:foreach(fun (P) ->  P ! {self(), close} end,
                           Ports),
@@ -2049,20 +2030,17 @@ exit_status_msb_test(Config, SleepSecs) when is_list(Config) ->
               PrtSIds = lists:map(
                           fun (_) ->
                                   erlang:yield(),
-                                  case catch open_port({spawn, PortProg},
-                                                       [exit_status]) of
-                                      Prt when is_port(Prt) ->
+                                  try open_port({spawn, PortProg},
+                                                [exit_status]) of
+                                      Prt ->
                                           {Prt,
-                                           erlang:system_info(scheduler_id)};
-                                      {'EXIT', {Err, _}} when Err == eagain;
-                                                              Err == emfile;
-                                                              Err == enomem ->
+                                           erlang:system_info(scheduler_id)}
+                                  catch
+                                      error:Err when Err == eagain;
+                                                     Err == emfile;
+                                                     Err == enomem ->
                                           noop;
-                                      {'EXIT', Err} when Err == eagain;
-                                                         Err == emfile;
-                                                         Err == enomem ->
-                                          noop;
-                                      Error ->
+                                      _:Error ->
                                           ct:fail(Error)
                                   end
                           end,
@@ -2608,10 +2586,14 @@ port_setget_data_hammer(Port, HeapData, IsSet0, N) ->
 
 
 wait_until(Fun) ->
-    case catch Fun() of
+    try Fun() of
         true ->
             ok;
         _ ->
+            receive after 100 -> ok end,
+            wait_until(Fun)
+    catch
+        _:_ ->
             receive after 100 -> ok end,
             wait_until(Fun)
     end.

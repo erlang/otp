@@ -147,11 +147,15 @@ restore(Config) ->
 						 []))
 	end
     after
-	catch file:set_cwd(OrgCWD),
-	catch code:set_path(OrgPath),
+        try
+            file:set_cwd(OrgCWD),
+            code:set_path(OrgPath)
+        catch
+            _:_ -> ok
+        end,
 	case OrgPWD of
 	    false -> ok;
-	    _ -> catch os:putenv("PWD", OrgPWD)
+            _ -> try os:putenv("PWD", OrgPWD) catch _:_ -> ok end
 	end
     end.
 
