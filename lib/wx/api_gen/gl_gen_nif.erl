@@ -225,7 +225,9 @@ declare_var(P=#arg{name=Name, in=false, type=#type{base=binary}}, Argc) ->
     {P,Argc+1};
 declare_var(P=#arg{name=Name, in=false, type=#type{name=T, single={Single,Sz}}}, Argc)
   when Single =:= list; Single =:= tuple ->
-    w("  ~s ~s[~w];\n", [T, Name, Sz]),
+    %% Zero-initialise: GL writes a pname-dependent number of values (fewer than
+    %% Sz for most pnames), but the marshalling loop reads all Sz elements.
+    w("  ~s ~s[~w] = {0};\n", [T, Name, Sz]),
     case Sz > 9 of
         false -> ignore;
         true  ->
