@@ -883,10 +883,23 @@ set_driver_data(DriverData* dp, HANDLE ifd, HANDLE ofd, int read_write, int repo
 }
 
 static ErlDrvData
-reuse_driver_data(DriverData *dp, HANDLE ifd, HANDLE ofd, int read_write, ErlDrvPort port_num)
+reuse_driver_data(DriverData *dp, HANDLE ifd, HANDLE ofd, int read_write,
+                  int packet_bytes,
+                  ErtsSysDriverPacketHeaderEndianness packet_header_endianness,
+                  ErlDrvPort port_num)
 {
     int result;
 
+    /* fd_stop() keeps DriverData and its pending read for standard fd pairs
+     * 0/1 and 2/2. The read still targets inbuf + bytesInBuffer, so retain
+     * that prefix and restart only the framing phase when options change. */
+    if (dp->packet_bytes != packet_bytes ||
+        (packet_bytes > 1 &&
+         dp->packet_header_endianness != packet_header_endianness)) {
+        dp->totalNeeded = packet_bytes;
+    }
+    dp->packet_bytes = packet_bytes;
+    dp->packet_header_endianness = packet_header_endianness;
     dp->port_num = port_num;
     dp->in.fd = ifd;
     dp->out.fd = ofd;
@@ -2136,10 +2149,14 @@ fd_start(ErlDrvPort port_num, char* name, SysDriverOpts* opts)
     opts->ofd = (Uint) translate_fd(out);
     if ( in == 0 && out == 1 && save_01_port != NULL) {
 	dp = save_01_port;
-	return reuse_driver_data(dp, (HANDLE) opts->ifd, (HANDLE) opts->ofd, opts->read_write, port_num);
+        return reuse_driver_data(
+            dp, (HANDLE) opts->ifd, (HANDLE) opts->ofd, opts->read_write,
+            opts->packet_bytes, opts->packet_header_endianness, port_num);
     } else if (in == 2 && out == 2 && save_22_port != NULL) {
 	dp = save_22_port;
-	return reuse_driver_data(dp, (HANDLE) opts->ifd, (HANDLE) opts->ofd, opts->read_write, port_num);
+        return reuse_driver_data(
+            dp, (HANDLE) opts->ifd, (HANDLE) opts->ofd, opts->read_write,
+            opts->packet_bytes, opts->packet_header_endianness, port_num);
     } else {
         if ((dp = new_driver_data(port_num, opts->packet_bytes,
                                   opts->packet_header_endianness,
@@ -2598,12 +2615,17 @@ ready_input(ErlDrvData drv_data, ErlDrvEvent ready_event)
 
     if (error == NO_ERROR) {
 	if (pb == 0) { /* Continuous stream. */
+            /* A cached packet reader may have retained bytes before this port
+             * reopened as a stream. The pending read appended bytes after them. */
+            dp->bytesInBuffer += bytesRead;
 #ifdef DEBUG
-	    DEBUGF(("ready_input: %d: ", bytesRead));
-	    erl_bin_write(dp->inbuf, 16, bytesRead);
+            /* Dump the retained prefix too, matching driver_output() below. */
+            DEBUGF(("ready_input: %d: ", dp->bytesInBuffer));
+            erl_bin_write(dp->inbuf, 16, dp->bytesInBuffer);
 	    DEBUGF(("\n"));
 #endif
-	    driver_output(dp->port_num, dp->inbuf, bytesRead);
+            driver_output(dp->port_num, dp->inbuf, dp->bytesInBuffer);
+            dp->bytesInBuffer = 0;
 	} else {			/* Packet mode */
 	    dp->bytesInBuffer += bytesRead;
 

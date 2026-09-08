@@ -405,25 +405,26 @@ packet_stream_replacement_test(Config) ->
     stream_receive_all1(Fd, <<"fd">>),
     true = port_command(Fd, <<"peer">>),
     fd_packet_result(Fd, <<"peer">>, false).
-%% Test endian-aware framing through the Unix fd driver's outputv callback.
+%% Test endian-aware framing through the Unix fd driver's outputv callback and
+%% the Windows fd driver's output callback.
 fd_packet_endian(Config) when is_list(Config) ->
+    Port = open_fd_child(fd_packet_endian_child, []),
+    stream_receive_all1(Port, <<1, 0, 0, $A>>),
     case os:type() of
-        {unix, _} ->
-            Port = open_fd_child(fd_packet_endian_child, []),
-            try
-                stream_receive_all1(Port, <<1, 0, 0, $A>>),
-                true = port_command(Port, <<1, 0, 0, $B>>),
-                fd_packet_result(Port, <<1, 0, 0, $B>>, false)
-            after
-                try port_close(Port) of
-                    true -> ok
-                catch
-                    error:badarg -> ok
-                end
-            end;
+        {win32, _} ->
+            %% Leave an incomplete packet-3 frame whose retained bytes
+            %% become a packet-2 header and body; zero completes it.
+            true = port_command(Port, <<1, 0, 0, $B, 0, 2, $C>>),
+            stream_receive_all1(
+              Port, <<1, 0, 0, $B, 0, 5, "ready">>),
+            true = port_command(Port, <<0>>),
+            stream_receive_all1(Port, <<0, 2, $C, 0>>),
+            true = port_command(Port, <<0, 3, "ack">>);
         _ ->
-            {skip, "Only Unix fd ports use the outputv callback."}
-    end.
+            true = port_command(Port, <<1, 0, 0, $B>>),
+            stream_receive_all1(Port, <<1, 0, 0, $B>>)
+    end,
+    fd_packet_result(Port, <<>>, false).
 
 fd_packet_endian_child() ->
     Port = open_port({fd, 0, 1}, [binary, {packet, {3, little}}]),
@@ -434,7 +435,29 @@ fd_packet_endian_child() ->
     after 5000 ->
             halt(1)
     end,
-    true = port_close(Port).
+    close_port_and_wait(Port, 2),
+    case os:type() of
+        {win32, _} ->
+            Reframed = open_port({fd, 0, 1},
+                                 [binary, {packet, {2, big}}]),
+            true = port_command(Reframed, <<"ready">>),
+            receive
+                {Reframed, {data, <<$C, 0>>}} ->
+                    true = port_command(Reframed, <<$C, 0>>)
+            after 5000 ->
+                halt(2)
+            end,
+            receive
+                {Reframed, {data, <<"ack">>}} ->
+                    %% The parent observed all output before sending the ack.
+                    halt(0, [{flush, false}])
+            after 5000 ->
+                halt(3)
+            end;
+        _ ->
+            ok
+    end,
+    ok.
 
 fd_stream_replacement_child() ->
     Port = open_port({fd, 0, 1},
@@ -446,7 +469,16 @@ fd_stream_replacement_child() ->
     after 5000 ->
             halt(1)
     end,
-    true = port_close(Port).
+    close_port_and_wait(Port, 2).
+
+close_port_and_wait(Port, ExitCode) ->
+    Ref = monitor(port, Port),
+    true = port_close(Port),
+    receive
+        {'DOWN', Ref, port, Port, normal} -> ok
+    after 5000 ->
+        halt(ExitCode)
+    end.
 
 open_fd_child(Function, Args0) ->
     [Exec0 | ExecArgs] = string:split(ct:get_progname(), " ", all),
