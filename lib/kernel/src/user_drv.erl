@@ -125,7 +125,8 @@
 -type arguments() ::
         #{ initial_shell => noshell | shell() |
            {remote, unicode:charlist()} | {remote, unicode:charlist(), {module(), atom(), [term()]}},
-           input => cooked | raw | disabled }.
+           input => cooked | raw | disabled,
+           signals => boolean() }.
 
 %% Default line editing shell
 -spec start() -> pid().
@@ -197,7 +198,8 @@ init(Args) ->
                  {next_event, internal, TTYState}};
             true ->
                 TTYState = prim_tty:init(
-                             #{ input => maps:get(input, Args), output => raw }),
+                             #{ input => maps:get(input, Args), output => raw,
+                                signals => maps:get(signals, Args, true) }),
                 init_standard_error(TTYState, false),
                 {ok, init, {Args,#state{ terminal_mode = maps:get(input, Args), user = start_user() } },
                  {next_event, internal, TTYState}}
@@ -405,7 +407,8 @@ server({call, From}, {start_shell, Args},
                             State#state{
                               terminal_mode = Input,
                               tty = prim_tty:reinit(TTY, #{ input => Input,
-                                                            output => raw }),
+                                                            output => raw,
+                                                            signals => maps:get(signals, Args, true) }),
                               shell_started = false }
                     end
             end

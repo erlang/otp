@@ -166,7 +166,8 @@
 
 -type options() :: #{ input := cooked | raw | disabled,
                       output := raw | cooked,
-                      ofd => stdout | stderr }.
+                      ofd => stdout | stderr,
+                      signals => boolean() }.
 -type request() ::
         {putc_raw, binary()} |
         {putc, unicode:unicode_binary()} |
@@ -326,7 +327,8 @@ reinit(State = #state{ options = OldOptions }, UserOptions) ->
     end.
 
 options(UserOptions) ->
-    maps:merge(#{ input => raw, output => cooked, ofd => stdout }, UserOptions).
+    maps:merge(#{ input => raw, output => cooked, ofd => stdout,
+                  signals => true }, UserOptions).
 
 init(State, ssh) ->
     State#state{ xn = true };
