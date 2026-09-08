@@ -27,6 +27,7 @@
          mml/1,match_huge_int/1,bignum/1,unaligned_32_bit/1,unit/1]).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 -import(lists, [seq/2]).
 
@@ -100,7 +101,7 @@ integer(Config) when is_list(Config) ->
 
     Eight = [200,1,19,128,222,42,97,111],
     cmp128(Eight, uint(Eight)),
-    fun_clause(catch get_int(mkbin(seq(1, 20)))),
+    ?assertError(function_clause, get_int(mkbin(seq(1, 20)))),
     ok.
 
 get_int_roundtrip(Bin0, Size) when Size =< 8*byte_size(Bin0) ->
@@ -903,7 +904,6 @@ bits_to_list([H|_]=List, Mask) ->
      end|bits_to_list(List, Mask bsr 1)];
 bits_to_list([], _) -> [].
 
-fun_clause({'EXIT',{function_clause,_}}) -> ok.
 mkbin(L) when is_list(L) -> list_to_binary(L).
     
 
@@ -966,8 +966,7 @@ do_match_huge_int() ->
 
     %% GH-6701: [vm] crash with -emu_flavor emu:
     %% "no next heap size found: 18446744072702918678, offset 0"
-    {'EXIT',{function_clause,_}} =
-        (catch fun(<<X:2147483647/unit:98>>) -> X end(<<>>)),
+    ?assertError(function_clause, fun(<<X:2147483647/unit:98>>) -> X end(<<>>)),
     ok.
 
 overflow_huge_int_unit128(Bin, [Sz0|Sizes]) ->

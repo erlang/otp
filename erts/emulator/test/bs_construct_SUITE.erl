@@ -61,9 +61,19 @@ end_per_suite(_Config) ->
 -define(T(B, L), {B, ??B, L}).
 -define(N(B), {B, ??B, unknown}).
 
--define(FAIL(Expr), fail_check(catch Expr, ??Expr, [])).
+-define(FAIL(Expr),
+        fail_check((fun() ->
+                        try Expr
+                        catch error:R:S -> {'EXIT', {R, S}}
+                        end
+                    end)(), ??Expr, [])).
 
--define(FAIL_VARS(Expr, Vars), fail_check(catch Expr, ??Expr, Vars)).
+-define(FAIL_VARS(Expr, Vars),
+        fail_check((fun() ->
+                        try Expr
+                        catch error:R:S -> {'EXIT', {R, S}}
+                        end
+                    end)(), ??Expr, Vars)).
 
 l(I_13, I_big1) ->
     [
@@ -271,12 +281,13 @@ evaluate(Str, Vars) ->
 eval_list([], _Vars) ->
     [];
 eval_list([{C_bin, Str, Bytes} | Rest], Vars) ->
-    case catch evaluate(Str, Vars) of
-	{'EXIT', Error} ->
-	    io:format("Evaluation error: ~p, ~p, ~p~n", [Str, Vars, Error]),
-	    exit(Error);
+    try evaluate(Str, Vars) of
 	E_bin ->
 	    [{C_bin, E_bin, Str, Bytes} | eval_list(Rest, Vars)]
+    catch
+        error:Error ->
+            io:format("Evaluation error: ~p, ~p, ~p~n", [Str, Vars, Error]),
+            exit(Error)
     end.
 
 one_test({C_bin, E_bin, Str, Bytes}) when is_list(Bytes) ->
@@ -493,7 +504,7 @@ testf(Config) when is_list(Config) ->
     ?FAIL(<<<<1:1>>/binary>>),
     Sz = id(1),
     ?FAIL_VARS(<<<<1:Sz>>/binary>>, [{'Sz',Sz}]),
-    {'EXIT',{badarg,_}} = (catch <<<<1:(id(1))>>/binary>>),
+    ?assertError(badarg, <<<<1:(id(1))>>/binary>>),
     ?FAIL(<<<<7,8,9>>/binary-unit:16>>),
     ?FAIL(<<<<7,8,9,3:7>>/binary-unit:16>>),
     ?FAIL(<<<<7,8,9,3:7>>/binary-unit:17>>),
@@ -523,10 +534,10 @@ testf_1(W, B) ->
 %% Test that constructed binaries that are not used will still give an exception.
 not_used(Config) when is_list(Config) ->
     ok = not_used1(3, <<"dum">>),
-    {'EXIT',{badarg,_}} = (catch not_used1(3, "dum")),
-    {'EXIT',{badarg,_}} = (catch not_used2(444, -2)),
-    {'EXIT',{badarg,_}} = (catch not_used2(444, anka)),
-    {'EXIT',{badarg,_}} = (catch not_used3(444)),
+    ?assertError(badarg, not_used1(3, "dum")),
+    ?assertError(badarg, not_used2(444, -2)),
+    ?assertError(badarg, not_used2(444, anka)),
+    ?assertError(badarg, not_used3(444)),
     ok.
 
 not_used1(I, BinString) ->
@@ -569,7 +580,7 @@ mem_leak(Config) when is_list(Config) ->
 mem_leak(0, _) -> ok;
 mem_leak(N, B) ->
     big_bin(B, <<23>>),
-    {'EXIT',{badarg,_}} = (catch big_bin(B, bad)),
+    ?assertError(badarg, big_bin(B, bad)),
     mem_leak(N-1, B).
 
 big_bin(B1, B2) ->
@@ -667,31 +678,33 @@ append(A, B) ->
     <<A/binary, B/binary>>.
 
 huge_float_field(Config) when is_list(Config) ->
-    {'EXIT',{badarg,_}} = (catch <<0.0:9/float-unit:8>>),
-    huge_float_check(catch <<0.0:67108865/float-unit:64>>),
-    huge_float_check(catch <<0.0:((1 bsl 26)+1)/float-unit:64>>),
-    huge_float_check(catch <<0.0:(id(67108865))/float-unit:64>>),
-%%  huge_float_check(catch <<0.0:((1 bsl 60)+1)/float-unit:64>>),
-    huge_float_check(catch <<3839739387439387383739387987347983:((1 bsl 26)+1)/float-unit:64>>),
-%%  huge_float_check(catch <<3839739387439387383739387987347983:((1 bsl 60)+1)/float-unit:64>>),
+    ?assertError(badarg, <<0.0:9/float-unit:8>>),
+    huge_float_check(fun() -> <<0.0:67108865/float-unit:64>> end),
+    huge_float_check(fun() -> <<0.0:((1 bsl 26)+1)/float-unit:64>> end),
+    huge_float_check(fun() -> <<0.0:(id(67108865))/float-unit:64>> end),
+%%  huge_float_check(fun() -> <<0.0:((1 bsl 60)+1)/float-unit:64>> end),
+    huge_float_check(fun() -> <<3839739387439387383739387987347983:((1 bsl 26)+1)/float-unit:64>> end),
+%%  huge_float_check(fun() -> <<3839739387439387383739387987347983:((1 bsl 60)+1)/float-unit:64>> end),
     ok.
 
-huge_float_check({'EXIT',{system_limit,_}}) -> ok;
-huge_float_check({'EXIT',{badarg,_}}) -> ok.
+huge_float_check(Fun) ->
+    try Fun() of
+        _ -> ct:fail(did_not_fail)
+    catch
+        error:system_limit -> ok;
+        error:badarg -> ok
+    end.
 
 system_limit(Config) when is_list(Config) ->
     WordSize = erlang:system_info(wordsize),
     BitsPerWord = WordSize * 8,
-    {'EXIT',{system_limit,_}} =
-	(catch <<0:(id(0)),42:(id(1 bsl BitsPerWord))>>),
-    {'EXIT',{system_limit,_}} =
-	(catch <<42:(id(1 bsl BitsPerWord)),0:(id(0))>>),
-    {'EXIT',{system_limit,_}} =
-	(catch <<(id(<<>>))/binary,0:(id(1 bsl 100))>>),
+    ?assertError(system_limit, <<0:(id(0)),42:(id(1 bsl BitsPerWord))>>),
+    ?assertError(system_limit, <<42:(id(1 bsl BitsPerWord)),0:(id(0))>>),
+    ?assertError(system_limit, <<(id(<<>>))/binary,0:(id(1 bsl 100))>>),
 
     %% Would fail to load.
-    {'EXIT',{system_limit,_}} = (catch <<0:(1 bsl 67)>>),
-    {'EXIT',{system_limit,_}} = (catch <<0:((1 bsl 64)+1)>>),
+    ?assertError(system_limit, <<0:(1 bsl 67)>>),
+    ?assertError(system_limit, <<0:((1 bsl 64)+1)>>),
 
     case WordSize of
 	4 ->
@@ -701,29 +714,29 @@ system_limit(Config) when is_list(Config) ->
     end.
 
 system_limit_32() ->
-    {'EXIT',{badarg,_}} = (catch <<42:(-1)>>),
-    {'EXIT',{badarg,_}} = (catch <<42:(id(-1))>>),
-    {'EXIT',{badarg,_}} = (catch <<42:(id(-389739873536870912))/unit:8>>),
-    {'EXIT',{system_limit,_}} = (catch <<42:536870912/unit:8>>),
-    {'EXIT',{system_limit,_}} = (catch <<42:(id(536870912))/unit:8>>),
-    {'EXIT',{system_limit,_}} = (catch <<0:(id(8)),42:536870912/unit:8>>),
-    {'EXIT',{system_limit,_}} = (catch <<0:(id(8)),42:(id(536870912))/unit:8>>),
+    ?assertError(badarg, <<42:(-1)>>),
+    ?assertError(badarg, <<42:(id(-1))>>),
+    ?assertError(badarg, <<42:(id(-389739873536870912))/unit:8>>),
+    ?assertError(system_limit, <<42:536870912/unit:8>>),
+    ?assertError(system_limit, <<42:(id(536870912))/unit:8>>),
+    ?assertError(system_limit, <<0:(id(8)),42:536870912/unit:8>>),
+    ?assertError(system_limit, <<0:(id(8)),42:(id(536870912))/unit:8>>),
 
     %% The size would be silently truncated, resulting in a crash.
-    {'EXIT',{system_limit,_}} = (catch <<0:(1 bsl 35)>>),
-    {'EXIT',{system_limit,_}} = (catch <<0:((1 bsl 32)+1)>>),
+    ?assertError(system_limit, <<0:(1 bsl 35)>>),
+    ?assertError(system_limit, <<0:((1 bsl 32)+1)>>),
 
     %% Would fail to load.
-    {'EXIT',{system_limit,_}} = (catch <<0:(1 bsl 43)>>),
-    {'EXIT',{system_limit,_}} = (catch <<0:((1 bsl 40)+1)>>),
+    ?assertError(system_limit, <<0:(1 bsl 43)>>),
+    ?assertError(system_limit, <<0:((1 bsl 40)+1)>>),
     ok.
 
 badarg(Config) when is_list(Config) ->
     <<3:2>> = <<1:(id(1)),1:(id(1))>>,
-    {'EXIT',{badarg,_}} = (catch <<0:(id(1)),0:(id(-1))>>),
-    {'EXIT',{badarg,_}} = (catch <<0:(id(1)),0:(id(-(1 bsl 70)))>>),
-    {'EXIT',{badarg,_}} = (catch <<0:(id(-(1 bsl 70))),0:(id(1))>>),
-    {'EXIT',{badarg,_}} = (catch <<(id(<<>>))/binary,0:(id(-(1)))>>),
+    ?assertError(badarg, <<0:(id(1)),0:(id(-1))>>),
+    ?assertError(badarg, <<0:(id(1)),0:(id(-(1 bsl 70)))>>),
+    ?assertError(badarg, <<0:(id(-(1 bsl 70))),0:(id(1))>>),
+    ?assertError(badarg, <<(id(<<>>))/binary,0:(id(-(1)))>>),
     ok.
 
 copy_writable_binary(Config) when is_list(Config) ->
@@ -940,9 +953,9 @@ zero_width(Config) when is_list(Config) ->
     append_zero_width(id(<<Bin/binary, 1:1>>)),
     append_zero_width(id(<<Bin/binary, -1:9>>)),
     
-    {'EXIT',{badarg,_}} = (catch <<not_a_number:0>>),
-    {'EXIT',{badarg,_}} = (catch <<(id(not_a_number)):Z>>),
-    {'EXIT',{badarg,_}} = (catch <<(id(not_a_number)):0>>),
+    ?assertError(badarg, <<not_a_number:0>>),
+    ?assertError(badarg, <<(id(not_a_number)):Z>>),
+    ?assertError(badarg, <<(id(not_a_number)):0>>),
 
     ok.
 
@@ -995,16 +1008,16 @@ bad_append(_) ->
     ok.
 
 do_bad_append(Bin0, Appender) ->
-    {'EXIT',{badarg,_}} = (catch Appender(Bin0)),
+    ?assertError(badarg, Appender(Bin0)),
 
     Bin1 = id(<<0:3,Bin0/bitstring>>),
     <<_:3,Bin2/bitstring>> = Bin1,
-    {'EXIT',{badarg,_}} = (catch Appender(Bin2)),
+    ?assertError(badarg, Appender(Bin2)),
 
     %% Create a writable binary.
     Empty = id(<<>>),
     Bin3 = <<Empty/bitstring,Bin0/bitstring>>,
-    {'EXIT',{badarg,_}} = (catch Appender(Bin3)),
+    ?assertError(badarg, Appender(Bin3)),
     ok.
 
 append_unit_3(Bin) ->
@@ -1033,9 +1046,9 @@ bs_append_overflow(_Config) ->
         _ when Memsize < (2 bsl 30) ->
 	    {skip, "Less than 2 GB of memory"};
 	4 ->
-            {'EXIT', {system_limit, _}} = (catch bs_append_overflow_signed()),
+            ?assertError(system_limit, bs_append_overflow_signed()),
             erlang:garbage_collect(),
-            {'EXIT', {system_limit, _}} = (catch bs_append_overflow_unsigned()),
+            ?assertError(system_limit, bs_append_overflow_unsigned()),
             erlang:garbage_collect(),
 	    ok
     end.
