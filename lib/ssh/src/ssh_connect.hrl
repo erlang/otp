@@ -242,7 +242,7 @@
 -record(channel,
 	{
 	  type,          %% "session"
-	  sys,           %% "none", "shell", "exec" "subsystem"
+         sys,           %% "none", "ssh", "shell", "exec", "subsystem", "env", "pty"
 	  user,          %% "user" process id (default to cm user)
 	  flow_control, 
 
