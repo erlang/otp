@@ -83,7 +83,8 @@
          id/1,
          nif_term_type/1,
          nif_term_size/1,
-         nif_atom_out_cache_index/1
+         nif_atom_out_cache_index/1,
+         resource_binary_under_reporting/1
 	]).
 
 -export([many_args_100/100]).
@@ -203,7 +204,8 @@
        atom_out_cache_index_nif/1,
        max_atom_out_cache_index_nif/0,
        dynamic_resource_call/4,
-       msa_find_y_nif/1
+       msa_find_y_nif/1,
+       resource_binary_info_nif/1
       ]).
 
 -define(nif_stub,nif_stub_error(?LINE)).
@@ -258,7 +260,8 @@ all() ->
      pid,
      nif_term_type,
      nif_term_size,
-     nif_atom_out_cache_index].
+     nif_atom_out_cache_index,
+     resource_binary_under_reporting].
 
 init_per_suite(Config) ->
     erts_debug:set_internal_state(available_internal_state, true),
@@ -2458,31 +2461,39 @@ resource_neg_do(TypeA) ->
 %% Test enif_make_resource_binary
 resource_binary(Config) when is_list(Config) ->
     ensure_lib_loaded(Config, 1),
-    {Ptr,Bin} = resource_binary_do(),
+    
+    [] = last_resource_dtor_call(),             %Assertion.
+    ok = resource_binary_do(),
+
     erlang:garbage_collect(),
-    Last = last_resource_dtor_call(),
-    ?CHECK({Ptr,Bin,1}, Last),
+    {_Ptr,_Data,1} = last_resource_dtor_call(), %Assertion.
+
     ok.
 
 resource_binary_do() ->
     Bin = <<"Hej Hopp i lingonskogen">>,
-    {Ptr,ResBin1} = make_new_resource_binary(Bin),
-    ResBin1 = Bin,          
-    ResInfo = {Ptr,_} = get_resource(binary_resource_type,ResBin1),
+    {_Ptr,ResBin1} = make_new_resource_binary(Bin),
+
+    ResBin1 = Bin,
+    ResInfo = resource_binary_info_nif(ResBin1),
 
     Papa = self(),
     {Forwarder,_} = spawn_monitor(fun() -> forwarder(Papa) end),
     io:format("sending to forwarder pid=~p\n",[Forwarder]),  
     Forwarder ! ResBin1,
+
     ResBin2 = receive_any(),
     ResBin2 = ResBin1,
-    ResInfo = get_resource(binary_resource_type,ResBin2),
+    ResInfo = resource_binary_info_nif(ResBin2),
+
     Forwarder ! terminate,
     {'DOWN', _, process, Forwarder, 1} = receive_any(),
     erlang:garbage_collect(),
-    ResInfo = get_resource(binary_resource_type,ResBin1),
-    ResInfo = get_resource(binary_resource_type,ResBin2),
-    ResInfo.
+
+    ResInfo = resource_binary_info_nif(ResBin1),
+    ResInfo = resource_binary_info_nif(ResBin2),
+
+    ok.
 
 %% Test resource takeover by module upgrade
 resource_takeover(Config) when is_list(Config) ->    
@@ -4577,6 +4588,35 @@ nif_atom_out_cache_index(Config) ->
     {'EXIT', {badarg, _}} = (catch atom_out_cache_index_nif(42)),
     ok.
 
+resource_binary_under_reporting(Config) ->
+    ensure_lib_loaded(Config),
+
+    Data = <<0:(1 bsl 16)>>,
+
+    {_PtrA, ResBinA} = make_new_resource_binary(Data),
+    true = binary:referenced_byte_size(ResBinA) >=
+        binary:referenced_byte_size(Data),
+
+    %% Smoke test: kill ResBinA to see if garbage collection works properly.
+    erlang:garbage_collect(),
+
+    {_PtrB, ResBinB} = make_new_resource_binary(Data),
+    true = binary:referenced_byte_size(ResBinB) >=
+        binary:referenced_byte_size(Data),
+
+    %% Smoke test: move ResBinB into a compressed ETS table to see if
+    %% BITSTRING_INTERNAL_REF and friends work as they should.
+    Tid = ets:new(dummy, [private, compressed]),
+    ets:insert(Tid, {1, ResBinB}),
+    ResBinB = ets:lookup_element(Tid, 1, 2),
+    Data = ResBinB,                              %Assertion.
+    ets:delete(Tid),
+
+    %% Smoke test: kill everything.
+    erlang:garbage_collect(),
+
+    ok.
+
 %% Verify match state arguments are not passed to declared NIFs.
 match_state_arg(Config) ->
     ensure_lib_loaded(Config),
@@ -4733,6 +4773,8 @@ atom_out_cache_index_nif(_) -> ?nif_stub.
 max_atom_out_cache_index_nif() -> ?nif_stub.
 
 dynamic_resource_call(_,_,_,_) -> ?nif_stub.
+
+resource_binary_info_nif(_) -> ?nif_stub.
 
 nif_stub_error(Line) ->
     exit({nif_not_loaded,module,?MODULE,line,Line}).

@@ -62,6 +62,16 @@ struct binary_internals {
 
 typedef struct binary {
     struct binary_internals intern;
+
+    /* For ordinary binaries, this is the size of `orig_bytes`, but for magic
+     * binaries this is the memory pressure (!) of the managed resource, as
+     * `orig_bytes` stores the structure managing the resource and not the data
+     * seen by the user in Erlang. If needed for debugging, the size of said
+     * structure can be found in `intern.apparent_size` which is valid iff
+     * BIN_FLAG_MAGIC is set.
+     *
+     * Note that all magic binaries except for NIF resource binaries are seen
+     * as (magic) references by the user. */
     SWord orig_size;
 
     /* Note that this field has to be 8-byte aligned even on 32-bit
@@ -133,7 +143,7 @@ typedef union {
 #define ERTS_MAGIC_BIN_DATA(BP) \
   ((void *) ((ErtsBinary *) (BP))->magic_binary.u.aligned.data)
 #define ERTS_MAGIC_BIN_DATA_SIZE(BP) \
-  ((BP)->orig_size - ERTS_MAGIC_DATA_OFFSET)
+  ((BP)->intern.apparent_size)
 #define ERTS_MAGIC_DATA_OFFSET \
   (offsetof(ErtsMagicBinary,u.aligned.data) - offsetof(Binary,orig_bytes))
 #define ERTS_MAGIC_BIN_ORIG_SIZE(Sz) \
@@ -151,7 +161,7 @@ typedef union {
 #define ERTS_MAGIC_UNALIGNED_DATA_OFFSET \
   (offsetof(ErtsMagicBinary,u.unaligned.data) - offsetof(Binary,orig_bytes))
 #define ERTS_MAGIC_BIN_UNALIGNED_DATA_SIZE(BP) \
-  ((BP)->orig_size - ERTS_MAGIC_UNALIGNED_DATA_OFFSET)
+  ((BP)->intern.apparent_size)
 #define ERTS_MAGIC_BIN_UNALIGNED_ORIG_SIZE(Sz) \
   (ERTS_MAGIC_UNALIGNED_DATA_OFFSET + (Sz))
 #define ERTS_MAGIC_BIN_UNALIGNED_SIZE(Sz) \

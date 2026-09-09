@@ -461,22 +461,34 @@ static void
 dump_sub_bitstring(fmtfn_t to, void *to_arg, Uint br_flags, BinRef *br,
                    const byte *base, Uint offset, Uint size) {
     Binary *binary = br->val;
+    int encode_as_binref;
 
-    if (erts_atomic_xchg_nob(&binary->intern.refc, 0) > 0) {
-        binary->intern.flags = (UWord)all_binaries;
-        all_binaries = binary;
+    /* Magic binaries (that appear as such, like NIF resource binaries) cannot
+     * be reliably dumped as off-heap bitstrings, and may be far too large to
+     * dump in-line here as if they're on-heap bitstrings.
+     *
+     * As a compromise, we print a reference to the binary but exclude it from
+     * the list provided to `dump_binaries`. */
+    if (!(binary->intern.flags & BIN_FLAG_MAGIC)) {
+        if (erts_atomic_xchg_nob(&binary->intern.refc, 0) > 0) {
+            binary->intern.flags = (UWord)all_binaries;
+            all_binaries = binary;
+        }
+
+        /* When the BinRef hasn't been visited yet (header is still BIN_REF),
+         * we pretend that this is a BinRef because the crashdump viewer barfs
+         * on dumps where sub-binaries refer _directly_ to binaries that have
+         * been truncated. This will need to be revisited once crashdump viewer
+         * is made bitstring-aware. */
+        encode_as_binref = (br->thing_word == HEADER_BIN_REF);
+    } else {
+        encode_as_binref = 1;
     }
 
     /* Emit bitstrings in the old sub-binary format which ignored bit offsets
      * and truncated sizes to bytes (not even rounding up when required). This
-     * is not ideal but at least it contains most of the underlying data.
-     *
-     * When the BinRef hasn't been visited yet (header is still BIN_REF), we
-     * pretend that this is a BinRef because the crashdump viewer barfs on
-     * dumps where sub-binaries refer _directly_ to binaries that have been
-     * truncated. This will need to be revisited once crashdump viewer is made
-     * bitstring-aware. */
-    if (br->thing_word == HEADER_BIN_REF) {
+     * is not ideal but at least it contains most of the underlying data. */
+    if (encode_as_binref) {
         erts_print(to, to_arg,
                    "Yc" PTR_FMT ":" PTR_FMT ":" PTR_FMT "\n",
                    binary, BYTE_OFFSET(offset), BYTE_SIZE(size));
@@ -505,15 +517,14 @@ dump_bin_ref(fmtfn_t to, void *to_arg, BinRef *br)
 {
     Binary *binary = br->val;
 
-    if (erts_atomic_xchg_nob(&binary->intern.refc, 0) > 0) {
-        binary->intern.flags = (UWord)all_binaries;
-        all_binaries = binary;
+    /* See corresponding comment in `dump_sub_bitstring`. */
+    if (!(binary->intern.flags & BIN_FLAG_MAGIC)) {
+        if (erts_atomic_xchg_nob(&binary->intern.refc, 0) > 0) {
+            binary->intern.flags = (UWord)all_binaries;
+            all_binaries = binary;
+        }
     }
 
-    /* Dump the binary as-is, ignoring the fact that BIN_FLAG_MAGIC may keep
-     * the data elsewhere. This is incorrect but consistent with how things
-     * used to be done before bitstrings were refactored. We will need to
-     * revisit this. */
     erts_print(to, to_arg,
                "Yc" PTR_FMT ":" PTR_FMT ":" PTR_FMT "\n",
                binary, 0, binary->orig_size);
@@ -715,14 +726,15 @@ static void
 dump_binaries(fmtfn_t to, void *to_arg, Binary* current)
 {
     while (current) {
-	SWord size = current->orig_size;
-	byte* bytes = (byte*) current->orig_bytes;
+        SWord size = current->orig_size;
+        byte* bytes = (byte*) current->orig_bytes;
 
-	erts_print(to, to_arg, "=binary:" PTR_FMT "\n", current);
-	erts_print(to, to_arg, "%X:", size);
+        erts_print(to, to_arg, "=binary:" PTR_FMT "\n", current);
+        erts_print(to, to_arg, "%X:", size);
         erts_print_base64(to, to_arg, bytes, size);
         erts_putc(to, to_arg, '\n');
-	current = (Binary *) current->intern.flags;
+
+        current = (Binary *) current->intern.flags;
     }
 }
 
