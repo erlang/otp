@@ -22,7 +22,7 @@
 %%
 {application, stdlib,
  [{description, "ERTS  CXC 138 10"},
-  {vsn, "8.0.2"},
+  {vsn, "8.0.4"},
   {modules, [argparse,
 	     array,
 	     base64,
