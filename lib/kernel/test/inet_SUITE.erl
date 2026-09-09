@@ -829,7 +829,7 @@ parse_address(Config) when is_list(Config) ->
 	 {{16#c11,16#c22,16#5c33,0,0,0,0,0},
 	  "c11:c22:5c33::"},
 	 {{0,0,0,0,0,65535,258,65534},"::ffff:1.2.255.254"},
-         {{16#fe80,12345,0,0,0,0,0,16#12},"fe80::12%012345"},
+         {{16#fe80,12345,0,0,0,0,0,16#12},"fe80::12%12345"},
 	 {{16#ffff,16#ffff,16#ffff,16#ffff,16#ffff,16#ffff,16#ffff,16#ffff},
 	  "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"}
          |[{list_to_tuple(P++[(D1 bsl 8) bor D2,(D3 bsl 8) bor D4]),
@@ -915,7 +915,9 @@ parse_address(Config) when is_list(Config) ->
 	 "fe80::198.168.0.",
          "fec0::fFfF:127.0.0.1.",
          "::1x",
-         "1::2::3"],
+         "1::2::3",
+         "::%",
+         "1::1%"],
     t_parse_address
       (parse_ipv6_address,
        false,

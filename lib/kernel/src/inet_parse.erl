@@ -770,11 +770,11 @@ ipv6_addr(Cs) ->
 
 %% Before "::"
 ipv6_addr({V, _, _, "%"++Cs1}, A, N) when N == 7 ->
-    ipv6_addr_scope(Cs1, [V|A], [], N+1, []);
+    ipv6_addr_scope(Cs1, [V|A], [], N+1);
 ipv6_addr({V, _, _, []}, A, N) when N == 7 ->
     ipv6_addr_done([V|A]);
 ipv6_addr({V, _, _, "::%"++Cs1}, A, N) when N =< 6 ->
-    ipv6_addr_scope(Cs1, [V|A], [], N+1, []);
+    ipv6_addr_scope(Cs1, [V|A], [], N+1);
 ipv6_addr({V, _, _, "::"}, A, N) when N =< 6 ->
     ipv6_addr_done([V|A], [], N+1);
 ipv6_addr({V, _, _, "::"++Cs1}, A, N) when N =< 5 ->
@@ -788,7 +788,7 @@ ipv6_addr(_, _, _) ->
 
 %% After "::"
 ipv6_addr({V, _, _, "%"++Cs1}, A, B, N) when N =< 6 ->
-    ipv6_addr_scope(Cs1, A, [V|B], N+1, []);
+    ipv6_addr_scope(Cs1, A, [V|B], N+1);
 ipv6_addr({V, _, _, []}, A, B, N) when N =< 6 ->
     ipv6_addr_done(A, [V|B], N+1);
 ipv6_addr({V, _, _, ":"++Cs1}, A, B, N) when N =< 5 ->
@@ -810,40 +810,49 @@ ipv6_ipv4_c(_, _, _, _, _, _) ->
     throw(error).
 
 %% After "%"
-ipv6_addr_scope([], Ar, Br, N, Sr) ->
-    ScopeId =
-        case lists:reverse(Sr) of
-            %% Empty scope id
-            "" -> 0;
-            %% Scope id starts with 0
-            "0"++S -> dec16(S);
-            _ -> 0
-        end,
-    %% Suggested formats for scope id parsing:
-    %%   "" -> "0"
-    %%   "0" -> Scope id 0
-    %%   "1" - "9", "10" - "99" -> "0"++S
-    %%   "0"++DecimalScopeId -> decimal scope id
-    %%   "25"++PercentEncoded -> Percent encoded interface name
-    %%   S -> Interface name (Unicode?)
-    %% Missing: translation from interface name into integer scope id.
-    %% XXX: scope id is actually 32 bit, but we only have room for
-    %% 16 bit in the second address word - ignore or fix (how)?
-    ipv6_addr_scope(ScopeId, Ar, Br, N);
-ipv6_addr_scope([C|Cs], Ar, Br, N, Sr) ->
-    ipv6_addr_scope(Cs, Ar, Br, N, [C|Sr]).
-%%
-ipv6_addr_scope(ScopeId, [P], Br, N)
-  when N =< 7, P =:= 16#fe80;
-       N =< 7, P =:= 16#ff02 ->
-    %% Optimized special case
-    ipv6_addr_done([ScopeId,P], Br, N+1);
-ipv6_addr_scope(ScopeId, Ar, Br, N) ->
-    case lists:reverse(Br++dup(8-N, 0, Ar)) of
-        [P,0|Xs] when P =:= 16#fe80; P =:= 16#ff02 ->
-            list_to_tuple([P,ScopeId|Xs]);
-        _ ->
-            throw(error)
+ipv6_addr_scope([], _Ar, _Br, _N) ->
+    throw(error); %<zone_id> has to be a non-null string (RFC 4007)
+ipv6_addr_scope("0", Ar, Br, N) ->
+    ipv6_addr_scope_done(0, Ar, Br, N);
+ipv6_addr_scope([C|Cs], Ar, Br, N) ->
+    if
+        is_integer(C, $1, $9) -> % Reject leading zeros, to avoid ambiguities
+            ipv6_addr_scope_dec16(Cs, Ar, Br, N, C - $0);
+        true -> % We ignore any non-numerical <zone_id>:s for now
+            ipv6_addr_scope_done(0, Ar, Br, N)
+    end.
+
+ipv6_addr_scope_dec16([], Ar, Br, N, ScopeId) ->
+    ipv6_addr_scope_done(ScopeId, Ar, Br, N);
+ipv6_addr_scope_dec16([C|Cs], Ar, Br, N, ScopeId) ->
+    if is_integer(C, $0, $9) ->
+            ScopeId_1 = ScopeId*10 + C - $0,
+            if  is_integer(ScopeId_1, 0, 16#ffff) ->
+                    ipv6_addr_scope_dec16(Cs, Ar, Br, N, ScopeId_1);
+                true ->
+                    throw(error) % 16-bit overflow
+            end;
+       true ->
+            throw(error) % Non-numerical character
+    end.
+
+ipv6_addr_scope_done(ScopeId, Ar, Br, N) when is_integer(ScopeId) ->
+    %% Piggy-back the Scope ID into the second word of the address
+    %% for link-local and site-local addresses since it is always 0,
+    %% FreeBSD kernel style.
+    case Ar of
+        [P] when
+              N =< 7, P =:= 16#fe80;
+              N =< 7, P =:= 16#ff02 ->
+            %% Optimized special case
+            ipv6_addr_done([ScopeId,P], Br, N+1);
+        _ when is_list(Ar) ->
+            case lists:reverse(Br++dup(8-N, 0, Ar)) of
+                [P,0|Xs] when P =:= 16#fe80; P =:= 16#ff02 ->
+                    list_to_tuple([P,ScopeId|Xs]);
+                _ ->
+                    throw(error) % Inappropriate address for scope id
+            end
     end.
 
 ipv6_addr_done(Ar, Br, N, {D1,D2,D3,D4}) ->
@@ -872,19 +881,6 @@ ipv6_hex(Cs, V, D, N) when N > 0 ->
     {V, D, N, Cs};
 ipv6_hex(_, _, _, _) ->
     throw(error).
-
-%% Parse a reverse decimal integer string, empty is 0
-dec16(Cs) -> dec16(Cs, 0).
-%%
-dec16([], I) -> I;
-dec16([C|Cs], I) when C >= $0, C =< $9 ->
-    case 10*I + (C - $0) of
-        J when 16#ffff < J ->
-            throw(error);
-        J ->
-            dec16(Cs, J)
-    end;
-dec16(_, _) -> throw(error).
 
 %% Dup onto head of existing list
 dup(0, _, L) ->
@@ -915,7 +911,7 @@ ntoa({A,B,C,D,E,F,G,H}) when ?ip6(A,B,C,D,E,F,G,H) ->
         A =:= 16#ff02, B =/= 0 ->
             %% Find longest sequence of zeros, at least 2,
             %% to replace with "::"
-            ntoa([A,0,C,D,E,F,G,H], []) ++ "%0" ++ integer_to_list(B);
+            ntoa([A,0,C,D,E,F,G,H], []) ++ "%" ++ integer_to_list(B);
         true ->
             %% Find longest sequence of zeros, at least 2,
             %% to replace with "::"
