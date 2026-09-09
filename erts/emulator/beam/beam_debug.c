@@ -604,9 +604,6 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
         addr++;
         ap = addr;
     } else {
-#if defined(ARCH_64) && defined(CODE_MODEL_SMALL)
-        BeamInstr instr_word = addr[0];
-#endif
         addr++;
 
 	/*
@@ -659,16 +656,6 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 	    case 'P':
 		packed = *--sp;
 		break;
-#if defined(ARCH_64) && defined(CODE_MODEL_SMALL)
-            case '#':       /* -1 */
-            case '$':       /* -2 */
-            case '%':       /* -3 */
-            case '&':       /* -4 */
-            case '\'':      /* -5 */
-            case '(':       /* -6 */
-                packed = (packed << BEAM_WIDE_SHIFT) | BeamExtraData(instr_word);
-		break;
-#endif
 	    default:
                 erts_exit(ERTS_ERROR_EXIT, "beam_debug: invalid packing op: %c\n", *prog);
 	    }
