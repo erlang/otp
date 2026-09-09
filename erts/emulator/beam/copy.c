@@ -38,6 +38,12 @@
 #include "dtrace-wrapper.h"
 #include "erl_global_literals.h"
 
+#ifdef DEBUG
+# define DEBUG_COND(D,E) D
+#else
+# define DEBUG_COND(D,E) E
+#endif
+
 /* The shared_xyz functions temporarily use the primary tag bits of the header
  * word to store whether the term has been visited/processed before, preventing
  * us from directly comparing the header to constants (e.g. HEADER_BIN_REF) and
@@ -267,44 +273,58 @@ Uint size_object_x(Eterm obj, erts_literal_area_t *litopt)
  *  Using a WSTACK but not very transparently; consider refactoring
  */
 
-#define DECLARE_BITSTORE(s)						\
-    DECLARE_WSTACK(s);							\
-    int WSTK_CONCAT(s,_bitoffs) = 0;					\
-    int WSTK_CONCAT(s,_offset) = 0;					\
-    UWord WSTK_CONCAT(s,_buffer) = 0
+typedef struct {
+    ErtsWStack ws;
+    int bitoffs;
+    int offset;
+    UWord buffer;
+} BitStore;
 
-#define DESTROY_BITSTORE(s) DESTROY_WSTACK(s)
-#define BITSTORE_PUT(s,i)						\
-do {									\
-    WSTK_CONCAT(s,_buffer) |= (UWord)i << WSTK_CONCAT(s,_bitoffs);      \
-    WSTK_CONCAT(s,_bitoffs) += 2;					\
-    if (WSTK_CONCAT(s,_bitoffs) >= 8*sizeof(UWord)) {			\
-	WSTACK_PUSH(s, WSTK_CONCAT(s,_buffer));				\
-	WSTK_CONCAT(s,_bitoffs) = 0;					\
-	WSTK_CONCAT(s,_buffer) = 0;					\
-    }									\
+#define DECLARE_BITSTORE(s) \
+    UWord s##_default_stack[DEF_WSTACK_SIZE]; \
+    BitStore s = { \
+        .ws = WSTACK_DEFAULT_VALUE(s##_default_stack, ERTS_ALC_T_ESTACK), \
+        .bitoffs = 0, \
+        .offset = 0, \
+        .buffer = 0 \
+    }
+
+#define DESTROY_BITSTORE(s) DESTROY_WSTACK(s.ws)
+#define BITSTORE_PUT(s,i) \
+do { \
+    ASSERT(i >= 1 && i <= 3); \
+    s.buffer |= (UWord)i << s.bitoffs; \
+    s.bitoffs += 2; \
+    if (s.bitoffs >= 8*sizeof(UWord)) { \
+        ASSERT(s.bitoffs == 8*sizeof(UWord)); \
+        WSTACK_PUSH(s.ws, s.buffer); \
+        s.bitoffs = 0; \
+        s.buffer = 0; \
+    } \
 } while(0)
-#define BITSTORE_CLOSE(s)						\
-do {									\
-    if (WSTK_CONCAT(s,_bitoffs) > 0) {					\
-	WSTACK_PUSH(s, WSTK_CONCAT(s,_buffer));				\
-	WSTK_CONCAT(s,_bitoffs) = 0;					\
-    }									\
+#define BITSTORE_CLOSE(s) \
+do { \
+    if (s.bitoffs > 0) { \
+        WSTACK_PUSH(s.ws, s.buffer); \
+        s.bitoffs = 0; \
+    } \
 } while(0)
 
-#define BITSTORE_FETCH(s,dst)                                           \
-do {                                                                    \
-    UWord result;                                                       \
-    if (WSTK_CONCAT(s,_bitoffs) <= 0) {                                 \
-        ASSERT(WSTK_CONCAT(s,_offset) < (s.wsp - s.wstart));            \
-        WSTK_CONCAT(s,_buffer) = s.wstart[WSTK_CONCAT(s,_offset)];      \
-        WSTK_CONCAT(s,_offset)++;                                       \
-        WSTK_CONCAT(s,_bitoffs) = 8*sizeof(UWord);                      \
-    }                                                                   \
-    WSTK_CONCAT(s,_bitoffs) -= 2;                                       \
-    result = WSTK_CONCAT(s,_buffer) & 3;                                \
-    WSTK_CONCAT(s,_buffer) >>= 2;                                       \
-    (dst) = result;                                                     \
+#define BITSTORE_FETCH(s,dst) \
+do { \
+    UWord result; \
+    if (s.bitoffs == 0) { \
+        ASSERT(s.offset < (s.ws.wsp - s.ws.wstart)); \
+        s.buffer = s.ws.wstart[s.offset]; \
+        s.offset++; \
+        s.bitoffs = 8*sizeof(UWord); \
+    } \
+    ASSERT(s.bitoffs > 0); \
+    s.bitoffs -= 2; \
+    result = s.buffer & 3; \
+    ASSERT(result >= 1 && result <= 3); \
+    s.buffer >>= 2; \
+    (dst) = result; \
 } while(0)
 
 #define COUNT_OFF_HEAP (0)
@@ -1051,36 +1071,21 @@ do {								\
     }
 
 #define DECLARE_BITSTORE_INIT_INFO(s, info)		\
-    UWord* WSTK_DEF_STACK(s) = info->bitstore_default;	\
-    ErtsWStack s = {					\
-        WSTK_DEF_STACK(s),  /* wstart */		\
-        WSTK_DEF_STACK(s),  /* wsp */			\
-        WSTK_DEF_STACK(s) + DEF_WSTACK_SIZE, /* wend */	\
-        WSTK_DEF_STACK(s),  /* wdflt */ 		\
-        ERTS_ALC_T_ESTACK /* alloc_type */		\
-    };							\
-    int WSTK_CONCAT(s,_bitoffs) = 0;			\
-    /* no WSTK_CONCAT(s,_offset), write-only */		\
-    UWord WSTK_CONCAT(s,_buffer) = 0
+    BitStore s = { \
+        .ws = WSTACK_DEFAULT_VALUE(info->bitstore_default, ERTS_ALC_T_ESTACK), \
+        .bitoffs = 0, \
+        .offset = 0, \
+        .buffer = 0 \
+    }
 
-#ifdef DEBUG
-# define DEBUG_COND(D,E) D
-#else
-# define DEBUG_COND(D,E) E
-#endif
-
-#define DECLARE_BITSTORE_FROM_INFO(s, info)		\
-    /* no WSTK_DEF_STACK(s), read-only */		\
-    ErtsWStack s = {					\
-        info->bitstore_start,  /* wstart */		\
-        DEBUG_COND(info->bitstore_stop, NULL), /* wsp,  read-only */ \
-        NULL,                  /* wend, read-only */	\
-        NULL,                  /* wdef, read-only */	\
-        info->bitstore_alloc_type /* alloc_type */	\
-    };							\
-    int WSTK_CONCAT(s,_bitoffs) = 0;			\
-    int WSTK_CONCAT(s,_offset) = 0;			\
-    UWord WSTK_CONCAT(s,_buffer) = 0
+#define DECLARE_BITSTORE_FROM_INFO(s, info) \
+    BitStore s = { \
+        .ws.wstart = info->bitstore_start, \
+        .ws.wsp = DEBUG_COND(info->bitstore_stop, NULL), \
+        .ws.wend = NULL, \
+        .ws.wdefault = NULL, \
+        .ws.alloc_type = info->bitstore_alloc_type, \
+    }
 
 #define DECLARE_SHTABLE_INIT_INFO(s, info)		\
     Eterm* ESTK_DEF_STACK(s) = info->shtable_default;	\
@@ -1356,11 +1361,11 @@ Uint copy_shared_calculate(Eterm obj, erts_shcopy_t *info)
                 info->queue_start = s.start;
                 info->queue_end = s.end;
                 info->queue_alloc_type = s.alloc_type;
-                info->bitstore_start = b.wstart;
+                info->bitstore_start = b.ws.wstart;
 #ifdef DEBUG
-                info->bitstore_stop = b.wsp;
+                info->bitstore_stop = b.ws.wsp;
 #endif
-                info->bitstore_alloc_type = b.alloc_type;
+                info->bitstore_alloc_type = b.ws.alloc_type;
                 info->shtable_start = t.start;
                 info->shtable_alloc_type = t.alloc_type;
                 /* single point of return: the size of the object */
