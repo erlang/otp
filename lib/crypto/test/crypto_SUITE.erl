@@ -59,7 +59,9 @@
          bad_hmac_name/1,
          bad_mac_name/1,
          bad_sign_name/1,
+         bad_sign_option/1,
          bad_verify_name/1,
+         bad_verify_option/1,
          cipher_info/0,
          cipher_info/1,
          cipher_info_prop_aead_attr/0,
@@ -131,6 +133,8 @@
          sign_verify/0,
          sign_verify/1,
          sign_verify_oqs/1,
+         context_string_option/0,
+         context_string_option/1,
          ec_key_padding/1,
          use_all_ec_sign_verify/1,
          use_all_ecdh_generate_compute/1,
@@ -240,6 +244,7 @@ all() ->
      mod_pow,
      encapsulate,
      sign_verify_oqs,
+     context_string_option,
      exor,
      rand_uniform,
      rand_threads,
@@ -514,7 +519,9 @@ groups() ->
                                  bad_hmac_name,
                                  bad_cmac_name,
                                  bad_sign_name,
+                                 bad_sign_option,
                                  bad_verify_name,
+                                 bad_verify_option,
                                  api_errors_aead
                                 ]},
 
@@ -1416,21 +1423,21 @@ sign_verify_oqs(_Config) ->
             Supported = crypto:supports(public_keys),
             [begin
                  true = lists:member(Alg, Supported),
-                 sign_verify_oqs_do(Alg)
+                 sign_verify_oqs_do(Alg, Opts)
              end
-             || Alg <- quantum_sign_ciphers()],
+             || Alg <- quantum_sign_ciphers(), Opts <- quantum_sign_opts()],
             ok
     end.
 
-sign_verify_oqs_do(Alg) ->
-    io:format("Alg = ~p\n", [Alg]),
+sign_verify_oqs_do(Alg, Opts) ->
+    io:format("Alg = ~p\nOpts: ~p\n", [Alg, Opts]),
     {Pub, Priv} = crypto:generate_key(Alg, []),
     {Pub, Priv} = crypto:generate_key(Alg, [], Priv),
     Msg = "Hejsan",
     [begin
          io:format("Hash = ~p\n", [Hash]),
-         Sign = crypto:sign(Alg, Hash, Msg, {expandedkey,Priv}),
-         true = crypto:verify(Alg, Hash, Msg, Sign, Pub)
+         Sign = crypto:sign(Alg, Hash, Msg, {expandedkey,Priv}, Opts),
+         true = crypto:verify(Alg, Hash, Msg, Sign, Pub, Opts)
      end
      || Hash <- [none, sha]],
     ok.
@@ -1453,6 +1460,9 @@ quantum_sign_ciphers() ->
      slh_dsa_shake_256f,
      slh_dsa_sha2_256s,
      slh_dsa_sha2_256f].
+
+quantum_sign_opts() ->
+    [[], [{'context-string', <<"test">>}]].
 
 %%--------------------------------------------------------------------
 use_all_ec_sign_verify(_Config) ->
@@ -5293,6 +5303,87 @@ bad_verify_name(_Config) ->
                   error:{badarg,{"pkey.c",_},"Bad digest type"++_}),
     ?chk_api_name(crypto:verify(foobar, sha, "nothing", <<"nothing">>, <<1:1024>>),
                   error:{_, {"pkey.c",_}, _}).
+
+bad_sign_option(_Config) ->
+    ?chk_api_name(crypto:sign(rsa, sha, "nothing", <<1:1024>>, [{rsa_padding, foobar}]),
+                  error:{badarg,{"pkey.c",_},"Bad value in option rsa_padding"++_}),
+    ?chk_api_name(crypto:sign(rsa, sha, "nothing", <<1:1024>>, [{rsa_pss_saltlen, -3}]),
+                  error:{badarg,{"pkey.c",_},"Bad value in option rsa_pss_saltlen"++_}),
+    ?chk_api_name(crypto:sign(rsa, sha, "nothing", <<1:1024>>, [{foobar, 1}]),
+                  error:{badarg,{"pkey.c",_},"Bad option"++_}),
+    ?chk_api_name(crypto:sign(rsa, sha, "nothing", <<1:1024>>, [foobar]),
+                  error:{badarg,{"pkey.c",_},"Expects only two-tuples in the list"++_}),
+    ?chk_api_name(crypto:sign(ecdsa, sha, "nothing", <<1:1024>>,
+                              [{rsa_padding, rsa_pkcs1_padding}]),
+                  error:{badarg,{"pkey.c",_},"Only RSA, ML-DSA and SLH-DSA support Options"++_}).
+
+bad_verify_option(_Config) ->
+    ?chk_api_name(crypto:verify(rsa, sha, "nothing", <<"nothing">>, <<1:1024>>,
+                                [{rsa_padding, foobar}]),
+                  error:{badarg,{"pkey.c",_},"Bad value in option rsa_padding"++_}),
+    ?chk_api_name(crypto:verify(rsa, sha, "nothing", <<"nothing">>, <<1:1024>>,
+                                [{rsa_pss_saltlen, -3}]),
+                  error:{badarg,{"pkey.c",_},"Bad value in option rsa_pss_saltlen"++_}),
+    ?chk_api_name(crypto:verify(rsa, sha, "nothing", <<"nothing">>, <<1:1024>>,
+                                [{foobar, 1}]),
+                  error:{badarg,{"pkey.c",_},"Bad option"++_}),
+    ?chk_api_name(crypto:verify(rsa, sha, "nothing", <<"nothing">>, <<1:1024>>,
+                                [foobar]),
+                  error:{badarg,{"pkey.c",_},"Expects only two-tuples in the list"++_}),
+    ?chk_api_name(crypto:verify(ecdsa, sha, "nothing", <<"nothing">>, <<1:1024>>,
+                                [{rsa_padding, rsa_pkcs1_padding}]),
+                  error:{badarg,{"pkey.c",_},"Only RSA, ML-DSA and SLH-DSA support Options"++_}).
+
+context_string_option() ->
+    [{doc, "Validation of the 'context-string' option for ML-DSA and SLH-DSA"}].
+
+context_string_option(_Config) ->
+    case openssl_version() of
+        V when V < {3,5,0} ->
+            {skip, "Requires OpenSSL 3.5"};
+        _ ->
+            Alg = mldsa44,
+            true = lists:member(Alg, crypto:supports(public_keys)),
+            {Pub, Priv} = crypto:generate_key(Alg, []),
+            Msg = "Hejsan",
+            %% Empty context-string is the same as no context
+            Sign = crypto:sign(Alg, none, Msg, {expandedkey, Priv},
+                               [{'context-string', <<>>}]),
+            true = crypto:verify(Alg, none, Msg, Sign, Pub, []),
+            true = crypto:verify(Alg, none, Msg, Sign, Pub,
+                                 [{'context-string', <<>>}]),
+            %% Max length of context-string is 255 bytes
+            Max = crypto:strong_rand_bytes(255),
+            MaxSign = crypto:sign(Alg, none, Msg, {expandedkey, Priv},
+                                  [{'context-string', Max}]),
+            true = crypto:verify(Alg, none, Msg, MaxSign, Pub,
+                                 [{'context-string', Max}]),
+            %% Invalid context will cause verification to fail
+            <<B, Rest/binary>> = Max,
+            false = crypto:verify(Alg, none, Msg, MaxSign, Pub,
+                                  [{'context-string', <<(B bxor 16#FF), Rest/binary>>}]),
+            %% Too long context, and invalid value in option will fail
+            TooLong = crypto:strong_rand_bytes(256),
+            ?chk_api_name(crypto:sign(Alg, none, Msg, {expandedkey, Priv},
+                                      [{'context-string', TooLong}]),
+                          error:{badarg,{"pkey.c",_},
+                                 "Bad value in option 'context-string'"++_}),
+            ?chk_api_name(crypto:verify(Alg, none, Msg, MaxSign, Pub,
+                                        [{'context-string', TooLong}]),
+                          error:{badarg,{"pkey.c",_},
+                                 "Bad value in option 'context-string'"++_}),
+            ?chk_api_name(crypto:sign(Alg, none, Msg, {expandedkey, Priv},
+                                      [{'context-string', foobar}]),
+                          error:{badarg,{"pkey.c",_},
+                                 "Bad value in option 'context-string'"++_}),
+            %% Only ml-dsa and slh-dsa support context
+            ?chk_api_name(crypto:sign(rsa, sha, "nothing", <<1:1024>>, [{'context-string', Max}]),
+                          error:{badarg,{"pkey.c",_},"Bad option"++_}),
+            ?chk_api_name(crypto:verify(rsa, sha, "nothing", <<"nothing">>, <<1:1024>>,
+                                        [{'context-string', Max}]),
+                          error:{badarg,{"pkey.c",_},"Bad option"++_}),
+            ok
+    end.
 
 
 %%%----------------------------------------------------------------
