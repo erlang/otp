@@ -54,8 +54,7 @@ and `m:erl_prim_loader` in ERTS.
 [`erts:init`](`m:init`), [`erts:erl_prim_loader`](`m:erl_prim_loader`)
 """.
 
--compile([{nowarn_possibly_unsafe_function, {erlang, binary_to_term, 1}},
-          nowarn_deprecated_catch]).
+-compile([nowarn_deprecated_catch]).
 
 -include("inet_boot.hrl").
 
@@ -449,7 +448,7 @@ boot_loop(Socket, PS) ->
     end.
 
 handle_command(S, PS, Msg) ->
-    case catch binary_to_term(Msg) of
+    case catch binary_to_term(Msg, [safe]) of
 	{get,File} ->
 	    {Res, PS2} = erl_prim_loader:prim_read_file(PS, File),
 	    send_file_result(S, get, Res),
@@ -474,6 +473,9 @@ handle_command(S, PS, Msg) ->
 	    {Res, PS2} = erl_prim_loader:prim_get_cwd(PS, [Drive]),
 	    send_file_result(S, get_cwd, Res),
 	    PS2;
+    {'EXIT',{badarg, [{erlang,binary_to_term,_,_}|_]}} ->
+        send_result(S, {error,bad_command}),
+        PS;
 	{'EXIT',Reason} ->
 	    send_result(S, {error,Reason}),
 	    PS;
