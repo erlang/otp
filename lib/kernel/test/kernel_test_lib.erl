@@ -521,6 +521,8 @@ linux_process_os_release4(_Tag, _Value) ->
 
 linux_distro_str_to_distro_id("Debian" ++ _) ->
     debian;
+linux_distro_str_to_distro_id("CentOS" ++ _) ->
+    fedora;
 linux_distro_str_to_distro_id("Fedora" ++ _) ->
     fedora;
 linux_distro_str_to_distro_id("Linux Mint" ++ _) ->

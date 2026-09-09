@@ -31,7 +31,7 @@
          stop_tmux/1,
          setup_tty/1,
          stop_tty/1,
-         tmux/1,
+         tmux/2,
          rpc/2,
          rpc/4,
          set_tty_prompt/2,
@@ -53,34 +53,36 @@
 
 %% Put this in init_per_xxx in the test you're writing
 start_tmux(Config) ->
-    case string:split(shell_test_lib:tmux("-V")," ") of
+    case string:split(string:trim(os:cmd("tmux -V"))," ") of
         ["tmux",[Num,$.|_]] when Num >= $3, Num =< $9 ->
-            shell_test_lib:tmux("kill-session"),
+            Socket = "erl_shell_test_" ++ os:getpid() ++ "_"
+                ++ integer_to_list(erlang:unique_integer([positive])),
             W = proplists:get_value(width, Config, 50),
             H = proplists:get_value(height, Config, 60),
-            "" = shell_test_lib:tmux("-u new-session -x " ++integer_to_list(W)++" -y "
-                                     ++integer_to_list(H)++" -d"),
-            ["" = shell_test_lib:tmux(["set-environment '",Name,"' '",Value,"'"])
-             || {Name,Value} <- os:env()],
-            Config;
+            "" = tmux(Socket, "-u new-session -x " ++integer_to_list(W)++" -y "
+                      ++integer_to_list(H)++" -d"),
+            ["" = tmux(Socket, ["set-environment '",Name,"' '",Value,"'"])
+             || {Name,Value} <- os:env(), not lists:prefix("TMUX", Name)],
+            [{tmux_socket, Socket} | Config];
         ["tmux", Vsn] ->
             {skip, "invalid tmux version " ++ Vsn ++ ". Need vsn 3 or later"};
         Error ->
             {skip, "tmux not installed " ++ Error}
     end.
 
-stop_tmux(_Config) ->
-    Windows = string:split(shell_test_lib:tmux("list-windows"), "\n", all),
+stop_tmux(Config) ->
+    Socket = proplists:get_value(tmux_socket, Config),
+    Windows = string:split(tmux(Socket, "list-windows"), "\n", all),
     lists:foreach(
       fun(W) ->
               case string:split(W, " ", all) of
                   ["0:" | _] -> ok;
                   [No, _Name | _] ->
-                      "" = os:cmd(["tmux select-window -t ", string:split(No,":")]),
-                      ct:log("~ts~n~ts",[W, os:cmd(lists:concat(["tmux capture-pane -p -e"]))])
+                      "" = tmux(Socket, ["select-window -t ", string:split(No,":")]),
+                      ct:log("~ts~n~ts",[W, tmux(Socket, "capture-pane -p -e")])
               end
       end, Windows),
-%    "" = os:cmd("tmux kill-session")
+    "" = tmux(Socket, "kill-server"),
     ok.
 
 %% Setup a TTY, or a ssh server and client but do not type anything in terminal (except password)
@@ -88,6 +90,7 @@ stop_tmux(_Config) ->
                  {env, [{Key :: string(), Value :: string()}]} |
                  {args, [string()]}]) -> term().
 setup_tty(Config) ->
+    Socket = proplists:get_value(tmux_socket, Config),
     ClientName = maps:get(name,proplists:get_value(peer, Config, #{}),
                     peer:random_name(proplists:get_value(tc_path, Config))),
     
@@ -124,7 +127,7 @@ setup_tty(Config) ->
     DefaultPeerArgs = #{ name => Name,
                          exec =>
                              {os:find_executable("tmux"),
-                              ["new-window","-n",Name,"-d","--"] ++ ExecArgs },
+                              ["-L",Socket,"new-window","-n",Name,"-d","--"] ++ ExecArgs },
 
                          args => ["-pz",filename:dirname(code:which(?MODULE)),
                                   "-connect_all","false",
@@ -158,7 +161,7 @@ setup_tty(Config) ->
           end),
     unlink(Peer),
 
-    "" = tmux(["set-option -t ",Name," remain-on-exit on"]),
+    "" = tmux(Socket, ["set-option -t ",Name," remain-on-exit on"]),
 
     %% We start tracing on the remote node in order to help debugging
     TraceLog = filename:join(proplists:get_value(priv_dir,Config),Name++".trace"),
@@ -177,7 +180,7 @@ setup_tty(Config) ->
                   monitor(process, Self),
                   receive _ -> ok end
           end),
-    Tmux = #tmux{ peer = Peer, node = Node, name = ClientName },
+    Tmux = #tmux{ peer = Peer, node = Node, name = ClientName, socket = Socket },
     if IsSsh ->
             rpc(Tmux, fun() ->
                 ssh:start(),
@@ -189,13 +192,13 @@ setup_tty(Config) ->
                                                 {user_dir, PrivDir},
                                                 {password, "bar"}])
             end),
-            os:cmd(os:find_executable("tmux") ++ " new-window -n " ++ ClientName ++ " -d -- "++
+            tmux(Socket, "new-window -n " ++ ClientName ++ " -d -- "++
                 "ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null localhost -p 8989 -l foo"),
-            "" = tmux(["set-option -t ",ClientName," remain-on-exit on"]),
+            "" = tmux(Socket, ["set-option -t ",ClientName," remain-on-exit on"]),
 
             timer:sleep(2000),
             check_content(Tmux,"Enter password for \"foo\""),
-            "" = tmux("send -t " ++ ClientName ++ " bar Enter"),
+            "" = tmux(Socket, "send -t " ++ ClientName ++ " bar Enter"),
             timer:sleep(1000),
             check_content(Tmux,"\\d+\n?>"),
             Tmux#tmux{ ssh_server_name = Name };
@@ -211,10 +214,12 @@ stop_tty(Term) ->
 %    "" = tmux("kill-window -t " ++ Term#tmux.name),
     ok.
 
-tmux([Cmd|_] = Command) when is_list(Cmd) ->
-    tmux(lists:concat(Command));
-tmux(Command) ->
-    string:trim(os:cmd(["tmux ",Command])).
+tmux(Ref, [Cmd|_] = Command) when is_list(Cmd) ->
+    tmux(Ref, lists:concat(Command));
+tmux(#tmux{ socket = Socket }, Command) ->
+    tmux(Socket, Command);
+tmux(Socket, Command) ->
+    string:trim(os:cmd(["TMUX= TMUX_PANE= tmux -L ",Socket," ",Command])).
 
 rpc(#tmux{ node = N }, Fun) ->
     erpc:call(N, Fun).
@@ -244,12 +249,12 @@ send_tty(Term, "Home") ->
 send_tty(Term, "End") ->
     send_tty(Term,"Escape"),
     send_tty(Term,"OF");
-send_tty(#tmux{ name = Name } = _Term,Value) ->
+send_tty(#tmux{ name = Name } = Term,Value) ->
     [Head | Quotes] = string:split(Value, "'", all),
-    "" = tmux("send -t " ++ Name ++ " '" ++ Head ++ "'"),
+    "" = tmux(Term, "send -t " ++ Name ++ " '" ++ Head ++ "'"),
     [begin
-            "" = tmux("send -t " ++ Name ++ " \"'\""),
-            "" = tmux("send -t " ++ Name ++ " '" ++ V ++ "'")
+            "" = tmux(Term, "send -t " ++ Name ++ " \"'\""),
+            "" = tmux(Term, "send -t " ++ Name ++ " '" ++ V ++ "'")
         end || V <- Quotes].
 
 %% We use send_stdin for testing of things that we cannot sent via
@@ -281,12 +286,12 @@ check_location(#tmux{ orig_location = {OrigRow, OrigCol} = Orig } = Term,
     end.
 
 get_location(Term) ->
-    RowAndCol = tmux("display -pF '#{cursor_y} #{cursor_x}' -t "++Term#tmux.name),
+    RowAndCol = tmux(Term, "display -pF '#{cursor_y} #{cursor_x}' -t "++Term#tmux.name),
     [Row, Col] = string:lexemes(string:trim(RowAndCol,both)," "),
     {list_to_integer(Row), list_to_integer(Col)}.
 
 get_window_size(Term) ->
-    RowAndCol = tmux("display -pF '#{window_height} #{window_width}' -t "++Term#tmux.name),
+    RowAndCol = tmux(Term, "display -pF '#{window_height} #{window_width}' -t "++Term#tmux.name),
     [Row, Col] = string:lexemes(string:trim(RowAndCol,both)," "),
     {list_to_integer(Row), list_to_integer(Col)}.
 
@@ -348,8 +353,8 @@ check_content(Term, Match, Opts, Attempt) ->
 
 get_content(Term) ->
     get_content(Term, "").
-get_content(#tmux{ name = Name }, Args) ->
-    Content = unicode:characters_to_binary(tmux("capture-pane -p " ++ Args ++ " -t " ++ Name)),
+get_content(#tmux{ name = Name } = Term, Args) ->
+    Content = unicode:characters_to_binary(tmux(Term, "capture-pane -p " ++ Args ++ " -t " ++ Name)),
     case string:split(Content,"a.\na") of
         [_Ignore,C] ->
             C;

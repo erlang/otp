@@ -85,6 +85,7 @@ init_per_suite(Config) ->
 	    case socket:is_supported(protocols, tcp) of
 		true ->
 		    ct:pal("socket:info():~n    ~p~n", [socket:info()]),
+                    kernel_test_lib:has_support_ipv4(),
 		    {ok, BindAddr} = kernel_test_lib:which_local_addr(?DOMAIN),
 		    [{bind_addr, #{ family => ?DOMAIN, addr   => BindAddr }}
 		    | Config];

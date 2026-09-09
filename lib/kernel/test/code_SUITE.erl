@@ -1645,11 +1645,15 @@ create_big_script(Config,Local) ->
 	      Leftover <- UnloadFix,
 	      lists:keymember(Leftover,1,InitialApplications) ],
     %% Now we should have only "real" applications...
-    [application:load(list_to_atom(Y))
+    OtpApps = [list_to_atom(Y)
 	|| {match,[Y]} <- [re:run(X,code:lib_dir()++"/"++"([^/-]*).*/ebin",
 		[{capture,[1],list},unicode]) ||
 	    X <- code:get_path()],filter_app(Y,Local)],
-    Apps = [ {N,V} || {N,_,V} <- application:loaded_applications()],
+    [application:load(App) || App <- OtpApps],
+    %% Applications outside of OTP may be loaded by the environment the
+    %% test runs in, and they do not belong in the release.
+    Apps = [ {N,V} || {N,_,V} <- application:loaded_applications(),
+                      lists:member(N,OtpApps)],
     {ok,Fd} = file:open(Name ++ ".rel", [write]),
     io:format(Fd,
 		    "{release, {\"Test release 3\", \"P2A\"}, \n"

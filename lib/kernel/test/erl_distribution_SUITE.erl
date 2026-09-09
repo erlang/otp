@@ -84,8 +84,6 @@
          wait_node_down/1]).
 
 -define(DUMMY_NODE,dummy@test01).
--define(ALT_EPMD_PORT, "12321").
--define(ALT_EPMD_CMD, "epmd -port "++?ALT_EPMD_PORT).
 
 %%-----------------------------------------------------------------
 %% The distribution is mainly tested in the big old test_suite.
@@ -158,13 +156,23 @@ init_per_testcase(TC, Config) when TC == hostnames;
     file:write_file("hostnames_nodedir/ignore_core_files",""),
     Config;
 init_per_testcase(epmd_reconnect, Config) ->
-    [] = os:cmd(?ALT_EPMD_CMD++" -relaxed_command_check -daemon"),
-    Config;
+    SavedEpmdPort = os:getenv("ERL_EPMD_PORT"),
+    true = os:unsetenv("ERL_EPMD_PORT"),
+    {ok, Socket} = gen_tcp:listen(0, []),
+    {ok, Port} = inet:port(Socket),
+    ok = gen_tcp:close(Socket),
+    EpmdPort = integer_to_list(Port),
+    [] = os:cmd("epmd -port "++EpmdPort++" -relaxed_command_check -daemon"),
+    [{epmd_port, EpmdPort}, {saved_erl_epmd_port, SavedEpmdPort} | Config];
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Config.
 
-end_per_testcase(epmd_reconnect, _Config) ->
-    os:cmd(?ALT_EPMD_CMD++" -kill"),
+end_per_testcase(epmd_reconnect, Config) ->
+    os:cmd("epmd -port "++?config(epmd_port, Config)++" -kill"),
+    case ?config(saved_erl_epmd_port, Config) of
+        false -> ok;
+        SavedEpmdPort -> true = os:putenv("ERL_EPMD_PORT", SavedEpmdPort)
+    end,
     ok;
 end_per_testcase(_Func, _Config) ->
     ok.
@@ -516,10 +524,11 @@ epmd_reconnect(Config) when is_list(Config) ->
     NodeNames = [N1,N2,N3] = get_nodenames(3, ?FUNCTION_NAME),
     Nodes = [atom_to_list(full_node_name(NN)) || NN <- NodeNames],
 
-    DCfg = "-epmd_port "++?ALT_EPMD_PORT,
+    EpmdPort = ?config(epmd_port, Config),
+    DCfg = "-epmd_port "++EpmdPort,
 
     {_N1F,Port1} = start_node_unconnected(DCfg, N1, ?MODULE, run_remote_test,
-					["epmd_reconnect_do", atom_to_list(node()), "1" | Nodes]),
+                                        ["epmd_reconnect_do", atom_to_list(node()), "1", EpmdPort | Nodes]),
     {_N2F,Port2} = start_node_unconnected(DCfg, N2, ?MODULE, run_remote_test,
 					["epmd_reconnect_do", atom_to_list(node()), "2" | Nodes]),
     {_N3F,Port3} = start_node_unconnected(DCfg, N3, ?MODULE, run_remote_test,
@@ -544,12 +553,13 @@ reap_ports(Ports) ->
             end
     end.
     
-epmd_reconnect_do(_Node, ["1", Node1, Node2, Node3]) ->
+epmd_reconnect_do(_Node, ["1", EpmdPort, Node1, Node2, Node3]) ->
     Names = [Name || Name <- [hd(string:tokens(Node, "@")) || Node <- [Node1, Node2, Node3]]],
     %% wait until all nodes are registered
     ok = wait_for_names(Names),
-    "Killed" ++_ = os:cmd(?ALT_EPMD_CMD++" -kill"),
-    open_port({spawn, ?ALT_EPMD_CMD}, []),
+    EpmdCmd = "epmd -port "++EpmdPort,
+    "Killed" ++_ = os:cmd(EpmdCmd++" -kill"),
+    open_port({spawn, EpmdCmd}, []),
     %% check that all nodes reregister with epmd
     ok = wait_for_names(Names),
     lists:foreach(fun(Node) ->

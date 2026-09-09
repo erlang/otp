@@ -842,7 +842,10 @@ close_with_pending_output(Config) when is_list(Config) ->
     ?TC_TRY(?FUNCTION_NAME, Pre, TC, Post).
 
 do_close_with_pending_output(Node, Config) ->
-    {ok, Addr}      = ?WHICH_LOCAL_ADDR(inet),
+    Addr = case ?WHICH_LOCAL_ADDR(inet) of
+               {ok, LocalAddr} -> LocalAddr;
+               {error, Reason} -> throw({skip, Reason})
+           end,
     ?P("~w -> try create listen socket", [?FUNCTION_NAME]),
     {ok, L}         = ?LISTEN(Config, 0, [binary, {ip, Addr}, {active, false}]),
     ?P("~w -> try get port", [?FUNCTION_NAME]),
@@ -7149,6 +7152,7 @@ setup_active_timeout_sink(Config, RNode, Addr, Timeout, AutoClose) ->
 	     end,
     {ok, C} = Remote(fun() ->
 			     ?CONNECT(Config, Addr, Port, [{ip,     Addr},
+                                                           {recbuf, 8192},
 			                                   {active, false}])
 		     end),
     {ok, A} = gen_tcp:accept(L),
@@ -7258,6 +7262,7 @@ do_send_timeout_resume(Config, RNode, BlockPow) ->
         [inet,
          binary,
          {backlog, 2},
+         {recbuf,  BlockSize bsr 1},
          {active,  false}],
     ConnectOpts =
         [inet,
@@ -8588,7 +8593,10 @@ wait(Mref) ->
 %% Test that send error works correctly for delay_send
 delay_send_error(Config) ->
     ?P("create listen socket"),
-    {ok, Addr} = ?WHICH_LOCAL_ADDR(inet),
+    Addr = case ?WHICH_LOCAL_ADDR(inet) of
+               {ok, LocalAddr} -> LocalAddr;
+               {error, Reason} -> throw({skip, Reason})
+           end,
     {ok, L}    = ?LISTEN(Config, 0, [{ip,        Addr},
                                      {reuseaddr, true},
                                      {packet,    1},
@@ -9694,7 +9702,7 @@ otp_18357(Config) when is_list(Config) ->
                               [?FUNCTION_NAME, Name, Addr]),
                            #{name => Name, addr => Addr};
                        {error, Reason} ->
-                           {skip, ?F("Failed get local address: ~p", [Reason])}
+                           throw({skip, ?F("Failed get local address: ~p", [Reason])})
                    end
            end,
     Case = fun(State) -> do_otp_18357(State) end,

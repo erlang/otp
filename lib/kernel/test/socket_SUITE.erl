@@ -228,7 +228,8 @@ all() ->
 	      {socket_close, "ESOCK_TEST_SOCK_CLOSE", include},
 	      {tickets,      "ESOCK_TEST_TICKETS",    include},
 	      {batch_cases,  "ESOCK_TEST_BATCH",      include}],
-    [use_group(Group, Env, Default) || {Group, Env, Default} <- Groups].
+    [Spec || {Group, Env, Default} <- Groups,
+             Spec <- use_group(Group, Env, Default)].
 
 use_group(_Group, undefined, exclude) ->
     [];
@@ -10297,6 +10298,7 @@ ioctl_nread(_Config) when is_list(_Config) ->
     ?TT(?SECS(5)),
     tc_try(?FUNCTION_NAME,
            fun() ->
+                   has_support_ipv4(),
                    has_support_ioctl_requests(),
                    has_support_ioctl_nread()
            end,
