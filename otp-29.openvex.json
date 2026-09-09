@@ -3,8 +3,8 @@
   "@id": "https://openvex.dev/docs/public/otp/vex-otp-29",
   "author": "vexctl",
   "timestamp": "2025-09-19T10:20:20.759995+02:00",
-  "last_updated": "2026-09-07T13:28:52.510673323+02:00",
-  "version": 106,
+  "last_updated": "2026-09-09T09:41:55.889727673+02:00",
+  "version": 108,
   "statements": [
     {
       "vulnerability": {
@@ -2182,6 +2182,65 @@
       "products": [
         {
           "@id": "pkg:github/madler/zlib@da607da739fa6047df13e66a2af6b8bec7c2a498"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-86145"
+      },
+      "timestamp": "2026-09-09T09:41:55.872232174+02:00",
+      "products": [
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.0"
+        },
+        {
+          "@id": "pkg:otp/erts@17.0"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.0.1"
+        },
+        {
+          "@id": "pkg:otp/erts@17.0.1"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.0.2"
+        },
+        {
+          "@id": "pkg:otp/erts@17.0.2"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.0.3"
+        },
+        {
+          "@id": "pkg:otp/erts@17.0.3"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.0.4"
+        },
+        {
+          "@id": "pkg:otp/erts@17.0.4"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.0.5"
+        },
+        {
+          "@id": "pkg:otp/erts@17.0.5"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-86145"
+      },
+      "timestamp": "2026-09-09T09:41:55.889728665+02:00",
+      "products": [
+        {
+          "@id": "pkg:github/PCRE2Project/pcre2@f454e231fe5006dd7ff8f4693fd2b8eb94333429"
         }
       ],
       "status": "not_affected",

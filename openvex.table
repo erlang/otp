@@ -2086,6 +2086,15 @@
         ],
         "not_affected": "vulnerable_code_not_present"
       }
+    },
+    {
+      "pkg:github/PCRE2Project/pcre2@f454e231fe5006dd7ff8f4693fd2b8eb94333429": "CVE-2026-86145",
+      "status": {
+        "apps": [
+          "pkg:otp/erts@16.0"
+        ],
+        "not_affected": "vulnerable_code_not_present"
+      }
     }
   ],
   "otp-29": [
@@ -2544,6 +2553,15 @@
     },
     {
       "pkg:github/madler/zlib@da607da739fa6047df13e66a2af6b8bec7c2a498": "CVE-2026-85091",
+      "status": {
+        "apps": [
+          "pkg:otp/erts@17.0"
+        ],
+        "not_affected": "vulnerable_code_not_present"
+      }
+    },
+    {
+      "pkg:github/PCRE2Project/pcre2@f454e231fe5006dd7ff8f4693fd2b8eb94333429": "CVE-2026-86145",
       "status": {
         "apps": [
           "pkg:otp/erts@17.0"
