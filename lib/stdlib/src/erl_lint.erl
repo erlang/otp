@@ -3681,9 +3681,15 @@ check_fields(Fs, Flavor, Name, Fields, Vt0, St0, CheckFun, DiagFlavor) ->
               end, {[],[], St0}, Fs),
     {Uvt,St1}.
 
-check_field({record_field,_Af,_F,Val}, native, _Name, unknown,
+check_field({record_field,Af,{atom,_Aa,F},Val}, native, Name, unknown,
             Vt, St0, Rfs, CheckFun, _DiagFlavor) ->
-    {Rfs, CheckFun(Val, Vt, St0)};
+    %% External native records.
+    case member(F, Rfs) of
+        true ->
+            {Rfs,{[],add_error(Af, {redefine_field,Name,F}, St0)}};
+        false ->
+            {[F|Rfs], CheckFun(Val, Vt, St0)}
+    end;
 check_field({record_field,Af,{atom,Aa,F},Val}, Flavor, Name, Fields,
             Vt, St0, Rfs, CheckFun, DiagFlavor) ->
     case member(F, Rfs) of
