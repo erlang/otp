@@ -219,6 +219,7 @@ void wxAcceleratorTable_new_2(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
     if(!enif_get_list_cell(env, entriesTail, &entriesHead, &entriesTail)) Badarg("entries");
     entries.push_back(* (wxAcceleratorEntry *) memenv->getPtr(env, entriesHead,"entries"));
   };
+  if(n > (int)entriesLen) Badarg("n");
   wxAcceleratorTable * Result = new EwxAcceleratorTable(n,entries.data());
   app->newPtr((void *) Result, 1, memenv);
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);

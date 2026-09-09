@@ -342,6 +342,7 @@ wxMenu* EwxTaskBarIcon::CreatePopupMenu() {
 
 void clear_cb(wxe_me_ref *mr, int callback)
 {
+  if(!mr) return;
   wxeMemEnv *memenv = (wxeMemEnv *) mr->memenv;
   if(callback > 0 && memenv) {
     wxeReturn rt = wxeReturn(memenv, memenv->owner, false);

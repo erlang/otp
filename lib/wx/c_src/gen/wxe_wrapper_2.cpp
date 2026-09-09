@@ -555,7 +555,7 @@ void wxCalendarCtrl_ResetAttr(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
 void wxCalendarCtrl_HitTest(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
 {
   wxDateTime date;
-  wxDateTime::WeekDay wd;
+  wxDateTime::WeekDay wd = {};
   ErlNifEnv *env = Ecmd.env;
   ERL_NIF_TERM * argv = Ecmd.args;
   wxCalendarCtrl *This;
