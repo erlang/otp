@@ -458,7 +458,7 @@ string_quote(_)    -> $". %"
           C =:= $_ orelse
           C >= $0 andalso C =< $9 orelse
           C =:= $@ orelse
-          C >= $ß andalso C =< $ÿ andalso C =/= $÷ andalso
+          C >= $ß andalso C =< $ÿ andalso C =/= $÷ orelse
           C >= $À andalso C =< $Þ andalso C =/= $×))).
 -define(CHAR(C), (is_integer(C) andalso 0 =< C andalso C < 16#110000)).
 -define(UNICODE(C),
