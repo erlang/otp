@@ -55,12 +55,12 @@ support, because some compilers do not like functionless source files. */
 
 #ifndef SUPPORT_UNICODE
 PCRE2_SPTR
-PRIV(extuni)(uint32_t c, PCRE2_SPTR eptr, PCRE2_SPTR start_subject,
+PRIV(extuni)(uint32_t c, PCRE2_SPTR eptr, PCRE2_SPTR check_subject,
   PCRE2_SPTR end_subject, BOOL utf, int *xcount)
 {
 (void)c;
 (void)eptr;
-(void)start_subject;
+(void)check_subject;
 (void)end_subject;
 (void)utf;
 (void)xcount;
@@ -81,7 +81,7 @@ same behaviour.
 Arguments:
   c              the first character
   eptr           pointer to next character
-  start_subject  pointer to start of subject
+  check_subject  pointer to start of validated subject
   end_subject    pointer to end of subject
   utf            TRUE if in UTF mode
   xcount         pointer to count of additional characters,
@@ -91,7 +91,7 @@ Returns:         pointer after the end of the sequence
 */
 
 PCRE2_SPTR
-PRIV(extuni)(uint32_t c, PCRE2_SPTR eptr, PCRE2_SPTR start_subject,
+PRIV(extuni)(uint32_t c, PCRE2_SPTR eptr, PCRE2_SPTR check_subject,
   PCRE2_SPTR end_subject, BOOL utf, int *xcount)
 {
 BOOL was_ep_ZWJ = FALSE;
@@ -122,7 +122,7 @@ while (eptr < end_subject)
 
     /* bptr is pointing to the left-hand character */
 
-    while (bptr > start_subject)
+    while (bptr > check_subject)
       {
       bptr--;
       if (utf)
