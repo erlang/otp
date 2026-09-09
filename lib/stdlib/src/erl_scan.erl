@@ -231,6 +231,9 @@ is represented by a two-tuple. Three-tuples have one of the following forms:
 - `{integer, Anno, integer()}`
 - `{var, Anno, atom()}`
 - `{white_space, Anno, string()}`
+- `{string, Anno, string()}`
+- `{sigil_prefix, Anno, atom()}`
+- `{sigil_suffix, Anno, string()}`
 
 Valid options:
 

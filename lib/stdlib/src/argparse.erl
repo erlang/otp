@@ -522,7 +522,7 @@ parser return.
 - **`{Module :: module(), Function :: atom()}`** - Function named `Function`,
   exported from `Module`, accepting [`argument map`](`t:arg_map/0`).
 
-- **`{fun(() -> term()), Default :: term()}`** - Function accepting as many
+- **`{fun((...) -> term()), Default :: term()}`** - Function accepting as many
   arguments as there are in the `arguments` list for this command. Arguments
   missing from the parsed map are replaced with the `Default`. Convenient way to
   expose existing functions.
@@ -553,7 +553,7 @@ parser return.
                                     %%   sub-command is selected
     fun((arg_map()) -> term()) |    %% handler accepting arg_map
     {module(), Fn :: atom()} |      %% handler, accepting arg_map, Fn exported from module()
-    {fun(() -> term()), term()} |   %% handler, positional form (term() is supplied for omitted args)
+    {fun((...) -> term()), term()} |%% handler, positional form (term() is supplied for omitted args)
     {module(), atom(), term()}.     %% handler, positional form, exported from module()
 %% Command handler. May produce some output. Can accept a map, or be
 %%  arbitrary mfa() for handlers accepting positional list.
@@ -751,9 +751,9 @@ parse(Args, Command, Options) ->
     end.
 
 %% @equiv help(Command, #{})
--doc(#{equiv => help/2}).
+-doc(#{equiv => help(Command, #{})}).
 -doc(#{since => <<"OTP 26.0">>}).
--spec help(command()) -> string().
+-spec help(command()) -> unicode:chardata().
 help(Command) ->
     help(Command, #{}).
 

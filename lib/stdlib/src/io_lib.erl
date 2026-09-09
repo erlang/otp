@@ -150,7 +150,7 @@ A map describing the contents of a format string.
 - `adjust` is the adjustment.
 - `precision` is the precision of the printed argument.
 - `pad_char` is the padding character.
-- `encoding` is set to `true` if translation modifier `t` is present.
+- `encoding` is set to `unicode` if translation modifier `t` is present.
 - `strings` is set to `false` if modifier `l` is present.
 - `maps_order` is set to `undefined` by default, `ordered` if modifier `k` is
   present, or `reversed` or `CmpFun` if modifier `K` is present.

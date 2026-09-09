@@ -53,7 +53,7 @@ we first need to start Erlang in `-noinput` or `-noshell` mode. `m:escript` are
 started by default in `-noshell` mode, so we don't have to do anything special here.
 To start the custom shell we then call `shell:start_interactive/1`.
 
-```
+```erlang
 #!/usr/bin/env escript
 %% pshell.es
 -export([start/0]).
@@ -94,7 +94,7 @@ shell it is better to send [`get_until` I/O requests](io_protocol.md#input-reque
 as commands read that way can span multiple lines. So we expand our `loop/0` with
 a `io:get_line/1` and pass the results to our parser.
 
-```
+```erlang
 loop() ->
     case io:get_line("> ") of
         eof -> ok;
@@ -151,7 +151,7 @@ Starting process inspection shell
 
 With this all in place we can now easily add `inspect`, `suspend` and `resume` as well.
 
-```
+```erlang
 eval("inspect " ++ PidStr) ->
     case parse_pid(PidStr) of
         invalid -> ok;
@@ -166,14 +166,14 @@ eval("suspend " ++ PidStr) ->
         invalid -> ok;
         Pid ->
             erlang:suspend_process(Pid),
-            io:format("Suspeneded ~ts~n")
+            io:format("Suspended ~ts~n", [PidStr])
     end;
 eval("resume " ++ PidStr) ->
     case parse_pid(PidStr) of
         invalid -> ok;
         Pid ->
-            erlang:resumne_process(Pid),
-            io:format("Resumed ~ts~n")
+            erlang:resume_process(Pid),
+            io:format("Resumed ~ts~n", [PidStr])
     end;
 ```
 
@@ -184,7 +184,7 @@ by setting a `m:edlin_expand` fun for our shell. This is done by calling [`io:se
 `m:edlin` and is expected to return possible expansions. Let's start by adding a simple fun to
 expand our commands.
 
-```
+```erlang
 -spec start() -> pid().
 start() ->
     spawn(fun() ->

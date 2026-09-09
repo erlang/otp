@@ -241,14 +241,7 @@ absname_vr([[X, $:]|Name], _, _AbsBase) ->
 %% This is just a join/2, but assumes that 
 %% AbsBase must be absolute and Name must be relative.
 
--doc """
-Joins an absolute directory with a relative filename.
-
-Similar to `join/2`, but on platforms with tight restrictions on raw filename length
-and no support for symbolic links, leading parent directory components in `Filename` are matched
-against trailing directory components in `Dir` so they can be removed from the
-result - minimizing its length.
-""".
+-doc #{ equiv => join(Dir, Filename) }.
 -spec absname_join(Dir, Filename) -> file:filename_all() when
       Dir :: file:name_all(),
       Filename :: file:name_all().
@@ -927,11 +920,16 @@ Returns a list whose elements are the path components of `Filename`.
 _Examples:_
 
 ```erlang
-24> filename:split("/usr/local/bin").
+%% On Linux/MacOS
+1> filename:split("/usr/local/bin").
 ["/","usr","local","bin"]
-25> filename:split("foo/bar").
+2> filename:split("foo/bar").
 ["foo","bar"]
-26> filename:split("a:\\msdev\\include").
+```
+
+```erlang
+%% On Windows
+1> filename:split("a:\\msdev\\include").
 ["a:/","msdev","include"]
 ```
 """.
@@ -1160,7 +1158,7 @@ mode.
 
   ```erlang
   1> filename:basedir(user_cache, "my_application", #{os=>linux}).
-  "/home/otptest/.cache/my_application"
+  "/home/otptest/.local/share/my_application"
   ```
 
   On Darwin:

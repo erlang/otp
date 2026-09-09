@@ -81,14 +81,14 @@ eval("suspend " ++ PidStr) ->
         invalid -> ok;
         Pid ->
             erlang:suspend_process(Pid),
-            io:format("Suspeneded ~ts~n", [Pid])
+            io:format("Suspended ~ts~n", [PidStr])
     end;
 eval("resume " ++ PidStr) ->
     case parse_pid(PidStr) of
         invalid -> ok;
         Pid ->
-            erlang:resumne_process(Pid),
-            io:format("Resumed ~ts~n", [Pid])
+            erlang:resume_process(Pid),
+            io:format("Resumed ~ts~n", [PidStr])
     end;
 eval(Unknown) ->
     io:format("Unknown command: '~ts'~n",[Unknown]).

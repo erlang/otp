@@ -1167,7 +1167,7 @@ sparse_to_list(Array) ->
     sparse_foldr(fun (_I, V, A) -> [V|A] end, [], Array).
 
 
--doc "Equivalent to [`from_list(List, undefined)`](`from_list/2`).".
+-doc #{ equiv => from_list(List, undefined) }.
 -spec from_list(List :: list(Value :: Type)) -> array(Type).
 
 from_list(List) ->
@@ -1271,7 +1271,7 @@ push_n(N, E, L) ->
     push_n(N - 1, E, [E | L]).
 
 
--doc "Equivalent to [`from(Fun, State, undefined)`](`from/3`).".
+-doc #{ equiv => from(Fun, State, undefined) }.
 -doc(#{since => <<"OTP 29.0">>}).
 -spec from(Function, State :: term()) -> array(Type) when
       Function :: fun((State0 :: term()) -> {Type, State1 :: term()} | done).
@@ -1395,7 +1395,7 @@ sparse_to_orddict(Array) ->
     sparse_foldr(fun (I, V, A) -> [{I,V}|A] end, [], Array).
 
 
--doc "Equivalent to [`from_orddict(Orddict, undefined)`](`from_orddict/2`).".
+-doc #{ equiv => from_orddict(Orddict, undefined) }.
 -spec from_orddict(Orddict :: indx_pairs(Value :: Type)) -> array(Type).
 
 from_orddict(Orddict) ->
@@ -1408,7 +1408,7 @@ array.
 `Default` is used as the value for uninitialized entries of the array.
 
 If `Orddict` is not a proper, ordered list of pairs whose first elements are
-non-negative integers, the call fails with reason `badarg`.
+non-negative integers, the call fails with reason `badarg` or `{badarg, term()}`.
 
 Note: Use `fix/1` on the resulting array if you want to prevent accesses
 outside the size range.

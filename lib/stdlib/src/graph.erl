@@ -450,6 +450,9 @@ edges have different labels.
 If `G` was created with option `acyclic`, then attempting to add an edge that
 would introduce a cycle will raise an error `{bad_edge, {From, To}}`. Note
 that checking for cyclicity slows down the adding of edges.
+
+Both `V1` and `V2` must already be vertices of `G`; otherwise an error
+`{bad_vertex, V}` is raised.
 """.
 -doc(#{ since => ~"OTP 29.0"}).
 -spec add_edge(G, V1, V2, L) -> graph() when
@@ -965,8 +968,7 @@ is_acyclic(G) ->
     cyclic_strong_components(G) =:= [].
 
 -doc """
-Returns a minimal list of vertices of `G` from which all vertices of `G` can
-be reached.
+Returns a list of vertices of `G` from which all vertices of `G` can be reached.
 """.
 -doc(#{ since => ~"OTP 29.0"}).
 -spec roots(graph()) -> [vertex()].

@@ -510,7 +510,7 @@ used by the module are enabled in the runtime, loading the module is not
 allowed.
 """.
 -doc(#{since => <<"OTP 25.0">>}).
--spec used(module() | file:filename()) -> [feature()].
+-spec used(module() | file:filename()) -> [feature()] | 'not_found'.
 used(Module) when is_atom(Module) ->
     case code:get_object_code(Module) of
         error ->

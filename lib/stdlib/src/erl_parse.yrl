@@ -1003,6 +1003,7 @@ processed (see section [Error Information](#module-error-information)).
                        | af_record_field_access(abstract_expr())
                        | af_native_record_creation()
                        | af_native_record_update()
+                       | af_native_record_field_access(abstract_expr())
                        | af_map_creation(abstract_expr())
                        | af_map_update(abstract_expr())
                        | af_catch()
@@ -1039,7 +1040,7 @@ processed (see section [Error Information](#module-error-information)).
 
 -type af_local_function() :: abstract_expr().
 
--doc "Abstract representation of a remote function call.".
+-doc "Abstract representation of a remote function.".
 -type af_remote_function() ::
         {'remote', anno(), abstract_expr(), abstract_expr()}.
 
@@ -1129,6 +1130,7 @@ processed (see section [Error Information](#module-error-information)).
                        | af_record_creation(af_guard_test())
                        | af_record_index()
                        | af_record_field_access(af_guard_test())
+                       | af_native_record_field_access(af_guard_test())
                        | af_map_creation(af_guard_test())
                        | af_map_update(af_guard_test())
                        | af_guard_call()
@@ -1176,13 +1178,16 @@ processed (see section [Error Information](#module-error-information)).
 -type af_record_field(T) :: {'record_field', anno(), af_field_name(), T}.
 
 -type af_native_record_creation() ::
-        {'native_record', anno(), {atom(), atom()} | {}, [af_record_field(abstract_expr())]}.
+        {'record', anno(), native_record_name(), [af_record_field(abstract_expr())]}.
 
 -type af_native_record_update() ::
-        {'native_record_update', anno(), abstract_expr(), {atom(), atom()} | {}, [af_record_field(abstract_expr())]}.
+        {'record', anno(), abstract_expr(), native_record_name(), [af_record_field(abstract_expr())]}.
 
 -type af_native_record_pattern() ::
-        {'native_record', anno(), {atom(), atom()} | {}, [af_record_field(af_pattern())]}.
+        {'record', anno(), native_record_name(), [af_record_field(af_pattern())]}.
+
+-type af_native_record_field_access(T) ::
+        {'record_field', anno(), T, native_record_name(), af_field_name()}.
 
 -type af_map_pattern() ::
         {'map', anno(), [af_assoc_exact(af_pattern())]}.
@@ -1368,6 +1373,8 @@ processed (see section [Error Information](#module-error-information)).
 
 -type record_name() :: atom().
 
+-type native_record_name() :: {atom(), record_name()} | record_name().
+
 -type af_field_name() :: af_atom().
 
 -type function_name() :: atom().
@@ -1376,8 +1383,8 @@ processed (see section [Error Information](#module-error-information)).
 
 -doc """
 Tuples `{error, error_info()}` and `{warning, error_info()}`, denoting
-syntactically incorrect forms and warnings, and `{eof, line()}`, denoting an
-end-of-stream encountered before a complete form had been parsed.
+syntactically incorrect forms and warnings, and `{eof, erl_anno:location()}`,
+denoting an end-of-stream encountered before a complete form had been parsed.
 """.
 -type form_info() :: {'eof', erl_anno:location()}
                    | {'error', erl_scan:error_info() | error_info()}
