@@ -451,7 +451,10 @@ declare_type(N,false,_,#type{base=Base,single=true,name=Type,by_val=false,mod=Mo
   when Base =:= int; Base =:= long; Base =:= float; Base =:= double ->
     w("  ~s~s ~s;~n", [mods(Mod),Type,N]);
 declare_type(N,false,_,#type{base={enum,_},single=true,name=Type,by_val=false,mod=Mod}) ->
-    w("  ~s~s ~s;~n", [mods(Mod),Type,N]);
+    %% Value-initialise: some wx calls write this out-param only conditionally
+    %% (e.g. wxCalendarCtrl::HitTest writes *wd only on a header hit), yet the
+    %% value is returned unconditionally — an uninitialised enum read is UB.
+    w("  ~s~s ~s = {};~n", [mods(Mod),Type,N]);
 declare_type(N,false,_,#type{name="wxArrayTreeItemIds",ref=reference}) ->
     w("  wxArrayTreeItemIds ~s;~n", [N]);
 declare_type(N,false,_,#type{name="wxDateTime"}) ->

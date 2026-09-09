@@ -824,11 +824,11 @@ int WxeApp::getRef(void * ptr, wxeMemEnv *memenv, int type) {
       // Found it return
       return refd->ref;
     } // else
-    // The pointer is currently referenced from another memenv. Clear that
-    // memenv's ref2ptr slot before recreating the reference here, otherwise
-    // the old memenv still points at this object and will delete it again
-    // when it is torn down (double free / use-after-free).
-    refd->memenv->ref2ptr[refd->ref] = NULL;
+    // Stale reference to an object whose address has been recycled after its
+    // owning memenv was torn down (memenv is deleted in destroyMemEnv, so
+    // refd->memenv is now a dangling pointer and must not be dereferenced).
+    // Just drop the stale entry and recreate the reference in the current
+    // memenv below.
     delete refd;
     ptr2ref.erase(it);
   }
@@ -873,27 +873,32 @@ void WxeApp::clearPtr(void * ptr) {
     if(refd->type == 1 && ((wxObject*)ptr)->IsKindOf(CLASSINFO(wxSizer))) {
       wxSizerItemList list = ((wxSizer*)ptr)->GetChildren();
       for(wxSizerItemList::compatibility_iterator node = list.GetFirst();
-	  node; node = node->GetNext()) {
-	wxSizerItem *item = node->GetData();
-	wxObject *content=NULL;
-	if((content = item->GetWindow()))
-	  if(ptr2ref.end() == ptr2ref.find(content)) {
-	    wxString msg;
-	    wxClassInfo *cinfo = ((wxObject *)ptr)->GetClassInfo();
-	    msg.Printf(wxT("Double usage detected of window at %p in sizer {wx_ref, %d, %s}"),
-		       content, ref, cinfo->GetClassName());
-	    send_msg("error", &msg);
-	    ((wxSizer*)ptr)->Detach((wxWindow*)content);
-	  }
-	if((content = item->GetSizer()))
-	  if(ptr2ref.end() == ptr2ref.find(content)) {
-	    wxString msg;
-	    wxClassInfo *cinfo = ((wxObject *)ptr)->GetClassInfo();
-	    msg.Printf(wxT("Double usage detected of sizer at %p in sizer {wx_ref, %d, %s}"),
-		       content, ref, cinfo->GetClassName());
-	    send_msg("error", &msg);
-	    ((wxSizer*)ptr)->Detach((wxSizer*)content);
-	  }
+          node; node = node->GetNext()) {
+        wxSizerItem *item = node->GetData();
+        // wxSizer::Detach() deletes the wxSizerItem, so read both members
+        // before any Detach and use else-if: a sizer item holds a window XOR
+        // a sizer, and re-reading item after a Detach would be use-after-free.
+        wxObject *win = item->GetWindow();
+        wxObject *childSizer = item->GetSizer();
+        if(win) {
+          if(ptr2ref.end() == ptr2ref.find(win)) {
+            wxString msg;
+            wxClassInfo *cinfo = ((wxObject *)ptr)->GetClassInfo();
+            msg.Printf(wxT("Double usage detected of window at %p in sizer {wx_ref, %d, %s}"),
+                       win, ref, cinfo->GetClassName());
+            send_msg("error", &msg);
+            ((wxSizer*)ptr)->Detach((wxWindow*)win);
+          }
+        } else if(childSizer) {
+          if(ptr2ref.end() == ptr2ref.find(childSizer)) {
+            wxString msg;
+            wxClassInfo *cinfo = ((wxObject *)ptr)->GetClassInfo();
+            msg.Printf(wxT("Double usage detected of sizer at %p in sizer {wx_ref, %d, %s}"),
+                       childSizer, ref, cinfo->GetClassName());
+            send_msg("error", &msg);
+            ((wxSizer*)ptr)->Detach((wxSizer*)childSizer);
+          }
+        }
       }
     }
 

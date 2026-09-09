@@ -48,7 +48,7 @@ wxeGLC glc;
 typedef void * (*WXE_GL_LOOKUP) (int);
 void * wxe_not_loaded(int x);
 WXE_GL_LOOKUP wxe_gl_lookup_func = (WXE_GL_LOOKUP) wxe_not_loaded;
-typedef void * (*WXE_GL_FUNC) (ErlNifEnv*, ErlNifPid*, const ERL_NIF_TERM argv[]);
+typedef void (*WXE_GL_FUNC) (ErlNifEnv*, ErlNifPid*, ERL_NIF_TERM argv[]);
 
 typedef const char * (*WXE_GL_FUNC_NAME) (int);
 WXE_GL_FUNC_NAME wxe_gl_lookup_func_name;
