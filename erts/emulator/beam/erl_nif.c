@@ -3142,6 +3142,7 @@ void* enif_alloc_resource(ErlNifResourceType* type, size_t data_sz)
 
     ASSERT(type->owner && type->next && type->prev); /* not allowed in load/upgrade */
     resource->type = type;
+    resource->external_bytes = 0;
     erts_refc_inc(&bin->intern.refc, 1);
 #ifdef DEBUG
     erts_refc_init(&resource->nif_refc, 1);
@@ -3209,17 +3210,48 @@ ERL_NIF_TERM enif_make_resource_binary(ErlNifEnv* env, void* obj,
     ErtsResource* resource = DATA_TO_RESOURCE(obj);
     ErtsBinary* bin = ERTS_MAGIC_BIN_FROM_UNALIGNED_DATA(resource);
     Eterm* hp;
+    ERL_NIF_TERM result;
 
     erts_refc_inc(&bin->binary.intern.refc, 1);
 
+    /* The payload is not ERTS-allocated, so the Binary we hand to
+     * erts_wrap_refc_bitstring below (the magic binary wrapping the
+     * resource) does not describe it and the process would exert no
+     * binary GC pressure however much it holds. Record the size on the
+     * resource so the GC sweep can charge it. A resource may back
+     * several binaries; keep the largest. */
+    if ((Uint)size > resource->external_bytes) {
+        resource->external_bytes = (Uint)size;
+        /* Benign race: concurrent calls for the same resource may each
+         * set this, but the bit is idempotent and nothing else writes
+         * flags on a magic binary after creation. */
+        bin->binary.intern.flags |= BIN_FLAG_EXTERNAL_PAYLOAD;
+    }
+
     hp = alloc_heap(env, ERL_REFC_BITS_SIZE);
-    return erts_wrap_refc_bitstring(&MSO(env->proc).first,
-                                    &MSO(env->proc).overhead,
-                                    &hp,
-                                    &bin->binary,
-                                    (byte*)data,
-                                    0,
-                                    NBITS(size));
+    result = erts_wrap_refc_bitstring(&MSO(env->proc).first,
+                                      &MSO(env->proc).overhead,
+                                      &hp,
+                                      &bin->binary,
+                                      (byte*)data,
+                                      0,
+                                      NBITS(size));
+
+    /* Charge it now too; the sweep will recompute (and overwrite) this at
+     * the next GC, but until then the pressure should reflect reality. */
+    MSO(env->proc).overhead += size / sizeof(Eterm);
+
+    return result;
+}
+
+Uint erts_resource_external_bytes(Binary *bin)
+{
+    /* Callers gate on BIN_FLAG_EXTERNAL_PAYLOAD, which is only ever set
+     * on a resource's magic binary, so this is off the GC's hot path. */
+    ASSERT(bin->intern.flags & BIN_FLAG_MAGIC);
+    ASSERT(ERTS_MAGIC_BIN_DESTRUCTOR(bin) == NIF_RESOURCE_DTOR);
+
+    return ((ErtsResource*) ERTS_MAGIC_BIN_UNALIGNED_DATA(bin))->external_bytes;
 }
 
 int enif_get_resource(ErlNifEnv* env, ERL_NIF_TERM term, ErlNifResourceType* type,

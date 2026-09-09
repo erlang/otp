@@ -3044,6 +3044,9 @@ sweep_off_heap(Process *p, int fullsweep)
                          (BIN_FLAG_WRITABLE | BIN_FLAG_ACTIVE_WRITER)));
 
                 overhead = refc_binary->orig_size;
+                if (refc_binary->intern.flags & BIN_FLAG_EXTERNAL_PAYLOAD) {
+                    overhead += erts_resource_external_bytes(refc_binary);
+                }
                 to_new_heap = !ErtsInArea(ptr, oheap, oheap_sz);
                 ASSERT(to_new_heap == !seen_mature || (!to_new_heap && (seen_mature=1)));
 
@@ -3168,6 +3171,9 @@ sweep_off_heap(Process *p, int fullsweep)
 
             br = (BinRef*)boxed_val(br->thing_word);
             overhead = (br->val)->orig_size;
+            if ((br->val)->intern.flags & BIN_FLAG_EXTERNAL_PAYLOAD) {
+                overhead += erts_resource_external_bytes(br->val);
+            }
 
             *prev = (struct erl_off_heap_header*) br;
             ASSERT(br->thing_word == HEADER_BIN_REF);

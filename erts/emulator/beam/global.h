@@ -102,6 +102,21 @@ typedef struct ErtsResource_
     byte align__[4];
 # endif
 #endif
+    /* Bytes of memory this resource keeps alive that ERTS did not
+     * allocate and therefore cannot size -- the payloads handed to
+     * enif_make_resource_binary(). Charged to the virtual binary heap so
+     * a process holding such binaries exerts GC pressure proportional to
+     * what it really holds. A resource may back several binaries of
+     * different sizes, so this is the largest seen: the virtual heap only
+     * ever triggers GC earlier, making over-estimation safe and
+     * under-estimation the bug. */
+    Uint external_bytes;
+#ifdef ARCH_32
+    /* *DO NOT USE* only for alignment: erl_nif_init() asserts that
+     * offsetof(ErtsResource,data) % 8 == ERTS_MAGIC_BIN_BYTES_TO_ALIGN,
+     * so 'data' must not move by half a word. */
+    byte align2__[4];
+#endif
     char data[1];
 }ErtsResource;
 
@@ -109,6 +124,10 @@ typedef struct ErtsResource_
 #define erts_resource_ref_size(P) ERTS_MAGIC_REF_THING_SIZE
 
 extern Eterm erts_bld_resource_ref(Eterm** hp, ErlOffHeap*, ErtsResource*);
+
+/* Payload bytes kept alive by a resource binary's resource, or 0 if this
+ * Binary is not a NIF resource. Used by the GC sweep. */
+Uint erts_resource_external_bytes(Binary *bin);
 
 extern ErtsCodePtr erts_call_nif_early(Process* c_p, const ErtsCodeInfo* ci);
 extern void erts_pre_nif(struct enif_environment_t*, Process*,

@@ -55,6 +55,7 @@
 	 maps/1,
 	 api_macros/1,
 	 from_array/1, iolist_as_binary/1, resource/1, resource_binary/1,
+	 resource_binary_vheap/1,
 	 resource_takeover/1,
 	 t_dynamic_resource_call/1,
 	 threading/1, send/1, send2/1, send3/1, send_threaded/1,
@@ -237,6 +238,7 @@ all() ->
      get_atom, get_atom_length, make_new_atoms, make_existing_atoms,
      maps, api_macros, from_array,
      iolist_as_binary, resource, resource_binary,
+     resource_binary_vheap,
      threading, send, send2, send3,
      send_threaded, neg, is_checks, get_length, make_atom,
      make_string,reverse_list_test,
@@ -2483,6 +2485,51 @@ resource_binary_do() ->
     ResInfo = get_resource(binary_resource_type,ResBin1),
     ResInfo = get_resource(binary_resource_type,ResBin2),
     ResInfo.
+
+%% enif_make_resource_binary() must charge the payload to the process's
+%% virtual binary heap. The payload is not ERTS-allocated, so nothing else
+%% accounts for it: without this a process can hold gigabytes of resource
+%% binaries while reporting bin_vheap_size ~0, exert no GC pressure, and
+%% never be collected. Regression from 24ef4cbaed "erts: Refactor
+%% bitstring (binary) handling" (first released in OTP 27.0); before that
+%% the function did OH_OVERHEAD(ohp, size / sizeof(Eterm)) explicitly.
+resource_binary_vheap(Config) when is_list(Config) ->
+    ensure_lib_loaded(Config, 1),
+    Size = 1 bsl 20,
+    Payload = <<0:(Size*8)>>,
+    N = 16,
+
+    erlang:garbage_collect(),
+    Before = bin_vheap_total(),
+
+    %% Keep every binary live for the duration of the measurement.
+    Held = [begin
+                {_Ptr, ResBin} = make_new_resource_binary(Payload),
+                Size = byte_size(ResBin),
+                ResBin
+            end || _ <- lists:seq(1, N)],
+    N = length(Held),
+
+    After = bin_vheap_total(),
+    Grew = (After - Before) * erlang:system_info(wordsize),
+
+    %% N MiB of payload is live; allow generous slack for GC timing and
+    %% for the young/old heap split, but nothing like a factor of 1000.
+    Expected = (N * Size) div 2,
+    true = (Grew >= Expected) orelse
+        ct:fail({vheap_did_not_grow, {grew, Grew}, {expected_at_least, Expected}}),
+
+    %% Keep Held alive past the measurement.
+    _ = erlang:phash2(Held),
+    ok.
+
+%% Virtual binary heap across both generations -- the GC sweep splits
+%% young/old, so a long-lived binary lands in bin_old_vheap_size.
+bin_vheap_total() ->
+    {garbage_collection_info, Info} =
+        process_info(self(), garbage_collection_info),
+    proplists:get_value(bin_vheap_size, Info) +
+        proplists:get_value(bin_old_vheap_size, Info).
 
 %% Test resource takeover by module upgrade
 resource_takeover(Config) when is_list(Config) ->    

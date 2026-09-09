@@ -46,6 +46,13 @@ enum binary_flags {
      * copying to another process, must clear these flags. */
     BIN_FLAG_WRITABLE =         (1 << 2),
     BIN_FLAG_ACTIVE_WRITER =    (1 << 3),
+
+    /* Set on a NIF resource's magic binary when the resource keeps alive
+     * memory that ERTS did not allocate -- the payloads passed to
+     * enif_make_resource_binary(). Lets the GC sweep skip the resource
+     * lookup for the overwhelming majority of binaries, which have no
+     * such payload. Valid iff BIN_FLAG_MAGIC is also set. */
+    BIN_FLAG_EXTERNAL_PAYLOAD = (1 << 4),
 };
 
 #define ERTS_BINARY_STRUCT_ALIGNMENT
