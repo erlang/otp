@@ -21,17 +21,17 @@
 ##
 ## This docker file will build a base image for building Erlang/OTP
 ##
-ARG BASE=debian:bookworm
+ARG BASE=debian:trixie
 FROM $BASE
 ## Need to have a second arg here as the first does not expose the $BASE in the script below
-ARG BASE=debian:bookworm
+ARG BASE=debian:trixie
 
 ARG HOST_TRIP=x86_64-linux-gnu
 ENV HOST_TRIP=$HOST_TRIP
 ENV LANG=C.UTF-8
 ENV LC_ALL=C.UTF-8
 
-ENV INSTALL_LIBS="zlib1g-dev libncurses5-dev libssl-dev unixodbc-dev libwxgtk3.2-dev libwxgtk-webview3.2-dev libsctp-dev lksctp-tools"
+ENV INSTALL_LIBS="zlib1g-dev libncurses-dev libssl-dev unixodbc-dev libwxgtk3.2-dev libwxgtk-webview3.2-dev libsctp-dev lksctp-tools"
 ENV CROSS_LIBS="$INSTALL_LIBS"
 
 ## See https://wiki.debian.org/Multiarch/HOWTO for details on how to install things
