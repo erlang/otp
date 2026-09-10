@@ -99,7 +99,7 @@ jobs:
           sudo bash -c "chown -R `whoami` make_test_dir && chmod -R +r make_test_dir"
           tar czf ${MATRIX_TYPE}_test_results.tar.gz make_test_dir
       - name: Upload test results
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # ratchet:actions/upload-artifact@v6.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: ${{ !cancelled() }}
         with:
           name: ${{ matrix.type }}_test_results
