@@ -128,6 +128,10 @@ static FILE *logFile = NULL;
 
 static ErlNifResourceType *tty_rt;
 
+#ifdef HAVE_TERMCAP
+static ErlNifMutex *prim_tty_global_mutex = NULL;
+#endif
+
 /* The NIFs: */
 static ERL_NIF_TERM isatty_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 static ERL_NIF_TERM tty_create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -777,13 +781,16 @@ static TERMINAL *saved_term = NULL;
 static ERL_NIF_TERM tty_setupterm_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
 #ifdef HAVE_TERMCAP
     int errret;
+    enif_mutex_lock(prim_tty_global_mutex);
     if (setupterm(NULL, -1, &errret) < 0) {
+        enif_mutex_unlock(prim_tty_global_mutex);
         return make_errno_error(env, "setupterm");
     }
     if (saved_term) {
         del_curterm(saved_term);
     }
     saved_term = cur_term;
+    enif_mutex_unlock(prim_tty_global_mutex);
     return atom_ok;
 #else
     return make_enotsup(env);
@@ -882,7 +889,6 @@ static ERL_NIF_TERM tty_tigetstr_nif(ErlNifEnv* env, int argc, const ERL_NIF_TER
 
 static int library_refc = 0;
 #ifdef HAVE_TERMCAP
-static ErlNifMutex *tputs_mutex;
 static int tputs_buffer_index;
 static int tputs_buffer_size;
 #ifdef DEBUG
@@ -945,7 +951,7 @@ static ERL_NIF_TERM tty_tputs_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     }
 
     /* Neither tparm nor tputs are thread safe.. */
-    enif_mutex_lock(tputs_mutex);
+    enif_mutex_lock(prim_tty_global_mutex);
 
     /* If the capability has arguments, we call tparm */
     if (slot) {
@@ -957,7 +963,7 @@ static ERL_NIF_TERM tty_tputs_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
                     params[4], params[5], params[6], params[7], params[8]);
             
         if (!ent) {
-            enif_mutex_unlock(tputs_mutex);
+            enif_mutex_unlock(prim_tty_global_mutex);
             return make_errno_error(env, "tparm");
         }
     } else {
@@ -977,7 +983,7 @@ static ERL_NIF_TERM tty_tputs_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
         enif_free(tputs_buffer);
     }
 
-    enif_mutex_unlock(tputs_mutex);
+    enif_mutex_unlock(prim_tty_global_mutex);
 
     return enif_make_tuple2(env, atom_ok, ret);
 #else
@@ -1262,7 +1268,7 @@ static void init(ErlNifEnv* env, ErlNifResourceFlags rt_flags) {
 
     if (library_refc == 0) {
 #ifdef HAVE_TERMCAP
-        tputs_mutex = enif_mutex_create("tputs_muex");
+        prim_tty_global_mutex = enif_mutex_create("tty_global_mutex");
 #endif
 #define ATOM_DECL(A) atom_##A = enif_make_atom(env, #A)
         ATOMS
@@ -1283,8 +1289,8 @@ static void unload(ErlNifEnv* env, void* priv_data)
     --library_refc;
 #ifdef HAVE_TERMCAP
     if (library_refc == 0) {
-        enif_mutex_destroy(tputs_mutex);
-        tputs_mutex = NULL;
+        enif_mutex_destroy(prim_tty_global_mutex);
+        prim_tty_global_mutex = NULL;
 
         if (saved_term) {
             del_curterm(saved_term);
