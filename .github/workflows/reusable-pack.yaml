@@ -61,7 +61,7 @@ jobs:
       build-c-code: ${{ steps.build-c-code.outputs.value }}
       all:          ${{ steps.apps.outputs.all }}
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
 
@@ -82,7 +82,7 @@ jobs:
           echo "all=${ALL_APPS}" >> $GITHUB_OUTPUT
 
       - name: Check which applications have changed
-        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # ratchet:dorny/paths-filter@v3.0.2
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: app-changes
         with:
           filters: .github/scripts/path-filters.yaml
@@ -102,7 +102,7 @@ jobs:
           fi
 
       - name: Check if there are any C-code changes, if not then limit CI run
-        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # ratchet:dorny/paths-filter@v3.0.2
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: c-code-changes
         with:
           filters: .github/scripts/c-code-path-filters.yaml
@@ -121,7 +121,7 @@ jobs:
           fi
 
       - name: Cache pre-built src
-        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # ratchet:actions/cache@v5.0.3
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
             path: otp_src.tar.gz
             key: prebuilt-src-${{ github.ref_name }}-${{ github.sha }}
@@ -129,7 +129,7 @@ jobs:
                 prebuilt-src-${{ github.base_ref }}-${{ github.event.pull_request.base.sha }}
 
       - name: Cache pre-built binaries
-        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # ratchet:actions/cache@v5.0.3
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
             path: otp_cache.tar.gz
             key: prebuilt-cache-64-bit-${{ github.ref_name }}-${{ github.sha }}
@@ -146,7 +146,7 @@ jobs:
           path: otp_archive.tar.gz
 
       - name: Check how we can use the pre-built cache
-        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # ratchet:dorny/paths-filter@v3.0.2
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         id: cache
         with:
           filters: |
