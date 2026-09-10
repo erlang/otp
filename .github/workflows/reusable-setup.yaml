@@ -42,6 +42,9 @@ on:
       vsn:
         description: 'OTP version (stripped of OTP- prefix)'
         value: ${{ jobs.setup.outputs.vsn }}
+      otp_version:
+        description: 'OTP version (stripped of OTP- prefix)'
+        value: ${{ jobs.setup.outputs.otp_version }}
 
 permissions:
   contents: read
@@ -57,6 +60,7 @@ jobs:
       docs_base_url:        ${{ steps.setup.outputs.docs_base_url }}
       tag:                  ${{ steps.setup.outputs.tag }}
       vsn:                  ${{ steps.setup.outputs.vsn }}
+      otp_version:          ${{ steps.setup.outputs.otp_version }}
     steps:
       - id: setup
         # github.event.pull_request.head.ref is potentially untrusted.
@@ -127,3 +131,6 @@ jobs:
           else
             echo "docs_base_url=${REPO}/blob/${REF_NAME}/"       >> "$GITHUB_OUTPUT"
           fi
+
+          OTP_VERSION=`cat OTP_VERSION | cut -d. -f1`
+          echo "otp_version=maint-${OTP_VERSION}"
