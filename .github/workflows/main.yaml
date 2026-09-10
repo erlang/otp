@@ -64,20 +64,143 @@ jobs:
     secrets:
       token: ${{ secrets.GITHUB_TOKEN }}
 
+  # A new OTP release that changes versions (e.g. OTP-28 -> OTP-29) relies
+  # on update-base.yml being executed before the release job. if for some
+  # reason that is not the case, the release would not be able to use the
+  # missing docker image it expects. this here simply creates the image
+  # on a release, to make sure that there are no timing dependencies.
+  build-base-docker:
+    if: github.repository == 'erlang/otp' && github.ref_type == 'tag'
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/reusable-update-base.yaml
+    with:
+      branches: '["master","maint"]'
+
   setup:
     uses: ./.github/workflows/reusable-setup.yaml
 
   pack:
     name: Build Erlang/OTP (64-bit)
-    needs: setup
+    needs:
+      - build-base-docker
+      - setup
     permissions:
       contents: read
       actions: write
+    if: always()  # forces execution of 'pack' even if build-base-docker was skipped ('build-base-docker' is skipped on PRs)
     uses: ./.github/workflows/reusable-pack.yaml
     with:
       base_branch:          ${{ needs.setup.outputs.base_branch }}
       full_build_and_check: ${{ needs.setup.outputs.full_build_and_check }}
       bypass_erlang_repo:   false
+
+  #
+  # BEGIN BLOCK
+  #
+  # Jobs that should always run.
+  #
+  # For details of why using !cancelled:
+  # https://docs.github.com/en/actions/reference/workflows-and-actions/expressions#always
+  #
+  # If you want to run a job or step regardless of its success or failure, use
+  # the recommended alternative: if: ${{ !cancelled() }}
+  #
+  # If we change the job order and execute before `documentation` the FreeBSD job and that job is skipped:
+  # FreeBSD: SKIPPED
+  # documentation: implicit `success()` condition
+  #
+  # `success()` implies that the previous jobs were successful, but FreeBSD was skipped.
+  # this cause the `documentation ` job to be skipped.
+  #
+  documentation:
+    name: Build and Check Documentation
+    if: ${{ !cancelled() && needs.pack.result == 'success' }} # Run even if the need has failed
+    needs:
+      - setup
+      - pack
+    permissions:
+      contents: read
+      actions:  write
+    uses: ./.github/workflows/reusable-documentation.yaml
+    secrets:
+      TRIGGER_ERLANG_ORG_BUILD: ${{ secrets.TRIGGER_ERLANG_ORG_BUILD }}
+    with:
+      base_branch:              ${{ needs.setup.outputs.base_branch }}
+      base_url:                 ${{ needs.setup.outputs.docs_base_url  }}
+      trigger_erlang_org_build: ${{ github.ref_name == 'master' && github.repository == 'erlang/otp' }}
+
+  static:
+    name: Run static analysis
+    if: ${{ !cancelled() && needs.pack.result == 'success' }} # Run even if the need has failed
+    needs:
+      - setup
+      - pack
+    permissions:
+      contents: read
+      security-events: write   # needed for SARIF upload
+    uses: ./.github/workflows/reusable-static-analysis.yaml
+    with:
+      base_branch:              ${{ needs.setup.outputs.base_branch }}
+
+  test:
+    name: Test Erlang/OTP
+    needs: pack
+    if: ${{  !cancelled() && needs.pack.result == 'success' && needs.pack.outputs.changes != '[]' }}
+    permissions:
+      contents: read
+      actions:  write
+    uses: ./.github/workflows/reusable-test.yaml
+    with:
+      changes:     ${{ needs.pack.outputs.changes }}
+      base_branch: ${{ needs.pack.outputs.base_branch }}
+
+  system-test:
+    name: Test Erlang/OTP (system)
+    if: ${{ !cancelled() && needs.pack.result == 'success' }} # Run even if the need has failed
+    permissions:
+      contents: read
+      actions:  write
+    needs:
+      - pack
+      - test
+    uses: ./.github/workflows/reusable-system-test.yaml
+    with:
+      base_branch: ${{ needs.pack.outputs.base_branch }}
+
+  ## If you want to speedup this step for testing the easiest way is to create
+  ## these two commits:
+  ##
+  ##   git rm -rf lib erts system && git revert HEAD
+  ##
+  ## and then create a step that that does this:
+  ##
+  ##   - name: SBOM Sha
+  ##     run: echo "sha=$(git rev-parse HEAD~1)" >> $GITHUB_OUTPUT
+  ##
+  ## and then make sure to use that sha instead of env.OTP_SBOM_VERSION
+  sbom:
+    name: Create SBOM
+    if: ${{ !cancelled() && needs.pack.result == 'success' }} # Run even if the need has failed
+    needs:
+      - setup
+      - pack
+    uses: ./.github/workflows/reusable-sbom.yaml
+    permissions:
+      contents: write
+      actions:  write
+      packages: read
+      id-token: write
+    with:
+      base_branch:                   ${{ needs.setup.outputs.base_branch }}
+      full_build_and_check:          ${{ needs.setup.outputs.full_build_and_check }}
+      otp_sbom_version:              ${{ needs.setup.outputs.otp_sbom_version }}
+      verify_sbom:                   true
+  #
+  # END BLOCK
+  #
+
 
   build-macos:
     name: Build Erlang/OTP (macOS)
@@ -187,87 +310,6 @@ jobs:
     with:
       base_branch: ${{ needs.pack.outputs.base_branch }}
 
-  documentation:
-    name: Build and Check Documentation
-    needs:
-      - setup
-      - pack
-    permissions:
-      contents: read
-      actions:  write
-    uses: ./.github/workflows/reusable-documentation.yaml
-    secrets:
-      TRIGGER_ERLANG_ORG_BUILD: ${{ secrets.TRIGGER_ERLANG_ORG_BUILD }}
-    with:
-      base_branch:              ${{ needs.setup.outputs.base_branch }}
-      base_url:                 ${{ needs.setup.outputs.docs_base_url  }}
-      trigger_erlang_org_build: ${{ github.ref_name == 'master' && github.repository == 'erlang/otp' }}
-
-  static:
-    name: Run static analysis
-    needs:
-      - setup
-      - pack
-    permissions:
-      contents: read
-      security-events: write   # needed for SARIF upload
-    uses: ./.github/workflows/reusable-static-analysis.yaml
-    with:
-      base_branch:              ${{ needs.setup.outputs.base_branch }}
-
-  test:
-    name: Test Erlang/OTP
-    needs: pack
-    if: needs.pack.outputs.changes != '[]'
-    permissions:
-      contents: read
-      actions:  write
-    uses: ./.github/workflows/reusable-test.yaml
-    with:
-      changes:     ${{ needs.pack.outputs.changes }}
-      base_branch: ${{ needs.pack.outputs.base_branch }}
-
-  system-test:
-    name: Test Erlang/OTP (system)
-    if: ${{ !cancelled() && needs.pack.result == 'success' }} # Run even if the need has failed
-    permissions:
-      contents: read
-      actions:  write
-    needs:
-      - pack
-      - test
-    uses: ./.github/workflows/reusable-system-test.yaml
-    with:
-      base_branch: ${{ needs.pack.outputs.base_branch }}
-
-  ## If you want to speedup this step for testing the easiest way is to create
-  ## these two commits:
-  ##
-  ##   git rm -rf lib erts system && git revert HEAD
-  ##
-  ## and then create a step that that does this:
-  ##
-  ##   - name: SBOM Sha
-  ##     run: echo "sha=$(git rev-parse HEAD~1)" >> $GITHUB_OUTPUT
-  ##
-  ## and then make sure to use that sha instead of env.OTP_SBOM_VERSION
-  sbom:
-    name: Create SBOM
-    needs:
-      - setup
-      - pack
-    uses: ./.github/workflows/reusable-sbom.yaml
-    permissions:
-      contents: write
-      actions:  write
-      packages: read
-      id-token: write
-    with:
-      base_branch:                   ${{ needs.setup.outputs.base_branch }}
-      full_build_and_check:          ${{ needs.setup.outputs.full_build_and_check }}
-      otp_sbom_version:              ${{ needs.setup.outputs.otp_sbom_version }}
-      verify_sbom:                   true
-
   ## If this is an "OTP-*" tag that has been pushed we do some release work
   release:
     name: Release Erlang/OTP
@@ -326,6 +368,9 @@ jobs:
     runs-on: ubuntu-latest
     if: always()
     needs:
+      - check-files
+      - build-base-docker
+      - setup
       - pack
       - build-macos
       - build-ios
