@@ -112,6 +112,10 @@ ERL_NIF_TERM aes_gcm_decrypt_NO_EVP(ErlNifEnv* env, int argc, const ERL_NIF_TERM
     if (!enif_inspect_iolist_as_binary(env, argv[5], &tag))
         goto bad_arg;
 
+    /* Keep same behavior as non decrypt bug branch, aes_gcm will fail decryption on empty tag */
+    if (!tag.size)
+        goto err;
+
     /* NOTE: This function returns 0 on success unlike most OpenSSL functions */
     if (AES_set_encrypt_key(key.data, (int)key.size * 8, &aes_key) != 0)
         goto bad_arg;
