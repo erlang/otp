@@ -276,7 +276,7 @@ Uint size_object_x(Eterm obj, erts_literal_area_t *litopt)
 #define DESTROY_BITSTORE(s) DESTROY_WSTACK(s)
 #define BITSTORE_PUT(s,i)						\
 do {									\
-    WSTK_CONCAT(s,_buffer) |= i << WSTK_CONCAT(s,_bitoffs);		\
+    WSTK_CONCAT(s,_buffer) |= (UWord)i << WSTK_CONCAT(s,_bitoffs);      \
     WSTK_CONCAT(s,_bitoffs) += 2;					\
     if (WSTK_CONCAT(s,_bitoffs) >= 8*sizeof(UWord)) {			\
 	WSTACK_PUSH(s, WSTK_CONCAT(s,_buffer));				\
