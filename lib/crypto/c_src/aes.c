@@ -90,14 +90,14 @@ ERL_NIF_TERM aes_ctr_stream_encrypt_compat(ErlNifEnv* env, const ERL_NIF_TERM st
 
 #ifdef HAVE_GCM_EVP_DECRYPT_BUG
 ERL_NIF_TERM aes_gcm_decrypt_NO_EVP(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Type,Key,Iv,AAD,In,Tag) */
+{/* (Type,Key,Iv,In,AAD,Tag,false) */
     GCM128_CONTEXT *ctx = NULL;
     ErlNifBinary key, iv, aad, in, tag;
     AES_KEY aes_key;
     unsigned char *outp;
     ERL_NIF_TERM out, ret;
 
-    ASSERT(argc == 6);
+    ASSERT(argc == 7);
 
     if (!enif_inspect_iolist_as_binary(env, argv[1], &key))
         goto bad_arg;
@@ -107,9 +107,9 @@ ERL_NIF_TERM aes_gcm_decrypt_NO_EVP(ErlNifEnv* env, int argc, const ERL_NIF_TERM
         goto bad_arg;
     if (iv.size == 0)
         goto bad_arg;
-    if (!enif_inspect_iolist_as_binary(env, argv[3], &aad))
+    if (!enif_inspect_iolist_as_binary(env, argv[3], &in))
         goto bad_arg;
-    if (!enif_inspect_iolist_as_binary(env, argv[4], &in))
+    if (!enif_inspect_iolist_as_binary(env, argv[4], &aad))
         goto bad_arg;
     if (!enif_inspect_iolist_as_binary(env, argv[5], &tag))
         goto bad_arg;
