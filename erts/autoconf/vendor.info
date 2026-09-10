@@ -17,6 +17,7 @@
       "versionInfo": "2.72",
       "path": ["./erts/autoconf/config.guess", "./erts/autoconf/config.sub", "./erts/autoconf/install-sh"],
       "supplier": "Organization: Free Software Foundation",
-      "purl": "pkg:generic/autoconf"
+      "purl": "pkg:generic/autoconf",
+      "annotation": "Vendor package modified in Erlang/OTP"
     }
 ]
