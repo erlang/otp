@@ -39,6 +39,15 @@
          consistency_after_isolated_restart_3_nodes/1,
          consistency_after_isolated_restart_local_master_3_nodes/1,
          consistency_after_isolated_restart_remote_master_3_nodes/1,
+         master_nodes_ignores_active_non_master_3_nodes/1,
+         master_nodes_multiple_remote_masters_3_nodes/1,
+         master_nodes_clear_while_waiting_3_nodes/1,
+         master_nodes_expand_while_waiting_3_nodes/1,
+         master_nodes_mutual_remote_masters_3_nodes/1,
+         master_nodes_remote_master_loads_locally_3_nodes/1,
+         master_nodes_mixed_storage_orphan_master_3_nodes/1,
+         master_nodes_local_member_precedence_3_nodes/1,
+         master_nodes_two_local_masters_partitioned_3_nodes/1,
          consistency_after_dump_tables_1_ram/1,
          consistency_after_dump_tables_2_ram/1,
          consistency_after_add_replica_2_ram/1,
@@ -99,7 +108,33 @@
 
 -export([change_tab/3]).
 
+-import(mnesia_test_lib,
+        [mnesia_node_call/2,
+         mnesia_node_set_masters/3,
+         mnesia_node_assert_master_policies/2,
+         mnesia_node_stop/2,
+         mnesia_node_assert_down_logged/2,
+         mnesia_node_kill/2,
+         mnesia_node_start/1,
+         mnesia_node_set_partitions/1,
+         mnesia_node_set_connected_groups/1,
+         mnesia_node_assert_topology/1,
+         mnesia_node_assert_running/1,
+         mnesia_node_connect/1,
+         mnesia_node_assert_active_replica/3,
+         mnesia_node_assert_waiting/2,
+         mnesia_node_assert_locally_readable/2,
+         mnesia_node_assert_loaded_from/4,
+         mnesia_node_assert_load_reason/3,
+         mnesia_node_assert_local_records/3,
+         mnesia_node_assert_eventually/2,
+         mnesia_node_with_observer/4,
+         mnesia_node_get_observed_events/2,
+         mnesia_node_get_orphan_load_requests/3,
+         mnesia_node_has_inconsistency_event/3]).
+
 -include("mnesia_test_lib.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 init_per_testcase(Func, Conf) ->
     mnesia_test_lib:init_per_testcase(Func, Conf).
@@ -133,7 +168,16 @@ groups() ->
       [consistency_after_isolated_restart_2_nodes,
        consistency_after_isolated_restart_3_nodes,
        consistency_after_isolated_restart_local_master_3_nodes,
-       consistency_after_isolated_restart_remote_master_3_nodes]},
+       consistency_after_isolated_restart_remote_master_3_nodes,
+       master_nodes_ignores_active_non_master_3_nodes,
+       master_nodes_multiple_remote_masters_3_nodes,
+       master_nodes_clear_while_waiting_3_nodes,
+       master_nodes_expand_while_waiting_3_nodes,
+       master_nodes_mutual_remote_masters_3_nodes,
+       master_nodes_remote_master_loads_locally_3_nodes,
+       master_nodes_mixed_storage_orphan_master_3_nodes,
+       master_nodes_local_member_precedence_3_nodes,
+       master_nodes_two_local_masters_partitioned_3_nodes]},
      {consistency_after_dump_tables, [],
       [consistency_after_dump_tables_1_ram,
        consistency_after_dump_tables_2_ram]},
@@ -569,175 +613,302 @@ consistency_after_isolated_restart_3_nodes(Config) when is_list(Config) ->
 
 consistency_after_isolated_restart_local_master_3_nodes(suite) -> [];
 consistency_after_isolated_restart_local_master_3_nodes(Config) when is_list(Config) ->
-    case mnesia_test_lib:diskless(Config) of
-        true ->
-            ?skip("Master node settings do not survive a diskless restart", []);
-        false ->
-            consistency_after_isolated_restart_local_master_3_nodes_do(Config)
-    end.
+    run_restart_case(Config, fun(A, B, C) ->
+        %% GIVEN A < B, two replicas of each storage type, and coordinator C
+        %% without table copies. A trusts only itself; B has no masters.
+        Tabs = create_tables([A, B]),
+        mnesia_node_set_masters(A, Tabs, [A]),
+        mnesia_node_assert_master_policies(Tabs, [{A, [A]}, {B, []}, {C, []}]),
 
-consistency_after_isolated_restart_local_master_3_nodes_do(Config) ->
-    [Coordinator, Node2, Node3] = Nodes = ?acquire_nodes(3, Config),
-    TableNodes = [Node2, Node3],
-    LocalMaster = lists:min(TableNodes),
-    [RemoteNode] = TableNodes -- [LocalMaster],
+        %% WHEN A's Mnesia is abruptly killed, then restarted in {A,C} | {B}.
+        %% Keep crash recovery distinct from the graceful-stop master cases.
+        mnesia_node_kill(A, [B, C]),
+        mnesia_node_set_partitions([[A, C], [B]]),
+        mnesia_node_start(A),
+        mnesia_node_assert_master_policies(Tabs, [{A, [A]}, {B, []}, {C, []}]),
+        ?assertEqual(false, mnesia_node_call(A, fun() ->
+            mnesia_recover:has_mnesia_down(B)
+        end)),
 
-    %% GIVEN three tables replicated across two storage nodes, where one node
-    %% is configured as its own master and a third node coordinates the test.
-    Tabs = create_isolated_restart_tables(TableNodes),
-    [?match(ok, rpc:call(LocalMaster, mnesia, set_master_nodes,
-                         [Tab, [LocalMaster]])) || Tab <- Tabs],
+        %% THEN A loads locally despite the potentially better live B.
+        %% Without a RAM dump, A's RAM is empty; its disk data survives.
+        mnesia_node_assert_loaded_from(A, Tabs, A, fun restart_records/1),
+        mnesia_node_assert_load_reason(A, Tabs, local_master),
+        mnesia_node_assert_locally_readable(B, Tabs),
+        mnesia_node_assert_local_records(B, Tabs, fun expected_records/1),
 
-    %% WHEN the local master is stopped, isolated from the other storage node,
-    %% and restarted while remaining connected to the coordinator.
-    ?match([], mnesia_test_lib:kill_mnesia([LocalMaster])),
-    OldCookie = erlang:get_cookie(),
-    PLocalMaster = mnesia_test_lib:get_peer_ref(LocalMaster),
-    PRemote = mnesia_test_lib:get_peer_ref(RemoteNode),
-    ?match(true, peer:call(PLocalMaster, erlang, set_cookie, [invalid_cookie1])),
-    ?match(true, peer:call(PRemote, erlang, set_cookie, [invalid_cookie2])),
-    try
-        ?match(true, peer:call(PRemote, net_kernel, disconnect, [LocalMaster])),
-        %% Global could already have disconnected, ignore the return value.
-        peer:call(PRemote, net_kernel, disconnect, [Coordinator]),
-        ?match(true, peer:call(PLocalMaster, erlang, set_cookie, [OldCookie])),
-        ?match(pong, net_adm:ping(LocalMaster)),
-        ?match(ok, rpc:call(LocalMaster, mnesia, start, [])),
+        %% WHEN the partition heals, THEN already-loaded copies are retained:
+        %% A still has empty RAM, while B still has the original RAM records.
+        mnesia_node_set_connected_groups([[A, B, C]]),
+        mnesia_node_connect([A, B, C]),
+        mnesia_node_assert_loaded_from(A, Tabs, A, fun restart_records/1),
+        mnesia_node_assert_locally_readable(B, Tabs),
+        mnesia_node_assert_local_records(B, Tabs, fun expected_records/1),
 
-        %% THEN it loads all local copies because it is the configured master:
-        %% RAM is empty after restart and disk-backed copies retain their data.
-        ?match(ok, rpc:call(LocalMaster, mnesia, wait_for_tables, [Tabs, 5000])),
-        [?match(local_master,
-                rpc:call(LocalMaster, mnesia, table_info,
-                         [Tab, load_reason])) || Tab <- Tabs],
-        assert_table_records(LocalMaster, ram, []),
-        assert_table_records(LocalMaster, disc, expected_table_records(disc)),
-        assert_table_records(LocalMaster, disc_only,
-                             expected_table_records(disc_only)),
-
-        %% WHEN the partition is healed.
-        ?match(true, peer:call(PRemote, erlang, set_cookie, [OldCookie])),
-        ?match(pong, peer:call(PRemote, net_adm, ping, [Coordinator])),
-        ?match(pong, peer:call(PRemote, net_adm, ping, [LocalMaster])),
-        ?match({ok, _}, mnesia_controller:connect_nodes(Nodes)),
-        ?match({[ok, ok], []},
-               rpc:multicall(TableNodes, mnesia, wait_for_tables,
-                             [Tabs, 5000])),
-
-        %% THEN both storage nodes converge. Clear RAM through the local master
-        %% so its empty restart state is replicated to the other storage node.
-        ?match({atomic, ok}, rpc:call(LocalMaster, mnesia, clear_table, [ram])),
-        [assert_table_records(Node, ram, []) || Node <- TableNodes],
-        [assert_table_records(Node, disc, expected_table_records(disc)) ||
-            Node <- TableNodes],
-        [assert_table_records(Node, disc_only,
-                              expected_table_records(disc_only)) ||
-            Node <- TableNodes],
-        ?verify_mnesia(Nodes, [])
-    after
-        ?match(true, peer:call(PLocalMaster, erlang, set_cookie, [OldCookie])),
-        ?match(true, peer:call(PRemote, erlang, set_cookie, [OldCookie]))
-    end.
+        %% Cleanup: clearing RAM replicates the empty state. This does not
+        %% assert automatic convergence with the live replica on reconnection.
+        ?assertEqual({atomic, ok}, mnesia_node_call(A, fun() ->
+            mnesia:clear_table(ram)
+        end)),
+        [mnesia_node_assert_local_records(N, Tabs, fun restart_records/1)
+         || N <- [A, B]]
+    end).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 consistency_after_isolated_restart_remote_master_3_nodes(suite) -> [];
 consistency_after_isolated_restart_remote_master_3_nodes(Config) when is_list(Config) ->
-    case mnesia_test_lib:diskless(Config) of
-        true ->
-            ?skip("Master node settings do not survive a diskless restart", []);
-        false ->
-            consistency_after_isolated_restart_remote_master_3_nodes_do(Config)
-    end.
+    run_restart_case(Config, fun(A, B, C) ->
+        %% GIVEN A < B, two replicas of each storage type, and coordinator C
+        %% without table copies. Only A names B as its remote master.
+        Tabs = create_tables([A, B]),
+        mnesia_node_set_masters(A, Tabs, [B]),
+        mnesia_node_assert_master_policies(Tabs, [{A, [B]}, {B, []}, {C, []}]),
 
-consistency_after_isolated_restart_remote_master_3_nodes_do(Config) ->
-    [Coordinator, Node2, Node3] = Nodes = ?acquire_nodes(3, Config),
-    TableNodes = [Node2, Node3],
-    ElectionNode = lists:min(TableNodes),
-    [MasterNode] = TableNodes -- [ElectionNode],
+        %% WHEN B's Mnesia is abruptly killed before A's, then both restart
+        %% in {A,C} | {B}. B cannot have recorded A as down before its crash.
+        mnesia_node_kill(B, [A, C]),
+        mnesia_node_kill(A, [C]),
+        mnesia_node_set_partitions([[A, C], [B]]),
+        mnesia_node_start(A),
+        mnesia_node_start(B),
+        mnesia_node_assert_master_policies(Tabs, [{A, [B]}, {B, []}, {C, []}]),
+        ?assertEqual(false, mnesia_node_call(B, fun() ->
+            mnesia_recover:has_mnesia_down(A)
+        end)),
 
-    %% GIVEN three tables replicated across two storage nodes, where only
-    %% ElectionNode has the other storage node configured as its master. A
-    %% third node coordinates the test without holding any table copies.
-    Tabs = create_isolated_restart_tables(TableNodes),
-    [?match(ok, rpc:call(ElectionNode, mnesia, set_master_nodes,
-                         [Tab, [MasterNode]])) || Tab <- Tabs],
+        %% THEN B waits for A's potentially better copy, while A waits for B
+        %% under its master policy. Neither replica has loaded locally.
+        [mnesia_node_assert_waiting(N, Tabs) || N <- [A, B]],
 
-    %% Stopping MasterNode first prevents it from recording ElectionNode as
-    %% down, so each storage node will wait for the other after restart.
-    ?match([], mnesia_test_lib:kill_mnesia([MasterNode])),
-    ?match([], mnesia_test_lib:kill_mnesia([ElectionNode])),
+        %% WHEN the partition heals, THEN A delegates orphan loading to B.
+        %% B bootstraps locally and supplies A, including the RAM-only table.
+        mnesia_node_set_connected_groups([[A, B, C]]),
+        mnesia_node_connect([A, B, C]),
+        mnesia_node_assert_loaded_from(B, Tabs, B, fun restart_records/1),
+        mnesia_node_assert_load_reason(B, Tabs, {adopt_orphan, A}),
+        mnesia_node_assert_loaded_from(A, Tabs, B, fun restart_records/1),
+        mnesia_node_assert_master_policies(Tabs, [{A, [B]}, {B, []}, {C, []}])
+    end).
 
-    OldCookie = erlang:get_cookie(),
-    PElection = mnesia_test_lib:get_peer_ref(ElectionNode),
-    PMaster = mnesia_test_lib:get_peer_ref(MasterNode),
-    ?match(true, peer:call(PElection, erlang, set_cookie, [invalid_cookie1])),
-    ?match(true, peer:call(PMaster, erlang, set_cookie, [invalid_cookie2])),
-    try
-        %% WHEN both storage nodes restart while isolated from each other.
-        ?match(true, peer:call(PMaster, net_kernel, disconnect,
-                               [ElectionNode])),
-        %% Global could already have disconnected, ignore the return value.
-        peer:call(PMaster, net_kernel, disconnect, [Coordinator]),
-        ?match(true, peer:call(PElection, erlang, set_cookie, [OldCookie])),
-        ?match(pong, net_adm:ping(ElectionNode)),
-        ?match(ok, rpc:call(ElectionNode, mnesia, start, [])),
-        ?match(ok, peer:call(PMaster, mnesia, start, [])),
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-        %% THEN MasterNode waits for ElectionNode's better copy, while
-        %% ElectionNode waits for its configured remote master.
-        ?match({timeout, Tabs},
-               rpc:call(ElectionNode, mnesia, wait_for_tables,
-                        [Tabs, 1000])),
-        ?match({timeout, Tabs},
-               peer:call(PMaster, mnesia, wait_for_tables,
-                         [Tabs, 1000])),
+master_nodes_ignores_active_non_master_3_nodes(suite) -> [];
+master_nodes_ignores_active_non_master_3_nodes(Config) when is_list(Config) ->
+    run_active_source_case(Config, chain).
 
-        %% WHEN the partition is healed.
-        ?match(true, peer:call(PMaster, erlang, set_cookie, [OldCookie])),
-        ?match(pong, peer:call(PMaster, net_adm, ping, [Coordinator])),
-        ?match(pong, peer:call(PMaster, net_adm, ping, [ElectionNode])),
-        ?match({ok, _}, mnesia_controller:connect_nodes(Nodes)),
-        ?match({[ok, ok], []},
-               rpc:multicall(TableNodes, mnesia, wait_for_tables,
-                             [Tabs, 5000])),
+master_nodes_multiple_remote_masters_3_nodes(suite) -> [];
+master_nodes_multiple_remote_masters_3_nodes(Config) when is_list(Config) ->
+    run_active_source_case(Config, multiple).
 
-        %% THEN ElectionNode asks its configured master to load the orphan
-        %% tables, and both storage nodes converge on the expected contents.
-        [?match({adopt_orphan, ElectionNode},
-                rpc:call(MasterNode, mnesia, table_info,
-                         [Tab, load_reason])) || Tab <- Tabs],
-        [assert_table_records(Node, ram, []) || Node <- TableNodes],
-        [assert_table_records(Node, disc, expected_table_records(disc)) ||
-            Node <- TableNodes],
-        [assert_table_records(Node, disc_only,
-                              expected_table_records(disc_only)) ||
-            Node <- TableNodes],
-        ?verify_mnesia(Nodes, [])
-    after
-        ?match(true, peer:call(PElection, erlang, set_cookie, [OldCookie])),
-        ?match(true, peer:call(PMaster, erlang, set_cookie, [OldCookie]))
-    end.
+master_nodes_clear_while_waiting_3_nodes(suite) -> [];
+master_nodes_clear_while_waiting_3_nodes(Config) when is_list(Config) ->
+    run_active_source_case(Config, clear).
 
-create_isolated_restart_tables(Nodes) ->
-    Tabs = [{ram, ram_copies},
-            {disc, disc_copies},
-            {disc_only, disc_only_copies}],
-    [?match({atomic, ok}, mnesia:create_table(Tab, [{Storage, Nodes}])) ||
-        {Tab, Storage} <- Tabs],
-    [?match(ok, mnesia:sync_dirty(fun() ->
-        [mnesia:write(Record) || Record <- expected_table_records(Tab)], ok
-    end)) || {Tab, _} <- Tabs],
-    [Tab || {Tab, _} <- Tabs].
+master_nodes_expand_while_waiting_3_nodes(suite) -> [];
+master_nodes_expand_while_waiting_3_nodes(Config) when is_list(Config) ->
+    run_active_source_case(Config, expand).
 
-expected_table_records(Tab) ->
-    [{Tab, K, K} || K <- lists:seq(1, 10)].
+master_nodes_mutual_remote_masters_3_nodes(suite) -> [];
+master_nodes_mutual_remote_masters_3_nodes(Config) when is_list(Config) ->
+    run_restart_case(Config, fun(A, B, C) ->
+        %% GIVEN A < B, two replicas that each trust only the other, and a
+        %% coordinator without table copies. Neither may bootstrap locally.
+        Tabs = create_tables([A, B]),
+        mnesia_node_set_masters(A, Tabs, [B]),
+        mnesia_node_set_masters(B, Tabs, [A]),
+        mnesia_node_stop(B, [A, C]),
+        mnesia_node_stop(A, [C]),
+        mnesia_node_set_partitions([[A, C], [B]]),
+        mnesia_node_start(A),
+        mnesia_node_start(B),
+        mnesia_node_assert_master_policies(Tabs, [{A, [B]}, {B, [A]}, {C, []}]),
+        [mnesia_node_assert_waiting(N, Tabs) || N <- [A, B]],
+        mnesia_node_with_observer(A, [{mnesia_late_loader, maybe_async_late_disc_load, 3}],
+                                  false, fun(TraceA) ->
+            mnesia_node_with_observer(B, [{mnesia_controller, schedule_late_disc_load, 2}],
+                                      false, fun(TraceB) ->
+                %% WHEN all nodes reconnect, A asks B to adopt the orphans.
+                mnesia_node_set_connected_groups([[A, B, C]]),
+                mnesia_node_connect([A, B, C]),
+                mnesia_node_assert_running([A, B, C]),
+                mnesia_node_assert_eventually(fun() ->
+                    Requests = mnesia_node_get_orphan_load_requests(A, TraceA, A),
+                    lists:all(fun(Tab) -> lists:member({B, Tab}, Requests) end,
+                              Tabs)
+                end, {orphan_requests, A, B}),
+                %% THEN B processes the request but schedules no tables:
+                %% its own master list excludes itself.
+                mnesia_node_assert_eventually(fun() ->
+                    lists:any(fun
+                        ({trace, _, call,
+                          {mnesia_controller, schedule_late_disc_load,
+                           [[], {adopt_orphan, Origin}]}}) -> Origin == A;
+                        (_) -> false
+                    end, mnesia_node_get_observed_events(B, TraceB))
+                end, {rejected_orphans, B}),
+                [mnesia_node_assert_waiting(N, Tabs) || N <- [A, B]]
+            end)
+        end),
+        %% Cleanup: WHEN B is explicitly made an authority and restarted,
+        %% THEN it bootstraps locally and supplies the waiting A.
+        mnesia_node_stop(B, [A, C]),
+        mnesia_node_set_masters(B, Tabs, [B]),
+        mnesia_node_start(B),
+        mnesia_node_assert_loaded_from(B, Tabs, B, fun restart_records/1),
+        mnesia_node_assert_load_reason(B, Tabs, local_master),
+        mnesia_node_assert_loaded_from(A, Tabs, B, fun restart_records/1)
+    end).
 
-assert_table_records(Node, Tab, Expected) ->
-    Pattern = [{{Tab, '_', '_'}, [], ['$_']}],
-    Actual = rpc:call(Node, mnesia, dirty_select, [Tab, Pattern]),
-    ExpectedSet = sets:from_list(Expected),
-    ?match(ExpectedSet, sets:from_list(Actual)).
+master_nodes_remote_master_loads_locally_3_nodes(suite) -> [];
+master_nodes_remote_master_loads_locally_3_nodes(Config) when is_list(Config) ->
+    run_restart_case(Config, fun(A, B, C) ->
+        %% GIVEN A trusts B and B trusts itself, with two replicas and a
+        %% neutral coordinator. The policy is local to each node.
+        Tabs = create_tables([A, B]),
+        mnesia_node_set_masters(A, Tabs, [B]),
+        mnesia_node_set_masters(B, Tabs, [B]),
+        mnesia_node_stop(B, [A, C]),
+        mnesia_node_stop(A, [C]),
+        mnesia_node_set_partitions([[A, C], [B]]),
+        %% WHEN both replicas restart on opposite sides of the partition.
+        mnesia_node_start(A),
+        mnesia_node_start(B),
+        mnesia_node_assert_master_policies(Tabs, [{A, [B]}, {B, [B]}, {C, []}]),
+        %% THEN B loads locally while A waits for its remote master.
+        mnesia_node_assert_waiting(A, Tabs),
+        mnesia_node_assert_loaded_from(B, Tabs, B, fun restart_records/1),
+        mnesia_node_assert_load_reason(B, Tabs, local_master),
+        %% WHEN the partition heals, THEN A loads from the already-active B.
+        mnesia_node_set_connected_groups([[A, B, C]]),
+        mnesia_node_connect([A, B, C]),
+        mnesia_node_assert_loaded_from(A, Tabs, B, fun restart_records/1),
+        mnesia_node_assert_local_records(B, Tabs, fun restart_records/1)
+    end).
+
+master_nodes_mixed_storage_orphan_master_3_nodes(suite) -> [];
+master_nodes_mixed_storage_orphan_master_3_nodes(Config) when is_list(Config) ->
+    run_restart_case(Config, fun(A, B, C) ->
+        %% GIVEN A < B with disk copies on A/B and RAM on C. Both disk
+        %% storage variants exercise exclusion of the RAM master from adoption.
+        Tabs = create_tables(
+                 [{mixed_disc, [{disc_copies, [A, B]}, {ram_copies, [C]}]},
+                  {mixed_disc_only,
+                   [{disc_only_copies, [A, B]}, {ram_copies, [C]}]}], [A, B, C]),
+        mnesia_node_set_masters(A, Tabs, [B, C]),
+        mnesia_node_stop(B, [A, C]),
+        mnesia_node_stop(C, [A]),
+        mnesia_node_stop(A, []),
+        mnesia_node_set_partitions([[A], [B], [C]]),
+        [mnesia_node_start(N) || N <- [A, B, C]],
+        mnesia_node_assert_master_policies(Tabs, [{A, [B, C]}, {B, []}, {C, []}]),
+        [mnesia_node_assert_waiting(N, Tabs) || N <- [A, B, C]],
+        ?assertEqual(false, mnesia_node_call(B, fun() ->
+            mnesia_recover:has_mnesia_down(A)
+        end)),
+        ?assertEqual(false, mnesia_node_call(C, fun() ->
+            mnesia_recover:has_mnesia_down(A)
+        end)),
+        mnesia_node_with_observer(A, [{mnesia_late_loader, maybe_async_late_disc_load, 3}],
+                                  false, fun(Trace) ->
+            %% WHEN the partition heals, observe the entire adoption pass.
+            mnesia_node_set_connected_groups([[A, B, C]]),
+            mnesia_node_connect([A, B, C]),
+            mnesia_node_assert_running([A, B, C]),
+            mnesia_node_assert_loaded_from(B, Tabs, B, fun expected_records/1),
+            mnesia_node_assert_load_reason(B, Tabs, {adopt_orphan, A}),
+            mnesia_node_assert_loaded_from(A, Tabs, B, fun expected_records/1),
+            mnesia_node_assert_locally_readable(C, Tabs),
+            [begin
+                 Source = mnesia_node_call(C, fun() -> mnesia:table_info(Tab, load_node) end),
+                 ?assert(lists:member(Source, [A, B]))
+             end || Tab <- Tabs],
+            mnesia_node_assert_local_records(C, Tabs, fun expected_records/1),
+            %% THEN B received every orphan, but C received none. A controller
+            %% barrier plus trace delivery covers all targets, not just the
+            %% first request that happened to produce a successful load.
+            mnesia_node_call(A, fun() ->
+                %% SYNC Barrier.
+                _ = sys:get_status(mnesia_controller),
+                Ref = erlang:trace_delivered(whereis(mnesia_controller)),
+                receive {trace_delivered, _, Ref} -> ok after 5000 -> error(trace_timeout) end
+            end),
+            Requests = mnesia_node_get_orphan_load_requests(A, Trace, A),
+            ?assertEqual(lists:sort([{B, Tab} || Tab <- Tabs]),
+                         lists:usort(Requests))
+        end)
+    end).
+
+master_nodes_local_member_precedence_3_nodes(suite) -> [];
+master_nodes_local_member_precedence_3_nodes(Config) when is_list(Config) ->
+    run_restart_case(Config, fun(A, B, C) ->
+        %% GIVEN A trusts [B,A], not just [A], and stops while B is still live.
+        Tabs = create_tables([A, B]),
+        mnesia_node_set_masters(A, Tabs, [B, A]),
+        mnesia_node_stop(A, [B, C]),
+        mnesia_node_set_partitions([[A, C], [B]]),
+        %% WHEN A restarts without access to the potentially better B.
+        mnesia_node_start(A),
+        ?assertEqual(false, mnesia_node_call(A, fun() ->
+            mnesia_recover:has_mnesia_down(B)
+        end)),
+        mnesia_node_assert_master_policies(Tabs, [{A, [B, A]}, {B, []}, {C, []}]),
+        %% THEN local membership wins regardless of list order. RAM is empty
+        %% on A while the still-live B retains old data; disk data remains intact.
+        mnesia_node_assert_loaded_from(A, Tabs, A, fun restart_records/1),
+        mnesia_node_assert_load_reason(A, Tabs, local_master),
+        mnesia_node_assert_local_records(B, Tabs, fun expected_records/1),
+        %% Cleanup explicitly selects A; reconnection alone is not a merge.
+        recover_follower(A, B, C, Tabs, fun restart_records/1)
+    end).
+
+master_nodes_two_local_masters_partitioned_3_nodes(suite) -> [];
+master_nodes_two_local_masters_partitioned_3_nodes(Config) when is_list(Config) ->
+    run_restart_case(Config, fun(A, B, C) ->
+        %% GIVEN self masters and no schema masters. Partition while both
+        %% replicas run, so both durably record the other as down.
+        Tabs = create_tables([A, B]),
+        mnesia_node_set_masters(A, Tabs, [A]),
+        mnesia_node_set_masters(B, Tabs, [B]),
+        mnesia_node_set_partitions([[A, C], [B]]),
+        mnesia_node_assert_down_logged(A, B),
+        mnesia_node_assert_down_logged(B, A),
+        mnesia_node_stop(B, []),
+        mnesia_node_stop(A, [C]),
+        %% WHEN both replicas restart in isolation and receive different writes.
+        mnesia_node_start(A),
+        mnesia_node_start(B),
+        mnesia_node_assert_master_policies(Tabs, [{A, [A]}, {B, [B]}, {C, []}]),
+        [begin
+             mnesia_node_assert_loaded_from(N, Tabs, N, fun restart_records/1),
+             mnesia_node_assert_load_reason(N, Tabs, local_master)
+         end || N <- [A, B]],
+        mnesia_node_assert_down_logged(A, B),
+        mnesia_node_assert_down_logged(B, A),
+        write_marker(A, Tabs, side_a),
+        write_marker(B, Tabs, side_b),
+        RecordsA = fun(Tab) -> restart_records(Tab) ++ [{Tab, marker, side_a}] end,
+        RecordsB = fun(Tab) -> restart_records(Tab) ++ [{Tab, marker, side_b}] end,
+        mnesia_node_assert_local_records(A, Tabs, RecordsA),
+        mnesia_node_assert_local_records(B, Tabs, RecordsB),
+        mnesia_node_with_observer(A, [], true, fun(EventsA) ->
+            mnesia_node_with_observer(B, [], true, fun(EventsB) ->
+                %% WHEN connectivity returns with subscriptions already active.
+                mnesia_node_set_connected_groups([[A, B, C]]),
+                %% THEN report the inconsistent pair (either event context or
+                %% direction), and keep both already-loaded contents unchanged.
+                mnesia_node_assert_eventually(fun() ->
+                    mnesia_node_has_inconsistency_event(A, EventsA, B) orelse
+                        mnesia_node_has_inconsistency_event(B, EventsB, A)
+                end, {inconsistent_database, A, B}),
+                mnesia_node_connect([A, B, C]),
+                mnesia_node_assert_local_records(A, Tabs, RecordsA),
+                mnesia_node_assert_local_records(B, Tabs, RecordsB)
+            end)
+        end),
+        %% Cleanup: THEN restarting B with A as sole authority replaces RB by RA.
+        recover_follower(A, B, C, Tabs, RecordsA)
+    end).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -1965,4 +2136,188 @@ cross_check_tables([Pid|Rest],Tab,{Val1,Val2,Val3}) ->
               {R1,R2,R3}
             end,
     ?match_receive({ Pid, {Val1, Val2, Val3 } }),
-    cross_check_tables(Rest,Tab,{Val1,Val2,Val3} ).   
+    cross_check_tables(Rest,Tab,{Val1,Val2,Val3} ).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% BEGIN: Helpers for restart/set-master-node scenarios.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Exercise A's choice of load source under different table master policies.
+%% C stays active while B and A stop. A restarts in isolation, then reconnects
+%% to C while B remains stopped. B and C have no master restrictions.
+%%
+%% chain: A trusts only [B] and cannot load directly from C. Its policy stays
+%%        unchanged. B rejoins and starts, loads from C, then supplies A.
+%%        The chain is the data transfer C -> B -> A, not a chain of policies.
+%% multiple: A trusts [B, C] from the outset. Connecting to the active C is
+%%           enough to load A, even though the unavailable B is listed first.
+%% clear: A initially trusts [B] and waits despite C being connected. Clearing
+%%        its masters to [] removes the restriction, allowing C -> A.
+%% expand: A initially trusts [B] and waits despite C being connected. Setting
+%%         its masters to [B, C] makes C eligible, allowing C -> A.
+%%
+%% clear and expand release A's wait by changing its policy while B is still
+%% stopped, without restarting A or reconnecting C. Unlike multiple, expand
+%% tests making an already-connected, initially forbidden source eligible.
+-spec run_active_source_case(Config :: proplists:proplist(),
+                             Mode :: chain | multiple | clear | expand) -> ok.
+run_active_source_case(Config, Mode) ->
+    run_restart_case(Config, fun(A, B, C) ->
+        Nodes = [A, B, C],
+        %% GIVEN three replicas, with a remote-only master policy on A.
+        Tabs = create_tables(Nodes),
+        Masters = case Mode of multiple -> [B, C]; _ -> [B] end,
+        mnesia_node_set_masters(A, Tabs, Masters),
+        mnesia_node_assert_master_policies(Tabs, [{A, Masters}, {B, []}, {C, []}]),
+        %% C stays active. B must remember C as a potentially better copy.
+        mnesia_node_stop(B, [A, C]),
+        mnesia_node_stop(A, [C]),
+        write_marker(C, Tabs, source_c),
+        mnesia_node_assert_local_records(C, Tabs,
+                                         fun(Tab) -> marked_records(Tab, source_c) end),
+        mnesia_node_set_partitions([[A], [B], [C]]),
+        mnesia_node_start(A),
+        mnesia_node_assert_master_policies(Tabs, [{A, Masters}]),
+        ?assertEqual(false, mnesia_node_call(A, fun() ->
+            mnesia_recover:has_mnesia_down(C)
+        end)),
+        mnesia_node_assert_waiting(A, Tabs),
+
+        %% WHEN A reconnects to C, while B remains stopped and isolated.
+        mnesia_node_set_connected_groups([[A, C], [B]]),
+        mnesia_node_connect([A, C]),
+        mnesia_node_assert_active_replica(A, Tabs, C),
+        case Mode of
+            multiple ->
+                %% THEN an available member is enough, even with B first.
+                mnesia_node_assert_loaded_from(
+                    A, Tabs, C, fun(Tab) -> marked_records(Tab, source_c) end);
+            _ ->
+                %% THEN C is registered but cannot supply A's local copy.
+                mnesia_node_assert_waiting(A, Tabs)
+        end,
+        case Mode of
+            chain ->
+                %% WHEN B rejoins and starts normally, it first loads from C.
+                mnesia_node_set_connected_groups([Nodes]),
+                mnesia_node_start(B),
+                ?assertEqual(false, mnesia_node_call(B, fun() ->
+                    mnesia_recover:has_mnesia_down(C)
+                end)),
+                mnesia_node_assert_loaded_from(
+                    B, Tabs, C, fun(Tab) -> marked_records(Tab, source_c) end),
+                %% THEN A obtains that data from B, never directly from C.
+                mnesia_node_assert_loaded_from(
+                    A, Tabs, B, fun(Tab) -> marked_records(Tab, source_c) end);
+            _ ->
+                NewMasters = case Mode of
+                                 clear -> [];
+                                 expand -> [B, C];
+                                 multiple -> Masters
+                             end,
+                %% WHEN a waiting node clears/expands its policy, there is no
+                %% restart, reconnection, or new announcement from C.
+                Controller = mnesia_node_call(A, fun() -> whereis(mnesia_controller) end),
+                mnesia_node_set_masters(A, Tabs, NewMasters),
+                mnesia_node_assert_loaded_from(
+                    A, Tabs, C, fun(Tab) -> marked_records(Tab, source_c) end),
+                ?assertEqual(Controller, mnesia_node_call(A, fun() ->
+                    whereis(mnesia_controller)
+                end)),
+                mnesia_node_assert_topology([[A, C], [B]]),
+                mnesia_node_assert_master_policies(Tabs, [{A, NewMasters}, {C, []}]),
+                mnesia_node_set_connected_groups([Nodes]),
+                mnesia_node_start(B)
+        end,
+        %% THEN all local copies contain the marker written while A/B were down.
+        [mnesia_node_assert_locally_readable(N, Tabs) || N <- Nodes],
+        [mnesia_node_assert_local_records(N, Tabs,
+                                         fun(Tab) -> marked_records(Tab, source_c) end)
+         || N <- Nodes],
+        mnesia_node_assert_master_policies(Tabs, [{B, []}, {C, []}])
+    end).
+
+run_restart_case(Config, Test) ->
+    case mnesia_test_lib:diskless(Config) of
+        true -> ?skip("Master node settings do not survive a diskless restart", []);
+        false -> ok
+    end,
+    [C | Peers] = Nodes = ?acquire_nodes(3, Config),
+    [A, B] = lists:sort(Peers),
+    Cookies = [{N, mnesia_node_call(N, fun erlang:get_cookie/0)} || N <- Nodes],
+    try
+        [begin
+             ?assertEqual(disc_copies, mnesia_node_call(N, fun() ->
+                 mnesia:table_info(schema, storage_type)
+             end)),
+             ?assertEqual([], mnesia_node_call(N, fun() ->
+                 mnesia_recover:get_master_nodes(schema)
+             end))
+         end || N <- Nodes],
+        Test(A, B, C),
+        mnesia_node_assert_running(Nodes)
+    after
+        %% Even on assertion failure, remove policies and stop Mnesia before
+        %% healing. The next acquire_nodes rebuilds fresh schemas. Intentional
+        %% waiting/divergence is recovered and checked in each successful case.
+        Cleanup = [catch mnesia_node_call(N, fun() ->
+             stopped = mnesia:stop(),
+             mnesia:set_master_nodes([])
+         end) || N <- Nodes],
+        [?assertEqual(true, mnesia_node_call(N, fun() -> erlang:set_cookie(Cookie) end))
+         || {N, Cookie} <- Cookies],
+        mnesia_node_set_connected_groups([Nodes]),
+        ?assertEqual([ok || _ <- Nodes], Cleanup)
+    end.
+
+create_tables(Nodes) ->
+    create_tables([{ram, [{ram_copies, Nodes}]},
+                           {disc, [{disc_copies, Nodes}]}, %% Why both disc_only and disc copy?
+                           {disc_only, [{disc_only_copies, Nodes}]}], Nodes).
+
+create_tables(Definitions, Nodes) ->
+    Tabs = [Tab || {Tab, _} <- Definitions],
+    [begin
+         ?assertEqual({atomic, ok}, mnesia:create_table(Tab, Copies)),
+         ?assertEqual(false, mnesia:table_info(Tab, local_content)),
+         ?assertEqual(false, mnesia:table_info(Tab, majority)),
+         ?assertEqual(read_write, mnesia:table_info(Tab, access_mode)),
+         ok = mnesia:sync_dirty(fun() ->
+             [mnesia:write(Record) || Record <- expected_records(Tab)], ok
+         end)
+     end || {Tab, Copies} <- Definitions],
+    [begin
+         mnesia_node_assert_locally_readable(N, Tabs),
+         mnesia_node_assert_local_records(N, Tabs, fun expected_records/1),
+         ?assertEqual(ok, mnesia_node_call(N, fun mnesia:sync_log/0))
+     end || N <- Nodes],
+    mnesia_node_assert_master_policies(Tabs, [{N, []} || N <- lists:usort([node() | Nodes])]),
+    Tabs.
+
+write_marker(Node, Tabs, Value) ->
+    ?assertEqual(ok, mnesia_node_call(Node, fun() ->
+        mnesia:sync_dirty(fun() ->
+            [mnesia:write({Tab, marker, Value}) || Tab <- Tabs], ok
+        end)
+    end)).
+
+expected_records(Tab) ->
+    [{Tab, K, K} || K <- lists:seq(1, 10)].
+
+marked_records(Tab, Marker) ->
+    expected_records(Tab) ++ [{Tab, marker, Marker}].
+
+restart_records(ram) -> [];
+restart_records(Tab) -> expected_records(Tab).
+
+recover_follower(Authority, Follower, C, Tabs, Records) ->
+    mnesia_node_stop(Follower, []),
+    mnesia_node_set_masters(Follower, Tabs, [Authority]),
+    mnesia_node_set_connected_groups([[Authority, Follower, C]]),
+    mnesia_node_start(Follower),
+    mnesia_node_assert_loaded_from(Follower, Tabs, Authority, Records),
+    mnesia_node_assert_local_records(Authority, Tabs, Records),
+    mnesia_node_assert_master_policies(Tabs, [{Follower, [Authority]}]).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% END: Helpers for restart/set-master-node scenarios.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

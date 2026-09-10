@@ -139,7 +139,33 @@
 	 get_peer_ref/1
 	]).
 
+%% helpers for mnesia_consistency_test
+-export([mnesia_node_call/2,
+         mnesia_node_set_masters/3,
+         mnesia_node_assert_master_policies/2,
+         mnesia_node_stop/2,
+         mnesia_node_assert_down_logged/2,
+         mnesia_node_kill/2,
+         mnesia_node_start/1,
+         mnesia_node_set_partitions/1,
+         mnesia_node_set_connected_groups/1,
+         mnesia_node_assert_topology/1,
+         mnesia_node_assert_running/1,
+         mnesia_node_connect/1,
+         mnesia_node_assert_active_replica/3,
+         mnesia_node_assert_waiting/2,
+         mnesia_node_assert_locally_readable/2,
+         mnesia_node_assert_loaded_from/4,
+         mnesia_node_assert_load_reason/3,
+         mnesia_node_assert_local_records/3,
+         mnesia_node_assert_eventually/2,
+         mnesia_node_with_observer/4,
+         mnesia_node_get_observed_events/2,
+         mnesia_node_get_orphan_load_requests/3,
+         mnesia_node_has_inconsistency_event/3]).
+
 -include("mnesia_test_lib.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -1140,3 +1166,263 @@ get_ext_test_server_name() ->
 
 get_peer_ref(Node) ->
     persistent_term:get({peer, Node}).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Partition-safe node control, local table assertions, and scoped observers.
+%% Remote nodes must have a peer control handle and this module available.
+
+%% The peer control channel does not reconnect Erlang distribution. Anonymous
+%% functions also let local ETS/DETS assertions run on fully isolated peers.
+mnesia_node_call(Node, Fun) when Node == node() -> Fun();
+mnesia_node_call(Node, Fun) ->
+    peer:call(get_peer_ref(Node), erlang, apply, [Fun, []], 30000).
+
+mnesia_node_set_masters(Node, Tabs, Masters) ->
+    [ ?assertEqual(ok, mnesia_node_call(Node, fun() ->
+          mnesia:set_master_nodes(Tab, Masters)
+      end)) || Tab <- Tabs],
+    ok.
+
+mnesia_node_assert_master_policies(Tabs, Policies) ->
+    [ ?assertEqual(lists:sort(Masters), mnesia_node_call(N, fun() ->
+          lists:sort(mnesia_recover:get_master_nodes(Tab))
+      end)) || {N, Masters} <- Policies, Tab <- Tabs],
+    ok.
+
+mnesia_node_stop(Node, Survivors) ->
+    ?assertEqual(stopped, mnesia_node_call(Node, fun mnesia:stop/0)),
+    ?assertEqual(no, mnesia_node_call(Node, fun() -> mnesia:system_info(is_running) end)),
+    [mnesia_node_assert_down_logged(N, Node) || N <- Survivors],
+    ok.
+
+%% Abruptly kill Mnesia without taking down Erlang or the peer control channel.
+%% Check the crash completed and survivors durably observed it before proceeding.
+mnesia_node_kill(Node, Survivors) ->
+    ?assertEqual(yes, mnesia_node_call(Node, fun() -> mnesia:system_info(is_running) end)),
+    ?assertEqual(ok, mnesia_node_call(Node, fun mnesia:lkill/0)),
+    ?assertEqual(no, mnesia_node_call(Node, fun() -> mnesia:system_info(is_running) end)),
+    [mnesia_node_assert_down_logged(N, Node) || N <- Survivors],
+    ok.
+
+mnesia_node_assert_down_logged(Node, Down) ->
+    mnesia_node_assert_eventually(
+      fun() -> 
+              mnesia_node_call(Node, 
+                               fun() ->
+                                       mnesia_recover:has_mnesia_down(Down)
+                               end) 
+      end, 
+      {mnesia_down, Node, Down}),
+    ?assertEqual(ok, mnesia_node_call(Node, fun mnesia:sync_log/0)).
+
+mnesia_node_start(Node) ->
+    ?assertEqual(ok, mnesia_node_call(Node, fun mnesia:start/0)),
+    ?assertEqual(yes, mnesia_node_call(Node, fun() -> mnesia:system_info(is_running) end)).
+
+%% First block every new cross-peer connection, then disconnect every edge.
+%% Restore group cookies only after the full isolation is observable.
+mnesia_node_set_partitions(Groups) ->
+    Nodes = lists:append(Groups),
+    [mnesia_node_call(N, fun() -> erlang:set_cookie(Cookie) end)
+     || {N, Cookie} <- lists:zip(Nodes, [mnesia_node_cookie_a, 
+                                         mnesia_node_cookie_b,
+                                         mnesia_node_cookie_c])],
+    [mnesia_node_call(N, fun() -> erlang:disconnect_node(Other) end)
+     || N <- Nodes, Other <- Nodes -- [N]],
+    mnesia_node_assert_topology([[N] || N <- Nodes]),
+    mnesia_node_set_connected_groups(Groups).
+
+%% Set group cookies and connect within each group. Existing cross-group edges
+%% must already be disconnected; use set_partitions when splitting a group.
+mnesia_node_set_connected_groups(Groups) ->
+    %% Keep the coordinator's cookie, including when it is itself isolated.
+    Cookie = erlang:get_cookie(),
+    [begin
+         GroupCookie = case lists:member(node(), Group) of
+                           true -> Cookie;
+                           false -> element(Index, {mnesia_node_group_a,
+                                                    mnesia_node_group_b,
+                                                    mnesia_node_group_c})
+                       end,
+         [mnesia_node_call(N, fun() -> erlang:set_cookie(GroupCookie) end) || N <- Group]
+     end || {Group, Index} <- lists:zip(Groups, lists:seq(1, length(Groups)))],
+    mnesia_node_assert_eventually(fun() ->
+        [mnesia_node_call(N, fun() -> net_kernel:connect_node(Other) end)
+         || Group <- Groups, N <- Group, Other <- Group -- [N]],
+        mnesia_node_matches_topology(Groups)
+    end, {connectivity, Groups}),
+    mnesia_node_assert_topology(Groups).
+
+mnesia_node_assert_topology(Groups) ->
+    mnesia_node_assert_eventually(
+      fun() -> mnesia_node_matches_topology(Groups) end,
+      {topology, Groups}).
+
+mnesia_node_matches_topology(Groups) ->
+    All = lists:append(Groups),
+    lists:all(fun(Group) ->
+        lists:all(fun(N) ->
+            lists:sort(Group -- [N]) == mnesia_node_call(N, fun() ->
+                lists:sort([Peer || Peer <- nodes(), lists:member(Peer, All)])
+            end)
+        end, Group)
+    end, Groups).
+
+mnesia_node_assert_running(Nodes) ->
+    mnesia_node_assert_eventually(fun() ->
+        lists:all(fun(N) -> mnesia_node_call(N, fun() ->
+            mnesia:system_info(is_running) == yes andalso
+                lists:sort(mnesia:system_info(running_db_nodes)) == lists:sort(Nodes)
+        end) end, Nodes)
+    end, {running_db_nodes, Nodes}).
+
+mnesia_node_connect([Node | _] = Nodes) ->
+    ?assertMatch({ok, _}, mnesia_node_call(Node, fun() ->
+        mnesia_controller:connect_nodes(Nodes)
+    end)),
+    mnesia_node_assert_running(Nodes).
+
+mnesia_node_assert_active_replica(Node, Tabs, Source) ->
+    IsReplica = fun(Tab) ->
+                        lists:member(Source, mnesia_lib:val({Tab, active_replicas}))
+                end,
+    IsReplicaForTabs = fun() -> lists:all(IsReplica, Tabs) end,
+    mnesia_node_assert_eventually(
+      fun() ->
+              mnesia_node_call(Node, IsReplicaForTabs)
+      end, {active_replica, Node, Source}).
+
+mnesia_node_assert_waiting(Node, Tabs) ->
+    mnesia_node_call(Node, fun() ->
+        ?assertEqual(yes, mnesia:system_info(is_running)),
+        [?assertEqual(nowhere, mnesia:table_info(Tab, where_to_read)) || Tab <- Tabs],
+        ?assertEqual({timeout, lists:sort(Tabs)},
+                     case mnesia:wait_for_tables(Tabs, 500) of
+                         {timeout, Missing} -> {timeout, lists:sort(Missing)};
+                         Other -> Other
+                     end),
+        [?assertEqual(nowhere, mnesia:table_info(Tab, where_to_read)) || Tab <- Tabs]
+    end).
+
+mnesia_node_assert_locally_readable(Node, Tabs) ->
+    mnesia_node_call(Node, fun() ->
+        ?assertEqual(ok, mnesia:wait_for_tables(Tabs, 10000)),
+        [?assertEqual(node(), mnesia:table_info(Tab, where_to_read)) || Tab <- Tabs]
+    end).
+
+mnesia_node_assert_loaded_from(Node, Tabs, Source, Records) ->
+    mnesia_node_assert_locally_readable(Node, Tabs),
+    mnesia_node_call(Node, fun() ->
+        [?assertEqual(Source, mnesia:table_info(Tab, load_node)) || Tab <- Tabs]
+    end),
+    mnesia_node_assert_local_records(Node, Tabs, Records).
+
+mnesia_node_assert_load_reason(Node, Tabs, Reason) ->
+    mnesia_node_call(Node, fun() ->
+        [?assertEqual(Reason, mnesia:table_info(Tab, load_reason)) || Tab <- Tabs]
+    end).
+
+mnesia_node_assert_local_records(Node, Tabs, Records) ->
+    mnesia_node_call(Node, fun() ->
+        [begin
+             %% Read the actual local storage, never a remotely routed query.
+             Actual = case mnesia:table_info(Tab, storage_type) of
+                          disc_only_copies -> dets:match_object(Tab, '_');
+                          _ -> ets:tab2list(Tab)
+                      end,
+             ?assertEqual(lists:sort(Records(Tab)), lists:sort(Actual))
+         end || Tab <- Tabs]
+    end).
+
+mnesia_node_assert_eventually(Check, Context) ->
+    Deadline = erlang:monotonic_time(millisecond) + 10000,
+    mnesia_node_assert_eventually(Check, Context, Deadline).
+
+mnesia_node_assert_eventually(Check, Context, Deadline) ->
+    case Check() of
+        true -> ok;
+        Actual ->
+            case erlang:monotonic_time(millisecond) < Deadline of
+                true ->
+                    timer:sleep(100),
+                    mnesia_node_assert_eventually(Check, Context, Deadline);
+                false -> error({mnesia_node_timeout, Context, Actual})
+            end
+    end.
+
+%% Each observer owns its trace session/subscription on the observed node.
+%% Nothing is sent over distribution while partitioned. Destroying the session
+%% leaves other test/debug trace sessions untouched, including on failures.
+mnesia_node_with_observer(Node, Functions, Subscribe, Test) ->
+    Observer = mnesia_node_call(Node, fun() ->
+        spawn(fun() -> mnesia_node_run_observer(Functions, Subscribe) end)
+    end),
+    try
+        %% Ready barrier, before the test action.
+        mnesia_node_get_observed_events(Node, Observer),
+        Test(Observer)
+    after
+        mnesia_node_call(Node, fun() ->
+            Ref = monitor(process, Observer),
+            Observer ! stop,
+            receive {'DOWN', Ref, process, Observer, _} -> ok
+            after 5000 -> error(observer_stop_timeout)
+            end
+        end)
+    end.
+
+mnesia_node_run_observer(Functions, IsSubscribe) ->
+    Session = trace:session_create(mnesia_node_test, self(), []),
+    try
+        [trace:function(Session, MFA, [], [local]) || MFA <- Functions],
+        [trace:process(Session, whereis(Name), true, [call])
+         || Name <- [mnesia_controller, mnesia_late_loader]],
+        case IsSubscribe of 
+            true -> {ok, _} = mnesia:subscribe(system); 
+            false -> ok 
+        end,
+        mnesia_node_collect_observer_events([])
+    after
+        trace:session_destroy(Session),
+        case IsSubscribe of
+            true -> mnesia:unsubscribe(system); 
+            false -> ok 
+        end
+    end.
+
+mnesia_node_collect_observer_events(Events) ->
+    receive
+        {events, From, Ref} ->
+            From ! {Ref, lists:reverse(Events)},
+            mnesia_node_collect_observer_events(Events);
+        stop -> ok;
+        Event -> mnesia_node_collect_observer_events([Event | Events])
+    end.
+
+mnesia_node_get_observed_events(Node, Observer) ->
+    mnesia_node_call(Node, fun() ->
+        Ref = monitor(process, Observer),
+        Observer ! {events, self(), Ref},
+        receive
+            {Ref, Events} -> demonitor(Ref, [flush]), Events;
+            {'DOWN', Ref, process, Observer, Reason} -> error({observer_down, Reason})
+        after 5000 -> 
+                demonitor(Ref, [flush]), error(observer_timeout)
+        end
+    end).
+
+mnesia_node_get_orphan_load_requests(Node, Observer, Origin) ->
+    [{Target, Tab} ||
+        {trace, _, call, {mnesia_late_loader, maybe_async_late_disc_load,
+                         [Target, Tabs, {adopt_orphan, From}]}}
+            <- mnesia_node_get_observed_events(Node, Observer),
+        From == Origin, Tab <- Tabs].
+
+mnesia_node_has_inconsistency_event(Node, Observer, Other) ->
+    lists:any(fun
+        ({mnesia_system_event, {inconsistent_database, Context, N}}) ->
+            N == Other andalso
+                (Context == running_partitioned_network orelse
+                 Context == starting_partitioned_network);
+        (_) -> false
+    end, mnesia_node_get_observed_events(Node, Observer)).
