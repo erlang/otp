@@ -1,0 +1,137 @@
+## %CopyrightBegin%
+##
+## SPDX-License-Identifier: Apache-2.0
+##
+## Copyright Ericsson AB 2024-2026. All Rights Reserved.
+##
+## Licensed under the Apache License, Version 2.0 (the "License");
+## you may not use this file except in compliance with the License.
+## You may obtain a copy of the License at
+##
+##     http://www.apache.org/licenses/LICENSE-2.0
+##
+## Unless required by applicable law or agreed to in writing, software
+## distributed under the License is distributed on an "AS IS" BASIS,
+## WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+## See the License for the specific language governing permissions and
+## limitations under the License.
+##
+## %CopyrightEnd%
+
+name: Check PRs and Docs are published
+description: 'Checks that PRs have test results and documentation preview published'
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: 0 1 * * *
+
+permissions:
+  contents: read
+
+jobs:
+  run-scheduled-pr-sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read       # actions/checkout
+      pull-requests: read  # gh pr list
+      issues: write        # gh issue create
+    strategy:
+      matrix:
+        branch: [master, maint]
+      fail-fast: false
+    if: github.repository == 'erlang/otp'
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6.0.2
+        with:
+          ref: 'master'
+          persist-credentials: false
+
+      - uses: erlef/setup-beam@e6d7c94229049569db56a7ad5a540c051a010af9 # ratchet:erlef/setup-beam@v1.20.4
+        with:
+          otp-version: '28'
+
+      - uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # ratchet:actions/create-github-app-token@v2.2.1
+        id: app-token
+        with:
+          app-id: ${{ vars.ERLANG_BOT_APP_ID }}
+          private-key: ${{ secrets.ERLANG_BOT_PRIVATE_KEY }}
+
+      - name: Authenticate gh
+        env:
+          STEPS_APP_TOKEN_OUTPUTS_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          echo "${STEPS_APP_TOKEN_OUTPUTS_TOKEN}" | gh auth login --with-token
+
+      - name: Get GitHub App User ID
+        id: get-user-id
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          STEPS_APP_TOKEN_OUTPUTS_APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+        run: echo "user-id=$(gh api "/users/${STEPS_APP_TOKEN_OUTPUTS_APP_SLUG}[bot]" --jq .id)" >> "$GITHUB_OUTPUT"
+
+      - env:
+          STEPS_APP_TOKEN_OUTPUTS_APP_SLUG: ${{ steps.app-token.outputs.app-slug }}
+          STEPS_GET_USER_ID_OUTPUTS_USER_ID: ${{ steps.get-user-id.outputs.user-id }}
+        run: |
+          git config --global user.name "${STEPS_APP_TOKEN_OUTPUTS_APP_SLUG}[bot]"
+          git config --global user.email "${STEPS_GET_USER_ID_OUTPUTS_USER_ID}+${STEPS_APP_TOKEN_OUTPUTS_APP_SLUG}[bot]@users.noreply.github.com"
+
+      - name: 'Run checker'
+        id: checker
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          BRANCH: ${{ matrix.branch }}
+        run: |
+          curl -sSf https://erlang.org/github-pr/ -o github_pr.html
+
+          PR_NUMBERS=$(gh pr list -R erlang/otp -B "${BRANCH}" -L 10 -s open --json number | jq -r '.[].number')
+
+          MISSING=()
+
+          for pr in $PR_NUMBERS; do
+            if grep -q "href=\"${pr}/\"" github_pr.html; then
+              echo "✅ PR #${pr} found"
+            else
+              echo "❌ PR #${pr} NOT found"
+              MISSING+=("$pr")
+            fi
+          done
+
+          if [ ${#MISSING[@]} -gt 0 ]; then
+            echo "missing_prs=${MISSING[*]}" >> "$GITHUB_OUTPUT"
+            echo "The following PRs are missing from erlang.org/github-pr/: ${MISSING[*]}"
+            exit 1
+          else
+            echo "All PRs are present on erlang.org/github-pr/"
+          fi
+
+      - name: Open issue if checker failed
+        if: failure() && steps.checker.conclusion == 'failure'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+          MISSING_PRS: ${{ steps.checker.outputs.missing_prs }}
+          BRANCH: ${{ matrix.branch }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          CHECKLIST=""
+          for pr in $MISSING_PRS; do
+            CHECKLIST="${CHECKLIST}- [ ] #${pr}"$'\n'
+          done
+
+          BODY=$(cat <<EOF
+          ## ❌ PR docs/test results not published
+
+          The following open PRs targeting \`${BRANCH}\` are missing from https://erlang.org/github-pr/:
+
+          ${CHECKLIST}
+          This was detected by the scheduled workflow \`Check PRs and Docs are published\`.
+          Run: ${RUN_URL}
+          EOF
+          )
+
+          gh issue create \
+            --repo erlang/otp \
+            --title "Missing PR previews on erlang.org/github-pr/ for ${BRANCH} ($(date -u +'%Y-%m-%d'))" \
+            --body "$BODY" \
+            --label "bug"
