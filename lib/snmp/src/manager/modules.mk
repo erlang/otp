@@ -23,6 +23,7 @@
 BEHAVIOUR_MODULES = \
 	snmpm_user \
 	snmpm_user_old \
+	snmpm_error_report \
 	snmpm_network_interface \
 	snmpm_network_interface_filter
 
@@ -30,6 +31,9 @@ MODULES = \
 	snmpm \
 	snmpm_conf \
 	snmpm_config \
+	snmpm_error \
+	snmpm_error_io \
+	snmpm_error_logger \
 	snmpm_mpd \
 	snmpm_misc_sup \
 	snmpm_net_if \
