@@ -516,9 +516,7 @@ dump_bin_ref(fmtfn_t to, void *to_arg, BinRef *br)
      * revisit this. */
     erts_print(to, to_arg,
                "Yc" PTR_FMT ":" PTR_FMT ":" PTR_FMT "\n",
-               binary,
-               binary->orig_bytes,
-               binary->orig_size);
+               binary, 0, binary->orig_size);
 }
 
 static void
