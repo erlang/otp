@@ -829,7 +829,12 @@ parse_address(Config) when is_list(Config) ->
 	 {{16#c11,16#c22,16#5c33,0,0,0,0,0},
 	  "c11:c22:5c33::"},
 	 {{0,0,0,0,0,65535,258,65534},"::ffff:1.2.255.254"},
-         {{16#fe80,12345,0,0,0,0,0,16#12},"fe80::12%012345"},
+         {{16#fe80,12345,0,0,0,0,0,16#12},"fe80::12%12345"},
+         {{16#fe80,1,0,0,0,0,0,16#12},"fe80::12%1"},
+         {{16#fe80,16#ffff,0,0,0,0,0,16#12},"fe80::12%65535"},
+         {{16#fe80,7,0,0,0,0,0,0},"fe80::%7"},
+         {{16#fe80,5,1,0,0,0,0,1},"fe80:0:1::1%5"},
+         {{16#ff02,5,0,0,0,0,0,1},"ff02::1%5"},
 	 {{16#ffff,16#ffff,16#ffff,16#ffff,16#ffff,16#ffff,16#ffff,16#ffff},
 	  "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"}
          |[{list_to_tuple(P++[(D1 bsl 8) bor D2,(D3 bsl 8) bor D4]),
@@ -850,7 +855,7 @@ parse_address(Config) when is_list(Config) ->
 	 {{252,253,254,255},"00374.0XFDFEFF"},
 	 {{252,253,254,255},"4244504319"},
 	 {{252,253,254,255},"0xfcfdfeff"},
-	 {{252,253,254,255},"00000000000037477377377"},
+         {{252,253,254,255},"037477377377"},
 	 {{16#12,16#34,16#56,16#78},"0x12345678"},
 	 {{16#12,16#34,16#56,16#78},"0x12.0x345678"},
 	 {{16#12,16#34,16#56,16#78},"0x12.0X34.0x5678"},
@@ -863,7 +868,15 @@ parse_address(Config) when is_list(Config) ->
 	 {{0,0,0,0},"0.0.000000000000.0"}],
     V6Sloppy =
         [{{16#a,16#b,16#c,16#0,16#0,16#d,16#e,16#f},"A:B:C::d:e:f"},
-         {{16#fe80,0,0,0,0,0,0,16#12},"fe80::12%XXXXXXX"}]
+         {{16#fe80,0,0,0,0,0,0,16#12},"fe80::12%XXXXXXX"},
+         {{16#fe80,0,0,0,0,0,0,16#12},"fe80::12%eth0"},
+         %% Explicit zone index 0
+         {{16#fe80,0,0,0,0,0,0,16#12},"fe80::12%0"},
+         %% A zone id with a leading zero is not a numerical zone index,
+         %% so it is ignored like any other zone name
+         {{16#fe80,0,0,0,0,0,0,16#12},"fe80::12%012345"},
+         %% Zone index after an uncompressed address
+         {{16#fe80,7,0,0,0,0,0,16#12},"fe80:0:0:0:0:0:0:12%7"}]
         ++
         [{{P,0,0,0,0,D2,(D1 bsl 8) bor D2,(D3 bsl 8) bor D4},
           Q++erlang:integer_to_list(D2, 16)++":"++S}
@@ -884,7 +897,10 @@ parse_address(Config) when is_list(Config) ->
 	 "10.",
 	 "172.16.",
 	 "198.168.0.",
-	 "127.0.0.1."],
+         "127.0.0.1.",
+         "",
+         "1.2.3.4x",
+         " 1.2.3.4"],
     V6Err =
 	[":::",
 	 "f:::2",
@@ -910,7 +926,17 @@ parse_address(Config) when is_list(Config) ->
 	 "::10.",
 	 "::FFFF:172.16.",
 	 "fe80::198.168.0.",
-	 "fec0::fFfF:127.0.0.1."],
+         "fec0::fFfF:127.0.0.1.",
+         "::1x",
+         "1::2::3",
+         "::%",
+         "1::1%",
+         "fe80::12%65536",
+         "fe80::12%1x",
+         "fe80::12%5%6",
+         "::1%5",
+         "2001:db8::1%5",
+         "fe80:1::1%5"],
     t_parse_address
       (parse_ipv6_address,
        false,
@@ -926,7 +952,18 @@ parse_address(Config) when is_list(Config) ->
     t_parse_address
       (parse_ipv4strict_address,
        true,
-       V4Reversable++V4Err++V6Err++[S || {_,S} <- V4Sloppy++V6Reversable]).
+       V4Reversable++V4Err++V6Err++[S || {_,S} <- V4Sloppy++V6Reversable]),
+    t_parse_address
+      (parse_address,
+       false,
+       V4Reversable++V4Sloppy++V6Reversable++V6Sloppy++V4Err++V6Err),
+    t_parse_address
+      (parse_strict_address,
+       false,
+       V4Reversable++V6Reversable++V6Sloppy++
+       [S || {_,S} <- V4Sloppy]++V4Err++V6Err),
+    ok = parse_address_binary_combined(),
+    ok = parse_address_non_char_elements().
 
 t_parse_address(Func, _Reversable, []) ->
     io:format("~p done.~n", [Func]),
@@ -934,6 +971,7 @@ t_parse_address(Func, _Reversable, []) ->
 t_parse_address(Func, Reversible, [{Addr,String}|L]) ->
     io:format("~p = ~p.~n", [Addr,String]),
     {ok,Addr} = inet:Func(String),
+    {ok,Addr} = inet:Func(list_to_binary(String)),
     case Reversible of
         true ->String = inet:ntoa(Addr);
         false -> ok
@@ -942,15 +980,77 @@ t_parse_address(Func, Reversible, [{Addr,String}|L]) ->
 t_parse_address(Func, Reversible, [String|L]) ->
     io:format("~p.~n", [String]),
     {error,einval} = inet:Func(String),
+    {error,einval} = inet:Func(list_to_binary(String)),
     t_parse_address(Func, Reversible, L).
 
+parse_address_binary_combined() ->
+    %% inet:parse_address/1, parse_strict_address/1, and /2 — binary same as list
+    V4 = <<"192.168.0.1">>,
+    V6 = <<"::1">>,
+    {ok, T4} = inet:parse_address(V4),
+    {ok, T4} = inet:parse_address(binary_to_list(V4)),
+    {ok, T6} = inet:parse_address(V6),
+    {ok, T6} = inet:parse_address(binary_to_list(V6)),
+    {ok, T4} = inet:parse_strict_address(V4),
+    {ok, T4} = inet:parse_strict_address(binary_to_list(V4)),
+    {ok, T6} = inet:parse_strict_address(V6),
+    {ok, T6} = inet:parse_strict_address(binary_to_list(V6)),
+    {ok, T4} = inet:parse_address(V4, inet),
+    {ok, T4} = inet:parse_address(binary_to_list(V4), inet),
+    {ok, T6} = inet:parse_address(V6, inet6),
+    {ok, T6} = inet:parse_address(binary_to_list(V6), inet6),
+    {ok, T4} = inet:parse_strict_address(V4, inet),
+    {ok, T4} = inet:parse_strict_address(binary_to_list(V4), inet),
+    {ok, T6} = inet:parse_strict_address(V6, inet6),
+    {ok, T6} = inet:parse_strict_address(binary_to_list(V6), inet6),
+    {error, einval} = inet:parse_address(<<"not.an.ip">>, inet),
+    {error, einval} = inet:parse_address(<<"not.an.ip">>, inet6),
+    {error, einval} = inet:parse_strict_address(<<"not.an.ip">>, inet),
+    {error, einval} = inet:parse_strict_address(<<"not.an.ip">>, inet6),
+    ok.
+
+parse_address_non_char_elements() ->
+    %% A list element that is not an integer must give {error, einval} and not an exception;
+    %% in particular a float within the range of a digit or a hex letter, which passes a plain
+    %% comparison guard but not an is_integer/3 guard
+    Bad =
+        [[$1 + 0.5, $., $2, $., $3, $., $4],
+         "1.2.3." ++ [$4 + 0.5],
+         "0x" ++ [$1 + 0.5],
+         "::" ++ [$0 + 0.5],
+         "::" ++ [$a + 0.5],
+         "::" ++ [$A + 0.5],
+         [$1 + 0.5] ++ "::",
+         "1:" ++ [$2 + 0.5] ++ ":3::",
+         "1:2:3:4:5:6:7:" ++ [$8 + 0.5],
+         "::1." ++ [$2 + 0.5] ++ ".3.4",
+         "::ffff:1.2.3." ++ [$4 + 0.5]],
+    lists:foreach(
+      fun (S) ->
+              io:format("~p.~n", [S]),
+              {error, einval} = inet:parse_ipv4_address(S),
+              {error, einval} = inet:parse_ipv4strict_address(S),
+              {error, einval} = inet:parse_ipv6_address(S),
+              {error, einval} = inet:parse_ipv6strict_address(S),
+              {error, einval} = inet:parse_address(S),
+              {error, einval} = inet:parse_strict_address(S)
+      end, Bad),
+    ok.
+
 parse_strict_address(Config) when is_list(Config) ->
-    {ok, {127,0,0,1}} =
-	inet:parse_strict_address("127.0.0.1"),
-    {ok, {3089,3106,23603,50240,21952,50796,119,136}} =
-	inet:parse_strict_address("c11:0c22:5c33:c440:55c0:c66c:77:0088"),
-    {ok, {3089,3106,23603,50240,0,0,119,136}} =
-	inet:parse_strict_address("c11:0c22:5c33:c440::077:0088").
+    Lo = "127.0.0.1",
+    R0 = {127,0,0,1},
+    L1 = "c11:0c22:5c33:c440:55c0:c66c:77:0088",
+    R1 = {3089,3106,23603,50240,21952,50796,119,136},
+    L2 = "c11:0c22:5c33:c440::077:0088",
+    R2 = {3089,3106,23603,50240,0,0,119,136},
+    {ok, R0} = inet:parse_strict_address(Lo),
+    {ok, R0} = inet:parse_strict_address(list_to_binary(Lo)),
+    {ok, R1} = inet:parse_strict_address(L1),
+    {ok, R1} = inet:parse_strict_address(list_to_binary(L1)),
+    {ok, R2} = inet:parse_strict_address(L2),
+    {ok, R2} = inet:parse_strict_address(list_to_binary(L2)),
+    ok.
 
 is_ip_address(Config) when is_list(Config) ->
     IPv4Addresses = [
@@ -1031,6 +1131,11 @@ ipv4_mapped_ipv6_address(Config) when is_list(Config) ->
 
 
 ntoa(Config) when is_list(Config) ->
+    %% Zone index suffix for link-local unicast and multicast addresses,
+    %% and no suffix for other addresses
+    "fe80::12%5" = inet:ntoa({16#fe80,5,0,0,0,0,0,16#12}),
+    "ff02::1%65535" = inet:ntoa({16#ff02,16#ffff,0,0,0,0,0,1}),
+    "2001:db8::1" = inet:ntoa({16#2001,16#db8,0,0,0,0,0,1}),
     M8 = 1 bsl 8,
     M16 = 1 bsl 16,
     V4Xs = rand_tuple(4, M8),
@@ -1057,7 +1162,8 @@ ntoa([A | As], Max) ->
     of
         true ->
             S = inet:ntoa(A),
-            {ok, A} = inet:parse_address(S);
+            {ok, A} = inet:parse_address(S),
+            {ok, A} = inet:parse_address(list_to_binary(S));
         false ->
             {error, einval} = inet:ntoa(A)
     end,
