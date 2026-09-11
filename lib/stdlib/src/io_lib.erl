@@ -81,7 +81,7 @@ used for flattening deep lists.
 -export([write_binary/3]).
 -export([write_atom/1,write_string/1,write_string/2,write_latin1_string/1,
          write_latin1_string/2, write_char/1, write_latin1_char/1,
-         bwrite_string/3
+         bwrite_atom/2,bwrite_string/3
         ]).
 
 -export([write_atom_as_latin1/1, write_string_as_latin1/1,
@@ -674,12 +674,9 @@ write_bin1(Term, _D, _Enc, _O, Sz, Acc) when is_integer(Term) ->
 write_bin1(Term, _D, _Enc, _O, Sz, Acc) when is_float(Term) ->
     Float = float_to_binary(Term, [short]),
     {<<Acc/binary, Float/binary>>, byte_size(Float)+Sz};
-write_bin1(Atom, _D, latin1, _O, Sz, Acc) when is_atom(Atom) ->
-    Str = unicode:characters_to_binary(write_atom_as_latin1(Atom)),
-    {<<Acc/binary, Str/binary>>, byte_size(Str)+Sz};
-write_bin1(Atom, _D, _Enc, _O, Sz, Acc) when is_atom(Atom) ->
-    Str = write_atom(Atom),
-    {<<Acc/binary, (unicode:characters_to_binary(Str))/binary>>, length(Str)+Sz};
+write_bin1(Atom, _D, Enc, _O, Sz, Acc) when is_atom(Atom) ->
+    Str = bwrite_atom(Atom, Enc),
+    {<<Acc/binary, Str/binary>>, string:length(Str)+Sz};
 write_bin1(Term, _D, _Enc, _O, Sz, Acc) when is_port(Term) ->
     Str = (list_to_binary(erlang:port_to_list(Term))),
     {<<Acc/binary, Str/binary>>, byte_size(Str)+Sz};
@@ -969,6 +966,33 @@ write_possibly_quoted_atom(Atom, PFun) ->
 	    Chars
     end.
 
+-doc """
+Returns the unicode binary of characters needed to print atom `Atom`.
+
+Behaves as `write_atom_as_latin1/1` when encoding is latin1, otherwise
+as `write_atom/1`.
+""".
+
+-doc(#{since => <<"OTP-20380">>}).
+-spec bwrite_atom(Atom, InEncoding) -> unicode:unicode_binary() when
+      Atom :: atom(),
+      InEncoding :: 'latin1' | 'utf8' | 'unicode'.
+bwrite_atom(Atom, latin1) ->
+    %% latin1: code points > 255 are escaped as \x{...}, which the
+    %% binary escaping path does not handle.
+    unicode:characters_to_binary(write_atom_as_latin1(Atom), latin1);
+bwrite_atom(Atom, InEncoding) ->
+    AtomBin = atom_to_binary(Atom, InEncoding),
+    case erl_scan:reserved_word(Atom) orelse
+        not name_chars_bin(AtomBin)
+    of
+        true ->
+            {Quoted, _} = write_string_bin(AtomBin, $', InEncoding),
+            Quoted;
+        false ->
+            AtomBin
+    end.
+
 %% quote_atom(Atom, CharList)
 %%  Return 'true' if atom with chars in CharList needs to be quoted, else
 %%  return 'false'. Notice that characters >= 160 are always quoted.
@@ -1006,6 +1030,32 @@ name_char($_) -> true;
 name_char($@) -> true;
 name_char(_) -> false.
 
+
+%% Return true if can be an unquoted binary atom
+%%
+%% The first character must be a lowercase letter (a..z or latin1
+%% lowercase ß..ÿ except ÷); otherwise the atom must be quoted.
+name_chars_bin(<<C/utf8, Rest/binary>>)
+  when C >= $a, C =< $z;
+       C >= $ß, C =< $ÿ, C =/= $÷ ->
+    name_chars_bin_rest(Rest);
+name_chars_bin(_) ->
+    false.
+
+name_chars_bin_rest(<<C/utf8, Rest/binary>>) ->
+    if
+        C >= $a, C =< $z -> name_chars_bin_rest(Rest);
+        C >= $ß, C =< $ÿ, C =/= $÷ -> name_chars_bin_rest(Rest);
+        C >= $A, C =< $Z -> name_chars_bin_rest(Rest);
+        C >= $À, C =< $Þ, C =/= $× -> name_chars_bin_rest(Rest);
+        C >= $0, C =< $9 -> name_chars_bin_rest(Rest);
+        C =:= $_ -> name_chars_bin_rest(Rest);
+        C =:= $@ -> name_chars_bin_rest(Rest);
+        true -> false
+    end;
+name_chars_bin_rest(<<>>) ->
+    true.
+
 %%% There are two functions to write Unicode strings:
 %%% - they both escape control characters < 160;
 %%% - write_string() never escapes characters >= 160;
@@ -1032,7 +1082,7 @@ write_string(S, Q) ->
 -spec bwrite_string(String, Qoute, InEnc) -> unicode:unicode_binary() when
       String :: string() | binary(),
       Qoute  :: integer() | [],
-      InEnc  :: 'unicode' | 'latin1'.  %% In case of binary input
+      InEnc  :: 'unicode' | 'utf8' | 'latin1'.  %% In case of binary input
 
 bwrite_string(S, Q, InEnc) ->
     {Bin, _Sz} = write_string_bin(S, Q, InEnc),
@@ -1042,10 +1092,10 @@ bwrite_string(S, Q, InEnc) ->
 -spec write_string_bin(String, Qoute, InEnc) -> {unicode:unicode_binary(), Sz::integer()} when
       String :: string() | binary(),
       Qoute  :: integer() | [],
-      InEnc  :: 'unicode' | 'latin1'.  %% In case of binary input
+      InEnc  :: 'unicode' | 'utf8' | 'latin1'.  %% In case of binary input
 
 write_string_bin(S, Q, _InEnc) when is_list(S) ->
-    Escaped = write_string(S,Q),
+    Escaped = write_string(S, Q),
     Sz = chars_length(Escaped),
     Bin = unicode:characters_to_binary(Escaped),
     true = is_binary(Bin),
@@ -1056,7 +1106,7 @@ write_string_bin(S, Q, latin1) when is_binary(S) ->
     Bin = unicode:characters_to_binary([Q,Escaped,Q], latin1, utf8),
     true = is_binary(Bin),
     {Bin, Sz};
-write_string_bin(S, Q, unicode) when is_binary(S) ->
+write_string_bin(S, Q, _) when is_binary(S) ->
     Escaped = string_bin_escape_unicode(S, S, Q, [], 0, 0),
     Bin = case Q of
               [] when is_binary(Escaped) -> Escaped;
