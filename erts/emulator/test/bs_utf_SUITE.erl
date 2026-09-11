@@ -30,8 +30,14 @@
          utf8_big_file/1]).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
--define(FAIL(Expr), fail_check(catch Expr, ??Expr, [])).
+-define(FAIL(Expr),
+        fail_check((fun() ->
+                        try Expr
+                        catch error:R:S -> {'EXIT', {R, S}}
+                        end
+                    end)(), ??Expr, [])).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -216,7 +222,7 @@ utf8_illegal_sequences(Config) when is_list(Config) ->
     ok.
 
 fail_range(Char, End) when Char =< End ->
-    {'EXIT',_} = (catch <<Char/utf8>>),
+    ?assertError(_, <<Char/utf8>>),
     Bin = int_to_utf8(Char),
     fail(Bin),
     fail(<<Bin/binary,0:64>>),
@@ -316,8 +322,8 @@ utf16_illegal_sequences(Config) when is_list(Config) ->
     ok.
 
 utf16_fail_range(Char, End) when Char =< End ->
-    {'EXIT',_} = (catch <<Char/big-utf16>>),
-    {'EXIT',_} = (catch <<Char/little-utf16>>),
+    ?assertError(_, <<Char/big-utf16>>),
+    ?assertError(_, <<Char/little-utf16>>),
     utf16_fail_range(Char+1, End);
 utf16_fail_range(_, _) -> ok.
 
@@ -365,8 +371,8 @@ utf32_illegal_sequences(Config) when is_list(Config) ->
     ok.
 
 utf32_fail_range(Char, End) when Char =< End ->
-    {'EXIT',_} = (catch <<Char/big-utf32>>),
-    {'EXIT',_} = (catch <<Char/little-utf32>>),
+    ?assertError(_, <<Char/big-utf32>>),
+    ?assertError(_, <<Char/little-utf32>>),
     case {<<Char:32>>,<<Char:32/little>>} of
         {<<Unexpected/utf32>>,_} ->
             ct:fail(Unexpected);
@@ -381,22 +387,22 @@ bad_construction(Config) when is_list(Config) ->
     ?FAIL(<<3.14/utf8>>),
     ?FAIL(<<3.1415/utf16>>),
     ?FAIL(<<3.1415/utf32>>),
-    {'EXIT',_} = (catch <<(id(3.14))/utf8>>),
-    {'EXIT',_} = (catch <<(id(3.1415))/utf16>>),
-    {'EXIT',_} = (catch <<(id(3.1415))/utf32>>),
+    ?assertError(_, <<(id(3.14))/utf8>>),
+    ?assertError(_, <<(id(3.1415))/utf16>>),
+    ?assertError(_, <<(id(3.1415))/utf32>>),
 
     ?FAIL(<<(-1)/utf8>>),
     ?FAIL(<<(-1)/utf16>>),
-    {'EXIT',_} = (catch <<(id(-1))/utf8>>),
-    {'EXIT',_} = (catch <<(id(-1))/utf16>>),
-    {'EXIT',_} = (catch <<(id(-1))/utf32>>),
+    ?assertError(_, <<(id(-1))/utf8>>),
+    ?assertError(_, <<(id(-1))/utf16>>),
+    ?assertError(_, <<(id(-1))/utf32>>),
 
     ?FAIL(<<16#D800/utf8>>),
     ?FAIL(<<16#D800/utf16>>),
     ?FAIL(<<16#D800/utf32>>),
-    {'EXIT',_} = (catch <<(id(16#D800))/utf8>>),
-    {'EXIT',_} = (catch <<(id(16#D800))/utf16>>),
-    {'EXIT',_} = (catch <<(id(16#D800))/utf32>>),
+    ?assertError(_, <<(id(16#D800))/utf8>>),
+    ?assertError(_, <<(id(16#D800))/utf16>>),
+    ?assertError(_, <<(id(16#D800))/utf32>>),
 
     ok.
 

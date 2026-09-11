@@ -43,6 +43,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("common_test/include/ct_event.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2, 
@@ -333,9 +334,9 @@ bad_list_to_binary(Config) when is_list(Config) ->
     test_bad_bin([atom_in_list]),
     test_bad_bin([[<<8>>]|bad_tail]),
 
-    {'EXIT',{badarg,_}} = (catch list_to_binary(id(<<1,2,3>>))),
-    {'EXIT',{badarg,_}} = (catch list_to_binary(id([<<42:7>>]))),
-    {'EXIT',{badarg,_}} = (catch list_to_bitstring(id(<<1,2,3>>))),
+    ?assertError(badarg, list_to_binary(id(<<1,2,3>>))),
+    ?assertError(badarg, list_to_binary(id([<<42:7>>]))),
+    ?assertError(badarg, list_to_bitstring(id(<<1,2,3>>))),
     
     %% Funs used to be implemented as a type of binary internally.
     test_bad_bin(fun(X, Y) -> X*Y end),
@@ -356,18 +357,18 @@ huge_iolists() ->
     Base = <<0:(1 bsl 20)/unit:8>>,
     [begin
 	 L = build_iolist(Sz, Base),
-	 {'EXIT',{system_limit,_}} = (catch list_to_binary([L])),
-	 {'EXIT',{system_limit,_}} = (catch list_to_bitstring([L])),
-	 {'EXIT',{system_limit,_}} = (catch binary:list_to_bin([L])),
-	 {'EXIT',{system_limit,_}} = (catch iolist_to_binary(L))
+         ?assertError(system_limit, list_to_binary([L])),
+         ?assertError(system_limit, list_to_bitstring([L])),
+         ?assertError(system_limit, binary:list_to_bin([L])),
+         ?assertError(system_limit, iolist_to_binary(L))
 	 end || Sz <- Sizes],
     ok.
 
 test_bad_bin(List) ->
-    {'EXIT',{badarg,_}} = (catch list_to_binary(List)),
-    {'EXIT',{badarg,_}} = (catch iolist_to_binary(List)),
-    {'EXIT',{badarg,_}} = (catch list_to_bitstring(List)),
-    {'EXIT',{badarg,_}} = (catch iolist_size(List)).
+    ?assertError(badarg, list_to_binary(List)),
+    ?assertError(badarg, iolist_to_binary(List)),
+    ?assertError(badarg, list_to_bitstring(List)),
+    ?assertError(badarg, iolist_size(List)).
 
 %% Tries binary_to_list/1,3 with bad arguments.
 bad_binary_to_list(Config) when is_list(Config) ->
@@ -378,15 +379,15 @@ bad_binary_to_list(Config) when is_list(Config) ->
     bad_bin_to_list(GoodBin, 0, 1),
     bad_bin_to_list(GoodBin, 2, 1),
     bad_bin_to_list(GoodBin, 11, 11),
-    {'EXIT',{badarg,_}} = (catch binary_to_list(id(<<42:7>>))),
+    ?assertError(badarg, binary_to_list(id(<<42:7>>))),
     ok.
 
 bad_bin_to_list(BadBin) ->
-    {'EXIT',{badarg,_}} = (catch binary_to_list(BadBin)),
-    {'EXIT',{badarg,_}} = (catch bitstring_to_list(BadBin)).
+    ?assertError(badarg, binary_to_list(BadBin)),
+    ?assertError(badarg, bitstring_to_list(BadBin)).
 
 bad_bin_to_list(Bin, First, Last) ->
-    {'EXIT',{badarg,_}} = (catch binary_to_list(Bin, First, Last)).
+    ?assertError(badarg, binary_to_list(Bin, First, Last)).
     
     
 %% Tries to split a binary at all possible positions.
@@ -443,7 +444,7 @@ bad_split(Config) when is_list(Config) ->
     ok.
     
 bad_split(Bin, Pos) ->
-    {'EXIT',{badarg,_}} = (catch split_binary(Bin, Pos)).
+    ?assertError(badarg, split_binary(Bin, Pos)).
 
 %% Test hash/2 with different type of binaries.
 t_hash(Config) when is_list(Config) ->
@@ -471,21 +472,21 @@ test_hash_1(Bin, Sbin, Unaligned, Hash) when is_function(Hash, 2) ->
 
 %% Try bad arguments to size/1.
 bad_size(Config) when is_list(Config) ->
-    {'EXIT',{badarg,_}} = (catch size(fun(X) -> X + 33 end)),
+    ?assertError(badarg, size(fun(X) -> X + 33 end)),
     ok.
 
 bad_term_to_binary(Config) when is_list(Config) ->
     T = id({a,b,c}),
-    {'EXIT',{badarg,_}} = (catch term_to_binary(T, not_a_list)),
-    {'EXIT',{badarg,_}} = (catch term_to_binary(T, [blurf])),
-    {'EXIT',{badarg,_}} = (catch term_to_binary(T, [iovec])),
-    {'EXIT',{badarg,_}} = (catch term_to_binary(T, [{compressed,-1}])),
-    {'EXIT',{badarg,_}} = (catch term_to_binary(T, [{compressed,10}])),
-    {'EXIT',{badarg,_}} = (catch term_to_binary(T, [{compressed,cucumber}])),
-    {'EXIT',{badarg,_}} = (catch term_to_binary(T, [{compressed}])),
-    {'EXIT',{badarg,_}} = (catch term_to_binary(T, [{version,1}|bad_tail])),
-    {'EXIT',{badarg,_}} = (catch term_to_binary(T, [{minor_version,-1}])),
-    {'EXIT',{badarg,_}} = (catch term_to_binary(T, [{minor_version,x}])),
+    ?assertError(badarg, term_to_binary(T, not_a_list)),
+    ?assertError(badarg, term_to_binary(T, [blurf])),
+    ?assertError(badarg, term_to_binary(T, [iovec])),
+    ?assertError(badarg, term_to_binary(T, [{compressed,-1}])),
+    ?assertError(badarg, term_to_binary(T, [{compressed,10}])),
+    ?assertError(badarg, term_to_binary(T, [{compressed,cucumber}])),
+    ?assertError(badarg, term_to_binary(T, [{compressed}])),
+    ?assertError(badarg, term_to_binary(T, [{version,1}|bad_tail])),
+    ?assertError(badarg, term_to_binary(T, [{minor_version,-1}])),
+    ?assertError(badarg, term_to_binary(T, [{minor_version,x}])),
 
     ok.
 
@@ -544,7 +545,9 @@ test_t2b_system_limit(HugeBin, Name, F1, F2) ->
     ok.
 
 t2b_eval(F) ->
-    Result = (catch F()),
+    Result = try F()
+             catch error:Reason:Stk -> {'EXIT', {Reason, Stk}}
+             end,
     io:put_chars(io_lib:format("~P\n", [Result,100])),
     Result.
 
@@ -1018,7 +1021,7 @@ t_iolist_size_huge_bad_arg_list(Config)  when is_list(Config) ->
               spawn_link(fun() ->
                                  IOListTmp = duplicate_iolist(approx_1GB_bin(), 32),
                                  IOList = [IOListTmp, [badarg]],
-                                 {'EXIT',{badarg,_}} = catch iolist_size(IOList),
+                                 ?assertError(badarg, iolist_size(IOList)),
                                  P ! ok
                          end),
               receive ok -> ok end
@@ -1085,7 +1088,7 @@ run_iolist_size_test_and_benchmark(Lengths, ListGenerator) ->
                                     fun({Size, List}) -> Size = iolist_size(List) end,
                                     GoodListsWithSizes),
                                   lists:foreach(
-                                    fun({_, List}) -> {'EXIT',_} = (catch (iolist_size(List))) end,
+                                    fun({_, List}) -> ?assertError(_, iolist_size(List)) end,
                                     BadListsWithSizes)
                           end,
                           lists:seq(1,3))
@@ -1171,10 +1174,10 @@ bad_binary_to_term(Config) when is_list(Config) ->
     ok.
 
 bad_bin_to_term(BadBin) ->
-    {'EXIT',{badarg,_}} = (catch binary_to_term_stress(BadBin)).
+    ?assertError(badarg, binary_to_term_stress(BadBin)).
 
 bad_bin_to_term(BadBin,Opts) ->
-    {'EXIT',{badarg,_}} = (catch binary_to_term_stress(BadBin,Opts)).
+    ?assertError(badarg, binary_to_term_stress(BadBin,Opts)).
 
 
 %% OTP-18343: Decode unsorted flatmap as key in hashmap
@@ -1237,10 +1240,10 @@ big_binary_roundtrip(Bin) ->
 
 bad_terms(Config) when is_list(Config) ->
     test_terms(fun corrupter/1),
-    {'EXIT',{badarg,_}} = (catch binary_to_term(<<131,$M,3:32,0,11,22,33>>)),
-    {'EXIT',{badarg,_}} = (catch binary_to_term(<<131,$M,3:32,9,11,22,33>>)),
-    {'EXIT',{badarg,_}} = (catch binary_to_term(<<131,$M,0:32,1,11,22,33>>)),
-    {'EXIT',{badarg,_}} = (catch binary_to_term(<<131,$M,-1:32,1,11,22,33>>)),
+    ?assertError(badarg, binary_to_term(<<131,$M,3:32,0,11,22,33>>)),
+    ?assertError(badarg, binary_to_term(<<131,$M,3:32,9,11,22,33>>)),
+    ?assertError(badarg, binary_to_term(<<131,$M,0:32,1,11,22,33>>)),
+    ?assertError(badarg, binary_to_term(<<131,$M,-1:32,1,11,22,33>>)),
     ok.
 
 corrupter(Term) ->
@@ -1259,15 +1262,21 @@ corrupter(Term) ->
 
 corrupter(Bin, Pos) when Pos >= 0 ->
     {ShorterBin, Rest} = split_binary(Bin, Pos),
-    catch binary_to_term_stress(ShorterBin), %% emulator shouldn't crash
+    try binary_to_term_stress(ShorterBin)
+    catch _:_ -> ok
+    end, %% emulator shouldn't crash
     MovedBin = list_to_binary([ShorterBin]),
-    catch binary_to_term_stress(MovedBin), %% emulator shouldn't crash
+    try binary_to_term_stress(MovedBin)
+    catch _:_ -> ok
+    end, %% emulator shouldn't crash
 
     %% Bit faults, shouldn't crash
     <<Byte,Tail/binary>> = Rest,
     Fun = fun(M) -> FaultyByte = Byte bxor M,                    
-		    catch binary_to_term_stress(<<ShorterBin/binary,
-					  FaultyByte, Tail/binary>>) end,
+                    try binary_to_term_stress(<<ShorterBin/binary,
+                                                FaultyByte, Tail/binary>>)
+                    catch _:_ -> ok
+                    end end,
     lists:foreach(Fun,[1,2,4,8,16,32,64,128,255]),    
     corrupter(Bin, Pos-1);
 corrupter(_Bin, _) ->
@@ -1278,16 +1287,15 @@ more_bad_terms(Config) when is_list(Config) ->
     BadFile = filename:join(Data, "bad_binary"),
     ok = io:format("File: ~s\n", [BadFile]),
     case file:read_file(BadFile) of
-	      {ok,Bin} ->
-		  {'EXIT',{badarg,_}} = (catch binary_to_term_stress(Bin)),
-		  ok;
-	      Other ->
-		  ct:fail(Other)
-	  end.
+        {ok,Bin} ->
+            ?assertError(badarg, binary_to_term_stress(Bin)),
+            ok;
+        Other ->
+            ct:fail(Other)
+    end.
 
 otp_5484(Config) when is_list(Config) ->
-    {'EXIT',_} =
-	(catch
+    ?assertError(_,
 	     binary_to_term_stress(
 	       <<131,
 		104,2,				%Tuple, 2 elements
@@ -1299,8 +1307,7 @@ otp_5484(Config) when is_list(Config) ->
 		255,
 		106>>)),
 
-    {'EXIT',_} =
-	(catch
+    ?assertError(_,
 	     binary_to_term_stress(
 	       <<131,
 		104,2,				%Tuple, 2 elements
@@ -1311,14 +1318,12 @@ otp_5484(Config) when is_list(Config) ->
 		2,
 		106>>)),
 
-    {'EXIT',_} =
-	(catch
+    ?assertError(_,
 	     binary_to_term_stress(
 	       %% A old-type fun in a list containing a bad creator pid.
 	       <<131,108,0,0,0,1,117,0,0,0,0,103,100,0,13,110,111,110,111,100,101,64,110,111,104,111,115,116,255,255,0,25,255,0,0,0,0,100,0,1,116,97,0,98,6,142,121,72,106>>)),
 
-    {'EXIT',_} =
-	(catch
+    ?assertError(_,
 	     binary_to_term_stress(
 	       %% A new-type fun in a list containing a bad creator pid.
 	       %% 
@@ -1329,8 +1334,7 @@ otp_5484(Config) when is_list(Config) ->
 		106,				%[] instead of an atom.
 		0,0,0,27,0,0,0,0,0,106>>)),
 
-    {'EXIT',_} =
-	(catch
+    ?assertError(_,
 	     binary_to_term_stress(
 	       %% A new-type fun in a list containing a bad module.
 	       <<131,
@@ -1340,8 +1344,7 @@ otp_5484(Config) when is_list(Config) ->
 		107,0,1,64,			%String instead of atom (same length).
 		97,0,98,6,64,82,230,103,100,0,13,110,111,110,111,100,101,64,110,111,104,111,115,116,0,0,0,48,0,0,0,0,0,97,42,97,7,106>>)),
 
-    {'EXIT',_} =
-	(catch
+    ?assertError(_,
 	     binary_to_term_stress(
 	       %% A new-type fun in a list containing a bad index.
 	       <<131,
@@ -1352,8 +1355,7 @@ otp_5484(Config) when is_list(Config) ->
 		104,0,				%Tuple {} instead of integer.
 		98,6,64,82,230,103,100,0,13,110,111,110,111,100,101,64,110,111,104,111,115,116,0,0,0,48,0,0,0,0,0,97,42,97,7,106>>)),
 
-    {'EXIT',_} =
-	(catch
+    ?assertError(_,
 	     binary_to_term_stress(
 	       %% A new-type fun in a list containing a bad unique value.
 	       <<131,
@@ -1366,47 +1368,40 @@ otp_5484(Config) when is_list(Config) ->
 		103,100,0,13,110,111,110,111,100,101,64,110,111,104,111,115,116,0,0,0,48,0,0,0,0,0,97,42,97,7,106>>)),
 
     %% An absurdly large atom.
-    {'EXIT',_} = 
-	(catch binary_to_term_stress(iolist_to_binary([<<131,100,65000:16>>|
+    ?assertError(_, binary_to_term_stress(iolist_to_binary([<<131,100,65000:16>>|
 						lists:duplicate(65000, 42)]))),
 
     %% Longer than 255 characters.
-    {'EXIT',_} = 
-	(catch binary_to_term_stress(iolist_to_binary([<<131,100,256:16>>|
+    ?assertError(_, binary_to_term_stress(iolist_to_binary([<<131,100,256:16>>|
 						lists:duplicate(256, 42)]))),
 
     %% OTP-7218. Thanks to Matthew Dempsky. Also make sure that we
     %% cover the other error cases for external funs (EXPORT_EXT).
-    {'EXIT',_} = 
-	(catch binary_to_term_stress(
+    ?assertError(_, binary_to_term_stress(
 		 <<131,
 		  113,				%EXPORT_EXP
 		  97,13,			%Integer: 13
 		  97,13,			%Integer: 13
 		  97,13>>)),			%Integer: 13
-    {'EXIT',_} = 
-	(catch binary_to_term_stress(
+    ?assertError(_, binary_to_term_stress(
 		 <<131,
 		  113,				%EXPORT_EXP
 		  100,0,1,64,			%Atom: '@'
 		  97,13,			%Integer: 13
 		  97,13>>)),			%Integer: 13
-    {'EXIT',_} = 
-	(catch binary_to_term_stress(
+    ?assertError(_, binary_to_term_stress(
 		 <<131,
 		  113,				%EXPORT_EXP
 		  100,0,1,64,			%Atom: '@'
 		  100,0,1,64,			%Atom: '@'
 		  106>>)),			%NIL
-    {'EXIT',_} = 
-	(catch binary_to_term_stress(
+    ?assertError(_, binary_to_term_stress(
 		 <<131,
 		  113,				%EXPORT_EXP
 		  100,0,1,64,			%Atom: '@'
 		  100,0,1,64,			%Atom: '@'
 		  98,255,255,255,255>>)),	%Integer: -1
-    {'EXIT',_} = 
-	(catch binary_to_term_stress(
+    ?assertError(_, binary_to_term_stress(
 		 <<131,
 		  113,				%EXPORT_EXP
 		  100,0,1,64,			%Atom: '@'
@@ -1414,7 +1409,7 @@ otp_5484(Config) when is_list(Config) ->
 		  113,97,13,97,13,97,13>>)),	%fun 13:13/13
 
     %% Bad funs.
-    {'EXIT',_} = (catch binary_to_term_stress(fake_fun(0, lists:seq(0, 256)))),
+    ?assertError(_, binary_to_term_stress(fake_fun(0, lists:seq(0, 256)))),
     ok.
 
 fake_fun(Arity, Env0) ->
@@ -1448,7 +1443,7 @@ try_bad_lengths(B) ->
 try_bad_lengths(B, L) when L > 16#FFFFFFF0 ->
     Bin = <<B/binary,L:32>>,
     io:format("~p\n", [Bin]),
-    {'EXIT',_} = (catch binary_to_term_stress(Bin)),
+    ?assertError(_, binary_to_term_stress(Bin)),
     try_bad_lengths(B, L-1);
 try_bad_lengths(_, _) -> ok.
 
@@ -1502,7 +1497,9 @@ otp_6817_try_bin(Bin) ->
     %% If the bug is present, the heap pointer will moved when the invalid term
     %% is found and we will have a linked list passing through the limbo area
     %% between the heap top and the stack pointer.
-    catch binary_to_term_stress(Bin),
+    try binary_to_term_stress(Bin)
+    catch _:_ -> ok
+    end,
 
     %% If the bug is present, we will overwrite the pointers in the limbo area.
     Filler = erlang:make_tuple(1024, 16#3FA),
@@ -1920,7 +1917,7 @@ run_otp_8180(Name) ->
     {ok,Bins} = file:consult(Name),
     [begin
 	 io:format("~p\n", [Bin]),
-	 {'EXIT',{badarg,_}} = (catch binary_to_term_stress(Bin))
+         ?assertError(badarg, binary_to_term_stress(Bin))
      end || Bin <- Bins],
     ok.
 
