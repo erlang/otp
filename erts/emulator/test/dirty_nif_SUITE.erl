@@ -39,6 +39,7 @@
 	 dirty_process_register/1, dirty_process_trace/1,
 	 code_purge/1, literal_area/1, dirty_nif_send_traced/1,
 	 nif_whereis/1, nif_whereis_parallel/1, nif_whereis_proxy/1,
+         dirty_port_command/1,
          set_halt_options_from_nif/1,
          delay_halt/1,
          delay_halt_old_code/1,
@@ -65,6 +66,7 @@
        dirty_heap_access_nif/1,
        whereis_term/2,
        whereis_send/3,
+       dirty_port_command/2,
        dirty_terminating_literal_access/2,
        delay_halt_normal/3,
        delay_halt_io_bound/3,
@@ -94,6 +96,7 @@ all() ->
      dirty_nif_send_traced,
      nif_whereis,
      nif_whereis_parallel,
+     dirty_port_command,
      {group, halt_normal},
      {group, halt_dirty_cpu},
      {group, halt_dirty_io},
@@ -1048,6 +1051,21 @@ nif_whereis(Config) when is_list(Config) ->
     false = whereis_term(port, RegName),
     ok.
 
+%% enif_port_command() from a dirty scheduler must return false, not crash,
+%% when the port is no longer alive (GH-11221).
+dirty_port_command(Config) when is_list(Config) ->
+    erl_ddll:try_load(?config(data_dir, Config), echo_drv, []),
+
+    Port = open_port({spawn, echo_drv}, [eof]),
+    Msg = ?MODULE_STRING " dirty port command\n",
+    ok = dirty_port_command(Port, Msg),
+    ok = receive {Port, {data, Msg}} -> ok after 1000 -> ct:fail(timeout) end,
+
+    %% Closed port: lookup returns NULL on the dirty path.
+    port_close(Port),
+    false = dirty_port_command(Port, Msg),
+    ok.
+
 nif_whereis_parallel(Config) when is_list(Config) ->
 
     %% try to be at least a little asymmetric
@@ -1179,6 +1197,7 @@ dirty_sleeper(_) -> ?nif_stub.
 dirty_heap_access_nif(_) -> ?nif_stub.
 whereis_term(_Type,_Name) -> ?nif_stub.
 whereis_send(_Type,_Name,_Msg) -> ?nif_stub.
+dirty_port_command(_Port,_Msg) -> ?nif_stub.
 dirty_terminating_literal_access(_Me, _Literal) -> ?nif_stub.
 delay_halt_normal(_Pid, _FileName, _Delay) -> ?nif_stub.
 delay_halt_io_bound(_Pid, _FileName, _Delay) -> ?nif_stub.
