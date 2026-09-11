@@ -378,12 +378,12 @@ Add the following directive to the module:
 -doc """
 An IP address in text form, as accepted by the `parse_*` functions.
 
-Either a character list such as `"192.168.0.1"`,
+Either a [character list](`t:string/0`) such as `"192.168.0.1"`,
 or a `t:binary/0` such as `~"192.168.0.1"`.
 
-Since OTP30 a binary is accepted; before that only a list.
+*Since OTP @OTP-20357@* a binary is accepted; before that only a list.
 """.
--type address_string() :: list(byte()) | binary().
+-type address_string() :: string() | binary().
 
 -type port_number() :: 0..65535.
 
