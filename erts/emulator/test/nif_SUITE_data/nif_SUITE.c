@@ -1007,24 +1007,27 @@ static ERL_NIF_TERM make_new_resource(ErlNifEnv* env, int argc, const ERL_NIF_TE
 
 static ERL_NIF_TERM make_new_resource_binary(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    ErlNifBinary data_bin;
     union { struct binary_resource* p; void* vp; } br;
-    void* buf;
+    ErlNifBinary data_bin;
     ERL_NIF_TERM ret;
+    void* buf;
+
     if (!enif_inspect_binary(env, argv[0], &data_bin)
-	|| (br.vp = enif_alloc_resource(binary_resource_type,
-					sizeof(struct binary_resource)))==NULL
-	|| (buf = enif_alloc(data_bin.size)) == NULL) {
-	
-	return enif_make_badarg(env);
-    }    
+        || (br.vp = enif_alloc_resource(binary_resource_type,
+                                        sizeof(struct binary_resource))) == NULL
+        || (buf = enif_alloc(data_bin.size)) == NULL) {
+        return enif_make_badarg(env);
+    }
+
     memset(br.vp,0xba,sizeof(struct binary_resource)); /* avoid valgrind warning */
     br.p->data = buf;
     br.p->size = data_bin.size;
-    memcpy(br.p->data, data_bin.data, data_bin.size);    
-    ret = enif_make_resource_binary(env, br.vp, br.p->data, br.p->size);    
+    memcpy(br.p->data, data_bin.data, data_bin.size);
+
+    ret = enif_make_resource_binary(env, br.vp, br.p->data, br.p->size);
     enif_release_resource(br.p);
-    return enif_make_tuple2(env, make_pointer(env,br.vp), ret);
+
+    return enif_make_tuple2(env, make_pointer(env, br.p->data), ret);
 }
 
 static void binary_resource_dtor(ErlNifEnv* env, void* obj)
@@ -3895,6 +3898,20 @@ static ERL_NIF_TERM msa_find_y_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
     return ok_bin;
 }
 
+
+static ERL_NIF_TERM resource_binary_info_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    ErlNifBinary bin;
+
+    if (!enif_inspect_binary(env, argv[0], &bin)) {
+        return enif_make_badarg(env);
+    }
+
+    return enif_make_tuple2(env,
+                            make_pointer(env, bin.data),
+                            enif_make_uint64(env, bin.size));
+}
+
 static ErlNifFunc nif_funcs[] =
 {
     {"lib_version", 0, lib_version},
@@ -4014,7 +4031,8 @@ static ErlNifFunc nif_funcs[] =
     {"term_size_nif", 1, term_size_nif},
     {"atom_out_cache_index_nif", 1, atom_out_cache_index_nif},
     {"max_atom_out_cache_index_nif", 0, max_atom_out_cache_index_nif},
-    {"msa_find_y_nif", 1, msa_find_y_nif}
+    {"msa_find_y_nif", 1, msa_find_y_nif},
+    {"resource_binary_info_nif", 1, resource_binary_info_nif}
 };
 
 ERL_NIF_INIT(nif_SUITE,nif_funcs,load,NULL,upgrade,unload)
