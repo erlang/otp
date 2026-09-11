@@ -376,12 +376,12 @@ Add the following directive to the module:
 -type ip_address() :: ip4_address() | ip6_address().
 
 -doc """
-Textual IPv4 or IPv6 address input for `parse_*` functions.
+An IP address in text form, as accepted by the `parse_*` functions.
 
-A `string()` character list is the traditional argument type.
-*Since OTP @OTP-20357@*, that changed to `list(byte())` or a `binary()`,
-because in the corresponding C API:s, it is a `char *`.
-(for example `~"192.168.0.1" = <<"192.168.0.1">>` or `"192.168.0.1"`).
+Either a character list such as `"192.168.0.1"`,
+or a `t:binary/0` such as `~"192.168.0.1"`.
+
+Since OTP30 a binary is accepted; before that only a list.
 """.
 -type address_string() :: list(byte()) | binary().
 
