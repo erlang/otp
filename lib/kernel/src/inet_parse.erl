@@ -869,13 +869,13 @@ ipv6_addr_done(Ar) ->
 %% DecValue: integer (decimal interpretation) or -1 if any a-f/A-F seen.
 ipv6_hex(Cs) -> ipv6_hex(Cs, 0, 0, 0).
 
-ipv6_hex([C | Cs], V, D, N) when C >= $0, C =< $9, N < 4 ->
+ipv6_hex([C | Cs], V, D, N) when is_integer(C, $0, $9), N < 4 ->
     ipv6_hex(Cs, (V bsl 4) bor (C - $0),
              if D >= 0 -> D * 10 + (C - $0); true -> D end,
              N + 1);
-ipv6_hex([C | Cs], V, _, N) when C >= $a, C =< $f, N < 4 ->
+ipv6_hex([C | Cs], V, _, N) when is_integer(C, $a, $f), N < 4 ->
     ipv6_hex(Cs, (V bsl 4) bor (C - $a + 10), -1, N + 1);
-ipv6_hex([C | Cs], V, _, N) when C >= $A, C =< $F, N < 4 ->
+ipv6_hex([C | Cs], V, _, N) when is_integer(C, $A, $F), N < 4 ->
     ipv6_hex(Cs, (V bsl 4) bor (C - $A + 10), -1, N + 1);
 ipv6_hex(Cs, V, D, N) when N > 0 ->
     {V, D, N, Cs};

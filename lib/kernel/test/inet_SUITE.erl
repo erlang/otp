@@ -943,7 +943,8 @@ parse_address(Config) when is_list(Config) ->
        false,
        V4Reversable++V6Reversable++V6Sloppy++
        [S || {_,S} <- V4Sloppy]++V4Err++V6Err),
-    ok = parse_address_binary_combined().
+    ok = parse_address_binary_combined(),
+    ok = parse_address_non_char_elements().
 
 t_parse_address(Func, _Reversable, []) ->
     io:format("~p done.~n", [Func]),
@@ -987,6 +988,34 @@ parse_address_binary_combined() ->
     {error, einval} = inet:parse_address(<<"not.an.ip">>, inet6),
     {error, einval} = inet:parse_strict_address(<<"not.an.ip">>, inet),
     {error, einval} = inet:parse_strict_address(<<"not.an.ip">>, inet6),
+    ok.
+
+parse_address_non_char_elements() ->
+    %% A list element that is not an integer must give {error, einval} and not an exception;
+    %% in particular a float within the range of a digit or a hex letter, which passes a plain
+    %% comparison guard but not an is_integer/3 guard
+    Bad =
+        [[$1 + 0.5, $., $2, $., $3, $., $4],
+         "1.2.3." ++ [$4 + 0.5],
+         "0x" ++ [$1 + 0.5],
+         "::" ++ [$0 + 0.5],
+         "::" ++ [$a + 0.5],
+         "::" ++ [$A + 0.5],
+         [$1 + 0.5] ++ "::",
+         "1:" ++ [$2 + 0.5] ++ ":3::",
+         "1:2:3:4:5:6:7:" ++ [$8 + 0.5],
+         "::1." ++ [$2 + 0.5] ++ ".3.4",
+         "::ffff:1.2.3." ++ [$4 + 0.5]],
+    lists:foreach(
+      fun (S) ->
+              io:format("~p.~n", [S]),
+              {error, einval} = inet:parse_ipv4_address(S),
+              {error, einval} = inet:parse_ipv4strict_address(S),
+              {error, einval} = inet:parse_ipv6_address(S),
+              {error, einval} = inet:parse_ipv6strict_address(S),
+              {error, einval} = inet:parse_address(S),
+              {error, einval} = inet:parse_strict_address(S)
+      end, Bad),
     ok.
 
 parse_strict_address(Config) when is_list(Config) ->
