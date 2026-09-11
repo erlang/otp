@@ -180,6 +180,8 @@ STDLIB_MODULES=error_info_lib
 ERL_FILES= $(MODULES:%=%.erl) \
 	$(STDLIB_MODULES:%=$(ERL_TOP)/lib/stdlib/test/%.erl)
 
+HRL_FILES= erts_test_utils.hrl
+
 TARGET_FILES = $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 
 KERNEL_MODULES=gen_tcp_dist
@@ -254,6 +256,7 @@ release_tests_spec: make_emakefile
 	$(INSTALL_DIR) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(EMAKEFILE) $(TEST_SPEC_FILES) \
 		$(ERL_FILES) "$(RELSYSDIR)"
+	$(INSTALL_DATA) $(HRL_FILES) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(NO_OPT_ERL_FILES) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(KERNEL_ERL_FILES) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(STRIPPED_TYPES_ERL_FILES) "$(RELSYSDIR)"

@@ -348,9 +348,9 @@ big_float_1(Config) when is_list(Config) ->
 big_float_2(Config) when is_list(Config) ->
     F = id(1.7e308),
     I = trunc(F),
-    {'EXIT', _} = (catch 1/(2*I)),
+    ?assertError(_, 1/(2*I)),
     _Ignore = 2/I,
-    {'EXIT', _} = (catch 4/(2*I)),
+    ?assertError(_, 4/(2*I)),
     ok.
 
 %% Converting a bignum to a float must give the nearest representable
@@ -417,10 +417,7 @@ correctly_rounded(I) ->
 
 %% OTP-3256
 shift_limit_1(Config) when is_list(Config) ->
-    case catch (id(1) bsl 100000000) of
-	      {'EXIT', {system_limit, _}} ->
-		  ok
-	  end,
+    ?assertError(system_limit, (id(1) bsl 100000000)),
     ok.
 
 powmod(Config) when is_list(Config) ->
@@ -447,15 +444,15 @@ powmod(A, B, C) ->
 
 system_limit(Config) when is_list(Config) ->
     Maxbig = maxbig(),
-    {'EXIT',{system_limit,_}} = (catch Maxbig+1),
-    {'EXIT',{system_limit,_}} = (catch -Maxbig-1),
-    {'EXIT',{system_limit,_}} = (catch 2*Maxbig),
-    {'EXIT',{system_limit,_}} = (catch bnot Maxbig),
-    {'EXIT',{system_limit,_}} = (catch apply(erlang, id('bnot'), [Maxbig])),
-    {'EXIT',{system_limit,_}} = (catch Maxbig bsl 2),
-    {'EXIT',{system_limit,_}} = (catch apply(erlang, id('bsl'), [Maxbig,2])),
-    {'EXIT',{system_limit,_}} = (catch id(1) bsl (1 bsl 45)),
-    {'EXIT',{system_limit,_}} = (catch id(1) bsl (1 bsl 69)),
+    ?assertError(system_limit, Maxbig+1),
+    ?assertError(system_limit, -Maxbig-1),
+    ?assertError(system_limit, 2*Maxbig),
+    ?assertError(system_limit, bnot Maxbig),
+    ?assertError(system_limit, apply(erlang, id('bnot'), [Maxbig])),
+    ?assertError(system_limit, Maxbig bsl 2),
+    ?assertError(system_limit, apply(erlang, id('bsl'), [Maxbig,2])),
+    ?assertError(system_limit, id(1) bsl (1 bsl 45)),
+    ?assertError(system_limit, id(1) bsl (1 bsl 69)),
 
     ?assertError(system_limit, Maxbig bxor -1),
     ?assertError(system_limit, apply(erlang, id('bxor'), [Maxbig,-1])),
@@ -486,7 +483,7 @@ maxbig() ->
     erlang:system_info(max_integer).
 
 toobig(Config) when is_list(Config) ->
-    {'EXIT',{{badmatch,_},_}} = (catch toobig()),
+    ?assertError({badmatch,_}, toobig()),
     ok.
 
 toobig() ->
