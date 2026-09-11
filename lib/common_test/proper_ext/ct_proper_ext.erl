@@ -138,7 +138,7 @@ safe_any(N, Size) ->
         {list, 1} ->
             [proper_types:lazy(fun() -> safe_any(N, Size - 1) end)];
         {list, NumEls} ->
-            ElSizes = distribute(Size - 1, NumEls),
+            ElSizes = distribute(NumEls, Size - 1),
             proper_types:fixed_list([proper_types:lazy(fun() ->
                                                            safe_any(N, S)
                                                        end)
@@ -148,25 +148,42 @@ safe_any(N, Size) ->
         {tuple, 1} ->
             {proper_types:lazy(fun() -> safe_any(N, Size - 1) end)};
         {tuple, NumEls} ->
-            ElSizes = distribute(Size - 1, NumEls),
+            ElSizes = distribute(NumEls, Size - 1),
             proper_types:tuple([proper_types:lazy(fun() ->
                                                       safe_any(N, S)
                                                   end)
-                                || S <- ElSizes])
+                                || S <- ElSizes]);
+        {map, 0} ->
+            #{};
+        {map, NumPairs} ->
+            ElSizes = distribute(2 * NumPairs, Size - 1),
+            proper_types:bind(safe_pairs(N, ElSizes),
+                              fun maps:from_list/1,
+                              false)
     end.
 
-%% Randomly picks a type with the following distribution (same as in PropEr):
-%% * 25% tuples
-%% * 25% lists
-%% * 12.5% bitstrings
-%% * 37.5% simple types
+safe_pairs(N, [KeySize, ValSize|ElSizes]) ->
+    [{proper_types:lazy(fun() -> safe_any(N, KeySize) end),
+      proper_types:lazy(fun() -> safe_any(N, ValSize) end)}
+     |safe_pairs(N, ElSizes)];
+safe_pairs(_N, []) ->
+    [].
+
+%% Randomly picks a type with the following distribution:
+%% * 17% tuples
+%% * 17% lists
+%% * 17% maps
+%% * 12% bitstrings
+%% * 37% simple types
 pick_type(Size) ->
     case rand:uniform(1000) of
-        X when X =< 250 ->
+        X when X =< 170 ->
             {tuple, rand_int0(Size)};
-        X when X =< 500 ->
+        X when X =< 340 ->
             {list, rand_int0(Size)};
-        X when X =< 625 ->
+        X when X =< 510 ->
+            {map, rand_int0(Size div 2)};
+        X when X =< 630 ->
             binary;
         _ ->
             simple
