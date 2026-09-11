@@ -109,6 +109,14 @@ access each other.
 
 The function is synchronous and all the nodes, and all the system servers, are
 running when it returns a value.
+
+## Examples
+
+```erlang
+1> Nodes = pool:start(mypool).
+2> length(Nodes) >= 1.
+true
+```
 """.
 -spec start(Name, Args) -> Nodes when
       Name :: atom(),
@@ -124,7 +132,17 @@ start(Name, Args) when is_atom(Name) ->
 %%
 %% Interface functions ...
 %%
--doc "Returns a list of the current member nodes of the pool.".
+-doc """
+Returns a list of the current member nodes of the pool.
+
+## Examples
+
+```erlang
+1> Nodes = pool:start(mypool).
+2> length(pool:get_nodes()) >= length(Nodes).
+true
+```
+""".
 -spec get_nodes() -> [node()].
 get_nodes() ->
     get_elements(2, get_nodes_and_load()).
@@ -132,6 +150,14 @@ get_nodes() ->
 -doc """
 Ensures that a pool master is running and includes `Node` in the pool master's
 pool of nodes.
+
+## Examples
+
+```erlang
+1> Nodes = pool:start(mypool).
+2> pool:attach(hd(Nodes)).
+already_attached
+```
 """.
 -spec attach(Node) -> 'already_attached' | 'attached' when
       Node :: node().
@@ -142,7 +168,17 @@ attach(Node) ->
 get_nodes_and_load() ->
     gen_server:call({global, pool_master}, get_nodes).
 
--doc "Returns the node with the expected lowest future load.".
+-doc """
+Returns the node with the expected lowest future load.
+
+## Examples
+
+```erlang
+1> Nodes = pool:start(mypool).
+2> is_atom(pool:get_node()).
+true
+```
+""".
 -spec get_node() -> node().
 get_node() ->
     gen_server:call({global, pool_master}, get_node).
@@ -150,6 +186,15 @@ get_node() ->
 -doc """
 Spawns a process on the pool node that is expected to have the lowest future
 load.
+
+## Examples
+
+```erlang
+1> Nodes = pool:start(mypool).
+2> Pid = pool:pspawn(erlang, node, []).
+3> is_pid(Pid).
+true
+```
 """.
 -spec pspawn(Mod, Fun, Args) -> pid() when
       Mod :: module(),
@@ -161,6 +206,15 @@ pspawn(M, F, A) ->
 -doc """
 Spawns and links to a process on the pool node that is expected to have the
 lowest future load.
+
+## Examples
+
+```erlang
+1> Nodes = pool:start(mypool).
+2> Pid = pool:pspawn_link(erlang, node, []).
+3> is_pid(Pid).
+true
+```
 """.
 -spec pspawn_link(Mod, Fun, Args) -> pid() when
       Mod :: module(),
@@ -184,7 +238,18 @@ start_nodes([Host|Tail], Name, Args) ->
 	    [Node | start_nodes(Tail, Name, Args)]
     end.
 
--doc "Stops the pool and kills all the slave nodes.".
+-doc """
+Stops the pool and kills all the slave nodes.
+
+## Examples
+
+```erlang
+1> Nodes = pool:start(mypool), ok.
+ok
+2> pool:stop().
+stopped
+```
+""".
 -spec stop() -> 'stopped'.
 stop() ->
     gen_server:call({global, pool_master}, stop).

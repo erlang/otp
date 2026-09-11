@@ -125,6 +125,17 @@ at the slave node. This is illustrated as follows:
 ```erlang
 rpc:call(N, slave, pseudo, [node(), [pxw_server]]).
 ```
+
+## Examples
+
+```erlang
+1> register(my_service, self()).
+2> {ok, N} = slave:start(net_adm:localhost(), pseudo_slave).
+3> rpc:call(N, slave, pseudo, [node(), [my_service]]).
+ok
+4> rpc:call(N, erlang, whereis, [my_service]) =/= undefined.
+true
+```
 """.
 -spec pseudo(Master, ServerList) -> ok when
       Master :: node(),
@@ -148,6 +159,15 @@ start_pseudo(_,_,_) -> ok.  %% It's already there
 Runs a pseudo server. This function never returns any value and the process that
 executes the function receives messages. All messages received are simply passed
 on to `Pid`.
+
+## Examples
+
+```erlang
+1> RelayPid = spawn(slave, relay, [self()]).
+2> RelayPid ! hello.
+3> receive hello -> relayed end.
+relayed
+```
 """.
 -spec relay(Pid) -> no_return() when
       Pid :: pid().
@@ -203,10 +223,7 @@ relay1(Pid) ->
 %%          {error, no_rsh} |
 %%	    {error, {already_running, Name@Host}}
 
--doc """
-Equivalent to [`start(Host, Name)`](`start/2`) where `Name` is the same
-as the node that executes this call.
-""".
+-doc(#{equiv => start(Host, node())}).
 -spec start(Host) -> {ok, Node} | {error, Reason} when
       Host :: inet:hostname(),
       Node :: node(),
@@ -273,6 +290,12 @@ otherwise `{error, Reason}`, where `Reason` can be one of:
   `ssh` is used by default, but this can be overridden with the `-rsh` flag.
 
 - **`{already_running, Node}`** - A node with name `Name@Host` already exists.
+
+## Examples
+
+```erlang
+1> {ok, Node} = slave:start(net_adm:localhost(), my_slave, "-pa /tmp").
+```
 """.
 -spec start(Host, Name, Args) -> {ok, Node} | {error, Reason} when
       Host :: inet:hostname(),
@@ -312,6 +335,12 @@ slave node also terminates.
 
 For a description of arguments and return values, see
 [`start/1,2,3`](`start/1`).
+
+## Examples
+
+```erlang
+1> {ok, Node} = slave:start_link(net_adm:localhost(), my_linked_slave).
+```
 """.
 -spec start_link(Host, Name, Args) -> {ok, Node} | {error, Reason} when
       Host :: inet:hostname(),
@@ -345,7 +374,17 @@ start(Host0, Name, Args, LinkTo, Prog) ->
 
 %% Stops a running node.
 
--doc "Stops (kills) a node.".
+-doc """
+Stops (kills) a node.
+
+## Examples
+
+```erlang
+1> {ok, Node} = slave:start(net_adm:localhost(), my_stoppable_slave).
+2> slave:stop(Node).
+ok
+```
+""".
 -spec stop(Node) -> ok when
       Node :: node().
 
