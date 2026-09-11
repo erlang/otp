@@ -914,6 +914,7 @@ parse_address(Config) when is_list(Config) ->
 	 "::01700",
 	 "10000::",
 	 "01000::",
+         "9:8:7:6:5:4:3:2:1"
 	 "::8:7:6:5:4:3:2:1",
 	 "8:7:6:5:4:3:2:1::",
 	 "8:7:6:5:4::3:2:1",
@@ -1163,10 +1164,22 @@ ntoa([A | As], Max) ->
     of
         true ->
             S = inet:ntoa(A),
-            {ok, A} = inet:parse_address(S),
-            {ok, A} = inet:parse_address(list_to_binary(S));
+            case inet:parse_address(S) of
+                {ok, A} -> ok;
+                Other1 ->
+                    error({wrong, Other1, A, S})
+            end,
+            case inet:parse_address(list_to_binary(S)) of
+                {ok, A} -> ok;
+                Other2 ->
+                    error({wrong, Other2, A, S})
+            end;
         false ->
-            {error, einval} = inet:ntoa(A)
+            case inet:ntoa(A) of
+                {error, einval} -> ok;
+                Other3 ->
+                    error({wrong, Other3, A})
+            end
     end,
     ntoa(As, Max);
 ntoa([], _Max) ->
