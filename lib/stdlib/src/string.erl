@@ -166,7 +166,7 @@ functions of both packages have been retained.
 -type grapheme_cluster() :: char() | [char()].
 -type direction() :: 'leading' | 'trailing'.
 
--dialyzer({no_improper_lists, [stack/2, length_b/3, str_to_map/2]}).
+-dialyzer({no_improper_lists, [stack/2, length_b/4, str_to_map/2]}).
 %%% BIFs internal (not documented) should not to be used outside of this module
 %%% May be removed
 -export([list_to_float/1, list_to_integer/1]).
@@ -255,7 +255,7 @@ _Example:_
 -doc(#{group => <<"Functions">>,since => <<"OTP 20.0">>}).
 -spec length(String::unicode:chardata()) -> non_neg_integer().
 length(<<CP1/utf8, Bin/binary>>) ->
-    length_b(Bin, CP1, 0);
+    length_b(Bin, CP1, [], 0);
 length(CD) ->
     length_1(CD, 0).
 
@@ -1145,6 +1145,30 @@ next_codepoint(CD) -> unicode_util:cp(CD).
 length_1([CP1|[CP2|_]=Cont], N) when ?ASCII_LIST(CP1,CP2) ->
     length_1(Cont, N+1);
 length_1(Str, N) ->
+    length_disp(Str, N).
+
+%% Dispatch for the non-flat-ASCII cases. Kept in a separate function so the
+%% hot two-clause flat-ASCII-list loop above is not slowed by these clauses
+%% sharing its pattern-match decision tree.
+length_disp([CP1,Bin|Cont], N)
+  when is_integer(CP1, 0, 255), CP1 =/= $\r, is_binary(Bin) ->
+    length_b(Bin, CP1, Cont, N);
+length_disp([Bin|Cont], N) when is_binary(Bin) ->
+    case Bin of
+        <<CP1/utf8, Rest/binary>> -> length_b(Rest, CP1, Cont, N);
+        <<>> -> length_1(Cont, N);
+        _ -> length_gc([Bin|Cont], N)
+    end;
+length_disp(Bin, N) when is_binary(Bin) ->
+    case Bin of
+        <<CP1/utf8, Rest/binary>> -> length_b(Rest, CP1, [], N);
+        <<>> -> N;
+        _ -> length_gc(Bin, N)
+    end;
+length_disp(Str, N) ->
+    length_gc(Str, N).
+
+length_gc(Str, N) ->
     case unicode_util:gc(Str) of
         [] -> N;
         [_|Rest] -> length_1(Rest, N+1);
@@ -1152,19 +1176,25 @@ length_1(Str, N) ->
     end.
 
 %% Binary fast path: 8 single-byte UTF-8 units per step.
-length_b(<<W:56, B, Rest/binary>>, CP1, N)
+length_b(<<W:56, B, Rest/binary>>, CP1, Cont, N)
   when CP1 =/= $\r, B =/= $\r,
        CP1 < 128, B < 128,
        ?are_all_ascii_len_swar(W) ->
-    length_b(Rest, B, N+8);
-length_b(<<CP2/utf8, Rest/binary>>, CP1, N)
+    length_b(Rest, B, Cont, N+8);
+length_b(<<CP2/utf8, Rest/binary>>, CP1, Cont, N)
   when ?ASCII_LIST(CP1,CP2) ->
-    length_b(Rest, CP2, N+1);
-length_b(Bin0, CP1, N) ->
-    [_|Bin1] = unicode_util:gc([CP1|Bin0]),
-    case unicode_util:cp(Bin1) of
+    length_b(Rest, CP2, Cont, N+1);
+length_b(<<>>, CP1, Cont, N) ->
+    case Cont of
         [] -> N+1;
-        [CP3|Bin] -> length_b(Bin, CP3, N+1);
+        _ -> length_gc([CP1|Cont], N)
+    end;
+length_b(Bin0, CP1, Cont, N) ->
+    [_|Cont1] = unicode_util:gc([CP1,Bin0|Cont]),
+    case unicode_util:cp(Cont1) of
+        [] -> N+1;
+        [CP3|Bin] when is_binary(Bin) -> length_b(Bin, CP3, [], N+1);
+        [_|_] = Rest -> length_gc(Rest, N+1);
         {error, Err} -> error({badarg, Err})
     end.
 
