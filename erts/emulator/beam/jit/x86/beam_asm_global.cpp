@@ -63,9 +63,9 @@ BeamGlobalAssembler::BeamGlobalAssembler(JitAllocator *allocator)
     }
 
 #ifndef WIN32
-    std::vector<AsmRange> ranges;
+    AsmMetadata metadata;
 
-    ranges.reserve(emitPtrs.size());
+    metadata.ranges.reserve(emitPtrs.size());
 
     for (auto val : emitPtrs) {
         ErtsCodePtr start = (ErtsCodePtr)getCode(labels[val.first]);
@@ -77,7 +77,7 @@ BeamGlobalAssembler::BeamGlobalAssembler(JitAllocator *allocator)
             stop = (ErtsCodePtr)((char *)getBaseAddress() + code.code_size());
         }
 
-        ranges.push_back(
+        metadata.ranges.push_back(
                 {.start = start,
                  .stop = stop,
                  .name = code.label_entry_of(labels[val.first]).name()});
@@ -86,7 +86,7 @@ BeamGlobalAssembler::BeamGlobalAssembler(JitAllocator *allocator)
     (void)beamasm_metadata_insert("global",
                                   (ErtsCodePtr)getBaseAddress(),
                                   code.code_size(),
-                                  ranges);
+                                  metadata);
 #endif
 
     /* `this->get_xxx` are populated last to ensure that we crash if we use them
