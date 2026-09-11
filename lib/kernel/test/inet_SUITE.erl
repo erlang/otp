@@ -830,6 +830,11 @@ parse_address(Config) when is_list(Config) ->
 	  "c11:c22:5c33::"},
 	 {{0,0,0,0,0,65535,258,65534},"::ffff:1.2.255.254"},
          {{16#fe80,12345,0,0,0,0,0,16#12},"fe80::12%12345"},
+         {{16#fe80,1,0,0,0,0,0,16#12},"fe80::12%1"},
+         {{16#fe80,16#ffff,0,0,0,0,0,16#12},"fe80::12%65535"},
+         {{16#fe80,7,0,0,0,0,0,0},"fe80::%7"},
+         {{16#fe80,5,1,0,0,0,0,1},"fe80:0:1::1%5"},
+         {{16#ff02,5,0,0,0,0,0,1},"ff02::1%5"},
 	 {{16#ffff,16#ffff,16#ffff,16#ffff,16#ffff,16#ffff,16#ffff,16#ffff},
 	  "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"}
          |[{list_to_tuple(P++[(D1 bsl 8) bor D2,(D3 bsl 8) bor D4]),
@@ -863,7 +868,15 @@ parse_address(Config) when is_list(Config) ->
 	 {{0,0,0,0},"0.0.000000000000.0"}],
     V6Sloppy =
         [{{16#a,16#b,16#c,16#0,16#0,16#d,16#e,16#f},"A:B:C::d:e:f"},
-         {{16#fe80,0,0,0,0,0,0,16#12},"fe80::12%XXXXXXX"}]
+         {{16#fe80,0,0,0,0,0,0,16#12},"fe80::12%XXXXXXX"},
+         {{16#fe80,0,0,0,0,0,0,16#12},"fe80::12%eth0"},
+         %% Explicit zone index 0
+         {{16#fe80,0,0,0,0,0,0,16#12},"fe80::12%0"},
+         %% A zone id with a leading zero is not a numerical zone index,
+         %% so it is ignored like any other zone name
+         {{16#fe80,0,0,0,0,0,0,16#12},"fe80::12%012345"},
+         %% Zone index after an uncompressed address
+         {{16#fe80,7,0,0,0,0,0,16#12},"fe80:0:0:0:0:0:0:12%7"}]
         ++
         [{{P,0,0,0,0,D2,(D1 bsl 8) bor D2,(D3 bsl 8) bor D4},
           Q++erlang:integer_to_list(D2, 16)++":"++S}
@@ -917,7 +930,13 @@ parse_address(Config) when is_list(Config) ->
          "::1x",
          "1::2::3",
          "::%",
-         "1::1%"],
+         "1::1%",
+         "fe80::12%65536",
+         "fe80::12%1x",
+         "fe80::12%5%6",
+         "::1%5",
+         "2001:db8::1%5",
+         "fe80:1::1%5"],
     t_parse_address
       (parse_ipv6_address,
        false,
@@ -1112,6 +1131,11 @@ ipv4_mapped_ipv6_address(Config) when is_list(Config) ->
 
 
 ntoa(Config) when is_list(Config) ->
+    %% Zone index suffix for link-local unicast and multicast addresses,
+    %% and no suffix for other addresses
+    "fe80::12%5" = inet:ntoa({16#fe80,5,0,0,0,0,0,16#12}),
+    "ff02::1%65535" = inet:ntoa({16#ff02,16#ffff,0,0,0,0,0,1}),
+    "2001:db8::1" = inet:ntoa({16#2001,16#db8,0,0,0,0,0,1}),
     M8 = 1 bsl 8,
     M16 = 1 bsl 16,
     V4Xs = rand_tuple(4, M8),
