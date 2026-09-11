@@ -1441,6 +1441,7 @@ trace_gc(Process *p, Eterm what, Uint size, Eterm msg)
     ErtsThrPrgrDelayHandle dhndl = erts_thr_progress_unmanaged_delay();
     ErtsTracerRef *ref;
     ErtsTracerRef *next_ref;
+    Eterm* o_hp = NULL;
 
     for (ref = p->common.tracee.first_ref; ref; ref = next_ref) {
         ErtsTracerNif *tnif = NULL;
@@ -1449,7 +1450,6 @@ trace_gc(Process *p, Eterm what, Uint size, Eterm msg)
         if (IS_SESSION_TRACED_FL(ref, F_TRACE_GC)
             && is_tracer_ref_enabled(p, ERTS_PROC_LOCK_MAIN, &p->common, ref,
                                      &tnif, TRACE_FUN_E_GC, what)) {
-            Eterm* o_hp = NULL;
             Eterm* hp;
             Uint sz = 0;
             Eterm tup;
@@ -1466,10 +1466,11 @@ trace_gc(Process *p, Eterm what, Uint size, Eterm msg)
 
             send_to_tracer_nif(p, &p->common, ref, p->common.id, tnif, TRACE_FUN_T_GC,
                                what, msg, THE_NON_VALUE, am_true);
-            if (o_hp)
-                erts_free(ERTS_ALC_T_TMP, o_hp);
         }
     }
+
+    if (o_hp)
+        erts_free(ERTS_ALC_T_TMP, o_hp);
     erts_thr_progress_unmanaged_continue(dhndl);
 }
 
