@@ -119,10 +119,15 @@ passes(Opts) ->
     BeamDebugInfo = proplists:get_bool(beam_debug_info, Opts),
     BeamDebugStack = BeamDebugInfo andalso
         is_enabled(Opts, beam_debug_stack, no_beam_debug_stack, false),
+    NoNativeRecOpts = proplists:get_bool(no_native_record_opt, Opts),
 
     Ps = [?PASS(assert_no_critical_edges),
 
           %% Preliminaries.
+          case NoNativeRecOpts of
+              true -> ignore;
+              false -> ?PASS(fix_native_records)
+          end,
           ?PASS(fix_bs),
           ?PASS(sanitize),
           ?PASS(expand_match_fail),
@@ -224,6 +229,87 @@ assert_no_ces(_, #b_blk{is=[#b_set{op=phi,args=[_,_]=Phis}|_]}, Blocks) ->
                end, Phis),                      %Assertion.
     Blocks;
 assert_no_ces(_, _, Blocks) -> Blocks.
+
+%% fix_native_records(St0) -> St.
+%%  Generate the new native record instructions for OTP 30.
+
+fix_native_records(#st{ssa=Blocks0}=St) ->
+    RPO = beam_ssa:rpo(Blocks0),
+    Fun = fun(I, []) -> {fix_native_record(I), []} end,
+    {Blocks, []} = beam_ssa:mapfold_instrs(Fun, RPO, [], Blocks0),
+    St#st{ssa=Blocks}.
+
+fix_native_record(#b_set{op=put_record,anno=Anno0,
+                         args=[#b_var{}|_]=Args0}=I) ->
+    [Src,_Id0|Updates] = Args0,
+    Fs = get_field_names(Updates),
+    {Id, NumFields} = fix_native_record_id(Anno0, Fs),
+    Args = [Id,Src|Updates],
+    Anno1 = maps:remove(arg_types, Anno0),
+    Anno = if
+               is_integer(NumFields) ->
+                   Anno1#{record_num_fields => NumFields};
+               true ->
+                   Anno1
+           end,
+    I#b_set{op=update_record_id,anno=Anno,args=Args};
+fix_native_record(#b_set{op=put_record,anno=Anno0,
+                         args=Args}=I) ->
+    case Args of
+        [_,#b_literal{val=Id}|_] when is_atom(Id) ->
+            %% Create a native record value belonging to the
+            %% current module. The number of fields is known.
+            Anno = Anno0#{record_num_fields => num_fields(I)},
+            I#b_set{anno=Anno};
+        _ ->
+            %% Remote record creation. Nothing is known about fields.
+            I
+    end;
+fix_native_record(#b_set{op=get_record_element,
+                         anno=Anno0,args=Args}=I) ->
+    [_,#b_literal{val=F}] = Args,
+    Fs = [F],
+    {Id, _} = fix_native_record_id(Anno0, Fs),
+    Anno = maps:remove(arg_types, Anno0),
+    I#b_set{op=get_record_element_id,anno=Anno,args=[Id|Args]};
+fix_native_record(I) ->
+    I.
+
+fix_native_record_id(Anno, Fs) ->
+    ArgTypes = maps:get(arg_types, Anno, #{}),
+    case ArgTypes of
+        #{0 := #t_record{name={_,_}=FullName,
+                         type=Type,
+                         local_creation=LC}} ->
+            UseLocal =
+                LC andalso
+                all(fun(F) ->
+                            case Type of
+                                #{F := {present,_}} -> true;
+                                #{} -> false
+                            end
+                    end, Fs),
+            case UseLocal of
+                true ->
+                    NumFields = map_size(Type),
+                    {#b_literal{val=element(2, FullName)}, NumFields};
+                false ->
+                    {#b_literal{val=FullName}, []}
+            end;
+        #{} ->
+            {#b_literal{val=[]}, []}
+    end.
+
+num_fields(#b_set{op=put_record,anno=Anno,args=Args}) ->
+    Fs0 = [F || F := {present,_} <- map_get(record_defaults, Anno)],
+    [_,_|List] = Args,
+    Fs1 = get_field_names(List),
+    ordsets:size(ordsets:from_list(Fs0 ++ Fs1)).
+
+get_field_names([#b_literal{val=F},_|T]) ->
+    [F|get_field_names(T)];
+get_field_names([]) ->
+    [].
 
 %% fix_bs(St0) -> St.
 %%  Combine bs_match and bs_extract instructions to bs_get instructions.
@@ -3015,8 +3101,8 @@ res_place_gc_instrs([#b_set{op=call}=I|Is], Acc) ->
         [_|_] ->
             res_place_gc_instrs(Is, [I,gc|Acc])
     end;
-res_place_gc_instrs([#b_set{op=Op,args=Args}=I|Is], Acc0) ->
-    case beam_ssa_codegen:classify_heap_need(Op, Args) of
+res_place_gc_instrs([#b_set{anno=Anno,op=Op,args=Args}=I|Is], Acc0) ->
+    case beam_ssa_codegen:classify_heap_need(Anno, Op, Args) of
         neutral ->
             case Acc0 of
                 [test_heap|Acc] ->
@@ -3027,6 +3113,8 @@ res_place_gc_instrs([#b_set{op=Op,args=Args}=I|Is], Acc0) ->
         {put,_} ->
             res_place_gc_instrs(Is, res_place_test_heap(I, Acc0));
         {put_fun,_} ->
+            res_place_gc_instrs(Is, res_place_test_heap(I, Acc0));
+        {put_native_record,_} ->
             res_place_gc_instrs(Is, res_place_test_heap(I, Acc0));
         put_float ->
             res_place_gc_instrs(Is, res_place_test_heap(I, Acc0));

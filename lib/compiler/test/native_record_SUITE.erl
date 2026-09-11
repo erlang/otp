@@ -76,7 +76,6 @@ groups() ->
 init_per_suite(Config) ->
     id(Config),
     test_lib:recompile(?MODULE),
-    {module,ext_records} = code:ensure_loaded(ext_records),
     Config.
 
 end_per_suite(_Config) ->
@@ -124,6 +123,8 @@ local_basic(_Config) ->
     ?assertError({badrecord,ARec}, ARec#b{x=99}),
     ?assertError({badfield,{{?MODULE,b},bad_field}},
                  BRec#b{bad_field = some_value}),
+    ?assertError({badfield,{{?MODULE,b},bad_field}},
+                 (#b{})#b{bad_field = some_value}),
 
     %% Test errors when accessing native records.
     ?assertError({badfield,{{?MODULE,b},zoo}}, BRec#b.zoo),
@@ -423,6 +424,13 @@ matching(_Config) ->
     none = match_bin(#b{z = #a{x = <<0,42>>, y = 0}}),
     none = match_bin(#b{z = #a{x = 0, y = 0}}),
     none = match_bin(#b{z = #b{}}),
+
+    case #rem{} of
+        #rem{non_existing=_} ->
+            error(should_not_match);
+        #rem{} ->
+            ok
+    end,
 
     ok.
 

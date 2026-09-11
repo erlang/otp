@@ -295,3 +295,92 @@ gen.create_local_record(Name, Dst, Live, Size, New) {
 
     return op;
 }
+
+gen.update_local_record(Hint, Name, Src, Dst, Live, Size, New) {
+    BeamOp* op;
+    Uint i;
+    Uint n;
+    BeamFile_Record *records;
+    Eterm def = THE_NON_VALUE;
+
+    n = S->beam.record.record_count;
+    records = S->beam.record.records;
+    for (i = 0; i < n; i++) {
+        if (records[i].name == Name.val) {
+            def = records[i].def_literal;
+            break;
+        }
+    }
+
+    ASSERT(Size.type == TAG_u);
+    n = Size.val;
+
+    $NewBeamOp(S, op);
+    $BeamOpNameArity(op, i_update_local_native_record, 6);
+    $BeamOpArity(op, 6 + n);
+
+    op->a[0] = Hint;
+
+    if (is_value(def)) {
+        op->a[1].type = TAG_q;
+        op->a[1].val = def;
+    } else {
+        /* This record does not have a definition. This should not
+         * happen. Force an error at load-time. */
+        op->a[1].type = TAG_a;
+        op->a[1].val = am_badrecord;
+    }
+    op->a[2] = Src;
+    op->a[3] = Dst;
+    op->a[4] = Live;
+    op->a[5].type = TAG_u;
+    op->a[5].val = n;
+
+    for (i = 0; i < n; i++) {
+        op->a[6+i] = New[i];
+    }
+
+    return op;
+}
+
+gen.get_local_record_elements(Name, Src, Size, Matches) {
+    BeamOp* op;
+    Uint i;
+    Uint n;
+    BeamFile_Record *records;
+    Eterm def = THE_NON_VALUE;
+
+    n = S->beam.record.record_count;
+    records = S->beam.record.records;
+    for (i = 0; i < n; i++) {
+        if (records[i].name == Name.val) {
+            def = records[i].def_literal;
+            break;
+        }
+    }
+
+    ASSERT(Size.type == TAG_u);
+    n = Size.val;
+
+    $NewBeamOp(S, op);
+    $BeamOpNameArity(op, i_get_local_record_elements, 3);
+    $BeamOpArity(op, 3 + n);
+
+    if (is_value(def)) {
+        op->a[0].type = TAG_q;
+        op->a[0].val = def;
+    } else {
+        /* This record does not have a definition. This should not
+         * happen. Force an error at load-time. */
+        op->a[0].type = TAG_a;
+        op->a[0].val = am_badrecord;
+    }
+    op->a[1] = Src;
+    op->a[2].type = TAG_u;
+    op->a[2].val = n;
+
+    for (i = 0; i < n; i++) {
+        op->a[3+i] = Matches[i];
+    }
+    return op;
+}

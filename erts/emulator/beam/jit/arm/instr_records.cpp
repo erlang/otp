@@ -121,6 +121,53 @@ void BeamModuleAssembler::emit_is_record_accessible(const ArgLabel &Fail,
             TMP2);
 }
 
+void BeamModuleAssembler::emit_i_get_local_record_elements(
+        const ArgLiteral &Def,
+        const ArgRegister &Src,
+        const ArgWord &Size,
+        const Span<const ArgVal> &args) {
+    Eterm def;
+    ErtsRecordDefinition *defp;
+    int field_count;
+    Eterm cons = beamfile_get_literal(beam, Def.get());
+    int argp;
+
+    def = CAR(list_val(cons));
+    defp = (ErtsRecordDefinition *)tuple_val(def);
+
+    field_count = RECORD_DEF_FIELD_COUNT(defp);
+
+    comment("name: %T", defp->name);
+    auto src = load_source(Src, ARG1);
+    auto values = emit_ptr_val(ARG1, src.reg);
+    a.add(ARG1,
+          values,
+          imm(offsetof(ErtsRecordInstance, values) - TAG_PRIMARY_BOXED));
+
+    argp = 0;
+    for (int i = 0; i < field_count; i++) {
+        if ((i % 128) == 0) {
+            check_pending_stubs();
+        }
+
+        if (argp + 1 < args.size() &&
+            args[argp].as<ArgAtom>().get() == defp->keys[i]) {
+            auto dst1 = init_destination(args[argp + 1], TMP1);
+            if (argp + 3 < args.size() &&
+                args[argp + 2].as<ArgAtom>().get() == defp->keys[i + 1]) {
+                auto dst2 = init_destination(args[argp + 3], TMP2);
+                safe_ldp(dst1.reg, dst2.reg, a64::Mem(ARG1, i * sizeof(Eterm)));
+                flush_vars(dst1, dst2);
+                argp += 4;
+            } else {
+                safe_ldr(dst1.reg, a64::Mem(ARG1, i * sizeof(Eterm)));
+                flush_var(dst1);
+                argp += 2;
+            }
+        }
+    }
+}
+
 void BeamModuleAssembler::emit_i_get_record_elements(
         const ArgLabel &Fail,
         const ArgRegister &Src,
@@ -139,7 +186,9 @@ void BeamModuleAssembler::emit_i_get_record_elements(
 
     emit_leave_runtime<Update::eXRegs>();
 
-    a.tbz(ARG1.w(), imm(0), resolve_beam_label(Fail, disp32K));
+    if (Fail.get() != 0) {
+        a.tbz(ARG1.w(), imm(0), resolve_beam_label(Fail, disp32K));
+    }
 }
 
 void BeamModuleAssembler::emit_i_create_local_native_record(
@@ -148,30 +197,225 @@ void BeamModuleAssembler::emit_i_create_local_native_record(
         const ArgWord &Live,
         const ArgWord &size,
         const Span<const ArgVal> &args) {
-    Label next = a.new_label();
+    Eterm def;
+    ErtsRecordDefinition *defp;
+    int field_count;
+    Uint num_words_needed;
+    Eterm *loader_def_values;
+    Eterm cons = beamfile_get_literal(beam, Def.get());
+    int argp;
+    Variable<a64::Gp> regs[2] = {a64::xzr, a64::xzr};
+    bool any_literal_defaults = false;
+    bool otp_29 = beam->code.max_opcode <= genop_get_record_field_5;
+
+    def = CAR(list_val(cons));
+    defp = (ErtsRecordDefinition *)tuple_val(def);
+    loader_def_values = tuple_val(CDR(list_val(cons))) + 1;
+
+    field_count = RECORD_DEF_FIELD_COUNT(defp);
+    num_words_needed = RECORD_INST_SIZE(field_count);
+
+    comment("name: %T", defp->name);
+
+    /* Find out whether any non-immediate default value will
+     * be used for this construction. */
+    argp = 0;
+    for (int i = 0; i < field_count; i++) {
+        if (argp < args.size() &&
+            args[argp].as<ArgAtom>().get() == defp->keys[i]) {
+            argp += 2;
+        } else {
+            Eterm value = loader_def_values[i];
+            any_literal_defaults |= !is_immed(value);
+        }
+    }
+
+    if (otp_29) {
+        /* If compiled by OTP 29, we must do a GC test here.
+         * If compiled by OTP 30 or later, this instruction is
+         * preceded by a `test_heap` instruction that has already
+         * ensured sufficient heap space. */
+        emit_gc_test(ArgWord(0), ArgWord(num_words_needed), Live);
+    }
+
+    a64::Gp def_values = a64::xzr;
+    mov_arg(TMP3, Def);
+    if (any_literal_defaults) {
+        /* At least one default value is a literal. Literals are not
+         * yet at their final location. We must emit code that set up
+         * a pointer (ARG3) to the beginning of the default values. */
+        emit_untag_ptr(TMP3, TMP3);
+        a.ldp(TMP2, ARG3, a64::Mem(TMP3));
+        def_values = emit_ptr_val(ARG3, ARG3);
+        a.add(def_values, def_values, sizeof(Eterm) - TAG_PRIMARY_BOXED);
+    } else {
+        /* We will not need a pointer to the default values. */
+        a64::Gp cons_ptr = emit_ptr_val(TMP3, TMP3);
+        a.ldur(TMP2, getCARRef(cons_ptr));
+    }
+
+    /* Store header word and pointer to the definition. */
+    mov_imm(TMP1, MAKE_RECORD_HEADER(field_count));
+    a.stp(TMP1, TMP2, a64::Mem(HTOP).post(sizeof(Eterm[2])));
+
+    /* We'll keep a cache of loaded immediate values. */
+    static a64::Gp value_regs[] =
+            {ARG4, ARG5, ARG6, ARG7, ARG8, TMP1, TMP2, TMP3, TMP4, TMP5, TMP6};
+    ImmedRegCache values(*this,
+                         sizeof(value_regs) / sizeof(a64::Gp),
+                         value_regs);
+
+    argp = 0;
+    for (int i = 0; i < field_count; i += 2) {
+        if ((i % 128) == 0) {
+            check_pending_stubs();
+        }
+
+        regs[0] = a64::xzr;
+        regs[1] = a64::xzr;
+
+        /* We will always get the values for two consecutive fields. */
+        if (argp + 2 < args.size() &&
+            args[argp].as<ArgAtom>().get() == defp->keys[i] &&
+            args[argp + 2].as<ArgAtom>().get() == defp->keys[i + 1] &&
+            args[argp + 1].isRegister() && args[argp + 3].isRegister()) {
+            /* Load the values for two fields at once from two BEAM
+             * registers. */
+            auto [r0, r1] =
+                    load_sources(args[argp + 1], ARG1, args[argp + 3], ARG2);
+            regs[0] = r0;
+            regs[1] = r1;
+            argp += 4;
+        } else {
+            int limit = i + 1 < field_count ? 2 : 1;
+
+            /* In this inner loop, grab the values one at a time. */
+            for (int j = 0; j < limit; j++) {
+                static a64::Gp def_regs[] = {ARG1, ARG2};
+                auto default_reg = def_regs[j];
+                if (argp < args.size() &&
+                    args[argp].as<ArgAtom>().get() == defp->keys[i + j]) {
+                    if (args[argp + 1].isImmed()) {
+                        Eterm value = args[argp + 1].as<ArgImmed>().get();
+                        regs[j] = values.load_value(value);
+                    } else {
+                        regs[j] = load_source(args[argp + 1], default_reg);
+                    }
+                    argp += 2;
+                } else {
+                    Eterm value = loader_def_values[i + j];
+                    if (is_immed(value)) {
+                        regs[j] = values.load_value(value);
+                    } else {
+                        ASSERT(any_literal_defaults);
+                        regs[j] = default_reg;
+                        a.ldr(regs[j].reg,
+                              a64::Mem(def_values, (i + j) * sizeof(Eterm)));
+                    }
+                }
+            }
+        }
+
+        /* Now store the values we colleced. */
+        if (regs[1].reg != a64::xzr) {
+            /* Store two values. */
+            a.stp(regs[0].reg,
+                  regs[1].reg,
+                  a64::Mem(HTOP).post(sizeof(Eterm[2])));
+        } else {
+            /* At the end. There is only one value. */
+            a.str(regs[0].reg, a64::Mem(HTOP).post(sizeof(Eterm)));
+        }
+    }
+
+    auto ptr = init_destination(Dst, TMP1);
+    sub(ptr.reg, HTOP, num_words_needed * sizeof(Eterm) - TAG_PRIMARY_BOXED);
+    flush_var(ptr);
+}
+
+/*
+ * ARG4 = Id
+ * ARG5 = (size << 10) | live
+ * ARG6 = args
+ */
+void BeamGlobalAssembler::emit_create_native_record_shared() {
+    Label handle_trap = a.new_label();
+    Label ret = a.new_label();
+    Label finish_create = a.new_label();
+
+    /* It is essential that the continuation pointer is stored
+     * on the stack for the Erlang process, because `finish_create`
+     * might execute on a different scheduler thread (with a
+     * different runtime stack). */
+    emit_enter_erlang_frame();
+
+    emit_enter_runtime_frame();
+    emit_enter_runtime<Update::eHeapAlloc | Update::eXRegs |
+                       Update::eReductions>();
 
     a.mov(ARG1, c_p);
     load_x_reg_array(ARG2);
-    mov_arg(ARG3, Def);
-    mov_arg(ARG4, Live);
-    mov_imm(ARG5, args.size());
-    embed_vararg_rodata(args, ARG6);
+    a.mov(ARG3, active_code_ix);
 
-    emit_enter_runtime<Update::eHeapAlloc | Update::eXRegs |
-                       Update::eReductions>(Live.get());
+    runtime_call<Eterm (*)(Process *,
+                           Eterm *,
+                           ErtsCodeIndex,
+                           Eterm,
+                           Uint,
+                           const Eterm *),
+                 erl_create_native_record_jit>();
 
-    runtime_call<
-            Eterm (*)(Process *, Eterm *, Eterm, Uint, Uint, const Eterm *),
-            erl_create_local_native_record>();
-
+    emit_leave_runtime_frame();
     emit_leave_runtime<Update::eHeapAlloc | Update::eXRegs |
-                       Update::eReductions>(Live.get());
+                       Update::eReductions>();
+    emit_branch_if_not_value(ARG1, handle_trap);
 
-    emit_branch_if_value(ARG1, next);
-    emit_raise_exception();
+    a.bind(ret);
+    {
+        emit_leave_erlang_frame();
+        a.ret(a64::x30);
+    }
 
-    a.bind(next);
-    mov_arg(Dst, ARG1);
+    a.bind(handle_trap);
+    {
+        a.ldr(TMP1, a64::Mem(c_p, offsetof(Process, freason)));
+        emit_branch_if_ne(TMP1, TRAP, ret);
+
+        /* Ensure that control is transferred to `finish_create` after
+         * having loaded the code. */
+        a.add(E, E, imm(sizeof(Eterm)));
+        a.adr(a64::x30, finish_create);
+        emit_enter_erlang_frame();
+
+        /* Dispatch directly to the trap code. There is no need to do
+         * a context switch. */
+        a.ldr(ARG1, a64::Mem(c_p, offsetof(Process, i)));
+        a.br(ARG1);
+    }
+
+    a.bind(finish_create);
+    {
+        /* Now, the module is probably loaded. Again try to create the
+         * record. */
+
+        emit_enter_runtime_frame();
+        emit_enter_runtime<Update::eHeapAlloc | Update::eXRegs |
+                           Update::eReductions>();
+
+        a.mov(ARG1, c_p);
+        load_x_reg_array(ARG2);
+        a.mov(ARG3, active_code_ix);
+
+        runtime_call<Eterm (*)(Process *, Eterm *, ErtsCodeIndex),
+                     erl_finish_create_record_jit>();
+
+        emit_leave_runtime<Update::eHeapAlloc | Update::eXRegs |
+                           Update::eReductions | Update::eCodeIndex>();
+        emit_leave_runtime_frame();
+
+        emit_leave_erlang_frame();
+        a.ret(a64::x30);
+    }
 }
 
 void BeamModuleAssembler::emit_i_create_native_record(
@@ -181,29 +425,59 @@ void BeamModuleAssembler::emit_i_create_native_record(
         const ArgWord &size,
         const Span<const ArgVal> &args) {
     Label next = a.new_label();
+    Uint size_live = (args.size() << 10) | Live.get();
 
-    a.mov(ARG1, c_p);
-    load_x_reg_array(ARG2);
-    mov_arg(ARG3, Id);
-    mov_arg(ARG4, Live);
-    mov_imm(ARG5, args.size());
+    mov_arg(ARG4, Id);
+    mov_imm(ARG5, size_live);
     embed_vararg_rodata(args, ARG6);
 
-    emit_enter_runtime<Update::eHeapAlloc | Update::eXRegs |
-                       Update::eReductions>(Live.get());
-
-    runtime_call<
-            Eterm (*)(Process *, Eterm *, Eterm, Uint, Uint, const Eterm *),
-            erl_create_native_record>();
-
-    emit_leave_runtime<Update::eHeapAlloc | Update::eXRegs |
-                       Update::eReductions>(Live.get());
+    fragment_call(ga->get_create_native_record_shared());
 
     emit_branch_if_value(ARG1, next);
     emit_raise_exception();
 
     a.bind(next);
     mov_arg(Dst, ARG1);
+}
+
+void BeamModuleAssembler::emit_i_update_local_native_record(
+        const ArgAtom &Hint,
+        const ArgLiteral &Def,
+        const ArgSource &Src,
+        const ArgRegister &Dst,
+        const ArgWord &Live,
+        const ArgWord &Size,
+        const Span<const ArgVal> &args) {
+    Eterm cons = beamfile_get_literal(beam, Def.get());
+    Eterm def = CAR(list_val(cons));
+    ErtsRecordDefinition *defp = (ErtsRecordDefinition *)tuple_val(def);
+    int field_count = RECORD_DEF_FIELD_COUNT(defp);
+
+    comment("name: %T", defp->name);
+
+    /* Create the `updates` vector, mapping from positions to
+     * values. */
+    int argp = 0;
+    std::vector<ArgVal> updates;
+    updates.reserve(args.size());
+    const Uint header_offset = RECORD_INST_SIZE(0);
+    for (int i = 0; i < field_count; i++) {
+        if (argp < args.size() &&
+            args[argp].as<ArgAtom>().get() == defp->keys[i]) {
+            updates.emplace(updates.end(), ArgWord(header_offset + i));
+            updates.emplace(updates.end(), args[argp + 1]);
+            argp += 2;
+        }
+    }
+
+    /* Reuse the code for updating a tuple record. */
+    Span<const ArgVal> Updates(updates.data(), updates.size());
+    emit_update_any_record(Hint,
+                           RECORD_INST_SIZE(field_count),
+                           Src,
+                           Dst,
+                           Size,
+                           Updates);
 }
 
 void BeamModuleAssembler::emit_i_update_native_record(

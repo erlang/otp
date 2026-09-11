@@ -1370,19 +1370,49 @@ i_create_local_native_record(Def, Dst, Live, N) {
     }
 }
 
-i_create_native_record(Id, Dst, Live, N) {
+i_create_native_record(Id, Live, N) {
     Eterm res;
 
     HEAVY_SWAPOUT;
-    res = erl_create_native_record(c_p, reg, $Id, $Live, $N, $NEXT_INSTRUCTION);
+    res = erl_create_native_record_emu(c_p, reg, $Id, $Live,
+                                       $N, $NEXT_INSTRUCTION);
     HEAVY_SWAPIN;
     if (is_non_value(res)) {
+        if (c_p->freason == TRAP) {
+            /* Try to load the module defining the record. Then
+             * transfer control to the `finish_create_record`
+             * instruction. */
+            $SAVE_CONTINUATION_POINTER((BeamInstr *)beam_finish_create_record);
+            SET_I(c_p->i);
+            $DISPATCH();
+        }
+
         $FAIL_BODY();
     } else {
-        $REFRESH_GEN_DEST();
-        $Dst = res;
+        reg[1023] = res;
         $NEXT($NEXT_INSTRUCTION+$N);
     }
+}
+
+
+finish_create_record() {
+    Eterm next;
+
+    /* Now, the module is probably loaded. Again try to create the
+     * record. */
+
+    HEAVY_SWAPOUT;
+    next = erl_finish_create_record_emu(c_p, reg);
+    HEAVY_SWAPIN;
+
+    /* If the record creation was successful, the reference to the
+     * record is stored in x(1023), and `next` points to the next
+     * instruction.
+     *
+     * If record creation failed, information about the error is
+     * stored in the process struct and `next` points to the error
+     * handling code. */
+    $NEXT(next);
 }
 
 i_update_native_record(Src, Dst, Live, N) {

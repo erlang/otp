@@ -107,6 +107,7 @@ opt_opts(Mod) ->
                      (no_fun_opt) -> true;
                      (no_min_max_bifs) -> true;
                      (no_module_opt) -> true;
+                     (no_native_record_opt) -> true;
                      (no_postopt) -> true;
                      (no_recv_opt) -> true;
                      (no_share_opt) -> true;
@@ -134,7 +135,8 @@ get_data_dir(Config) ->
                 "_no_module_opt_SUITE",
                 "_no_type_opt_SUITE",
                 "_no_ssa_opt_SUITE",
-                "_cover_SUITE"],
+                "_cover_SUITE",
+                "_r29_SUITE"],
     case filelib:is_dir(Data) of
         true ->
             %% Build system already provides it

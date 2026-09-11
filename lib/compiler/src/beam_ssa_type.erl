@@ -692,6 +692,10 @@ benefits_from_type_anno(get_map_element, _Args) ->
     true;
 benefits_from_type_anno(has_map_field, _Args) ->
     true;
+benefits_from_type_anno(put_record, _Args) ->
+    true;
+benefits_from_type_anno(get_record_element, _Args) ->
+    true;
 
 %% The types are used to avoid falsely detecting aliasing of
 %% non-boxed things.
@@ -1555,6 +1559,17 @@ will_succeed_1(#b_set{op=update_tuple,args=[Tuple | Updates]}, _Src, Ts) ->
     beam_call_types:will_succeed(erlang, setelement, Args);
 will_succeed_1(#b_set{op=update_record}, _Src, _Ts) ->
     yes;
+
+will_succeed_1(#b_set{op=put_record,args=[#b_literal{val=empty}|_]}, Src, Ts) ->
+    case concrete_type(Src, Ts) of
+        #t_record{local_creation=true} ->
+            %% Creating a local record can't fail; erl_lint rejects attempts
+            %% to use unknown field names or failing to provide a value for
+            %% each field.
+            yes;
+        _ ->
+            'maybe'
+    end;
 
 will_succeed_1(#b_set{op=bs_create_bin}, _Src, _Ts) ->
     %% Intentionally don't try to determine whether construction will
@@ -2430,7 +2445,18 @@ put_record_type(Args, Anno, Ts) ->
             #t_record{name=nil, type=Fs};
         #b_literal{val=Tag} when is_atom(Tag) ->
             Mod = map_get(record_module, Anno),
-            #t_record{name={Mod,Tag}, type=Fs}
+            LC = case Src of
+                     #b_literal{val=empty} ->
+                         true;
+                     _ ->
+                         case Ts of
+                             #{Src := #t_record{local_creation=LC0}} ->
+                                 LC0;
+                             _ ->
+                                 false
+                         end
+                 end,
+            #t_record{name={Mod,Tag}, type=Fs, local_creation=LC}
     end.
 
 record_field_types([#b_literal{val=Key}, Value0 | Fs], Ts, Acc) ->

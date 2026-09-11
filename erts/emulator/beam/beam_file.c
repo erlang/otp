@@ -2238,7 +2238,7 @@ static int marshal_allocation_list(BeamReader *reader, Sint *res) {
 
     LoadAssert(beamreader_read_tagged(reader, &count));
     LoadAssert(count.tag == TAG_u);
-    LoadAssert(count.word_value <= 3);
+    LoadAssert(count.word_value <= 4);
 
     sum = 0;
     for (i = 0; i < count.word_value; i++) {
@@ -2268,6 +2268,10 @@ static int marshal_allocation_list(BeamReader *reader, Sint *res) {
         case 2:
             LoadAssert(sum <= (ERTS_SINT32_MAX - ERL_FUN_SIZE * number));
             sum += ERL_FUN_SIZE * number;
+            break;
+        case 3:
+            LoadAssert(sum <= (ERTS_SINT32_MAX - RECORD_INST_SIZE(0) * number));
+            sum += RECORD_INST_SIZE(0) * number;
             break;
         default:
             LoadError("Invalid allocation tag");

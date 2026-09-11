@@ -556,13 +556,23 @@ void BeamModuleAssembler::patchLambda(char *rw_base,
 
 void BeamModuleAssembler::patchLiteral(char *rw_base,
                                        unsigned index,
-                                       Eterm lit) {
-    for (const auto &patch : literals[index].patches) {
+                                       Eterm value) {
+    const auto &literal = literals[index];
+
+    for (const auto &patch : literal.patches) {
         auto offset = code.label_offset_from_base(patch.where);
         auto where = (Eterm *)&rw_base[offset + patch.ptr_offs];
 
         ASSERT(LLONG_MAX == *where);
-        *where = lit + patch.val_offs;
+        *where = value + patch.val_offs;
+    }
+
+    for (const auto &[patch, resolve] : literal.deferred) {
+        auto offset = code.label_offset_from_base(patch.where);
+        auto where = (Eterm *)&rw_base[offset + patch.ptr_offs];
+
+        ASSERT(LLONG_MAX == *where);
+        *where = resolve(value);
     }
 }
 
