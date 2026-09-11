@@ -195,10 +195,11 @@
  * ======================================================================== *
  */
 
-#ifdef HAS_ACCEPT4
-// We have to figure out what the flags are...
+#if defined(HAVE_ACCEPT4) && defined(SOCK_CLOEXEC) && defined(SOCK_NONBLOCK)
 #define sock_accept(s, addr, len)       \
-    accept4((s), (addr), (len), (SOCK_CLOEXEC))
+    accept4((s), (addr), (len), (SOCK_CLOEXEC | SOCK_NONBLOCK))
+/* The accepted socket is already non-blocking */
+#define ESSIO_ACCEPTED_NONBLOCK 1
 #else
 #define sock_accept(s, addr, len)       accept((s), (addr), (len))
 #endif
@@ -225,7 +226,14 @@
         return enif_raise_exception((e), MKA((e), "notsup"));
 #define sock_ntohs(x)                   ntohs((x))
 #define sock_htonl(x)                   htonl((x))
+#if defined(SOCK_NONBLOCK)
+#define sock_open(domain, type, proto)                                  \
+    socket((domain), (type) | SOCK_NONBLOCK, (proto))
+/* The opened socket is already non-blocking */
+#define ESSIO_OPENED_NONBLOCK 1
+#else
 #define sock_open(domain, type, proto)  socket((domain), (type), (proto))
+#endif
 #define sock_peeloff(s, aid)            ctrl.sctp.peeloff((s), (aid))
 #define sock_ensure_peeloff(E)                                         \
     if (ctrl.sctp.peeloff == NULL)                                      \
@@ -1562,6 +1570,9 @@ ERL_NIF_TERM essio_open_with_fd(ErlNifEnv*       env,
     descP->protocol     = protocol;
     descP->closeOnClose = closeOnClose;
     descP->origFD       = fd;
+    /* An adopted fd is the one case where the linger state is not ours to
+     * know, so ask once here instead of on every close. */
+    descP->closeMayBlock = esock_close_may_block(sock);
 
     /* Check if we are already connected, if so change state */
     {
@@ -1769,7 +1780,11 @@ ERL_NIF_TERM essio_open_plain(ErlNifEnv*       env,
     }
 #endif
 
+#ifndef ESSIO_OPENED_NONBLOCK
+    /* sock_open() could not ask for it, so do it the long way:
+     * SET_NONBLOCKING is F_GETFL + F_SETFL, two more system calls. */
     SET_NONBLOCKING(sock);
+#endif
 
 
     /* Create and initiate the socket "descriptor" */
@@ -1778,6 +1793,8 @@ ERL_NIF_TERM essio_open_plain(ErlNifEnv*       env,
     descP->domain   = domain;
     descP->type     = type;
     descP->protocol = proto;
+    /* A socket we just created cannot have SO_LINGER set */
+    descP->closeMayBlock = FALSE;
 
     sockRef = enif_make_resource(env, descP);
     enif_release_resource(descP);
@@ -2840,6 +2857,10 @@ BOOLEAN_T essio_accept_accepted(ErlNifEnv*       env,
 
     MLOCK(descP->writeMtx);
 
+    /* SO_LINGER is inherited by the accepted socket, and inheriting the
+     * cached value is safe even where it is not: the parent's TRUE only
+     * costs the child the blocking path it would have taken anyway. */
+    accDescP->closeMayBlock = descP->closeMayBlock;
     accDescP->rBufSz   = descP->rBufSz;  // Inherit buffer size
     accDescP->rNum     = descP->rNum;    // Inherit buffer uses
     accDescP->rNumCnt  = 0;
@@ -2863,7 +2884,9 @@ BOOLEAN_T essio_accept_accepted(ErlNifEnv*       env,
                        &accDescP->ctrlPid,
                        &accDescP->ctrlMon) == 0 );
 
+#ifndef ESSIO_ACCEPTED_NONBLOCK
     SET_NONBLOCKING(accDescP->sock);
+#endif
 
     accDescP->writeState |= ESOCK_STATE_CONNECTED;
 
@@ -2943,6 +2966,7 @@ ERL_NIF_TERM essio_peeloff(ErlNifEnv*       env,
             "%s(%d) -> inherit various options\r\n",
             __FUNCTION__, descP->sock, sock) );
 
+    poDescP->closeMayBlock = descP->closeMayBlock;
     poDescP->rBufSz   = descP->rBufSz;  // Inherit buffer size
     poDescP->rNum     = descP->rNum;    // Inherit buffer uses
     poDescP->rNumCnt  = 0;
@@ -4829,7 +4853,8 @@ ERL_NIF_TERM essio_fin_close(ErlNifEnv*       env,
      * for this ({true, integer() > 0}). For this to work we must
      * be blocking...
      */
-    SET_BLOCKING(descP->sock);
+    if (descP->closeMayBlock)
+        SET_BLOCKING(descP->sock);
     err = esock_close_socket(env, descP, TRUE);
 
 #ifdef HAVE_SENDFILE
