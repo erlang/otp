@@ -3872,13 +3872,13 @@ inet_async_binary_data
 	 ErlDrvBinary   * bin,  int offs, int len, void *mp)
 {
     unsigned int hsz = desc->hsz + phsz;
-    const int spec_size = PACKET_ERL_DRV_TERM_DATA_LEN;
     ErlDrvTermData spec [PACKET_ERL_DRV_TERM_DATA_LEN];
     ErlDrvTermData caller;
     int aid;
     int req;
     int i = 0;
 #ifdef HAVE_SCTP
+    const int spec_size = PACKET_ERL_DRV_TERM_DATA_LEN;
     int ok_pos;
 #endif
 
@@ -4108,11 +4108,13 @@ static int packet_binary_message(inet_descriptor* desc,
                                  void *mp)
 {
     unsigned int hsz = desc->hsz;
-    const int spec_size = PACKET_ERL_DRV_TERM_DATA_LEN;
     ErlDrvTermData spec [PACKET_ERL_DRV_TERM_DATA_LEN];
     int i = 0;
     int alen;
     char* data = bin->orig_bytes+offs;
+#ifdef HAVE_SCTP
+    const int spec_size = PACKET_ERL_DRV_TERM_DATA_LEN;
+#endif
 
     DEBUGF(("packet_binary_message(%p): len = %d\r\n",
             desc->port, len));
@@ -6863,6 +6865,7 @@ int inet_setopt(int fd,
 ** return -1 on error
 **         0 if ok
 **         1 if ok force deliver of queued data
+**         2 if ok continue receive processing with updated options
 */
 #ifdef HAVE_SCTP
 static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len);
@@ -7945,13 +7948,17 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
     if ( ((desc->stype == SOCK_STREAM) && IS_CONNECTED(desc)) ||
 	((desc->stype == SOCK_DGRAM) && IS_OPEN(desc))) {
         int trigger_recv;
+        int htype_changed;
+
+        htype_changed =
+            (desc->stype == SOCK_STREAM) && (desc->htype != old_htype);
 
         /* XXX: UDP sockets could also trigger immediate read here NIY */
         trigger_recv =
             (desc->stype==SOCK_STREAM) &&
             !old_active &&
             (desc->active == INET_ONCE || desc->active == INET_MULTI) &&
-            (desc->htype == old_htype);
+            !htype_changed;
 
         if (trigger_recv) {
             return 2;
@@ -7966,19 +7973,21 @@ static int inet_set_opts(inet_descriptor* desc, char* ptr, int len)
             sock_select(desc, (FD_READ|FD_CLOSE), (desc->active>0));
         }
 
-	/* XXX: UDP sockets could also trigger immediate read here NIY */
-	if ((desc->stype==SOCK_STREAM) && desc->active) {
-	    if (! old_active) {
+        /* A packet type change invalidates the cached remaining length.
+         * Active sockets can deliver buffered data immediately; passive
+         * sockets only continue when a receive is already pending. */
+        if ((desc->stype==SOCK_STREAM) && (desc->active || htype_changed)) {
+            if (! old_active && !htype_changed) {
 		/* passive => active change */
 		return 1;
 	    }
-	    if (desc->htype != old_htype) {
-                tcp_descriptor *tdesc = (tcp_descriptor *) desc;
-		/* Header type change in active mode.
-                 * Invalidate the calculated packet remaining length.
-                 */
-                tdesc->i_remain = 0;
+            if (htype_changed) {
+                ((tcp_descriptor *) desc)->i_remain = 0;
+                if (desc->active)
 		return 1;
+                if (desc->opt != NULL && !INET_IGNORED(desc))
+                    return 2;
+                return 0;
 	    }
 
 	    return 0;
@@ -11136,16 +11145,13 @@ static ErlDrvSSizeT inet_ctl(inet_descriptor* desc, int cmd, char* buf,
 	    /* fprintf(stderr,"Triggered tcp_deliver by setopt.\r\n"); */
 	    tcp_deliver((tcp_descriptor *) desc, 0);
 	    return ctl_reply_ok(rbuf, rsize);
-	default:  
-	    /* fprintf(stderr,"Triggered tcp_recv by setopt.\r\n"); */
-	    /*
-	     * Same as above, but active changed to once w/o header type
-	     * change, so try a read instead of just deliver. 
-	     */
+        case 2:
             if ((tcp_recv((tcp_descriptor *) desc, 0) >= 0) && desc->active) {
                 sock_select(desc, (FD_READ|FD_CLOSE), 1);
             }
 	    return ctl_reply_ok(rbuf, rsize);
+        default:
+            ERTS_UNREACHABLE;
 	}
     }
 
@@ -12899,36 +12905,20 @@ static int packet_header_length(tcp_descriptor *desc) {
     if (! (desc->tcp_add_flags & TCP_ADDF_NO_READ_AHEAD))
         return 0;  /* Read ahead */
 
-    switch (desc->inet.htype) {
-    case TCP_PB_RAW:
-        return 0;
-
     /* Return how many more bytes we should read to make
      * packet_get_length() return the packet length.
      *
      * Set hlen to the minimal header bytes, for starters.
      */
-    case TCP_PB_1:          hlen = 1; break;
-    case TCP_PB_2:          hlen = 2; break;
-    case TCP_PB_4:          hlen = 4; break;
-    case TCP_PB_RM:         hlen = 4; break;
-    case TCP_PB_ASN1:       hlen = 2; break;
-    case TCP_PB_SSL_TLS:    hlen = 5; break;
-    case TCP_PB_CDR:        hlen = 12; break;
-    case TCP_PB_FCGI:       hlen = sizeof(struct fcgi_head); break;
-    case TCP_PB_TPKT:       hlen = 4; break;
-    default:
+    hlen = PACKET_PARSE_TYPE_HEADER_LEN(desc->inet.htype);
+    if (hlen == 0) {
+        if (desc->inet.htype == TCP_PB_RAW)
+            return 0;
         /* We should always be able to read another byte
          * to see if we then can deduce the packet length.
          * Note that for line mode packet formats,
          * not a length in a header, this is very inefficient,
          * but there is no other way to not read ahead.
-         * For TCP_PB_ASN1 it is also inefficient, but we
-         * would have to re-implement quite some decoding rules
-         * here to figure out a better value that probably isn't
-         * that much better since some field have to be read one byte
-         * at the time to find the end of the field.
-         *
          * Just don't combine TCP_ADDF_NO_READ_AHEAD
          * with non-suitable packet types.
          */
@@ -13730,6 +13720,47 @@ static int tcp_inet_delay_send(ErlDrvData data, ErlDrvTermData dummy)
     return tcp_inet_output(desc, (HANDLE) INETP(desc)->s);
 }
 
+static int
+tcp_packet_header(enum PacketParseType htype,
+                  char *buf,
+                  ErlDrvSizeT len,
+                  int *h_len)
+{
+    *h_len = PACKET_PARSE_TYPE_HEADER_LEN(htype);
+
+    switch (htype) {
+    case TCP_PB_1:
+        put_int8(len, buf);
+        break;
+    case TCP_PB_2_BIG:
+        put_int16(len, buf);
+        break;
+    case TCP_PB_2_LITTLE:
+        put_little_int16(len, buf);
+        break;
+    case TCP_PB_3_BIG:
+        put_int24(len, buf);
+        break;
+    case TCP_PB_3_LITTLE:
+        put_little_int24(len, buf);
+        break;
+    case TCP_PB_4_BIG:
+        put_int32(len, buf);
+        break;
+    case TCP_PB_4_LITTLE:
+        put_little_int32(len, buf);
+        break;
+    default:
+        *h_len = 0;
+        return 1;
+    }
+
+    if ((Uint64) len >= ((Uint64) 1 << (*h_len * 8)))
+        return 0;
+
+    return 1;
+}
+
 /*
 ** Send non-blocking vector data
 */
@@ -13738,27 +13769,17 @@ static int tcp_sendv(tcp_descriptor* desc, ErlIOVec* ev)
     ErlDrvSizeT sz;
     char buf[4];
     ErlDrvSizeT h_len;
+    int packet_header_len;
     ssize_t n;
     ErlDrvPort ix = desc->inet.port;
     ErlDrvSizeT len = ev->size;
 
-     switch(desc->inet.htype) {
-     case TCP_PB_1:
-         put_int8(len, buf);
-         h_len = 1;
-         break;
-     case TCP_PB_2:
-         put_int16(len, buf);
-         h_len = 2;
-         break;
-     case TCP_PB_4:
-         put_int32(len, buf);
-         h_len = 4;
-         break;
-     default:
-         h_len = 0;
-         break;
-     }
+    if (!tcp_packet_header(desc->inet.htype, buf, len,
+                           &packet_header_len)) {
+        inet_reply_error(INETP(desc), EMSGSIZE);
+        return 1;
+    }
+    h_len = packet_header_len;
 
     inet_output_count(INETP(desc), len+h_len);
 
@@ -13858,22 +13879,9 @@ static int tcp_send(tcp_descriptor* desc, char* ptr, ErlDrvSizeT len)
     ErlDrvPort ix = desc->inet.port;
     SysIOVec iov[2];
 
-    switch(desc->inet.htype) {
-    case TCP_PB_1: 
-	put_int8(len, buf);
-	h_len = 1;
-	break;
-    case TCP_PB_2: 
-	put_int16(len, buf);
-	h_len = 2; 
-	break;
-    case TCP_PB_4: 
-	put_int32(len, buf);
-	h_len = 4; 
-	break;
-    default:
-	h_len = 0;
-	break;
+    if (!tcp_packet_header(desc->inet.htype, buf, len, &h_len)) {
+        inet_reply_error(INETP(desc), EMSGSIZE);
+        return 1;
     }
 
     inet_output_count(INETP(desc), len+h_len);

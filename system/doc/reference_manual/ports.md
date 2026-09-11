@@ -76,9 +76,11 @@ is found, that driver is started.
 
 `PortSettings` is a list of settings (options) for the port. The list typically
 contains at least a tuple `{packet,N}`, which specifies that data sent between
-the port and the external program are preceded by an N-byte length indicator.
-Valid values for N are 1, 2, or 4. If binaries are to be used instead of lists
-of bytes, the option `binary` must be included.
+the port and the external program are preceded by an N-byte length indicator in
+big-endian byte order. Valid values for N are 1, 2, 3, or 4. For two-, three-,
+and four-byte headers, `{packet,{N,Endian}}` can be used to select `big`,
+`little`, or the platform-native byte order. If binaries are to be used instead
+of lists of bytes, the option `binary` must be included.
 
 The port owner `Pid` can communicate with the port `Port` by sending and
 receiving messages. (In fact, any process can send messages to the port, but

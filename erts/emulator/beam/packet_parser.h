@@ -30,23 +30,30 @@
 #include "sys.h"
 
 
-/* INET_LOPT_PACKET options */
+/* Store the parser id above its minimum header length; zero means no fixed minimum. */
+#define PACKET_PARSE_TYPE(Type, HeaderLen) (((Type) << 16) | (HeaderLen))
+#define PACKET_PARSE_TYPE_HEADER_LEN(Type) ((Type) & 0xffff)
+
 enum PacketParseType {
-    TCP_PB_RAW      = 0,
-    TCP_PB_1        = 1,
-    TCP_PB_2        = 2,
-    TCP_PB_4        = 3,
-    TCP_PB_ASN1     = 4,
-    TCP_PB_RM       = 5,
-    TCP_PB_CDR      = 6,
-    TCP_PB_FCGI     = 7,
-    TCP_PB_LINE_LF  = 8,
-    TCP_PB_TPKT     = 9,
-    TCP_PB_HTTP     = 10,
-    TCP_PB_HTTPH    = 11,
-    TCP_PB_SSL_TLS  = 12,
-    TCP_PB_HTTP_BIN = 13,
-    TCP_PB_HTTPH_BIN = 14
+    TCP_PB_RAW       = PACKET_PARSE_TYPE(0, 0),
+    TCP_PB_1         = PACKET_PARSE_TYPE(1, 1),
+    TCP_PB_2_BIG     = PACKET_PARSE_TYPE(2, 2),
+    TCP_PB_4_BIG     = PACKET_PARSE_TYPE(3, 4),
+    TCP_PB_ASN1      = PACKET_PARSE_TYPE(4, 2),
+    TCP_PB_RM        = PACKET_PARSE_TYPE(5, 4),
+    TCP_PB_CDR       = PACKET_PARSE_TYPE(6, 12),
+    TCP_PB_FCGI      = PACKET_PARSE_TYPE(7, 8),
+    TCP_PB_LINE_LF   = PACKET_PARSE_TYPE(8, 0),
+    TCP_PB_TPKT      = PACKET_PARSE_TYPE(9, 4),
+    TCP_PB_HTTP      = PACKET_PARSE_TYPE(10, 0),
+    TCP_PB_HTTPH     = PACKET_PARSE_TYPE(11, 0),
+    TCP_PB_SSL_TLS   = PACKET_PARSE_TYPE(12, 5),
+    TCP_PB_HTTP_BIN  = PACKET_PARSE_TYPE(13, 0),
+    TCP_PB_HTTPH_BIN = PACKET_PARSE_TYPE(14, 0),
+    TCP_PB_2_LITTLE  = PACKET_PARSE_TYPE(15, 2),
+    TCP_PB_3_BIG     = PACKET_PARSE_TYPE(16, 3),
+    TCP_PB_3_LITTLE  = PACKET_PARSE_TYPE(17, 3),
+    TCP_PB_4_LITTLE  = PACKET_PARSE_TYPE(18, 4)
 };
 
 typedef struct http_atom {
@@ -152,9 +159,18 @@ ERTS_GLB_INLINE
 void packet_get_body(enum PacketParseType htype, const char** bufp, int* lenp)
 {
     switch (htype) {
-    case TCP_PB_1:  *bufp += 1; *lenp -= 1; break;
-    case TCP_PB_2:  *bufp += 2; *lenp -= 2; break;
-    case TCP_PB_4:  *bufp += 4; *lenp -= 4; break;
+    case TCP_PB_1:
+    case TCP_PB_2_BIG:
+    case TCP_PB_2_LITTLE:
+    case TCP_PB_3_BIG:
+    case TCP_PB_3_LITTLE:
+    case TCP_PB_4_BIG:
+    case TCP_PB_4_LITTLE: {
+        int hlen = PACKET_PARSE_TYPE_HEADER_LEN(htype);
+        *bufp += hlen;
+        *lenp -= hlen;
+        break;
+    }
     case TCP_PB_FCGI:
 	*lenp -= ((struct fcgi_head*)*bufp)->paddingLength;
         break;

@@ -131,7 +131,9 @@
          packet_size_active_setoptsgetopts/0,
          packet_size_active_setoptsgetopts/1,
          packet_switch/0,
+         packet_endian_switch/0,
          packet_switch/1,
+         packet_endian_switch/1,
          header_decode_one_byte_active/0,
          header_decode_one_byte_active/1,
          header_decode_two_bytes_active/0,
@@ -169,7 +171,9 @@
          packet_sunrm_decode_list/0,
          packet_sunrm_decode_list/1,
          packet_send_to_large/0,
+         packet_endian_send_to_large/0,
          packet_send_to_large/1,
+         packet_endian_send_to_large/1,
          packet_tpkt_decode/0,
          packet_tpkt_decode/1,
          packet_tpkt_decode_list/0,
@@ -184,6 +188,7 @@
          passive_recv_packet/3,
          passive_recv_packet_size/3,
          send/3,
+         send_packet_limit/2,
          send_incomplete/3,
          send_incomplete_after_client/3,
          active_once_raw/4,
@@ -191,6 +196,7 @@
          active_raw/3,
          active_once_raw/3,
          active_packet/3,
+         active_packet_limit/2,
          active_packet_size/3,
          assert_packet_opt/2,
          server_packet_decode/2,
@@ -219,7 +225,9 @@
          add_tpkt_header/1,
          client_reject_packet_opt/2,
          send_switch_packet/3,
-         recv_switch_packet/3
+         send_endian_switch_packet/4,
+         recv_switch_packet/3,
+         recv_endian_switch_packet/3
          ]).
 
 -define(BYTE(X),     X:8/unsigned-big-integer).
@@ -340,6 +348,7 @@ socket_active_packet_tests() ->
      packet_size_active,
      packet_size_active_setoptsgetopts,
      packet_switch,
+     packet_endian_switch,
      %% inet header option should be deprecated!
      header_decode_one_byte_active,
      header_decode_two_bytes_active,
@@ -684,6 +693,45 @@ packet_send_to_large(Config) when is_list(Config) ->
     ssl_test_lib:close(Client).
 
 %%--------------------------------------------------------------------
+packet_endian_send_to_large() ->
+    [{doc,"Test endian-aware packet length limits on the send side"}].
+
+packet_endian_send_to_large(Config) when is_list(Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Cases = [{1, 16#ff},
+             {3, 16#ffffff},
+             {{2, little}, 16#ffff}],
+    lists:foreach(
+      fun({Packet, Limit}) ->
+              Server =
+                  ssl_test_lib:start_server(
+                    [{node, ClientNode}, {port, 0},
+                     {from, self()},
+                     {mfa, {?MODULE, send_packet_limit, [Limit]}},
+                     {options, [binary, {packet, Packet} | ServerOpts]}]),
+              Port = ssl_test_lib:inet_port(Server),
+              Client =
+                  ssl_test_lib:start_client(
+                    [{node, ServerNode}, {port, Port},
+                     {host, Hostname},
+                     {from, self()},
+                     {mfa, {?MODULE, active_packet_limit, [Limit]}},
+                     {options, [binary, {active, true}, {packet, Packet} |
+                                ClientOpts]}]),
+
+              ssl_test_lib:check_result(
+                Server,
+                {error, {badarg,
+                         {packet_to_large, Limit + 1, Limit}}},
+                Client, ok),
+
+              ssl_test_lib:close(Server),
+              ssl_test_lib:close(Client)
+      end, Cases).
+
+%%--------------------------------------------------------------------
 packet_wait_active() ->
     [{doc,"Test waiting when complete packages have not arrived"}].
 
@@ -978,6 +1026,78 @@ packet_switch(Config) when is_list(Config) ->
 						   ClientOpts]}]),
 
     ssl_test_lib:check_result(Client, ok, Server, ok),
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+%%--------------------------------------------------------------------
+packet_endian_switch() ->
+    [{doc,"Test switching between endian-aware packet options"}].
+
+packet_endian_switch(Config) when is_list(Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    %% Non-palindromic sizes expose byte order at the raw peer; packet-3 also
+    %% uses its high byte so all three header bytes participate.
+    PacketOpts = [{2, 16#0102}, {4, 16#0102}, {3, 16#010000},
+                  {{2, big}, 16#0102},
+                  {{2, little}, 16#0102},
+                  {{2, native}, 16#0102},
+                  {{3, big}, 16#010000},
+                  {{3, little}, 16#010000},
+                  {{3, native}, 16#010000},
+                  {{4, big}, 16#0102},
+                  {{4, little}, 16#0102},
+                  {{4, native}, 16#0102}],
+    InvalidPackets = [{1, big}, {2, middle}, {2}, {2, big, extra}],
+
+    lists:foreach(
+      fun(Packet) ->
+              {error, {options, {packet, Packet}}} =
+                  ssl:listen(0, [{packet, Packet} | ServerOpts])
+      end, InvalidPackets),
+
+    {ok, ListenSocket} = ssl:listen(0, [{packet, 3} | ServerOpts]),
+    try
+        %% Listener packet options are inherited by accepted sockets. Reject
+        %% invalid tuple forms before they can replace that shared state.
+        ok = ssl:setopts(ListenSocket, [{packet, {2, little}}]),
+        lists:foreach(
+          fun(Packet) ->
+                  {error,
+                   {options,
+                    {socket_options, [{packet, Packet}], _}}} =
+                      ssl:setopts(ListenSocket, [{packet, Packet}])
+          end, InvalidPackets),
+        {ok, [{packet, {2, little}}]} =
+            ssl:getopts(ListenSocket, [packet])
+    after
+        ok = ssl:close(ListenSocket)
+    end,
+
+    Server =
+        ssl_test_lib:start_server(
+          [{node, ClientNode}, {port, 0},
+           {from, self()},
+           {mfa, {?MODULE, send_endian_switch_packet,
+                  [self(), PacketOpts, InvalidPackets]}},
+           {options, [binary, {active, false}, {nodelay, true},
+                      {packet, 3} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client =
+        ssl_test_lib:start_client(
+          [{node, ServerNode}, {port, Port},
+           {host, Hostname},
+           {from, self()},
+           {mfa, {?MODULE, recv_endian_switch_packet, [self(), PacketOpts]}},
+           {options, [binary, {active, false}, {nodelay, true},
+                      {packet, {3, native}} | ClientOpts]}]),
+
+    ssl_test_lib:check_result(Server, ready, Client, ready),
+    Server ! go,
+    Client ! go,
+    ssl_test_lib:check_result(Server, ok, Client, ok),
 
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
@@ -2325,6 +2445,11 @@ send(Socket, Data, N) ->
 	    Other
     end.
 
+send_packet_limit(Socket, Limit) ->
+    Data = binary:copy(<<0>>, Limit),
+    ok = ssl:send(Socket, Data),
+    ssl:send(Socket, [Data, <<0>>]).
+
 send_incomplete(Socket, Data, N) ->
     send_incomplete(Socket, Data, N, <<>>).
 send_incomplete(Socket, _Data, 0, Prev) ->
@@ -2399,6 +2524,15 @@ active_packet(Socket, Data, N) ->
 	    active_packet(Socket, Data, N-1);
 	Other ->
 	    Other
+    end.
+
+active_packet_limit(Socket, Limit) ->
+    Data = binary:copy(<<0>>, Limit),
+    receive
+        {ssl, Socket, Data} ->
+            ok;
+        Other ->
+            Other
     end.
 
 active_packet_size(Socket, Data, Size) ->
@@ -2579,6 +2713,29 @@ send_switch_packet(SslSocket, Data, NextPacket) ->
                     ok
             end
     end.
+
+send_endian_switch_packet(SslSocket, Parent, PacketOpts, InvalidPackets) ->
+    assert_packet_opt(SslSocket, 3),
+    lists:foreach(
+      fun(Packet) ->
+              {error, {options, {socket_options, {packet, Packet}}}} =
+                  ssl:setopts(SslSocket, [{packet, Packet}]),
+              assert_packet_opt(SslSocket, 3)
+      end, InvalidPackets),
+    Parent ! {self(), ready},
+    receive go -> ok end,
+    lists:foreach(
+      fun({Packet, Size}) ->
+              Data = binary:copy(<<$S>>, Size),
+              ok = ssl:setopts(SslSocket, [{packet, Packet}]),
+              assert_packet_opt(SslSocket, Packet),
+              ok = ssl:send(SslSocket, Data),
+              {ok, Data} = ssl:recv(SslSocket, 0)
+      end, PacketOpts),
+    ok.
+
+
+
 recv_switch_packet(SslSocket, Data, NextPacket) ->
     receive
         {ssl, SslSocket, "Hello World"} ->
@@ -2590,3 +2747,35 @@ recv_switch_packet(SslSocket, Data, NextPacket) ->
                     ok                        
             end
     end.
+
+recv_endian_switch_packet(SslSocket, Parent, PacketOpts) ->
+    %% Keep this endpoint raw and compare prefixes before echoing frames. If
+    %% both peers decoded packets, matching endian bugs could cancel out.
+    assert_packet_opt(SslSocket, {3, native}),
+    ok = ssl:setopts(SslSocket, [{packet, raw}]),
+    assert_packet_opt(SslSocket, raw),
+    Parent ! {self(), ready},
+    receive go -> ok end,
+    lists:foreach(
+      fun({Packet, Size}) ->
+              Header =
+                  case Packet of
+                      2 -> <<Size:16/big>>;
+                      3 -> <<Size:24/big>>;
+                      4 -> <<Size:32/big>>;
+                      {2, big} -> <<Size:16/big>>;
+                      {2, little} -> <<Size:16/little>>;
+                      {2, native} -> <<Size:16/native>>;
+                      {3, big} -> <<Size:24/big>>;
+                      {3, little} -> <<Size:24/little>>;
+                      {3, native} -> <<Size:24/native>>;
+                      {4, big} -> <<Size:32/big>>;
+                      {4, little} -> <<Size:32/little>>;
+                      {4, native} -> <<Size:32/native>>
+                  end,
+              Data = binary:copy(<<$S>>, Size),
+              {ok, Header} = ssl:recv(SslSocket, byte_size(Header)),
+              {ok, Data} = ssl:recv(SslSocket, byte_size(Data)),
+              ok = ssl:send(SslSocket, [Header, Data])
+      end, PacketOpts),
+    ok.

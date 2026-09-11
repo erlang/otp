@@ -72,7 +72,7 @@
 -define(MODULE_socket(Server, Socket),
         {'$inet', ?MODULE, {Server, Socket}}).
 
-%% Standard length before data header for packet,1|2|4
+%% Standard length before data header for packet,1|2|3|4
 -define(header(Packet, Size),
         (Size):(Packet)/unit:8-integer-big-unsigned).
 
@@ -559,19 +559,41 @@ send(?MODULE_socket(Server, Socket), Data) ->
         {ok,
          #{packet       := Packet,
            send_timeout := SendTimeout} = Meta} ->
-            if
-                Packet =:= 1;
-                Packet =:= 2;
-                Packet =:= 4 ->
+            PacketHeader =
+                case Packet of
+                    PacketWidth
+                      when is_integer(PacketWidth),
+                           1 =< PacketWidth, PacketWidth =< 4 ->
+                        {PacketWidth, big};
+                    {PacketWidth, PacketEndianness} = PacketHeader0
+                      when is_integer(PacketWidth),
+                           2 =< PacketWidth, PacketWidth =< 4,
+                           (PacketEndianness =:= big orelse
+                            PacketEndianness =:= little orelse
+                            PacketEndianness =:= native) ->
+                        PacketHeader0;
+                    _ ->
+                        false
+                end,
+            case PacketHeader of
+                {Width, Endianness} ->
                     Data2       = iolist_to_binary(Data),
                     Size        = byte_size(Data2),
-		    %% ?DBG([{packet, Packet}, {data_size, Size}]),
-                    Header      = <<?header(Packet, Size)>>,
+                    %% ?DBG([{packet, Packet}, {data_size, Size}]),
+                    Header =
+                        case Endianness of
+                            big ->
+                                <<?header(Width, Size)>>;
+                            little ->
+                                <<Size:Width/unit:8-integer-little-unsigned>>;
+                            native ->
+                                <<Size:Width/unit:8-integer-native-unsigned>>
+                        end,
                     Header_Data = [Header, Data2],
                     Result      = socket_sendv(Socket,
                                                Header_Data, SendTimeout),
                     send_result(Server, Header_Data, Meta, Result);
-                true ->
+                false ->
                     Result = socket_send(Socket, Data, SendTimeout),
                     send_result(Server, Data, Meta, Result)
             end;
@@ -1432,13 +1454,19 @@ nopush_or_cork() ->
     end.
 
 %% -type packet_option_value() ::
-%%         0 | 1 | 2 | 4 | raw | sunrm |  asn1 |
+%%         0 | 1 | 2 | 3 | 4 | {2 | 3 | 4, big | little | native} |
+%%         raw | sunrm | asn1 |
 %%         cdr | fcgi | line | tpkt | http | httph | http_bin | httph_bin.
 
 -compile({inline, [is_packet_option_value/1]}).
 is_packet_option_value(Value) ->
     case Value of
-        0 -> true; 1 -> true; 2 -> true; 4 -> true;
+        0 -> true; 1 -> true; 2 -> true; 3 -> true; 4 -> true;
+        {Width, Endianness}
+          when is_integer(Width), 2 =< Width, Width =< 4,
+               (Endianness =:= big orelse
+                Endianness =:= little orelse
+                Endianness =:= native) -> true;
         raw -> true;
         sunrm -> true;
         asn1 -> true;
@@ -2625,10 +2653,16 @@ decode_packet(D, Data, PacketType, Options) ->
 -compile({inline, [packet_header_length/1]}).
 packet_header_length(PacketType) ->
     case PacketType of
+        {Width, Endianness}
+          when is_integer(Width), 2 =< Width, Width =< 4,
+               (Endianness =:= big orelse
+                Endianness =:= little orelse
+                Endianness =:= native) -> Width;
         raw     -> error(badarg, [PacketType]);
         0       -> error(badarg, [PacketType]);
         1       -> 1;
         2       -> 2;
+        3       -> 3;
         4       -> 4;
         cdr     -> 12;
         sunrm   -> 4;
@@ -3069,8 +3103,18 @@ call_setopts_server(P, D, State, Opts, Tag, Val) ->
         packet ->
             case is_packet_option_value(Val) of
                 true ->
+                    Packet =
+                        case Val of
+                            {Width, big} -> Width;
+                            {Width, native} ->
+                                case erlang:system_info(endian) of
+                                    big -> Width;
+                                    little -> {Width, little}
+                                end;
+                            _ -> Val
+                        end,
                     call_setopts(
-                      P, maps:remove(recv_httph, D#{packet => Val}),
+                      P, maps:remove(recv_httph, D#{packet => Packet}),
                       State, Opts);
                 false ->
                     call_setopts_result({error, einval}, D)
