@@ -33,6 +33,10 @@ details about this mechanism is described in
 
 -compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}}]).
 
+%% These build iodata with binary tails (bfwrite results), i.e. intentional
+%% improper lists that are valid chardata/iolist.
+-dialyzer({no_improper_lists, [explain_reason/7, format_op/7]}).
+
 %% Supported and documented exported functions in this module.
 -export([format_exception/3, format_exception/4]).
 
@@ -243,11 +247,16 @@ format_exception(I, Class, Reason, StackTrace, StackFun, FormatFun, Encoding,
                        latin1 -> "~s~s";
                        _ -> "~s~ts"
                    end,
-    Expl = io_lib:fwrite(FormatString, [exited(Class), Expl0]),
-    case St of
-        [] -> Expl;
-        _ -> [Expl, $\n, St]
-    end.
+    Expl = io_lib:bfwrite(FormatString, [exited(Class), Expl0]),
+    Result = case St of
+                 [] -> Expl;
+                 _ -> [Expl, $\n, St]
+             end,
+    %% St and Expl is a binary, both already encoded (unicode or latin1) by io_lib:bfwrite;
+    %% the only bare integers is the ASCII glue.
+    %% iolist_to_binary concatenates these pre-encoded pieces into a single binary
+    %% faster then using unicode:characters_to_binary(Result, Encoding, Encoding)
+    iolist_to_binary(Result).
 
 %% -> iolist() (no \n at end)
 -doc false.
@@ -288,9 +297,9 @@ format_fun(Fun, Enc) when is_function(Fun) ->
     {arity, A} = erlang:fun_info(Fun, arity),
     case erlang:fun_info(Fun, type) of
         {type, local} when F =:= "" ->
-            io_lib:fwrite(<<"~w">>, [Fun]);
+            io_lib:bfwrite(<<"~w">>, [Fun]);
         {type, local} when M =:= erl_eval ->
-            io_lib:fwrite(<<"interpreted function with arity ~w">>, [A]);
+            io_lib:bfwrite(<<"interpreted function with arity ~w">>, [A]);
         {type, local} ->
             mfa_to_string(M, F, A, Enc);
         {type, external} ->
@@ -346,7 +355,7 @@ explain_reason(badarith, error, [], _PF, _S, _Enc, _CL) ->
 explain_reason({badarity,{Fun,As}}, error, [], _PF, _S, Enc, _CL)
                                       when is_function(Fun) ->
     %% Only the arity is displayed, not the arguments As.
-    io_lib:fwrite(<<"~ts called with ~s">>,
+    io_lib:bfwrite(<<"~ts called with ~s">>,
                   [format_fun(Fun, Enc), argss(length(As))]);
 explain_reason({badfield,F}, error, [], _PF, _S, _Enc, _CL) ->
     io_lib:bformat(<<"bad field name: ~ts">>, [format_record(F)]);
@@ -363,7 +372,7 @@ explain_reason({else_clause,V}, error=Cl, [], PF, S, _Enc, CL) ->
     format_value(V, <<"no else clause matching ">>, Cl, PF, S, CL);
 explain_reason(function_clause, error, [{F,A}], _PF, _S, _Enc, _CL) ->
     %% Shell commands
-    FAs = io_lib:fwrite(<<"~w/~w">>, [F, A]),
+    FAs = io_lib:bfwrite(<<"~w/~w">>, [F, A]),
     [<<"no function clause matching call to ">> | FAs];
 explain_reason(function_clause, error=Cl, [{M,F,As,Loc}], PF, S, Enc, CL) ->
     Str = <<"no function clause matching ">>,
@@ -384,16 +393,16 @@ explain_reason({try_clause,V}, error=Cl, [], PF, S, _Enc, CL) ->
     format_value(V, <<"no try clause matching ">>, Cl, PF, S, CL);
 explain_reason(undef, error, [{M,F,A,_}], _PF, _S, Enc, _CL) ->
     %% Only the arity is displayed, not the arguments, if there are any.
-    io_lib:fwrite(<<"undefined function ~ts">>,
+    io_lib:bfwrite(<<"undefined function ~ts">>,
                   [mfa_to_string(M, F, n_args(A), Enc)]);
 explain_reason({shell_undef,F,A,_}, error, [], _PF, _S, Enc, _CL) ->
     %% Give nicer reports for undefined shell functions
     %% (but not when the user actively calls shell_default:F(...)).
     FS = to_string(F, Enc),
-    io_lib:fwrite(<<"undefined shell command ~ts/~w">>, [FS, n_args(A)]);
+    io_lib:bfwrite(<<"undefined shell command ~ts/~w">>, [FS, n_args(A)]);
 %% Exit codes returned by erl_eval only:
 explain_reason({argument_limit,_Fun}, error, [], _PF, _S, _Enc, _CL) ->
-    io_lib:fwrite(<<"limit of number of arguments to interpreted function"
+    io_lib:bfwrite(<<"limit of number of arguments to interpreted function"
                     " exceeded">>, []);
 explain_reason({bad_filter,V}, error=Cl, [], PF, S, _Enc, CL) ->
     format_value(V, <<"bad filter ">>, Cl, PF, S, CL);
@@ -402,7 +411,7 @@ explain_reason({bad_generator,V}, error=Cl, [], PF, S, _Enc, CL) ->
 explain_reason({bad_generators,V}, error=Cl, [], PF, S, _Enc, CL) ->
     format_value(V, <<"bad generators: ">>, Cl, PF, S, CL);
 explain_reason({unbound,V}, error, [], _PF, _S, _Enc, _CL) ->
-    io_lib:fwrite(<<"variable ~w is unbound">>, [V]);
+    io_lib:bfwrite(<<"variable ~w is unbound">>, [V]);
 %% Exit codes local to the shell module (restricted shell):
 explain_reason({restricted_shell_bad_return, V}, exit=Cl, [], PF, S, _Enc, CL) ->
     Str = <<"restricted shell module returned bad value ">>,
@@ -419,7 +428,7 @@ explain_reason(restricted_shell_stopped, exit, [], _PF, _S, _Enc, _CL) ->
 explain_reason(calling_self, exit, [], _PF, _S, _Enc, _CL) ->
     <<"the current process attempted to call itself">>;
 explain_reason({novalue,Name}, error, [], _PF, _S, _Enc, _CL) ->
-    io_lib:fwrite(~"no value provided for field ~ts", [format_record(Name)]);
+    io_lib:bfwrite(~"no value provided for field ~ts", [format_record(Name)]);
 %% Other exit code:
 explain_reason(Reason, Class, [], PF, S, _Enc, CL) ->
     {L, _} = PF(Reason, (iolist_size(S)+1) + exited_size(Class), CL),
@@ -440,7 +449,7 @@ argss(1) ->
 argss(2) ->
     <<"two arguments">>;
 argss(I) ->
-    io_lib:fwrite(<<"~w arguments">>, [I]).
+    io_lib:bfwrite(<<"~w arguments">>, [I]).
 
 format_stacktrace1(Sep, Stack, PF, SF, Enc, CL, Reason) ->
     format_stacktrace1(Sep, Stack, PF, SF, Enc, CL, Reason,
@@ -457,10 +466,10 @@ format_stacktrace2(_S, _Stack, _N, _PF, _Enc, _CL=0, _Reason, _ErrorMap) ->
 format_stacktrace2(S, [{M,F,A,L}|Fs], N, PF, Enc, CL, Reason, ErrorMap)
   when is_integer(A) ->
     FormattedError = call_format_error(ErrorMap, A, sep(N, S)),
-    Cs = io_lib:fwrite(<<"~s~s ~ts ~ts~ts">>,
-                       [sep(N, S), origin(N, M, F, A),
-                        mfa_to_string(M, F, A, Enc),
-                        location(L), FormattedError]),
+    Cs = io_lib:bfwrite(<<"~s~s ~ts ~ts~ts">>,
+                        [sep(N, S), origin(N, M, F, A),
+                         mfa_to_string(M, F, A, Enc),
+                         location(L), FormattedError]),
     CL1 = sub(CL, Cs, Enc),
     [Cs | format_stacktrace2(S, Fs, N + 1, PF, Enc, CL1, Reason, #{})];
 format_stacktrace2(S, [{M,F,As,_Info}|Fs], N, PF, Enc, CL, Reason, ErrorMap)
@@ -469,7 +478,7 @@ format_stacktrace2(S, [{M,F,As,_Info}|Fs], N, PF, Enc, CL, Reason, ErrorMap)
     CalledAs = [S,<<"   called as ">>],
     C = format_call("", CalledAs, {M,F}, As, PF, Enc, CL),
     FormattedError = call_format_error(ErrorMap, As, sep(N, S)),
-    Cs = io_lib:fwrite(<<"~s~s ~ts\n~s~ts~ts">>,
+    Cs = io_lib:bfwrite(<<"~s~s ~ts\n~s~ts~ts">>,
                        [sep(N, S), origin(N, M, F, A),
                         mfa_to_string(M, F, A, Enc),
                         CalledAs, C, FormattedError]),
@@ -514,9 +523,9 @@ format_arg_errors(ArgNum, [_|As], ErrorMap) ->
             %% so that each line is correctly indented by the
             %% printer of this error
             [FirstLine | Lines] = string:lexemes(Err, "\r\n"),
-            ArgStr = io_lib:format(<<"*** argument ~w: ">>, [ArgNum]),
-            [io_lib:format(<<"~ts~ts">>, [ArgStr, FirstLine])] ++
-                [io_lib:format(<<"~*ts~ts">>,[string:length(ArgStr), "", Line])
+            ArgStr = io_lib:bformat(<<"*** argument ~w: ">>, [ArgNum]),
+            [io_lib:bformat(<<"~ts~ts">>, [ArgStr, FirstLine])] ++
+                [io_lib:bformat(<<"~*ts~ts">>,[string:length(ArgStr), "", Line])
                  || Line <- Lines] ++
                 format_arg_errors(ArgNum + 1, As, ErrorMap);
         #{} ->
@@ -525,7 +534,7 @@ format_arg_errors(ArgNum, [_|As], ErrorMap) ->
 format_arg_errors(_, _, ErrorMap) ->
     case ErrorMap of
         #{ general := Err } ->
-            [io_lib:format(<<"*** ~ts">>, [Err])];
+            [io_lib:bformat(<<"*** ~ts">>, [Err])];
         #{} ->
             []
     end.
@@ -535,7 +544,7 @@ location(L) ->
     Line = proplists:get_value(line, L),
     if
 	File =/= undefined, Line =/= undefined ->
-	    io_lib:format("(~ts:~w)", [File, Line]);
+	    io_lib:bformat("(~ts:~w)", [File, Line]);
 	true ->
 	    ""
     end.
@@ -580,29 +589,28 @@ format_call(ErrStr, Pre1, ForMForFun, As, PF, Enc, CL) ->
     end].
 
 format_op(ErrStr, Pre, Op, [A1], PF, _Enc, CL) ->
-    OpS = io_lib:fwrite(<<"~s ">>, [Op]),
+    OpS = atom_to_binary(Op),
     I1 = iolist_size([ErrStr,Pre,OpS]),
-    {S, _} = PF(A1, I1+1, CL),
-    [OpS | S];
+    {S, _} = PF(A1, I1+2, CL),
+    [OpS, $\s | S];
 format_op(ErrStr, Pre, Op, [A1, A2], PF, Enc, CL) ->
     I1 = iolist_size([ErrStr,Pre]),
     {S1, CL1} = PF(A1, I1+1, CL),
     {S2, _} = PF(A2, I1+1, CL1),
-    OpS = atom_to_list(Op),
+    OpS = atom_to_binary(Op),
     Pre1 = [$\n | n_spaces(I1)],
     case count_nl(S1) > 0 of
-        true -> 
+        true ->
             [S1,Pre1,OpS,Pre1|S2];
         false ->
-            OpS2 = io_lib:fwrite(<<" ~s ">>, [Op]),
-            Size1 = iolist_size([ErrStr,Pre|OpS2]),
+            Size1 = iolist_size([ErrStr,Pre|OpS]) + 2, %% Surrounding spaces
             Size2 = size(Enc, S1),
             {S2_2, _} = PF(A2, Size1+Size2+1, CL1),
             case count_nl(S2) < count_nl(S2_2) of
                 true ->
                     [S1,Pre1,OpS,Pre1|S2];
                 false ->
-                    [S1,OpS2|S2_2]
+                    [S1,$\s,OpS,$\s|S2_2]
             end
     end.
 
@@ -632,28 +640,28 @@ printable_list(_, As) ->
     io_lib:printable_list(As).
 
 mfa_to_string(M, F, A, Enc) ->
-    io_lib:fwrite(<<"~ts/~w">>, [mf_to_string({M, F}, A, Enc), A]).
+    io_lib:bfwrite(<<"~ts/~w">>, [mf_to_string({M, F}, A, Enc), A]).
 
 mf_to_string({M, F}, A, Enc) ->
     case erl_internal:bif(M, F, A) of
         true ->
-            io_lib:fwrite(<<"~w">>, [F]);
+            io_lib:bfwrite(<<"~w">>, [F]);
         false ->
             case is_op({M, F}, A) of
                 {yes, '/'} ->
-                    io_lib:fwrite(<<"~w">>, [F]);
+                    io_lib:bfwrite(<<"~w">>, [F]);
                 {yes, F} ->
                     atom_to_list(F);
                 no ->
                     FS = to_string(F, Enc),
-                    io_lib:fwrite(<<"~w:~ts">>, [M, FS])
+                    io_lib:bfwrite(<<"~w:~ts">>, [M, FS])
             end
     end;
 mf_to_string(Fun, _A, Enc) when is_function(Fun) ->
     format_fun(Fun, Enc);
 mf_to_string(F, _A, Enc) ->
     FS = to_string(F, Enc),
-    io_lib:fwrite(<<"~ts">>, [FS]).
+    io_lib:bfwrite(<<"~ts">>, [FS]).
 
 format_value(V, ErrStr, Class, PF, S, CL) ->
     Pre1Sz = exited_size(Class),
@@ -677,9 +685,16 @@ count_nl([E | Es]) ->
 count_nl($\n) ->
     1;
 count_nl(Bin) when is_binary(Bin) ->
-    count_nl(binary_to_list(Bin));
+    count_nl_bin(Bin, 0);
 count_nl(_) ->
     0.
+
+count_nl_bin(<<$\n, Rest/binary>>, N) ->
+    count_nl_bin(Rest, N + 1);
+count_nl_bin(<<_, Rest/binary>>, N) ->
+    count_nl_bin(Rest, N);
+count_nl_bin(<<>>, N) ->
+    N.
 
 n_spaces(N) ->
     lists:duplicate(N, $\s).
@@ -703,9 +718,9 @@ exited(throw) ->
     <<"exception throw: ">>.
 
 to_string(A, latin1) ->
-    io_lib:write_atom_as_latin1(A);
+    io_lib:bwrite_atom(A, latin1);
 to_string(A, _) ->
-    io_lib:write_atom(A).
+    io_lib:bwrite_atom(A, unicode).
 
 %% Make sure T does change sign.
 sub(T, _, _Enc) when T < 0 -> T;
