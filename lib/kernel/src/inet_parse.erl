@@ -812,11 +812,9 @@ ipv6_ipv4_c(_, _, _, _, _, _) ->
 %% After "%"
 ipv6_addr_scope([], _Ar, _Br, _N) ->
     throw(error); %<zone_id> has to be a non-null string (RFC 4007)
-ipv6_addr_scope("0", Ar, Br, N) ->
-    ipv6_addr_scope_done(0, Ar, Br, N);
 ipv6_addr_scope([C|Cs], Ar, Br, N) ->
     if
-        is_integer(C, $1, $9) -> % Reject leading zeros, to avoid ambiguities
+        is_integer(C, $0, $9) ->
             ipv6_addr_scope_dec16(Cs, Ar, Br, N, C - $0);
         true -> % We ignore any non-numerical <zone_id>:s for now
             ipv6_addr_scope_done(0, Ar, Br, N)

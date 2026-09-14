@@ -867,14 +867,14 @@ parse_address(Config) when is_list(Config) ->
 	 {{0,0,0,0},"0.00.0.0"},
 	 {{0,0,0,0},"0.0.000000000000.0"}],
     V6Sloppy =
-        [{{16#a,16#b,16#c,16#0,16#0,16#d,16#e,16#f},"A:B:C::d:e:f"},
+        [{{16#a,16#b,16#c,16#0,16#0,16#d,16#e,16#f},"A:0B:C::000d:00e:f"},
+         %% String zone indexes are ignored for now
          {{16#fe80,0,0,0,0,0,0,16#12},"fe80::12%XXXXXXX"},
          {{16#fe80,0,0,0,0,0,0,16#12},"fe80::12%eth0"},
          %% Explicit zone index 0
          {{16#fe80,0,0,0,0,0,0,16#12},"fe80::12%0"},
-         %% A zone id with a leading zero is not a numerical zone index,
-         %% so it is ignored like any other zone name
-         {{16#fe80,0,0,0,0,0,0,16#12},"fe80::12%012345"},
+         %% Zone index with leading 0
+         {{16#ff02,12345,0,0,0,0,0,16#12},"ff02::12%012345"},
          %% Zone index after an uncompressed address
          {{16#fe80,7,0,0,0,0,0,16#12},"fe80:0:0:0:0:0:0:12%7"}]
         ++
@@ -936,6 +936,7 @@ parse_address(Config) when is_list(Config) ->
          "fe80::12%5%6",
          "::1%5",
          "2001:db8::1%5",
+         "2001::1%5",
          "fe80:1::1%5"],
     t_parse_address
       (parse_ipv6_address,
