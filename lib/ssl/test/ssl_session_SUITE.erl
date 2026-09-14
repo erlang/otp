@@ -669,7 +669,7 @@ session_server_restart(Config) when is_list(Config) ->
 	ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
                                    {from, self()},
                                    {mfa, {?MODULE, accept_socket, [Test]}},
-                                   {options, ServerOpts}]),
+                                   {options, [{reuse_sessions, true} | ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
     {Client0, Client0Sock} =
 	ssl_test_lib:start_client([{node, ClientNode},
@@ -951,9 +951,14 @@ sup_name(Opts) ->
            dtls_server_session_cache_sup
    end.
 
-tracker(#sslsocket{pid = {dtls,_}}) ->
+tracker({sslsocket,{gen_udp,_,
+                    dtls_gen_connection}, _}) ->
     Sup = whereis(dtls_server_session_cache_sup),
     [{_,Child, worker,[ssl_server_session_cache]}] = supervisor:which_children(Sup),
     Child;
-tracker(#sslsocket{pid = {_, #config{trackers = Trackers}}}) ->
+tracker({sslsocket,{gen_tcp,_,
+                    tls_connection,
+                    Trackers},
+         _})->
     proplists:get_value(session_id_tracker, Trackers).
+

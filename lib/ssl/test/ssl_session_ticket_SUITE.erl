@@ -1459,7 +1459,7 @@ ticket_server_restart(Config) when is_list(Config) ->
                 Socket0
         end,
 
-    Trackers = element(8, SSocket0),
+    Trackers = element(4, element(2, SSocket0)),
     Tracker = proplists:get_value(session_tickets_tracker, Trackers),
     exit(Tracker, kill), %% Fake server session ticket handler crash
 
