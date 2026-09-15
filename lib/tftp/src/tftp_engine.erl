@@ -1241,14 +1241,20 @@ pre_verify_options(Config, Req) ->
     
 post_verify_options(Config, Req, NewOptions, Text) ->
     OldOptions = Req#tftp_msg_req.options,
-    BadOptions  = 
-        [Key || {Key, _Val} <- NewOptions, 
+    BadOptions  =
+        [Key || {Key, _Val} <- NewOptions,
                 not lists:keymember(Key, 1, OldOptions)],
     case BadOptions =:= [] of
         true ->
-            Config2 = Config#config{timeout = lookup_timeout(NewOptions)},
-            Req2 = Req#tftp_msg_req{options = NewOptions},
-            {ok, Config2, Req2};
+            Timeout = lookup_timeout(NewOptions),
+            if
+                is_integer(Timeout, 1, 255) ->
+                    Config2 = Config#config{timeout = Timeout},
+                    Req2 = Req#tftp_msg_req{options = NewOptions},
+                    {ok, Config2, Req2};
+                true ->
+                    {error, {badopt, Text}}
+            end;
         false ->
             {error, {badopt, Text}}
     end.
@@ -1275,9 +1281,11 @@ verify_reject([{Key, _} | Options], Rejected) ->
 lookup_timeout(Options) ->
     case lists:keysearch("timeout", 1, Options) of
         {value, {_, Val}} ->
-            list_to_integer(Val);
-        false ->
-            3
+            try list_to_integer(Val) of
+                Timeout             -> Timeout
+            catch error : badarg    -> error
+            end;
+        false                       -> 3
     end.
 
 lookup_mode(Options) ->
