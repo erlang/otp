@@ -2920,7 +2920,7 @@ Equivalent to `cipher_suites/2`, but lists RFC or OpenSSL string names instead o
 -doc(#{title => <<"Utility Functions">>,
        since => <<"OTP 22.0">>}).
 -spec cipher_suites(Description, Version, StringType) -> [string()] when
-      Description :: default | all | exclusive | anonymous,
+      Description :: default | all | exclusive | anonymous | exclusive_anonymous,
       Version :: protocol_version(),
       StringType :: rfc | openssl.
 
