@@ -354,7 +354,13 @@ pending_early_data_size(PendingMaxEarlyDataSize, PlainFragment) ->
     %% send when using this ticket, in bytes.  Only Application Data
     %% payload (i.e., plaintext but not padding or the inner content
     %% type byte) is counted.
-    PendingMaxEarlyDataSize - (byte_size(PlainFragment)).
+    %%
+    %% Charge at least 1 byte per accepted record so the budget always
+    %% depletes, even for empty (0-length) application-data records;
+    %% otherwise a client could stream unbounded empty 0-RTT records
+    %% without ever reaching max_early_data_size. This mirrors the floor
+    %% used by approximate_pending_early_data_size/3 on the trial path.
+    PendingMaxEarlyDataSize - max(1, byte_size(PlainFragment)).
 
 approximate_pending_early_data_size(PendingMaxEarlyDataSize,
                                     BulkCipherAlgo, CipherFragment) ->
