@@ -106,6 +106,7 @@ that should handle it. `io_ansi:fwrite/4` works across nodes and will use the
          light_cyan_underline/0, light_white_underline/0]).
 -export([modify_color/4]).
 -export([bold/0, bold_off/0, blink/0, blink_off/0, dim/0, dim_off/0,
+         bright/0, faint/0, normal/0,
          invisible/0, invisible_off/0, italic/0, italic_off/0, inverse/0, inverse_off/0]).
 -export([strikethrough/0, strikethrough_off/0]).
 -export([underline/0, underline_off/0]).
@@ -178,8 +179,8 @@ that should handle it. `io_ansi:fwrite/4` works across nodes and will use the
 
 -doc "Virtual terminal sequences that control text style.".
 -type style() :: bold | bold_off | blink | blink_off | dim | dim_off | invisible | invisible_off |
-                 italic | italic_off | inverse | inverse_off | overline | overline_off |
-                 strikethrough | strikethrough_off | underline_style().
+                 bright | faint | normal | italic | italic_off | inverse | inverse_off |
+                 overline | overline_off | strikethrough | strikethrough_off | underline_style().
 
 -type hyperlink_params() :: [{Key :: unicode:chardata(), Value :: unicode:chardata()}].
 
@@ -889,6 +890,8 @@ Example:
 -doc """
 Turn off bold text style.
 
+Alias for `normal/0`.
+
 Example:
 ```erlang
 1> io_ansi:bold_off().
@@ -897,6 +900,34 @@ Example:
 """.
 ?SPEC(bold_off).
 ?FUNCTION(bold_off).
+
+-doc """
+Turn on bold text style.
+
+Use `normal/0` to turn bold/bright off.
+
+Alias for `bold/0`.
+
+Example:
+```erlang
+1> io_ansi:bright().
+<<"\e[1m">>
+```
+""".
+?SPEC(bright).
+?FUNCTION(bright).
+
+-doc """
+Turn off [bold](`bold/0`)/[dim](`dim/0`) text style.
+
+Example:
+```erlang
+1> io_ansi:normal().
+<<"\e[22m">>
+```
+""".
+?SPEC(normal).
+?FUNCTION(normal).
 
 -doc """
 Turn on underline text style.
@@ -1034,6 +1065,8 @@ Example:
 -doc """
 Turn off dim text style.
 
+Alias for `normal/0`.
+
 Example:
 ```erlang
 1> io_ansi:dim_off().
@@ -1043,6 +1076,21 @@ Example:
 ?SPEC(dim_off).
 ?FUNCTION(dim_off).
 
+-doc """
+Turn on dim text style. Not widely supported.
+
+Use `normal/0` to turn faint/dim off.
+
+Alias for `dim/0`.
+
+Example:
+```erlang
+1> io_ansi:faint().
+<<"\e[2m">>
+```
+""".
+?SPEC(faint).
+?FUNCTION(faint).
 
 -doc """
 Turn on invisible text style. Not widely supported.
@@ -2749,8 +2797,11 @@ default_mappings() ->
 
        bold => { "bold", "\e[1m" },
        bold_off => { undefined, "\e[22m" },
-       dim => { undefined, "\e[2m" },
+       dim => { "dim", "\e[2m" },
        dim_off => { undefined, "\e[22m" },
+       bright => { "bold", "\e[1m" },
+       faint => { "dim", "\e[2m" },
+       normal => { undefined, "\e[22m" },
        italic => { "sitm", "\e[3m" },
        italic_off => { "ritm", "\e[23m" },
        blink => { "blink", "\e[5m" },
