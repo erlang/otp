@@ -124,7 +124,7 @@ do_parse_config([{Key, Val} | Tail], Config) when is_record(Config, config) ->
                 is_integer(Min), Min > 0,
                 is_integer(Max), Max > 0 ->
                     do_parse_config(Tail, Config#config{port_policy = Val});
-                true ->
+                _ ->
                     throw({badarg, {Key, Val}})
             end;
         udp when is_list(Val) ->

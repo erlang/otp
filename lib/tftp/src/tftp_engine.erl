@@ -239,7 +239,7 @@ daemon_loop(#daemon_state{config = DaemonConfig,
             print_debug_info(ServerConfig, daemon, recv, DecodedMsg),
             case DecodedMsg of
                 #tftp_msg_req{} = Req when
-                      N =< DaemonConfig#config.max_conn ->
+                      N < DaemonConfig#config.max_conn ->
                     Peer = peer_info(ServerConfig),
                     PeerReq = {Peer, Req},
                     PeerInfo = lists:flatten(io_lib:format("~p", [Peer])),
@@ -369,9 +369,9 @@ server_init(Config2, Req, Req2) ->
                             end;
                         {error, {Code, Text}} ->
                             {undefined, Error} =
-                                callback({abort, {Code, Text}}, Config2, Callback, Req2),
-                            send_msg(Config2, Req, Error),
-                            terminate(Config2, Req2, ?ERROR(pre_verify_options, Code, Text, Req2#tftp_msg_req.filename))
+                                callback({abort, {Code, Text}}, Config3, Callback, Req2),
+                            send_msg(Config3, Req, Error),
+                            terminate(Config3, Req2, ?ERROR(pre_verify_options, Code, Text, Req2#tftp_msg_req.filename))
                     end;
                 {error, #tftp_msg_error{code = Code, text = Text} = Error} ->
                     send_msg(Config3, Req, Error),
