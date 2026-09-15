@@ -3473,7 +3473,7 @@ sockname(#sslsocket{connection_handler = Controller,
 Lists information, mainly concerning TLS/DTLS versions, in runtime for debugging
 and testing purposes.
 
-- **`app_vsn`** - The application version of the SSL application.
+- **`ssl_app`** - The application version of the SSL application.
 
 - **`supported`** - TLS versions supported with current application environment
   and crypto library configuration. Overridden by a version option on
