@@ -198,7 +198,7 @@ do_sig_function(Id, StMap, State0, FuncDb0) ->
             {State#sig_st{wl=Wl}, FuncDb}
     end.
 
-sig_function_1(Id, StMap, State0, FuncDb) ->
+sig_function_1(Id, StMap, State0, FuncDb0) ->
     #opt_st{ssa=Linear,args=Args} = map_get(Id, StMap),
 
     {ArgTypes, State1} = sig_commit_args(Id, State0),
@@ -218,7 +218,8 @@ sig_function_1(Id, StMap, State0, FuncDb) ->
 
     Wl0 = State1#sig_st.wl,
 
-    {State, SuccTypes} = sig_bs(Linear, Ds, Ls, FuncDb, #{}, [], Meta, State2),
+    {State, SuccTypes, FuncDb} =
+        sig_bs(Linear, Id, Ds, Ls, FuncDb0, #{}, [], Meta, State2),
 
     WlChanged = wl_changed(Wl0, State#sig_st.wl),
     #{ Id := #func_info{succ_types=SuccTypes0}=Entry0 } = FuncDb,
@@ -243,13 +244,13 @@ sig_init_metadata(Id, Linear, Args, #sig_st{meta_cache=MetaCache} = State) ->
     end.
 
 sig_bs([{L, #b_blk{is=Is,last=Last0}} | Bs],
-       Ds0, Ls0, Fdb, Sub0, SuccTypes0, Meta, State0) ->
+       Id, Ds0, Ls0, Fdb0, Sub0, SuccTypes0, Meta, State0) ->
     case Ls0 of
         #{ L := Incoming } ->
             {incoming, Ts0} = Incoming,         %Assertion.
 
-            {Ts, Ds, Sub, State} =
-                sig_is(Is, Ts0, Ds0, Ls0, Fdb, Sub0, State0),
+            {Ts, Ds, Fdb, Sub, State} =
+                sig_is(Is, Id, Ts0, Ds0, Ls0, Fdb0, Sub0, State0),
 
             Last = simplify_terminator(Last0, Ts, Ds, Sub),
             SuccTypes = update_success_types(Last, Ts, Ds, Meta, SuccTypes0),
@@ -262,18 +263,18 @@ sig_bs([{L, #b_blk{is=Is,last=Last0}} | Bs],
             %% nodes, but there's nothing to gain from that at the moment so
             %% we'll store the current Ts to save memory.
             Ls = Ls1#{ L := {outgoing, Ts} },
-            sig_bs(Bs, Ds, Ls, Fdb, Sub, SuccTypes, Meta, State);
+            sig_bs(Bs, Id, Ds, Ls, Fdb, Sub, SuccTypes, Meta, State);
         #{} ->
             %% This block is never reached. Ignore it.
-            sig_bs(Bs, Ds0, Ls0, Fdb, Sub0, SuccTypes0, Meta, State0)
+            sig_bs(Bs, Id, Ds0, Ls0, Fdb0, Sub0, SuccTypes0, Meta, State0)
     end;
-sig_bs([], _Ds, _Ls, _Fdb, _Sub, SuccTypes, _Meta, State) ->
-    {State, SuccTypes}.
+sig_bs([], _Id, _Ds, _Ls, Fdb, _Sub, SuccTypes, _Meta, State) ->
+    {State, SuccTypes, Fdb}.
 
 sig_is([#b_set{op=call,
                args=[#b_local{}=Callee | _]=Args0,
                dst=Dst}=I0 | Is],
-       Ts0, Ds0, Ls, Fdb, Sub, State0) ->
+       Id, Ts0, Ds0, Ls, Fdb, Sub, State0) ->
     Args = simplify_args(Args0, Ts0, Sub),
     I1 = I0#b_set{args=Args},
 
@@ -282,21 +283,21 @@ sig_is([#b_set{op=call,
 
     Ts = update_types(I, Ts0, Ds0),
     Ds = Ds0#{ Dst => I },
-    sig_is(Is, Ts, Ds, Ls, Fdb, Sub, State);
+    sig_is(Is, Id, Ts, Ds, Ls, Fdb, Sub, State);
 sig_is([#b_set{op=call,
                args=[#b_var{} | _]=Args0,
                dst=Dst}=I0 | Is],
-       Ts0, Ds0, Ls, Fdb, Sub, State0) ->
+       Id, Ts0, Ds0, Ls, Fdb0, Sub, State0) ->
     Args = simplify_args(Args0, Ts0, Sub),
     I1 = I0#b_set{args=Args},
 
-    {I, State} = sig_fun_call(I1, Args, Ts0, Ds0, Fdb, Sub, State0),
+    {I, State, Fdb} = sig_fun_call(Id, I1, Args, Ts0, Ds0, Fdb0, Sub, State0),
 
     Ts = update_types(I, Ts0, Ds0),
     Ds = Ds0#{ Dst => I },
-    sig_is(Is, Ts, Ds, Ls, Fdb, Sub, State);
+    sig_is(Is, Id, Ts, Ds, Ls, Fdb, Sub, State);
 sig_is([#b_set{op=make_fun,args=Args0,dst=Dst}=I0|Is],
-       Ts0, Ds0, Ls, Fdb, Sub0, State0) ->
+       Id, Ts0, Ds0, Ls, Fdb, Sub0, State0) ->
     Args = simplify_args(Args0, Ts0, Sub0),
     I1 = I0#b_set{args=Args},
 
@@ -304,18 +305,18 @@ sig_is([#b_set{op=make_fun,args=Args0,dst=Dst}=I0|Is],
 
     Ts = update_types(I, Ts0, Ds0),
     Ds = Ds0#{ Dst => I },
-    sig_is(Is, Ts, Ds, Ls, Fdb, Sub0, State);
-sig_is([I0 | Is], Ts0, Ds0, Ls, Fdb, Sub0, State) ->
+    sig_is(Is, Id, Ts, Ds, Ls, Fdb, Sub0, State);
+sig_is([I0 | Is], Id, Ts0, Ds0, Ls, Fdb, Sub0, State) ->
     case simplify(I0, Ts0, Ds0, Ls, Sub0) of
         {#b_set{}, Ts, Ds} ->
-            sig_is(Is, Ts, Ds, Ls, Fdb, Sub0, State);
+            sig_is(Is, Id, Ts, Ds, Ls, Fdb, Sub0, State);
         Sub when is_map(Sub) ->
-            sig_is(Is, Ts0, Ds0, Ls, Fdb, Sub, State)
+            sig_is(Is, Id, Ts0, Ds0, Ls, Fdb, Sub, State)
     end;
-sig_is([], Ts, Ds, _Ls, _Fdb, Sub, State) ->
-    {Ts, Ds, Sub, State}.
+sig_is([], _Id, Ts, Ds, _Ls, Fdb, Sub, State) ->
+    {Ts, Ds, Fdb, Sub, State}.
 
-sig_fun_call(I0, Args, Ts, Ds, Fdb, Sub, State0) ->
+sig_fun_call(Id, I0, Args, Ts, Ds, Fdb0, Sub, State0) ->
     [Fun | CallArgs0] = Args,
     FunType = normalized_type(Fun, Ts),
     Arity = length(CallArgs0),
@@ -327,19 +328,34 @@ sig_fun_call(I0, Args, Ts, Ds, Fdb, Sub, State0) ->
             %% When a fun is used and defined in the same function, we can make
             %% a direct call since the environment is still available.
             CallArgs = CallArgs0 ++ simplify_args(Env, Ts, Sub),
-            I = I0#b_set{args=[Callee | CallArgs]},
-            sig_local_call(I, Callee, CallArgs, Ts, Fdb, State0);
+            I1 = I0#b_set{args=[Callee | CallArgs]},
+            {I, State} = sig_local_call(I1, Callee, CallArgs, Ts, Fdb0, State0),
+            {I, State, Fdb0};
         {#t_fun{arity=Arity,target={Name,Arity}}, _} ->
-            %% When a fun lacks free variables, we can make a direct call even
-            %% when we don't know where it was defined.
+            %% When a fun lacks free variables, we can make a direct
+            %% call even when we don't know where it was defined.
             Callee = #b_local{name=#b_literal{val=Name},
                               arity=Arity},
-            I = I0#b_set{args=[Callee | CallArgs0]},
-            sig_local_call(I, Callee, CallArgs0, Ts, Fdb, State0);
+            I1 = I0#b_set{args=[Callee | CallArgs0]},
+            {I, State} = sig_local_call(I1, Callee, CallArgs0, Ts, Fdb0, State0),
+
+            %% If callee is recursively defined, its type might not be
+            %% fully resolved yet, and therefore the callee will be
+            %% re-analyzed. When that happens, it is essential that
+            %% the current function is also re-analyzed to pick up the
+            %% correct return type of the call. Therefore, the current
+            %% function must be registered as a caller of the callee.
+            CalleeFi0 = map_get(Callee, Fdb0),
+            #func_info{in=In0} = CalleeFi0,
+            In = ordsets:add_element(Id, In0),
+            CalleeFi = CalleeFi0#func_info{in=In},
+            Fdb = Fdb0#{Callee := CalleeFi},
+
+            {I, State, Fdb};
         {#t_fun{type=Type}, _} when Type =/= any ->
-            {beam_ssa:add_anno(result_type, Type, I0), State0};
+            {beam_ssa:add_anno(result_type, Type, I0), State0, Fdb0};
         _ ->
-            {I0, State0}
+            {I0, State0, Fdb0}
     end.
 
 sig_local_call(I0, Callee, Args, Ts, Fdb, State) ->
