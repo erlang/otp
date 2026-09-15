@@ -3147,7 +3147,7 @@ Example:
        since => <<"OTP 26.0">>}).
 -spec signature_algs(Description, Version) -> signature_algs() when
       Description :: default | all | exclusive,
-      Version :: protocol_version().
+      Version :: 'tlsv1.3' | 'tlsv1.2' | 'dtlsv1.2'.
 %%--------------------------------------------------------------------
 
 signature_algs(default, 'tlsv1.3') ->
