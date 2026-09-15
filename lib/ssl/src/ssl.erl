@@ -1954,7 +1954,7 @@ Options only relevant to TLS versions prior to TLS-1.3.
   The DER-encoded Diffie-Hellman parameters. If specified, it overrides option
   `dhfile`.
 
-- **`{dh_file, DHfile}`** - Affects DH key exchange cipher suites
+- **`{dhfile, DHfile}`** - Affects DH key exchange cipher suites
 
   Path to a file containing PEM-encoded Diffie Hellman parameters to be used by
   the server if a cipher suite using Diffie Hellman key exchange is negotiated. If
