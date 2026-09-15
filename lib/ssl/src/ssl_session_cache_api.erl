@@ -55,9 +55,14 @@ that is used as parameter to the other API functions.
 
 Is called by the cache handling processes `init` function, hence
 putting the same requirements on it as a normal process `init`
-function. This function is called twice when starting the SSL
-application, once with the role client and once with the role server,
-as the SSL application must be prepared to take on both roles.
+function. It is called once with the property `{role, client}` when
+the SSL application starts (the client-side cache is a single process),
+and once with the property `{role, server}` for each TLS/DTLS listen
+socket, as a separate server session cache process is started per
+listener. An implementation must therefore not assume it is invoked
+exactly twice, and must not allocate globally-named resources (such as
+a named ETS table keyed only on the role) that would collide on the
+second and subsequent invocations.
 
 Includes property `{role, client | server}` in init argument list. 
 Currently this is the only predefined property, there can also be
