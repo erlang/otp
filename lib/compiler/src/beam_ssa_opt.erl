@@ -66,6 +66,11 @@
    %% when dealing with co-recursive functions.
    arg_types = [] :: list(arg_type_map()),
 
+   %% The joined arg_types from the previous round. Used for verifying
+   %% that we have not done any improper widening of the argument
+   %% types.
+   prev_joined_args = #{} :: #{#b_var{} => term()},
+
    %% The success types of this function, grouping return values by their
    %% argument types at the time of return.
    %%
