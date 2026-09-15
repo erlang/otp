@@ -155,6 +155,6 @@ to be callable from any process.
 """.
 -callback size(CacheRef) -> Size when
       CacheRef:: session_cache_ref(),
-      Size :: pos_integer().
+      Size :: non_neg_integer().
 
 -optional_callbacks([select_session/2, foldl/3]).
