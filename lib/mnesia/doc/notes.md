@@ -27,6 +27,30 @@ as all enhancements and bugfixes for every release of Mnesia. Each release of
 Mnesia thus constitutes one section in this document. The title of each section
 is the version number of Mnesia.
 
+## Mnesia 4.27
+
+### Fixed Bugs and Malfunctions
+
+- Fixed `mnesia:force_load_table/1` getting stuck when the remote node becomes unreachable during table loading. When a network loader is aborted due to sender node going down and a user has forced a table load, we now retry loading from disc instead. Additionally, for disc_only_copies tables, the process actually loading the table is the dets server process, not the mnesia loader, so it would not receive the abort notification and would hang indefinitely. Now it correctly receives the notification and aborts table loading.
+
+  Own Id: OTP-20256 Aux Id: [GH-11344], [PR-11426]
+
+- Fixed incorrect results from [`mnesia:select_reverse/2,3`](`mnesia:select_reverse/2`) on `ordered_set` tables inside a transaction that had already written to or deleted from the same table. Deleted records could reappear, updated records could appear twice, and the descending order was not preserved.
+
+  Own Id: OTP-20364 Aux Id: [PR-11563]
+
+[GH-11344]: https://github.com/erlang/otp/issues/11344
+[PR-11426]: https://github.com/erlang/otp/pull/11426
+[PR-11563]: https://github.com/erlang/otp/pull/11563
+
+### Improvements and New Features
+
+- The documentation of the `mnesia` module now contains runnable examples for most functions. The examples are verified by the mnesia test suite, so they always match actual behavior.
+
+  Own Id: OTP-20374 Aux Id: [PR-11216]
+
+[PR-11216]: https://github.com/erlang/otp/pull/11216
+
 ## Mnesia 4.26.2
 
 ### Fixed Bugs and Malfunctions

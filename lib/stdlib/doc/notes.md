@@ -23,6 +23,107 @@ limitations under the License.
 
 This document describes the changes made to the STDLIB application.
 
+## STDLIB 8.1
+
+### Fixed Bugs and Malfunctions
+
+- When `beam_lib` returns an error tuple, the filename in the information tuple is now a list of characters instead of an atom.
+  
+  Example:
+  
+  ```
+  1> beam_lib:chunks(code:which(lists), ["nope"]).
+  {error,beam_lib,
+         {missing_chunk,".../git/otp/lib/stdlib/ebin/lists.beam",
+                        "nope"}}
+  ```
+  
+  The reason for this change is that a long file name is not guaranteed to fit in an atom. Applications or tools that do deep inspection of the `beam_lib` errors (not recommended) will need to be updated.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-20118 Aux Id: [PR-11167]
+
+- The default seed in the `rand` module has been improved to spread out its entropy over all three seed words.
+  
+  This avoids identical first random numbers from two successive seeds on machines with low system time resolution.
+
+  Own Id: OTP-20158 Aux Id: [PR-11165]
+
+- Fixed `unicode:characters_to_binary/2` to handle incomplete utf-32 sequences without crashing.
+  
+  Also fixed a performance regression in `unicode:characters_to_nfkd_list/1`.
+
+  Own Id: OTP-20169 Aux Id: [PR-11130]
+
+- The `array` module has been improved. `array:slice/3` now raises
+  `badarg` for negative lengths.
+  
+  The performance of `array:mapfoldl/3` and `array:sparse_mapfoldl/3` has been improved.
+  
+  The documentation has been clarified regarding array growth/shrink behavior and how `concat/1,2` handles mixed arrays.
+
+  Own Id: OTP-20177 Aux Id: [PR-11159]
+
+- Added more checks in the linter for badly formed `{Name,Arity}` attributes
+
+  Own Id: OTP-20277 Aux Id: [GH-11397], [PR-11422]
+
+- Fixed return value of `zip:zip_get/2`. When a file was extracted to a directory, the function returned a map instead of a file name.
+
+  Own Id: OTP-20298 Aux Id: [PR-11313]
+
+- When `compr_assign` is enabled, the linter will correctly check for unbounded variables after block expressions in comprehensions.
+
+  Own Id: OTP-20309 Aux Id: [GH-11406], [PR-11567]
+
+- When compiling a module with a triple-quoted string with escape sequences and a chunk boundary happened to fall just after an escape character, that character was not passed to the reentrancy continuation, so the scanner interpreted the following characters as not an escape sequence.
+  
+  This bug has now been fixed.
+
+  Own Id: OTP-20320 Aux Id: [GH-11423], [PR-11505]
+
+- Fixed some errors in examples in the documentation for the `m:string` and `m:uri_string` modules.
+
+  Own Id: OTP-20322 Aux Id: [PR-11446]
+
+- Linter will emit better error messages when a behaviour attribute has a bad module name.
+
+  Own Id: OTP-20354 Aux Id: [GH-11401], [PR-11552]
+
+[PR-11167]: https://github.com/erlang/otp/pull/11167
+[PR-11165]: https://github.com/erlang/otp/pull/11165
+[PR-11130]: https://github.com/erlang/otp/pull/11130
+[PR-11159]: https://github.com/erlang/otp/pull/11159
+[GH-11397]: https://github.com/erlang/otp/issues/11397
+[PR-11422]: https://github.com/erlang/otp/pull/11422
+[PR-11313]: https://github.com/erlang/otp/pull/11313
+[GH-11406]: https://github.com/erlang/otp/issues/11406
+[PR-11567]: https://github.com/erlang/otp/pull/11567
+[GH-11423]: https://github.com/erlang/otp/issues/11423
+[PR-11505]: https://github.com/erlang/otp/pull/11505
+[PR-11446]: https://github.com/erlang/otp/pull/11446
+[GH-11401]: https://github.com/erlang/otp/issues/11401
+[PR-11552]: https://github.com/erlang/otp/pull/11552
+
+### Improvements and New Features
+
+- `uri_string:parse/1` now reports the actual offending character in error tuples instead of reporting a misleading cascade-failure position.
+  
+  Previously, when parsing a URI containing an invalid character (such as `|` or non-ASCII characters like `ö`), the error tuple would point to the `:` character — the position where the parser's final backtracking attempt failed — rather than the character that actually violated the URI grammar. For example, `uri_string:parse("http://localhost/A|B")` returned `{error,invalid_uri,":"}` instead of the more helpful `{error,invalid_uri,"|"}`
+
+  Own Id: OTP-20235 Aux Id: [PR-11129], [GH-7862]
+
+- Fixed a guard precedence bug in `uri_string:compose_query/2` that caused inconsistent error handling depending on the encoding option.
+  
+  When `compose_query/2` was called with invalid input (e.g. an atom instead of a string) and `{encoding, unicode}`, it would crash with `** exception error: bad argument` instead of returning the expected `{error, invalid_input, Term}` tuple. The same call with `{encoding, utf8}` correctly returned the error tuple. Both encoding options now consistently return `{error, invalid_input, Term}` for invalid input.
+
+  Own Id: OTP-20236 Aux Id: [PR-11128]
+
+[PR-11129]: https://github.com/erlang/otp/pull/11129
+[GH-7862]: https://github.com/erlang/otp/issues/7862
+[PR-11128]: https://github.com/erlang/otp/pull/11128
+
 ## STDLIB 8.0.4
 
 ### Fixed Bugs and Malfunctions

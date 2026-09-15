@@ -254,7 +254,7 @@ columns when the driver reports display size 0 or a very large size (as with
 SQL Server `varchar(max)`). The default matches the historical fixed limit
 (8001 bytes). Larger values allow more data per cell but increase memory use
 per column. Values above 256 MiB are capped. Use `0` for the default.
-Since OTP @OTP-20328@.
+Since OTP 29.1.
 
 > #### Warning {: .warning }
 >

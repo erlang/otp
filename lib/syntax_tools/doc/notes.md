@@ -23,6 +23,22 @@ limitations under the License.
 
 This document describes the changes made to the Syntax_Tools application.
 
+## Syntax_Tools 4.1.1
+
+### Fixed Bugs and Malfunctions
+
+- Fixed exception when the epp_dodger AST contains macro-named record.
+
+  Own Id: OTP-20180 Aux Id: [PR-11203], [GH-11155]
+
+- Any caller who passed a single syntax tree that was not a form_list (e.g. `erl_recomment:recomment_forms(erl_syntax:atom(foo), Cs)` or any expression/function tree) would get a hard crash instead of the documented result. This issue has been fixed.
+
+  Own Id: OTP-20290 Aux Id: [PR-11442]
+
+[PR-11203]: https://github.com/erlang/otp/pull/11203
+[GH-11155]: https://github.com/erlang/otp/issues/11155
+[PR-11442]: https://github.com/erlang/otp/pull/11442
+
 ## Syntax_Tools 4.1
 
 ### Fixed Bugs and Malfunctions

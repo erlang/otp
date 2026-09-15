@@ -21,6 +21,16 @@ limitations under the License.
 -->
 # Common Test Release Notes
 
+## Common_Test 1.31.2
+
+### Fixed Bugs and Malfunctions
+
+- The internal `cte_track` event handler now correctly displays the suite name for suites without an `init_per_suite/1` callback.
+
+  Own Id: OTP-20316 Aux Id: [PR-11501]
+
+[PR-11501]: https://github.com/erlang/otp/pull/11501
+
 ## Common_Test 1.31.1
 
 ### Fixed Bugs and Malfunctions

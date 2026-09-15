@@ -21,6 +21,21 @@ limitations under the License.
 -->
 # Inets Release Notes
 
+## Inets 9.8
+
+### Improvements and New Features
+
+- OPTIONS is now accepted for HTTP/1.x requests and routed through the
+    normal module pipeline like other standard methods. Requests that no
+    module handles still receive a 501 (Not Implemented) response, so
+    behavior is unchanged for deployments that do not add explicit OPTIONS
+    handling.
+
+  Own Id: OTP-20249 Aux Id: [PR-11316], [GH-11119]
+
+[PR-11316]: https://github.com/erlang/otp/pull/11316
+[GH-11119]: https://github.com/erlang/otp/issues/11119
+
 ## Inets 9.7.2
 
 ### Fixed Bugs and Malfunctions

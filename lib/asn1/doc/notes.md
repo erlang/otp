@@ -23,6 +23,21 @@ limitations under the License.
 
 This document describes the changes made to the asn1 application.
 
+## Asn1 5.5.1
+
+### Fixed Bugs and Malfunctions
+
+- The modern representation of BITSTRINGs is now always supported for encoding, regardless of any legacy options given. The JER backend would not support the modern representation when any legacy option was given.
+
+  Own Id: OTP-20145 Aux Id: [PR-11097]
+
+- The `make clean` command did not remove all generated `.erl` files.
+
+  Own Id: OTP-20295 Aux Id: [PR-11375]
+
+[PR-11097]: https://github.com/erlang/otp/pull/11097
+[PR-11375]: https://github.com/erlang/otp/pull/11375
+
 ## Asn1 5.5
 
 ### Improvements and New Features

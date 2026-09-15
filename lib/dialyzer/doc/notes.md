@@ -23,6 +23,28 @@ limitations under the License.
 
 This document describes the changes made to the Dialyzer application.
 
+## Dialyzer 6.0.3
+
+### Fixed Bugs and Malfunctions
+
+- Fixed Dialyzer crash when overriding built-in types.
+
+  Own Id: OTP-19631 Aux Id: [GH-11093], [PR-11096]
+
+- Typer crashed when multiple functions were written in the same line.
+  For example:
+  
+  ```
+  -module(m).
+  f() -> ok. g() -> ok.
+  ```
+
+  Own Id: OTP-20297 Aux Id: [PR-11466]
+
+[GH-11093]: https://github.com/erlang/otp/issues/11093
+[PR-11096]: https://github.com/erlang/otp/pull/11096
+[PR-11466]: https://github.com/erlang/otp/pull/11466
+
 ## Dialyzer 6.0.2
 
 ### Fixed Bugs and Malfunctions

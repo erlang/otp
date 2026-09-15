@@ -23,6 +23,16 @@ limitations under the License.
 
 This document describes the changes made to the Crypto application.
 
+## Crypto 5.10
+
+### Improvements and New Features
+
+- The documentation of the `crypto` module now contains runnable examples for most functions. The examples are verified by the crypto test suite, so they always match actual behavior.
+
+  Own Id: OTP-20373 Aux Id: [PR-11170]
+
+[PR-11170]: https://github.com/erlang/otp/pull/11170
+
 ## Crypto 5.9.3
 
 ### Fixed Bugs and Malfunctions

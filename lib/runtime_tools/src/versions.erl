@@ -24,7 +24,7 @@
 Utility functions for versions using the
 [OTP Versions Scheme](`e:system:versions.md#version-scheme`).
 """.
--moduledoc(#{since => "OTP @OTP-20352@"}).
+-moduledoc(#{since => "OTP 29.1"}).
 
 -export_type([vsn_string/0, vsn_list/0, vsn_branch_string/0]).
 

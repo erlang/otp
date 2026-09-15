@@ -23,6 +23,21 @@ limitations under the License.
 
 This document describes the changes made to the Tools application.
 
+## Tools 4.2.3
+
+### Fixed Bugs and Malfunctions
+
+- The `tags.erl` module is used to generate `TAGS` files for Emacs. There was a case where single quote items starting in position 0 would crash the scanner. This use case can potentially happen in docstrings, although not too common. This fix makes the scanner to handle such cases instead of crashing.
+
+  Own Id: OTP-20293 Aux Id: [PR-11447]
+
+- Updated the Emacs skeleton to reflect latest `format_status` callback handling.
+
+  Own Id: OTP-20339 Aux Id: [PR-11507]
+
+[PR-11447]: https://github.com/erlang/otp/pull/11447
+[PR-11507]: https://github.com/erlang/otp/pull/11507
+
 ## Tools 4.2.2
 
 ### Fixed Bugs and Malfunctions
