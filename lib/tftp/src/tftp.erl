@@ -396,7 +396,7 @@ matching regexp is found.
         {ok, LastCallbackState} | {error, Reason} when
     RemoteFilename    :: file:filename(),
     LocalFilename     :: file:filename_all() | binary,
-    Options           :: [option()],
+    Options           :: [connection_option()],
     LastCallbackState :: term(),
     Reason            :: term().
 

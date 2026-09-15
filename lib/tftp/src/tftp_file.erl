@@ -218,6 +218,7 @@ read(#state{access = read} = State) ->
 	    Count = State#state.count + byte_size(Bin),
 	    {last, Bin, Count};
 	eof ->
+	    _ = file:close(State#state.fd),
 	    {last, <<>>, State#state.count};
 	{error, Reason} ->
 	    _ = file:close(State#state.fd),
@@ -249,18 +250,25 @@ read(State) ->
 write(Bin, #state{access = write} = State) when is_binary(Bin) ->
     Size = byte_size(Bin),
     BlkSize = State#state.blksize,
-    case file:write(State#state.fd, Bin) of
-	ok when Size =:= BlkSize->
-	    Count = State#state.count + Size,
-	    {more, State#state{count = Count}};
-	ok when Size < BlkSize->
-	    _ = file:close(State#state.fd),
-	    Count = State#state.count + Size,
-	    {last, Count};
-	{error, Reason}  ->
-	    _ = file:close(State#state.fd),
-	    _ = file:delete(State#state.filename),
-	    {error, file_error(Reason)}
+    if
+        Size > BlkSize ->
+            _ = file:close(State#state.fd),
+            _ = file:delete(State#state.filename),
+            {error, {badblk, "Block larger than blksize"}};
+        true -> % Size =< BlkSize ->
+            case file:write(State#state.fd, Bin) of
+                ok when Size < BlkSize ->
+                    _ = file:close(State#state.fd),
+                    Count = State#state.count + Size,
+                    {last, Count};
+                ok -> % when Size == BlkSize ->
+                    Count = State#state.count + Size,
+                    {more, State#state{count = Count}};
+                {error, Reason}  ->
+                    _ = file:close(State#state.fd),
+                    _ = file:delete(State#state.filename),
+                    {error, file_error(Reason)}
+            end
     end;
 write(Bin, State) ->
     %% Handle upgrade from old releases. Please, remove this clause in next release.
@@ -283,7 +291,8 @@ abort(_Code, _Text, #state{fd = Fd, access = Access} = State) ->
     _ = file:close(Fd),
     case Access of
 	write ->
-	    ok = file:delete(State#state.filename);
+	    _ = file:delete(State#state.filename),
+            ok;
 	read ->
 	    ok
     end.
@@ -338,7 +347,11 @@ safe_filename(Filename, RootDir) ->
     RelFilename =
         case filename:pathtype(Filename) of
             absolute ->
-                filename:join(tl(filename:split(Filename)));
+                case filename:split(Filename) of
+                    [_] -> "";
+                    [_ | RelPath] ->
+                        filename:join(RelPath)
+                end;
             _ -> Filename
         end,
     case filelib:safe_relative_path(RelFilename, RootDir) of
