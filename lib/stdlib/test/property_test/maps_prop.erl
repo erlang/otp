@@ -295,7 +295,7 @@ prop_update() ->
 prop_update_with_3() ->
     ?FORALL(
         {{InMap, InKey}, UpdateFun},
-        {gen_map_and_key(), function1(?CT_SAFE_ANY())},
+        {gen_map_and_key(), ?CT_FUNCTION1(?CT_SAFE_ANY())},
         try
             maps:update_with(InKey, UpdateFun, InMap)
         of
@@ -314,7 +314,7 @@ prop_update_with_3() ->
 prop_update_with_4() ->
     ?FORALL(
         {{InMap, InKey}, UpdateFun},
-        {gen_map_and_key(), function1(?CT_SAFE_ANY())},
+        {gen_map_and_key(), ?CT_FUNCTION1(?CT_SAFE_ANY())},
         begin
             DefaultValue = make_ref(),
             UpdatedMap = maps:update_with(InKey, UpdateFun, DefaultValue, InMap),
@@ -494,7 +494,7 @@ prop_fold() ->
 prop_map() ->
     ?FORALL(
         {InMap, MapFun, IterOrderFun},
-        {?CT_SAFE_MAP(), function2(?CT_SAFE_ANY()), gen_ordering_fun()},
+        {?CT_SAFE_MAP(), ?CT_FUNCTION2(?CT_SAFE_ANY()), gen_ordering_fun()},
         begin
             lists:all(fun(MapOrIter) ->
                           MappedMap = maps:map(MapFun, MapOrIter),
@@ -518,7 +518,7 @@ prop_map() ->
 prop_filter() ->
     ?FORALL(
         {InMap, FilterFun, IterOrderFun},
-        {?CT_SAFE_MAP(), function2(bool()), gen_ordering_fun()},
+        {?CT_SAFE_MAP(), ?CT_FUNCTION2(bool()), gen_ordering_fun()},
         begin
             lists:all(fun(MapOrIter) ->
                           FilteredMap = maps:filter(FilterFun, MapOrIter),
@@ -558,7 +558,7 @@ prop_filter() ->
 prop_filtermap() ->
     ?FORALL(
         {InMap, FilterMapFun, IterOrderFun},
-        {?CT_SAFE_MAP(), function2(oneof([false, true, {true, ?CT_SAFE_ANY()}])), gen_ordering_fun()},
+        {?CT_SAFE_MAP(), ?CT_FUNCTION2(oneof([false, true, {true, ?CT_SAFE_ANY()}])), gen_ordering_fun()},
         begin
             lists:all(fun(MapOrIter) ->
                           FilterMappedMap = maps:filtermap(FilterMapFun, MapOrIter),
@@ -644,7 +644,7 @@ prop_merge() ->
 prop_merge_with() ->
     ?FORALL(
         {{InMap1, InMap2}, MergeFun},
-        {gen_overlapping_maps(), function3(?CT_SAFE_ANY())},
+        {gen_overlapping_maps(), ?CT_FUNCTION3(?CT_SAFE_ANY())},
         begin
             MergedMap = maps:merge_with(MergeFun, InMap1, InMap2),
             %% every key existing in the first input map exists in the output map
@@ -720,7 +720,7 @@ prop_intersect() ->
 prop_intersect_with() ->
     ?FORALL(
         {{InMap1, InMap2}, IntersectFun},
-        {gen_overlapping_maps(), function3(?CT_SAFE_ANY())},
+        {gen_overlapping_maps(), ?CT_FUNCTION3(?CT_SAFE_ANY())},
         begin
             IntersectedMap = maps:intersect_with(IntersectFun, InMap1, InMap2),
             %% every key existing in the first input map exists in the output map iff it also exists in the second input map
@@ -775,7 +775,7 @@ prop_groups_from_list_3() ->
         {InList, KeyFun, ValueFun},
         {?CT_SAFE_LIST(),
          gen_restricted_fun(10),
-         function1(?CT_SAFE_ANY())},
+         ?CT_FUNCTION1(?CT_SAFE_ANY())},
         begin
             GroupsMap = maps:groups_from_list(KeyFun, ValueFun, InList),
             %% all elements of the input list appear somewhere in the group lists of the output map
@@ -799,7 +799,7 @@ prop_groups_from_list_3() ->
 gen_ordering_fun() ->
     ?LET(
         F,
-        function1(choose(1, 3)),
+        ?CT_FUNCTION1(choose(1, 3)),
         fun(T1, T2) ->
             F(T1) =< F(T2)
         end
@@ -809,7 +809,7 @@ gen_ordering_fun() ->
 gen_sublist(L) ->
     ?LET(
         F,
-        function1(bool()),
+        ?CT_FUNCTION1(bool()),
         [E || E <- L, F(E)]
     ).
 
@@ -834,9 +834,9 @@ gen_overlapping_maps() ->
             %% entries intended to be in both maps but with different values
             oneof([[], gen_kv_list()]),
             %% helper to transform values for the first map
-            function1(?CT_SAFE_ANY()),
+            ?CT_FUNCTION1(?CT_SAFE_ANY()),
             %% helper to transform values for the second map
-            function1(?CT_SAFE_ANY())
+            ?CT_FUNCTION1(?CT_SAFE_ANY())
         },
         {maps:from_list(CommonKVs ++ [{K, F1(V)} || {K, V} <- CommonKeyKVs] ++ KVs1),
          maps:from_list(CommonKVs ++ [{K, F2(V)} || {K, V} <- CommonKeyKVs] ++ KVs2)}
@@ -846,7 +846,7 @@ gen_overlapping_maps() ->
 gen_restricted_fun(N) ->
     ?LET(
         {F1, F2},
-        {function1(choose(1, N)), function1(?CT_SAFE_ANY())},
+        {?CT_FUNCTION1(choose(1, N)), ?CT_FUNCTION1(?CT_SAFE_ANY())},
         fun(T) ->
             F2(F1(T))
         end
