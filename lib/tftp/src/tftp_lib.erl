@@ -91,7 +91,7 @@ do_parse_config([{Key, Val} | Tail], Config) when is_record(Config, config) ->
                 Val =:= 6; Val =:= all ->
                     do_parse_config(Tail, Config#config{debug_level = all});
                 true ->
-                    exit({badarg, {Key, Val}})
+                    throw({badarg, {Key, Val}})
             end;
         host ->
             if
@@ -102,7 +102,7 @@ do_parse_config([{Key, Val} | Tail], Config) when is_record(Config, config) ->
                 tuple_size(Val) =:= 8 ->
                     do_parse_config(Tail, Config#config{udp_host = Val});
                 true ->
-                    exit({badarg, {Key, Val}})
+                    throw({badarg, {Key, Val}})
             end;
         port ->
             if
@@ -110,7 +110,7 @@ do_parse_config([{Key, Val} | Tail], Config) when is_record(Config, config) ->
                     Config2 = Config#config{udp_port = Val, udp_options = Config#config.udp_options},
                     do_parse_config(Tail, Config2);
                 true ->
-                    exit({badarg, {Key, Val}})
+                    throw({badarg, {Key, Val}})
             end;
         port_policy ->
             case Val of
@@ -125,7 +125,7 @@ do_parse_config([{Key, Val} | Tail], Config) when is_record(Config, config) ->
                 is_integer(Max), Max > 0 ->
                     do_parse_config(Tail, Config#config{port_policy = Val});
                 true ->
-                    exit({badarg, {Key, Val}})
+                    throw({badarg, {Key, Val}})
             end;
         udp when is_list(Val) ->
             Fun =  
@@ -134,7 +134,7 @@ do_parse_config([{Key, Val} | Tail], Config) when is_record(Config, config) ->
                    (V, List) when V /= list, V /= binary ->
                         List ++ [V];
                    (V, _List) ->
-                        exit({badarg, {udp, [V]}})
+                        throw({badarg, {udp, [V]}})
                 end,
             UdpOptions = lists:foldl(Fun, Config#config.udp_options, Val),
             do_parse_config(Tail, Config#config{udp_options = UdpOptions});
@@ -145,7 +145,7 @@ do_parse_config([{Key, Val} | Tail], Config) when is_record(Config, config) ->
                 false ->
                     do_parse_config(Tail, Config#config{use_tsize = Val});
                 _ ->
-                    exit({badarg, {Key, Val}})
+                    throw({badarg, {Key, Val}})
             end;
         max_tsize ->
             if
@@ -154,7 +154,7 @@ do_parse_config([{Key, Val} | Tail], Config) when is_record(Config, config) ->
                 is_integer(Val), Val >= 0 ->
                     do_parse_config(Tail, Config#config{max_tsize = Val});
                 true ->
-                    exit({badarg, {Key, Val}})
+                    throw({badarg, {Key, Val}})
             end;
         max_conn ->
             if
@@ -163,7 +163,7 @@ do_parse_config([{Key, Val} | Tail], Config) when is_record(Config, config) ->
                 is_integer(Val), Val > 0 ->
                     do_parse_config(Tail, Config#config{max_conn = Val});
                 true ->
-                    exit({badarg, {Key, Val}})
+                    throw({badarg, {Key, Val}})
             end;
         _ when is_list(Key), is_list(Val) ->
             Key2 = to_lower(Key),
@@ -182,7 +182,7 @@ do_parse_config([{Key, Val} | Tail], Config) when is_record(Config, config) ->
                     Rejected = [Val | Config#config.rejected],
                     do_parse_config(Tail, Config#config{rejected = Rejected});
                 _ ->
-                    exit({badarg, {Key, Val}})
+                    throw({badarg, {Key, Val}})
             end;
         callback ->
             case Val of
@@ -196,27 +196,27 @@ do_parse_config([{Key, Val} | Tail], Config) when is_record(Config, config) ->
                             Callbacks = Config#config.callbacks ++ [Callback],
                             do_parse_config(Tail, Config#config{callbacks = Callbacks});
                         {error, Reason} ->
-                            exit({badarg, {Key, Val}, Reason})
+                            throw({badarg, {Key, Val}, Reason})
                     end;
                 _ ->
-                    exit({badarg, {Key, Val}})
+                    throw({badarg, {Key, Val}})
             end;
         logger ->
             if
                 is_atom(Val) ->
                     do_parse_config(Tail, Config#config{logger = Val});
                 true ->
-                    exit({badarg, {Key, Val}})
+                    throw({badarg, {Key, Val}})
             end;
         max_retries ->
             if
                 is_integer(Val), Val > 0 ->
                     do_parse_config(Tail, Config#config{max_retries = Val});
                 true ->
-                    exit({badarg, {Key, Val}})
+                    throw({badarg, {Key, Val}})
             end;
         _ ->
-            exit({badarg, {Key, Val}})
+            throw({badarg, {Key, Val}})
     end;
 do_parse_config([], #config{udp_host     = Host,
                             udp_options  = UdpOptions,
@@ -232,18 +232,18 @@ do_parse_config([], #config{udp_host     = Host,
                     {ok, Addr} ->
                         Addr;
                     {error, Reason} ->
-                        exit({badarg, {host, Reason}})
+                        throw({badarg, {host, Reason}})
                 end;
             IsInet6, not IsInet  ->
                 case inet:getaddr(Host, inet6) of
                     {ok, Addr} ->
                         Addr;
                     {error, Reason} ->
-                        exit({badarg, {host, Reason}})
+                        throw({badarg, {host, Reason}})
                 end;
             true ->
                 %% Conflicting options
-                exit({badarg, {udp, [inet]}})
+                throw({badarg, {udp, [inet]}})
         end,
     UdpOptions2 = lists:reverse(UdpOptions),
     TftpOptions = lists:reverse(UserOptions),
@@ -253,7 +253,7 @@ do_parse_config([], #config{udp_host     = Host,
                   user_options = TftpOptions,
                   callbacks    = Callbacks2};
 do_parse_config(Options, Config) when is_record(Config, config) ->
-    exit({badarg, Options}).
+    throw({badarg, Options}).
 
 add_default_callbacks(Callbacks) ->
     RegExp = "",

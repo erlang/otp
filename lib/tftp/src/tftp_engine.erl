@@ -147,8 +147,12 @@ reply(Reply, Ref, ToPid) ->
 
 %% Returns {ok, Port}
 daemon_start(Options) when is_list(Options) ->
-    Config = tftp_lib:parse_config(Options),
-    proc_lib:start_link(?MODULE, daemon_init, [Config], infinity).
+    try tftp_lib:parse_config(Options) of
+        Config ->
+            proc_lib:start_link(?MODULE, daemon_init, [Config], infinity)
+    catch throw : Reason ->
+            {error, Reason}
+    end.
 
 daemon_init(Config) when is_record(Config, config), 
                          is_pid(Config#config.parent_pid) ->
@@ -222,7 +226,7 @@ daemon_loop(#daemon_state{config = DaemonConfig,
                 DaemonConfig2 when is_record(DaemonConfig2, config) ->
                     _ = reply(ok, Ref, FromPid),
                     ?MODULE:daemon_loop(State#daemon_state{config = DaemonConfig2})
-            catch error : Reason ->
+            catch throw : Reason ->
                     _ = reply({error, Reason}, Ref, FromPid),
                     ?MODULE:daemon_loop(State)
             end;
@@ -314,9 +318,16 @@ server_init(Config, Req) when is_record(Config, config),
     UdpOptions = Config#config.udp_options,
     UdpOptions2 = lists:keydelete(fd, 1, UdpOptions),
     Config1 = Config#config{udp_options = UdpOptions2},
-    Config2 = tftp_lib:parse_config(SuggestedOptions, Config1),
-    SuggestedOptions2 = Config2#config.user_options,
-    Req2 = Req#tftp_msg_req{options = SuggestedOptions2},
+    try tftp_lib:parse_config(SuggestedOptions, Config1) of
+        Config2 ->
+            SuggestedOptions2 = Config2#config.user_options,
+            Req2 = Req#tftp_msg_req{options = SuggestedOptions2},
+            server_init(Config2, Req, Req2)
+    catch throw : Reason ->
+            {error, Reason}
+    end.
+
+server_init(Config2, Req, Req2) ->
     case open_free_port(Config2, server, Req2) of
         {ok, Config3} ->
             Filename = Req#tftp_msg_req.filename,
@@ -377,20 +388,28 @@ server_init(Config, Req) when is_record(Config, config),
 %% LocalFilename = filename() | 'binary' | binary()
 %% Returns {ok, LastCallbackState} | {error, Reason}
 client_start(Access, RemoteFilename, LocalFilename, Options) ->
-    Config = tftp_lib:parse_config(Options),
-    Config2 = Config#config{parent_pid      = self(),
-                            udp_socket      = undefined},
-    Req = #tftp_msg_req{access         = Access, 
-                        filename       = RemoteFilename, 
-                        mode           = lookup_mode(Config2#config.user_options),
-                        options        = Config2#config.user_options,
-                        local_filename = LocalFilename},
-    Args = [Config2, Req],
-    case proc_lib:start_link(?MODULE, client_init, Args, infinity) of
-        {ok, LastCallbackState} ->
-            {ok, LastCallbackState};
-        {error, Error} ->
-            {error, Error}
+    try tftp_lib:parse_config(Options) of
+        Config ->
+            Config2 =
+                Config#config{
+                  parent_pid      = self(),
+                  udp_socket      = undefined},
+            Req =
+                #tftp_msg_req{
+                   access         = Access,
+                   filename       = RemoteFilename,
+                   mode           = lookup_mode(Config2#config.user_options),
+                   options        = Config2#config.user_options,
+                   local_filename = LocalFilename},
+            Args = [Config2, Req],
+            case proc_lib:start_link(?MODULE, client_init, Args, infinity) of
+                {ok, LastCallbackState} ->
+                    {ok, LastCallbackState};
+                {error, Error} ->
+                    {error, Error}
+            end
+    catch throw : Reason ->
+            {error, Reason}
     end.
 
 client_init(Config, Req) when is_record(Config, config),
@@ -944,10 +963,9 @@ wait_for_msg(Config, Callback, Req) ->
                 Config2 when is_record(Config2, config) ->
                     _ = reply(ok, Ref, FromPid),
                     wait_for_msg(Config2, Callback, Req)
-            catch exit : Reason ->
+            catch throw : Reason ->
                     _ = reply({error, Reason}, Ref, FromPid),
                     wait_for_msg(Config, Callback, Req)
-
             end;
         {system, From, Msg} ->
             Misc = #sys_misc{module = ?MODULE, function = wait_for_msg, arguments = [Config, Callback, Req]},

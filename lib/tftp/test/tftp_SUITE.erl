@@ -44,12 +44,12 @@
 %% Test server callbacks
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-init_per_testcase(Case, Config) ->
+init_per_testcase(_Case, Config) ->
     io:format("\n ", []),
     ?TRY(application:stop(tftp)),
     Config.
 
-end_per_testcase(Case, Config) when is_list(Config) ->
+end_per_testcase(_Case, Config) when is_list(Config) ->
     ?TRY(application:stop(tftp)),
     Config.
 
@@ -113,6 +113,8 @@ simple(Config) when is_list(Config) ->
 
     {{Port, DaemonPid}} = ?TRY(?START_DAEMON([{debug, brief}])),
 
+    {{error, {badarg,{host,4711}}}} =
+        ?TRY(tftp:change_config(DaemonPid, [{host,4711}])),
     %% Read fail
     RemoteFilename = "tftp_temporary_remote_test_file.txt",
     LocalFilename = "tftp_temporary_local_test_file.txt",
@@ -213,7 +215,7 @@ extra(doc) ->
 extra(suite) ->
     [];
 extra(Config) when is_list(Config) ->
-    {'EXIT', {badarg,{fake_key, fake_flag}}} =
+    {{error, {badarg,{fake_key, fake_flag}}}} =
         ?TRY(tftp:start([{port, 0}, {fake_key, fake_flag}])),
 
     {{Port, DaemonPid}} = ?TRY(?START_DAEMON([{debug, brief}])),
