@@ -388,6 +388,8 @@ decode_string(<<>>, _Case, _String) ->
 
 decode_options([Key, Value | Strings]) ->
     [{to_lower(Key), Value} | decode_options(Strings)];
+decode_options([_Key]) ->
+    throw("Missing option value");
 decode_options([]) ->
     [].
 
