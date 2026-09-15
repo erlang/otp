@@ -31,6 +31,7 @@
 -export([mk_ext_pid/3,
          mk_ext_port/2,
          mk_ext_ref/2,
+         assert_error_stack/3,
          available_internal_state/1,
          check_node_dist/0, check_node_dist/1, check_node_dist/3,
          ept_check_leaked_nodes/1]).
@@ -242,6 +243,34 @@ available_internal_state(Bool) when Bool == true; Bool == false ->
     end,
     CurAIS.
 
+%% Helper for ?AssertErrorStack().
+assert_error_stack(ErrorFun, StackFun, ExprFun) ->
+    try ExprFun() of
+        Result ->
+            error({unexpected_success,Result})
+    catch
+        error:Error:Stack ->
+            case {ErrorFun(Error),StackFun(Stack)} of
+                {ok,ok} ->
+                    ok;
+                {ActualError,ActualStack} ->
+                    Args = case ActualError of
+                               ok ->
+                                   [];
+                               _ ->
+                                   [{unexpected_error, Error},
+                                    {expected, ActualError}]
+                           end ++
+                        case ActualStack of
+                            ok ->
+                                [];
+                            _ ->
+                                [{unexpected_stack, Stack},
+                                 {expected_stack, ActualStack}]
+                        end,
+                    error(assertException, Args)
+            end
+    end.
 
 %%
 %% Check reference counters for node- and dist entries.
