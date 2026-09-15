@@ -125,9 +125,9 @@ in parallel with the ongoing one, the server consumes less resources.
 -doc """
 Information about the peer provided for callback.
 """.
--type peer() :: {PeerType :: inet | inet6,
-		 PeerHost :: inet:ip_address(),
-		 PeerPort :: port()}.
+-type peer() :: {PeerType :: inet | inet6 | undefined,
+		 PeerHost :: string(),
+		 PeerPort :: inet:port_number()}.
 -doc """
 Access mode.
 """.

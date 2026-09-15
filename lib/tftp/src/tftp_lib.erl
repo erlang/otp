@@ -272,33 +272,11 @@ host_to_string(Host) ->
     case Host of
         String when is_list(String) ->
             String;
-        {A1, A2, A3, A4} -> % inet
-            lists:concat([A1, ".", A2, ".", A3, ".",A4]);
-        {A1, A2, A3, A4, A5, A6, A7, A8} -> % inet6
-            lists:concat([
-                          int16_to_hex(A1), "::",
-                          int16_to_hex(A2), "::",
-                          int16_to_hex(A3), "::",
-                          int16_to_hex(A4), "::",
-                          int16_to_hex(A5), "::",
-                          int16_to_hex(A6), "::",
-                          int16_to_hex(A7), "::",
-                          int16_to_hex(A8)
-                         ])
+        Address when
+              tuple_size(Address) =:= 4;
+              tuple_size(Address) =:= 8 ->
+            inet:ntoa(Address)
     end.
-
-int16_to_hex(0) ->
-    [$0];
-int16_to_hex(I) ->
-    N1 = ((I bsr 8) band 16#ff),
-    N2 = (I band 16#ff),
-    [code_character(N1 div 16), code_character(N1 rem 16),
-     code_character(N2 div 16), code_character(N2 rem 16)].
-
-code_character(N) when N < 10 ->
-    $0 + N;
-code_character(N) ->
-    $A + (N - 10).
 
 %%-------------------------------------------------------------------
 %% Decode
