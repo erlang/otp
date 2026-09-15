@@ -142,7 +142,8 @@ print(Term, Col, Ll, D, M, T, RecDefFun, Enc, Str, Ord)
     print(Term, 1, Ll, D, M, T, RecDefFun, Enc, Str, Ord);
 print(Atom, _Col, _Ll, _D, _M, _T, _RF, Enc, _Str, _Ord)
   when is_atom(Atom) ->
-    write_atom(Atom, Enc);
+    {S, _} = write_atom(Atom, Enc),
+    S;
 print(Term, Col, Ll, D, M0, T, RecDefFun, Enc, Str, Ord)
   when is_tuple(Term); is_list(Term); is_map(Term); is_bitstring(Term); is_record(Term) ->
     %% preprocess and compute total number of chars
@@ -898,8 +899,8 @@ print_length({}, _D, _T, _RF, _Enc, _Str, _Ord) ->
 print_length(#{}=M, _D, _T, _RF, _Enc, _Str, _Ord) when map_size(M) =:= 0 ->
     {"#{}", 3, 0, no_more};
 print_length(Atom, _D, _T, _RF, Enc, _Str, _Ord) when is_atom(Atom) ->
-    S = write_atom(Atom, Enc),
-    {S, io_lib:chars_length(S), 0, no_more};
+    {S, Sz} = write_atom(Atom, Enc),
+    {S, Sz, 0, no_more};
 print_length(List, D, T, RF, Enc, Str, Ord) when is_list(List) ->
     %% only flat lists are "printable"
     case Str andalso printable_list(List, D, T, Enc) of
@@ -930,7 +931,7 @@ print_length(Fun, _D, _T, _RF, _Enc, _Str, _Ord) when is_function(Fun) ->
 print_length(R, D, T, RF, Enc, Str, Ord) when is_atom(element(1, R)),
                                               is_function(RF) ->
     case RF(element(1, R), tuple_size(R) - 1) of
-        no -> 
+        no ->
             print_length_tuple(R, D, T, RF, Enc, Str, Ord);
         RDefs ->
             print_length_record(R, D, T, RF, RDefs, Enc, Str, Ord)
@@ -948,6 +949,23 @@ print_length(<<_/bitstring>> = Bin, D, T, RF, Enc, Str, Ord) ->
     print_length_binary(Bin, D, T, RF, Enc, Str, Ord);
 print_length(Record, D, T, RF, Enc, Str, Ord) when is_record(Record) ->
     print_length_native_record(Record, D, T, RF, Enc, Str, Ord);
+print_length(Term, _D, _T, _RF, {_In, utf8}, _Str, _Ord) ->
+    if is_integer(Term) ->
+            S = integer_to_binary(Term),
+            {S, byte_size(S), 0, no_more};
+       is_float(Term) ->
+            S = float_to_binary(Term, [short]),
+            {S, byte_size(S), 0, no_more};
+       is_pid(Term) ->
+            S = list_to_binary(pid_to_list(Term)),
+            {S, byte_size(S), 0, no_more};
+       is_reference(Term) ->
+            S = list_to_binary(ref_to_list(Term)),
+            {S, byte_size(S), 0, no_more};
+       is_port(Term) ->
+            S = list_to_binary(erlang:port_to_list(Term)),
+            {S, byte_size(S), 0, no_more}
+    end;
 print_length(Term, _D, _T, _RF, _Enc, _Str, _Ord) ->
     S = io_lib:write(Term),
     %% S can contain unicode, so iolist_size(S) cannot be used here
@@ -991,9 +1009,10 @@ print_length_native_record(Rec, 1, _T, RF, Enc, Str, Ord) ->
     RecStr = io_lib:write(Rec, 1, Enc, Ord, -1),
     {RecStr, io_lib:chars_length(RecStr), 3, More};
 print_length_native_record(Rec, D, T, RF, Enc, Str, Ord) ->
-    Name = [$#, write_atom(records:get_module(Rec), Enc),
-            $:, write_atom(records:get_name(Rec), Enc)],
-    NameL = io_lib:chars_length(Name),
+    {Mod, ModSz} = write_atom(records:get_module(Rec), Enc),
+    {RName, RNameSz} = write_atom(records:get_name(Rec), Enc),
+    Name = [$#, Mod, $:, RName],
+    NameL = ModSz + RNameSz + 2,
     T1 = tsub(T, NameL+2),
     Fs = records:get_field_names(Rec),
     Pairs = print_length_native_record_fields(Fs, Rec, D-1, T1, RF, Enc, Str, Ord),
@@ -1013,8 +1032,8 @@ print_length_native_record_fields([F|Fs], Rec, D, T, RF, Enc, Str, Ord) ->
              true -> tsub(T, 1);
              false -> T
          end,
-    Key = write_atom(F, Enc),
-    KeyL = io_lib:chars_length(Key) + 3,
+    {Key, KeySz} = write_atom(F, Enc),
+    KeyL = KeySz + 3,
     {_, VL, VD, _} = ValT = print_length(records:get(F, Rec), D-1, tsub(T1, KeyL), RF, Enc, Str, Ord),
     [{{field, Key, KeyL, ValT}, KeyL+VL, VD, no_more}
     | print_length_native_record_fields(Fs, Rec, D-1, tsub(T1, KeyL+VL), RF, Enc, Str, Ord)].
@@ -1050,8 +1069,9 @@ print_length_record(Tuple, 1, _T, RF, RDefs, Enc, Str, Ord) ->
            end,
     {"{...}", 5, 3, More};
 print_length_record(Tuple, D, T, RF, RDefs, Enc, Str, Ord) ->
-    Name = [$# | write_atom(element(1, Tuple), Enc)],
-    NameL = io_lib:chars_length(Name),
+    {S, Sz} = write_atom(element(1, Tuple), Enc),
+    Name = [$# | S],
+    NameL = Sz + 1,
     T1 = tsub(T, NameL+2),
     L = print_length_fields(RDefs, D - 1, T1, Tuple, 2, RF, Enc, Str, Ord),
     {Len, Dots} = list_length(L, NameL + 2, 0),
@@ -1079,8 +1099,8 @@ print_length_fields([Def | Defs], D, T, Tuple, I, RF, Enc, Str, Ord) ->
      print_length_fields(Defs, D - 1, T2, Tuple, I + 1, RF, Enc, Str, Ord)].
 
 print_length_field(Def, D, T, E, RF, Enc, Str, Ord) ->
-    Name = write_atom(Def, Enc),
-    NameL = io_lib:chars_length(Name) + 3,
+    {Name, Sz} = write_atom(Def, Enc),
+    NameL = Sz + 3,
     {_, Len, Dots, _} =
         Field = print_length(E, D, tsub(T, NameL), RF, Enc, Str, Ord),
     {{field, Name, NameL, Field}, NameL + Len, Dots, no_more}.
@@ -1363,11 +1383,13 @@ printable_char(C,unicode) ->
     C > 16#FFFF andalso C =< 16#10FFFF.
 
 write_atom(A, latin1) ->
-    io_lib:write_atom_as_latin1(A);
-write_atom(A, {latin1, _}) ->
-    io_lib:write_atom_as_latin1(A);
+    S = io_lib:write_atom_as_latin1(A),
+    {S, io_lib:chars_length(S)};
+write_atom(A, {In, utf8}) ->
+    io_lib:write_atom_bin(A, In);
 write_atom(A, _Uni) ->
-    io_lib:write_atom(A).
+    S = io_lib:write_atom(A),
+    {S, io_lib:chars_length(S)}.
 
 write_string(S0, latin1) ->
     S = io_lib:write_latin1_string(S0, $"), %"

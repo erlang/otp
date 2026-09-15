@@ -104,7 +104,8 @@ used for flattening deep lists.
 
 -export([chars_length/1]).
 
--export([write_bin/5, write_string_bin/3, write_binary_bin/4]).
+%% Internal io_lib functions
+-export([write_bin/5, write_string_bin/3, write_binary_bin/4, write_atom_bin/2]).
 
 -export_type([chars/0, latin1_string/0, continuation/0,
               fread_error/0, fread_item/0, format_spec/0,
@@ -675,8 +676,8 @@ write_bin1(Term, _D, _Enc, _O, Sz, Acc) when is_float(Term) ->
     Float = float_to_binary(Term, [short]),
     {<<Acc/binary, Float/binary>>, byte_size(Float)+Sz};
 write_bin1(Atom, _D, Enc, _O, Sz, Acc) when is_atom(Atom) ->
-    Str = bwrite_atom(Atom, Enc),
-    {<<Acc/binary, Str/binary>>, string:length(Str)+Sz};
+    {Str, StrSz} = write_atom_bin(Atom, Enc),
+    {<<Acc/binary, Str/binary>>, StrSz+Sz};
 write_bin1(Term, _D, _Enc, _O, Sz, Acc) when is_port(Term) ->
     Str = (list_to_binary(erlang:port_to_list(Term))),
     {<<Acc/binary, Str/binary>>, byte_size(Str)+Sz};
@@ -1006,20 +1007,32 @@ as `write_atom/1`.
 -spec bwrite_atom(Atom, InEncoding) -> unicode:unicode_binary() when
       Atom :: atom(),
       InEncoding :: 'latin1' | 'utf8' | 'unicode'.
-bwrite_atom(Atom, latin1) ->
+bwrite_atom(Atom, InEncoding) ->
+    {S, _Sz} = write_atom_bin(Atom, InEncoding),
+    S.
+
+
+-doc false.
+-spec write_atom_bin(Atom, InEncoding) -> {unicode:unicode_binary(), Sz::integer()} when
+      Atom :: atom(),
+      InEncoding :: 'latin1' | 'utf8' | 'unicode'.
+write_atom_bin(Atom, latin1) ->
     %% latin1: code points > 255 are escaped as \x{...}, which the
     %% binary escaping path does not handle.
-    unicode:characters_to_binary(write_atom_as_latin1(Atom), latin1);
-bwrite_atom(Atom, InEncoding) ->
+    Str = write_atom_as_latin1(Atom),
+    {unicode:characters_to_binary(Str, latin1), chars_length(Str)};
+write_atom_bin(Atom, InEncoding) ->
     AtomBin = atom_to_binary(Atom, InEncoding),
-    case erl_scan:reserved_word(Atom) orelse
-        not name_chars_bin(AtomBin)
-    of
+    case erl_scan:reserved_word(Atom) of
         true ->
-            {Quoted, _} = write_string_bin(AtomBin, $', InEncoding),
-            Quoted;
+            write_string_bin(AtomBin, $', InEncoding);
         false ->
-            AtomBin
+            case name_chars_bin(AtomBin) of
+                {true, Len} ->
+                    {AtomBin, Len};
+                false ->
+                    write_string_bin(AtomBin, $', InEncoding)
+            end
     end.
 
 %% quote_atom(Atom, CharList)
@@ -1064,26 +1077,33 @@ name_char(_) -> false.
 %%
 %% The first character must be a lowercase letter (a..z or latin1
 %% lowercase ß..ÿ except ÷); otherwise the atom must be quoted.
+%% Returns {true, Len} for an unquoted atom, where Len is the number of
+%% characters. This equals the grapheme-cluster count (string:length/1)
+%% because none of the accepted characters is a combining mark or can
+%% otherwise be part of a multi-codepoint grapheme cluster; any such
+%% character fails here and forces the quoted path (write_string_bin),
+%% which counts graphemes. Preserve this invariant if the accepted
+%% ranges are ever widened.
 name_chars_bin(<<C/utf8, Rest/binary>>)
   when C >= $a, C =< $z;
        C >= $ß, C =< $ÿ, C =/= $÷ ->
-    name_chars_bin_rest(Rest);
+    name_chars_bin_rest(Rest, 1);
 name_chars_bin(_) ->
     false.
 
-name_chars_bin_rest(<<C/utf8, Rest/binary>>) ->
+name_chars_bin_rest(<<C/utf8, Rest/binary>>, N) ->
     if
-        C >= $a, C =< $z -> name_chars_bin_rest(Rest);
-        C >= $ß, C =< $ÿ, C =/= $÷ -> name_chars_bin_rest(Rest);
-        C >= $A, C =< $Z -> name_chars_bin_rest(Rest);
-        C >= $À, C =< $Þ, C =/= $× -> name_chars_bin_rest(Rest);
-        C >= $0, C =< $9 -> name_chars_bin_rest(Rest);
-        C =:= $_ -> name_chars_bin_rest(Rest);
-        C =:= $@ -> name_chars_bin_rest(Rest);
+        C >= $a, C =< $z -> name_chars_bin_rest(Rest, N+1);
+        C >= $ß, C =< $ÿ, C =/= $÷ -> name_chars_bin_rest(Rest, N+1);
+        C >= $A, C =< $Z -> name_chars_bin_rest(Rest, N+1);
+        C >= $À, C =< $Þ, C =/= $× -> name_chars_bin_rest(Rest, N+1);
+        C >= $0, C =< $9 -> name_chars_bin_rest(Rest, N+1);
+        C =:= $_ -> name_chars_bin_rest(Rest, N+1);
+        C =:= $@ -> name_chars_bin_rest(Rest, N+1);
         true -> false
     end;
-name_chars_bin_rest(<<>>) ->
-    true.
+name_chars_bin_rest(<<>>, N) ->
+    {true, N}.
 
 %%% There are two functions to write Unicode strings:
 %%% - they both escape control characters < 160;
