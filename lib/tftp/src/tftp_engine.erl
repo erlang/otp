@@ -242,7 +242,6 @@ daemon_loop(#daemon_state{config = DaemonConfig,
                       N < DaemonConfig#config.max_conn ->
                     Peer = peer_info(ServerConfig),
                     PeerReq = {Peer, Req},
-                    PeerInfo = lists:flatten(io_lib:format("~p", [Peer])),
                     case ets:lookup(FileTab, PeerReq) of
                         [] ->
                             Args = [ServerConfig, Req],
@@ -252,18 +251,17 @@ daemon_loop(#daemon_state{config = DaemonConfig,
                             ?MODULE:daemon_loop(State#daemon_state{n_servers = N + 1});
                         [#file_info{pid = Pid}] ->
                             %% Yet another request of the file from same peer
-                            warning_msg(DaemonConfig, "~p Reuse connection for ~s\n\t~p\n",
-                                        [Pid, PeerInfo, Req#tftp_msg_req.filename]),
+                            warning_msg(DaemonConfig, "~p Reuse connection for ~p\n\t~p\n",
+                                        [Pid, Peer, Req#tftp_msg_req.filename]),
                             ?MODULE:daemon_loop(State)
                     end;
                 #tftp_msg_req{}->
                     Reply = #tftp_msg_error{code = enospc, text = "Too many connections"},
                     Peer = peer_info(ServerConfig),
-                    PeerInfo = lists:flatten(io_lib:format("~p", [Peer])),
                     warning_msg(DaemonConfig,
 				"Daemon has too many connections (~p)."
-				"\n\tRejecting request from ~s\n",
-				[N, PeerInfo]),
+				"\n\tRejecting request from ~p\n",
+				[N, Peer]),
                     send_msg(ServerConfig, daemon, Reply),
                     ?MODULE:daemon_loop(State);
                 #tftp_decode_error{reply = Reply} ->
@@ -1358,15 +1356,15 @@ do_print_debug_info(Config, Who, Where, #tftp_msg_req{local_filename = Filename}
     Msg2 = Msg#tftp_msg_req{local_filename = binary},
     do_print_debug_info(Config, Who, Where, Msg2);
 do_print_debug_info(Config, Who, Where, Data) ->
-    Local = 
+    Local =
         try inet:port(Config#config.udp_socket) of
             {ok, Port}  -> Port;
             {error, _ } -> 0
         catch error : _ -> 0
         end,
     %% Remote = Config#config.udp_port,
-    PeerInfo = lists:flatten(io_lib:format("~p", [peer_info(Config)])),
-    Side = 
+    PeerInfo = peer_info(Config),
+    Side =
         if
             is_record(Who, tftp_msg_req),
             Who#tftp_msg_req.local_filename =/= undefined ->
@@ -1379,34 +1377,34 @@ do_print_debug_info(Config, Who, Where, Data) ->
         end,
     case {Where, Data} of
         {_, #error{where = Where, code = Code, text = Text, filename = Filename}} -> 
-            do_format(Config, Side, Local, "error ~s ->\n\t~p ~p\n\t~p ~p: ~s\n",
+            do_format(Config, Side, Local, "error ~p ->\n\t~p ~p\n\t~p ~p: ~s\n",
                       [PeerInfo, self(), Filename, Where, Code, Text]);
         {open, #tftp_msg_req{filename = Filename}} ->
-            do_format(Config, Side, Local, "open  ~s ->\n\t~p ~p\n",
+            do_format(Config, Side, Local, "open  ~p ->\n\t~p ~p\n",
                       [PeerInfo, self(), Filename]);
         {close, #tftp_msg_req{filename = Filename}} ->
-            do_format(Config, Side, Local, "close ~s ->\n\t~p ~p\n",
+            do_format(Config, Side, Local, "close ~p ->\n\t~p ~p\n",
                       [PeerInfo, self(), Filename]);
         {recv, _} ->
-            do_format(Config, Side, Local, "recv  ~s <-\n\t~p\n",
+            do_format(Config, Side, Local, "recv  ~p <-\n\t~p\n",
                       [PeerInfo, Data]);
         {send, _} ->
-            do_format(Config, Side, Local, "send  ~s ->\n\t~p\n",
+            do_format(Config, Side, Local, "send  ~p ->\n\t~p\n",
                       [PeerInfo, Data]);
         {match, _} when is_record(Data, callback) ->
             Mod = Data#callback.module,
             State = Data#callback.state,
-            do_format(Config, Side, Local, "match ~s ~p =>\n\t~p\n",
+            do_format(Config, Side, Local, "match ~p ~p =>\n\t~p\n",
                       [PeerInfo, Mod, State]);
         {call, _} ->
             case Data of
                 {Callback, _Result} when is_record(Callback, callback) ->
                     Mod   = Callback#callback.module,
                     State = Callback#callback.state,
-                    do_format(Config, Side, Local, "call ~s ~p =>\n\t~p\n",
+                    do_format(Config, Side, Local, "call ~p ~p =>\n\t~p\n",
                               [PeerInfo, Mod, State]);
                 {undefined, Result}  ->
-                    do_format(Config, Side, Local, "call ~s result =>\n\t~p\n",
+                    do_format(Config, Side, Local, "call ~p result =>\n\t~p\n",
                               [PeerInfo, Result])
             end
     end.
