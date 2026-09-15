@@ -811,7 +811,7 @@ gen_subjects_invalid() ->
 
 %% Generator for replacements
 gen_replacement() ->
-    oneof([binary(), function1(binary())]).
+    oneof([binary(), ?CT_FUNCTION1(binary())]).
 
 %% Generator for invalid replacements
 gen_replacement_invalid() ->

@@ -38,6 +38,9 @@
 -compile([{nowarn_possibly_unsafe_function, {erlang, binary_to_term, 1}}]).
 
 -export([existing_atom/0]).
+-export([function2/1]).
+-export([function3/1]).
+-export([function4/1]).
 -export([safe_any/0]).
 -export([safe_atom/0]).
 -export([safe_list/0]).
@@ -61,6 +64,46 @@ safe_map() ->
 -spec safe_tuple() -> eqc_gen:gen(tuple()).
 safe_tuple() ->
     eqc_gen:bind(eqc_gen:list(safe_any()), fun(L) -> list_to_tuple(L) end).
+
+
+%% QuickCheck supports `function0`..`function4` generators, but
+%% QuickCheck Mini supports only `function0` and `function1`, so we
+%% need to emulate them.
+-spec function2(eqc_gen:gen(T)) -> eqc_gen:gen(fun((term(), term()) -> T)).
+function2(RetGen) ->
+    functionN(function2, RetGen).
+
+
+-spec function3(eqc_gen:gen(T)) ->
+          eqc_gen:gen(fun((term(), term(), term()) -> T)).
+function3(RetGen) ->
+    functionN(function3, RetGen).
+
+
+-spec function4(eqc_gen:gen(T)) ->
+          eqc_gen:gen(fun((term(), term(), term(), term()) -> T)).
+function4(RetGen) ->
+    functionN(function4, RetGen).
+
+functionN(Name, RetGen) ->
+    case has_generator(Name) of
+        true ->
+            eqc_gen:Name(RetGen);
+        false ->
+            eqc_gen:bind(eqc_gen:function1(RetGen),
+                         wrap(Name))
+    end.
+
+has_generator(Name) ->
+    {module, eqc_gen} = code:ensure_loaded(eqc_gen),
+    erlang:function_exported(eqc_gen, Name, 1).
+
+wrap(function2) ->
+    fun(F) -> fun(A, B) -> F({A, B}) end end;
+wrap(function3) ->
+    fun(F) -> fun(A, B, C) -> F({A, B, C}) end end;
+wrap(function4) ->
+    fun(F) -> fun(A, B, C, D) -> F({A, B, C, D}) end end.
 
 
 %% Atomlimit-safe atom generator.
