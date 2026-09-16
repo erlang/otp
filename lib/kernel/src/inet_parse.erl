@@ -430,9 +430,9 @@ is_dom_ldh([$_ | Cs])           -> is_dom_ldh(Cs);
 is_dom_ldh([$- | Cs])           -> is_dom_ldh(Cs);
 is_dom_ldh([C | Cs]) ->
     if
-        C >= $a, C =< $z;
-        C >= $A, C =< $Z;
-        C >= $0, C =< $9        -> is_dom_ldh(Cs);
+        is_integer(C, $a, $z);
+        is_integer(C, $A, $Z);
+        is_integer(C, $0, $9)   -> is_dom_ldh(Cs);
         true                    -> false
     end;
 is_dom_ldh([])                  -> true.
@@ -443,13 +443,15 @@ is_dom_ldh([])                  -> true.
 %% Return {ok, Address} | {error, Reason}
 %%
 address(Bin) when is_binary(Bin) ->
-    try ipv4s_c1b(Bin) of
-        IP ->
-            {ok, IP}
+    %% Try binary parsing first, strict
+    try ipv4s_c1b(Bin) of                   IP  -> {ok, IP}
     catch throw : error ->
-            case ipv6strict_address(Bin) of
-                {ok, _} = Ok -> Ok;
-                {error, _} -> address(binary_to_list(Bin))
+            Cs = binary_to_list(Bin),
+            try ipv4_addr(Cs) of            IP  -> {ok, IP}
+            catch throw : error ->
+                    try ipv6_addr(Cs) of    IP  -> {ok, IP}
+                    catch throw : error         -> {error, einval}
+                    end
             end
     end;
 address(Cs) when is_list(Cs) ->
@@ -459,7 +461,7 @@ address(Cs) when is_list(Cs) ->
         _ ->
             ipv6strict_address(Cs)
     end;
-address(_) -> 
+address(_) ->
     {error, einval}.
 
 %%Parse ipv4 strict address or ipv6 strict address
@@ -499,31 +501,31 @@ ipv4_address(Cs) ->
 ipv4_addr(Cs) ->
     case ipv4_addr(Cs, []) of
         [D] when is_integer(D, 0, 16#ffff_ffff) ->
-            D4 = D band 255,
+            D4 = D band 16#ff,
             Da = D bsr 8,
-            D3 = Da band 255,
+            D3 = Da band 16#ff,
             Db = Da bsr 8,
-            D2 = Db band 255,
+            D2 = Db band 16#ff,
             D1 = Db bsr 8,
             {D1,D2,D3,D4};
-        [D,D1] when is_integer(D, 0, 16#ff_ffff), is_integer(D1, 0, 255) ->
-            D4 = D band 255,
+        [D,D1] when is_integer(D, 0, 16#ff_ffff), is_integer(D1, 0, 16#ff) ->
+            D4 = D band 16#ff,
             Da = D bsr 8,
-            D3 = Da band 255,
+            D3 = Da band 16#ff,
             D2 = Da bsr 8,
             {D1,D2,D3,D4};
         [D,D2,D1] when
               is_integer(D, 0, 16#ffff),
-              is_integer(D2, 0, 255),
-              is_integer(D1, 0, 255) ->
-            D4 = D band 255,
+              is_integer(D2, 0, 16#ff),
+              is_integer(D1, 0, 16#ff) ->
+            D4 = D band 16#ff,
             D3 = D bsr 8,
             {D1,D2,D3,D4};
         [D4,D3,D2,D1] when
-              is_integer(D4, 0, 255),
-              is_integer(D3, 0, 255),
-              is_integer(D2, 0, 255),
-              is_integer(D1, 0, 255) ->
+              is_integer(D4, 0, 16#ff),
+              is_integer(D3, 0, 16#ff),
+              is_integer(D2, 0, 16#ff),
+              is_integer(D1, 0, 16#ff) ->
             {D1,D2,D3,D4};
         _ ->
             throw(error)
@@ -540,8 +542,12 @@ ipv4_addr("0X"++Cs, Ds) ->
     ipv4_addr(Cs, Ds, [], 16, 8);
 ipv4_addr("0"++Cs, Ds) ->
     ipv4_addr(Cs, Ds, [$0], 8, 11);
-ipv4_addr(Cs, Ds) when is_list(Cs) ->
-    ipv4_addr(Cs, Ds, [], 10, 10).
+ipv4_addr([C|_]=Cs, Ds) when is_integer(C, $0, $9) ->
+    ipv4_addr(Cs, Ds, [], 10, 10);
+%% The field does not start with a decimal digit
+ipv4_addr(_, _) ->
+    throw(error).
+
 
 ipv4_addr(Cs0, Ds, Rs, Base, N) ->
     case ipv4_field(Cs0, N, Rs, Base) of
@@ -817,7 +823,7 @@ ipv6_addr_scope([C|Cs], Ar, Br, N) ->
         is_integer(C, $0, $9) ->
             ipv6_addr_scope_dec16(Cs, Ar, Br, N, C - $0);
         true -> % We ignore any non-numerical <zone_id>:s for now
-            ipv6_addr_scope_done(0, Ar, Br, N)
+            ipv6_addr_done(Ar, Br, N)
     end.
 
 ipv6_addr_scope_dec16([], Ar, Br, N, ScopeId) ->
@@ -831,7 +837,8 @@ ipv6_addr_scope_dec16([C|Cs], Ar, Br, N, ScopeId) ->
                     throw(error) % 16-bit overflow
             end;
        true ->
-            throw(error) % Non-numerical character
+            %% Non-numerical <zone_id> - ignore it
+            ipv6_addr_done(Ar, Br, N)
     end.
 
 ipv6_addr_scope_done(ScopeId, Ar, Br, N) when is_integer(ScopeId) ->

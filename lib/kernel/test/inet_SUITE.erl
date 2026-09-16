@@ -876,7 +876,9 @@ parse_address(Config) when is_list(Config) ->
          %% Zone index with leading 0
          {{16#ff02,12345,0,0,0,0,0,16#12},"ff02::12%012345"},
          %% Zone index after an uncompressed address
-         {{16#fe80,7,0,0,0,0,0,16#12},"fe80:0:0:0:0:0:0:12%7"}]
+         {{16#fe80,7,0,0,0,0,0,16#12},"fe80:0:0:0:0:0:0:12%7"},
+         {{16#fe80,0,0,0,0,0,0,16#12},"fe80::12%1x"},
+         {{16#fe80,0,0,0,0,0,0,16#12},"fe80::12%5%6"}]
         ++
         [{{P,0,0,0,0,D2,(D1 bsl 8) bor D2,(D3 bsl 8) bor D4},
           Q++erlang:integer_to_list(D2, 16)++":"++S}
@@ -932,8 +934,6 @@ parse_address(Config) when is_list(Config) ->
          "::%",
          "1::1%",
          "fe80::12%65536",
-         "fe80::12%1x",
-         "fe80::12%5%6",
          "::1%5",
          "2001:db8::1%5",
          "2001::1%5",
