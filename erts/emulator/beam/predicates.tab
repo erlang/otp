@@ -170,14 +170,11 @@ pred.is_small_map_literal_keys(Size, Rest) {
 
 // Test whether the given literal is an empty map.
 pred.is_empty_map(Lit) {
-    Eterm term;
-
     if (Lit.type != TAG_q) {
         return 0;
     }
 
-    term = beamfile_get_literal(&S->beam, Lit.val);
-    return is_flatmap(term) && flatmap_get_size(flatmap_val(term)) == 0;
+    return beamfile_get_literal(&S->beam, Lit.val) == ERTS_GLOBAL_LIT_EMPTY_MAP;
 }
 
 // Mark this label. Always succeeds.
