@@ -2015,11 +2015,12 @@ annotation contains the location given by option `location` or by option `line`.
 Option `location` overrides option `line`. If neither option `location` nor
 option `line` is given, `0` is used as location.
 
-Option `Encoding` is used for selecting which integer lists to be considered as
-strings. The default is to use the encoding returned by function
-`epp:default_encoding/0`. Value `none` means that no integer lists are
-considered as strings. `encoding_func()` is called with one integer of a list at
-a time; if it returns `true` for every integer, the list is considered a string.
+Option `Encoding` is used for selecting which integer lists or binaries to
+be considered as strings. The default is to use the encoding returned by function
+`epp:default_encoding/0`. Value `none` means that nothing is considered a string.
+`encoding_func()` is called with one character of a list or binary at
+a time; if it returns `true` for every character, the list or binary is considered
+a string. For binaries it is the decoded utf-8 character that is passed to `encoding_func()`. If the binary is not valid utf-8, it is not considered a string.
 """.
 -doc(#{since => <<"OTP R16B01">>}).
 -spec abstract(Data, Options) -> AbsTerm when
@@ -2049,14 +2050,9 @@ abstract(T, Location) ->
     Anno = erl_anno:new(Location),
     abstract(T, Anno, enc_func(epp:default_encoding())).
 
--define(UNICODE(C),
-         (C < 16#D800 orelse
-          C > 16#DFFF andalso C < 16#FFFE orelse
-          C > 16#FFFF andalso C =< 16#10FFFF)).
-
-enc_func(latin1) -> fun(C) -> C < 256 end;
-enc_func(unicode) -> fun(C) -> ?UNICODE(C) end;
-enc_func(utf8) -> fun(C) -> ?UNICODE(C) end;
+enc_func(latin1) -> fun(C) -> io_lib:printable_latin1_list([C]) end;
+enc_func(unicode) -> fun(C) -> io_lib:printable_unicode_list([C]) end;
+enc_func(utf8) -> enc_func(unicode);
 enc_func(none) -> none;
 enc_func(Fun) when is_function(Fun, 1) -> Fun;
 enc_func(Term) -> erlang:error({badarg, Term}).
@@ -2065,6 +2061,23 @@ abstract(T, A, _E) when is_integer(T) -> {integer,A,T};
 abstract(T, A, _E) when is_float(T) -> {float,A,T};
 abstract(T, A, _E) when is_atom(T) -> {atom,A,T};
 abstract([], A, _E) -> {nil,A};
+abstract(B, A, E) when is_binary(B), is_function(E) ->
+    maybe
+        List = unicode:characters_to_list(B, utf8),
+        true ?= is_list(List),
+        {string, _, String} ?= abstract_list(List, [], A, E),
+        Encoding =
+            case is_ascii_string(String) of
+                true ->
+                    default;
+                false ->
+                    [utf8]
+            end,
+        {bin, A, [{bin_element, A, {string, A, String}, default, Encoding}]}
+    else
+        _ ->
+            {bin, A, [abstract_byte(Byte, A) || Byte <- binary_to_list(B)]}
+    end;
 abstract(B, A, _E) when is_bitstring(B) ->
     {bin, A, [abstract_byte(Byte, A) || Byte <- bitstring_to_list(B)]};
 abstract([H|T], A, none=E) ->
@@ -2087,6 +2100,9 @@ abstract(Fun, A, E) when is_function(Fun) ->
                         abstract(F, A, E),
                         abstract(Arity, A, E)}}
     end.
+
+is_ascii_string(L) ->
+    lists:all(fun(C) -> C >= 0 andalso C < 128 end, L).
 
 abstract_list([H|T], String, A, E) ->
     case is_integer(H) andalso H >= 0 andalso E(H) of
