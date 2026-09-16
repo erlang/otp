@@ -606,8 +606,8 @@ common_loop(Config, Callback, Req, #transfer_res{status = Status, decoded_msg = 
 
 common_read(Config, _, Req, _, _, _, #prepared{status = terminate, result = Result}) ->
     terminate(Config, Req, {ok, Result});
-common_read(Config, Callback, Req, LocalAccess, ExpectedBlockNo, ActualBlockNo, Prepared)
-  when ActualBlockNo =:= ExpectedBlockNo, is_record(Prepared, prepared) ->
+common_read(Config, Callback, Req, LocalAccess, ExpectedBlockNo, ActualBlockNo, #prepared{} = Prepared)
+  when ActualBlockNo == ExpectedBlockNo ->
     case early_read(Config, Callback, Req, LocalAccess, ActualBlockNo, Prepared) of
         {Callback2,  #prepared{status = more, next_data = Data} = Prepared2} when is_binary(Data) ->
             Prepared3 = Prepared2#prepared{prev_data = Data, next_data = undefined},
@@ -620,20 +620,8 @@ common_read(Config, Callback, Req, LocalAccess, ExpectedBlockNo, ActualBlockNo, 
             send_msg(Config, Req, Error),
             terminate(Config, Req, ?ERROR(read, Code, Text, Req#tftp_msg_req.filename))
     end;
-common_read(Config, Callback, Req, LocalAccess, ExpectedBlockNo, ActualBlockNo, Prepared) 
-  when ActualBlockNo =:= (ExpectedBlockNo - 1), is_record(Prepared, prepared) ->
-    case Prepared of
-        #prepared{status = more, prev_data = Data} when is_binary(Data) ->
-            do_common_read(Config, Callback, Req, LocalAccess, ActualBlockNo, Data, Prepared);
-        #prepared{status = last, prev_data = Data} when is_binary(Data) ->
-            do_common_read(Config, Callback, Req, LocalAccess, ActualBlockNo, Data, Prepared);
-        #prepared{status = error, result = Error} ->
-            #tftp_msg_error{code = Code, text = Text} = Error,
-            send_msg(Config, Req, Error),
-            terminate(Config, Req, ?ERROR(read, Code, Text, Req#tftp_msg_req.filename))
-    end;
-common_read(Config, Callback, Req, LocalAccess, ExpectedBlockNo, ActualBlockNo, Prepared) 
-  when ActualBlockNo =< ExpectedBlockNo, is_record(Prepared, prepared) ->
+common_read(Config, Callback, Req, LocalAccess, ExpectedBlockNo, ActualBlockNo, #prepared{} = Prepared)
+  when ActualBlockNo < ExpectedBlockNo ->
     %% logger:error("TFTP READ ~s: Expected block ~p but got block ~p - IGNORED\n",
     %%                     [Req#tftp_msg_req.filename, ExpectedBlockNo, ActualBlockNo]),
     case Prepared of
@@ -652,11 +640,10 @@ common_read(Config, Callback, Req, LocalAccess, ExpectedBlockNo, ActualBlockNo, 
             send_msg(Config, Req, Error),
             terminate(Config, Req, ?ERROR(read, Code, Text, Req#tftp_msg_req.filename))
     end;
-common_read(Config, Callback, Req, _LocalAccess, ExpectedBlockNo, ActualBlockNo, Prepared)
-  when is_record(Prepared, prepared) ->
+common_read(Config, Callback, Req, _LocalAccess, ExpectedBlockNo, ActualBlockNo, #prepared{}) ->
     Code = badblk,
-    Text = "Unknown transfer ID = " ++ 
-        integer_to_list(ActualBlockNo) ++ " (" ++ integer_to_list(ExpectedBlockNo) ++ ")", 
+    Text = "Unknown transfer ID = " ++
+        integer_to_list(ActualBlockNo) ++ " (" ++ integer_to_list(ExpectedBlockNo) ++ ")",
     {undefined, Error} =
         callback({abort, {Code, Text}}, Config, Callback, Req),
     send_msg(Config, Req, Error),

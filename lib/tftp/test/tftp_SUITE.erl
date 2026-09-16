@@ -382,8 +382,9 @@ resend_read_client(Host, Port, BlkSize) ->
     Blob = list_to_binary(Blocks),
     {ok} = ?TRY(file:write_file(RemoteFilename, Blob)),
 
-    Timeout = timer:seconds(3),
-    {timeout} = ?TRY(recv(0)),
+    Timeout      = timer:seconds(3), % Default TFTP time-out
+    ShortTimeout = timer:seconds(1),
+    {timeout}    = ?TRY(recv(0)),
 
     %% Open socket
     {{ok, Socket}} = ?TRY(gen_udp:open(0, [binary, {reuseaddr, true}, {active, true}])),
@@ -397,11 +398,8 @@ resend_read_client(Host, Port, BlkSize) ->
                 ReadBin = list_to_binary(ReadList),
                 {ok} = ?TRY(gen_udp:send(Socket, Host, Port, ReadBin)),
 
-                %% Sleep a while in order to provoke the server to re-send the packet
-                timer:sleep(Timeout + timer:seconds(1)),
-
-                %% Recv DATA #1 (the packet that the server think that we have lost)
-                {{udp, Socket, Host, NewPort0, Data1Bin}} = ?TRY(recv(Timeout)),
+                %% Recv DATA #1
+                {{udp, Socket, Host, NewPort0, Data1Bin}} = ?TRY(recv(ShortTimeout)),
                 NewPort0;
             true ->
                 %% Send READ
@@ -419,17 +417,18 @@ resend_read_client(Host, Port, BlkSize) ->
                 Ack0Bin = <<0, 4, 0, 0>>,
                 {ok} = ?TRY(gen_udp:send(Socket, Host, NewPort0, Ack0Bin)),
 
+                %% Recv DATA #1
+                {{udp, Socket, Host, NewPort0, Data1Bin}} = ?TRY(recv(Timeout)),
+
                 %% Send ACK #0 AGAIN (pretend that we timed out)
-                timer:sleep(timer:seconds(1)),
+                timer:sleep(ShortTimeout),
                 {ok} = ?TRY(gen_udp:send(Socket, Host, NewPort0, Ack0Bin)),
 
-                %% Recv DATA #1 (the packet that the server think that we have lost)
-                {{udp, Socket, Host, NewPort0, Data1Bin}} = ?TRY(recv(Timeout)),
                 NewPort0
         end,
 
     %% Recv DATA #1 AGAIN (the re-sent package)
-    {{udp, Socket, Host, NewPort, Data1Bin}} = ?TRY(recv(Timeout)),
+    {{udp, Socket, Host, NewPort, Data1Bin}} = ?TRY(recv(2*Timeout)),
 
     %% Send ACK #1
     Ack1Bin = <<0, 4, 0, 1>>,
@@ -451,16 +450,16 @@ resend_read_client(Host, Port, BlkSize) ->
     Ack3Bin = <<0, 4, 0, 3>>,
     {ok} = ?TRY(gen_udp:send(Socket, Host, NewPort, Ack3Bin)),
 
-    %% Send ACK #3 AGAIN (pretend that we timed out)
-    timer:sleep(timer:seconds(1)),
-    {ok} = ?TRY(gen_udp:send(Socket, Host, NewPort, Ack3Bin)),
-
-    %% Recv DATA #4 (the packet that the server think that we have lost)
+    %% Recv DATA #4
     Data4Bin = list_to_binary([0, 3, 0, 4 | Block4]),
     {{udp, Socket, Host, NewPort, Data4Bin}} = ?TRY(recv(Timeout)),
 
+    %% Send ACK #3 AGAIN (pretend that we timed out)
+    timer:sleep(ShortTimeout),
+    {ok} = ?TRY(gen_udp:send(Socket, Host, NewPort, Ack3Bin)),
+
     %% Recv DATA #4 AGAIN (the re-sent package)
-    {{udp, Socket, Host, NewPort, Data4Bin}} = ?TRY(recv(Timeout)),
+    {{udp, Socket, Host, NewPort, Data4Bin}} = ?TRY(recv(2*Timeout)),
 
     %% Send ACK #2 which is out of range
     {ok} = ?TRY(gen_udp:send(Socket, Host, NewPort, Ack2Bin)),
@@ -499,8 +498,9 @@ resend_write_client(Host, Port, BlkSize) ->
     ?TRY(file:delete(RemoteFilename)),
     {{error, enoent}} = ?TRY(file:read_file(RemoteFilename)),
 
-    Timeout = timer:seconds(3),
-    {timeout} = ?TRY(recv(0)),
+    Timeout      = timer:seconds(3), % Default TFTP time-out
+    ShortTimeout = timer:seconds(1),
+    {timeout}    = ?TRY(recv(0)),
 
     %% Open socket
     {{ok, Socket}} =
@@ -514,15 +514,12 @@ resend_write_client(Host, Port, BlkSize) ->
                 WriteBin = list_to_binary(WriteList),
                 {ok} = ?TRY(gen_udp:send(Socket, Host, Port, WriteBin)),
 
-                %% Sleep a while in order to provoke the server to re-send the packet
-                timer:sleep(Timeout + timer:seconds(1)),
-
-                %% Recv ACK #0 (the packet that the server think that we have lost)
+                %% Recv ACK #0
                 Ack0Bin = <<0, 4, 0, 0>>,
                 {{udp, Socket, Host, _, Ack0Bin}} = ?TRY(recv(Timeout)),
 
                 %% Recv ACK #0  AGAIN (the re-sent package)
-                {{udp, Socket, Host, NewPort0, Ack0Bin}} = ?TRY(recv(Timeout)),
+                {{udp, Socket, Host, NewPort0, Ack0Bin}} = ?TRY(recv(2*Timeout)),
                 NewPort0;
             true ->
                 %% Send WRITE
@@ -530,16 +527,12 @@ resend_write_client(Host, Port, BlkSize) ->
                 WriteBin = list_to_binary([WriteList, "blksize", 0, BlkSizeList, 0]),
                 {ok} = ?TRY(gen_udp:send(Socket, Host, Port, WriteBin)),
 
-                %% Sleep a while in order to provoke the server to re-send the packet
-                timer:sleep(timer:seconds(1)),
-
-                %% Recv OACK (the packet that the server think that we have lost)
+                %% Recv OACK
                 OptionAckBin = list_to_binary([0, 6, "blksize",0, BlkSizeList, 0]),
                 {{udp, Socket, Host, _, OptionAckBin}} = ?TRY(recv(Timeout)),
 
                 %% Recv OACK AGAIN (the re-sent package)
-                {{udp, Socket, Host, NewPort0, OptionAckBin}} =
-                    ?TRY(recv(Timeout)),
+                {{udp, Socket, Host, NewPort0, OptionAckBin}} = ?TRY(recv(2*Timeout)),
                 NewPort0
         end,
 
@@ -568,11 +561,11 @@ resend_write_client(Host, Port, BlkSize) ->
     {{udp, Socket, Host, NewPort, Ack3Bin}} = ?TRY(recv(Timeout)),
 
     %% Send DATA #3 AGAIN (pretend that we timed out)
-    timer:sleep(timer:seconds(1)),
+    timer:sleep(ShortTimeout),
     {ok} = ?TRY(gen_udp:send(Socket, Host, NewPort, Data3Bin)),
 
-    %% Recv ACK #3 AGAIN (the packet that the server think that we have lost)
-    {{udp, Socket, Host, NewPort, Ack3Bin}} = ?TRY(recv(Timeout)),
+    %% Recv ACK #3 AGAIN (re-sent)
+    {{udp, Socket, Host, NewPort, Ack3Bin}} = ?TRY(recv(2*Timeout)),
 
     %% Send DATA #2 which is out of range
     {ok} = ?TRY(gen_udp:send(Socket, Host, NewPort, Data2Bin)),
@@ -631,8 +624,9 @@ resend_read_server(Host, BlkSize) ->
     Blocks = [Block1, Block2, Block3, Block4, Block5, Block6],
     Blob = list_to_binary(Blocks),
 
-    Timeout = timer:seconds(3),
-    {timeout} = ?TRY(recv(0)),
+    Timeout      = timer:seconds(3), % Default TFTP time-out
+    ShortTimeout = timer:seconds(1),
+    {timeout}    = ?TRY(recv(0)),
 
     %% Open daemon socket
     {{ok, DaemonSocket}} =
@@ -672,15 +666,13 @@ resend_read_server(Host, BlkSize) ->
                 %% Send DATA #1
                 {ok} = ?TRY(gen_udp:send(ServerSocket, Host, ClientPort0, Data1Bin)),
 
-                %% Sleep a while in order to provoke the client to re-send the packet
-                timer:sleep(Timeout + timer:seconds(1)),
-
-                %% Recv ACK #1 (the packet that the server think that we have lost)
+                %% Recv ACK #1
                 {{udp, ServerSocket, Host, ClientPort0, Ack1Bin}} =
                     ?TRY(recv(Timeout)),
 
-                %% Recv ACK #1 AGAIN (the re-sent package)
-                {{udp, ServerSocket, Host, _, Ack1Bin}} = ?TRY(recv(Timeout)),
+                %% Recv ACK #1 AGAIN (it will be re-sent since we did not send more data)
+                {{udp, ServerSocket, Host, _, Ack1Bin}} = ?TRY(recv(2*Timeout)),
+
                 {ClientPort0, ClientPid0};
             true ->
                 %% Start client process
@@ -698,17 +690,14 @@ resend_read_server(Host, BlkSize) ->
                 OptionAckBin = list_to_binary([0, 6, "blksize",0, BlkSizeList, 0]),
                 {ok} = ?TRY(gen_udp:send(ServerSocket, Host, ClientPort0, OptionAckBin)),
 
-                %% Sleep a while in order to provoke the client to re-send the packet
-                timer:sleep(Timeout + timer:seconds(1)),
-
-                %% Recv ACK #0 (the packet that the server think that we have lost)
+                %% Recv ACK #0
                 Ack0Bin = <<0, 4, 0, 0>>,
                 {{udp, ServerSocket, Host, ClientPort0, Ack0Bin}} =
                     ?TRY(recv(Timeout)),
 
-                %% Recv ACK #0 AGAIN (the re-sent package)
+                %% Recv ACK #0 AGAIN (it will be re-sent since we did not send data)
                 {{udp, ServerSocket, Host, ClientPort0, Ack0Bin}} =
-                    ?TRY(recv(Timeout)),
+                    ?TRY(recv(2*Timeout)),
 
                 %% Send DATA #1
                 {ok} = ?TRY(gen_udp:send(ServerSocket, Host, ClientPort0, Data1Bin)),
@@ -735,11 +724,11 @@ resend_read_server(Host, BlkSize) ->
     {{udp, ServerSocket, Host, ClientPort, Ack3Bin}} = ?TRY(recv(Timeout)),
 
     %% Send DATA #3 AGAIN (pretend that we timed out)
-    timer:sleep(timer:seconds(1)),
+    timer:sleep(ShortTimeout),
     {ok} = ?TRY(gen_udp:send(ServerSocket, Host, ClientPort, Data3Bin)),
 
-    %% Recv ACK #3 AGAIN (the packet that the server think that we have lost)
-    {{udp, ServerSocket, Host, ClientPort, Ack3Bin}} = ?TRY(recv(Timeout)),
+    %% Recv ACK #3 AGAIN (the packet that the server think that we have lost)w
+    {{udp, ServerSocket, Host, ClientPort, Ack3Bin}} = ?TRY(recv(2*Timeout)),
 
     %% Send DATA #4
     Data4Bin = list_to_binary([0, 3, 0, 4 | Block4]),
@@ -773,7 +762,7 @@ resend_read_server(Host, BlkSize) ->
     {ok} = ?TRY(gen_udp:close(DaemonSocket)),
 
     {{ClientPid, {tftp_client_reply, {ok, Blob}}}} =
-        ?TRY(recv(2 * (Timeout + timer:seconds(1)))),
+        ?TRY(recv(2 * (Timeout + ShortTimeout))),
 
     {timeout} = ?TRY(recv(Timeout)),
     ok.
@@ -790,8 +779,9 @@ resend_write_server(Host, BlkSize) ->
     Blob = list_to_binary(Blocks),
     Size = size(Blob),
 
-    Timeout = timer:seconds(3),
-    {timeout} = ?TRY(recv(0)),
+    Timeout      = timer:seconds(3), % Default TFTP time-out
+    ShortTimeout = timer:seconds(1),
+    {timeout}    = ?TRY(recv(0)),
 
     %% Open daemon socket
     {{ok, DaemonSocket}} =
@@ -832,15 +822,12 @@ resend_write_server(Host, BlkSize) ->
                 Ack0Bin = <<0, 4, 0, 0>>,
                 {ok} = ?TRY(gen_udp:send(ServerSocket, Host, ClientPort0, Ack0Bin)),
 
-                %% Sleep a while in order to provoke the client to re-send the packet
-                timer:sleep(Timeout + timer:seconds(1)),
-
-                %% Recv DATA #1 (the packet that the server think that we have lost)
+                %% Recv DATA #1
                 {{udp, ServerSocket, Host, ClientPort0, Data1Bin}} =
                     ?TRY(recv(Timeout)),
 
-                %% Recv DATA #1 AGAIN (the re-sent package)
-                {{udp, ServerSocket, Host, _, Data1Bin}} = ?TRY(recv(Timeout)),
+                %% Recv DATA #1 AGAIN (it will be re-sent since we did not send an ack)
+                {{udp, ServerSocket, Host, _, Data1Bin}} = ?TRY(recv(2*Timeout)),
                 {ClientPort0, ClientPid0};
             true ->
                 %% Start client process
@@ -858,16 +845,13 @@ resend_write_server(Host, BlkSize) ->
                 OptionAckBin = list_to_binary([0, 6, "blksize",0, BlkSizeList, 0]),
                 {ok} = ?TRY(gen_udp:send(ServerSocket, Host, ClientPort0, OptionAckBin)),
 
-                %% Sleep a while in order to provoke the client to re-send the packet
-                timer:sleep(Timeout + timer:seconds(1)),
-
-                %% Recv DATA #1 (the packet that the server think that we have lost)
+                %% Recv DATA #1
                 {{udp, ServerSocket, Host, ClientPort0, Data1Bin}} =
                     ?TRY(recv(Timeout)),
 
-                %% Recv DATA #1 AGAIN (the re-sent package)
+                %% Recv DATA #1 AGAIN (it will be re-sent since we did not send an ack)
                 {{udp, ServerSocket, Host, ClientPort0, Data1Bin}} =
-                    ?TRY(recv(Timeout)),
+                    ?TRY(recv(2*Timeout)),
                 {ClientPort0, ClientPid0}
         end,
 
@@ -891,16 +875,16 @@ resend_write_server(Host, BlkSize) ->
     Ack3Bin = <<0, 4, 0, 3>>,
     {ok} = ?TRY(gen_udp:send(ServerSocket, Host, ClientPort, Ack3Bin)),
 
-    %% Send ACK #3 AGAIN (pretend that we timed out)
-    timer:sleep(timer:seconds(1)),
-    {ok} = ?TRY(gen_udp:send(ServerSocket, Host, ClientPort, Ack3Bin)),
-
-    %% Recv DATA #4 (the packet that the server think that we have lost)
+    %% Recv DATA #4
     Data4Bin = list_to_binary([0, 3, 0, 4 | Block4]),
     {{udp, ServerSocket, Host, ClientPort, Data4Bin}} = ?TRY(recv(Timeout)),
 
-    %% Recv DATA #4 AGAIN (the re-sent package)
-    {{udp, ServerSocket, Host, ClientPort, Data4Bin}} = ?TRY(recv(Timeout)),
+    %% Send ACK #3 AGAIN (pretend that we timed out)
+    timer:sleep(ShortTimeout),
+    {ok} = ?TRY(gen_udp:send(ServerSocket, Host, ClientPort, Ack3Bin)),
+
+    %% Recv DATA #4 AGAIN  (the packet that the server think that we have lost)
+    {{udp, ServerSocket, Host, ClientPort, Data4Bin}} = ?TRY(recv(2*Timeout)),
 
     %% Send ACK #4
     Ack4Bin = <<0, 4, 0, 4>>,
