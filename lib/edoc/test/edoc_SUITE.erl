@@ -218,13 +218,12 @@ otp_reference(Config) ->
     URI1 = uri_string:parse(Href1#xmlAttribute.value),
     "www.erlang.org" = maps:get(host, URI1),
     "/doc/apps/kernel/application.html" = maps:get(path, URI1),
-    % "start/1" = maps:get(fragment, URI1),
+    "start/1" = maps:get(fragment, URI1),
     See = lists:keyfind(see,
         #xmlElement.name, Start#xmlElement.content),
     Href2 = lists:keyfind(href,
         #xmlAttribute.name, See#xmlElement.attributes),
     URI2 = uri_string:parse(Href2#xmlAttribute.value),
     "www.erlang.org" = maps:get(host, URI2),
-    "/doc/apps/kernel/application.html" = maps:get(path, URI2).
-    % "start/1" = maps:get(fragment, URI2).
-
+    "/doc/apps/kernel/application.html" = maps:get(path, URI2),
+    "start/1" = maps:get(fragment, URI2).
