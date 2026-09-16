@@ -37,6 +37,7 @@
          otp_15159/1, otp_15639/1, otp_15705/1, otp_15847/1, otp_15875/1,
          github_4801/1, chars_limit/1, error_info/1, otp_17525/1,
          unscan_format_without_maps_order/1, build_text_without_maps_order/1,
+         build_binary/1,
          native_records/1, cover_fread/1,
          format_w_empty_map/1, format_w_limited/1,
          write_record_maps_order/1, write_record_latin1_encoding/1,
@@ -76,7 +77,7 @@ all() ->
      otp_14285, limit_term, otp_14983, otp_15103, otp_15076, otp_15159,
      otp_15639, otp_15705, otp_15847, otp_15875, github_4801, chars_limit,
      error_info, otp_17525, unscan_format_without_maps_order,
-     build_text_without_maps_order,
+     build_text_without_maps_order, build_binary,
      native_records,
      format_w_empty_map, format_w_limited,
      write_record_maps_order, write_record_latin1_encoding,
@@ -3444,6 +3445,23 @@ build_text_without_maps_order(_Config) ->
         width => none
     },
     [["1"]] = io_lib:build_text([FormatSpec]).
+
+build_binary(_Config) ->
+    Format = "~ts ~tp ~.2f",
+    Args = [<<"abc">>, #{key => value}, 1.25],
+    FormatList = io_lib:scan_format(Format, Args),
+    Expected = io_lib:bformat(Format, Args),
+    Expected = io_lib:build_binary(FormatList),
+
+    LimitedFormatList = io_lib:scan_format("~p", [lists:seq(1, 100)]),
+    Options = [{chars_limit, 20}],
+    Limited = io_lib:bformat("~p", [lists:seq(1, 100)], Options),
+    Limited = io_lib:build_binary(LimitedFormatList, Options),
+
+    BadFormatList = io_lib:scan_format("~c", [not_a_character]),
+    ?assertError(badarg, io_lib:build_binary(BadFormatList)),
+    ?assertError(badarg, io_lib:build_binary(BadFormatList, [])),
+    ok.
 
 -record #empty{}.
 -record #vector{x, y}.
