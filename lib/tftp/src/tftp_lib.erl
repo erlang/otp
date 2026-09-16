@@ -210,7 +210,7 @@ do_parse_config([{Key, Val} | Tail], Config) when is_record(Config, config) ->
             end;
         max_retries ->
             if
-                is_integer(Val), Val > 0 ->
+                is_integer(Val), Val >= 0 ->
                     do_parse_config(Tail, Config#config{max_retries = Val});
                 true ->
                     throw({badarg, {Key, Val}})
