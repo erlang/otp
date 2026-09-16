@@ -3,7 +3,7 @@
 
 SPDX-License-Identifier: Apache-2.0
 
-Copyright Ericsson AB 2023-2025. All Rights Reserved.
+Copyright Ericsson AB 2023-2026. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,6 +22,28 @@ limitations under the License.
 # Dialyzer Release Notes
 
 This document describes the changes made to the Dialyzer application.
+
+## Dialyzer 6.0.3
+
+### Fixed Bugs and Malfunctions
+
+- Fixed Dialyzer crash when overriding built-in types.
+
+  Own Id: OTP-19631 Aux Id: [GH-11093], [PR-11096]
+
+- Typer crashed when multiple functions were written in the same line.
+  For example:
+  
+  ```
+  -module(m).
+  f() -> ok. g() -> ok.
+  ```
+
+  Own Id: OTP-20297 Aux Id: [PR-11466]
+
+[GH-11093]: https://github.com/erlang/otp/issues/11093
+[PR-11096]: https://github.com/erlang/otp/pull/11096
+[PR-11466]: https://github.com/erlang/otp/pull/11466
 
 ## Dialyzer 6.0.2
 

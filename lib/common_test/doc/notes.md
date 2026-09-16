@@ -3,7 +3,7 @@
 
 SPDX-License-Identifier: Apache-2.0
 
-Copyright Ericsson AB 2023-2025. All Rights Reserved.
+Copyright Ericsson AB 2023-2026. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,6 +20,16 @@ limitations under the License.
 %CopyrightEnd%
 -->
 # Common Test Release Notes
+
+## Common_Test 1.31.2
+
+### Fixed Bugs and Malfunctions
+
+- The internal `cte_track` event handler now correctly displays the suite name for suites without an `init_per_suite/1` callback.
+
+  Own Id: OTP-20316 Aux Id: [PR-11501]
+
+[PR-11501]: https://github.com/erlang/otp/pull/11501
 
 ## Common_Test 1.31.1
 

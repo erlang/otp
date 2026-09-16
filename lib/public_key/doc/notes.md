@@ -21,6 +21,36 @@ limitations under the License.
 -->
 # Public_Key Release Notes
 
+## Public_Key 1.21.6
+
+### Fixed Bugs and Malfunctions
+
+- Added missing `no_cacerts_found` clauses so that the intended `{failed_load_cacerts, no_cacerts_found}` error is raised and formatted properly.
+
+  Own Id: OTP-20318 Aux Id: [PR-11378]
+
+- Align moduli and pubkey_moduli.hrl to state on OTP-28 and newer.
+
+  Own Id: OTP-20367 Aux Id: [PR-11574]
+
+[PR-11378]: https://github.com/erlang/otp/pull/11378
+[PR-11574]: https://github.com/erlang/otp/pull/11574
+
+### Improvements and New Features
+
+- Worked around domain component using wrong ASN-1 `PrintableString` encoding instead of `IA5String` encoding.
+
+  Own Id: OTP-20338 Aux Id: [GH-10879], [PR-11226]
+
+- ASN.1 files are now compiled sequentially to guarantee reproducible builds.
+
+  Own Id: OTP-20362 Aux Id: [PR-11396], [GH-4417]
+
+[GH-10879]: https://github.com/erlang/otp/issues/10879
+[PR-11226]: https://github.com/erlang/otp/pull/11226
+[PR-11396]: https://github.com/erlang/otp/pull/11396
+[GH-4417]: https://github.com/erlang/otp/issues/4417
+
 ## Public_Key 1.21.5
 
 ### Fixed Bugs and Malfunctions

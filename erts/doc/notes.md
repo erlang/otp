@@ -23,6 +23,85 @@ limitations under the License.
 
 This document describes the changes made to the ERTS application.
 
+## Erts 17.1
+
+### Fixed Bugs and Malfunctions
+
+- Fixed bug in `ets:member/2` for `set`, `bag` and `duplicate_bag`. The bug could (maybe) lead to `ets:member` spuriously returning false for a value which is actually a member for a table that faces high insert load.
+
+  Own Id: OTP-20152 Aux Id: [PR-11115]
+
+- Fixed crashing bug caused by race between timer creating process and suspending receiver of the timer. Only seen to cause crash one time by extremely provoking test case. Bug exists only since OTP 29.0.
+
+  Own Id: OTP-20175 Aux Id: [PR-11196]
+
+- Fixed bug in `enif_realloc_binary` when called with a read-only binary. Instead of returning false at out-of-memory failure, it returned true and did nothing.
+
+  Own Id: OTP-20187 Aux Id: [PR-11133]
+
+- Fixed alternate signal stack sizing on musl (Alpine) running on CPUs whose Linux kernel reports large signal frames (AVX-512/AMX). It caused emulator to abort during startup with "Failed to set alternate signal stack".
+
+  Own Id: OTP-20213 Aux Id: [PR-11249], [GH-11248]
+
+- For `socket:recvmmsg/6`, the buffer length was not handled correctly when the OS network stack truncated the received message, so garbage data with incorrect length could be delivered to the calling process.  This bug has been corrected.
+
+  Own Id: OTP-20246 Aux Id: [PR-11335]
+
+- `binary_to_term/1` will now reject an external native record with duplicated fields.
+
+  Own Id: OTP-20276 Aux Id: [GH-11398], [PR-11410]
+
+- Fixed a crash upon starting the emulator on systems with a very large minimum signal stack size.
+
+  Own Id: OTP-20292 Aux Id: [PR-11376], [GH-11349]
+
+- Fixed lock order violation during crash dump due to export table exhaustion. Only problem for debug emulator.
+
+  Own Id: OTP-20305 Aux Id: [PR-11460]
+
+- Fixed rounding errors when converting large integers to floating point numbers, explicitly with `float/1` or implicitly in arithmetic such as `1.0 * N`. Integers with absolute values larger than 64 bits that could not be represented exactly as a float could be rounded to the second nearest float instead of the nearest. For example, `float(428654966685883400000)` returned `4.2865496668588343e20` instead of the correct `4.286549666858834e20`, which is what `binary_to_float/1` returns for the same number.
+
+  Own Id: OTP-20317 Aux Id: [PR-11391]
+
+- An error check in `prim_inet` has been fixed.  This manifested itself as `file:sendfile/*` sometimes crashing instead of returning an error when the remote end closes the socket during initialization.
+
+  Own Id: OTP-20356 Aux Id: [PR-11438]
+
+[PR-11115]: https://github.com/erlang/otp/pull/11115
+[PR-11196]: https://github.com/erlang/otp/pull/11196
+[PR-11133]: https://github.com/erlang/otp/pull/11133
+[PR-11249]: https://github.com/erlang/otp/pull/11249
+[GH-11248]: https://github.com/erlang/otp/issues/11248
+[PR-11335]: https://github.com/erlang/otp/pull/11335
+[GH-11398]: https://github.com/erlang/otp/issues/11398
+[PR-11410]: https://github.com/erlang/otp/pull/11410
+[PR-11376]: https://github.com/erlang/otp/pull/11376
+[GH-11349]: https://github.com/erlang/otp/issues/11349
+[PR-11460]: https://github.com/erlang/otp/pull/11460
+[PR-11391]: https://github.com/erlang/otp/pull/11391
+[PR-11438]: https://github.com/erlang/otp/pull/11438
+
+### Improvements and New Features
+
+- Fairness of code permission locks have been improved to avoid long latencies for code loading and trace operations.
+
+  Own Id: OTP-20188 Aux Id: [PR-11144]
+
+- The BIFs that convert strings to integers (for example [`binary_to_integer/1`](https://www.erlang.org/doc/apps/erts/erlang.html#binary_to_integer/1)) are now much faster for huge input strings. On a modern computer, even a string with more than a million decimal digits should finish in less than a second.
+  
+  The `div` and `rem` operators are now also much faster for large operands.
+
+  Own Id: OTP-20209 Aux Id: [PR-11074], [PR-11324]
+
+- Arithmetic operations on large integers will now increase the reduction count for the process, causing context switches to occur more frequently when doing arithmetic on large integers.
+
+  Own Id: OTP-20211 Aux Id: [PR-11274]
+
+[PR-11144]: https://github.com/erlang/otp/pull/11144
+[PR-11074]: https://github.com/erlang/otp/pull/11074
+[PR-11324]: https://github.com/erlang/otp/pull/11324
+[PR-11274]: https://github.com/erlang/otp/pull/11274
+
 ## Erts 17.0.6
 
 ### Fixed Bugs and Malfunctions

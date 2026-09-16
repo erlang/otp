@@ -3,7 +3,7 @@
 
 SPDX-License-Identifier: Apache-2.0
 
-Copyright Ericsson AB 2023-2025. All Rights Reserved.
+Copyright Ericsson AB 2023-2026. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,6 +22,24 @@ limitations under the License.
 # Wx Release Notes
 
 This document describes the changes made to the Wx application.
+
+## Wx 2.7
+
+### Fixed Bugs and Malfunctions
+
+- A large set of correctness and robustness fixes were applied across the `wx` application, addressing issues found by static analysis of both the Erlang and C/C++ sources.
+
+  Own Id: OTP-20335 Aux Id: [PR-11530]
+
+[PR-11530]: https://github.com/erlang/otp/pull/11530
+
+### Improvements and New Features
+
+- Removed configure checks that prevented cross compilation of wx. Note that cross compilation is not tested and may require manual configuration.
+
+  Own Id: OTP-20189 Aux Id: [PR-11137]
+
+[PR-11137]: https://github.com/erlang/otp/pull/11137
 
 ## Wx 2.6
 

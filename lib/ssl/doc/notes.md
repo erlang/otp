@@ -23,6 +23,36 @@ limitations under the License.
 
 This document describes the changes made to the SSL application.
 
+## SSL 11.7.6
+
+### Fixed Bugs and Malfunctions
+
+- Undecodable `certificate_authorities` names are now skipped, as they are just a hint.
+
+  Own Id: OTP-20327 Aux Id: [PR-11356], [GH-11338]
+
+- Corrected generated keylog information generated from the `keylog_hs` option in the corner case that it was invoked after the client had reached its connection state, but the server closed the connection before it reached its connection state.
+
+  Own Id: OTP-20358 Aux Id: [PR-11570], ERIERL-1356
+
+[PR-11356]: https://github.com/erlang/otp/pull/11356
+[GH-11338]: https://github.com/erlang/otp/issues/11338
+[PR-11570]: https://github.com/erlang/otp/pull/11570
+
+### Improvements and New Features
+
+- Added TLS-1.3 `selected_group` to `ssl:connection_information/2`.
+
+  Own Id: OTP-20326 Aux Id: [PR-11440]
+
+- The ECDHE-PSK Chacha20-Poly1305
+  cipher suites are now supported. This is relevant for TLS-1.2 (and lower).
+
+  Own Id: OTP-20331 Aux Id: [PR-11345]
+
+[PR-11440]: https://github.com/erlang/otp/pull/11440
+[PR-11345]: https://github.com/erlang/otp/pull/11345
+
 ## SSL 11.7.5
 
 ### Fixed Bugs and Malfunctions
