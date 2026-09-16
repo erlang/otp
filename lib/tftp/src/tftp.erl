@@ -243,7 +243,7 @@ All options most of them common to the client and server.
 Error reason codes.
 """.
 -type error_code() :: undef | enoent | eacces | enospc |
-		      badop | eexist | baduser | badopt |
+		      badop | eexist | baduser | badopt | badblk |
 		      pos_integer().
 
 
