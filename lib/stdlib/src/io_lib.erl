@@ -73,7 +73,7 @@ used for flattening deep lists.
 
 -export([fwrite/2,fwrite/3,fread/2,fread/3,format/2,format/3]).
 -export([bfwrite/2, bfwrite/3, bformat/2, bformat/3]).
--export([scan_format/2,unscan_format/1,build_text/1,build_text/2]).
+-export([scan_format/2,unscan_format/1,build_text/1,build_text/2,build_binary/1,build_binary/2]).
 -export([print/1,print/4,indentation/2]).
 
 -export([write/1,write/2,write/3,write/5,bwrite/2]).
@@ -396,7 +396,7 @@ Returns a list corresponding to the specified format string, where control
 sequences have been replaced with corresponding tuples. This list can be passed
 to:
 
-- `build_text/1` to have the same effect as [`format(Format, Args)`](`format/2`)
+- `build_text/1`/`build_binary/1` to have the same effect as [`format(Format, Args)`](`format/2`)/[`bformat(Format, Args)`](`bformat/2`)
 - `unscan_format/1` to get the corresponding pair of `Format` and `Args` (with
   every `*` and corresponding argument expanded to numeric values)
 
@@ -450,6 +450,29 @@ build_text(FormatList) ->
 
 build_text(FormatList, Options) ->
     try io_lib_format:build(FormatList, Options)
+    catch
+        C:R:S ->
+            test_modules_loaded(C, R, S),
+            erlang:error(badarg, [FormatList, Options])
+    end.
+
+-doc "For details, see `scan_format/2`.".
+-spec build_binary(FormatList) -> unicode:unicode_binary() when
+      FormatList :: [char() | format_spec()].
+build_binary(FormatList) ->
+    try io_lib_format:build_bin(FormatList)
+    catch
+        C:R:S ->
+            test_modules_loaded(C, R, S),
+            erlang:error(badarg, [FormatList])
+    end.
+
+-doc false.
+-spec build_binary(FormatList, Options) -> unicode:unicode_binary() when
+      FormatList :: [char() | format_spec()],
+      Options :: format_options().
+build_binary(FormatList, Options) ->
+    try io_lib_format:build_bin(FormatList, Options)
     catch
         C:R:S ->
             test_modules_loaded(C, R, S),
