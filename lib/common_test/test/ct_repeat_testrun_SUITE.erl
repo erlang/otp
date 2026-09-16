@@ -69,7 +69,7 @@
 %%--------------------------------------------------------------------
 init_per_suite(Config0) ->
     TTInfo = {_T,{_Scaled,ScaleVal}} = ct:get_timetrap_info(),
-    ct:pal("Timetrap info = ~w", [TTInfo]),
+    ct:log("Timetrap info = ~w", [TTInfo]),
     if ScaleVal > 1 ->
 	    {skip,"Skip on systems running e.g. cover or debug!"};
        ScaleVal =< 1 ->
@@ -98,13 +98,13 @@ init_per_suite(Config0) ->
 	    %% The time to compare with here must match the timeout value
 	    %% in the test suite. Accept some overhead
 	    if T > 5000 ->
-		    ct:pal("Timing test took ~w sec (< 5 sec expected). "
+		    ct:log("Timing test took ~w sec (< 5 sec expected). "
 			   "Skipping the suite!",
 			   [trunc(T/1000000)]),
 		    ct_test_support:end_per_suite(Config),
 		    {skip,"File I/O too slow for this suite"};
 	       true ->
-		    ct:pal("Timing test took ~w sec. Proceeding...",
+		    ct:log("Timing test took ~w sec. Proceeding...",
 			   [trunc(T/1000000)]),
 		    [{offset,0}|Config]
 	    end

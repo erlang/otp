@@ -59,8 +59,8 @@ init_per_suite(Config) ->
     DataDir = ?config(data_dir, Config),
     TestDir = filename:join(DataDir,"cth/tests/"),
     CTHs = filelib:wildcard(filename:join(TestDir,"*_cth.erl")),
-    io:format("CTHs: ~p",[CTHs]),
-    [io:format("Compiling ~p: ~p",
+    ct:log("CTHs: ~p",[CTHs]),
+    [ct:log("Compiling ~p: ~p",
 	    [FileName,compile:file(FileName,[{outdir,TestDir},debug_info])]) ||
 	FileName <- CTHs],
     ct_test_support:init_per_suite([{path_dirs,[TestDir]} | Config]).
@@ -335,7 +335,7 @@ cth_log_formatter(Config) when is_list(Config) ->
 					    {E,N,L+1};
 				       (_, N) -> N
 				    end, {0,0,0}, Ts),
-	      ct:pal("~p ({Error,Notice,Log}) matches in ~tp",
+	      ct:log("~p ({Error,Notice,Log}) matches in ~tp",
                      [Matches,TCLog]),
               MatchList = tuple_to_list(Matches),
               case [N || N <- MatchList, N<1] of
@@ -367,7 +367,7 @@ cth_log_unexpect(Config) when is_list(Config) ->
 					    {E,I,L+1};
 				       (_, N) -> N
 				    end, {0,0,0}, Ts),
-	      ct:pal("~p ({Error,Info,Log}) matches in ~tp",
+	      ct:log("~p ({Error,Info,Log}) matches in ~tp",
                      [Matches,UnexpIoLog]),
               MatchList = tuple_to_list(Matches),
               case [N || N <- MatchList, N<3] of
@@ -549,7 +549,7 @@ verify_cth_log_output(Config, CTHooks, ExtraOpts) ->
 					    {E,I,N,L+1};
 				       (_, N) -> N
 				    end, {0,0,0,0}, Ts),
-	      ct:pal("~p ({Error,Info,Notice,Log}) matches in ~tp",
+	      ct:log("~p ({Error,Info,Notice,Log}) matches in ~tp",
                      [Matches,TCLog]),
               MatchList = tuple_to_list(Matches),
               case [N || N <- MatchList, N<1] of
