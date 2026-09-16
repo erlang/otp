@@ -107,12 +107,15 @@ encode_jer({octet_string,_Prop}, Value) when is_binary(Value) ->
     bitstring2json(Value);
 
 encode_jer({'ENUMERATED',EnumMap},Val) when is_map_key(Val,EnumMap) ->
-    Val;
+    %% X.697: Enumerated values are JSON strings, but 'null'/'true'/'false'
+    %% generally get special treatment in the JSON encoder. Forcibly convert
+    %% them to strings to follow the standard.
+    atom_to_binary(Val, utf8);
 encode_jer({Type = {'ENUMERATED',_EnumList},_Constr}, Val) ->
     encode_jer(Type,Val);
 
 encode_jer({'ENUMERATED_EXT',_EnumMap},Val) when is_atom(Val) ->
-    Val;
+    atom_to_binary(Val, utf8);
 encode_jer({Type = {'ENUMERATED_EXT',_EnumList},_Constr}, Val) ->
     encode_jer(Type,Val);
 
