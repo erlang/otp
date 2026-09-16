@@ -62,9 +62,9 @@ BeamGlobalAssembler::BeamGlobalAssembler(JitAllocator *allocator)
         VirtMem::protect_jit_memory(VirtMem::ProtectJitAccess::kReadExecute);
     }
 
-    std::vector<AsmRange> ranges;
+    AsmMetadata metadata;
 
-    ranges.reserve(emitPtrs.size());
+    metadata.ranges.reserve(emitPtrs.size());
 
     for (auto val : emitPtrs) {
         ErtsCodePtr start = (ErtsCodePtr)getCode(labels[val.first]);
@@ -76,16 +76,17 @@ BeamGlobalAssembler::BeamGlobalAssembler(JitAllocator *allocator)
             stop = (ErtsCodePtr)((char *)getBaseAddress() + code.code_size());
         }
 
-        ranges.push_back(AsmRange{start,
-                                  stop,
-                                  code.label_entry_of(labels[val.first]).name(),
-                                  {}});
+        metadata.ranges.push_back(
+                AsmRange{start,
+                         stop,
+                         code.label_entry_of(labels[val.first]).name(),
+                         {}});
     }
 
     (void)beamasm_metadata_insert("global",
                                   (ErtsCodePtr)getBaseAddress(),
                                   code.code_size(),
-                                  ranges);
+                                  metadata);
 
     /* `this->get_xxx` are populated last to ensure that we crash if we use
      * them instead of labels in global code. */
