@@ -787,10 +787,6 @@ handle_server_hello(#server_hello{cipher_suite = SelectedCipherSuite,
         %% Go to state 'start' if server replies with 'HelloRetryRequest'.
         Maybe(tls_handshake_1_3:maybe_hello_retry_request(ServerHello, State0)),
 
-        %% Resumption and PSK
-        State1 = tls_gen_connection_1_3:handle_resumption(State0,
-                                                          ServerPreSharedKey),
-
         Maybe(validate_cipher_suite(SelectedCipherSuite, ClientCiphers)),
         Maybe(validate_server_key_share(ClientGroups, ServerKeyShare)),
 
@@ -802,7 +798,7 @@ handle_server_hello(#server_hello{cipher_suite = SelectedCipherSuite,
             client_private_key(SelectedGroup,
                                ClientKeyShare#key_share_client_hello.client_shares),
         %% Update state
-        State2 = tls_handshake_1_3:update_start_state(State1,
+        State2 = tls_handshake_1_3:update_start_state(State0,
                                     #{cipher => SelectedCipherSuite,
                                      key_share => ClientKeyShare,
                                      session_id => SessionId,
@@ -819,13 +815,22 @@ handle_server_hello(#server_hello{cipher_suite = SelectedCipherSuite,
                                                          UseTicket,
                                                          HKDFAlgo,
                                                          ServerPreSharedKey)),
-        State3 =
+
+        %% Resumption and PSK. Only enter resumption mode once the server's PSK
+        %% selection has been accepted by get_pre_shared_key/4 above; an
+        %% unsolicited pre_shared_key aborts before this point, so the
+        %% resumption flag (which skips the certificate states) can never be
+        %% set for a PSK the client did not offer. Defence in depth on top of
+        %% the get_pre_shared_key/4 check.
+        State3 = tls_gen_connection_1_3:handle_resumption(State2,
+                                                          ServerPreSharedKey),
+        State4 =
             tls_handshake_1_3:calculate_handshake_secrets(ServerPublicKey,
                                                           ClientPrivateKey,
                                                           SelectedGroup,
-                                                          PSK, State2),
-        State4 = ssl_record:step_encryption_state_read(State3),
-        {State4, wait_ee}
+                                                          PSK, State3),
+        State5 = ssl_record:step_encryption_state_read(State4),
+        {State5, wait_ee}
     catch
         {Ref, {State, StateName, ServerHello}} ->
             {State, StateName, ServerHello};

@@ -1136,28 +1136,32 @@ get_pre_shared_key({_, PSK}, _) ->
 %% Server initiates a full handshake
 get_pre_shared_key(_, _, HKDFAlgo, undefined) ->
     {ok, binary:copy(<<0>>, ssl_cipher:hash_size(HKDFAlgo))};
-%% Session resumption not configured
-get_pre_shared_key(undefined, _, HKDFAlgo, _) ->
-    {ok, binary:copy(<<0>>, ssl_cipher:hash_size(HKDFAlgo))};
-get_pre_shared_key(_, undefined, HKDFAlgo, _) ->
-    {ok, binary:copy(<<0>>, ssl_cipher:hash_size(HKDFAlgo))};
+%% Session resumption not configured, i.e. we did not offer any PSK, so the
+%% server's selected_identity cannot be within the range we supplied.
+%% RFC 8446 Section 4.2.11: abort with an "illegal_parameter" alert instead of
+%% silently falling back to the (zero) "no PSK" value, which would skip server
+%% authentication.
+get_pre_shared_key(undefined, _, _, ServerPSK) ->
+    {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER, {unsolicited_pre_shared_key, ServerPSK})};
+get_pre_shared_key(_, undefined, _, ServerPSK) ->
+    {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER, {unsolicited_pre_shared_key, ServerPSK})};
 %% Session resumption
-get_pre_shared_key(manual = SessionTickets, UseTicket, HKDFAlgo, ServerPSK) ->
+get_pre_shared_key(manual = SessionTickets, UseTicket, _HKDFAlgo, ServerPSK) ->
     TicketData = get_ticket_data(self(), SessionTickets, UseTicket),
     case choose_psk(TicketData, ServerPSK) of
-        undefined -> %% full handshake, default PSK
-            {ok, binary:copy(<<0>>, ssl_cipher:hash_size(HKDFAlgo))};
+        undefined -> %% No PSK was offered that matches the server selection
+            {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER, {unsolicited_pre_shared_key, ServerPSK})};
         illegal_parameter ->
             {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER)};
         {_, PSK, _, _, _} ->
             {ok, PSK}
     end;
-get_pre_shared_key(auto = SessionTickets, UseTicket, HKDFAlgo, ServerPSK) ->
+get_pre_shared_key(auto = SessionTickets, UseTicket, _HKDFAlgo, ServerPSK) ->
     TicketData = get_ticket_data(self(), SessionTickets, UseTicket),
     case choose_psk(TicketData, ServerPSK) of
-        undefined -> %% full handshake, default PSK
+        undefined -> %% No PSK was offered that matches the server selection
             tls_client_ticket_store:unlock_tickets(self(), UseTicket),
-            {ok, binary:copy(<<0>>, ssl_cipher:hash_size(HKDFAlgo))};
+            {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER, {unsolicited_pre_shared_key, ServerPSK})};
         illegal_parameter ->
             tls_client_ticket_store:unlock_tickets(self(), UseTicket),
             {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER)};
