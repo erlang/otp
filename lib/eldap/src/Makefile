@@ -42,6 +42,7 @@ MODULES= eldap
 
 ASN1_FILES = ELDAPv3.asn1
 ASN1_HRL = $(EBIN)/$(ASN1_FILES:%.asn1=%.hrl)
+ASN1_DB = $(ASN1_FILES:%.asn1=%.asn1db)
 
 ERL_FILES= $(MODULES:%=%.erl)
 
@@ -92,6 +93,16 @@ $(TARGET_FILES): $(HRL_FILES)
 # ----------------------------------------------------
 $(ASN1_HRL): ../asn1/$(ASN1_FILES)
 	$(asn_verbose)$(ERLC) -o $(EBIN) +legacy_erlang_types -bber $(ERL_COMPILE_FLAGS) ../asn1/ELDAPv3.asn1
+
+prebuild: prebuild.skip
+
+prebuild.skip:
+	echo "Building prebuild.skip\c"
+	@touch $(EBIN)/prebuild.skip
+	@for a in $(ASN1_DB); do \
+		echo $$a >> $(EBIN)/prebuild.skip; \
+	done
+
 
 # ----------------------------------------------------
 # Release Target
