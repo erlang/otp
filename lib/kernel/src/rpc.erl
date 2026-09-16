@@ -71,6 +71,7 @@ some specific side effects on the remote node.
 -behaviour(gen_server).
 
 -compile(nowarn_deprecated_catch).
+-compile([{nowarn_deprecated_function, [{erlang,exit,2}]}]).
 
 -export([start/0, start_link/0, stop/0,
 	 call/4, call/5,
