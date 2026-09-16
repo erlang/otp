@@ -78,6 +78,8 @@ my @beam_global_funcs = qw(
     i_bsr_body_shared
     i_bxor_body_shared
     i_bxor_guard_shared
+    i_ctz_body_shared
+    i_ctz_guard_shared
     i_func_info_shared
     i_get_map_element_shared
     i_get_map_element_hash_shared
@@ -86,6 +88,8 @@ my @beam_global_funcs = qw(
     i_length_body_shared
     i_line_breakpoint_trampoline_shared
     i_loop_rec_shared
+    i_popcount_body_shared
+    i_popcount_guard_shared
     i_test_yield_shared
     int_div_rem_body_shared
     int_div_rem_guard_shared
