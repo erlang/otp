@@ -44,7 +44,6 @@
 #endif
 
 #include "erl_nif.h"
-
 #include "sys.h"
 #include "global.h"
 #include "erl_binary.h"
@@ -69,10 +68,160 @@
 #endif
 #include "jit/beam_asm.h"
 #include "erl_global_literals.h"
+
 #include "erl_iolist.h"
+#include "erl_atom_table.h"
 
 #include <limits.h>
 #include <stddef.h> /* offsetof */
+
+#undef SHMOPEN_USE_LINUX_MEMFD
+#undef SHMOPEN_USE_SHM_ANON
+#undef SHMOPEN_USE_SHM_MKSTEMP
+#undef SHMOPEN_USE_POSIX
+#undef USE_ERTS_DLOPEN_MEM
+
+#ifdef HAVE_DLFCN_H
+#include <dlfcn.h>
+#endif
+#ifdef HAVE_FCNTL_H
+#include <fcntl.h>
+#endif
+#ifdef HAVE_SYS_MMAN_H
+#include <sys/mman.h>
+#endif
+#ifdef HAVE_SYS_STAT_H
+#include <sys/stat.h>
+#endif
+#ifdef HAVE_SYS_TIME_H
+#include <sys/time.h>
+#endif
+#ifdef HAVE_UNISTD_H
+#include <unistd.h>
+#endif
+#if defined(__linux__)
+#  if defined(__linux__)
+#    include <sys/syscall.h>
+#  endif
+#  include <sys/utsname.h>
+#  ifdef SYS_memfd_create
+#    define SHMOPEN_USE_LINUX_MEMFD
+#  else
+#    define SHMOPEN_USE_SHM_POSIX
+#  endif
+#  define USE_ERTS_DLOPEN_MEM
+#elif defined(__FreeBSD__)
+#  define SHMOPEN_USE_SHM_ANON
+#  define USE_ERTS_DLOPEN_MEM
+#elif defined(__OpenBSD__)
+#  define SHMOPEN_USE_SHM_MKSTEMP
+#  define USE_ERTS_DLOPEN_MEM
+#else
+#  if defined(__APPLE__)  || defined(__MACH__)      || defined(__DARWIN__) || \
+      defined(__NetBSD__) || defined(__DragonFly__) || defined(__HAIKU__)  || \
+      defined(__sun)
+#    define SHMOPEN_USE_POSIX
+#    define USE_ERTS_DLOPEN_MEM
+#  endif
+#endif
+
+#define ERTS_NIF_MEM_NAME_MAX 64
+#define ERTS_MIN_KERNEL_VSN   317
+
+#ifdef USE_ERTS_DLOPEN_MEM
+/* Always declare erts_dlopen_mem for all platforms */
+static void *erts_dlopen_mem(const char *filename, const void *mem, size_t size);
+
+static char* erts_shm_name(const char *pfx, const char *sfx, char* buf, size_t buf_len)
+{
+    /* Generate a unique name for the shared memory object. */
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    enif_snprintf(buf, buf_len, "%s-%-06ld%s", pfx, (long)tv.tv_usec, sfx);
+    return buf;
+}
+
+/*
+ * Load a shared object from memory using memfd_create (Linux >= 3.17) or
+ * shm_open (other POSIX systems).  Returns a dlopen(3) handle on success,
+ * or NULL on failure.
+ *
+ * filename - a label associated with the in-memory file (may be NULL)
+ * mem      - pointer to the SO image in memory
+ * size     - byte length of the SO image
+ */
+static void *erts_dlopen_mem(const char *filename, const void *mem, size_t size)
+{
+    char path[PATH_MAX];
+    char shm_name[NAME_MAX];
+    int  shm_fd = -1;
+    void *handle = NULL;
+#if defined(SHMOPEN_USE_SHM_MKSTEMP) || defined(SHMOPEN_USE_POSIX)
+    int  need_unlink = 0;
+#endif
+
+    path[0]     = '\0';
+    shm_name[0] = '\0';
+
+#if defined(SHMOPEN_USE_LINUX_MEMFD)
+    if (!filename)
+        filename = erts_shm_name("erl-nif-mem-", ".so", shm_name, sizeof(shm_name));
+    shm_fd = memfd_create(filename, MFD_CLOEXEC);
+    if (shm_fd < 0)
+        return NULL;
+    enif_snprintf(path, sizeof(path), "/proc/self/fd/%d", shm_fd);
+
+#elif defined(SHMOPEN_USE_SHM_ANON)
+    if (filename)
+        return NULL;
+    shm_fd = shm_open(SHM_ANON, O_RDWR, 0);
+    if (shm_fd < 0)
+        return NULL;
+# if defined(__APPLE__)
+    if (fcntl(shm_fd, F_GETPATH, path) < 0)
+        goto err;
+# else
+    enif_snprintf(path, sizeof(path), "/dev/fd/%d", shm_fd);
+# endif
+
+#elif defined(SHMOPEN_USE_SHM_MKSTEMP)
+    enif_snprintf(path, sizeof(path), "/tmp/%s-XXXXXX", filename ? filename : "enif-shm");
+    shm_fd = shm_mkstemp(path);
+    if (shm_fd < 0)
+        return NULL;
+    need_unlink = 1;
+
+#else /* SHMOPEN_USE_POSIX */
+    if (filename) {
+        enif_snprintf(shm_name, sizeof(shm_name), "%s", filename);
+    } else {
+        erts_shm_name("enif-shm-", ".so", shm_name, sizeof(shm_name));
+    }
+    enif_snprintf(path, sizeof(path), "/dev/shm/%s", shm_name);
+    shm_fd = shm_open(path, O_RDWR | O_CREAT | O_EXCL, 0600);
+    if (shm_fd < 0)
+        return NULL;
+    need_unlink = 1;
+#endif
+
+    if (ftruncate(shm_fd, size) || write(shm_fd, mem, size) != (ssize_t)size)
+        goto err;
+
+    handle = dlopen(path, RTLD_NOW | RTLD_LOCAL);
+
+err:
+# if defined(SHMOPEN_USE_SHM_MKSTEMP)
+    if (need_unlink)
+        unlink(path);
+# elif defined(SHMOPEN_USE_POSIX)
+    if (need_unlink)
+        shm_unlink(path);
+# endif
+    if (shm_fd >= 0)
+        close(shm_fd);
+    return handle;
+}
+#endif /* USE_ERTS_DLOPEN_MEM */
 
 #define ERTS_NIF_HALT_INFO_FLAG_BLOCK               (1 << 0)
 #define ERTS_NIF_HALT_INFO_FLAG_HALTING             (1 << 1)
@@ -4723,6 +4872,8 @@ Eterm erts_load_nif(Process *c_p, ErtsCodePtr I, Eterm filename, Eterm args)
     Eterm ret = am_ok;
     int veto;
     int is_static = 0;
+    int load_from_mem = 0;       /* non-zero when loading from in-memory binary */
+    Eterm nif_binary = THE_NON_VALUE;
     struct erl_module_nif* lib = NULL;
     struct erl_module_instance* this_mi;
     struct erl_module_instance* prev_mi;
@@ -4733,13 +4884,49 @@ Eterm erts_load_nif(Process *c_p, ErtsCodePtr I, Eterm filename, Eterm args)
         /* since lib_name is used in error messages */
         encoding = ERL_FILENAME_UTF8;
     }
+
+    /*
+     * Accept either:
+     *   Filename::string()|binary()              -- load from file (existing behaviour)
+     *   #{filename := string()|binary()}         -- load from file (map form, no memory)
+     *   #{memory := NifSO}                       -- load from memory, auto-generated filename
+     *   #{memory := NifSO, filename := Filename} -- load from memory with explicit filename
+     *
+     * If the map contains only 'filename', it falls back to the string|binary filename implementation.
+     */
+    if (is_map(filename)) {
+        const Eterm *fnm_val = erts_maps_get(am_filename, filename);
+        const Eterm *mem_val = erts_maps_get(am_memory,   filename);
+        if (fnm_val == NULL && mem_val == NULL) {
+            return load_nif_error(c_p, "bad_lib",
+                "load_nif/2: map argument must contain a 'memory' or 'filename' key");
+        }
+        if (mem_val) {
+            if (!is_bitstring(*mem_val) || TAIL_BITS(bitstring_size(*mem_val)) != 0) {
+                return load_nif_error(c_p, "bad_lib",
+                    "load_nif/2: 'memory' value must be a list or binary");
+            }
+            nif_binary    = *mem_val;
+            load_from_mem = 1;
+        }
+        if (fnm_val) {
+            filename = *fnm_val;   /* fall through to filename decoding from argument */
+            if (!is_list(filename) && !(is_bitstring(filename) && TAIL_BITS(bitstring_size(filename)) == 0)) {
+                return load_nif_error(c_p, "bad_lib",
+                    "load_nif/2: 'filename' value must be a string or binary");
+            }
+        } else {
+            lib_name = NULL;   /* anonymous: erts_dlopen_mem will generate a name */
+            goto after_lib_name;
+        }
+    }
     lib_name = erts_convert_filename_to_encoding(filename, NULL, 0,
                                                  ERTS_ALC_T_TMP, 1, 0, encoding,
-						 NULL, 0);
-    if (!lib_name) {
+                                                 NULL, 0);
+    if (!lib_name)
         return THE_NON_VALUE;
-    }
 
+after_lib_name:
     /* Find calling module */
     caller = erts_find_function_from_pc(I);
     ASSERT(caller != NULL);
@@ -4758,24 +4945,65 @@ Eterm erts_load_nif(Process *c_p, ErtsCodePtr I, Eterm filename, Eterm args)
     this_mi = &module_p->curr;
     prev_mi = &module_p->old;
     if (in_area(caller, module_p->old.code_hdr, module_p->old.code_length)) {
-	ret = load_nif_error(c_p, "old_code", "Calling load_nif from old "
-			     "module '%T' not allowed", mod_atom);
-	goto error;
+        ret = load_nif_error(c_p, "old_code", "Calling load_nif from old "
+                             "module '%T' not allowed", mod_atom);
+        goto error;
     } else if (module_p->on_load) {
-	ASSERT(((module_p->on_load)->code_hdr)->on_load);
-	if (module_p->curr.code_hdr) {
-	    prev_mi = &module_p->curr;
-	} else {
-	    prev_mi = &module_p->old;
-	}
-	this_mi = module_p->on_load;
+        ASSERT(((module_p->on_load)->code_hdr)->on_load);
+        if (module_p->curr.code_hdr) {
+            prev_mi = &module_p->curr;
+        } else {
+            prev_mi = &module_p->old;
+        }
+        this_mi = module_p->on_load;
+    }
+
+    /* If the caller passed #{memory => NifSO::binary(), filename => Filename},
+     * open the shared object from memory now so that `handle` is ready for
+     * the common else-if chain below (which runs
+     * erts_sys_ddll_load_nif_init / call_nif_init, version checks, and
+     * create_lib for both file and memory loads). */
+    if (!is_static && load_from_mem) {
+#if defined(USE_ERTS_DLOPEN_MEM)
+        const byte *bin_bytes = NULL;
+        Uint  bin_size  = 0;
+        const byte *tmp_alloc = NULL;
+        static const int max_path_len = PATH_MAX - 9; /* space for "/dev/shm/" */
+        if (lib_name != NULL) {
+            int lib_name_len = sys_strlen(lib_name);
+            if (lib_name_len > max_path_len - 1) { /* -1 for null terminator added */
+                ret = load_nif_error(c_p, "load_failed",
+                    "NIF library path too long: %d (max %d bytes)",
+                    lib_name_len, max_path_len);
+                goto error;
+            }
+        }
+        bin_bytes = erts_get_aligned_binary_bytes(nif_binary, &bin_size, &tmp_alloc);
+        if (!bin_bytes) {
+            ret = load_nif_error(c_p, "load_failed",
+                "Failed to access NIF binary data");
+            goto error;
+        }
+        handle = erts_dlopen_mem(lib_name, bin_bytes, (size_t)bin_size);
+        erts_free_aligned_binary_bytes(tmp_alloc);
+        if (!handle) {
+            ret = load_nif_error(c_p, "load_failed",
+                "Failed to load NIF library from memory: '%s'",
+                dlerror());
+            goto error;
+        }
+#else
+        ret = load_nif_error(c_p, "load_failed",
+            "Loading NIF from memory is not supported on this platform");
+        goto error;
+#endif
     }
 
     if (this_mi->nif != NULL) {
         ret = load_nif_error(c_p,"reload","NIF library already loaded"
                              " (reload disallowed since OTP 20).");
     }
-    else if (!is_static &&
+    else if (!is_static && !load_from_mem &&
              (err=erts_sys_ddll_open(lib_name, &handle, &errdesc)) != ERL_DE_NO_ERROR) {
 	const char slogan[] = "Failed to load NIF library";
 	if (strstr(errdesc.str, lib_name) != NULL) {
@@ -4787,14 +5015,14 @@ Eterm erts_load_nif(Process *c_p, ErtsCodePtr I, Eterm filename, Eterm args)
     }
     else if (!is_static &&
 	     erts_sys_ddll_load_nif_init(handle, &init_func, &errdesc) != ERL_DE_NO_ERROR) {
-	ret  = load_nif_error(c_p, bad_lib, "Failed to find library init"
+         ret  = load_nif_error(c_p, bad_lib, "Failed to find library init"
 			      " function: '%s'", errdesc.str);
 	
     }
     else if (!is_static &&
              (erts_add_taint(mod_atom),
               (entry = erts_sys_ddll_call_nif_init(init_func)) == NULL)) {
-	ret = load_nif_error(c_p, bad_lib, "Library init-call unsuccessful");
+        ret = load_nif_error(c_p, bad_lib, "Library init-call unsuccessful");
     }
     else if (entry->major > ERL_NIF_MAJOR_VERSION
              || (entry->major == ERL_NIF_MAJOR_VERSION
@@ -4813,12 +5041,12 @@ Eterm erts_load_nif(Process *c_p, ErtsCodePtr I, Eterm filename, Eterm args)
     }   
     else if (AT_LEAST_VERSION(entry, 2, 1)
 	     && sys_strcmp(entry->vm_variant, ERL_NIF_VM_VARIANT) != 0) {
-	ret = load_nif_error(c_p, bad_lib, "Library (%s) not compiled for "
+        ret = load_nif_error(c_p, bad_lib, "Library (%s) not compiled for "
 			     "this vm variant (%s).",
 			     entry->vm_variant, ERL_NIF_VM_VARIANT);
     }
     else if (!erts_is_atom_str((char*)entry->name, mod_atom, 1)) {
-	ret = load_nif_error(c_p, bad_lib, "Library module name '%s' does not"
+        ret = load_nif_error(c_p, bad_lib, "Library module name '%s' does not"
 			     " match calling module '%T'", entry->name, mod_atom);
     }
     else {
@@ -4943,7 +5171,7 @@ Eterm erts_load_nif(Process *c_p, ErtsCodePtr I, Eterm filename, Eterm args)
     }
 
     if (ret != am_ok) {
-	goto error;
+        goto error;
     }
     ASSERT(lib);
     ASSERT(lib->finish->nstubs_hashed == lib->entry.num_of_funcs);
@@ -5018,22 +5246,23 @@ Eterm erts_load_nif(Process *c_p, ErtsCodePtr I, Eterm filename, Eterm args)
     }
     else {
     error:
-	rollback_opened_resource_types();
-	ASSERT(ret != am_ok);
-        if (lib != NULL) {
-            if (lib->finish != NULL) {
-                erase_hashed_stubs(lib->finish);
-                erts_free(ERTS_ALC_T_NIF, lib->finish);
-            }
-	    erts_free(ERTS_ALC_T_NIF, lib);
-	}
-	if (handle != NULL) {
-	    erts_sys_ddll_close(handle);
-	}
-	erts_sys_ddll_free_error(&errdesc);
+        rollback_opened_resource_types();
+        ASSERT(ret != am_ok);
+            if (lib != NULL) {
+                if (lib->finish != NULL) {
+                    erase_hashed_stubs(lib->finish);
+                    erts_free(ERTS_ALC_T_NIF, lib->finish);
+                }
+            erts_free(ERTS_ALC_T_NIF, lib);
+        }
+        if (handle != NULL) {
+            erts_sys_ddll_close(handle);
+        }
+        erts_sys_ddll_free_error(&errdesc);
     }
 
-    erts_free(ERTS_ALC_T_TMP, lib_name);
+    if (lib_name)
+        erts_free(ERTS_ALC_T_TMP, lib_name);
 
     BIF_RET(ret);
 }
