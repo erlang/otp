@@ -4264,21 +4264,11 @@ make_lit_list([]) ->
 is_char_value(V) when V >= $\000, V =< $\377 -> true;
 is_char_value(_) -> false.
 
-is_print_char_value(V) when V >= $\040, V =< $\176 -> true;
-is_print_char_value(V) when V >= $\240, V =< $\377 -> true;
-is_print_char_value(V) when V =:= $\b -> true;
-is_print_char_value(V) when V =:= $\d -> true;
-is_print_char_value(V) when V =:= $\e -> true;
-is_print_char_value(V) when V =:= $\f -> true;
-is_print_char_value(V) when V =:= $\n -> true;
-is_print_char_value(V) when V =:= $\r -> true;
-is_print_char_value(V) when V =:= $\s -> true;
-is_print_char_value(V) when V =:= $\t -> true;
-is_print_char_value(V) when V =:= $\v -> true;
-is_print_char_value(V) when V =:= $\" -> true;
-is_print_char_value(V) when V =:= $\' -> true;
-is_print_char_value(V) when V =:= $\\ -> true;
-is_print_char_value(_) -> false.
+is_print_char_value($\d) -> true;
+is_print_char_value(V) when is_integer(V) ->
+    io_lib:printable_character(V, latin1);
+is_print_char_value(_) ->
+    false.
 
 is_char_list([V | Vs]) when is_integer(V) ->
     is_char_value(V) andalso is_char_list(Vs);
