@@ -243,7 +243,7 @@ last_testcase(SuiteLog) ->
     end.
 
 format_core(#core_search_conf{file = false}, Core, Ignore) ->
-    io:format("  ~s~s " ++ time_fstr() ++ "~s~n",
+    io:format("  ~s~s " ++ time_fstr() ++ "~n",
 	      [Ignore, Core] ++ mod_time_list(Core));
 format_core(#core_search_conf{file = File}, Core, Ignore) ->
     FRes = string:trim(os:cmd(File ++ " " ++ Core)),

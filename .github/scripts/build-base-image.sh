@@ -55,15 +55,15 @@ fi
 
 case "${BASE_TAG}" in
     *i386-debian-base)
-        BASE="i386/debian:bookworm"
+        BASE="i386/debian:trixie"
         BASE_TYPE=debian-base
         ;;
     *debian-base)
-        BASE="debian:bookworm"
+        BASE="debian:trixie"
         BASE_TYPE=debian-base
         ;;
     *ubuntu-base)
-        BASE="ubuntu:22.04"
+        BASE="ubuntu:24.04"
         BASE_TYPE=ubuntu-base
         ;;
 esac
@@ -92,7 +92,6 @@ else
        ${BASE_CACHE} \
        --file ".github/dockerfiles/Dockerfile.${BASE_TYPE}" \
        --build-arg MAKEFLAGS=-j6 \
-       --build-arg USER=otptest --build-arg GROUP=uucp \
        --build-arg uid="$(id -u)" \
        --build-arg LATEST_ERLANG_VERSION="${LATEST_ERLANG_VERSION}" \
        --build-arg BASE="${BASE}" \
