@@ -141,8 +141,13 @@ decode_cipher_text(#ssl_tls{type = ?OPAQUE_TYPE,version = ?LEGACY_VERSION,fragme
                                  early_data_accepted := EarlyDataAccepted
                                 }
 			  } = ReadState0} = ConnectionStates0) ->
-    Cipher = ssl_cipher:aead_type(BulkCipherAlgo,byte_size(Key)),
-    Handle = crypto:crypto_one_time_aead_init(Cipher, Key, TagLen, false),
+    Handle = case ReadState0 of
+                 #{aead_handle := Cached} when Cached =/= undefined ->
+                     Cached;
+                 _ ->
+                     Cipher = ssl_cipher:aead_type(BulkCipherAlgo, byte_size(Key)),
+                     crypto:crypto_one_time_aead_init(Cipher, Key, TagLen, false)
+             end,
 
     case decipher_aead(Handle, CipherFragment, Seq, IV) of
 	#alert{} when TrialDecryption =:= true andalso
@@ -150,14 +155,14 @@ decode_cipher_text(#ssl_tls{type = ?OPAQUE_TYPE,version = ?LEGACY_VERSION,fragme
                       PendingMaxEarlyDataSize0 > 0 -> %% Trial decryption
             ignore_early_data(ConnectionStates0, ReadState0,
                               PendingMaxEarlyDataSize0,
-                              BulkCipherAlgo, CipherFragment);
+                              BulkCipherAlgo, CipherFragment, Handle);
 	#alert{} = Alert ->
 	    Alert;
         PlainFragment when EarlyDataAccepted =:= true andalso
                            PendingMaxEarlyDataSize0 > 0 ->
             process_early_data(ConnectionStates0, ReadState0,
                                PendingMaxEarlyDataSize0, Seq,
-                               PlainFragment);
+                               PlainFragment, Handle);
 	PlainFragment ->
 	    ConnectionStates =
                 ConnectionStates0#{current_read =>
@@ -229,11 +234,12 @@ decode_cipher_text(#ssl_tls{type = Type}, _) ->
 %%--------------------------------------------------------------------
 ignore_early_data(ConnectionStates0, #{early_data:=EarlyData0} = ReadState0,
                   PendingMaxEarlyDataSize0,
-                  BulkCipherAlgo, CipherFragment) ->
+                  BulkCipherAlgo, CipherFragment, Handle) ->
     PendingMaxEarlyDataSize = approximate_pending_early_data_size(PendingMaxEarlyDataSize0,
                                                                   BulkCipherAlgo, CipherFragment),
     EarlyData = EarlyData0#{pending_early_data_size => PendingMaxEarlyDataSize},
-    ConnectionStates = ConnectionStates0#{current_read => ReadState0#{early_data := EarlyData}},
+    ConnectionStates = ConnectionStates0#{current_read => ReadState0#{early_data := EarlyData,
+                                                                      aead_handle => Handle}},
     if PendingMaxEarlyDataSize < 0 ->
             %% More early data is trial decrypted as the configured limit
             ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC, {decryption_failed,
@@ -244,7 +250,7 @@ ignore_early_data(ConnectionStates0, #{early_data:=EarlyData0} = ReadState0,
     end.
 
 process_early_data(ConnectionStates0, #{early_data:=EarlyData0} = ReadState0,
-                   PendingMaxEarlyDataSize0, Seq, PlainFragment) ->
+                   PendingMaxEarlyDataSize0, Seq, PlainFragment, Handle) ->
     %% First packet is deciphered anyway so we must check if more early data is received
     %% than the configured limit (max_early_data_size).
     case Record = decode_inner_plaintext(PlainFragment) of
@@ -263,7 +269,9 @@ process_early_data(ConnectionStates0, #{early_data:=EarlyData0} = ReadState0,
                                  PendingMaxEarlyDataSize}});
                true ->
                     EarlyData = EarlyData0#{pending_early_data_size => PendingMaxEarlyDataSize},
-                    ReadState = ReadState0#{sequence_number => Seq + 1, early_data => EarlyData},
+                    ReadState = ReadState0#{sequence_number => Seq + 1,
+                                            early_data => EarlyData,
+                                            aead_handle => Handle},
                     ConnectionStates = ConnectionStates0#{current_read => ReadState},
                     {Record#ssl_tls{early_data = true}, ConnectionStates}
             end;
