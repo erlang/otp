@@ -359,8 +359,6 @@ that implements the state machine.
 %%%
 %%% ---------------------------------------------------
 
--compile(nowarn_deprecated_catch).
-
 -include("logger.hrl").
 
 -export([start/3, start/4,
@@ -1013,12 +1011,16 @@ to `Module:StateName/2`.
 -spec send_event(FsmRef, Event) -> ok when
       FsmRef :: fsm_ref(),
       Event  :: term().
-send_event({global, Name}, Event) ->
-    catch global:send(Name, {'$gen_event', Event}),
-    ok;
 send_event({via, Mod, Name}, Event) ->
-    catch Mod:send(Name, {'$gen_event', Event}),
-    ok;
+    try
+        Mod:send(Name, {'$gen_event', Event}),
+        ok
+    catch
+        _:_ ->
+            ok
+    end;
+send_event({global, Name}, Event) ->
+    send_event({via, global, Name}, Event);
 send_event(Name, Event) ->
     Name ! {'$gen_event', Event},
     ok.
@@ -1029,10 +1031,13 @@ send_event(Name, Event) ->
       Event  :: term(),
       Reply  :: term().
 sync_send_event(Name, Event) ->
-    case catch gen:call(Name, '$gen_sync_event', Event) of
+    try
+        gen:call(Name, '$gen_sync_event', Event)
+    of
 	{ok,Res} ->
-	    Res;
-	{'EXIT',Reason} ->
+            Res
+    catch
+        exit:Reason ->
 	    exit({Reason, {?MODULE, sync_send_event, [Name, Event]}})
     end.
 
@@ -1066,10 +1071,13 @@ Return value `Reply` is defined in the return value of
       Timeout :: timeout(),
       Reply   :: term().
 sync_send_event(Name, Event, Timeout) ->
-    case catch gen:call(Name, '$gen_sync_event', Event, Timeout) of
+    try
+        gen:call(Name, '$gen_sync_event', Event, Timeout)
+    of
 	{ok,Res} ->
-	    Res;
-	{'EXIT',Reason} ->
+            Res
+    catch
+        exit:Reason ->
 	    exit({Reason, {?MODULE, sync_send_event, [Name, Event, Timeout]}})
     end.
 
@@ -1092,12 +1100,16 @@ in each state name function.
 -spec send_all_state_event(FsmRef, Event) -> ok when
       FsmRef :: fsm_ref(),
       Event :: term().
-send_all_state_event({global, Name}, Event) ->
-    catch global:send(Name, {'$gen_all_state_event', Event}),
-    ok;
 send_all_state_event({via, Mod, Name}, Event) ->
-    catch Mod:send(Name, {'$gen_all_state_event', Event}),
-    ok;
+    try
+        Mod:send(Name, {'$gen_all_state_event', Event}),
+        ok
+    catch
+        _:_ ->
+            ok
+    end;
+send_all_state_event({global, Name}, Event) ->
+    send_all_state_event({via, global, Name}, Event);
 send_all_state_event(Name, Event) ->
     Name ! {'$gen_all_state_event', Event},
     ok.
@@ -1108,10 +1120,13 @@ send_all_state_event(Name, Event) ->
       Event  :: term(),
       Reply  :: term().
 sync_send_all_state_event(Name, Event) ->
-    case catch gen:call(Name, '$gen_sync_all_state_event', Event) of
+    try
+        gen:call(Name, '$gen_sync_all_state_event', Event)
+    of
 	{ok,Res} ->
-	    Res;
-	{'EXIT',Reason} ->
+            Res
+    catch
+        exit:Reason ->
 	    exit({Reason, {?MODULE, sync_send_all_state_event, [Name, Event]}})
     end.
 
@@ -1135,10 +1150,13 @@ and `sync_send_all_state_event`, see `send_all_state_event/2`.
       Timeout :: timeout(),
       Reply   :: term().
 sync_send_all_state_event(Name, Event, Timeout) ->
-    case catch gen:call(Name, '$gen_sync_all_state_event', Event, Timeout) of
+    try
+        gen:call(Name, '$gen_sync_all_state_event', Event, Timeout)
+    of
 	{ok,Res} ->
-	    Res;
-	{'EXIT',Reason} ->
+            Res
+    catch
+        exit:Reason ->
 	    exit({Reason, {?MODULE, sync_send_all_state_event,
 			   [Name, Event, Timeout]}})
     end.
@@ -1340,7 +1358,13 @@ init_it(Starter, Parent, Name0, Mod, Args, Options) ->
     Name = gen:name(Name0),
     Debug = gen:debug_options(Name, Options),
     HibernateAfterTimeout = gen:hibernate_after(Options),
-    case catch Mod:init(Args) of
+    Res = try
+              Mod:init(Args)
+          catch
+              C:R:ST ->
+                  catch_result(C, R, ST)
+          end,
+    case Res of
 	{ok, StateName, StateData} ->
 	    proc_lib:init_ack(Starter, {ok, self()}),
 	    loop(Parent, Name, StateName, StateData, Mod, infinity, HibernateAfterTimeout, Debug);
@@ -1428,7 +1452,13 @@ system_terminate(Reason, _Parent, Debug,
 -doc false.
 system_code_change([Name, StateName, StateData, Mod, Time, HibernateAfterTimeout],
 		   _Module, OldVsn, Extra) ->
-    case catch Mod:code_change(OldVsn, StateName, StateData, Extra) of
+    Res = try
+              Mod:code_change(OldVsn, StateName, StateData, Extra)
+          catch
+              C:R:ST ->
+                  catch_result(C, R, ST)
+          end,
+    case Res of
 	{ok, NewStateName, NewStateData} ->
 	    {ok, [Name, NewStateName, NewStateData, Mod, Time, HibernateAfterTimeout]};
 	Else -> Else
@@ -1488,7 +1518,13 @@ print_event(Dev, {noreply, StateName}, Name) ->
 
 handle_msg(Msg, Parent, Name, StateName, StateData, Mod, _Time, HibernateAfterTimeout) -> %No debug here
     From = from(Msg),
-    case catch dispatch(Msg, Mod, StateName, StateData) of
+    Res = try
+              dispatch(Msg, Mod, StateName, StateData)
+          catch
+              C1:R1:ST1 ->
+                  catch_result(C1, R1, ST1)
+          end,
+    case Res of
 	{next_state, NStateName, NStateData} ->
 	    loop(Parent, Name, NStateName, NStateData, Mod, infinity, HibernateAfterTimeout, []);
 	{next_state, NStateName, NStateData, Time1} ->
@@ -1502,8 +1538,13 @@ handle_msg(Msg, Parent, Name, StateName, StateData, Mod, _Time, HibernateAfterTi
 	{stop, Reason, NStateData} ->
 	    terminate(Reason, Name, From, Msg, Mod, StateName, NStateData, []);
 	{stop, Reason, Reply, NStateData} when From =/= undefined ->
-	    {'EXIT', R} = (catch terminate(Reason, Name, From, Msg, Mod,
-					   StateName, NStateData, [])),
+            {'EXIT', R} = try
+                              terminate(Reason, Name, From, Msg, Mod,
+                                        StateName, NStateData, [])
+                          catch
+                              C2:R2:ST2 ->
+                                  catch_result(C2, R2, ST2)
+                          end,
 	    reply(From, Reply),
 	    exit(R);
         {'EXIT', {undef, [{Mod, handle_info, [_,_,_], _}|_]}} ->
@@ -1525,7 +1566,13 @@ handle_msg(Msg, Parent, Name, StateName, StateData, Mod, _Time, HibernateAfterTi
 
 handle_msg(Msg, Parent, Name, StateName, StateData, Mod, _Time, HibernateAfterTimeout, Debug) ->
     From = from(Msg),
-    case catch dispatch(Msg, Mod, StateName, StateData) of
+    Res = try
+              dispatch(Msg, Mod, StateName, StateData)
+          catch
+              C1:R1:ST1 ->
+                  catch_result(C1, R1, ST1)
+          end,
+    case Res of
 	{next_state, NStateName, NStateData} ->
 	    Debug1 = sys:handle_debug(Debug, fun print_event/3,
 				      Name, {noreply, NStateName}),
@@ -1544,8 +1591,13 @@ handle_msg(Msg, Parent, Name, StateName, StateData, Mod, _Time, HibernateAfterTi
 	    terminate(
               Reason, Name, From, Msg, Mod, StateName, NStateData, Debug);
 	{stop, Reason, Reply, NStateData} when From =/= undefined ->
-	    {'EXIT', R} = (catch terminate(Reason, Name, From, Msg, Mod,
-					   StateName, NStateData, Debug)),
+            {'EXIT', R} = try
+                              terminate(Reason, Name, From, Msg, Mod,
+                                        StateName, NStateData, Debug)
+                          catch
+                              C2:R2:ST2 ->
+                                  catch_result(C2, R2, ST2)
+                          end,
 	    _ = reply(Name, From, Reply, Debug, StateName),
 	    exit(R);
 	{'EXIT', What} ->
@@ -1615,7 +1667,13 @@ reply(Name, From, Reply, Debug, StateName) ->
 terminate(Reason, Name, From, Msg, Mod, StateName, StateData, Debug) ->
     case erlang:function_exported(Mod, terminate, 3) of
 	true ->
-	    case catch Mod:terminate(Reason, StateName, StateData) of
+            Res = try
+                      Mod:terminate(Reason, StateName, StateData)
+                  catch
+                      C1:R1:ST1 ->
+                          catch_result(C1, R1, ST1)
+                  end,
+            case Res of
 		{'EXIT', R} ->
 		    FmtStateData = format_status(terminate, Mod, get(), StateData),
 		    error_info(
@@ -1977,10 +2035,20 @@ format_status(Opt, Mod, PDict, State) ->
 		end,
     case erlang:function_exported(Mod, format_status, 2) of
 	true ->
-	    case catch Mod:format_status(Opt, [PDict, State]) of
+            Res = try
+                      Mod:format_status(Opt, [PDict, State])
+                  catch
+                      C:R:ST ->
+                          catch_result(C, R, ST)
+                  end,
+            case Res of
 		{'EXIT', _} -> DefStatus;
 		Else -> Else
 	    end;
 	_ ->
 	    DefStatus
     end.
+
+catch_result(throw, Throw, _StackTrace) -> Throw;
+catch_result(exit, Reason, _StackTrace) -> {'EXIT', Reason};
+catch_result(error, Reason, StackTrace) -> {'EXIT', {Reason, StackTrace}}.
