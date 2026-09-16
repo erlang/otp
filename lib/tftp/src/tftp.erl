@@ -311,7 +311,7 @@ functions.
 """.
 -doc(#{since => <<"OTP 18.1">>}).
 -callback read(State :: term()) -> {more, binary(), NewState :: term()} |
-				   {last, binary(), integer()} |
+				   {last, binary(), ResultState :: term()} |
 				   {error, {Code :: error_code(), string()}}.
 
 -doc """
@@ -327,7 +327,7 @@ functions.
 -doc(#{since => <<"OTP 18.1">>}).
 -callback write(binary(), State :: term()) ->
     {more, NewState :: term()} |
-    {last, FileSize :: integer()} |
+    {last, ResultState :: term()} |
     {error, {Code :: error_code(), string()}}.
 
 -doc """
