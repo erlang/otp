@@ -28,7 +28,7 @@
          manpage/1, otp_6708/1, otp_7084/0, otp_7084/1, otp_7421/1,
 	 io_lib_collect_line_3_wb/1, cr_whitespace_in_string/1,
 	 io_fread_newlines/1, otp_8989/1, io_lib_fread_literal/1,
-	 printable_range/1, bad_printable_range/1,
+         printable_range/1, bad_printable_range/1, io_lib_printable/1,
 	 io_lib_print_binary_depth_one/1, otp_10302/1, otp_10755/1,
          otp_10836/1, io_lib_width_too_small/1, calling_self/1,
          io_with_huge_message_queue/1, format_string/1, format_neg_zero/1,
@@ -70,7 +70,7 @@ all() ->
      manpage, otp_6708, otp_7084, otp_7421,
      io_lib_collect_line_3_wb, cr_whitespace_in_string,
      io_fread_newlines, otp_8989, io_lib_fread_literal,
-     printable_range, bad_printable_range, format_neg_zero,
+     printable_range, bad_printable_range, io_lib_printable, format_neg_zero,
      io_lib_print_binary_depth_one, otp_10302, otp_10755, otp_10836,
      io_lib_width_too_small, io_with_huge_message_queue, calling_self,
      format_string, maps, coverage, otp_14178_unicode_atoms, otp_14175,
@@ -2190,6 +2190,44 @@ printable_range(Suite) when is_list(Suite) ->
     peer:stop(DPeer),
     ok.
 
+io_lib_printable(_Config) ->
+
+    UnicodeRange = io:printable_range() =:= unicode,
+
+    true = io_lib:printable_character($\ ),
+    UnicodeRange = io_lib:printable_character(16#3BB),
+    false = io_lib:printable_character(16#3BB, latin1),
+    true = io_lib:printable_character(16#3BB, unicode),
+
+    true = io_lib:printable_list("abc"),
+    true = io_lib:printable_binary(<<"abc">>),
+    true = io_lib:printable_list([]),
+    true = io_lib:printable_binary(<<>>),
+    false = io_lib:printable_list(["abc"]),
+    false = io_lib:printable_list("abc\0"),
+    false = io_lib:printable_binary(<<"abc\0">>),
+    false = io_lib:printable_list(not_a_string),
+    false = io_lib:printable_binary(not_a_string),
+
+    UnicodeRange = io_lib:printable_list([16#3BB]),
+    UnicodeRange = io_lib:printable_binary(<<16#3BB/utf8>>),
+
+    true = io_lib:printable_binary(<<16#E5>>, latin1),
+    true = io_lib:printable_binary(<<16#E5/utf8>>, unicode),
+    UnicodeRange = io_lib:printable_binary(<<16#3BB/utf8>>, unicode),
+    false = io_lib:printable_binary(<<16#FF>>, unicode),
+
+    true = io_lib:printable_binary(<<16#E5>>, latin1, latin1),
+    true = io_lib:printable_binary(<<16#E5>>, latin1, unicode),
+    true = io_lib:printable_binary(<<16#E5/utf8>>, unicode, latin1),
+    true = io_lib:printable_binary(<<16#3BB/utf8>>, unicode, unicode),
+    false = io_lib:printable_binary(<<16#3BB/utf8>>, unicode, latin1),
+    false = io_lib:printable_binary(<<16#FF>>, unicode, unicode),
+    false = io_lib:printable_binary(<<0>>, latin1, unicode),
+    false = io_lib:printable_binary(["abc"], unicode, unicode),
+    false = io_lib:printable_binary(not_a_string, unicode, unicode),
+    ok.
+
 print_max(Node, Args) ->
     rpc_call_max(Node, io_lib_pretty, print, Args).
 
@@ -3677,4 +3715,3 @@ fread_float_not_accepted(Format, [C|Cs], Prefix) ->
     fread_float_not_accepted(Format, Cs, [C|Prefix]);
 fread_float_not_accepted(_, [], _) ->
     ok.
-
