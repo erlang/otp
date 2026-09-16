@@ -19,7 +19,7 @@
 %%
 %% %CopyrightEnd%
 %%
--module(gen).
+-module(gen_gen).
 -moduledoc false.
 -compile({inline,[get_node/1]}).
 
@@ -49,6 +49,15 @@
 -define(default_timeout, 5000).
 
 -include("logger.hrl").
+
+-doc "Initialization callback for the gen_gen behaviour.".
+-callback init_it(Starter, Parent, Name, Module, Args, Options) -> ok when
+      Starter :: pid(),
+      Parent :: pid() | 'self',
+      Name :: term(),
+      Module :: module(),
+      Args :: term(),
+      Options :: [option()].
 
 %%-----------------------------------------------------------------
 
