@@ -40,7 +40,7 @@
          native_records/1, cover_fread/1,
          format_w_empty_map/1, format_w_limited/1,
          write_record_maps_order/1, write_record_latin1_encoding/1,
-         indentation_tab/1, badarg/1]).
+         indentation_tab/1, badarg/1, bprint/1]).
 
 -export([pretty/2, trf/3, rfd/2]).
 
@@ -81,7 +81,7 @@ all() ->
      format_w_empty_map, format_w_limited,
      write_record_maps_order, write_record_latin1_encoding,
      indentation_tab, badarg,
-     cover_fread].
+     cover_fread, bprint].
 
 %% Error cases for output.
 error_1(Config) when is_list(Config) ->
@@ -850,6 +850,56 @@ check_bin_p(OrigRes, Term, Args) ->
             io:format("GOT CRASH: ~p in ~p~n",[Reason, ST]),
             io:format("Binary crashed: io_lib_pretty:print_bin(~p, ~w). ", [Term, Args]),
             Reason
+    end.
+
+%% Test io_lib:bprint/1,2 (binary counterpart of io_lib:print).
+bprint(_Config) ->
+    Terms = [42, foo, 'A B', 3.14, -7, [1,2,3,foo,bar],
+             {a,b,c}, lists:seq(1,30), #{k => v, x => [1,2,3]},
+             <<1,2,3>>, <<"hi">>, "a string",
+             {nested,{a,[1,2]},<<9>>}, [{k,v}], []],
+
+    %% bprint/1 returns a binary equal to the flattened print/1 output.
+    lists:foreach(
+      fun(Term) ->
+              Bin = io_lib:bprint(Term),
+              true = is_binary(Bin),
+              Exp = unicode:characters_to_binary(io_lib_pretty:print(Term)),
+              Exp = Bin
+      end, Terms),
+
+    %% bprint/2 with column/line_length/depth equals the flattened
+    %% print/4 output for the same arguments.
+    OptSets = [{1, 80, -1}, {1, 20, -1}, {5, 40, 3}, {1, 0, -1}, {2, 10, 2}],
+    lists:foreach(
+      fun({Col, Ll, D}) ->
+              lists:foreach(
+                fun(Term) ->
+                        Bin = io_lib:bprint(Term, #{column => Col,
+                                                    line_length => Ll,
+                                                    depth => D}),
+                        true = is_binary(Bin),
+                        Exp = unicode:characters_to_binary(
+                                io_lib:print(Term, Col, Ll, D)),
+                        Exp = Bin
+                end, Terms)
+      end, OptSets),
+
+    %% An empty options map behaves as bprint/1.
+    B0 = io_lib:bprint({a,[1,2,3]}, #{}),
+    B0 = io_lib:bprint({a,[1,2,3]}),
+    true = is_binary(B0),
+
+    %% A badly typed Options argument (neither a map nor a list) raises.
+    ok = expect_error(fun() -> io_lib:bprint(foo, not_a_map) end),
+    ok = expect_error(fun() -> io_lib:bprint(foo, 42) end),
+    ok.
+
+expect_error(Fun) ->
+    try Fun() of
+        Res -> {unexpected_success, Res}
+    catch
+        error:_ -> ok
     end.
 
 fmt(Fmt, Args) ->

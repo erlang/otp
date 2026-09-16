@@ -74,7 +74,7 @@ used for flattening deep lists.
 -export([fwrite/2,fwrite/3,fread/2,fread/3,format/2,format/3]).
 -export([bfwrite/2, bfwrite/3, bformat/2, bformat/3]).
 -export([scan_format/2,unscan_format/1,build_text/1,build_text/2]).
--export([print/1,print/4,indentation/2]).
+-export([print/1,print/4,bprint/1,bprint/2,indentation/2]).
 
 -export([write/1,write/2,write/3,write/5,bwrite/2]).
 -export([nl/0,format_prompt/1,format_prompt/2]).
@@ -105,7 +105,7 @@ used for flattening deep lists.
 -export([chars_length/1]).
 
 %% Internal io_lib functions
--export([write_bin/5, write_string_bin/3, write_binary_bin/4, write_atom_bin/2]).
+-export([write_bin/5, write_string_bin/3, write_binary_bin/3, write_atom_bin/2]).
 
 -export_type([chars/0, latin1_string/0, continuation/0,
               fread_error/0, fread_item/0, format_spec/0,
@@ -122,6 +122,12 @@ used for flattening deep lists.
 -type chars() :: [char() | chars()].
 -type latin1_string() :: [unicode:latin1_char()].
 -type depth() :: -1 | non_neg_integer().
+
+-doc "Options accepted by `bprint/2`, corresponding to the arguments of `print/4`.".
+-type print_options() ::
+        #{'column' => non_neg_integer(),
+          'line_length' => non_neg_integer(),
+          'depth' => depth()}.
 
 -doc "A continuation as returned by `fread/3`.".
 -opaque continuation() :: {Format :: string(),
@@ -495,6 +501,28 @@ Also tries to detect and output lists of printable characters as strings.
 print(Term, Column, LineLength, Depth) ->
     io_lib_pretty:print(Term, Column, LineLength, Depth).
 
+-doc(#{equiv => bprint(Term, #{})}).
+-doc(#{since => ~"OTP 30.0"}).
+-spec bprint(Term) -> unicode:unicode_binary() when
+      Term :: term().
+
+bprint(Term) ->
+    bprint(Term, #{}).
+
+-doc """
+Returns a UTF-8 encoded binary that represents `Term`, formatted in the
+same way as `print/4` (breaking representations longer than one line
+into indented lines and detecting printable character lists as strings).
+""".
+-doc(#{since => ~"OTP 30.0"}).
+-spec bprint(Term, Options) -> unicode:unicode_binary() when
+      Term :: term(),
+      Options :: print_options().
+
+bprint(Term, Options) ->
+    {Bin, _Sz, _Col} = io_lib_pretty:print_bin(Term, Options),
+    Bin.
+
 -doc "Returns the indentation if `String` has been printed, starting at `StartIndent`.".
 -spec indentation(String, StartIndent) -> integer() when
       String :: string(),
@@ -779,35 +807,38 @@ write_map_assoc_bin(K, V, D, Enc, O, Sz, Acc) ->
     write_bin1(V, D, Enc, O, Sz1 + 4, <<KBin/binary, " => ">>).
 
 write_binary_bin0(B, D, Sz, Acc) ->
-    {S, _} = write_binary_bin(B, D, -1, Acc),
-    {S, byte_size(S) - byte_size(Acc) + Sz}.
+    {S, _} = write_binary_body_bin(B, D, -1, <<>>),
+    {<<Acc/binary, S/binary>>, byte_size(S) + Sz}.
 
 -doc false.
--spec write_binary_bin(Bin, Depth, T, Acc) -> {unicode:unicode_binary(), binary()} when
+-spec write_binary_bin(Bin, Depth, T) -> {unicode:unicode_binary(), binary()} when
       Bin :: binary(),
       Depth :: integer(),
-      T :: integer(),
-      Acc :: unicode:unicode_binary().
+      T :: integer().
 
-write_binary_bin(B, D, T, Acc) when is_integer(T) ->
-    write_binary_body_bin(B, D, tsub(T, 4), <<Acc/binary, "<<" >>).
+write_binary_bin(B, D, T) when is_integer(T) ->
+    write_binary_body_bin(B, D, tsub(T, 4), <<>>).
 
-write_binary_body_bin(<<>> = B, _D, _T, Acc) ->
+write_binary_body_bin(B, D, T, Acc) ->
+    write_binary_body_bin1(B, D, T, <<Acc/binary, "<<">>).
+
+write_binary_body_bin1(<<>> = B, _D, _T, Acc) ->
     {<<Acc/binary, ">>" >>, B};
-write_binary_body_bin(<<_/bitstring>>=B, D, T, Acc) when D =:= 1; T =:= 0->
+write_binary_body_bin1(<<_/bitstring>>=B, D, T, Acc) when D =:= 1; T =:= 0->
     {<<Acc/binary, "...>>">>, B};
-write_binary_body_bin(<<X:8>>, _D, _T, Acc) ->
-    {<<Acc/binary, (byte_to_bin(X))/binary, ">>">>, <<>>};
-write_binary_body_bin(<<X:8,Rest/bitstring>>, D, T, Acc) ->
+write_binary_body_bin1(<<X:8>>, _D, _T, Acc) ->
     IntBin = byte_to_bin(X),
-    write_binary_body_bin(Rest, D-1, tsub(T, byte_size(IntBin) + 1),
+    {<<Acc/binary, IntBin/binary, ">>">>, <<>>};
+write_binary_body_bin1(<<X:8,Rest/bitstring>>, D, T, Acc) ->
+    IntBin = byte_to_bin(X),
+    write_binary_body_bin1(Rest, D-1, tsub(T, byte_size(IntBin) + 1),
                           <<Acc/binary, IntBin/binary, $,>>);
-write_binary_body_bin(B, _D, _T, Acc) ->
+write_binary_body_bin1(B, _D, _T, Acc) ->
     L = bit_size(B),
     <<X:L>> = B,
-    {<<Acc/binary, (byte_to_bin(X))/binary, $:,
-       (byte_to_bin(L))/binary,">>">>,
-     <<>>}.
+    XBin = byte_to_bin(X),
+    LBin = byte_to_bin(L),
+    {<<Acc/binary, XBin/binary, $:, LBin/binary, ">>">>, <<>>}.
 
 byte_to_bin(B) ->
     Tab = {~"0", ~"1", ~"2", ~"3", ~"4", ~"5", ~"6", ~"7", ~"8", ~"9",
