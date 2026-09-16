@@ -398,7 +398,10 @@ visible_string(_) -> false.
 %% Check if a String is a domain name according to RFC XXX.
 %% domain(String) -> Bool
 %%
-domain(Cs) when is_list(Cs) ->
+%% We regard the empty domain name and domain names ending in a dot
+%% as not valid domain names.  That can be debated.
+domain([])                      -> false;
+domain([_|_] = Cs) ->
     is_dom1(Cs) andalso
     %%
     %% Also check that we don't get a IP-address as a domain name
@@ -412,15 +415,16 @@ domain(Cs) when is_list(Cs) ->
 %% Each DNS label starts with letter or number and cannot be empty
 is_dom1([C | Cs]) ->
     if
-        C >= $a, C =< $z;
-        C >= $A, C =< $Z;
-        C >= $0, C =< $9        -> is_dom_ldh(Cs);
+        is_integer(C, $a, $z);
+        is_integer(C, $A, $Z);
+        is_integer(C, $0, $9)   -> is_dom_ldh(Cs);
         true                    -> false
-    end;
-is_dom1([])                     -> false.
+    end.
 
 %% Within a DNS label, but not at the end, `-` and `_` are also allowed.
 %% A `.` ends the label.
+is_dom_ldh([])                  -> true;
+is_dom_ldh([$.])                -> false;
 is_dom_ldh([$_])                -> false;
 is_dom_ldh([$-])                -> false;
 is_dom_ldh([$_,$. | _])         -> false;
@@ -428,14 +432,7 @@ is_dom_ldh([$-,$. | _])         -> false;
 is_dom_ldh([$. | Cs])           -> is_dom1(Cs);
 is_dom_ldh([$_ | Cs])           -> is_dom_ldh(Cs);
 is_dom_ldh([$- | Cs])           -> is_dom_ldh(Cs);
-is_dom_ldh([C | Cs]) ->
-    if
-        is_integer(C, $a, $z);
-        is_integer(C, $A, $Z);
-        is_integer(C, $0, $9)   -> is_dom_ldh(Cs);
-        true                    -> false
-    end;
-is_dom_ldh([])                  -> true.
+is_dom_ldh([_|_] = Cs)          -> is_dom1(Cs).
 
 
 %%
