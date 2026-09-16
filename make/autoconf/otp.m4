@@ -3512,3 +3512,49 @@ AC_SUBST(DED_LIBS)
 AC_SUBST(DED_OSTYPE)
 
 ])
+
+AC_DEFUN([ERL_WITH_GMP],
+[
+
+AC_ARG_WITH(gmp,
+[  --with-gmp=PATH         specify location of GNU MP include and lib
+  --with-gmp              use GNU MP (will search for it)])
+
+# We don't just want any GNU MP version, we want 4.1 or later
+# that contain the import/export functions we need.
+
+
+AS_IF([test "x$with_gmp" = "xyes"],
+  [
+    AC_CHECK_HEADER(gmp.h, ac_cv_gmp=yes, ac_cv_gmp=no)
+    if test $ac_cv_gmp = no ; then
+        for dir in /usr /usr/pkg /usr/local /usr/local/gmp /usr/lib/gmp /usr/gmp; do
+            AC_CHECK_HEADER($dir/include/gmp.h, ac_cv_gmp=yes, ac_cv_gmp=no)
+            if test $ac_cv_gmp = yes ; then
+                CFLAGS="$CFLAGS -I$dir/include -L$dir/lib"
+                LIB_CFLAGS="$LIB_CFLAGS -I$dir/include -L$dir/lib"
+                break
+            fi
+        done
+    fi
+    if test $ac_cv_gmp = no ; then
+	AC_MSG_ERROR([No GNU MP installation found])
+    else
+        AC_DEFINE(HAVE_GMP_H, [1], [Define if you have "gmp.h"])
+    fi
+    AC_CHECK_LIB(gmp, __gmpz_export)
+    # FIXME return ERROR if no lib
+elif test "x$with_gmp" != "xno" -a -n "$with_gmp" ;then
+    # Option given with PATH to package
+    AC_MSG_CHECKING(for GNU MP)
+    if test ! -d "$with_gmp" ; then
+	AC_MSG_ERROR(Invalid path to option --with-gmp=PATH)
+    fi
+    AC_MSG_RESULT(yes)
+    CFLAGS="$CFLAGS -I$with_gmp/include -L$with_gmp/lib"
+    LIB_CFLAGS="$LIB_CFLAGS -I$with_gmp/include -L$with_gmp/lib"
+    AC_DEFINE(HAVE_GMP_H, [1], [Define if you have "gmp.h"])
+    AC_CHECK_LIB(gmp, __gmpz_export)
+    # FIXME return ERROR if no lib
+  ])
+])

@@ -20,7 +20,7 @@
  * %CopyrightEnd%
  */
 
-#include "eidef.h"
+#include "config.h"
 
 #if defined(HAVE_GMP_H) && defined(HAVE_LIBGMP)
 
@@ -53,6 +53,7 @@ int ei_encode_bignum(char *buf, int *index, mpz_t obj)
 
 	if (!buf) {
 	    int numb = 8;	/* # bits in each external format limb */
+            s += 1 + 4 + 1; /* tag, arity, sign */
 	    s += (mpz_sizeinbase(obj, 2) + numb-1) / numb;
 	} else {
 	    char *arityp;
@@ -60,10 +61,10 @@ int ei_encode_bignum(char *buf, int *index, mpz_t obj)
 	    put8(s,ERL_LARGE_BIG_EXT);
 	    arityp = s;		/* fill in later */
 	    s += 4;
-	    put8(s, mpz_sign == 1); /* save sign separately */
+            put8(s, mpz_sign == 1 ? 0 : 1); /* save sign separately */
 	    mpz_export(s, &count, -1, 1, 0, 0, obj);
 	    s += count;
-	    put32le(arityp, count);
+            put32be(arityp, count);
 	}
     }
   
