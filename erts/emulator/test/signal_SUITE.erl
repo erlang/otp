@@ -2814,9 +2814,13 @@ load_driver(Config, Driver) ->
     end.
 
 wait_until(Fun) ->
-    case (catch Fun()) of
+    try Fun() of
         true ->
             ok;
+        _ ->
+            receive after 1 -> ok end,
+            wait_until(Fun)
+    catch
         _ ->
             receive after 1 -> ok end,
             wait_until(Fun)
@@ -2926,9 +2930,11 @@ repeat(Fun, N) when is_function(Fun, 1), is_integer(N)  ->
     repeat(Fun, N-1).
 
 busy_wait_until(Fun) ->
-    case catch Fun() of
+    try Fun() of
         true -> ok;
         _ -> busy_wait_until(Fun)
+    catch
+        _:_ -> busy_wait_until(Fun)
     end.
 
 id(X) ->

@@ -32,6 +32,8 @@
 -include_lib("stdlib/include/assert.hrl").
 -include_lib("common_test/include/ct.hrl").
 
+-compile([nowarn_deprecated_catch]).
+
 -define(heap_binary_size, 64).
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
@@ -233,7 +235,8 @@ init_per_suite(Config) ->
 end_per_suite(Config) ->
     As = proplists:get_value(started_apps, Config),
     lists:foreach(fun (A) -> application:stop(A) end, As),
-    catch erts_debug:set_internal_state(available_internal_state, false),
+    try erts_debug:set_internal_state(available_internal_state, false)
+    catch _:_ -> ok end,
     Config.
 
 init_per_group(_GroupName, Config) ->
@@ -585,7 +588,7 @@ t_process_info(Config) when is_list(Config) ->
 
     Gleader = group_leader(),
     {group_leader, Gleader} = process_info(self(), group_leader),
-    {'EXIT',{badarg,_Info}} = (catch process_info('not_a_pid')),
+    ?assertError(badarg, process_info('not_a_pid')),
     ok.
 
 verify_stacktrace_depth() ->
@@ -2213,7 +2216,7 @@ make_unaligned_sub_binary(Bin) ->
 
 %% Tests erlang:yield/1
 yield(Config) when is_list(Config) ->
-    case catch erlang:system_info(modified_timing_level) of
+    case erlang:system_info(modified_timing_level) of
 	Level when is_integer(Level) ->
 	    {skipped,
 	     "Modified timing (level " ++ integer_to_list(Level)
@@ -2397,7 +2400,7 @@ dist_unlink_ack_exit_leak(Config) when is_list(Config) ->
 bad_register(Config) when is_list(Config) ->
     Name = a_long_and_unused_name,
 
-    {'EXIT',{badarg,_}} = (catch register({bad,name}, self())),
+    ?assertError(badarg, register({bad,name}, self())),
     fail_register(undefined, self()),
     fail_register([bad,name], self()),
 
@@ -2413,8 +2416,8 @@ bad_register(Config) when is_list(Config) ->
     ok.
 
 fail_register(Name, Process) ->
-    {'EXIT',{badarg,_}} = (catch register(Name, Process)),
-    {'EXIT',{badarg,_}} = (catch Name ! anything_goes),
+    ?assertError(badarg, register(Name, Process)),
+    ?assertError(badarg, Name ! anything_goes),
     ok.
 
 garbage_collect(Config) when is_list(Config) ->
@@ -2609,7 +2612,8 @@ otp_6237_whereis_loop() ->
 	  end.
 	     
 otp_6237_select_loop() ->
-    catch ets:select(otp_6237, ets:fun2ms(fun({K, does_not_exist}) -> K end)),
+    try ets:select(otp_6237, ets:fun2ms(fun({K, does_not_exist}) -> K end))
+    catch _:_ -> ok end,
     otp_6237_select_loop().
 
 
@@ -4544,11 +4548,11 @@ processes_term_proc_list(Config) when is_list(Config) ->
 
 processes_iter(Config) when is_list(Config) ->
     ProcessLimit = erlang:system_info(process_limit),
-    {'EXIT',{badarg,_}} = catch erts_internal:processes_next(ProcessLimit + 1),
-    {'EXIT',{badarg,_}} = catch erts_internal:processes_next(-1),
-    {'EXIT',{badarg,_}} = catch erts_internal:processes_next(1 bsl 32),
-    {'EXIT',{badarg,_}} = catch erts_internal:processes_next(1 bsl 64),
-    {'EXIT',{badarg,_}} = catch erts_internal:processes_next(abc),
+    ?assertError(badarg, erts_internal:processes_next(ProcessLimit + 1)),
+    ?assertError(badarg, erts_internal:processes_next(-1)),
+    ?assertError(badarg, erts_internal:processes_next(1 bsl 32)),
+    ?assertError(badarg, erts_internal:processes_next(1 bsl 64)),
+    ?assertError(badarg, erts_internal:processes_next(abc)),
 
     none = erts_internal:processes_next(ProcessLimit),
 
@@ -6056,9 +6060,11 @@ verify_nc(Node) ->
     end.
 
 enable_internal_state() ->
-    case catch erts_debug:get_internal_state(available_internal_state) of
+    try erts_debug:get_internal_state(available_internal_state) of
 	true -> true;
 	_ -> erts_debug:set_internal_state(available_internal_state, true)
+    catch
+        _:_ -> erts_debug:set_internal_state(available_internal_state, true)
     end.
 
 sys_mem_cond_run(OrigReqSizeMB, TestFun) when is_integer(OrigReqSizeMB) ->
@@ -6164,11 +6170,11 @@ ei_node_handler_loop(Node, Parent, Port) ->
     receive
         {'EXIT', Parent, Reason} ->
             erlang:disconnect_node(Node),
-            (catch port_close(Port)),
+            try port_close(Port) catch _:_ -> ok end,
             exit(Reason);
         {stop_node, Parent} ->
             erlang:disconnect_node(Node),
-            (catch port_close(Port)),
+            try port_close(Port) catch _:_ -> ok end,
             Parent ! {stop_node, self()},
             exit(normal);
         {check_node, Parent} ->
@@ -6184,7 +6190,7 @@ ei_node_handler_loop(Node, Parent, Port) ->
         Msg ->
             Msgs = fetch_all_messages([Msg]),
             erlang:disconnect_node(Node),
-            (catch port_close(Port)),
+            try port_close(Port) catch _:_ -> ok end,
             exit({ei_node_handler, Node, unexpected_messages, Msgs})
     end,
     ei_node_handler_loop(Node, Parent, Port).

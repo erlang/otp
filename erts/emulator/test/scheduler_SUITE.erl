@@ -96,7 +96,8 @@ init_per_suite(Config) ->
     [{schedulers_online, erlang:system_info(schedulers_online)} | Config].
 
 end_per_suite(Config) ->
-    catch erts_debug:set_internal_state(available_internal_state, false),
+    try erts_debug:set_internal_state(available_internal_state, false)
+    catch _:_ -> ok end,
     SchedOnln = proplists:get_value(schedulers_online, Config),
     erlang:system_flag(schedulers_online, SchedOnln),
     erlang:system_flag(dirty_cpu_schedulers_online, SchedOnln),
@@ -540,9 +541,11 @@ bindings(Node, BindType) ->
     Pid = spawn_link(Node,
                      fun () ->
                              enable_internal_state(),
-                             Res = (catch erts_debug:get_internal_state(
+                             Res = try erts_debug:get_internal_state(
                                             {fake_scheduler_bindings,
-                                             BindType})),
+                                             BindType})
+                                   catch C:R -> {'EXIT', {C, R}}
+                                   end,
                              Parent ! {Ref, Res}
                      end),
     receive
@@ -920,11 +923,14 @@ read_affinity(Data) ->
     case string:lexemes(Data, ":") of
 	[Exp, DirtyAffinityStr] ->
 	    AffinityStr = string:trim(DirtyAffinityStr),
-	    case catch erlang:list_to_integer(AffinityStr, 16) of
+            try erlang:list_to_integer(AffinityStr, 16) of
 		Affinity when is_integer(Affinity) ->
 		    Affinity;
 		_ ->
-		    bad
+                    bad
+            catch
+                _:_ ->
+                    bad
 	    end;
 	_ ->
 	    bad
@@ -946,11 +952,14 @@ get_affinity_mask(_Port, _Status, Affinity) ->
 get_affinity_mask() ->
     case os:type() of
 	{unix, linux} ->
-	    case catch open_port({spawn, "taskset -p " ++ os:getpid()},
+            try open_port({spawn, "taskset -p " ++ os:getpid()},
 				 [exit_status]) of
 		Port when is_port(Port) ->
 		    get_affinity_mask(Port, unknown, unknown);
 		_ ->
+                    unknown
+            catch
+                _:_ ->
 		    unknown
 	    end;
 	_ ->
@@ -977,13 +986,16 @@ set_affinity_mask(Mask) ->
 			 io_lib:format("~.16b", [Mask]),
 			 " ",
 			 os:getpid()]),
-    case catch open_port({spawn, Cmd}, [exit_status]) of
+    try open_port({spawn, Cmd}, [exit_status]) of
 	Port when is_port(Port) ->
 	    case set_affinity_mask(Port, unknown) of
 		0 -> ok;
 		_ -> exit(failed_to_set_affinity)
 	    end;
 	_ ->
+            exit(failed_to_set_affinity)
+    catch
+        _:_ ->
 	    exit(failed_to_set_affinity)
     end.
 
@@ -2565,9 +2577,11 @@ active_schedulers() ->
     end.
 
 enable_internal_state() ->
-    case catch erts_debug:get_internal_state(available_internal_state) of
+    try erts_debug:get_internal_state(available_internal_state) of
 	true -> true;
 	_ -> erts_debug:set_internal_state(available_internal_state, true)
+    catch
+        _:_ -> erts_debug:set_internal_state(available_internal_state, true)
     end.
 
 cmp(X, X) ->
