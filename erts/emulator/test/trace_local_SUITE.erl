@@ -1220,7 +1220,7 @@ undef(X) ->
 
 lists_reverse(A, B) ->
     Res = lists:reverse(A, B),
-    _ = (catch abs(A)),
+    _ = try abs(A) catch _:_ -> ok end,
     Res.
 
 

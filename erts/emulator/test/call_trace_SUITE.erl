@@ -46,6 +46,7 @@
 -export([abbr/1,abbr/2]).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 -define(P, 20).
 %-undef(line).
@@ -386,8 +387,8 @@ upgrade_do(V1, V2, TraceLocalVersion) ->
     end,
 
     true = erlang:delete_module(my_upgrade_test),
-    {'EXIT',{undef,_}} = (catch my_upgrade_test:version()),
-    {'EXIT',{undef,_}} = (catch ((get('F2_exp'))())),
+    ?assertError(undef, my_upgrade_test:version()),
+    ?assertError(undef, ((get('F2_exp'))())),
     2 = (get('F2_loc'))(),
     expect(),
 
@@ -507,27 +508,37 @@ errors(Config) when is_list(Config) ->
     ok.
 
 expect_badarg_pid(What, How, Flags) ->
-    case catch erlang_trace(What, How, Flags) of
-        {'EXIT',{badarg,Where}} ->
-            io:format("trace(~p, ~p, ~p) ->\n  {'EXIT',{badarg,~p}}",
-                      [What,How,Flags,Where]),
-            ok;
+    try erlang_trace(What, How, Flags) of
         Other ->
             io:format("trace(~p, ~p, ~p) -> ~p",
                       [What,How,Flags,Other]),
             ct:fail({unexpected,Other})
+    catch
+        error:badarg:Where ->
+            io:format("trace(~p, ~p, ~p) ->\n  {'EXIT',{badarg,~p}}",
+                      [What,How,Flags,Where]),
+            ok;
+        Class:Reason ->
+            io:format("trace(~p, ~p, ~p) -> ~p",
+                      [What,How,Flags,{Class,Reason}]),
+            ct:fail({unexpected,{Class,Reason}})
     end.
 
 expect_badarg_func(MFA, Pattern) ->
-    case catch erlang_trace_pattern(MFA, Pattern) of
-        {'EXIT',{badarg,Where}} ->
-            io:format("trace_pattern(~p, ~p) ->\n  {'EXIT',{badarg,~p}}",
-                      [MFA,Pattern,Where]),
-            ok;
+    try erlang_trace_pattern(MFA, Pattern) of
         Other ->
             io:format("trace_pattern(~p, ~p) -> ~p",
                       [MFA, Pattern, Other]),
             ct:fail({unexpected,Other})
+    catch
+        error:badarg:Where ->
+            io:format("trace_pattern(~p, ~p) ->\n  {'EXIT',{badarg,~p}}",
+                      [MFA,Pattern,Where]),
+            ok;
+        Class:Reason ->
+            io:format("trace_pattern(~p, ~p) -> ~p",
+                      [MFA, Pattern, {Class,Reason}]),
+            ct:fail({unexpected,{Class,Reason}})
     end.
 
 %% Basic test of PAM.
@@ -740,7 +751,7 @@ return_trace(_Config) ->
     %% Try catch/exit.
 
     1 = trace_func({?MODULE,nasty,0}, [{[],[],[{return_trace},{message,false}]}]),
-    {'EXIT',good_bye} = (catch ?MODULE:nasty()),
+    ?assertExit(good_bye, ?MODULE:nasty()),
     1 = trace_func({?MODULE,nasty,0}, false),
 
     %% Turn off trace.
@@ -810,7 +821,7 @@ exception_trace(_Config) ->
 
     1 = trace_func({?MODULE,nasty,0}, 
                    [{[],[],[{exception_trace},{message,false}]}]),
-    {'EXIT',good_bye} = (catch ?MODULE:nasty()),
+    ?assertExit(good_bye, ?MODULE:nasty()),
     expect({trace_ts,Self,exception_from,
             {?MODULE,nasty,0},{exit,good_bye},ts}),
     1 = trace_func({?MODULE,nasty,0}, false),

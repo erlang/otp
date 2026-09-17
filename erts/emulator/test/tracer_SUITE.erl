@@ -85,10 +85,13 @@ init_per_testcase(TC, Config) when TC =:= load; TC =:= reload ->
     common_init_per_testcase(Config);
 init_per_testcase(_, Config) ->
     DataDir = proplists:get_value(data_dir, Config),
-    case catch tracer_test:enabled(trace_status, self(), self()) of
+    try tracer_test:enabled(trace_status, self(), self()) of
         discard ->
             ok;
         _ ->
+            tracer_test:load(DataDir)
+    catch
+        _:_ ->
             tracer_test:load(DataDir)
     end,
     common_init_per_testcase(Config).

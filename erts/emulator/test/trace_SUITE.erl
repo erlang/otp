@@ -53,6 +53,7 @@
 -nifs([slow_nif/0]).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 %%% Internal exports
 -export([process/1]).
@@ -258,7 +259,7 @@ receive_trace(Config) when is_list(Config) ->
     receive_nothing(),
 
     %% Verify restrictions in matchspec for 'receive'
-    F3 = fun (Pat) -> {'EXIT', {badarg,_}} = (catch erlang_trace_pattern('receive', Pat, [])) end,
+    F3 = fun (Pat) -> ?assertError(badarg, erlang_trace_pattern('receive', Pat, [])) end,
     WC = ['_','_','_'],
     F3([{WC,[],[{message, {process_dump}}]}]),
     F3([{WC,[{is_seq_trace}],[]}]),
@@ -695,15 +696,15 @@ send_trace(Config) when is_list(Config) ->
     receive to_myself_again -> ok end,
     receive_nothing(),
     
-    {'EXIT',{badarg,_}} = (catch erlang_trace_pattern(send, true, [global])),
-    {'EXIT',{badarg,_}} = (catch erlang_trace_pattern(send, true, [local])),
-    {'EXIT',{badarg,_}} = (catch erlang_trace_pattern(send, true, [meta])),
-    {'EXIT',{badarg,_}} = (catch erlang_trace_pattern(send, true, [{meta,self()}])),
-    {'EXIT',{badarg,_}} = (catch erlang_trace_pattern(send, true, [call_count])),
-    {'EXIT',{badarg,_}} = (catch erlang_trace_pattern(send, true, [call_time])),
-    {'EXIT',{badarg,_}} = (catch erlang_trace_pattern(send, restart, [])),
-    {'EXIT',{badarg,_}} = (catch erlang_trace_pattern(send, pause, [])),
-    {'EXIT',{badarg,_}} = (catch erlang_trace_pattern(send, [{['_','_'],[],[{caller}]}], [])),
+    ?assertError(badarg, erlang_trace_pattern(send, true, [global])),
+    ?assertError(badarg, erlang_trace_pattern(send, true, [local])),
+    ?assertError(badarg, erlang_trace_pattern(send, true, [meta])),
+    ?assertError(badarg, erlang_trace_pattern(send, true, [{meta,self()}])),
+    ?assertError(badarg, erlang_trace_pattern(send, true, [call_count])),
+    ?assertError(badarg, erlang_trace_pattern(send, true, [call_time])),
+    ?assertError(badarg, erlang_trace_pattern(send, restart, [])),
+    ?assertError(badarg, erlang_trace_pattern(send, pause, [])),
+    ?assertError(badarg, erlang_trace_pattern(send, [{['_','_'],[],[{caller}]}], [])),
 
     %% Done.
     ok.
@@ -1035,32 +1036,21 @@ system_monitor_args(Config) when is_list(Config) ->
 
 system_monitor_badargs(Config) when is_list(Config) ->
     Self = self(),
-    {'EXIT',{badarg,_}} = (catch erlang:system_monitor(atom)),
-    {'EXIT',{badarg,_}} = (catch erlang:system_monitor({})),
-    {'EXIT',{badarg,_}} = (catch erlang:system_monitor({1})),
-    {'EXIT',{badarg,_}} = (catch erlang:system_monitor({1,2,3})),
-    {'EXIT',{badarg,_}} = 
-    (catch erlang:system_monitor({Self,atom})),
-    {'EXIT',{badarg,_}} = 
-    (catch erlang:system_monitor(atom, atom)),
-    {'EXIT',{badarg,_}} = 
-    (catch erlang:system_monitor({Self,[busy_port|busy_dist_port]})),
-    {'EXIT',{badarg,_}} = 
-    (catch erlang:system_monitor(Self, [{long_gc,-1}])),
-    {'EXIT',{badarg,_}} = 
-    (catch erlang:system_monitor({Self,[{long_gc,atom}]})),
-    {'EXIT',{badarg,_}} = 
-    (catch erlang:system_monitor(Self,[{large_heap,-1}])),
-    {'EXIT',{badarg,_}} = 
-    (catch erlang:system_monitor({Self,[{large_heap,atom}]})),
-    {'EXIT',{badarg,_}} = 
-        (catch erlang:system_monitor(Self,[{long_message_queue, {100,100}}])),
-    {'EXIT',{badarg,_}} = 
-        (catch erlang:system_monitor(Self,[{long_message_queue, {-1,1}}])),
-    {'EXIT',{badarg,_}} = 
-        (catch erlang:system_monitor(Self,[{long_message_queue, {0,-1}}])),
-    {'EXIT',{badarg,_}} = 
-        (catch erlang:system_monitor(Self,[{long_message_queue, {-1,0}}])),
+    ?assertError(badarg, erlang:system_monitor(atom)),
+    ?assertError(badarg, erlang:system_monitor({})),
+    ?assertError(badarg, erlang:system_monitor({1})),
+    ?assertError(badarg, erlang:system_monitor({1,2,3})),
+    ?assertError(badarg, erlang:system_monitor({Self,atom})),
+    ?assertError(badarg, erlang:system_monitor(atom, atom)),
+    ?assertError(badarg, erlang:system_monitor({Self,[busy_port|busy_dist_port]})),
+    ?assertError(badarg, erlang:system_monitor(Self, [{long_gc,-1}])),
+    ?assertError(badarg, erlang:system_monitor({Self,[{long_gc,atom}]})),
+    ?assertError(badarg, erlang:system_monitor(Self,[{large_heap,-1}])),
+    ?assertError(badarg, erlang:system_monitor({Self,[{large_heap,atom}]})),
+    ?assertError(badarg, erlang:system_monitor(Self,[{long_message_queue, {100,100}}])),
+    ?assertError(badarg, erlang:system_monitor(Self,[{long_message_queue, {-1,1}}])),
+    ?assertError(badarg, erlang:system_monitor(Self,[{long_message_queue, {0,-1}}])),
+    ?assertError(badarg, erlang:system_monitor(Self,[{long_message_queue, {-1,0}}])),
     ok.
 
 
@@ -1118,9 +1108,12 @@ system_monitor_long_schedule(Config) when is_list(Config) ->
         {error, {reload,_}} -> ok
     end,
     erl_ddll:start(),
-    case (catch load_driver(Path, slow_drv)) of
+    try load_driver(Path, slow_drv) of
         ok ->
             do_system_monitor_long_schedule();
+        _Error ->
+            {skip, "Unable to load slow_drv (windows or no usleep()?)"}
+    catch
         _Error ->
             {skip, "Unable to load slow_drv (windows or no usleep()?)"}
     end.
@@ -1523,11 +1516,10 @@ do_suspend_exit(N) ->
         fun () ->
                 suspend_exit_work(Work div 2),
                 Parent ! {doing_suspend, self()},
-                case catch erlang:suspend_process(Suspendee) of
-                    {'EXIT', _} ->
-                        ok;
+                try erlang:suspend_process(Suspendee) of
                     true ->
                         erlang:resume_process(Suspendee)
+                catch _:_ -> ok
                 end
         end),
     receive
@@ -1558,7 +1550,7 @@ chk_suspended(P, Bool, Line) ->
 suspender_exit(Config) when is_list(Config) ->
     ct:timetrap({minutes, 3}),
     P1 = spawn_link(fun () -> receive after infinity -> ok end end),
-    {'EXIT', _} = (catch erlang:resume_process(P1)),
+    ?assertError(_, erlang:resume_process(P1)),
     {P2, M2} = spawn_monitor(
                  fun () ->
                          ?CHK_SUSPENDED(P1, false),
@@ -1686,20 +1678,20 @@ suspend_until_system_limit(P, N, M) ->
                _ ->
                    M+1
            end,
-    case catch erlang:suspend_process(P) of
+    try erlang:suspend_process(P) of
         true ->
             suspend_until_system_limit(P, N+1, NewM);
-        {'EXIT', R} when R == system_limit;
-                         element(1, R) == system_limit ->
-            io:format("system limit at ~p~n", [N]),
-            resume_from_system_limit(P, N, 0);
         Error ->
             ct:fail(Error)
+    catch
+        error:system_limit ->
+            io:format("system limit at ~p~n", [N]),
+            resume_from_system_limit(P, N, 0)
     end.
 
 resume_from_system_limit(P, 0, _) ->
     ?CHK_SUSPENDED(P, false),
-    {'EXIT', _} = (catch erlang:resume_process(P)),
+    ?assertError(_, erlang:resume_process(P)),
     ok;
 resume_from_system_limit(P, N, M) ->
     NewM = case M of
@@ -1953,21 +1945,16 @@ tracer_die(Config) when is_list(Config) ->
 %% Test that an invalid flag cause badarg
 bad_flag(Config) when is_list(Config) ->
     %% A bad flag could deadlock the SMP emulator in erts-5.5
-    {'EXIT', {badarg, _}} = (catch erlang_trace(new,
-                                                true,
-                                                [not_a_valid_flag])),
+    ?assertError(badarg, erlang_trace(new, true, [not_a_valid_flag])),
 
     %% Leaks of {tracer,_} in OTP 23.2
     Pid = spawn(fun() -> receive die -> ok end end),
     1 = erlang_trace(Pid, true, [{tracer, self()},
                                  {tracer, self()}]),
     Pid ! die,
-    {'EXIT', {badarg, _}} =
-        (catch erlang_trace(new, true, [{tracer, self()}
-                                        | improper])),
-    {'EXIT', {badarg, _}} =
-        (catch erlang_trace(new, true, [{tracer, self()},
-                                        not_a_valid_flag])),
+    ?assertError(badarg, erlang_trace(new, true, [{tracer, self()} | improper])),
+    ?assertError(badarg, erlang_trace(new, true, [{tracer, self()},
+                                                  not_a_valid_flag])),
     ok.
 
 %% Test erlang:trace_delivered/1
@@ -2020,7 +2007,7 @@ trap_exit_self_receive(Config) when is_list(Config) ->
     ok.
 
 trace_info_badarg(Config) when is_list(Config) ->
-    catch erlang_trace_info({a,b,c},d),
+    try erlang_trace_info({a,b,c},d) catch _:_ -> ok end,
     ok.
 
 %% An incoming suspend monitor down wasn't handled
@@ -2035,7 +2022,7 @@ erl_704_test(N) ->
     P = spawn(fun () -> receive infinity -> ok end end),
     erlang:suspend_process(P),
     exit(P, kill),
-    (catch erlang:resume_process(P)),
+    try erlang:resume_process(P) catch _:_ -> ok end,
     erl_704_test(N-1).
 
 ms_excessive_nesting(Config) when is_list(Config) ->
