@@ -339,6 +339,14 @@ prefix, a unique number, and the current OS process ID.
 > peer using Erlang distribution as the control channel, supplies thes calling
 > module's code path to the peer, and uses the calling function name for the
 > name prefix.
+
+## Examples
+
+```erlang
+1> Name = peer:random_name(mynode).
+2> string:prefix(Name, \"mynode-\") =/= nomatch.
+true
+```
 ".
 -doc(#{since => <<"OTP 25.0">>}).
 -endif.
@@ -352,7 +360,7 @@ random_name(Prefix) ->
 %%      and waits for that node to boot. Returns full node name,
 %%      registers local process with the same name as peer node.
 -ifndef(NO_DOCS).
--doc "The same as [`start_link(#{name => random_name()})`](`start_link/1`).".
+-doc(#{equiv => start_link(#{name => random_name()})}).
 -doc(#{since => <<"OTP 25.0">>}).
 -endif.
 -spec start_link() -> {ok, pid(), node()} | {error, Reason :: term()}.
@@ -375,6 +383,14 @@ advance.
 When the `standard_io` alternative connection is requested, and `wait_boot` is
 not set to `false`, a failed peer boot sequence causes the caller to exit with
 the `{boot_failed, {exit_status, ExitCode}}` reason.
+
+## Examples
+
+```erlang
+1> {ok, Pid, Node} = peer:start_link(#{name => peer:random_name(), connection => 0}).
+2> is_pid(Pid) andalso is_atom(Node).
+true
+```
 ".
 -doc(#{since => <<"OTP 25.0">>}).
 -endif.
@@ -389,6 +405,14 @@ start_link(Options) ->
 Starts a peer node with the specified `t:start_options/0`. Returns the
 controlling process and the full peer node name, unless `wait_boot` is not
 requested and the host name is not known in advance.
+
+## Examples
+
+```erlang
+1> {ok, Pid, Node} = peer:start(#{name => peer:random_name(), connection => 0}).
+2> is_pid(Pid) andalso is_atom(Node).
+true
+```
 ".
 -doc(#{since => <<"OTP 25.0">>}).
 -endif.
@@ -443,6 +467,16 @@ Currently the following `shutdown` options are supported:
 > this. It is hard to say what the effects will be since these effects can be
 > caused by any code with links or monitors to something on the origin node, or
 > code monitoring the connection to the origin node.
+
+## Examples
+
+```erlang
+1> {ok, Pid, _Node} = peer:start_link(#{name => peer:random_name(), connection => 0}).
+2> is_pid(Pid).
+true
+3> peer:stop(Pid).
+ok
+```
 ".
 -doc(#{since => <<"OTP 25.0">>}).
 -endif.
@@ -458,6 +492,14 @@ Returns the peer node state.
 The initial state is `booting`; the node stays in that state until then boot
 script is complete, and then the node progresses to `running`. If the node stops
 (gracefully or not), the state changes to `down`.
+
+## Examples
+
+```erlang
+1> {ok, Pid, _Node} = peer:start_link(#{name => peer:random_name(), connection => 0}).
+2> peer:get_state(Pid).
+running
+```
 ".
 -doc(#{since => <<"OTP 25.0">>}).
 -endif.
@@ -488,6 +530,14 @@ corresponding value `Result`.
 When an alternative connection is not requested, this function will raise `exit`
 signal with the `noconnection` reason. Use `m:erpc` module to communicate over
 Erlang distribution.
+
+## Examples
+
+```erlang
+1> {ok, Pid, Node} = peer:start_link(#{name => peer:random_name(), connection => 0}).
+2> peer:call(Pid, erlang, node, [], 5000) =:= Node.
+true
+```
 ".
 -doc(#{since => <<"OTP 25.0">>}).
 -endif.
@@ -512,6 +562,14 @@ delivered to the calling process.
 
 `peer:cast/4` fails silently when the alternative connection is not configured.
 Use `m:erpc` module to communicate over Erlang distribution.
+
+## Examples
+
+```erlang
+1> {ok, Pid, _Node} = peer:start_link(#{name => peer:random_name(), connection => 0}).
+2> peer:cast(Pid, erlang, display, [hello_from_peer]).
+ok
+```
 ".
 -doc(#{since => <<"OTP 25.0">>}).
 -endif.
@@ -527,6 +585,15 @@ Uses the alternative connection to send Message to a process on the the peer nod
 
 Silently fails if no alternative connection is configured. The process can
 be referenced by process ID or registered name.
+
+## Examples
+
+```erlang
+1> {ok, Pid, _Node} = peer:start_link(#{name => peer:random_name(), connection => 0}), ok.
+ok
+2> peer:send(Pid, init, {hello}).
+ok
+```
 ".
 -doc(#{since => <<"OTP 25.0">>}).
 -endif.

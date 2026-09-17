@@ -23,9 +23,9 @@
 
 -include_lib("common_test/include/ct.hrl").
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2, t_start/1, t_start_link/1,
-	 start_link_nodedown/1, errors/1]).
+	 start_link_nodedown/1, errors/1, doctests/1]).
 
 %% Internal exports.
 -export([fun_init/1, test_errors/1]).
@@ -35,8 +35,8 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{minutes,1}}].
 
-all() -> 
-    [t_start_link, start_link_nodedown, t_start, errors].
+all() ->
+    [t_start_link, start_link_nodedown, t_start, errors, doctests].
 
 groups() -> 
     [].
@@ -268,3 +268,16 @@ fun_spawn(Fun) ->
 
 fun_init(Fun) ->
     Fun().
+
+doctests(_Config) ->
+    %% 2 pre-existing illustrative ```erlang blocks (in start/3's and
+    %% pseudo/2's docs) are plain code snippets, not runnable "1>" shell
+    %% prompts; they're prose, not doctests, and are intentionally left
+    %% as-is alongside the real "## Examples" sections.
+    %%
+    %% pseudo/1 intentionally has no example of its own (per the arity
+    %% rule, its highest-arity sibling pseudo/2 carries the example); its
+    %% own doc text is a distinct command-line usage illustration, kept
+    %% as prose.
+    ct_doctest:module(slave, [{skipped_blocks, 2},
+                               {missing_tests, [{pseudo, 1}]}]).
