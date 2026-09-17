@@ -738,8 +738,20 @@ decode_key_update(N) ->
     throw(?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER, {request_update,N})).
 
 decode_cert_entries(Entries) ->
-    [ #certificate_entry{data = Data, extensions = decode_extensions(BinExts, certificate_request)}
-      || <<?UINT24(DSize), Data:DSize/binary, ?UINT16(Esize), BinExts:Esize/binary>> <= Entries ].
+    decode_cert_entries(Entries, []).
+
+%% RFC 8446 §4.4.2: the CertificateEntry list is fully length-delimited; a
+%% truncated or malformed trailing entry must abort with decode_error rather
+%% than being silently dropped.
+decode_cert_entries(<<>>, Acc) ->
+    lists:reverse(Acc);
+decode_cert_entries(<<?UINT24(DSize), Data:DSize/binary,
+                      ?UINT16(Esize), BinExts:Esize/binary, Rest/binary>>, Acc) ->
+    Entry = #certificate_entry{data = Data,
+                               extensions = decode_extensions(BinExts, certificate_request)},
+    decode_cert_entries(Rest, [Entry | Acc]);
+decode_cert_entries(_Other, _Acc) ->
+    throw(?ALERT_REC(?FATAL, ?DECODE_ERROR, truncated_certificate_entry)).
 
 encode_extensions(Exts)->
     ssl_handshake:encode_extensions(extensions_list(Exts)).

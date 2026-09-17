@@ -55,23 +55,28 @@
          select_proper_tls_1_2_rsa_default_hashsign/1,
          ignore_hassign_extension_pre_tls_1_2/1,
          signature_algorithms/1,
-         drop_unassigned_signature_algorithms/1]).
+         drop_unassigned_signature_algorithms/1,
+         drop_undecodable_certificate_authorities/1,
+         reject_truncated_certificate_entry/1]).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
-all() -> [decode_hello_handshake,
-	  decode_single_hello_extension_correctly,
-	  decode_supported_elliptic_curves_hello_extension_correctly,
-	  decode_unknown_hello_extension_correctly,
-	  encode_single_hello_sni_extension_correctly,
-	  decode_single_hello_sni_extension_correctly,
-	  decode_empty_server_sni_correctly,
-	  select_proper_tls_1_2_rsa_default_hashsign,
-	  ignore_hassign_extension_pre_tls_1_2,
-	  signature_algorithms,
-      drop_unassigned_signature_algorithms].
-
+all() -> [
+          decode_hello_handshake,
+          decode_single_hello_extension_correctly,
+          decode_supported_elliptic_curves_hello_extension_correctly,
+          decode_unknown_hello_extension_correctly,
+          encode_single_hello_sni_extension_correctly,
+          decode_single_hello_sni_extension_correctly,
+          decode_empty_server_sni_correctly,
+          select_proper_tls_1_2_rsa_default_hashsign,
+          ignore_hassign_extension_pre_tls_1_2,
+          signature_algorithms,
+          drop_unassigned_signature_algorithms,
+          drop_undecodable_certificate_authorities,
+          reject_truncated_certificate_entry
+         ].
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
     Config.
@@ -294,6 +299,48 @@ drop_unassigned_signature_algorithms(_Config) ->
         end,
         SigAlgs).
 
+drop_undecodable_certificate_authorities(_Config) ->
+    GoodAuth0 = {rdnSequence,
+                 [[{'AttributeTypeAndValue', ?'id-at-commonName',
+                    {utf8String, <<"Good CA">>}}]]},
+    GoodDN = public_key:pkix_encode('Name', GoodAuth0, otp),
+    BadDN = base64:decode(<<"MHAxCzAJBgNVBAYMAkJSMRMwEQYDVQQKDApJQ1AtQnJhc2lsMTQwMgY",
+                            "DVQQLDCtBdXRvcmlkYWRlIENlcnRpZmljYWRvcmEgUmFpeiBCcmFz",
+                            "aWxlaXJhIHY1MRYwFAYDVQQDDA1BQyBTeW5ndWxhcklE">>),
+    CertAuths = cert_auths_vector([BadDN, GoodDN]),
+    HashSigns = <<(ssl_cipher:signature_scheme({sha256, rsa})):16>>,
+    HashSignsLen = byte_size(HashSigns),
+    CertAuthsLen = byte_size(CertAuths),
+    CertReq = <<?BYTE(1), ?BYTE(?RSA_SIGN),
+                ?UINT16(HashSignsLen), HashSigns/binary,
+                ?UINT16(CertAuthsLen), CertAuths/binary>>,
+    GoodAuth = public_key:pkix_normalize_name(GoodAuth0),
+
+    #certificate_request{certificate_authorities = [GoodAuth]} =
+        ssl_handshake:decode_handshake(?TLS_1_2, ?CERTIFICATE_REQUEST, CertReq).
+
+reject_truncated_certificate_entry(_Config) ->
+    %% RFC 8446 §4.4.2: a truncated/malformed CertificateEntry in a TLS-1.3
+    %% Certificate message must abort with decode_error, not be silently
+    %% dropped. Build a Certificate whose single entry declares a cert length
+    %% larger than the bytes actually present.
+    CertData = <<1,2,3,4>>,                    %% 4 bytes of "certificate"
+    ClaimedLen = byte_size(CertData) + 10,     %% overrun: claim 10 more bytes
+    Entries = <<?UINT24(ClaimedLen), CertData/binary, ?UINT16(0)>>,
+    EntriesLen = byte_size(Entries),
+    %% certificate_request_context = <<>> (BYTE 0), then the entry list.
+    Body = <<?BYTE(0), ?UINT24(EntriesLen), Entries/binary>>,
+    try tls_handshake:decode_handshake(?TLS_1_3, ?CERTIFICATE, Body) of
+        Decoded ->
+            ct:fail("Expected decode_error for truncated certificate entry, "
+                    "decoded ~p", [Decoded])
+    catch
+        throw:#alert{description = ?DECODE_ERROR} ->
+            ok;
+        throw:#alert{description = Desc} ->
+            ct:fail("Expected decode_error, got alert ~p", [Desc])
+    end.
+
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
@@ -302,3 +349,9 @@ drop_unassigned_signature_algorithms(_Config) ->
 is_supported(Hash) ->
     Hashs = crypto:supports(hashs),
     lists:member(Hash, Hashs).
+
+cert_auths_vector(Auths) ->
+    list_to_binary([begin
+                        Len = byte_size(Auth),
+                        <<?UINT16(Len), Auth/binary>>
+                    end || Auth <- Auths]).
