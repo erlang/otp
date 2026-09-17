@@ -190,6 +190,7 @@ int erts_max_heap_size(Eterm, Uint *, Uint *);
 void erts_deallocate_young_generation(Process *c_p);
 void erts_copy_one_frag(Eterm** hpp, ErlOffHeap* off_heap,
                         ErlHeapFragment *bp, Eterm *refs, int nrefs);
+Eterm erts_gather_binaries(ErtsHeapFactory *hfact, Process *p);
 #if defined(DEBUG) || defined(ERTS_OFFHEAP_DEBUG)
 int erts_dbg_within_proc(Eterm *ptr, Process *p, Eterm* real_htop);
 #endif
