@@ -98,6 +98,15 @@
 #  define FD_ZERO(FD_SET_PTR) memset(FD_SET_PTR, 0, sizeof(fd_set))
 #endif
 
+typedef struct exit_status {
+    HashBucket hb;
+    pid_t os_pid;
+    Eterm port_id;
+    bool want_exit_status;
+} ErtsSysExitStatus;
+
+static Hash *forker_hash;
+
 static char abort_reason[200]; /* for core dump inspection */
 
 static void ABORT(const char* fmt, ...)
@@ -176,8 +185,7 @@ static ssize_t write_all(int fd, const char *buff, size_t size) {
     return pos;
 }
 
-static void add_os_pid_to_port_id_mapping(Eterm, pid_t);
-static Eterm get_port_id(pid_t);
+static void kill_all_children(void);
 static int forker_hash_init(void);
 
 static int max_files = -1;
@@ -566,6 +574,7 @@ main(int argc, char *argv[])
                     tcsetattr(0,TCSANOW,&initial_tty_mode);
                 }
                 DEBUG_PRINT("erl_child_setup failed to read from uds: %d, %d", res, errno);
+                kill_all_children();
                 _exit(0);
             }
 
@@ -574,97 +583,103 @@ main(int argc, char *argv[])
                 if (isatty(0) && isatty(1)) {
                     tcsetattr(0,TCSANOW,&initial_tty_mode);
                 }
+                kill_all_children();
                 _exit(0);
             }
             /* Since we use unix domain sockets and send the entire data in
                one go we *should* get the entire payload at once. */
             ASSERT(res == sizeof(proto));
-            ASSERT(proto.action == ErtsSysForkerProtoAction_Start);
+            if (proto.action == ErtsSysForkerProtoAction_Start) {
+                sys_sigblock(SIGCHLD);
 
-            sys_sigblock(SIGCHLD);
+                errno = 0;
 
-            errno = 0;
+                os_pid = fork();
+                if (os_pid == 0) {
+                    start_new_child(pipes);
+                }
 
-            os_pid = fork();
-            if (os_pid == 0)
-                start_new_child(pipes);
+                {
+                    ErtsSysExitStatus es;
+                    es.os_pid = os_pid;
+                    es.port_id = proto.u.start.port_id;
+                    es.want_exit_status = proto.u.start.want_exit_status;
+                    hash_put(forker_hash, &es);
+                }
 
-            add_os_pid_to_port_id_mapping(proto.u.start.port_id, os_pid);
-
-            /* We write an ack here, but expect the reply on
-               the pipes[0] inside the fork */
-            proto.action = ErtsSysForkerProtoAction_Go;
-            proto.u.go.os_pid = os_pid;
-            proto.u.go.error_number = errno;
-            write_all(pipes[1], (char *)&proto, sizeof(proto));
+                /* We write an ack here, but expect the reply on
+                the pipes[0] inside the fork */
+                proto.action = ErtsSysForkerProtoAction_Go;
+                proto.u.go.os_pid = os_pid;
+                proto.u.go.error_number = errno;
+                write_all(pipes[1], (char *)&proto, sizeof(proto));
 
 #ifdef FORKER_PROTO_START_ACK
-            proto.action = ErtsSysForkerProtoAction_StartAck;
-            write_all(uds_fd, (char *)&proto, sizeof(proto));
+                proto.action = ErtsSysForkerProtoAction_StartAck;
+                write_all(uds_fd, (char *)&proto, sizeof(proto));
 #endif
 
-            sys_sigrelease(SIGCHLD);
-            close(pipes[0]);
-            close(pipes[1]);
-            close(pipes[2]);
+                sys_sigrelease(SIGCHLD);
+                close(pipes[0]);
+                close(pipes[1]);
+                close(pipes[2]);
+            } else if (proto.action == ErtsSysForkerProtoAction_Stop) {
+                ErtsSysExitStatus est, *es;
+                est.os_pid = proto.u.stop.os_pid;
+                es = hash_get(forker_hash, &est);
+                if (es) {
+                    es->want_exit_status = false;
+                }
+            } else {
+#ifdef DEBUG
+                ABORT("Unknown command from parent: %d", proto.action);
+#endif
+            }
         }
 
         if (FD_ISSET(sigchld_pipe[0], &read_fds)) {
             int ibuff[2];
             ErtsSysForkerProto proto;
+            ErtsSysExitStatus est, *es;
             res = read_all(sigchld_pipe[0], (char *)ibuff, sizeof(ibuff));
             if (res <= 0) {
                 ABORT("Failed to read from sigchld pipe: %d (%d)", res, errno);
             }
 
-            proto.u.sigchld.port_id = get_port_id((pid_t)(ibuff[0]));
+            est.os_pid = (pid_t)ibuff[0];
+            es = hash_remove(forker_hash, &est);
 
-            if (proto.u.sigchld.port_id == THE_NON_VALUE)
-                continue; /* exit status report not requested */
-
-            proto.action = ErtsSysForkerProtoAction_SigChld;
-            proto.u.sigchld.error_number = ibuff[1];
-            DEBUG_PRINT("send sigchld to %d (errno = %d)", uds_fd, ibuff[1]);
-            if (write_all(uds_fd, (char *)&proto, sizeof(proto)) < 0) {
-                /* The uds was close, which most likely means that the VM
-                   has exited. This will be detected when we try to read
-                   from the uds_fd. */
-                DEBUG_PRINT("Failed to write to uds: %d (%d)", uds_fd, errno);
+            if (es && es->want_exit_status) {
+                proto.action = ErtsSysForkerProtoAction_SigChld;
+                proto.u.sigchld.port_id = es->port_id;
+                proto.u.sigchld.error_number = ibuff[1];
+                DEBUG_PRINT("send sigchld to %d (errno = %d)", uds_fd, ibuff[1]);
+                if (write_all(uds_fd, (char *)&proto, sizeof(proto)) < 0) {
+                    /* The uds was close, which most likely means that the VM
+                    has exited. This will be detected when we try to read
+                    from the uds_fd. */
+                    DEBUG_PRINT("Failed to write to uds: %d (%d)", uds_fd, errno);
+                }
+                free(es);
             }
         }
     }
     return 1;
 }
 
-typedef struct exit_status {
-    HashBucket hb;
-    pid_t os_pid;
-    Eterm port_id;
-} ErtsSysExitStatus;
-
-static Hash *forker_hash;
-
-static void add_os_pid_to_port_id_mapping(Eterm port_id, pid_t os_pid)
-{
-    if (port_id != THE_NON_VALUE) {
-        /* exit status report requested */
-        ErtsSysExitStatus es;
-        es.os_pid = os_pid;
-        es.port_id = port_id;
-        hash_put(forker_hash, &es);
+static void kill_child(pid_t os_pid) {
+    if (os_pid > 0 && kill(os_pid, SIGTERM) != 0) {
+        DEBUG_PRINT("error killing process %d: %d", os_pid, errno);
     }
 }
 
-static Eterm get_port_id(pid_t os_pid)
-{
-    ErtsSysExitStatus est, *es;
-    Eterm port_id;
-    est.os_pid = os_pid;
-    es = hash_remove(forker_hash, &est);
-    if (!es) return THE_NON_VALUE;
-    port_id = es->port_id;
-    free(es);
-    return port_id;
+static void fun_kill_foreach(ErtsSysExitStatus *es, void *unused) {
+    kill_child(es->os_pid);
+}
+
+static void kill_all_children(void) {
+    DEBUG_PRINT("cleaning up by killing all %d child processes", forker_hash->nobjs);
+    hash_foreach(forker_hash, (HFOREACH_FUN)fun_kill_foreach, NULL);
 }
 
 static int fcmp(void *a, void *b)
@@ -693,6 +708,7 @@ static void *falloc(void *e)
     ErtsSysExitStatus *ne = malloc(sizeof(ErtsSysExitStatus));
     ne->os_pid = se->os_pid;
     ne->port_id = se->port_id;
+    ne->want_exit_status = se->want_exit_status;
     return ne;
 }
 
