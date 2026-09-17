@@ -842,6 +842,48 @@ protected:
             add(to, a64::Gp::make_x(mem.base_id()), offset);
         }
     }
+
+    template<size_t N>
+    class ImmedRegCache {
+        static_assert(N > 0, "ImmedRegCache requires at least one register");
+
+    private:
+        std::unordered_map<Eterm, a64::Gp> values;
+        std::array<Eterm, N> reg_values;
+        std::array<a64::Gp, N> regs;
+        size_t next_reg = 0;
+        BeamAssembler &ba;
+
+    public:
+        template<typename... Regs>
+        ImmedRegCache(BeamAssembler &ba, Regs... regs) : regs{regs...}, ba(ba) {
+            reg_values.fill(THE_NON_VALUE);
+        }
+
+        a64::Gp load_value(Eterm value) {
+            auto search = values.find(value);
+            if (search != values.end()) {
+                return search->second;
+            }
+
+            auto new_reg = regs[next_reg];
+
+            if (is_value(reg_values[next_reg])) {
+                values.erase(reg_values[next_reg]);
+            }
+
+            values.emplace(value, new_reg);
+            reg_values[next_reg] = value;
+            ba.mov_imm(new_reg, value);
+
+            next_reg = (next_reg + 1) % N;
+
+            return new_reg;
+        }
+    };
+
+    template<typename... Args>
+    ImmedRegCache(Args...) -> ImmedRegCache<sizeof...(Args) - 1>;
 };
 
 #include "beam_asm_global.hpp"
@@ -1207,6 +1249,13 @@ protected:
      *
      * Clobbers v30 and v31. */
     void emit_copy_words_increment(a64::Gp from, a64::Gp to, size_t count);
+
+    void emit_update_any_record(const ArgAtom &Hint,
+                                const size_t size_on_heap,
+                                const ArgSource &Src,
+                                const ArgRegister &Dst,
+                                const ArgWord &UpdateCount,
+                                const Span<const ArgVal> &updates);
 
     void emit_get_list(const a64::Gp boxed_ptr,
                        const ArgRegister &Hd,

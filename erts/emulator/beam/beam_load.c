@@ -637,10 +637,12 @@ static int load_code(LoaderState* stp)
                         }
                     }
                 default:
+                    beam_load_report_error(__LINE__, stp,
+                                           "no specific operation found");
                     beamopallocator_free_op(&stp->op_allocator,
                                             stp->genop);
                     stp->genop = NULL;
-                    BeamLoadError0(stp, "no specific operation found");
+                    goto load_error;
                 }
             }
 

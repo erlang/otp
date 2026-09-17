@@ -147,6 +147,9 @@ COVER=$(NO_OPT)
 
 DIALYZER = bs_match
 
+R29= \
+        native_record
+
 CORE_MODULES = \
 	lfe_andor_SUITE \
 	lfe_guard_SUITE
@@ -179,6 +182,8 @@ DIALYZER_MODULES= $(DIALYZER:%=%_dialyzer_SUITE)
 DIALYZER_ERL_FILES= $(DIALYZER_MODULES:%=%.erl)
 COVER_MODULES= $(COVER:%=%_cover_SUITE)
 COVER_ERL_FILES= $(COVER_MODULES:%=%.erl)
+R29_MODULES=$(R29:%=%_r29_SUITE)
+R29_ERL_FILES=$(R29_MODULES:%=%.erl)
 
 HRL_FILES= test_lib.hrl
 ERL_FILES= $(MODULES:%=%.erl)
@@ -218,7 +223,7 @@ make_emakefile: $(NO_BOOL_OPT_ERL_FILES) $(NO_OPT_ERL_FILES) \
                 $(NO_CORE_OPT_ERL_FILES) $(NO_CORE_SSA_OPT_ERL_FILES) \
                 $(INLINE_ERL_FILES) $(NO_MOD_OPT_ERL_FILES) \
                 $(NO_TYPE_OPT_ERL_FILES) $(DIALYZER_ERL_FILES) \
-                $(COVER_ERL_FILES)
+                $(COVER_ERL_FILES) $(R29_ERL_FILES)
 	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) -o$(EBIN) $(MODULES) \
 	  > $(EMAKEFILE)
 	$(ERL_TOP)/make/make_emakefile +no_bool_opt $(ERL_COMPILE_FLAGS) \
@@ -245,6 +250,8 @@ make_emakefile: $(NO_BOOL_OPT_ERL_FILES) $(NO_OPT_ERL_FILES) \
 	  -o$(EBIN) $(COVER_MODULES) >> $(EMAKEFILE)
 	$(ERL_TOP)/make/make_emakefile +dialyzer $(ERL_COMPILE_FLAGS) \
 	  -o$(EBIN) $(DIALYZER_MODULES) >> $(EMAKEFILE)
+	$(ERL_TOP)/make/make_emakefile +r29 $(ERL_COMPILE_FLAGS) \
+	  -o$(EBIN) $(R29_MODULES) >> $(EMAKEFILE)
 
 tests $(TYPES): make_emakefile
 	erl $(ERL_MAKE_FLAGS) -make
@@ -293,6 +300,9 @@ docs:
 %_dialyzer_SUITE.erl: %_SUITE.erl
 	sed -e 's;-module($(basename $<));-module($(basename $@));' $< > $@
 
+%_r29_SUITE.erl: %_SUITE.erl
+	sed -e 's;-module($(basename $<));-module($(basename $@));' $< > $@
+
 # ----------------------------------------------------
 # Release Target
 # ----------------------------------------------------
@@ -314,6 +324,7 @@ release_tests_spec: make_emakefile
 		$(NO_MOD_OPT_ERL_FILES) \
 		$(NO_SSA_OPT_ERL_FILES) \
 	        $(NO_TYPE_OPT_ERL_FILES) \
+		$(R29_ERL_FILES) \
 	        $(COVER_ERL_FILES) \
 	        $(DIALYZER_ERL_FILES) "$(RELSYSDIR)"
 	$(INSTALL_DATA) $(HRL_FILES) "$(RELSYSDIR)"

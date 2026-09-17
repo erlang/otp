@@ -1316,8 +1316,9 @@ update_record a I s d I *
 update_record_in_place I s d I *
 
 #
-# Native records (OTP 29).
+# Native records (introduced in OTP 29).
 #
+
 
 is_any_native_record f xy
 
@@ -1325,6 +1326,16 @@ is_native_record f xy a a
 
 get_record_elements Fail Src Size Matches=* | map_key_sort(Size, Matches) =>
     i_get_record_elements Fail Src Size Matches
+
+get_record_elements_id _Fail Name=a Src Size Matches=* |
+  map_key_sort(Size, Matches) =>
+    get_local_record_elements(Name, Src, Size, Matches)
+
+get_record_elements_id Fail _Id Src Size Matches=* |
+  map_key_sort(Size, Matches) =>
+    i_get_record_elements Fail Src Size Matches
+
+i_get_local_record_elements/3
 
 put_record p Name=a n Dst Live Size New=* =>
     create_local_record(Name, Dst, Live, Size, New)
@@ -1340,10 +1351,23 @@ create_local_native_record Def=q Dst Live Size New=* |
 
 create_local_native_record/4
 
-i_create_local_native_record q d t I *
+update_record_id Hint Name=a Src Dst Live Size Updates=* |
+  map_key_sort(Size, Updates) =>
+    update_local_record(Hint, Name, Src, Dst, Live, Size, Updates)
 
-i_get_record_elements f xy I *
+update_record_id _Hint _Id Src Dst Live Size Updates=* |
+  map_key_sort(Size, Updates) =>
+    i_update_native_record Src Dst Live Size Updates
+
+i_update_local_native_record/6
+
+i_create_local_native_record q d t I *
 i_create_native_record c d t I *
+
+i_get_local_record_elements q xy I *
+i_get_record_elements j xy I *
+
+i_update_local_native_record a q s d t I *
 i_update_native_record s d t I *
 
 is_record_accessible f xy a

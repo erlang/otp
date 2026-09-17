@@ -30,7 +30,8 @@
          build_and_match/1, tuple_with_case/1, tuple_in_guard/1,
          get_two_tuple_elements/1,
          record_update/1,
-         bad_tuple_match/1]).
+         bad_tuple_match/1,
+         many_constants/1]).
 -include_lib("common_test/include/ct.hrl").
 
 %% Tests tuples and the BIFs:
@@ -55,7 +56,8 @@ all() ->
      tuple_with_case, tuple_in_guard,
      get_two_tuple_elements,
      record_update,
-     bad_tuple_match].
+     bad_tuple_match,
+     many_constants].
 
 groups() -> 
     [].
@@ -736,6 +738,16 @@ bad_tuple_match(_Config) ->
     {ok1, _} = Find,
     {ok2, _, _} = Details,
 
+    ok.
+
+many_constants(_Config) ->
+    A = id(42),
+    T = id(list_to_tuple([A|lists:seq(1, 32)])),
+
+    %% Ensure that filling the cache of immediates (AArch64) doesn't
+    %% cause any obvious problems.
+    T = id({A,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,
+            21,22,23,24,25,26,27,28,29,30,31,32}),
     ok.
 
 %% Use this function to avoid compile-time evaluation of an expression.

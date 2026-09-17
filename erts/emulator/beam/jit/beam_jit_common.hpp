@@ -29,6 +29,14 @@
 #include <vector>
 #include <unordered_map>
 #include <map>
+#include <utility>
+#include <functional>
+
+#ifdef __GNUC__
+#    pragma GCC diagnostic push
+/* Suppress alignment warnings for `Eterm` in templates. */
+#    pragma GCC diagnostic ignored "-Wignored-attributes"
+#endif
 
 extern "C"
 {
@@ -172,6 +180,8 @@ struct BeamModuleAssemblerCommon {
 
     /* Map of literals to patch labels */
     struct patch_literal {
+        std::vector<std::pair<struct patch, std::function<Eterm(Eterm)>>>
+                deferred;
         std::vector<struct patch> patches;
     };
     typedef std::unordered_map<unsigned, struct patch_literal> LiteralMap;
@@ -603,4 +613,8 @@ bool beam_jit_is_shallow_boxed(Eterm term);
 void beam_jit_invalid_heap_ptr(Process *p, Eterm term);
 #endif
 
+#ifdef __GNUC__
+#    pragma GCC diagnostic pop
 #endif
+
+#endif /* __BEAM_JIT_COMMON_HPP__ */

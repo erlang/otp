@@ -300,23 +300,24 @@ void BeamModuleAssembler::emit_continue_exit() {
     a.jmp(resolve_fragment(ga->get_do_schedule()));
 }
 
-void BeamModuleAssembler::emit_get_list(const x86::Gp src,
-                                        const ArgRegister &Hd,
-                                        const ArgRegister &Tl) {
-    x86::Gp boxed_ptr = emit_ptr_val(src, src);
+void BeamModuleAssembler::emit_get_pair(const x86::Gp src,
+                                        const Uint offset,
+                                        const ArgRegister &First,
+                                        const ArgRegister &Second) {
+    x86::Gp clean_ptr = emit_ptr_val(src, src);
+    x86::Mem src_ptr = x86::Mem(clean_ptr, offset);
+    x86::Mem xmm_src_ptr = x86::Mem(clean_ptr, offset, 16);
 
-    switch (ArgVal::memory_relation(Hd, Tl)) {
+    switch (ArgVal::memory_relation(First, Second)) {
     case ArgVal::Relation::consecutive: {
-        comment("(moving head and tail together)");
-        x86::Mem dst_ptr = getArgRef(Hd, 16);
-        x86::Mem src_ptr = getCARRef(boxed_ptr, 16);
+        x86::Mem dst_ptr = getArgRef(First, 16);
         preserve_cache(
                 [&]() {
-                    vmovups(x86::xmm0, src_ptr);
+                    vmovups(x86::xmm0, xmm_src_ptr);
                     vmovups(dst_ptr, x86::xmm0);
                 },
-                getArgRef(Hd),
-                getArgRef(Tl));
+                getArgRef(First),
+                getArgRef(Second));
         break;
     }
     case ArgVal::Relation::reverse_consecutive: {
@@ -324,31 +325,35 @@ void BeamModuleAssembler::emit_get_list(const x86::Gp src,
             goto fallback;
         }
 
-        comment("(moving and swapping head and tail together)");
-        x86::Mem dst_ptr = getArgRef(Tl, 16);
-        x86::Mem src_ptr = getCARRef(boxed_ptr, 16);
+        x86::Mem dst_ptr = getArgRef(Second, 16);
         preserve_cache(
                 [&]() {
-                    a.vpermilpd(x86::xmm0, src_ptr, 1); /* Load and swap */
+                    a.vpermilpd(x86::xmm0, xmm_src_ptr, 1); /* Load and swap */
                     a.vmovups(dst_ptr, x86::xmm0);
                 },
-                getArgRef(Hd),
-                getArgRef(Tl));
+                getArgRef(First),
+                getArgRef(Second));
         break;
     }
     case ArgVal::Relation::none:
     fallback:
         preserve_cache(
                 [&]() {
-                    a.mov(ARG2, getCARRef(boxed_ptr));
-                    a.mov(ARG3, getCDRRef(boxed_ptr));
+                    a.mov(ARG2, src_ptr);
+                    a.mov(ARG3, src_ptr.clone_adjusted(sizeof(Eterm)));
                 },
                 ARG2,
                 ARG3);
-        mov_arg(Hd, ARG2);
-        mov_arg(Tl, ARG3);
+        mov_arg(First, ARG2);
+        mov_arg(Second, ARG3);
         break;
     }
+}
+
+void BeamModuleAssembler::emit_get_list(const x86::Gp src,
+                                        const ArgRegister &Hd,
+                                        const ArgRegister &Tl) {
+    emit_get_pair(src, -TAG_PRIMARY_LIST, Hd, Tl);
 }
 
 void BeamModuleAssembler::emit_get_list(const ArgRegister &Src,
@@ -930,7 +935,19 @@ void BeamModuleAssembler::emit_update_record(
         const ArgRegister &Dst,
         const ArgWord &UpdateCount,
         const Span<const ArgVal> &updates) {
-    size_t copy_index = 0, size_on_heap = TupleSize.get() + 1;
+    size_t size_on_heap = TupleSize.get() + 1;
+    emit_update_any_record(Hint, size_on_heap, Src, Dst, UpdateCount, updates);
+}
+
+/* Update a tuple, a tuple record, or a native record. */
+void BeamModuleAssembler::emit_update_any_record(
+        const ArgAtom &Hint,
+        const size_t size_on_heap,
+        const ArgSource &Src,
+        const ArgRegister &Dst,
+        const ArgWord &UpdateCount,
+        const Span<const ArgVal> &updates) {
+    size_t copy_index = 0;
     Label next = a.new_label();
 
     x86::Gp ptr_val;

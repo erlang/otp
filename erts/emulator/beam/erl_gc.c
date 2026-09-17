@@ -4023,6 +4023,7 @@ check_all_heap_terms_in_range(int (*check_eterm)(Eterm),
             off_heap_common:
                 {
                     int tari = thing_arityval(val);
+                    ASSERT(tari >= 0);
                     tp += tari;
                 }
                 break;
@@ -4036,6 +4037,7 @@ check_all_heap_terms_in_range(int (*check_eterm)(Eterm),
             default:
                 {
                     int tari = header_arity(val);
+                    ASSERT(tari >= 0);
                     tp += tari;
                 }
                 break;
