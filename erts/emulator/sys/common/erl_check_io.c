@@ -1409,6 +1409,17 @@ enif_select_x(ErlNifEnv* env,
 #endif
     }
 
+#if ERTS_POLL_USE_SCHEDULER_POLLING
+    if (on && ctl_op == ERTS_POLL_OP_MOD && ctl_events == ERTS_POLL_EV_IN
+        && state->flags & ERTS_EV_FLAG_IN_SCHEDULER) {
+        /* Re-arming a read select on an fd that is still registered
+         * for IN in the scheduler pollset. Neither pollset changes:
+         * IN stays enabled where it is, and the events carried by the
+         * normal pollset are not touched by this call. */
+        new_events = state->active_events;
+    }
+    else
+#endif
     if (ctl_events || ctl_op == ERTS_POLL_OP_DEL) {
 
         new_events = erts_io_control_wakeup(state,
