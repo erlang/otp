@@ -57,7 +57,8 @@
          signature_algorithms/1,
          drop_unassigned_signature_algorithms/1,
          drop_undecodable_certificate_authorities/1,
-         reject_truncated_certificate_entry/1]).
+         reject_truncated_certificate_entry/1,
+         decode_sni_after_unknown_name_type/1]).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -75,8 +76,10 @@ all() -> [
           signature_algorithms,
           drop_unassigned_signature_algorithms,
           drop_undecodable_certificate_authorities,
-          reject_truncated_certificate_entry
+          reject_truncated_certificate_entry,
+          decode_sni_after_unknown_name_type
          ].
+
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
     Config.
@@ -186,6 +189,26 @@ decode_empty_server_sni_correctly(_Config) ->
     SNI = <<?UINT16(?SNI_EXT),?UINT16(0)>>,
     Decoded = ssl_handshake:decode_hello_extensions(SNI, ?TLS_1_2, ?TLS_1_2, server),
     #{sni := #sni{hostname = ""}} = Decoded.
+
+decode_sni_after_unknown_name_type(_Config) ->
+    %% RFC 6066 §3: a ServerNameList may contain entries of name types other
+    %% than host_name (0); a decoder must skip an unknown entry by its
+    %% (byte) length and continue. Regression test: dec_sni/1 used `_:Len`
+    %% (Len *bits*) instead of `_:Len/binary` to skip an unknown entry, so a
+    %% host_name entry following an unknown-type entry was mis-located and
+    %% never decoded. Put an unknown-type entry (type 1, 3 bytes) before the
+    %% host_name entry and require the hostname to still decode.
+    Host = <<"test.com">>,
+    HostLen = byte_size(Host),
+    HostEntry = <<?BYTE(?SNI_NAMETYPE_HOST_NAME), ?UINT16(HostLen), Host/binary>>,
+    UnknownEntry = <<?BYTE(1), ?UINT16(3), "abc">>,
+    NameList = <<UnknownEntry/binary, HostEntry/binary>>,
+    NameListLen = byte_size(NameList),
+    ExtData = <<?UINT16(NameListLen), NameList/binary>>,
+    ExtDataLen = byte_size(ExtData),
+    SNI = <<?UINT16(?SNI_EXT), ?UINT16(ExtDataLen), ExtData/binary>>,
+    Decoded = ssl_handshake:decode_hello_extensions(SNI, ?TLS_1_2, ?TLS_1_2, client),
+    #{sni := #sni{hostname = "test.com"}} = Decoded.
 
 
 select_proper_tls_1_2_rsa_default_hashsign(_Config) ->
