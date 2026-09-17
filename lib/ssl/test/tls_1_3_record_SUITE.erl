@@ -27,6 +27,7 @@
 -include_lib("ssl/src/tls_handshake_1_3.hrl").
 -include_lib("ssl/src/ssl_cipher.hrl").
 -include_lib("ssl/src/ssl_internal.hrl").
+-include_lib("ssl/src/ssl_alert.hrl").
 
 %% Callback functions
 -export([all/0,
@@ -41,7 +42,9 @@
          '1_RTT_handshake'/0,
          '1_RTT_handshake'/1,
          '0_RTT_handshake'/0,
-         '0_RTT_handshake'/1
+         '0_RTT_handshake'/1,
+         reject_oversized_plaintext/0,
+         reject_oversized_plaintext/1
         ]).
 
 %%--------------------------------------------------------------------
@@ -52,7 +55,8 @@ all() ->
     [encode_decode,
      finished_verify_data,
      '1_RTT_handshake',
-     '0_RTT_handshake'].
+     '0_RTT_handshake',
+     reject_oversized_plaintext].
 
 init_per_suite(Config) ->
     catch crypto:stop(),
@@ -1465,3 +1469,62 @@ hex2int(C) when $a =< C, C =< $f ->
 
 create_info(Label, Context, Length) ->
     tls_v1:create_info(Label, Context, Length, << "tls13 ">>).
+
+%%--------------------------------------------------------------------
+reject_oversized_plaintext() ->
+    [{doc, "RFC 8446 Section 5.4: a TLS-1.3 record that decrypts to more than "
+      "2^14 octets of TLSInnerPlaintext content MUST be rejected with a "
+      "record_overflow alert. Regression test: encode an oversized (2^14 + 1) "
+      "application_data plaintext into a valid AEAD record and confirm "
+      "decode_cipher_text/2 returns a record_overflow alert; a record exactly "
+      "at 2^14 decodes normally."}].
+reject_oversized_plaintext(_Config) ->
+    CS = oversized_test_connection_states(),
+
+    %% Exactly 2^14 bytes of content -> accepted. Encode and decode both use a
+    %% fresh seq-0 state so the AEAD nonces line up.
+    OkData = binary:copy(<<$A>>, 16384),
+    {[_|OkEnc], _} = tls_record_1_3:encode_plain_text(23, OkData, CS),
+    OkCipher = #ssl_tls{type = 23, version = ?TLS_1_2, fragment = OkEnc},
+    {#ssl_tls{type = 23, fragment = OkData}, _} =
+        tls_record_1_3:decode_cipher_text(OkCipher, read_from_write(CS)),
+
+    %% 2^14 + 1 bytes of content -> record_overflow. Encode from the same
+    %% seq-0 state so decryption succeeds and the length check is what fires.
+    BigData = binary:copy(<<$A>>, 16385),
+    {[_|BigEnc], _} = tls_record_1_3:encode_plain_text(23, BigData, CS),
+    BigCipher = #ssl_tls{type = 23, version = ?TLS_1_2, fragment = BigEnc},
+    case tls_record_1_3:decode_cipher_text(BigCipher, read_from_write(CS)) of
+        {#alert{description = ?RECORD_OVERFLOW}, _} ->
+            ok;
+        #alert{description = ?RECORD_OVERFLOW} ->
+            ok;
+        Other ->
+            ct:fail("Expected record_overflow alert for oversized plaintext, "
+                    "got ~p", [Other])
+    end.
+
+%% Minimal AES-256-GCM ConnectionStates for the record round-trip. The write
+%% side encrypts; the read side (same key/iv, seq 0) decrypts.
+oversized_test_connection_states() ->
+    Key = crypto:strong_rand_bytes(32),
+    IV  = crypto:strong_rand_bytes(12),
+    CipherState = #cipher_state{key = Key, iv = IV, tag_len = 16},
+    SecParams = #security_parameters{
+                   cipher_suite = ?TLS_AES_256_GCM_SHA384,
+                   cipher_type = ?AEAD,
+                   bulk_cipher_algorithm = 8,   %% AES-256-GCM (matches encode_decode)
+                   prf_algorithm = sha384},
+    #{current_write =>
+          #{cipher_state => CipherState,
+            sequence_number => 0,
+            security_parameters => SecParams,
+            max_fragment_length => undefined}}.
+
+%% decode_cipher_text/2 reads from current_read; reuse the write state's keys
+%% (same key/iv, seq 0) and add the early_data map the AEAD read clause matches.
+read_from_write(#{current_write := Write}) ->
+    #{current_read =>
+          Write#{early_data => #{pending_early_data_size => 0,
+                                 trial_decryption => false,
+                                 early_data_accepted => false}}}.
