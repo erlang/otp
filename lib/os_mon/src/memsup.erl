@@ -1024,19 +1024,22 @@ get_ext_memory_usage_cancelled(_ATag, Port) ->
 
 %% get_worst_memory_user() -> {Pid, Bytes}
 get_worst_memory_user()  ->
-    get_worst_memory_user(processes(), self(), 0).
+    get_worst_memory_user(erlang:processes_iterator(), self(), 0).
 
-get_worst_memory_user([Pid|Pids], MaxPid, MaxMemBytes) ->
-    case process_memory(Pid) of
-	undefined ->
-	    get_worst_memory_user(Pids, MaxPid, MaxMemBytes);
-	MemoryBytes when MemoryBytes>MaxMemBytes ->
-	    get_worst_memory_user(Pids, Pid, MemoryBytes);
-	_MemoryBytes ->
-	    get_worst_memory_user(Pids, MaxPid, MaxMemBytes)
-    end;
-get_worst_memory_user([], MaxPid, MaxMemBytes) ->
-    {MaxPid, MaxMemBytes}.
+get_worst_memory_user(Iter0, MaxPid, MaxMemBytes) ->
+    case erlang:processes_next(Iter0) of
+        none ->
+            {MaxPid, MaxMemBytes};
+        {Pid, Iter1} ->
+            case process_memory(Pid) of
+                undefined ->
+                    get_worst_memory_user(Iter1, MaxPid, MaxMemBytes);
+                MemoryBytes when MemoryBytes > MaxMemBytes ->
+                    get_worst_memory_user(Iter1, Pid, MemoryBytes);
+                _MemoryBytes ->
+                    get_worst_memory_user(Iter1, MaxPid, MaxMemBytes)
+            end
+    end.
 
 process_memory(Pid) ->
     case process_info(Pid, memory) of
