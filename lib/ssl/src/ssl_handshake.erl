@@ -937,6 +937,20 @@ decode_handshake(Version, ?SERVER_HELLO,
        session_id = Session_ID,
        cipher_suite = Cipher_suite,
        extensions = HelloExtensions};
+%% RFC 8446 §4.1.3 (TLS-1.3) and RFC 5246 §7.4.1.3 (TLS-1.2): the server's
+%% legacy_compression_method must be null (0). A client that offered only the
+%% null method and receives any other value MUST abort with illegal_parameter.
+%% Match ServerHello messages whose compression byte is not ?NO_COMPRESSION
+%% (both the no-extensions and with-extensions layouts) and reject them
+%% specifically, rather than letting them fall through to the generic
+%% decode_error catch-all.
+decode_handshake(_Version, ?SERVER_HELLO,
+                 <<?BYTE(_Major), ?BYTE(_Minor), _Random:32/binary,
+                   ?BYTE(SID_length), _Session_ID:SID_length/binary,
+                   _Cipher_suite:2/binary, ?BYTE(CompMethod),_/binary>>)
+  when CompMethod =/= ?NO_COMPRESSION ->
+    throw(?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER,
+                     {invalid_compression_method, CompMethod}));
 decode_handshake(_Version, ?CERTIFICATE, <<?UINT24(ACLen), ASN1Certs:ACLen/binary>>) ->
     #certificate{asn1_certificates = certs_to_list(ASN1Certs)};
 %% RFC 6066, servers return a certificate response along with their certificate
