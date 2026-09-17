@@ -1073,7 +1073,7 @@ static ERL_NIF_TERM tty_create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 
 static ERL_NIF_TERM tty_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
 
-    ERL_NIF_TERM input;
+    ERL_NIF_TERM input, signals;
     TTYResource *tty;
 
     debug("tty_init_nif(%T,%T)\r\n", argv[0], argv[1]);
@@ -1087,6 +1087,14 @@ static ERL_NIF_TERM tty_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 
     if (!enif_get_map_value(env, argv[1], enif_make_atom(env, "input"), &input))
         return enif_make_badarg(env);
+
+    /* Whether signal and flow-control handling should stay enabled in
+       raw mode. Defaults to true to preserve the shell's ctrl+c break
+       behavior. When false, ISIG, IEXTEN and IXON are disabled so that
+       control bytes such as ctrl+o, ctrl+c and ctrl+s/ctrl+q reach the
+       application. */
+    if (!enif_get_map_value(env, argv[1], enif_make_atom(env, "signals"), &signals))
+        signals = atom_true;
 
     if (tty->tty == unavailable) {
         if (enif_is_identical(input, atom_raw))
@@ -1126,6 +1134,15 @@ static ERL_NIF_TERM tty_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
             /* erts_fprintf(stderr,"echo %T\r\n", echo); */
             tty->tty_smode.c_lflag &= ~ECHO;
 
+            if (enif_is_identical(signals, atom_false)) {
+                /* Also disable signal and flow-control handling so that
+                   control bytes are passed through to the application.
+                   This restores the sig => false behavior that the
+                   prim_tty API had before the OTP 28 shell improvements. */
+                tty->tty_smode.c_iflag &= ~(BRKINT|IGNPAR|IXON|IXANY);
+                tty->tty_smode.c_lflag &= ~(ISIG|IEXTEN);
+            }
+
         }
 
         if (tcsetattr(tty->ofd, TCSANOW, &tty->tty_smode) < 0) {
@@ -1143,6 +1160,11 @@ static ERL_NIF_TERM tty_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     if (tty->tty == enabled) {
         dwOutMode  |= DISABLE_NEWLINE_AUTO_RETURN;
         dwInMode &= ~(ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT);
+        if (enif_is_identical(signals, atom_false)) {
+            /* Pass ctrl+c through to the application instead of
+               generating a console event for it. */
+            dwInMode &= ~ENABLE_PROCESSED_INPUT;
+        }
     }
 
     if (tty->ifd != INVALID_HANDLE_VALUE && !SetConsoleMode(tty->ifd, dwInMode))
