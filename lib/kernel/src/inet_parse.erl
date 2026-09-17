@@ -485,19 +485,17 @@ strict_address(_) ->
 %%
 %% Return {ok, IP} | {error, einval}
 %%
-ipv4_address(Bin) when is_binary(Bin) ->
-    ipv4_address(binary_to_list(Bin));
-ipv4_address(Cs) ->
-    try ipv4_addr(Cs) of
-	Addr ->
-	    {ok,Addr}
-    catch throw : error ->
-	    {error,einval}
+ipv4_address(Bin) when is_binary(Bin) -> ipv4_address(binary_to_list(Bin));
+ipv4_address([])                      -> {error,einval};
+ipv4_address([_|_] = Cs) ->
+    try ipv4_addr(Cs) of Addr         -> {ok,Addr}
+    catch throw : error               -> {error,einval}
     end.
 
 ipv4_addr(Cs) ->
     case ipv4_addr(Cs, []) of
-        [D] when is_integer(D, 0, 16#ffff_ffff) ->
+        [D] when
+              is_integer(D, 0, 16#ffff_ffff) ->
             D4 = D band 16#ff,
             Da = D bsr 8,
             D3 = Da band 16#ff,
@@ -505,7 +503,9 @@ ipv4_addr(Cs) ->
             D2 = Db band 16#ff,
             D1 = Db bsr 8,
             {D1,D2,D3,D4};
-        [D,D1] when is_integer(D, 0, 16#ff_ffff), is_integer(D1, 0, 16#ff) ->
+        [D,D1] when
+              is_integer(D, 0, 16#ff_ffff),
+              is_integer(D1, 0, 16#ff) ->
             D4 = D band 16#ff,
             Da = D bsr 8,
             D3 = Da band 16#ff,
@@ -528,62 +528,43 @@ ipv4_addr(Cs) ->
             throw(error)
     end.
 
-ipv4_addr([_|_], [_,_,_,_]) ->
-    %% Early bailout for extra characters
-    throw(error);
-%% 8 hex, 11 octal, or 10 decimal chars is maximum
-%% needed to represent 16#ffff_ffff
-ipv4_addr("0x"++Cs, Ds) ->
-    ipv4_addr(Cs, Ds, [], 16, 8);
-ipv4_addr("0X"++Cs, Ds) ->
-    ipv4_addr(Cs, Ds, [], 16, 8);
-ipv4_addr("0"++Cs, Ds) ->
-    ipv4_addr(Cs, Ds, [$0], 8, 11);
-ipv4_addr([C|_]=Cs, Ds) when is_integer(C, $0, $9) ->
-    ipv4_addr(Cs, Ds, [], 10, 10);
-%% The field does not start with a decimal digit
-ipv4_addr(_, _) ->
-    throw(error).
+%% Right after the dot of the previous field,
+%% or at the start of the first field, and then Cs is not empty
+%%
+ipv4_addr([],      _Ds)                      -> throw(error); % Truncated
+ipv4_addr([_|_],    Ds) when length(Ds) >= 4 -> throw(error); % Trailing char
+ipv4_addr("."++_,  _Ds) -> throw(error); % Empty field
+ipv4_addr("0x",    _Ds) -> throw(error); % Truncated field
+ipv4_addr("0X",    _Ds) -> throw(error); % Truncated field
+ipv4_addr("0x"++Cs, Ds) -> ipv4_addr_hex(Cs,  Ds, 0,  8);
+ipv4_addr("0X"++Cs, Ds) -> ipv4_addr_hex(Cs,  Ds, 0,  8);
+ipv4_addr("0"++Cs,  Ds) -> ipv4_addr_base(Cs, Ds, 0, 11,  8);
+ipv4_addr([_|_]=Cs, Ds) -> ipv4_addr_base(Cs, Ds, 0, 10, 10).
+%% 8 hex, 11 octal, or 10 decimal chars is
+%% the maximum needed characters to represent 16#ffff_ffff
 
+ipv4_addr_hex([],      Ds, D, _N) -> [D | Ds];
+ipv4_addr_hex([$.|Cs], Ds, D, _N) -> ipv4_addr(Cs, [D|Ds]);
+ipv4_addr_hex([C |Cs], Ds, D,  N) ->
+    O = if
+            N == 0                  -> throw(error); % Too many digits
+            is_integer(C, $0, $9)   -> $0;
+            is_integer(C, $a, $f)   -> $a - 10;
+            is_integer(C, $A, $F)   -> $A - 10;
+            true                    -> throw(error) % Invalid digit
+        end,
+    ipv4_addr_hex(Cs, Ds, (D bsl 4) bor (C - O), N-1).
 
-ipv4_addr(Cs0, Ds, Rs, Base, N) ->
-    case ipv4_field(Cs0, N, Rs, Base) of
-	{D,""} ->
-	    [D|Ds];
-	{D,[$.|[_|_]=Cs]} ->
-	    ipv4_addr(Cs, [D|Ds]);
-	{_,_} ->
-            throw(error)
-    end.
-
-ipv4_field("", _, Rs, Base) ->
-    {ipv4_field(Rs, Base),""};
-ipv4_field("."++_=Cs, _, Rs, Base) ->
-    {ipv4_field(Rs, Base),Cs};
-ipv4_field([C|Cs], N, Rs, Base) when N > 0 ->
-    ipv4_field(Cs, N-1, [C|Rs], Base);
-ipv4_field(Cs, _, _, _) when is_list(Cs) ->
-    throw(error).
-
-ipv4_field(Rs, Base) when
-      Base =:= 8;
-      Base =:= 10;
-      Base =:= 16 ->
-    case lists:reverse(Rs) of
-        [C | _] when
-              C =:= $+;
-              C =:= $- ->
-            throw(error);
-        Cs when is_list(Cs) ->
-            try erlang:list_to_integer(Cs, Base) of
-                V when is_integer(V, 0, 16#ffff_ffff) ->
-                    V;
-                _ ->
-                    throw(error)
-            catch error : badarg ->
-                    throw(error)
-            end
-    end.
+%% Decimal and octal, should actually work for any base [2..10]
+ipv4_addr_base([],      Ds, D, _N, _B)  -> [D | Ds];
+ipv4_addr_base([$.|Cs], Ds, D, _N, _B)  -> ipv4_addr(Cs, [D|Ds]);
+ipv4_addr_base([C |Cs], Ds, D,  N,  B)  ->
+    O = if
+            N == 0                  -> throw(error); % Too many digits
+            is_integer(C, $0, $9)   -> $0;
+            true                    -> throw(error) % Invalid digit
+        end,
+    ipv4_addr_base(Cs, Ds, D*B + (C - O), N-1, B).
 
 
 %%
