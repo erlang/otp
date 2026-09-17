@@ -1297,7 +1297,7 @@ static Eterm flatmap_merge(Process *p, Eterm map1, Eterm map2) {
     n1   = flatmap_get_size(mp1);
     n2   = flatmap_get_size(mp2);
 
-    if (n1 == 0) return map2;
+    if (n1 == 0 || mp1->keys == mp2->keys) return map2;
     if (n2 == 0) return map1;
 
     need = MAP_HEADER_FLATMAP_SZ + 1 + 2 * (n1 + n2);
