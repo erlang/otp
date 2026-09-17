@@ -430,7 +430,7 @@ client_init(Config, Req) when is_record(Config, config),
                 case Config2#config.use_tsize of
                     true ->
                         SuggestedOptions = Req#tftp_msg_req.options,
-                        SuggestedOptions2 = tftp_lib:replace_val("tsize", "0", SuggestedOptions),
+                        SuggestedOptions2 = tftp_lib:replace_val_r("tsize", "0", SuggestedOptions),
                         Req#tftp_msg_req{options = SuggestedOptions2};
                     false ->
                         Req
