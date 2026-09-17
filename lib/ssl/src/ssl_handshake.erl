@@ -3386,7 +3386,7 @@ maybe_dec_client_hybrid_share(_, Share) ->
 dec_sni(<<?BYTE(?SNI_NAMETYPE_HOST_NAME), ?UINT16(Len),
                 HostName:Len/binary, _/binary>>) ->
     #sni{hostname = binary_to_list(HostName)};
-dec_sni(<<?BYTE(_), ?UINT16(Len), _:Len, Rest/binary>>) -> dec_sni(Rest);
+dec_sni(<<?BYTE(_), ?UINT16(Len), _:Len/binary, Rest/binary>>) -> dec_sni(Rest);
 dec_sni(_) -> undefined.
 
 decode_alpn(undefined) ->
