@@ -124,7 +124,7 @@ internal_get_nif_resource(_) ->
     {error, enotsup}.
 
 read_handle_info(Fd, Opts) ->
-    wrap_call(Fd, [Opts]).
+    wrap_call(Fd, [read_handle_info, Opts]).
 
 wrap_call(Fd, Command) ->
     {_Owner, Pid} = get_fd_data(Fd),
