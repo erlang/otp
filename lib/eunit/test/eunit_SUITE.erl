@@ -70,7 +70,7 @@ appup_test(Config) when is_list(Config) ->
 
 eunit_test(Config) when is_list(Config) ->
     ok = file:set_cwd(code:lib_dir(eunit)),
-    ok = eunit:test(eunit).
+    ok = eunit:test({application, eunit}).
 
 eunit_exact_test(Config) when is_list(Config) ->
     ok = file:set_cwd(code:lib_dir(eunit)),

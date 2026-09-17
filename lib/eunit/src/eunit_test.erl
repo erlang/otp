@@ -106,7 +106,7 @@ macro_test_() ->
  	     end),
       ?_test(begin
  		 {?LINE, F} = ?_assert(false),
- 		 {error,{error,{assertion_failed,
+		 {error,{error,{assert,
 				[{module,_},
 				 {line,_},
 				 {expression,_},
@@ -117,12 +117,12 @@ macro_test_() ->
  	     end),
       ?_test(begin
  		 {?LINE, F} = ?_assert([]),
- 		 {error,{error,{assertion_failed,
+		 {error,{error,{assert,
 				[{module,_},
 				 {line,_},
 				 {expression,_},
 				 {expected,true},
-				 {value,{not_a_boolean,[]}}]},
+				 {not_boolean,[]}]},
 			 _}}
 		     = run_testfun(F)
  	     end),
@@ -132,12 +132,23 @@ macro_test_() ->
  	     end),
       ?_test(begin
  		 {?LINE, F} = ?_assertNot(true),
- 		 {error,{error,{assertion_failed,
+		 {error,{error,{assert,
 				[{module,_},
 				 {line,_},
 				 {expression,_},
-				 {expected,true},
-				 {value,false}]},
+				 {expected,false},
+				 {value,true}]},
+			 _}}
+		     = run_testfun(F)
+	     end),
+      ?_test(begin
+		 {?LINE, F} = ?_assertNot([]),
+		 {error,{error,{assert,
+				[{module,_},
+				 {line,_},
+				 {expression,_},
+				 {expected,false},
+				 {not_boolean,[]}]},
 			 _}}
 		     = run_testfun(F)
  	     end),
@@ -147,7 +158,7 @@ macro_test_() ->
  	     end),
       ?_test(begin
  		 {?LINE, F} = ?_assertMatch([_], []),
- 		 {error,{error,{assertMatch_failed,
+		 {error,{error,{assertMatch,
 				[{module,_},
 				 {line,_},
 				 {expression,_},
@@ -162,7 +173,7 @@ macro_test_() ->
 	     end),
       ?_test(begin
 		 {?LINE, F} = ?_assertNotMatch([_], [42]),
-		 {error,{error,{assertNotMatch_failed,
+		 {error,{error,{assertNotMatch,
 				[{module,_},
 				 {line,_},
 				 {expression,_},
@@ -177,7 +188,7 @@ macro_test_() ->
  	     end),
       ?_test(begin
  		 {?LINE, F} = ?_assertEqual(id(3), id(1+1)),
- 		 {error,{error,{assertEqual_failed,
+		 {error,{error,{assertEqual,
 				[{module,_},
 				 {line,_},
 				 {expression,_},
@@ -192,7 +203,7 @@ macro_test_() ->
 	     end),
       ?_test(begin
 		 {?LINE, F} = ?_assertNotEqual(2, 1+1),
-		 {error,{error,{assertNotEqual_failed,
+		 {error,{error,{assertNotEqual,
 				[{module,_},
 				 {line,_},
 				 {expression,_},
@@ -207,7 +218,7 @@ macro_test_() ->
  	     end),
       ?_test(begin
  		 {?LINE, F} = ?_assertException(error, badarith, ok),
- 		 {error,{error,{assertException_failed,
+		 {error,{error,{assertException,
 				[{module,_},
 				 {line,_},
 				 {expression,_},
@@ -219,7 +230,7 @@ macro_test_() ->
       ?_test(begin
  		 {?LINE, F} = ?_assertException(error, badarg,
  						erlang:error(badarith)),
- 		 {error,{error,{assertException_failed,
+		 {error,{error,{assertException,
 				[{module,_},
 				 {line,_},
 				 {expression,_},
@@ -235,12 +246,82 @@ macro_test_() ->
 		 {ok, ok} = run_testfun(F)
 	     end),
       ?_test(begin
+		 {?LINE, F} = ?_assertError(badarith, ok),
+		 {error,{error,{assertException,
+				[{module,_},
+				 {line,_},
+				 {expression,_},
+				 {pattern,_},
+				 {unexpected_success,ok}]},
+			 _}}
+		     = run_testfun(F)
+	     end),
+      ?_test(begin
+		 {?LINE, F} = ?_assertError(badarith,
+					    erlang:error(badarg)),
+		 {error,{error,{assertException,
+				[{module,_},
+				 {line,_},
+				 {expression,_},
+				 {pattern,_},
+				 {unexpected_exception,
+				  {error,badarg,_}}]},
+			 _}}
+		     = run_testfun(F)
+	     end),
+      ?_test(begin
 		 {?LINE, F} = ?_assertExit(normal, exit(normal)),
 		 {ok, ok} = run_testfun(F)
 	     end),
       ?_test(begin
+		 {?LINE, F} = ?_assertExit(normal, ok),
+		 {error,{error,{assertException,
+				[{module,_},
+				 {line,_},
+				 {expression,_},
+				 {pattern,_},
+				 {unexpected_success,ok}]},
+			 _}}
+		     = run_testfun(F)
+	     end),
+      ?_test(begin
+		 {?LINE, F} = ?_assertExit(normal, exit(shutdown)),
+		 {error,{error,{assertException,
+				[{module,_},
+				 {line,_},
+				 {expression,_},
+				 {pattern,_},
+				 {unexpected_exception,
+				  {exit,shutdown,_}}]},
+			 _}}
+		     = run_testfun(F)
+	     end),
+      ?_test(begin
 		 {?LINE, F} = ?_assertThrow(foo, throw(foo)),
 		 {ok, ok} = run_testfun(F)
+	     end),
+      ?_test(begin
+		 {?LINE, F} = ?_assertThrow(foo, ok),
+		 {error,{error,{assertException,
+				[{module,_},
+				 {line,_},
+				 {expression,_},
+				 {pattern,_},
+				 {unexpected_success,ok}]},
+			 _}}
+		     = run_testfun(F)
+	     end),
+      ?_test(begin
+		 {?LINE, F} = ?_assertThrow(foo, throw(bar)),
+		 {error,{error,{assertException,
+				[{module,_},
+				 {line,_},
+				 {expression,_},
+				 {pattern,_},
+				 {unexpected_exception,
+				  {throw,bar,_}}]},
+			 _}}
+		     = run_testfun(F)
 	     end),
       ?_test(begin
 		 {?LINE, F} = ?_assertNotException(error, badarith, 42),
@@ -254,7 +335,7 @@ macro_test_() ->
       ?_test(begin
 		 {?LINE, F} = ?_assertNotException(error, badarith,
 						   erlang:error(badarith)),
-		 {error,{error,{assertNotException_failed,
+		 {error,{error,{assertNotException,
 				[{module,_},
 				 {line,_},
 				 {expression,_},
