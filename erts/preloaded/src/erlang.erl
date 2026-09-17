@@ -470,6 +470,7 @@ A list of binaries. This datatype is useful to use together with
 -export([pid_to_list/1, port_close/1, port_command/2, port_command/3]).
 -export([port_connect/2, port_control/3, port_get_data/1]).
 -export([port_set_data/2, port_to_list/1, ports/0]).
+-export([pid_to_binary/1, port_to_binary/1, ref_to_binary/1]).
 -export([posixtime_to_universaltime/1, pre_loaded/0, prepare_loading/2]).
 -export([monotonic_time/0, monotonic_time/1]).
 -export([system_time/0, system_time/1]).
@@ -5061,6 +5062,22 @@ pid_to_list(_Pid) ->
     erlang:nif_error(undefined).
 
 -doc """
+Returns a binary constructed from the text representation of `Pid`.
+
+## Examples
+
+```erlang
+1> erlang:pid_to_binary(<0.1.0>).
+<<"<0.1.0>">>
+```
+""".
+-doc #{ category => terms }.
+-spec pid_to_binary(Pid) -> binary() when
+      Pid :: pid().
+pid_to_binary(_Pid) ->
+    erlang:nif_error(undefined).
+
+-doc """
 Returns a string corresponding to the text representation of the port identifier
 `Port`.
 
@@ -5075,6 +5092,23 @@ Returns a string corresponding to the text representation of the port identifier
 -spec port_to_list(Port) -> string() when
       Port :: port().
 port_to_list(_Port) ->
+    erlang:nif_error(undefined).
+
+-doc """
+Returns a binary constructed from the text representation of the port identifier
+`Port`.
+
+## Examples
+
+```erlang
+1> erlang:port_to_binary(#Port<0.0>).
+<<"#Port<0.0>">>
+```
+""".
+-doc #{ category => terms }.
+-spec port_to_binary(Port) -> binary() when
+      Port :: port().
+port_to_binary(_Port) ->
     erlang:nif_error(undefined).
 
 %% ports/0
@@ -5876,6 +5910,27 @@ Returns a string corresponding to the text representation of `Ref`.
 -spec ref_to_list(Ref) -> string() when
       Ref :: reference().
 ref_to_list(_Ref) ->
+    erlang:nif_error(undefined).
+
+-doc """
+Returns a binary constructed from the text representation of `Ref`.
+
+> #### Warning {: .warning }
+>
+> This BIF is intended for debugging and is not to be used in application
+> programs.
+
+## Examples
+
+```erlang
+1> ref_to_binary(#Ref<0.0.0.0>).
+<<"#Ref<0.0.0.0>">>
+```
+""".
+-doc #{ category => terms }.
+-spec ref_to_binary(Ref) -> binary() when
+      Ref :: reference().
+ref_to_binary(_Ref) ->
     erlang:nif_error(undefined).
 
 %% register/2

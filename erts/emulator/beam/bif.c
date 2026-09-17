@@ -4854,6 +4854,49 @@ BIF_RETTYPE list_to_ref_1(BIF_ALIST_1)
     BIF_ERROR(BIF_P, BADARG);
 }
 
+/**********************************************************************/
+
+/* Can only be used to produce binary in the human-readable text form,
+ * e.g. <<"<0.1.0>">>.
+ */
+
+static Eterm
+term2binary_dsprintf(Process *p, Eterm term)
+{
+    int pres;
+    Eterm res;
+    erts_dsprintf_buf_t *dsbufp = erts_create_tmp_dsbuf(64);       
+    pres = erts_dsprintf(dsbufp, "%T", term);
+    if (pres < 0)
+        erts_exit(ERTS_ERROR_EXIT, "Failed to convert term to binary: %d (%s)\n",
+                 -pres, erl_errno_id(-pres));
+
+    res = erts_new_binary_from_data(p, (Uint)dsbufp->str_len, (byte*)dsbufp->str);
+    erts_destroy_tmp_dsbuf(dsbufp);
+    return res;
+}
+
+BIF_RETTYPE pid_to_binary_1(BIF_ALIST_1)
+{
+    if (is_not_pid(BIF_ARG_1))
+        BIF_ERROR(BIF_P, BADARG);
+    BIF_RET(term2binary_dsprintf(BIF_P, BIF_ARG_1));
+}
+
+BIF_RETTYPE port_to_binary_1(BIF_ALIST_1)
+{
+    if (is_not_port(BIF_ARG_1))
+        BIF_ERROR(BIF_P, BADARG);
+    BIF_RET(term2binary_dsprintf(BIF_P, BIF_ARG_1));
+}
+
+BIF_RETTYPE ref_to_binary_1(BIF_ALIST_1)
+{
+    if (is_not_ref(BIF_ARG_1))
+        BIF_ERROR(BIF_P, BADARG);
+    erts_magic_ref_save_bin(BIF_ARG_1);
+    BIF_RET(term2binary_dsprintf(BIF_P, BIF_ARG_1));
+}
 
 /**********************************************************************/
 
