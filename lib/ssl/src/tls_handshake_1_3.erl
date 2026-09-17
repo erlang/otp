@@ -1225,6 +1225,15 @@ generate_kex_keys(Group) when Group == secp256r1mlkem768;
     {Curve, MLKem} = hybrid_algs(Group),
     {public_key:generate_key({namedCurve, Curve}), 
      crypto:generate_key(MLKem, [])};
+generate_kex_keys(brainpoolP256r1tls13) ->
+    public_key:generate_key({namedCurve, brainpoolP256r1});
+generate_kex_keys(brainpoolP384r1tls13) ->
+    public_key:generate_key({namedCurve, brainpoolP384r1});
+generate_kex_keys(brainpoolP512r1tls13) ->
+    %% The brainpool*tls13 groups are advertised in supported_groups but are
+    %% not FFDHE groups; without an explicit clause they would fall into the
+    %% FFDHE catch-all below and crash in ssl_dh_groups:dh_params/1.
+    public_key:generate_key({namedCurve, brainpoolP512r1});
 generate_kex_keys(FFDHE) ->
     public_key:generate_key(ssl_dh_groups:dh_params(FFDHE)).
 

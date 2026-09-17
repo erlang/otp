@@ -89,8 +89,9 @@
          client_keylog_on_alert/0,
          client_keylog_on_alert/1,
          keylog_hs_secret_order/0,
-         keylog_hs_secret_order/1
-        ]).
+         keylog_hs_secret_order/1,
+         tls13_supported_group_brainpool/0,
+         tls13_supported_group_brainpool/1]).
 
 
 %% Test callback
@@ -130,7 +131,8 @@ tls_1_3_1_2_tests() ->
      client_cert_fail_alert_passive,
      keylog_on_alert,
      client_keylog_on_alert,
-     keylog_hs_secret_order
+     keylog_hs_secret_order,
+     tls13_supported_group_brainpool
     ].
 legacy_tests() ->
     [tls_client_tls10_server,
@@ -338,6 +340,25 @@ tls12_client_tls_server(Config) when is_list(Config) ->
                    {verify, verify_peer}, {fail_if_no_peer_cert, true} |
                    ssl_test_lib:ssl_options(server_cert_opts, Config)],
     ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
+
+tls13_supported_group_brainpool() ->
+    [{doc, "TLS-1.3 handshake completes when both peers pin supported_groups "
+      "to a brainpool group. Regression test: brainpoolP{256,384,512}r1tls13 "
+      "are advertised in supported_groups but had no generate_kex_keys/1 "
+      "clause, so a selected brainpool group fell into the FFDHE catch-all "
+      "and crashed in ssl_dh_groups:dh_params/1 "
+      "(CSCAN client_willing_to_use_offered_group)."}].
+tls13_supported_group_brainpool(Config) when is_list(Config) ->
+    lists:foreach(
+      fun(Group) ->
+              ClientOpts = [{versions, ['tlsv1.3']}, {supported_groups, [Group]}
+                            | ssl_test_lib:ssl_options(client_cert_opts, Config)],
+              ServerOpts = [{versions, ['tlsv1.3']}, {supported_groups, [Group]},
+                            {verify, verify_peer}, {fail_if_no_peer_cert, true}
+                            | ssl_test_lib:ssl_options(server_cert_opts, Config)],
+              ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config)
+      end,
+      [brainpoolP256r1tls13, brainpoolP384r1tls13, brainpoolP512r1tls13]).
 
 legacy_tls12_client_tls_server() ->
     [{doc,"Test that a TLS 1.2 client can connect to a TLS 1.3 server."}].
