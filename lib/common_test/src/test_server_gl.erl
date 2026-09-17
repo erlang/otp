@@ -29,7 +29,7 @@
 -moduledoc false.
 -export([start_link/1,stop/1,set_minor_fd/3,unset_minor_fd/1,
 	 get_tc_supervisor/1,print/4,set_props/2,
-	 capture_start/2, capture_stop/1]).
+	 capture_start/1, capture_stop/1, capture_get/1]).
 
 -export([init/1,handle_call/3,handle_cast/2,handle_info/2,terminate/2]).
 
@@ -38,7 +38,8 @@
 	     minor :: 'none'|pid(),	       %Minor fd
 	     minor_monitor,		       %Monitor ref for minor fd
              tsio_monitor,                     %Monitor red for controlling proc
-	     capture :: 'none'|pid(),	       %Capture output
+	     capture :: true | false,	       %Whether to capture output
+	     captured :: [string()],           %Captured output
 	     reject_io :: boolean(),	       %Reject I/O requests...
 	     permit_io,			       %... and exceptions
 	     auto_nl=true :: boolean(),	       %Automatically add NL
@@ -92,9 +93,8 @@ set_minor_fd(GL, Fd, MFA) ->
 unset_minor_fd(GL) ->
     req(GL, unset_minor_fd).
 
-%% capture_start(GL, Who)
+%% capture_start(GL)
 %%  GL = Pid for the group leader process
-%%  Who = Process that wants to start capturing output
 %%
 %% capture_stop(GL)
 %%  GL = Pid for the group leader process
@@ -105,11 +105,14 @@ unset_minor_fd(GL) ->
 %% Starting and stopping capture doesn't affect already captured output.
 %% All output is stored as messages in the message queue until retrieved.
 
-capture_start(GL, Who) ->
-    req(GL, {capture, Who}).
+capture_start(GL) ->
+    req(GL, {capture, true}).
 
 capture_stop(GL) ->
     req(GL, {capture, false}).
+
+capture_get(GL) ->
+    req(GL, capture_get).
 
 %% get_tc_supervisor(GL)
 %%  GL = Pid for the group leader process
@@ -164,7 +167,8 @@ init([TSIO]) ->
 	    minor=none,
 	    minor_monitor=none,
             tsio_monitor=Ref,
-	    capture=none,
+	    capture=false,
+            captured=[],
 	    reject_io=false,
 	    permit_io=gb_sets:empty(),
 	    auto_nl=true,
@@ -189,12 +193,10 @@ handle_call({print,Detail,Msg,Printer}, {From,_}, St) ->
     output(Detail, Msg, Printer, From, St),
     do_gc(),
     {reply,ok,St};
-handle_call({capture, Who}, {_From, _}, St) ->
-    Cap = case Who of
-	      false -> none;
-	      Pid when is_pid(Pid) -> Pid
-	  end,
-    {reply, ok, St#st{capture=Cap}}.
+handle_call({capture, Enabled}, {_From, _}, St) ->
+    {reply, ok, St#st{capture=Enabled}};
+handle_call(capture_get, {_From, _}, #st{captured=Captured}=St) ->
+    {reply, lists:reverse(Captured), St#st{captured=[]}}.
 
 handle_cast(stop, St) ->
     {stop,normal,St}.
@@ -215,36 +217,36 @@ handle_info({'DOWN',Ref,process,_,_}, #st{tsio_monitor=Ref}=St) ->
 handle_info({permit_io,Pid}, #st{permit_io=P}=St) ->
     {noreply,St#st{permit_io=gb_sets:add(Pid, P)}};
 handle_info({io_request,From,ReplyAs,Req}=IoReq, St) ->
-    _ = try io_req(Req, From, St) of
+    StateWithCapture = try io_req(Req, From, St) of
 	passthrough ->
-	    group_leader() ! IoReq;
+	    group_leader() ! IoReq,
+            St;
 	{EscapeHtml,Data} ->
-	    case is_io_permitted(From, St) of
+	    NewSt = case is_io_permitted(From, St) of
 		false ->
-		    ok;
+		    St;
 		true ->
-		    case St of
-			#st{capture=none} ->
-			    ok;
-			#st{capture=CapturePid} ->
-			    CapturePid ! {captured,Data},
-			    ok
-		    end,
 		    case EscapeHtml andalso St#st.escape_chars of
 			true ->
 			    output(minor, test_server_ctrl:escape_chars(Data),
 				   From, From, St);
 			false ->
 			    output(minor, Data, From, From, St)
+		    end,
+		    case St of
+			#st{capture=false} -> St;
+			#st{capture=true} -> St#st{captured=[Data | St#st.captured]}
 		    end
 	    end,
-	    From ! {io_reply,ReplyAs,ok}
+	    From ! {io_reply,ReplyAs,ok},
+            NewSt
     catch
 	_:_ ->
-	    From ! {io_reply,ReplyAs,{error,arguments}}
+	    From ! {io_reply,ReplyAs,{error,arguments}},
+            St
     end,
     do_gc(),
-    {noreply,St};
+    {noreply, StateWithCapture};
 handle_info({structured_io,ClientPid,{Detail,Str}}, St) ->
     output(Detail, Str, ClientPid, ClientPid, St),
     do_gc(),
