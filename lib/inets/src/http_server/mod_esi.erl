@@ -138,27 +138,6 @@ that no HTTP header fields will be generated. This behaviour depends on the
 
 - `Input`: query data of a GET request or the body of a PUT or POST request.
 
-  The default behavior (legacy reasons) for delivering the body, is that the
-  whole body is gathered and converted to a string. But if the httpd config
-  parameter [`max_client_body_chunk`](`m:httpd#max_client_body_chunk`) is set,
-  the body will be delivered as binary chunks instead. The maximum size of the
-  chunks is either [`max_client_body_chunk`](`m:httpd#max_client_body_chunk`) or
-  decided by the client if it uses HTTP chunked encoding to send the body.
-
-  When using the chunking mechanism, this callback must return `{continue,
-  State::term()}` for all calls where `Input` is `{first, Data::binary()}` or
-  `{continue, Data::binary(), State::term()}`. When `Input` is `{last,
-  Data::binary(), State::term()}` the return value will be ignored.
-
-  The input `State` is the last returned `State`, in it the callback can include
-  any data that it needs to keep track of when handling the chunks.
-
-> #### Note {: .info }
->
-> Note that if the body is small all data may be delivered in only one chunk and
-> then the callback will be called with `{last, Data::binary(), undefined}`
-> without getting called with `{first, Data::binary()}`.
-
 ## Setting a response status
 
 To set the response status code, the special `status` response header can be
@@ -170,20 +149,11 @@ JSON response body, one could pass the following:
 ```
 """.
 -doc(#{group => <<"ESI Callback Functions">>}).
--callback 'Function'(SessionID, Env, Input) -> {continue, State} | _
+-callback 'Function'(SessionID, Env, Input) -> _
                         when
                             SessionID :: session_id(),
                             Env :: [env()],
-                            Input :: string() | ChunkedData,
-                            ChunkedData ::
-                                {first, Data :: binary()} |
-                                {continue,
-                                 Data :: binary(),
-                                 State :: term()} |
-                                {last,
-                                 Data :: binary(),
-                                 State :: term()},
-                            State :: term().
+                            Input :: string().
 
 -optional_callbacks(['Function'/3]).
 

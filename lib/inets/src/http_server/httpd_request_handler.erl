@@ -242,9 +242,8 @@ handle_cast(Msg, #state{mod = #mod{config_db = Db} = ModData} = State) ->
 %%--------------------------------------------------------------------
 handle_info({Proto, Socket, Data}, 
 	    #state{mfa = {Module, Function, Args},
-                   chunk = {ChunkState, _},
 		   mod = #mod{socket_type = SockType, 
-			      socket = Socket} = ModData} = State) 
+                              socket = Socket} = ModData} = State) 
   when (((Proto =:= tcp) orelse 
 	 (Proto =:= ssl) orelse 
 	 (Proto =:= dummy)) andalso is_binary(Data)) ->
@@ -270,10 +269,6 @@ handle_info({Proto, Socket, Data},
             httpd_response:send_status(NewModData, ErrCode, ErrStr),
             {stop, normal, RequestTimeoutState#state{response_sent = true,
                                                      mod = NewModData}};
-
-        {http_chunk = Module, Function, Args} when ChunkState =/= undefined ->
-            NewState = handle_chunk(Module, Function, Args, RequestTimeoutState),
-            {noreply, NewState};
 
         {_M, _F, _A} = NewMFA ->
             setopts(Socket, SockType, [{active, once}]),
@@ -538,7 +533,6 @@ handle_body(#state{headers = Headers, body = Body,
 	    {stop, normal, State#state{response_sent = true}};
 	_ -> 
 	    Length = list_to_integer(Headers#http_request_h.'content-length'),
-	    MaxChunk = max_client_body_chunk(ConfigDB),
 	    case Length =< MaxBodySize orelse MaxBodySize == nolimit of
 		true ->
 		    case httpd_request:body_chunk_first(Body, Length, MaxChunk) of 
@@ -631,29 +625,6 @@ expect(Headers, _, ConfigDB) ->
 		    http_1_0_expect_header
 	    end
     end.
-
-handle_chunk(http_chunk = Module, decode_data = Function, 
-             [ChunkSize, TotalChunk, {MaxBodySize, BodySoFar, _AccLength, MaxHeaderSize}],
-             #state{chunk = {_, CbState},
-                    mod = #mod{socket_type = SockType,
-                               socket = Socket} = ModData} = State) ->
-    {continue, NewCbState} = httpd_response:handle_continuation(ModData#mod{entity_body = 
-                                                                                {continue, BodySoFar, CbState}}),
-    setopts(Socket, SockType, [{active, once}]),
-    State#state{chunk = {continue, NewCbState}, mfa = {Module, Function, [ChunkSize, TotalChunk, {MaxBodySize, <<>>, 0, MaxHeaderSize}]}};
-
-handle_chunk(http_chunk = Module, decode_size = Function, 
-             [Data, HexList, _AccSize, {MaxBodySize, BodySoFar, _AccLength, MaxHeaderSize}],
-             #state{chunk = {_, CbState},
-                    mod = #mod{socket_type = SockType,
-                               socket = Socket} = ModData} = State) ->
-    {continue, NewCbState} = httpd_response:handle_continuation(ModData#mod{entity_body = {continue, BodySoFar, CbState}}),
-    setopts(Socket, SockType, [{active, once}]),
-    State#state{chunk = {continue, NewCbState}, mfa = {Module, Function, [Data, HexList, 0, {MaxBodySize, <<>>, 0, MaxHeaderSize}]}};
-handle_chunk(Module, Function, Args, #state{mod = #mod{socket_type = SockType,
-                                                                      socket = Socket}} = State) ->
-    setopts(Socket, SockType, [{active, once}]),
-    State#state{mfa = {Module, Function, Args}}.
 
 handle_internal_chunk(#state{chunk = {ChunkState, CbState}, body = Chunk, 
                              mod = #mod{socket_type = SockType,
