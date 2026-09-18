@@ -68,8 +68,8 @@ prepare(_Peer, Access, Filename, Mode, SuggestedOptions, Initial) when is_list(I
 	    {ok, AcceptedOptions, State};
 	{_, _} ->
 	    {error, {undef, "Illegal callback usage. Mode and filename is incompatible."}}
-    catch throw : {Code, Text} ->
-	    {error, {Code, Text}}
+    catch throw : Reason ->
+	    {error, Reason}
     end;
 prepare(_Peer, _Access, _Bin, _Mode, _SuggestedOptions, _Initial) ->
     {error, {undef, "Illegal callback options."}}.
@@ -96,8 +96,8 @@ open(_Peer, Access, Filename, Mode, NegotiatedOptions, #read_state{} = State) ->
              State#read_state{
                options = NegotiatedOptions,
                blksize = lookup_blksize(NegotiatedOptions) }}
-    catch throw : {Code, Text} ->
-	    {error, {Code, Text}}
+    catch throw : Reason ->
+	    {error, Reason}
     end;
 open(_Peer, Access, Filename, Mode, NegotiatedOptions, #write_state{} = State) ->
     %% Both sides
@@ -109,8 +109,8 @@ open(_Peer, Access, Filename, Mode, NegotiatedOptions, #write_state{} = State) -
              State#write_state{
                options = NegotiatedOptions,
                blksize = lookup_blksize(NegotiatedOptions) }}
-    catch throw : {Code, Text} ->
-	    {error, {Code, Text}}
+    catch throw : Reason ->
+	    {error, Reason}
     end;
 open(Peer, Access, Filename, Mode, NegotiatedOptions, State) ->
     %% Handle upgrade from old releases. Please, remove this clause in next release.
@@ -183,7 +183,7 @@ handle_mode(Mode, IsNativeAscii) ->
     case Mode of
 	"netascii" when IsNativeAscii =:= true -> true;
 	"octet" -> false;
-	_ -> throw({error, {badop, "Illegal mode " ++ Mode}})
+	_ -> throw({badop, "Illegal mode " ++ Mode})
     end.
 
 do_handle_options(Access, Bin, [{Key, Val} | T]) ->
@@ -214,7 +214,7 @@ handle_integer(Access, Bin, Key, Val, Options, Min, Max) ->
 	Int when Int >= Min, Max =:= infinity ->
 	    [{Key, Val} | do_handle_options(Access, Bin, Options)];
 	_Int ->
-	    throw({error, {badopt, "Illegal " ++ Key ++ " value " ++ Val}})
+	    throw({badopt, "Illegal " ++ Key ++ " value " ++ Val})
     catch error : _ ->
 	    do_handle_options(Access, Bin, Options)
     end.
