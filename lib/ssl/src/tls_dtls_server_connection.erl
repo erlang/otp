@@ -30,6 +30,7 @@
 
 -module(tls_dtls_server_connection).
 -moduledoc false.
+-feature(maybe_expr, enable).
 
 -include_lib("public_key/include/public_key.hrl").
 
@@ -227,6 +228,7 @@ wait_cert_verify(internal, #certificate_verify{signature = Signature,
                                                        client_certificate_status = needs_verifying,
                                                        public_key_info = PubKeyInfo} = HsEnv0,
                         connection_env = #connection_env{negotiated_version = Version},
+                        ssl_options = SslOpts,
                         session = #session{master_secret = MasterSecret} = Session0
                        } = State) ->
 
@@ -234,14 +236,23 @@ wait_cert_verify(internal, #certificate_verify{signature = Signature,
     %% Use negotiated value if TLS-1.2 otherwise return default
     HashSign = tls_dtls_gen_connection:negotiated_hashsign(CertHashSign, KexAlg,
                                                            PubKeyInfo, TLSVersion),
-    case ssl_handshake:certificate_verify(Signature, PubKeyInfo,
-					  TLSVersion, HashSign, MasterSecret, Hist) of
-	valid ->
-            HsEnv = HsEnv0#handshake_env{client_certificate_status = verified},
-	    Connection:next_event(cipher, no_record,
-				  State#state{handshake_env = HsEnv,
-                                              session = Session0#session{sign_alg = HashSign}});
-	#alert{} = Alert ->
+    %% RFC 9155 §5: reject a CertificateVerify that uses a signature
+    %% algorithm the server did not offer (e.g. MD5/SHA-1 by default),
+    %% then verify the signature itself. Both checks return valid | #alert{};
+    %% the maybe short-circuits to the alert, which is thrown as usual.
+    SupportedHashSigns = maps:get(signature_algs, SslOpts, undefined),
+    maybe
+        valid ?= ssl_handshake:certificate_verify_signature_algorithm(HashSign,
+                                                                      SupportedHashSigns,
+                                                                      TLSVersion),
+        valid ?= ssl_handshake:certificate_verify(Signature, PubKeyInfo,
+                                                  TLSVersion, HashSign, MasterSecret, Hist),
+        HsEnv = HsEnv0#handshake_env{client_certificate_status = verified},
+        Connection:next_event(cipher, no_record,
+                              State#state{handshake_env = HsEnv,
+                                          session = Session0#session{sign_alg = HashSign}})
+    else
+        #alert{} = Alert ->
             throw(Alert)
     end;
 wait_cert_verify({call, From}, Msg, State) ->
