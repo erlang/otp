@@ -514,6 +514,12 @@ handle_info({ssh_cm, _, _} = Msg, #state{channel_cb = Module,
             do_the_close(Msg, State#state.channel_id, State)
     end;
 
+handle_info({ssh_channel_handler_replaced, ConnectionManager},
+            #state{cm = ConnectionManager} = State) ->
+    %% The channel handler process was replaced with another one.
+    %% Set close_sent = true, so that we don't close the channel itself
+    {stop, normal, State#state{close_sent = true}};
+
 handle_info(Msg, #state{channel_cb = Module, 
 			channel_state = ChannelState0} = State) -> 
     try Module:handle_msg(Msg, ChannelState0)
