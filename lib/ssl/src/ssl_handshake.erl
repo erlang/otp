@@ -73,6 +73,7 @@
 %% Handle handshake messages
 -export([certify/9,
          certificate_verify/6,
+         certificate_verify_signature_algorithm/3,
          verify_signature/5,
 	 master_secret/4,
          server_key_exchange_hash/2,
@@ -430,6 +431,40 @@ certificate_verify(Signature, PublicKeyInfo, Version,
 	_ ->
 	    ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE)
     end.
+
+%%--------------------------------------------------------------------
+-spec certificate_verify_signature_algorithm({atom(), atom()},
+                                             [ssl:sign_scheme() | {atom(), atom()}] | undefined,
+                                             ssl_record:ssl_version()) ->
+          valid | #alert{}.
+%%
+%% Description: RFC 9155 §5 - the server (or client, for mutual auth)
+%% receiving a CertificateVerify in (D)TLS 1.2 must abort with
+%% illegal_parameter if the signature uses a hash/signature algorithm that
+%% was not offered (in particular MD5 or SHA-1, which are excluded from the
+%% default signature_algs). Mirrors the TLS-1.3 check in
+%% tls_handshake_1_3:verify_signature_algorithm/2.
+%%--------------------------------------------------------------------
+certificate_verify_signature_algorithm(_HashSign, undefined, _Version) ->
+    %% No signature_algs configured/advertised (e.g. only pre-TLS-1.2
+    %% negotiated) - the peer had no list to violate.
+    valid;
+certificate_verify_signature_algorithm(HashSign, SupportedHashSigns, Version)
+  when ?TLS_GTE(Version, ?TLS_1_2) ->
+    %% Compare against the algorithms advertised in the CertificateRequest,
+    %% i.e. the TLS-1.2 tuple form ({Hash, Sign}, e.g. {sha512, rsa_pss_rsae})
+    %% produced by signature_schemes_1_2/1 - which matches the negotiated
+    %% CertHashSign representation.
+    case lists:member(HashSign, ssl_cipher:signature_schemes_1_2(SupportedHashSigns)) of
+        true ->
+            valid;
+        false ->
+            ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER,
+                       {certificate_verify_bad_signature_algorithm, HashSign})
+    end;
+certificate_verify_signature_algorithm(_HashSign, _SupportedHashSigns, _Version) ->
+    %% Pre-TLS-1.2 uses the fixed md5sha construct, not negotiated schemes.
+    valid.
 %%--------------------------------------------------------------------
 -spec verify_signature(ssl_record:ssl_version(), binary(), {term(), term()}, binary(),
                        public_key_info()) -> true | false.
