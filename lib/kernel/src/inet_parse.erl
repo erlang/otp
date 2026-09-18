@@ -806,7 +806,7 @@ ipv6_addr([$: | Cs], Ar, Br, Compr, N) ->
                 [] ->
                     ipv6_addr_done(N+1, Br, [0 | Ar], true);
                 [$% | _] ->
-                    ipv6_addr_scope(tl(Cs), Br, [0 | Ar], true, N+1, 0);
+                    ipv6_addr_scope(tl(Cs), Br, Ar, true, N, 0);
                 [_ | _] ->
                     ipv6_addr(Cs, Br, [0 | Ar], true, N+1)
             end;

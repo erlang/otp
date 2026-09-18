@@ -877,6 +877,8 @@ parse_address(Config) when is_list(Config) ->
          {{16#ff02,12345,0,0,0,0,0,16#12},"ff02::12%012345"},
          %% Zone index after an uncompressed address
          {{16#fe80,7,0,0,0,0,0,16#12},"fe80:0:0:0:0:0:0:12%7"},
+         %% Zone index after compressed address in the last position
+         {{16#fe80,6,5,4,3,2,1,0},"fe80:0:5:4:3:2:1::%6"},
          %% String zone index with leading digit
          {{16#fe80,0,0,0,0,0,0,16#12},"fe80::12%1x"},
          {{16#fe80,0,0,0,0,0,0,16#12},"fe80::12%5%6"},
@@ -935,8 +937,8 @@ parse_address(Config) when is_list(Config) ->
 	 "::8:7:6:5:4:3:2:1",
 	 "8:7:6:5:4:3:2:1::",
 	 "8:7:6:5:4::3:2:1",
-	 ":8:7:6:5:4:3:2:1",
-	 "8:7:6:5:4:3:2:1:",
+         ":8:7:6:5:4:3:2:1",
+         "8:7:6:5:4:3:2:1:",
 	 "::1.2.3.4.5",
 	 "::1.2.3.04",
 	 "::1.256.3.4",
