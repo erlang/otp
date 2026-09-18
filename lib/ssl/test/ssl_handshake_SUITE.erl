@@ -56,6 +56,7 @@
          ignore_hassign_extension_pre_tls_1_2/1,
          signature_algorithms/1,
          server_key_exchange_signature_not_sha1_connection/1,
+         drop_md5_rsa_signature_algorithm_tls_1_2/1,
          drop_unassigned_signature_algorithms/1,
          drop_undecodable_certificate_authorities/1,
          reject_truncated_certificate_entry/1,
@@ -403,6 +404,34 @@ skx_hash_collector(Owner, Acc) ->
             From ! {hashes, lists:reverse(Acc)},
             skx_hash_collector(Owner, Acc)
     end.
+
+drop_md5_rsa_signature_algorithm_tls_1_2(_Config) ->
+    %% MD5 is not a supported standalone signature hash for (D)TLS 1.2
+    %% signature_algorithms; it only ever appeared as the combined md5sha
+    %% construct in pre-TLS-1.2 RSA signatures. A client that (deliberately)
+    %% configures {md5, rsa} in signature_algs for TLS 1.2 must NOT end up
+    %% offering an MD5 signature scheme: option processing filters it out
+    %% (tls_v1:is_pair/3), consistent with the ecdsa case which already
+    %% excluded MD5. SHA-1 ({sha, rsa}) remains a valid deprecated opt-in for
+    %% TLS 1.2 and must be preserved.
+    %%
+    %% Assert on the effective signature_algs produced by the
+    %% public option-processing entry point ssl_config:handle_options/3.
+    Host = net_adm:localhost(),
+    Opts = [{verify, verify_none},
+            {versions, ['tlsv1.2']},
+            {signature_algs, [{md5, rsa}, {sha, rsa}, {sha256, rsa}]}],
+    {ok, #config{ssl = #{signature_algs := SigAlgs}}} =
+        ssl_config:handle_options(Opts, client, Host),
+    ct:log("effective signature_algs = ~p", [SigAlgs]),
+
+    %% {md5, rsa} must be dropped ...
+    false = lists:member({md5, rsa}, SigAlgs),
+    %% ... while the deprecated-but-supported {sha, rsa} opt-in is kept ...
+    true = lists:member({sha, rsa}, SigAlgs),
+    %% ... and the compliant {sha256, rsa} is of course present.
+    true = lists:member({sha256, rsa}, SigAlgs),
+    ok.
 
 
 drop_unassigned_signature_algorithms(_Config) ->
