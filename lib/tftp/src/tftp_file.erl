@@ -150,12 +150,12 @@ open(Peer, Access, Filename, Mode, SuggestedOptions, Initial) when is_list(Initi
 	{error, {Code, Text}} ->
 	    {error, {Code, Text}}
     end;
-open(_Peer, Access, Filename, Mode, NegotiatedOptions, State) when is_record(State, state) ->
+open(_Peer, Access, Filename, Mode, NegotiatedOptions, #state{} = State) ->
     %% Both sides
     try handle_options(Access, Filename, Mode, NegotiatedOptions, State) of
         {_Filename2, _IsNativeAscii, _IsNetworkAscii, Options}
           when Options =:= NegotiatedOptions ->
-            do_open(State)
+            do_open(State, NegotiatedOptions)
     catch throw : Error ->
             {error, Error}
     end;
@@ -164,14 +164,18 @@ open(Peer, Access, Filename, Mode, NegotiatedOptions, State) ->
     State2 = upgrade_state(State),
     open(Peer, Access, Filename, Mode, NegotiatedOptions, State2).
 
-do_open(State) when is_record(State, state) ->
-    case file:open(State#state.filename, file_options(State)) of
+do_open(#state{ filename = Filename} = State, Options) ->
+    case file:open(Filename, file_options(State)) of
 	{ok, Fd} ->
-	    {ok, State#state.options, State#state{fd = Fd}};
+	    {ok, Options,
+             State#state{
+               fd = Fd,
+               options = Options,
+               blksize = lookup_blksize(Options) }};
 	{error, Reason} when is_atom(Reason) ->
 	    {error, file_error(Reason)}
     end.
-	
+
 file_options(State) ->
     case State#state.access of
 	read  -> [read, read_ahead, raw, binary];

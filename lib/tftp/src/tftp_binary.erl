@@ -86,27 +86,33 @@ open(Peer, Access, Filename, Mode, SuggestedOptions, Initial) when is_list(Initi
 	{error, {Code, Text}} ->
 	    {error, {Code, Text}}
     end;
-open(_Peer, Access, Filename, Mode, NegotiatedOptions, State) when is_record(State, read_state) ->
+open(_Peer, Access, Filename, Mode, NegotiatedOptions, #read_state{} = State) ->
     %% Both sides
     try handle_options(Access, Filename, Mode, NegotiatedOptions, State#read_state.is_native_ascii) of
 	{IsNetworkAscii, Options}
 	when Options =:= NegotiatedOptions,
 	     IsNetworkAscii =:= State#read_state.is_network_ascii ->
-	    {ok, NegotiatedOptions, State}
+	    {ok, NegotiatedOptions,
+             State#read_state{
+               options = NegotiatedOptions,
+               blksize = lookup_blksize(NegotiatedOptions) }}
     catch throw : {Code, Text} ->
 	    {error, {Code, Text}}
     end;
-open(_Peer, Access, Filename, Mode, NegotiatedOptions, State) when is_record(State, write_state) ->
+open(_Peer, Access, Filename, Mode, NegotiatedOptions, #write_state{} = State) ->
     %% Both sides
     try handle_options(Access, Filename, Mode, NegotiatedOptions, State#write_state.is_native_ascii) of
 	{IsNetworkAscii, Options}
 	when Options =:= NegotiatedOptions,
 	     IsNetworkAscii =:= State#write_state.is_network_ascii ->
-	    {ok, NegotiatedOptions, State}
+	    {ok, NegotiatedOptions,
+             State#write_state{
+               options = NegotiatedOptions,
+               blksize = lookup_blksize(NegotiatedOptions) }}
     catch throw : {Code, Text} ->
 	    {error, {Code, Text}}
     end;
-open(Peer, Access, Filename, Mode, NegotiatedOptions, State) -> 
+open(Peer, Access, Filename, Mode, NegotiatedOptions, State) ->
     %% Handle upgrade from old releases. Please, remove this clause in next release.
     State2 = upgrade_state(State),
     open(Peer, Access, Filename, Mode, NegotiatedOptions, State2).
