@@ -1694,7 +1694,15 @@ select_hashsign({#hash_sign_algos{hash_sign_algos = ClientHashSigns},
                 true ->
                     ClientSignatureSchemes;
                 false ->
-                    do_select_hashsign(ClientSignatureSchemes, PublicKeyAlgo, SupportedHashSigns)
+                    %% The ServerKeyExchange signature is a handshake
+                    %% signature, governed by the client's signature_algs
+                    %% extension (ClientHashSigns) - NOT signature_algs_cert
+                    %% (ClientSignatureSchemes), which governs certificate
+                    %% chain signatures (RFC 8446 4.2.3). Selecting from the
+                    %% cert-signature list breaks configurations where the
+                    %% handshake signature_algs (e.g. rsa_pss_rsae) differ
+                    %% from the certificate's algorithm (e.g. rsa_pkcs1).
+                    do_select_hashsign(ClientHashSigns, PublicKeyAlgo, SupportedHashSigns)
             end;
         false ->
             ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_signature_algorithm)

@@ -55,6 +55,7 @@
          select_proper_tls_1_2_rsa_default_hashsign/1,
          ignore_hassign_extension_pre_tls_1_2/1,
          signature_algorithms/1,
+         server_key_exchange_signature_not_sha1_connection/1,
          drop_unassigned_signature_algorithms/1,
          drop_undecodable_certificate_authorities/1,
          reject_truncated_certificate_entry/1,
@@ -283,6 +284,126 @@ signature_algorithms(Config) ->
                  Cert, ecdhe_rsa,
                  tls_v1:default_signature_algs([?TLS_1_2]),
                  ?TLS_1_2).
+
+server_key_exchange_signature_not_sha1_connection(_Config) ->
+    %% RFC 9155 §4: MD5 and SHA-1 MUST NOT be used as signature hashes in
+    %% (D)TLS 1.2 digital signatures, which includes the ServerKeyExchange
+    %% signature. Regression test for the TLS-1.2 server signature-selection
+    %% defect (OTP-20390): tls_handshake:handle_client_hello passed the
+    %% signature_algs_cert pool (seeded by default with the "smooth upgrade
+    %% path" {sha, rsa} entry) as the SupportedHashSigns argument to
+    %% ssl_handshake:select_hashsign/5, which returns the first client-offered
+    %% scheme present in that pool. A peer listing SHA-1 first therefore got a
+    %% SHA-1-signed ServerKeyExchange in default configuration. The fix scopes
+    %% the ServerKeyExchange signature to the signature_algs pool (no SHA-1 by
+    %% default); signature_algs_cert stays for certificate-chain signatures
+    %% only. The DTLS sibling already passed the correct pool.
+    %%
+    %% This is a black-box test: it drives a real TLS-1.2 DHE_RSA handshake
+    %% via the public ssl API. The client offers rsa_pkcs1_sha1 FIRST in
+    %% signature_algs_cert (offering it in signature_algs is rejected by the
+    %% option layer with no_supported_algorithms); signature_algs_cert is the
+    %% list select_hashsign/5 iterates for the ServerKeyExchange hash. The
+    %% real signing call ssl_handshake:digitally_signed/5 is traced and the
+    %% hash used for the ServerKeyExchange signature is asserted not to be
+    %% SHA-1.
+    %%
+    %% NOTE: TLS-1.2 specific (TLS-1.3 has no ServerKeyExchange); the version
+    %% is set explicitly and this case must never run in a 'tlsv1.3' group.
+    case is_supported(sha256) andalso
+        lists:member(rsa, crypto:supports(public_keys)) andalso
+        lists:member(dh, crypto:supports(public_keys)) of
+        false ->
+            {skip, "Crypto does not support rsa/dh/sha256"};
+        true ->
+            do_skx_signature_not_sha1_connection()
+    end.
+
+do_skx_signature_not_sha1_connection() ->
+    ssl_test_lib:clean_start(),
+    %% In-memory RSA cert chains (no external openssl / no files needed).
+    #{server_config := ServerConf,
+      client_config := ClientConf} =
+        public_key:pkix_test_data(
+          #{server_chain =>
+                #{root => [{key, ssl_test_lib:hardcode_rsa_key(1)}],
+                  intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(2)}]],
+                  peer => [{key, ssl_test_lib:hardcode_rsa_key(3)}]},
+            client_chain =>
+                #{root => [{key, ssl_test_lib:hardcode_rsa_key(4)}],
+                  intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(5)}]],
+                  peer => [{key, ssl_test_lib:hardcode_rsa_key(6)}]}}),
+
+    %% Force a DHE_RSA cipher so a signed ServerKeyExchange is actually sent.
+    Ciphers = [#{key_exchange => dhe_rsa,
+                 cipher => aes_256_gcm,
+                 mac => aead,
+                 prf => sha384}],
+
+    ServerOpts = [{verify, verify_none}, {versions, ['tlsv1.2']},
+                  {ciphers, Ciphers}, {reuseaddr, true} | ServerConf],
+    %% Client offers SHA-1 FIRST in signature_algs_cert (the pool the buggy
+    %% server iterated for the ServerKeyExchange hash).
+    ClientOpts = [{verify, verify_none}, {versions, ['tlsv1.2']},
+                  {ciphers, Ciphers},
+                  {signature_algs_cert, [rsa_pkcs1_sha1, rsa_pkcs1_sha256]}
+                  | ClientConf],
+
+    %% Trace the actual signing call and collect the hash algorithm argument.
+    Self = self(),
+    Tracer = spawn_link(fun() -> skx_hash_collector(Self, []) end),
+    {ok, _} = dbg:tracer(process, {fun(Msg, _) ->
+                                           Tracer ! {trace_msg, Msg}, []
+                                   end, []}),
+    {ok, _} = dbg:p(all, [c]),
+    {ok, _} = dbg:tpl(ssl_handshake, digitally_signed, 5, []),
+
+    try
+        {ok, LSock} = ssl:listen(0, ServerOpts),
+        {ok, {_, Port}} = ssl:sockname(LSock),
+        ServerPid =
+            spawn(fun() ->
+                          {ok, ASock} = ssl:transport_accept(LSock),
+                          case ssl:handshake(ASock) of
+                              {ok, SSock} -> ssl:close(SSock);
+                              _ -> ok
+                          end
+                  end),
+        {ok, CSock} = ssl:connect("localhost", Port, ClientOpts, 5000),
+        ssl:close(CSock),
+        catch exit(ServerPid, kill),
+        catch ssl:close(LSock),
+
+        %% Give the tracer a moment to deliver, then collect.
+        ct:sleep(200),
+        Tracer ! {get, self()},
+        Hashes = receive {hashes, Hs} -> Hs after 2000 -> timeout end,
+        ct:log("ServerKeyExchange signing hash algorithms observed: ~p", [Hashes]),
+        %% A signed ServerKeyExchange must have been produced ...
+        true = Hashes =/= timeout andalso Hashes =/= [],
+        %% ... and it must NOT use SHA-1, despite the client listing it first.
+        false = lists:member(sha, Hashes),
+        true = lists:member(sha256, Hashes) orelse
+               lists:member(sha384, Hashes) orelse
+               lists:member(sha512, Hashes),
+        ok
+    after
+        dbg:stop()
+    end.
+
+skx_hash_collector(Owner, Acc) ->
+    receive
+        {trace_msg, {trace, _Pid, call,
+                     {ssl_handshake, digitally_signed,
+                      [_Version, _Msg, HashAlgo, _Key, _SignAlgo]}}} ->
+            skx_hash_collector(Owner, [HashAlgo | Acc]);
+        {trace_msg, _Other} ->
+            skx_hash_collector(Owner, Acc);
+        {get, From} ->
+            From ! {hashes, lists:reverse(Acc)},
+            skx_hash_collector(Owner, Acc)
+    end.
+
 
 drop_unassigned_signature_algorithms(_Config) ->
     %% Be sure the algo is unsupported
