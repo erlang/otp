@@ -282,7 +282,7 @@ host_to_string(Host) ->
 decode_msg(Bin) when is_binary(Bin) ->
     try do_decode_msg(Bin)
     catch throw : Text ->
-            #tftp_decode_error{reply = #tftp_msg_error{code = undef, text = Text}}
+            #tftp_decode_error{reply = #tftp_msg_error{code = badop, text = Text}}
     end.
 
 do_decode_msg(Bin) ->
