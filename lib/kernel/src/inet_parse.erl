@@ -531,16 +531,18 @@ ipv4_addr(Cs) ->
 %% Right after the dot of the previous field,
 %% or at the start of the first field, and then Cs is not empty
 %%
-ipv4_addr([],      _Ds)                      -> throw(error); % Truncated
-ipv4_addr([_|_],    Ds) when length(Ds) >= 4 -> throw(error); % Trailing char
+ipv4_addr([],      _Ds)             -> throw(error); % Truncated
+ipv4_addr([_|_],    [_,_,_,_|_])    -> throw(error); % Trailing char
 ipv4_addr("."++_,  _Ds) -> throw(error); % Empty field
 ipv4_addr("0x",    _Ds) -> throw(error); % Truncated field
 ipv4_addr("0X",    _Ds) -> throw(error); % Truncated field
+ipv4_addr("0x."++_,_Ds) -> throw(error); % Truncated field
+ipv4_addr("0X."++_,_Ds) -> throw(error); % Truncated field
 ipv4_addr("0x"++Cs, Ds) -> ipv4_addr_hex(Cs,  Ds, 0,  8);
 ipv4_addr("0X"++Cs, Ds) -> ipv4_addr_hex(Cs,  Ds, 0,  8);
 ipv4_addr("0"++Cs,  Ds) -> ipv4_addr_base(Cs, Ds, 0, 11,  8);
 ipv4_addr([_|_]=Cs, Ds) -> ipv4_addr_base(Cs, Ds, 0, 10, 10).
-%% 8 hex, 11 octal, or 10 decimal chars is
+%% 8 hex, 11 octal, or 10 decimal chars are
 %% the maximum needed characters to represent 16#ffff_ffff
 
 ipv4_addr_hex([],      Ds, D, _N) -> [D | Ds];
@@ -558,11 +560,12 @@ ipv4_addr_hex([C |Cs], Ds, D,  N) ->
 %% Decimal and octal, should actually work for any base [2..10]
 ipv4_addr_base([],      Ds, D, _N, _B)  -> [D | Ds];
 ipv4_addr_base([$.|Cs], Ds, D, _N, _B)  -> ipv4_addr(Cs, [D|Ds]);
-ipv4_addr_base([C |Cs], Ds, D,  N,  B)  ->
+ipv4_addr_base([C |Cs], Ds, D,  N,  B)
+  when is_integer(B, 2, 10) ->
     O = if
-            N == 0                  -> throw(error); % Too many digits
-            is_integer(C, $0, $9)   -> $0;
-            true                    -> throw(error) % Invalid digit
+            N == 0                      -> throw(error); % Too many digits
+            is_integer(C, $0, ($0-1)+B) -> $0;
+            true                        -> throw(error) % Invalid digit
         end,
     ipv4_addr_base(Cs, Ds, D*B + (C - O), N-1, B).
 
@@ -748,9 +751,11 @@ ipv6strict_address(_) ->
 ipv6_addr("") ->
     throw(error); % Null string
 ipv6_addr("::") ->
-    ipv6_addr_done(0, [], [], true);
-ipv6_addr([$: | Cs]) ->
-    ipv6_addr(Cs, [], [], false, 0);
+    ipv6_addr_done(1, [], [0], true);
+ipv6_addr("::"++Cs) ->
+    ipv6_addr(Cs, [], [0], true, 1);
+ipv6_addr(":"++_) ->
+    throw(error); % Missing first field
 ipv6_addr([_ | _] = Cs) ->
     ipv6_addr(Cs, [], [], false, 0).
 
@@ -787,8 +792,10 @@ ipv6_hex_digit(C) ->
 %% Before we see a ::, Ar has all words.  When we see a :: we swap Ar and Br
 %% so Br becomes the words before the ::, and Ar the words after.
 %%
+%% Cs =/= []
+%%
 %% Characters after the eight field
-ipv6_addr(Cs, _Ar, _Br, _Compr, N) when is_list(Cs), N >= 8 ->
+ipv6_addr([_|_], _Ar, _Br, _Compr, N) when N >= 8 ->
     throw(error); % Missing end
 %%
 %% Empty field
@@ -797,9 +804,9 @@ ipv6_addr([$: | Cs], Ar, Br, Compr, N) ->
         false -> % This is the first ::
             case Cs of
                 [] ->
-                    ipv6_addr_done(N, Br, Ar, true);
+                    ipv6_addr_done(N+1, Br, [0 | Ar], true);
                 [$% | _] ->
-                    ipv6_addr_scope(tl(Cs), Br, Ar, true, N, 0);
+                    ipv6_addr_scope(tl(Cs), Br, [0 | Ar], true, N+1, 0);
                 [_ | _] ->
                     ipv6_addr(Cs, Br, [0 | Ar], true, N+1)
             end;
@@ -863,7 +870,7 @@ ipv6_addr_done(N, Ar, Br, Compr) ->
 %% IPv6 hex field
 ipv6_addr_field([], _Ar, _Br, _Compr, _N, _X) ->
     throw(error); % Truncated after :
-ipv6_addr_field(Cs, Ar, Br, Compr, N, X) when is_list(Cs) ->
+ipv6_addr_field([_|_] = Cs, Ar, Br, Compr, N, X) ->
     ipv6_addr(Cs, [X | Ar], Br, Compr, N+1).
 
 %% After %
