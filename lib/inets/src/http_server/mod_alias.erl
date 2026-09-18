@@ -26,6 +26,8 @@ URL aliasing.
 
 Erlang web server internal API for handling of, for example, interaction data
 exported by module `mod_alias`.
+
+See [mod_alias - URL Aliasing](http_server.md#mod_alias) for more information about URL aliasing and the configuration file directives that can be used to configure URL aliasing.
 """.
 
 -export([do/1, 
@@ -40,6 +42,53 @@ exported by module `mod_alias`.
 -include("inets_internal.hrl").
 
 -define(VMODULE,"ALIAS").
+
+-export_type([url_alias_option/0]).
+
+-doc """
+- [](){: #prop_alias } **`{alias, {Alias, RealName}}`**  
+  `Alias = string()` and `RealName = string()`. `alias` allows documents to be
+  stored in the local file system instead of the `document_root` location. URLs
+  with a path beginning with url-path is mapped to local files beginning with
+  directory-filename, for example:
+
+  ```erlang
+  {alias, {"/image", "/ftp/pub/image"}}
+  ```
+
+  Access to http://your.server.org/image/foo.gif would refer to the file
+  /ftp/pub/image/foo.gif.
+
+- [](){: #prop_re_write } **`{re_write, {Re, Replacement}}`**  
+  `Re = string()` and `Replacement = string()`. `re_write` allows documents to
+  be stored in the local file system instead of the `document_root` location.
+  URLs are rewritten by `re:replace/3` to produce a path in the local
+  file-system, for example:
+
+  ```erlang
+  {re_write, {"^/[~]([^/]+)(.*)$", "/home/\\1/public\\2"}}
+  ```
+
+  Access to http://your.server.org/~bob/foo.gif would refer to the file
+  /home/bob/public/foo.gif.
+
+- [](){: #prop_dir_idx } **`{directory_index, [string()]}`**  
+  `directory_index` specifies a list of resources to look for if a client
+  requests a directory using a `/` at the end of the directory name. `file`
+  depicts the name of a file in the directory. Several files can be given, in
+  which case the server returns the first it finds, for example:
+
+  ```erlang
+  {directory_index, ["index.html", "welcome.html"]}
+  ```
+
+  Access to http://your.server.org/docs/ would return
+  http://your.server.org/docs/index.html or
+  http://your.server.org/docs/welcome.html if index.html does not exist.
+""".
+-type url_alias_option() :: {alias, {Alias :: string(), RealName :: string()}} |
+      {re_write, {Re :: string(), Replacement :: string()}} |
+      {directory_index, [string()]}.
 
 %% do
 
@@ -103,7 +152,7 @@ an argument. `config_db()` is the server config file in ETS table format as
 described in [Inets User's Guide](http_server.md).
 """.
 -spec real_name(ConfigDB, RequestURI, Aliases) -> ReturnPath when
-      ConfigDB :: ets:tid(),
+      ConfigDB :: httpd:config_db(),
       RequestURI :: string(),
       Aliases :: [{FakeName, RealName}],
       ReturnPath :: {ShortPath, Path, AfterPath},
@@ -177,7 +226,7 @@ returned. If it is a script, the resulting script path is in two parts,
 [Inets User's Guide](http_server.md).
 """.
 -spec real_script_name(ConfigDB, RequestURI, ScriptAliases) -> ReturnPath | not_a_script when
-      ConfigDB :: ets:tid(),
+      ConfigDB :: httpd:config_db(),
       RequestURI :: string(),
       ScriptAliases :: list() | [{FakeName, RealName}],
       ReturnPath :: {ShortPath, AfterPath},
@@ -218,7 +267,7 @@ server config file in ETS table format as described in
 
 """.
 -spec default_index(ConfigDB, Path) -> NewPath when
-      ConfigDB :: ets:tid(),
+      ConfigDB :: httpd:config_db(),
       Path :: string(),
       NewPath :: string().
 default_index(ConfigDB, Path) ->
@@ -252,7 +301,7 @@ generate a file `Path`. `config_db()` and `interaction_data()` are as defined in
 """.
 -spec path(Data, ConfigDB, RequestURI) -> Path when
       Data :: [{real_name, {Path, AfterPath}}],
-      ConfigDB :: ets:tid(),
+      ConfigDB :: httpd:config_db(),
       RequestURI :: string(),
       AfterPath :: string(),
       Path :: string().

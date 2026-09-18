@@ -21,7 +21,11 @@
 %%
 %%
 -module(mod_disk_log).
--moduledoc false.
+-moduledoc """
+Inets httpd disk logging module.
+
+See [mod_disk_log - Disk Logging](http_server.md#mod_disk_log) for more information about disk logging and the configuration file directives that can be used to configure disk logging.
+""".
 
 %% Application internal API
 -export([error_log/2, report_error/2, security_log/2]).
@@ -35,10 +39,64 @@
 -include("httpd_internal.hrl").
 
 %%%=========================================================================
+%%%  TYPES
+%%%=========================================================================
+-export_type([disk_log_option/0]).
+
+-doc """
+- [](){: #prop_dlog_format } **`{disk_log_format, internal | external}`**  
+  Defines the file format of the log files. See `disk_log` for details. If the
+  internal file format is used, the log file is repaired after a crash. When a
+  log file is repaired, data can disappear. When the external file format is
+  used, `httpd` does not start if the log file is broken. Default is `external`.
+
+- [](){: #prop_edlog } **`{error_disk_log, path()}`**  
+  Defines the filename of the (`m:disk_log`) error log file to be used to log
+  server errors. If the filename does not begin with a slash (/), it is assumed
+  to be relative to the `server_root`.
+
+- [](){: #prop_edlog_size } **`{error_disk_log_size, {MaxBytes, MaxFiles}}`**  
+  `MaxBytes = integer()` and `MaxFiles = integer()`. Defines the properties of
+  the (`m:disk_log`) error log file. This file is of type wrap log and max bytes
+  is written to each file and max files is used before the first file is
+  truncated and reused.
+
+- [](){: #prop_sdlog } **`{security_disk_log, path()}`**  
+  Defines the filename of the (`m:disk_log`) access log file logging incoming
+  security events, that is, authenticated requests. If the filename does not
+  begin with a slash (/), it is assumed to be relative to the `server_root`.
+
+- [](){: #prop_sdlog_size } **`{security_disk_log_size, {MaxBytes, MaxFiles}}`**  
+  `MaxBytes = integer()` and `MaxFiles = integer()`. Defines the properties of
+  the `m:disk_log` access log file. This file is of type wrap log and max bytes
+  is written to each file and max files is used before the first file is
+  truncated and reused.
+
+- [](){: #prop_tdlog } **`{transfer_disk_log, path()}`**  
+  Defines the filename of the (`m:disk_log`) access log file logging incoming
+  requests. If the filename does not begin with a slash (/), it is assumed to be
+  relative to the `server_root`.
+
+- [](){: #prop_tdlog_size } **`{transfer_disk_log_size, {MaxBytes, MaxFiles}}`**  
+  `MaxBytes = integer()` and `MaxFiles = integer()`. Defines the properties of
+  the `m:disk_log` access log file. This file is of type wrap log and max bytes
+  is written to each file and max files is used before the first file is
+  truncated and reused.
+""".
+-type disk_log_option() :: {transfer_disk_log, string()}
+    | {error_disk_log, string()}
+    | {security_disk_log, string()}
+    | {transfer_disk_log_size, {non_neg_integer(), non_neg_integer()}}
+    | {error_disk_log_size, {non_neg_integer(), non_neg_integer()}}
+    | {security_disk_log_size, {non_neg_integer(), non_neg_integer()}}
+    | {disk_log_format, internal | external}.
+
+%%%=========================================================================
 %%%  API 
 %%%=========================================================================
 
 %% security_log
+-doc false.
 security_log(#mod{config_db = ConfigDb} = Info, Event) ->
     Format = get_log_format(ConfigDb),
     Date = httpd_util:custom_date(),
@@ -50,6 +108,7 @@ security_log(#mod{config_db = ConfigDb} = Info, Event) ->
 	    write(Log, Entry, Format)
     end.
 
+-doc false.
 report_error(ConfigDB, Error) ->
     Format = get_log_format(ConfigDB),
     Date = httpd_util:custom_date(),
@@ -61,10 +120,12 @@ report_error(ConfigDB, Error) ->
 	    write(Log, Entry, Format)
     end.
 
+-doc false.
 error_log(Info, Reason) ->
     Date = httpd_util:custom_date(),
     error_log(Info, Date, Reason).
 
+-doc false.
 error_log(#mod{config_db = ConfigDB} = Info, Date, Reason) ->
     Format = get_log_format(ConfigDB),
      case httpd_log:error_entry(error_disk_log, no_error_log, 
@@ -85,6 +146,7 @@ error_log(#mod{config_db = ConfigDB} = Info, Date, Reason) ->
 %%
 %% Description:  See httpd(3) ESWAPI CALLBACK FUNCTIONS
 %%-------------------------------------------------------------------------
+-doc false.
 do(Info) ->
     AuthUser  = auth_user(Info#mod.data),
     Date      = httpd_util:custom_date(),
@@ -138,6 +200,7 @@ do(Info) ->
 %%
 %% Description: See httpd(3) ESWAPI CALLBACK FUNCTIONS
 %%-------------------------------------------------------------------------
+-doc false.
 store({transfer_disk_log,TransferDiskLog}, ConfigList) 
   when is_list(TransferDiskLog) ->
     case create_disk_log(TransferDiskLog, 
@@ -196,6 +259,7 @@ store({disk_log_format, Value}, _) ->
 %%
 %% Description: See httpd(3) ESWAPI CALLBACK FUNCTIONS
 %%-------------------------------------------------------------------------
+-doc false.
 remove(ConfigDB) ->
     lists:foreach(fun([DiskLog]) -> close(DiskLog) end,
 		  ets:match(ConfigDB,{transfer_disk_log,'$1'})),
