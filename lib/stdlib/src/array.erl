@@ -515,7 +515,7 @@ Change the array size.
 If `Size` is not a non-negative integer, the call fails with reason `badarg`. If
 the specified array has fixed size, also the resulting array has fixed size.
 
-Note: As of OTP 29, resizing ensures that entries outside the new range are
+Note: As of OTP 29, resizing ensures that entries outside the array are
 pruned so that garbage collection can recover the memory.
 
 ## Examples
@@ -533,29 +533,25 @@ See also `shift/2`.
 -spec resize(Size :: non_neg_integer(), Array :: array(Type)) ->
                     array(Type).
 
-resize(Size, #array{size = N, zero = Z, cache = C, cache_index = CI, elements = E, default = D, bits = S}=A)
+resize(Size, #array{size = N, zero = Z, cache = C, cache_index = CI,
+                    elements = E, default = D, bits = S}=A)
   when is_integer(Size), Size >= 0, is_integer(N), N >= 0,
        is_integer(CI), is_integer(S) ->
     if Size > N ->
-            case Z > 0 of
-                true ->
-                    E1 = set_leaf(CI, S, E, C),
-                    %% Reset everything left of Z and maybe shrink tree
-                    {E2, Z2, S2} = shrink(Z, N, S, E1, D),
-                    {E3, S3} = grow(Z2 + Size-1, E2, S2),
-                    CI1 = 0,
-                    C1 = get_leaf(CI1, S3, E3, D),
-                    A#array{size = Size, zero = Z2, elements = E3, cache = C1, cache_index = CI1, bits = S3};
-                false ->
-                    {E1, S1} = grow(Z + Size-1, E, S),
-                    A#array{size = Size, elements = E1, bits = S1}
-            end;
-       Size < N; Z > 0 ->
+            E1 = set_leaf(CI, S, E, C),
+            {E2, Z2, S2} = shrink(Z, N, S, E1, D),
+            {E3, S3} = grow(Z2 + Size-1, E2, S2),
+            CI1 = 0,
+            C1 = get_leaf(CI1, S3, E3, D),
+            A#array{size = Size, zero = Z2, elements = E3,
+                    cache = C1, cache_index = CI1, bits = S3};
+       Size < N; Z > 0; (Z + Size) < ?SIZE(S) ->
             E1 = set_leaf(CI, S, E, C),
             {E2, Z2, S1} = shrink(Z, Size, S, E1, D),
             CI1 = 0,
             C1 = get_leaf(CI1, S1, E2, D),
-            A#array{size = Size, zero = Z2, elements = E2, cache = C1, cache_index = CI1, bits = S1};
+            A#array{size = Size, zero = Z2, elements = E2,
+                    cache = C1, cache_index = CI1, bits = S1};
        true ->
             A
     end;
@@ -797,16 +793,27 @@ than its size (even for non fixed arrays).
 -spec shift(Steps :: integer(), Array :: array(Type)) -> array(Type).
 shift(0, A=#array{}) ->
     A;
-shift(Steps, #array{size = N, zero = Z}=A)
+shift(Steps, #array{size = N, zero = Z, cache_index = CI0}=A)
   when is_integer(Steps), is_integer(N), Steps =< N, is_integer(Z) ->
     Z1 = Z + Steps,
     N1 = N - Steps,
     if Z1 >= 0 ->
-            A#array{size = N1, zero = Z1};
+            if CI0 >= N1 ->
+                    %% We need to move the cache
+                    #array{elements = E, bits = S, cache = C, default = D} = A,
+                    E1 = set_leaf(CI0, S, E, C),
+                    CI1 = Z1 band (bnot ?MASK),
+                    C1 = get_leaf(CI1, S, E1, D),
+                    A#array{size = N1, zero = Z1,
+                            cache_index = CI1, cache = C1,
+                            elements = E1};
+               true ->
+                    A#array{size = N1, zero = Z1}
+            end;
        true ->
-            #array{cache_index = CI, elements = E, bits = S} = A,
+            #array{elements = E, bits = S} = A,
             {E1, S1, Z2} = grow_left(Z1, E, S),
-            CI1 = CI + (Z2-Z1),
+            CI1 = CI0 + (Z2-Z1),
             A#array{size = N1, zero = Z2, cache_index = CI1, elements = E1, bits = S1}
     end;
 shift(_Steps, _A) ->
@@ -858,14 +865,24 @@ values outside the range get pruned.
 """.
 -doc #{ since => ~"OTP 29.0" }.
 -spec slice(I :: array_indx(), Length :: non_neg_integer(), Array :: array(Type)) -> array(Type).
-slice(I, Length, #array{size = N}=A)
+slice(I, Length, #array{size = N}=A0)
   when is_integer(I), I >= 0,
        is_integer(N), N >= 0,
        is_integer(Length), Length >= 0,
        I + Length =< N ->
     %% eqwalizer:ignore ambiguous_union
-    A1 = shift(I, A),
-    A1#array{size = Length};
+    case shift(I, A0) of
+        #array{zero = Z, cache_index = CI0}=A
+          when CI0 > (Z + Length) ->
+            %% We need to move the cache
+            #array{elements = E, bits = S, cache = C, default = D} = A,
+            E1 = set_leaf(CI0, S, E, C),
+            CI1 = I band (bnot ?MASK),
+            C1 = get_leaf(CI1, S, E1, D),
+            A#array{size = Length, cache_index = CI1, cache = C1, elements = E1};
+        A ->
+            A#array{size = Length}
+    end;
 slice(_I, _N, _A) ->
     erlang:error(badarg).
 
