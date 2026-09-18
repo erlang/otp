@@ -119,12 +119,6 @@ import(_) ->
 The return of this function is a string with the PCRE version of the system that
 was used in the Erlang/OTP compilation.
 
-## Examples
-
-```erlang
-1> is_binary(re:version()).
-true
-```
 """.
 -doc(#{since => <<"OTP 20.0">>}).
 -spec version() -> binary().
@@ -411,7 +405,8 @@ The following options are relevant for execution:
   the result is included. Example:
 
   ```erlang
-  re:run("cat","(|at)",[global]).
+  1> re:run("cat","(|at)",[global]).
+  {match,[[{0,0},{0,0}],[{1,0},{1,0}],[{1,2},{1,2}],[{3,0},{3,0}]]}
   ```
 
   The following matchings are performed:
@@ -439,12 +434,6 @@ The following options are relevant for execution:
   - **At offset `1` with `[anchored, notempty_atstart]`** - This gives no result
     of length > 0 and we are at the last position, so the global search is
     complete.
-
-  The result of the call is:
-
-  ```erlang
-  {match,[[{0,0},{0,0}],[{1,0},{1,0}],[{1,2},{1,2}],[{3,0},{3,0}]]}
-  ```
 
 - **`notempty`** - An empty string is not considered to be a valid match if this
   option is specified. If alternatives in the pattern exist, they are tried. If
@@ -578,7 +567,7 @@ The following options are relevant for execution:
   {error,match_limit_recursion}
   ```
 
-  This option and option `match_limit` are only to be used in rare cases.
+  This option `match_limit` are only to be used in rare cases.
   Understanding of the PCRE library internals is recommended before tampering
   with these limits.
 
@@ -600,38 +589,25 @@ The following options are relevant for execution:
   just as in offsets:
 
   ```erlang
-  re:run("ABCabcdABC","abcd",[]).
-  ```
-
-  The return value of this call is:
-
-  ```erlang
+  1> re:run("ABCabcdABC","abcd",[]).
   {match,[{3,4}]}
   ```
 
   Another (and quite common) case is where the regular expression matches all of
-  the subject:
+  the subject; here the return value correspondingly points out all of the
+  string, beginning at index 0, and it is 10 characters long.
 
   ```erlang
-  re:run("ABCabcdABC",".*abcd.*",[]).
-  ```
-
-  Here the return value correspondingly points out all of the string, beginning
-  at index 0, and it is 10 characters long:
-
-  ```erlang
+  1> re:run("ABCabcdABC",".*abcd.*",[]).
   {match,[{0,10}]}
   ```
 
-  If the regular expression contains capturing subpatterns, like in:
+  If the regular expression contains capturing subpatterns, like in the
+  call below, all of the matched subject is captured, as well as the captured
+  substrings.
 
   ```erlang
-  re:run("ABCabcdABC",".*(abcd).*",[]).
-  ```
-
-  all of the matched subject is captured, as well as the captured substrings:
-
-  ```erlang
+  1> re:run("ABCabcdABC",".*(abcd).*",[]).
   {match,[{0,10},{3,4}]}
   ```
 
@@ -684,17 +660,12 @@ The following options are relevant for execution:
     ```
 
     matched against string "ABCabcdABC", capturing only the "abcd" part (the
-    first explicit subpattern):
-
-    ```erlang
-    re:run("ABCabcdABC",".*(abcd).*",[{capture,[1]}]).
-    ```
-
-    The call gives the following result, as the first explicitly captured
+    first explicit subpattern).The call gives the following result, as the first explicitly captured
     subpattern is "(abcd)", matching "abcd" in the subject, at (zero-based)
     position 3, of length 4:
 
     ```erlang
+    1> re:run("ABCabcdABC",".*(abcd).*",[{capture,[1]}]).
     {match,[{3,4}]}
     ```
 
@@ -709,21 +680,19 @@ The following options are relevant for execution:
     the following call:
 
     ```erlang
-    re:run("ABCabcdABC",".*(?<FOO>abcd).*",[{capture,[1]}]).
+    1> re:run("ABCabcdABC",".*(?<FOO>abcd).*",[{capture,[1]}]).
+    {match,[{3,4}]}
     ```
 
     giving the same result as before. But, as the subpattern is named, we can
     also specify its name in the value list:
 
     ```erlang
-    re:run("ABCabcdABC",".*(?<FOO>abcd).*",[{capture,['FOO']}]).
-    ```
-
-    This would give the same result as the earlier examples, namely:
-
-    ```erlang
+    1> re:run("ABCabcdABC",".*(?<FOO>abcd).*",[{capture,['FOO']}]).
     {match,[{3,4}]}
     ```
+
+    This would give the same result as the earlier examples
 
     The values list can specify indexes or names not present in the regular
     expression, in which case the return values vary depending on the type. If
@@ -787,12 +756,14 @@ The following options are relevant for execution:
   return value is:
 
   ```erlang
+  1> re:run("ABCabcdABC", ".*((?<FOO>abdd)|a(..d)).*", []).
   {match,[{0,10},{3,4},{-1,0},{4,3}]}
   ```
 
   Setting the capture `Type` to `binary` gives:
 
   ```erlang
+  1> re:run("ABCabcdABC", ".*((?<FOO>abdd)|a(..d)).*", [{capture, all, binary}]).
   {match,[<<"ABCabcdABC">>,<<"abcd">>,<<>>,<<"bcd">>]}
   ```
 
@@ -808,28 +779,12 @@ The following options are relevant for execution:
   match separately, so that:
 
   ```erlang
-  re:run("cacb","c(a|b)",[global,{capture,[1],list}]).
-  ```
-
-  gives
-
-  ```erlang
+  1> re:run("cacb","c(a|b)",[global,{capture,[1],list}]).
   {match,[["a"],["b"]]}
   ```
 
 For a descriptions of options only affecting the compilation step, see
 `compile/2`.
-
-## Examples
-
-```erlang
-1> re:run("cat", "(|at)", [global]).
-{match,[[{0,0},{0,0}],[{1,0},{1,0}],[{1,2},{1,2}],[{3,0},{3,0}]]}
-2> re:run("abc", "a(b)c", [{capture, all, list}]).
-{match,["abc","b"]}
-3> re:run("abc", "x").
-nomatch
-```
 """.
 -spec run(Subject, RE, Options) -> {match, Captured} |
                                    match |
@@ -956,24 +911,14 @@ If subexpressions are specified in the regular expression, the matching
 subexpressions are returned in the resulting list as well. For example:
 
 ```erlang
-re:split("Erlang","[ln]",[{return,list}]).
-```
-
-gives
-
-```erlang
+1> re:split("Erlang","[ln]",[{return,list}]).
 ["Er","a","g"]
 ```
 
 while
 
 ```erlang
-re:split("Erlang","([ln])",[{return,list}]).
-```
-
-gives
-
-```erlang
+1> re:split("Erlang","([ln])",[{return,list}]).
 ["Er","l","a","n","g"]
 ```
 
@@ -990,12 +935,7 @@ groups together the part of the subject string with the parts matching the
 subexpressions when the string was split:
 
 ```erlang
-re:split("Erlang","([ln])",[{return,list},group]).
-```
-
-gives
-
-```erlang
+1> re:split("Erlang","([ln])",[{return,list},group]).
 [["Er","l"],["a","n"],["g"]]
 ```
 
@@ -1011,12 +951,7 @@ By default, all parts of the string, including the empty strings, are returned
 from the function, for example:
 
 ```erlang
-re:split("Erlang","[lg]",[{return,list}]).
-```
-
-gives
-
-```erlang
+1> re:split("Erlang","[lg]",[{return,list}]).
 ["Er","an",[]]
 ```
 
@@ -1026,12 +961,7 @@ function in Perl, where empty strings at the end are by default removed. To get
 the "trimming" default behavior of Perl, specify `trim` as an option:
 
 ```erlang
-re:split("Erlang","[lg]",[{return,list},trim]).
-```
-
-gives
-
-```erlang
+1> re:split("Erlang","[lg]",[{return,list},trim]).
 ["Er","an"]
 ```
 
@@ -1040,12 +970,7 @@ ones", which sometimes can be useful. You can also specify how many parts you
 want, by specifying `{parts,`N`}`:
 
 ```erlang
-re:split("Erlang","[lg]",[{return,list},{parts,2}]).
-```
-
-gives
-
-```erlang
+1> re:split("Erlang","[lg]",[{return,list},{parts,2}]).
 ["Er","ang"]
 ```
 
@@ -1056,10 +981,11 @@ result differs from that of `trim`.
 More than three parts are not possible with this indata, so
 
 ```erlang
-re:split("Erlang","[lg]",[{return,list},{parts,4}]).
+1> re:split("Erlang","[lg]",[{return,list},{parts,4}]).
+["Er","an",[]]
 ```
 
-gives the same result as the default, which is to be viewed as "an infinite
+This gives the same result as the default, which is to be viewed as "an infinite
 number of parts".
 
 Specifying `0` as the number of parts gives the same effect as option `trim`. If

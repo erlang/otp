@@ -1314,8 +1314,12 @@ check_yield_coverage([Tuple | Tail], YieldAcc, Err0) ->
 id(X) -> X.
 
 doctests(_Config) ->
-    %% 30 pre-existing illustrative ```erlang blocks (in run/3's and
-    %% split/3's docs) show call/result pairs without a runnable "1>"
-    %% shell prompt; they're prose, not doctests, and are intentionally
-    %% left as-is alongside the real "## Examples" sections.
-    ct_doctest:module(re, [{skipped_blocks, 30}, {missing_tests, []}]).
+    %% Every ```erlang block in this module's docs is now a real, runnable
+    %% doctest (the illustrative call/result snippets that used to lack a
+    %% "1>" shell prompt were converted or merged into their neighboring
+    %% runnable examples), so no skipped_blocks allowance is needed.
+    %%
+    %% version/0 intentionally has no example: it just returns the PCRE
+    %% version string of whatever system built this Erlang/OTP, which
+    %% isn't a meaningful fixed value to demonstrate.
+    ct_doctest:module(re, [{skipped_blocks, 0}, {missing_tests, [{version, 0}]}]).
