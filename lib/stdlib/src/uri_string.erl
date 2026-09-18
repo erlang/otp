@@ -558,13 +558,15 @@ _Example:_
       URIString :: uri_string(),
       URIMap :: uri_map().
 parse(URIString) when is_binary(URIString) ->
-    try parse_uri_reference(URIString, #{})
+    try
+        Binary = convert_to_binary(URIString, utf8, utf8),
+        parse_uri_reference(Binary, #{})
     catch
         throw:{error, Atom, RestData} -> {error, Atom, RestData}
     end;
 parse(URIString) when is_list(URIString) ->
     try
-        Binary = unicode:characters_to_binary(URIString),
+        Binary = convert_to_binary(URIString, utf8, utf8),
         Map = parse_uri_reference(Binary, #{}),
         convert_mapfields_to_list(Map)
     catch
@@ -669,7 +671,14 @@ _Example:_
       RefURI :: uri_string() | uri_map(),
       BaseURI :: uri_string() | uri_map(),
       Options :: [return_map],
-resolve(URIMap, BaseURIMap, Options) when is_map(URIMap) ->
+      TargetURI :: uri_string() | uri_map().
+resolve(URI, BaseURI, Options) ->
+    try resolve_1(URI, BaseURI, Options)
+    catch
+        throw:{error, Atom, RestData} -> {error, Atom, RestData}
+    end.
+
+resolve_1(URIMap, BaseURIMap, Options) when is_map(URIMap) ->
     case resolve_map(URIMap, BaseURIMap) of
         TargetURIMap when is_map(TargetURIMap) ->
             case Options of
@@ -681,10 +690,10 @@ resolve(URIMap, BaseURIMap, Options) when is_map(URIMap) ->
         Error ->
             Error
     end;
-resolve(URIString, BaseURIMap, Options) ->
+resolve_1(URIString, BaseURIMap, Options) ->
     case parse(URIString) of
         URIMap when is_map(URIMap) ->
-            resolve(URIMap, BaseURIMap, Options);
+            resolve_1(URIMap, BaseURIMap, Options);
         Error ->
             Error
     end.
@@ -720,9 +729,9 @@ _Example:_
       Options :: [{in_encoding, unicode:encoding()}|{out_encoding, unicode:encoding()}],
       Result :: uri_string().
 transcode(URIString, Options) when is_binary(URIString) ->
+    InEnc = proplists:get_value(in_encoding, Options, utf8),
+    OutEnc = proplists:get_value(out_encoding, Options, utf8),
     try
-        InEnc = proplists:get_value(in_encoding, Options, utf8),
-        OutEnc = proplists:get_value(out_encoding, Options, utf8),
         List = convert_to_list(URIString, InEnc),
         Output = transcode(List, [], InEnc, OutEnc),
         convert_to_binary(Output, utf8, OutEnc)
@@ -732,8 +741,9 @@ transcode(URIString, Options) when is_binary(URIString) ->
 transcode(URIString, Options) when is_list(URIString) ->
     InEnc = proplists:get_value(in_encoding, Options, utf8),
     OutEnc = proplists:get_value(out_encoding, Options, utf8),
-    Flattened = flatten_list(URIString, InEnc),
-    try transcode(Flattened, [], InEnc, OutEnc)
+    try
+        Flattened = convert_to_list(URIString, InEnc),
+        transcode(Flattened, [], InEnc, OutEnc)
     catch
         throw:{error, Atom, RestData} -> {error, Atom, RestData}
     end.
@@ -870,7 +880,10 @@ _Example:_
       Data :: unicode:chardata(),
       QuotedData :: unicode:chardata().
 quote(D) ->
-    encode(D, fun is_unreserved/1).
+    try encode(D, fun is_unreserved/1)
+    catch
+        throw:{error, Atom, RestData} -> {error, Atom, RestData}
+    end.
 
 -doc """
 Same as [`quote/1`](`quote/1`), but `Safe` allows user to provide a list of
@@ -901,7 +914,10 @@ quote(D, Safe) ->
         fun(C) ->
                 is_unreserved(C) orelse lists:member(C, Safe)
         end,
-    encode(D, UnreservedOrSafe).
+    try encode(D, UnreservedOrSafe)
+    catch
+        throw:{error, Atom, RestData} -> {error, Atom, RestData}
+    end.
 
 -doc """
 Percent decode characters.
@@ -1970,9 +1986,9 @@ decode(Cs) ->
     decode(Cs, <<>>).
 %%
 decode(L, Acc) when is_list(L) ->
-    B0 = unicode:characters_to_binary(L),
+    B0 = convert_to_binary(L, utf8, utf8),
     B1 = decode(B0, Acc),
-    unicode:characters_to_list(B1);
+    convert_to_list(B1, utf8);
 decode(<<$%,C0,C1,Cs/binary>>, Acc) ->
     case is_hex_digit(C0) andalso is_hex_digit(C1) of
         true ->
@@ -2005,17 +2021,16 @@ decode(<<>>, Acc) ->
     check_utf8(Acc).
 
 raw_decode(Cs) ->
-    raw_decode(Cs, <<>>).
-%%
-raw_decode(L, Acc) when is_list(L) ->
-    try
-        B0 = unicode:characters_to_binary(L),
-        B1 = raw_decode(B0, Acc),
-        unicode:characters_to_list(B1)
+    try raw_decode(Cs, <<>>)
     catch
         throw:{error, Atom, RestData} ->
             {error, Atom, RestData}
-    end;
+    end.
+%%
+raw_decode(L, Acc) when is_list(L) ->
+    B0 = convert_to_binary(L, utf8, utf8),
+    B1 = raw_decode(B0, Acc),
+    convert_to_list(B1, utf8);
 raw_decode(<<$%,C0,C1,Cs/binary>>, Acc) ->
     case is_hex_digit(C0) andalso is_hex_digit(C1) of
         true ->
@@ -2065,8 +2080,8 @@ is_path(Char) -> is_pchar(Char).
 %%-------------------------------------------------------------------------
 -spec encode(list()|binary(), fun()) -> list() | binary().
 encode(Component, Fun) when is_list(Component) ->
-    B = unicode:characters_to_binary(Component),
-    unicode:characters_to_list(encode(B, Fun, <<>>));
+    B = convert_to_binary(Component, utf8, utf8),
+    convert_to_list(encode(B, Fun, <<>>), utf8);
 encode(Component, Fun) when is_binary(Component) ->
     encode(Component, Fun, <<>>).
 %%
@@ -2518,26 +2533,6 @@ convert_to_list(Binary, InEncoding) ->
         Result ->
             Result
     end.
-
-
-%% Flatten input list
-flatten_list([], _) ->
-    [];
-flatten_list(L, InEnc) ->
-    flatten_list(L, InEnc, []).
-%%
-flatten_list([H|T], InEnc, Acc) when is_binary(H) ->
-    L = convert_to_list(H, InEnc),
-    flatten_list(T, InEnc, lists:reverse(L, Acc));
-flatten_list([H|T], InEnc, Acc) when is_list(H) ->
-    flatten_list(H ++ T, InEnc, Acc);
-flatten_list([H|T], InEnc, Acc) ->
-    flatten_list(T, InEnc, [H|Acc]);
-flatten_list([], _InEnc, Acc) ->
-    lists:reverse(Acc);
-flatten_list(Arg, _, _) ->
-    throw({error, invalid_input, Arg}).
-
 
 percent_encode_segment(Segment) ->
     percent_encode_binary(Segment, <<>>).
