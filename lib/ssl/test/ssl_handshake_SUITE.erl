@@ -57,6 +57,7 @@
          signature_algorithms/1,
          server_key_exchange_signature_not_sha1_connection/1,
          drop_md5_rsa_signature_algorithm_tls_1_2/1,
+         reject_cert_verify_bad_sign_algo_tls_1_2/1,
          drop_unassigned_signature_algorithms/1,
          drop_undecodable_certificate_authorities/1,
          reject_truncated_certificate_entry/1,
@@ -431,6 +432,43 @@ drop_md5_rsa_signature_algorithm_tls_1_2(_Config) ->
     true = lists:member({sha, rsa}, SigAlgs),
     %% ... and the compliant {sha256, rsa} is of course present.
     true = lists:member({sha256, rsa}, SigAlgs),
+    ok.
+
+reject_cert_verify_bad_sign_algo_tls_1_2(_Config) ->
+    %% RFC 9155 §5: a (D)TLS-1.2 server receiving a CertificateVerify signed
+    %% with a hash/signature algorithm it did not offer (in particular MD5 or
+    %% SHA-1, which are excluded from the default signature_algs) must abort
+    %% with illegal_parameter. This mirrors the TLS-1.3 check in
+    %% tls_handshake_1_3:verify_signature_algorithm/2. The TLS/DTLS-1.2
+    %% wait_cert_verify state now calls
+    %% ssl_handshake:certificate_verify_signature_algorithm/3 before verifying
+    %% the signature; this test exercises that decision function directly.
+    %%
+    %% Server's advertised list = the default signature_algs (no SHA-1/MD5).
+    Supported = tls_v1:default_signature_algs([?TLS_1_2]),
+
+    %% A CertificateVerify claiming SHA-1/RSA must be rejected ...
+    #alert{level = ?FATAL, description = ?ILLEGAL_PARAMETER} =
+        ssl_handshake:certificate_verify_signature_algorithm({sha, rsa}, Supported, ?TLS_1_2),
+    %% ... likewise SHA-1/ECDSA and MD5/RSA ...
+    #alert{description = ?ILLEGAL_PARAMETER} =
+        ssl_handshake:certificate_verify_signature_algorithm({sha, ecdsa}, Supported, ?TLS_1_2),
+    #alert{description = ?ILLEGAL_PARAMETER} =
+        ssl_handshake:certificate_verify_signature_algorithm({md5, rsa}, Supported, ?TLS_1_2),
+
+    %% ... while an advertised strong algorithm is accepted ...
+    valid =
+        ssl_handshake:certificate_verify_signature_algorithm({sha256, rsa}, Supported, ?TLS_1_2),
+
+    %% ... and if the server explicitly advertised SHA-1 (deliberate opt-in),
+    %% a SHA-1 CertificateVerify is accepted (not a §5 violation then).
+    OptIn = Supported ++ [{sha, rsa}],
+    valid =
+        ssl_handshake:certificate_verify_signature_algorithm({sha, rsa}, OptIn, ?TLS_1_2),
+
+    %% Pre-TLS-1.2 (fixed md5sha construct, no negotiated schemes) is unaffected.
+    valid =
+        ssl_handshake:certificate_verify_signature_algorithm({md5sha, rsa}, undefined, ?TLS_1_1),
     ok.
 
 
