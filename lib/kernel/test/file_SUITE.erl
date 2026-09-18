@@ -61,7 +61,7 @@
 	  file_info_bad/1, file_info_times/1, file_write_file_info/1,
           file_wfi_helpers/1]).
 -export([ file_handle_info_basic_file/1, file_handle_info_basic_directory/1,
-	  file_handle_info_times/1]).
+	  file_handle_info_times/1, file_handle_info_wrapped/1]).
 -export([rename/1, access/1, truncate/1, datasync/1, sync/1,
 	 read_write/1, pread_write/1, append/1, exclusive/1]).
 -export([ e_delete/1, e_rename/1, e_make_dir/1, e_del_dir/1]).
@@ -160,7 +160,7 @@ groups() ->
       [file_info_basic_file, file_info_basic_directory,
        file_info_bad, file_info_times,
        file_handle_info_basic_file, file_handle_info_basic_directory,
-       file_handle_info_times,
+       file_handle_info_times, file_handle_info_wrapped,
        file_write_file_info,
        file_wfi_helpers]},
      {consult, [], [consult1, path_consult]},
@@ -1689,6 +1689,35 @@ test_directory_handle(Name, ExpectedAccess) ->
     end.
 
 %% Test that the file times behave as they should.
+
+%% read_file_info/1,2 on a file that is opened with delayed_write. The option
+%% puts a wrapper process between the caller and the file, and the request has
+%% to name the operation for that process to run it.
+file_handle_info_wrapped(Config) when is_list(Config) ->
+    RootDir = proplists:get_value(priv_dir, Config),
+    Name = filename:join(RootDir,
+			 atom_to_list(?MODULE) ++ "_" ++
+			 atom_to_list(?FUNCTION_NAME) ++ ".fil"),
+
+    %% A delayed_write file reports the file info of the file on disk. The
+    %% wrapper process must survive the request, so the data written after it
+    %% still reaches the file.
+    {ok, FdW} = ?FILE_MODULE:open(Name, [raw, write, delayed_write]),
+    {ok, #file_info{type=regular}} = ?FILE_MODULE:read_file_info(FdW),
+    {ok, #file_info{type=regular}} =
+	?FILE_MODULE:read_file_info(FdW, [{time, posix}]),
+    ok = ?FILE_MODULE:write(FdW, "delayed"),
+    ok = ?FILE_MODULE:close(FdW),
+    {ok, <<"delayed">>} = ?FILE_MODULE:read_file(Name),
+
+    {ok, FdR} = ?FILE_MODULE:open(Name, [raw, read, delayed_write]),
+    {ok, #file_info{size=7}} = ?FILE_MODULE:read_file_info(FdR),
+    ok = ?FILE_MODULE:close(FdR),
+
+    ok = ?FILE_MODULE:delete(Name),
+
+    [] = flush(),
+    ok.
 
 file_handle_info_times(Config) when is_list(Config) ->
     %% We have to try this twice, since if the test runs across the change
