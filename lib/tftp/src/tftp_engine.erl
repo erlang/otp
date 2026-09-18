@@ -760,11 +760,12 @@ close_port(Config, Who, Req) when is_record(Req, tftp_msg_req) ->
     end.
 
 open_free_port(Config, Who, Req) when is_record(Config, config), is_record(Req, tftp_msg_req) ->
-    UdpOptions = Config#config.udp_options,
     case Config#config.port_policy of
         random ->
-            %% BUGBUG: Should be a random port
-            try gen_udp:open(0, UdpOptions) of
+            %% XXX Kernel internal API, port number -1 is used by inet_res
+            %% to request an as random as possible port
+            UdpOptions = Config#config.udp_options,
+            try gen_udp:open(-1, UdpOptions) of
                 {ok, Socket} ->
                     Config2 = Config#config{udp_socket = Socket},
                     print_debug_info(Config2, Who, open, Req),
@@ -776,27 +777,46 @@ open_free_port(Config, Who, Req) when is_record(Config, config), is_record(Req, 
                     Text = lists:flatten(io_lib:format("UDP open ~p -> ~p", [[0 | UdpOptions], {'EXIT', Reason}])),
                     ?ERROR(open, undef, Text, Req#tftp_msg_req.filename)
             end;
-        {range, Port, Max} when Port =< Max ->
-            try gen_udp:open(Port, UdpOptions) of
-                {ok, Socket} ->
-                    Config2 = Config#config{udp_socket = Socket},
-                    print_debug_info(Config2, Who, open, Req),
-                    {ok, Config2};
-                {error, eaddrinuse} ->
-                    PortPolicy = {range, Port + 1, Max},
-                    Config2 = Config#config{port_policy = PortPolicy},
-                    open_free_port(Config2, Who, Req);
-                {error, Reason} ->
-                    Text = lists:flatten(io_lib:format("UDP open ~p -> ~p", [[Port | UdpOptions], Reason])),
-                    ?ERROR(open, undef, Text, Req#tftp_msg_req.filename)
-            catch error : Reason ->
-                    Text = lists:flatten(io_lib:format("UDP open ~p -> ~p", [[Port | UdpOptions], {'EXIT', Reason}])),
-                    ?ERROR(open, undef, Text, Req#tftp_msg_req.filename)
-            end;
+        {range, Min, Max} when Min =< Max ->
+            %% This is not a cryptographically secure PRNG
+            Port = rand:uniform_s(Max - Min + 1, rand:seed_s(default)) - 1,
+            open_free_port(Config, Who, Req, Port, Min, Max, Port);
         {range, Port, _Max} ->
             Reason = "Port range exhausted",
+            UdpOptions = Config#config.udp_options,
             Text = lists:flatten(io_lib:format("UDP open ~p -> ~p", [[Port | UdpOptions], Reason])),
             ?ERROR(Who, undef, Text, Req#tftp_msg_req.filename)
+    end.
+
+open_free_port(Config, Who, Req, Port, Min, Max, Start)
+    when is_integer(Min), is_integer(Max), Min =< Max,
+         is_integer(Start, Min, Max), is_integer(Port, Min, Max) ->
+    UdpOptions = Config#config.udp_options,
+    try gen_udp:open(Port, UdpOptions) of
+        {ok, Socket} ->
+            Config2 = Config#config{udp_socket = Socket},
+            print_debug_info(Config2, Who, open, Req),
+            {ok, Config2};
+        {error, eaddrinuse} ->
+            case next_port(Port, Min, Max) of
+                Start ->
+                    Reason = "Port range exhausted",
+                    Text = lists:flatten(io_lib:format("UDP open ~p -> ~p", [[Port | UdpOptions], Reason])),
+                    ?ERROR(Who, undef, Text, Req#tftp_msg_req.filename);
+                NextPort ->
+                    open_free_port(Config, Who, Req, NextPort, Min, Max, Start)
+            end;
+        {error, Reason} ->
+            Text = lists:flatten(io_lib:format("UDP open ~p -> ~p", [[Port | UdpOptions], Reason])),
+            ?ERROR(open, undef, Text, Req#tftp_msg_req.filename)
+    catch error : Reason ->
+            Text = lists:flatten(io_lib:format("UDP open ~p -> ~p", [[Port | UdpOptions], {'EXIT', Reason}])),
+            ?ERROR(open, undef, Text, Req#tftp_msg_req.filename)
+    end.
+
+next_port(Port, Min, Max) ->
+    if  Port < Max  -> Port + 1;
+        true        -> Min
     end.
 
 %%-------------------------------------------------------------------
