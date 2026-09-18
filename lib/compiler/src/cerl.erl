@@ -4266,9 +4266,7 @@ is_char_value(_) -> false.
 
 is_print_char_value($\d) -> true;
 is_print_char_value(V) when is_integer(V) ->
-    io_lib:printable_character(V, latin1);
-is_print_char_value(_) ->
-    false.
+    io_lib:printable_character(V, latin1).
 
 is_char_list([V | Vs]) when is_integer(V) ->
     is_char_value(V) andalso is_char_list(Vs);

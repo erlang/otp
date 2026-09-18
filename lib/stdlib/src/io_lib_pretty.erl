@@ -1302,14 +1302,20 @@ printable_bin(Bin, Len, D, _Uni, Out) ->
 %% -> all | integer() >=0. Adopted from io_lib.erl.
 printable_latin1_list([_ | _], 0) -> 0;
 printable_latin1_list([C | Cs], N) when is_integer(C) ->
-    io_lib:printable_character(C, latin1) andalso printable_latin1_list(Cs, N - 1);
+    case io_lib:printable_character(C, latin1) of
+        true -> printable_latin1_list(Cs, N - 1);
+        false -> N
+    end;
 printable_latin1_list([], _) -> all;
 printable_latin1_list(_, N) -> N.
 
 printable_latin1_bin(<<>>, _) -> all;
 printable_latin1_bin(_, 0) -> 0;
 printable_latin1_bin(<<C:8, Rest/binary>>, N) when N > 0 ->
-    io_lib:printable_character(C, latin1) andalso printable_latin1_bin(Rest, N-1);
+    case io_lib:printable_character(C, latin1) of
+        true -> printable_latin1_bin(Rest, N-1);
+        false -> N
+    end;
 printable_latin1_bin(_, N) -> N.
 
 printable_unicode_bin(<<_/utf8, _R/binary>> = Bin, 0, _) ->
