@@ -23,6 +23,12 @@ name: Release Erlang/OTP
 on:
   workflow_call:
     inputs:
+      otp_branch:
+        description: |
+          The OTP branch that triggered the workflow.
+          This is useful if one needs to selectively skip reusable workflows
+        required: true
+        type: string
       otp_sbom_version:
         required: true
         type: string
@@ -46,7 +52,11 @@ jobs:
   release:
     name: Release Erlang/OTP
     runs-on: ubuntu-latest
-    ## Needed to create releases
+    outputs:
+      hashes:     ${{ steps.hash-provenance.outputs.hashes }}
+      tag:        ${{ inputs.tag }}
+      vsn:        ${{ inputs.vsn }}
+      otp_branch: ${{ inputs.otp_branch }}
     permissions:
       contents:     write   # actions/checkout + gh release create + gh api (read otp_versions.table)
       attestations: write   # actions/attest-sbom (generate signed attestation bundles)
@@ -89,48 +99,99 @@ jobs:
           sha256sum $FILES > SHA256.txt
 
       - name: Download SBoM
-        if: inputs.otp_sbom_version != '' # needed to not account for OTP-26 and 27
         uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # ratchet:actions/download-artifact@v6.0.0
         with:
-            name: ort-results-otp-${{ env.OTP_SBOM_VERSION }}
+          name: ort-results-otp-${{ env.OTP_SBOM_VERSION }}
 
       - name: Download ORT Scan Results
-        if: inputs.otp_sbom_version != '' # needed to not account for OTP-26 and 27
         uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # ratchet:actions/download-artifact@v6.0.0
         with:
-            name: ort-results-otp-${{ env.OTP_SBOM_VERSION }}-scan-result.json.zip
+          name: ort-results-otp-${{ env.OTP_SBOM_VERSION }}-scan-result.json.zip
 
-      - name: Attest Distribution Assets with SBoM
+      # Attest the SBoM only. Build provenance comes exclusively from the
+      # slsa-github-generator job (SLSA L3) so that the release job cannot
+      # influence the provenance attestation.
+      #
+      # Attest SBoM — only for the source archive.
+      # The SBoM describes source composition, so only otp_src is a valid subject.
+      - name: Attest SBoM
         id: attest-sbom
-        if: inputs.otp_sbom_version != '' # needed to not account for OTP-26 and 27
-        uses: actions/attest-sbom@4651f806c01d8637787e274ac3bdf724ef169f34 # ratchet:actions/attest-sbom@v3
+        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # ratchet:actions/attest@v4.1.0
+        with:
+          subject-path: artifacts/otp_src_*.tar.gz
+          predicate-type: https://spdx.dev/Document
+          predicate-path: bom.spdx.json
+
+      - name: Attest SBoM document provenance
+        id: attest-sbom-doc
+        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26
+        with:
+          subject-path: bom.spdx.json
+
+      # Attest build provenance for doc archives. This is equivalent to what
+      # actions/attest-build-provenance used to do. Attesting multiple files
+      # here will create a single attestation bundle covering both files as
+      # subjects. So when running `gh attestation download` for either file, we
+      # get back the same bundle. thus, the two .sigstore files for the
+      # documentation in html and man are identical copies of the same bundle,
+      # i.e., they will have the same hash.
+      - name: Attest doc archives
+        id: attest-docs
+        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # ratchet:actions/attest@v4.1.0
         with:
           subject-path: |
-            artifacts/*.tar.gz
-            bom.*.json
-            bom.*.yml
-            bom.*.xml
-          sbom-path: bom.spdx.json
+            artifacts/otp_doc_html_*.tar.gz
+            artifacts/otp_doc_man_*.tar.gz
 
-      - name: "Copy SBoM provenance"
-        id: sbom-provenance
-        if: inputs.otp_sbom_version != '' # needed to not account for OTP-26 and 27
+      # Export attestation bundles as individual .sigstore files so that
+      # downstream users who depend on the old per-artifact pattern can still
+      # download and verify them from the release assets.
+      #
+      # - otp_src_*.tar.gz  → SBoM attestation  (spdx.dev/Document)
+      # - otp_doc_*.tar.gz  → build provenance  (slsa.dev/provenance/v1)
+      #
+      # These contain the same attestation that is stored in GitHub's
+      # attestation store; they are a convenience copy only.
+      - name: Export SBoM attestation bundles for backwards compatibility
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO:     ${{ github.repository }}
         shell: bash
         run: |
-          shopt -s nullglob
-          mkdir attestations
-          for FILE in artifacts/*.tar.gz bom.*.xml bom.*.json bom.*.yml; do
-            cp "$ATTESTATION" "attestations/$(basename "$FILE").sigstore"
-          done
-        env:
-          ATTESTATION: "${{ steps.attest-sbom.outputs.bundle-path }}"
+          set -euo pipefail
+          mkdir -p sigstore-bundles
 
-      - name: "Assemble Distribution Attestations"
-        if: inputs.otp_sbom_version != '' # needed to not account for OTP-26 and 27
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # ratchet:actions/upload-artifact@v6
-        with:
-          name: "Attestations"
-          path: "attestations/*.sigstore"
+          # SBoM bundle — source archive only
+          for f in artifacts/otp_src_*.tar.gz; do
+            [ -f "$f" ] || continue
+            name=$(basename "$f")
+            abs=$(realpath "$f")
+            tmpdir=$(mktemp -d)
+            (cd "${tmpdir}" && gh attestation download "${abs}" --repo "${REPO}")
+            bundle_file=$(ls "${tmpdir}/")
+            mv "${tmpdir}/${bundle_file}" "sigstore-bundles/${name}.sigstore"
+            rm -rf "${tmpdir}"
+          done
+
+          # Build provenance bundles — doc archives
+          for f in artifacts/otp_doc_html_*.tar.gz artifacts/otp_doc_man_*.tar.gz; do
+            [ -f "$f" ] || continue
+            name=$(basename "$f")
+            abs=$(realpath "$f")
+            tmpdir=$(mktemp -d)
+            (cd "${tmpdir}" && gh attestation download "${abs}" --repo "${REPO}")
+            bundle_file=$(ls "${tmpdir}/")
+            mv "${tmpdir}/${bundle_file}" "sigstore-bundles/${name}.sigstore"
+            rm -rf "${tmpdir}"
+          done
+
+          # Build provenance bundle for bom.spdx.json
+          abs=$(realpath bom.spdx.json)
+          tmpdir=$(mktemp -d)
+          (cd "${tmpdir}" && gh attestation download "${abs}" --repo "${REPO}")
+          bundle_file=$(ls "${tmpdir}/")
+          mv "${tmpdir}/${bundle_file}" "sigstore-bundles/bom.spdx.json.sigstore"
+          rm -rf "${tmpdir}"
 
       - name: Mark as latest
         id: latest-release
@@ -154,8 +215,35 @@ jobs:
             echo "latest=false" >> "$GITHUB_OUTPUT"
           fi
 
+      # Hashes are consumed exclusively by the isolated slsa-github-generator
+      # job. That job runs in a separate reusable workflow and cannot be
+      # tampered with by this runner — that is the SLSA L3 guarantee.
+      - name: Generate Provenance Hashes
+        shell: bash
+        id: hash-provenance
+        env:
+          VERSION: ${{ inputs.otp_branch }}
+        run: |
+          echo "hashes=$(sha256sum artifacts/*.tar.gz artifacts/*.txt bom.* | base64 -w0)" >> "$GITHUB_OUTPUT"
+
+      - name: Stage release files for artifact upload
+        shell: bash
+        run: |
+          mkdir -p release-files
+          cp artifacts/*.tar.gz          release-files/
+          cp artifacts/MD5.txt           release-files/
+          cp artifacts/SHA256.txt        release-files/
+          cp bom.*                       release-files/
+          cp sigstore-bundles/*.sigstore release-files/
+
+      - name: Upload release files artifact
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # ratchet:actions/upload-artifact@v6
+        with:
+          name: release-files
+          path: release-files/
+
+      # Release for OTP 28+ (has SBoM, has .sigstore files, has bom.*)
       - name: Create a release
-        if: inputs.otp_sbom_version != '' # needed for OTP-28 onwards
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG:      ${{ inputs.tag }}
@@ -166,40 +254,17 @@ jobs:
             echo "Release exists, editing..."
             gh release edit "${TAG}" --latest=${LATEST}
             gh release upload "${TAG}" --clobber \
-            artifacts/*.tar.gz \
-            artifacts/*.txt \
-            attestations/*.sigstore \
-            bom.*
+              artifacts/*.tar.gz \
+              artifacts/*.txt \
+              bom.* \
+              sigstore-bundles/*.sigstore
           else
             echo "Release does not exist, creating..."
             gh release create "${TAG}" --title "OTP ${VSN}" --latest=${LATEST} \
-            artifacts/*.tar.gz \
-            artifacts/*.txt \
-            attestations/*.sigstore \
-            bom.*
-          fi
-
-      # Create a release for 26 and 27
-      - name: Create Release for 26 and 27
-        if: inputs.otp_sbom_version == '' # needed to for OTP-26 and -27
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG:      ${{ inputs.tag }}
-          VSN:      ${{ inputs.vsn }}
-          LATEST:   ${{ steps.latest-release.outputs.latest }}
-        run: |
-          if gh release view "${TAG}" &>/dev/null; then
-            echo "Release exists, editing..."
-            gh release edit "${TAG}" --latest=false
-            gh release upload "${TAG}" --clobber \
-                artifacts/*.tar.gz \
-                artifacts/*.txt
-          else
-            echo "Release does not exist, creating..."
-            gh release create "${TAG}" --title "OTP ${VSN}" --latest=false \
-            gh release upload "${TAG}" --clobber \
-               artifacts/*.tar.gz \
-               artifacts/*.txt
+              artifacts/*.tar.gz \
+              artifacts/*.txt \
+              bom.* \
+              sigstore-bundles/*.sigstore
           fi
 
       - name: Deploy on erlang.org
@@ -207,4 +272,295 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.TRIGGER_ERLANG_ORG_BUILD }}
         run: |
-          curl -H "Authorization: token ${GITHUB_TOKEN}" -X POST -H "Accept: application/vnd.github.v3+json" "https://api.github.com/repos/erlang/erlang-org/actions/workflows/update-gh-cache.yaml/dispatches" -d '{"ref":"master"}'
+          curl -H "Authorization: token ${GITHUB_TOKEN}" -X POST \
+            -H "Accept: application/vnd.github.v3+json" \
+            "https://api.github.com/repos/erlang/erlang-org/actions/workflows/update-gh-cache.yaml/dispatches" \
+            -d '{"ref":"master"}'
+
+  # ---------------------------------------------------------------------------
+  # SLSA L3 provenance.
+  #
+  # This job runs in an isolated reusable workflow provided by the SLSA
+  # framework. The release job above cannot influence or tamper with the
+  # provenance that this job generates — that isolation is the SLSA L3
+  # guarantee.
+  #
+  # The generator uploads multiple.intoto.jsonl to the release automatically
+  # when upload-assets: true. Each line in that file is a signed in-toto
+  # statement for one artifact.
+  #
+  # Pin by digest, not tag — tags are mutable and would break the L3
+  # builder-identity guarantee.
+  # ---------------------------------------------------------------------------
+  provenance:
+    needs: [release]
+    permissions:
+      actions:  read    # read workflow run metadata for provenance
+      id-token: write   # OIDC token — only this isolated job gets it
+      contents: write   # upload multiple.intoto.jsonl to the release
+    uses: slsa-framework/slsa-github-generator/.github/workflows/generator_generic_slsa3.yml@v2.1.0 # ratchet:exclude # zizmor: ignore[unpinned-uses]
+    with:
+      base64-subjects: "${{ needs.release.outputs.hashes }}"
+      upload-assets: true
+
+  # ---------------------------------------------------------------------------
+  # Verify the L3 provenance before publishing PROVENANCE.md.
+  # ---------------------------------------------------------------------------
+  verify-provenance:
+    name: Verify SLSA Provenance
+    needs: [release, provenance]
+    if:  needs.release.result == 'success' && needs.provenance.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      TAG:  ${{ needs.release.outputs.tag }}
+      VSN:  ${{ needs.release.outputs.vsn }}
+      REPO: ${{ github.repository }}
+    steps:
+      - name: Download release files
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # ratchet:actions/download-artifact@v6.0.0
+        with:
+          name: release-files
+          path: release-files/
+
+      - name: Download provenance file
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          # The SLSA generator uploads multiple.intoto.jsonl to the release.
+          # Retry a few times in case the upload has not completed yet.
+          for i in 1 2 3 4 5; do
+            gh release download "${TAG}" --repo "${REPO}" \
+              --pattern "multiple.intoto.jsonl" \
+              --dir provenance/ && break
+            echo "Attempt $i failed, retrying in 10s..."
+            sleep 10
+          done
+
+      - name: Install slsa-verifier
+        uses: slsa-framework/slsa-verifier/actions/installer@v2.7.1 # ratchet:exclude # zizmor: ignore[unpinned-uses]
+
+      - name: Verify provenance for all attested artifacts
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          PROVENANCE="provenance/multiple.intoto.jsonl"
+          PASS=0
+          FAIL=0
+
+          for artifact in release-files/*.tar.gz release-files/bom.*; do
+            [ -f "$artifact" ] || continue
+            # Skip .sigstore bundle files — they are attestations, not build artifacts
+            [[ "$artifact" == *.sigstore ]] && continue
+            name=$(basename "$artifact")
+            echo "--- Verifying: $name"
+            if slsa-verifier verify-artifact "$artifact" \
+                --provenance-path "$PROVENANCE" \
+                --source-uri "github.com/${REPO}" \
+                --source-tag "${TAG}"; then
+              echo "PASSED: $name"
+              PASS=$((PASS + 1))
+            else
+              echo "FAILED: $name"
+              FAIL=$((FAIL + 1))
+            fi
+          done
+
+          echo ""
+          echo "=== Verification summary ==="
+          echo "Passed: $PASS"
+          echo "Failed: $FAIL"
+
+          if [ "$FAIL" -gt 0 ]; then
+            echo "One or more artifacts failed SLSA verification." >&2
+            exit 1
+          fi
+
+  # ---------------------------------------------------------------------------
+  # Publish PROVENANCE.md only after verification passes.
+  # ---------------------------------------------------------------------------
+  upload-provenance-readme:
+    name: Upload PROVENANCE.md
+    needs: [release, provenance, verify-provenance]
+    if: |
+      always() &&
+      needs.release.result == 'success' &&
+      needs.verify-provenance.result == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      TAG:      ${{ needs.release.outputs.tag }}
+      VSN:      ${{ needs.release.outputs.vsn }}
+      REPO:     ${{ github.repository }}
+    steps:
+      - name: Download release files
+        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # ratchet:actions/download-artifact@v6.0.0
+        with:
+          name: release-files
+          path: release-files/
+
+      - name: Generate PROVENANCE.md
+        shell: bash
+        run: |
+          set -euo pipefail
+          RELEASE_URL="https://github.com/${REPO}/releases/tag/${TAG}"
+
+          {
+            cat <<HEADER
+          # Provenance and Integrity Verification for OTP ${VSN}
+
+          This release includes [SLSA](https://slsa.dev/spec/v1.0/levels)
+          provenance generated via the
+          [slsa-framework/slsa-github-generator](https://github.com/slsa-framework/slsa-github-generator).
+
+          The provenance file \`multiple.intoto.jsonl\` is uploaded automatically by the
+          SLSA generator and covers all attested artifacts in a single file.
+
+          Individual \`.sigstore\` bundle files are also attached to this release for
+          backwards compatibility with tooling that expects per-artifact bundles.
+          They contain the same SBoM attestation stored in
+          [GitHub's attestation store](https://github.com/${REPO}/attestations).
+
+          ---
+
+          ## Attested Artifacts
+
+          The following artifacts have SLSA provenance. Each \`.sigstore\` file is a
+          Sigstore bundle for the corresponding artifact and is also attached to this release.
+
+          | Artifact | SHA-256 |
+          |----------|---------|
+          HEADER
+            for f in release-files/*.tar.gz; do
+              [ -f "$f" ] || continue
+              name=$(basename "$f")
+              hash=$(sha256sum "$f" | awk '{print $1}')
+              printf "| \`%s\` | \`%s\` |\n" "$name" "$hash"
+            done
+
+            # print boom.spdx.json file
+            name=$(basename bom.spdx.json)
+            hash=$(sha256sum release-files/bom.spdx.json | awk '{print $1}')
+            printf "| \`%s\` | \`%s\` |\n" "$name" "$hash"
+
+            # Emit ALL .sigstore bundles exactly once
+            for f in release-files/*.sigstore; do
+              [ -f "$f" ] || continue
+              name=$(basename "$f")
+              hash=$(sha256sum "$f" | awk '{print $1}')
+              printf "| \`%s\` | \`%s\` |\n" "$name" "$hash"
+            done
+
+            cat <<CHECKSUMS
+
+          ---
+
+          ## Checksums
+
+          The \`SHA256.txt\` and \`MD5.txt\` files attached to this release contain checksums
+          for the source and documentation archives.
+
+          ### SHA256
+          \`\`\`
+          CHECKSUMS
+
+            cat release-files/SHA256.txt
+
+            cat <<MD5END
+          \`\`\`
+
+          ### MD5
+          \`\`\`
+          MD5END
+
+            cat release-files/MD5.txt
+
+            cat <<FOOTER
+          \`\`\`
+
+          ---
+
+          ## How to Verify Build Provenance (SLSA L3)
+
+          ### 1. Install slsa-verifier
+
+          \`\`\`bash
+          go install github.com/slsa-framework/slsa-verifier/v2/cli/slsa-verifier@latest
+          \`\`\`
+
+          Or download a pre-built binary from the
+          [slsa-verifier releases page](https://github.com/slsa-framework/slsa-verifier/releases).
+
+          ### 2. Download the artifact and the provenance file
+
+          \`\`\`bash
+          gh release download ${TAG} --repo ${REPO} \\
+            --pattern 'otp_src_${VSN}.tar.gz' \\
+            --pattern 'multiple.intoto.jsonl'
+          \`\`\`
+
+          Replace \`otp_src_${VSN}.tar.gz\` with whichever attested artifact you want to verify.
+          The same \`multiple.intoto.jsonl\` file covers all attested artifacts.
+
+          ### 3. Run the verifier
+
+          \`\`\`bash
+          slsa-verifier verify-artifact otp_src_${VSN}.tar.gz \\
+            --provenance-path multiple.intoto.jsonl \\
+            --source-uri github.com/${REPO} \\
+            --source-tag ${TAG}
+          \`\`\`
+
+          A successful result prints:
+
+          \`\`\`
+          PASSED: Verified SLSA provenance
+          \`\`\`
+
+          ---
+
+          ## How to Verify the SBoM Attestation
+
+          ### Using gh attestation verify (recommended)
+
+          \`\`\`bash
+          gh release download ${TAG} --repo ${REPO} \\
+            --pattern 'otp_src_${VSN}.tar.gz'
+
+          gh attestation verify otp_src_${VSN}.tar.gz \\
+            --repo ${REPO}
+          \`\`\`
+
+          ### Using a .sigstore bundle file (backwards compatible)
+
+          \`\`\`bash
+          gh release download ${TAG} --repo ${REPO} \\
+            --pattern 'otp_src_${VSN}.tar.gz' \\
+            --pattern 'otp_src_${VSN}.tar.gz.sigstore'
+
+          gh attestation verify otp_src_${VSN}.tar.gz \\
+            --bundle otp_src_${VSN}.tar.gz.sigstore \\
+            --repo ${REPO}
+          \`\`\`
+
+          ---
+
+          ## References
+
+          - [SLSA Specification](https://slsa.dev)
+          - [slsa-verifier](https://github.com/slsa-framework/slsa-verifier)
+          - [GitHub Attestations](https://github.com/${REPO}/attestations)
+          - [This release](${RELEASE_URL})
+          FOOTER
+
+          } > PROVENANCE.md
+
+      - name: Upload PROVENANCE.md to release
+        shell: bash
+        run: |
+          gh release upload "${TAG}" PROVENANCE.md --clobber --repo "${REPO}"
