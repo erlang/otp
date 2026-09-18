@@ -927,13 +927,22 @@ wait_for_msg(Config, Callback, Req) ->
             DecodedMsg = tftp_lib:decode_msg(Bin),
             print_debug_info(Config2, Req, recv, DecodedMsg),
             {Config2, DecodedMsg};
-        {udp, Socket, Host, Port, Bin} when is_binary(Bin),
-                                            Config#config.udp_host =:= Host,
-                                            Config#config.udp_port =:= Port ->
+        {udp, Socket, Host, Port, Bin} when is_binary(Bin) ->
             _ = inet:setopts(Socket, [{active, once}]),
-            DecodedMsg = tftp_lib:decode_msg(Bin),
-            print_debug_info(Config, Req, recv, DecodedMsg),
-            {Config, DecodedMsg};
+            if
+                Config#config.udp_host =:= Host, Config#config.udp_port =:= Port ->
+                    DecodedMsg = tftp_lib:decode_msg(Bin),
+                    print_debug_info(Config, Req, recv, DecodedMsg),
+                    {Config, DecodedMsg};
+                true ->
+                    %% An incorrect Host/Port SHOULD be answered,
+                    %% without disrupting the ongoing transfer
+                    send_msg(Config#config{udp_host = Host, udp_port = Port },
+                             Req,
+                             #tftp_msg_error{
+                                code = badblk, text = "Unknown transfer ID" }),
+                    wait_for_msg(Config, Callback, Req)
+            end;
         {info, Ref, FromPid} when is_pid(FromPid) ->
             Type =
                 case Req#tftp_msg_req.local_filename =/= undefined of
