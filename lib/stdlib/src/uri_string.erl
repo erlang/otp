@@ -390,8 +390,9 @@ characters.
 """.
 -type uri_string() :: iodata().
 -doc """
-Error tuple indicating the type of error. Possible values of the second
-component:
+Error tuple indicating the type of error.
+
+Possible values of the second component:
 
 - `invalid_character`
 - `invalid_encoding`
@@ -403,10 +404,21 @@ component:
 - `invalid_utf8`
 - `missing_value`
 
+Which specific error reason that can be returned from which function is documented in the function's specification.
+
 The third component is a term providing additional information about the cause
 of the error.
 """.
--type error() :: {error, atom(), term()}.
+-type error(Reason) :: {error, Reason, term()}.
+
+-doc """
+Error tuple indicating all the types of errors.
+
+See `t:error/1` for more information.
+""".
+-type error() :: error(invalid_character | invalid_encoding |
+                       invalid_input | invalid_map | invalid_percent_encoding |
+                       invalid_scheme | invalid_uri | invalid_utf8 | missing_value).
 
 
 %%-------------------------------------------------------------------------
@@ -449,10 +461,11 @@ _Example:_
 ```
 """.
 -doc(#{since => <<"OTP 21.0">>}).
--spec normalize(URI) -> NormalizedURI when
+-spec normalize(URI) -> NormalizedURI | Error when
       URI :: uri_string() | uri_map(),
-      NormalizedURI :: uri_string()
-                     | error().
+      NormalizedURI :: uri_string(),
+      Error :: error(invalid_input | invalid_percent_encoding |
+                     invalid_scheme | invalid_uri | invalid_utf8).
 normalize(URIMap) ->
     normalize(URIMap, []).
 
@@ -479,11 +492,12 @@ _Example:_
 ```
 """.
 -doc(#{since => <<"OTP 21.0">>}).
--spec normalize(URI, Options) -> NormalizedURI when
+-spec normalize(URI, Options) -> NormalizedURI | Error when
       URI :: uri_string() | uri_map(),
       Options :: [return_map],
-      NormalizedURI :: uri_string() | uri_map()
-                     | error().
+      NormalizedURI :: uri_string() | uri_map(),
+      Error :: error(invalid_input | invalid_percent_encoding |
+                     invalid_scheme | invalid_uri | invalid_utf8).
 normalize(URIMap, []) when is_map(URIMap) ->
     try recompose(normalize_map(URIMap))
     catch
@@ -540,9 +554,9 @@ _Example:_
 ```
 """.
 -doc(#{since => <<"OTP 21.0">>}).
--spec parse(URIString) -> URIMap when
+-spec parse(URIString) -> URIMap | error(invalid_input | invalid_uri) when
       URIString :: uri_string(),
-      URIMap :: uri_map() | error().
+      URIMap :: uri_map().
 parse(URIString) when is_binary(URIString) ->
     try parse_uri_reference(URIString, #{})
     catch
@@ -583,10 +597,9 @@ _Example:_
 ```
 """.
 -doc(#{since => <<"OTP 21.0">>}).
--spec recompose(URIMap) -> URIString when
+-spec recompose(URIMap) -> URIString | error(invalid_input | invalid_map | invalid_scheme) when
       URIMap :: uri_map(),
-      URIString :: uri_string()
-                 | error().
+      URIString :: uri_string().
 recompose(Map) ->
     case is_valid_map(Map) of
         false ->
@@ -628,11 +641,10 @@ _Example:_
 ```
 """.
 -doc(#{since => <<"OTP 22.3">>}).
--spec resolve(RefURI, BaseURI) -> TargetURI when
+-spec resolve(RefURI, BaseURI) -> TargetURI | error(invalid_input | invalid_scheme | invalid_uri) when
       RefURI :: uri_string() | uri_map(),
       BaseURI :: uri_string() | uri_map(),
-      TargetURI :: uri_string()
-                 | error().
+      TargetURI :: uri_string().
 resolve(URIMap, BaseURIMap) ->
     resolve(URIMap, BaseURIMap, []).
 
@@ -653,12 +665,10 @@ _Example:_
 ```
 """.
 -doc(#{since => <<"OTP 22.3">>}).
--spec resolve(RefURI, BaseURI, Options) -> TargetURI when
+-spec resolve(RefURI, BaseURI, Options) -> TargetURI | error(invalid_input | invalid_scheme | invalid_uri) when
       RefURI :: uri_string() | uri_map(),
       BaseURI :: uri_string() | uri_map(),
       Options :: [return_map],
-      TargetURI :: uri_string() | uri_map()
-                 | error().
 resolve(URIMap, BaseURIMap, Options) when is_map(URIMap) ->
     case resolve_map(URIMap, BaseURIMap) of
         TargetURIMap when is_map(TargetURIMap) ->
@@ -705,11 +715,10 @@ _Example:_
 ```
 """.
 -doc(#{since => <<"OTP 21.0">>}).
--spec transcode(URIString, Options) -> Result when
+-spec transcode(URIString, Options) -> Result | error(invalid_input | invalid_percent_encoding) when
       URIString :: uri_string(),
       Options :: [{in_encoding, unicode:encoding()}|{out_encoding, unicode:encoding()}],
-      Result :: uri_string()
-              | error().
+      Result :: uri_string().
 transcode(URIString, Options) when is_binary(URIString) ->
     try
         InEnc = proplists:get_value(in_encoding, Options, utf8),
@@ -805,11 +814,14 @@ _Example:_
 > ```
 """.
 -doc(#{since => <<"OTP 23.2">>}).
--spec percent_decode(URI) -> Result when
+-spec percent_decode(URI) -> Result | Error when
       URI :: uri_string() | uri_map(),
       Result :: uri_string() |
-                uri_map() |
-                {error, {invalid, {atom(), {term(), term()}}}} | error().
+                uri_map(),
+      Error :: error(ErrorReason) |
+               {error,{invalid,{Component,{ErrorReason,term()}}}},
+      ErrorReason :: invalid_input | invalid_percent_encoding | invalid_utf8,
+      Component :: userinfo | host | path | query | fragment.
 percent_decode(URIMap) when is_map(URIMap)->
     Fun = fun (K,V) when K =:= userinfo; K =:= host; K =:= path;
                          K =:= query; K =:= fragment ->
@@ -854,7 +866,7 @@ _Example:_
 > unexpected results.
 """.
 -doc(#{since => <<"OTP 25.0">>}).
--spec quote(Data) -> QuotedData when
+-spec quote(Data) -> QuotedData | error(invalid_input) when
       Data :: unicode:chardata(),
       QuotedData :: unicode:chardata().
 quote(D) ->
@@ -880,7 +892,7 @@ _Example:_
 > unexpected results.
 """.
 -doc(#{since => <<"OTP 25.0">>}).
--spec quote(Data, Safe) -> QuotedData when
+-spec quote(Data, Safe) -> QuotedData | error(invalid_input) when
       Data :: unicode:chardata(),
       Safe :: string(),
       QuotedData :: unicode:chardata().
@@ -910,7 +922,7 @@ _Example:_
 > unexpected results.
 """.
 -doc(#{since => <<"OTP 25.0">>}).
--spec unquote(QuotedData) -> Data when
+-spec unquote(QuotedData) -> Data | error(invalid_input | invalid_percent_encoding | invalid_utf8) when
       QuotedData :: unicode:chardata(),
       Data :: unicode:chardata().
 unquote(D) ->
@@ -948,10 +960,9 @@ _Example:_
 ```
 """.
 -doc(#{since => <<"OTP 21.0">>}).
--spec compose_query(QueryList) -> QueryString when
+-spec compose_query(QueryList) -> QueryString | error(invalid_encoding | invalid_input) when
       QueryList :: [{unicode:chardata(), unicode:chardata() | true}],
-      QueryString :: uri_string()
-                   | error().
+      QueryString :: uri_string().
 compose_query(List) ->
     compose_query(List, [{encoding, utf8}]).
 
@@ -988,11 +999,10 @@ _Example:_
 ```
 """.
 -doc(#{since => <<"OTP 21.0">>}).
--spec compose_query(QueryList, Options) -> QueryString when
+-spec compose_query(QueryList, Options) -> QueryString | error(invalid_encoding | invalid_input) when
       QueryList :: [{unicode:chardata(), unicode:chardata() | true}],
       Options :: [{encoding, atom()}],
-      QueryString :: uri_string()
-                   | error().
+      QueryString :: uri_string().
 compose_query([],_Options) ->
     [];
 compose_query(List, Options) ->
@@ -1044,10 +1054,9 @@ _Example:_
 ```
 """.
 -doc(#{since => <<"OTP 21.0">>}).
--spec dissect_query(QueryString) -> QueryList when
+-spec dissect_query(QueryString) -> QueryList | error(invalid_character |invalid_input | invalid_percent_encoding) when
       QueryString :: uri_string(),
-      QueryList :: [{unicode:chardata(), unicode:chardata() | true}]
-                 | error().
+      QueryList :: [{unicode:chardata(), unicode:chardata() | true}].
 dissect_query(<<>>) ->
     [];
 dissect_query([]) ->
@@ -1995,7 +2004,6 @@ decode(<<C,Cs/binary>>, Acc) ->
 decode(<<>>, Acc) ->
     check_utf8(Acc).
 
--spec raw_decode(list()|binary()) -> list() | binary() | error().
 raw_decode(Cs) ->
     raw_decode(Cs, <<>>).
 %%
