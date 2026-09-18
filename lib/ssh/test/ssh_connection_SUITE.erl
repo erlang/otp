@@ -1799,6 +1799,7 @@ start_subsystem_on_channel_with_pty_req(Config) ->
     DaemonOpts = [{shell, fun(_U, _P) -> spawn(fun() -> timer:sleep(infinity) end) end}],
     {ConnectionRef, ChannelId, Pid} = start_server_connect_client_and_get_channel(Config, DaemonOpts),
     success = ssh_connection:ptty_alloc(ConnectionRef, ChannelId, []),
+    check_subsystem_replaces_cli_handler(ConnectionRef, ChannelId, Pid),
     check_subsystem_start_failure(ConnectionRef, ChannelId, Pid).
 
 start_subsystem_on_channel_with_shell(Config) ->
@@ -1836,7 +1837,22 @@ start_subsystem_on_channel_with_env(Config) ->
     {ConnectionRef, ChannelId, Pid} = start_server_connect_client_and_get_channel(Config, DaemonOpts),
     %% setenv is not implemented, and will return a failure, but cli handler will be started anyway
     failure = ssh_connection:setenv(ConnectionRef, ChannelId, "ENV_TEST", "VALUE", infinity),
+    check_subsystem_replaces_cli_handler(ConnectionRef, ChannelId, Pid),
     check_subsystem_start_failure(ConnectionRef, ChannelId, Pid).
+
+check_subsystem_replaces_cli_handler(ConnectionRef, ChannelId, DaemonPid) ->
+    Children0 = supervisor:which_children(DaemonPid),
+    {value, {_, ConnectionSup, supervisor, _}} = lists:keysearch([ssh_connection_sup], 4, Children0),
+    Children1 = supervisor:which_children(ConnectionSup),
+    {value, {_, ChannelSup, supervisor, _}} = lists:keysearch([ssh_channel_sup], 4, Children1),
+    [{_, Pid, worker, [ssh_server_channel]}] = supervisor:which_children(ChannelSup),
+    %% Starting subsystem should replace old cli_handler
+    MRef = erlang:monitor(process, Pid),
+    success = ssh_connection:subsystem(ConnectionRef, ChannelId, "echo_n", 5000),
+    receive
+        {'DOWN', MRef, process, Pid, normal} ->
+            ok
+    end.
 
 check_subsystem_start_failure(ConnectionRef, ChannelId, Pid) ->
     failure = ssh_connection:subsystem(ConnectionRef, ChannelId, "echo_n", 5000),
