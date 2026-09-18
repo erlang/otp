@@ -26,13 +26,6 @@
 -module(ssl_handshake).
 -moduledoc false.
 
--compile([{nowarn_unsafe_function, {crypto, private_decrypt, 4}},
-          {nowarn_unsafe_function, {crypto, private_encrypt, 4}},
-          {nowarn_unsafe_function, {public_key, decrypt_public, 3}},
-          {nowarn_unsafe_function, {public_key, decrypt_private, 3}},
-          {nowarn_unsafe_function, {public_key, encrypt_private, 3}},
-          {nowarn_unsafe_function, {public_key, encrypt_public, 3}}]).
-
 -include("ssl_handshake.hrl").
 -include("ssl_record.hrl").
 -include("ssl_cipher.hrl").
