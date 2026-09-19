@@ -229,15 +229,16 @@ Unicode character ranges are considered printable by the I/O functions.
 By default, Erlang is started so that only the `latin1` range of characters
 indicate that a list of integers is a string.
 
-The simplest way to use the setting is to call `io_lib:printable_list/1`, which
-uses the return value of this function to decide if a list is a string of
-printable characters.
+The simplest way to use the setting is to call `io_lib:printable_list/1`,
+`io_lib:printable_binary/1` or `io_lib:printable_character /1` which
+uses the return value of this function to decide if list, binary or integer
+is printable.
 
 > #### Note {: .info }
 >
 > In a future release, this function may return more values and ranges. To avoid
-> compatibility problems, it is recommended to use function
-> `io_lib:printable_list/1`.
+> compatibility problems, it is recommended to use functions
+> `io_lib:printable_list/1`, `io_lib:printable_binary/1` or `io_lib:printable_character /1`.
 """.
 -doc(#{since => <<"OTP R16B">>}).
 -spec printable_range() -> 'unicode' | 'latin1'.

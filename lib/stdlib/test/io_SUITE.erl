@@ -28,7 +28,7 @@
          manpage/1, otp_6708/1, otp_7084/0, otp_7084/1, otp_7421/1,
 	 io_lib_collect_line_3_wb/1, cr_whitespace_in_string/1,
 	 io_fread_newlines/1, otp_8989/1, io_lib_fread_literal/1,
-	 printable_range/1, bad_printable_range/1,
+         printable_range/1, bad_printable_range/1, io_lib_printable/1,
 	 io_lib_print_binary_depth_one/1, otp_10302/1, otp_10755/1,
          otp_10836/1, io_lib_width_too_small/1, calling_self/1,
          io_with_huge_message_queue/1, format_string/1, format_neg_zero/1,
@@ -37,6 +37,7 @@
          otp_15159/1, otp_15639/1, otp_15705/1, otp_15847/1, otp_15875/1,
          github_4801/1, chars_limit/1, error_info/1, otp_17525/1,
          unscan_format_without_maps_order/1, build_text_without_maps_order/1,
+         build_binary/1,
          native_records/1, cover_fread/1,
          format_w_empty_map/1, format_w_limited/1,
          write_record_maps_order/1, write_record_latin1_encoding/1,
@@ -69,14 +70,14 @@ all() ->
      manpage, otp_6708, otp_7084, otp_7421,
      io_lib_collect_line_3_wb, cr_whitespace_in_string,
      io_fread_newlines, otp_8989, io_lib_fread_literal,
-     printable_range, bad_printable_range, format_neg_zero,
+     printable_range, bad_printable_range, io_lib_printable, format_neg_zero,
      io_lib_print_binary_depth_one, otp_10302, otp_10755, otp_10836,
      io_lib_width_too_small, io_with_huge_message_queue, calling_self,
      format_string, maps, coverage, otp_14178_unicode_atoms, otp_14175,
      otp_14285, limit_term, otp_14983, otp_15103, otp_15076, otp_15159,
      otp_15639, otp_15705, otp_15847, otp_15875, github_4801, chars_limit,
      error_info, otp_17525, unscan_format_without_maps_order,
-     build_text_without_maps_order,
+     build_text_without_maps_order, build_binary,
      native_records,
      format_w_empty_map, format_w_limited,
      write_record_maps_order, write_record_latin1_encoding,
@@ -2139,6 +2140,44 @@ printable_range(Suite) when is_list(Suite) ->
     peer:stop(DPeer),
     ok.
 
+io_lib_printable(_Config) ->
+
+    UnicodeRange = io:printable_range() =:= unicode,
+
+    true = io_lib:printable_character($\ ),
+    UnicodeRange = io_lib:printable_character(16#3BB),
+    false = io_lib:printable_character(16#3BB, latin1),
+    true = io_lib:printable_character(16#3BB, unicode),
+
+    true = io_lib:printable_list("abc"),
+    true = io_lib:printable_binary(<<"abc">>),
+    true = io_lib:printable_list([]),
+    true = io_lib:printable_binary(<<>>),
+    false = io_lib:printable_list(["abc"]),
+    false = io_lib:printable_list("abc\0"),
+    false = io_lib:printable_binary(<<"abc\0">>),
+    false = io_lib:printable_list(not_a_string),
+    false = io_lib:printable_binary(not_a_string),
+
+    UnicodeRange = io_lib:printable_list([16#3BB]),
+    UnicodeRange = io_lib:printable_binary(<<16#3BB/utf8>>),
+
+    true = io_lib:printable_binary(<<16#E5>>, latin1),
+    true = io_lib:printable_binary(<<16#E5/utf8>>, unicode),
+    UnicodeRange = io_lib:printable_binary(<<16#3BB/utf8>>, unicode),
+    false = io_lib:printable_binary(<<16#FF>>, unicode),
+
+    true = io_lib:printable_binary(<<16#E5>>, latin1, latin1),
+    true = io_lib:printable_binary(<<16#E5>>, latin1, unicode),
+    true = io_lib:printable_binary(<<16#E5/utf8>>, unicode, latin1),
+    true = io_lib:printable_binary(<<16#3BB/utf8>>, unicode, unicode),
+    false = io_lib:printable_binary(<<16#3BB/utf8>>, unicode, latin1),
+    false = io_lib:printable_binary(<<16#FF>>, unicode, unicode),
+    false = io_lib:printable_binary(<<0>>, latin1, unicode),
+    false = io_lib:printable_binary(["abc"], unicode, unicode),
+    false = io_lib:printable_binary(not_a_string, unicode, unicode),
+    ok.
+
 print_max(Node, Args) ->
     rpc_call_max(Node, io_lib_pretty, print, Args).
 
@@ -3395,6 +3434,23 @@ build_text_without_maps_order(_Config) ->
     },
     [["1"]] = io_lib:build_text([FormatSpec]).
 
+build_binary(_Config) ->
+    Format = "~ts ~tp ~.2f",
+    Args = [<<"abc">>, #{key => value}, 1.25],
+    FormatList = io_lib:scan_format(Format, Args),
+    Expected = io_lib:bformat(Format, Args),
+    Expected = io_lib:build_binary(FormatList),
+
+    LimitedFormatList = io_lib:scan_format("~p", [lists:seq(1, 100)]),
+    Options = [{chars_limit, 20}],
+    Limited = io_lib:bformat("~p", [lists:seq(1, 100)], Options),
+    Limited = io_lib:build_binary(LimitedFormatList, Options),
+
+    BadFormatList = io_lib:scan_format("~c", [not_a_character]),
+    ?assertError(badarg, io_lib:build_binary(BadFormatList)),
+    ?assertError(badarg, io_lib:build_binary(BadFormatList, [])),
+    ok.
+
 -record #empty{}.
 -record #vector{x, y}.
 -record #order{zzzz=0, true=1, aaaaaaaaaaaaaaaaaaaaa=2, wwww=3}.
@@ -3609,4 +3665,3 @@ fread_float_not_accepted(Format, [C|Cs], Prefix) ->
     fread_float_not_accepted(Format, Cs, [C|Prefix]);
 fread_float_not_accepted(_, [], _) ->
     ok.
-
