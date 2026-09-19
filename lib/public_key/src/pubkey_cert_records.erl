@@ -563,6 +563,8 @@ decode_otp_cert_polices(Ext, Value) ->
     {ok, CPs} = 'OTP-PKIX':decode('OTPCertificatePolicies', Value),
     Ext#'Extension'{extnValue=[translate_cert_polices(CP) || CP <- CPs]}.
 
+translate_cert_polices(#'OTPPolicyInformation'{policyIdentifier = Id, policyQualifiers = asn1_NOVALUE}) ->
+    #'PolicyInformation'{policyIdentifier = Id, policyQualifiers = asn1_NOVALUE};
 translate_cert_polices(#'OTPPolicyInformation'{policyIdentifier = Id, policyQualifiers = Qs0}) ->
     Qs = [translate_cert_polices(Q) || Q <- Qs0],
     #'PolicyInformation'{policyIdentifier = Id, policyQualifiers = Qs};
