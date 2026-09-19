@@ -44,7 +44,7 @@
 -define(DEFAULT_FILE_SUFFIX, ".html").
 -define(DEFAULT_DOCLET, edoc_doclet).
 -define(DEFAULT_LAYOUT, edoc_layout).
--define(APP_DEFAULT, "http://www.erlang.org/edoc/doc").
+-define(APP_DEFAULT, "http://www.erlang.org/doc/apps").
 -define(CURRENT_DIR, ".").
 -define(SOURCE_DIR, "src").
 -define(EBIN_DIR, "ebin").
