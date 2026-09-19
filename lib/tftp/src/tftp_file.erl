@@ -150,12 +150,12 @@ open(Peer, Access, Filename, Mode, SuggestedOptions, Initial) when is_list(Initi
 	{error, {Code, Text}} ->
 	    {error, {Code, Text}}
     end;
-open(_Peer, Access, Filename, Mode, NegotiatedOptions, State) when is_record(State, state) ->
+open(_Peer, Access, Filename, Mode, NegotiatedOptions, #state{} = State) ->
     %% Both sides
     try handle_options(Access, Filename, Mode, NegotiatedOptions, State) of
         {_Filename2, _IsNativeAscii, _IsNetworkAscii, Options}
           when Options =:= NegotiatedOptions ->
-            do_open(State)
+            do_open(State, NegotiatedOptions)
     catch throw : Error ->
             {error, Error}
     end;
@@ -164,14 +164,18 @@ open(Peer, Access, Filename, Mode, NegotiatedOptions, State) ->
     State2 = upgrade_state(State),
     open(Peer, Access, Filename, Mode, NegotiatedOptions, State2).
 
-do_open(State) when is_record(State, state) ->
-    case file:open(State#state.filename, file_options(State)) of
+do_open(#state{ filename = Filename} = State, Options) ->
+    case file:open(Filename, file_options(State)) of
 	{ok, Fd} ->
-	    {ok, State#state.options, State#state{fd = Fd}};
+	    {ok, Options,
+             State#state{
+               fd = Fd,
+               options = Options,
+               blksize = lookup_blksize(Options) }};
 	{error, Reason} when is_atom(Reason) ->
 	    {error, file_error(Reason)}
     end.
-	
+
 file_options(State) ->
     case State#state.access of
 	read  -> [read, read_ahead, raw, binary];
@@ -218,6 +222,7 @@ read(#state{access = read} = State) ->
 	    Count = State#state.count + byte_size(Bin),
 	    {last, Bin, Count};
 	eof ->
+	    _ = file:close(State#state.fd),
 	    {last, <<>>, State#state.count};
 	{error, Reason} ->
 	    _ = file:close(State#state.fd),
@@ -249,18 +254,25 @@ read(State) ->
 write(Bin, #state{access = write} = State) when is_binary(Bin) ->
     Size = byte_size(Bin),
     BlkSize = State#state.blksize,
-    case file:write(State#state.fd, Bin) of
-	ok when Size =:= BlkSize->
-	    Count = State#state.count + Size,
-	    {more, State#state{count = Count}};
-	ok when Size < BlkSize->
-	    _ = file:close(State#state.fd),
-	    Count = State#state.count + Size,
-	    {last, Count};
-	{error, Reason}  ->
-	    _ = file:close(State#state.fd),
-	    _ = file:delete(State#state.filename),
-	    {error, file_error(Reason)}
+    if
+        Size > BlkSize ->
+            _ = file:close(State#state.fd),
+            _ = file:delete(State#state.filename),
+            {error, {badblk, "Block larger than blksize"}};
+        true -> % Size =< BlkSize ->
+            case file:write(State#state.fd, Bin) of
+                ok when Size < BlkSize ->
+                    _ = file:close(State#state.fd),
+                    Count = State#state.count + Size,
+                    {last, Count};
+                ok -> % when Size == BlkSize ->
+                    Count = State#state.count + Size,
+                    {more, State#state{count = Count}};
+                {error, Reason}  ->
+                    _ = file:close(State#state.fd),
+                    _ = file:delete(State#state.filename),
+                    {error, file_error(Reason)}
+            end
     end;
 write(Bin, State) ->
     %% Handle upgrade from old releases. Please, remove this clause in next release.
@@ -283,7 +295,8 @@ abort(_Code, _Text, #state{fd = Fd, access = Access} = State) ->
     _ = file:close(Fd),
     case Access of
 	write ->
-	    ok = file:delete(State#state.filename);
+	    _ = file:delete(State#state.filename),
+            ok;
 	read ->
 	    ok
     end.
@@ -338,7 +351,11 @@ safe_filename(Filename, RootDir) ->
     RelFilename =
         case filename:pathtype(Filename) of
             absolute ->
-                filename:join(tl(filename:split(Filename)));
+                case filename:split(Filename) of
+                    [_] -> "";
+                    [_ | RelPath] ->
+                        filename:join(RelPath)
+                end;
             _ -> Filename
         end,
     case filelib:safe_relative_path(RelFilename, RootDir) of

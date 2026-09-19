@@ -68,8 +68,8 @@ prepare(_Peer, Access, Filename, Mode, SuggestedOptions, Initial) when is_list(I
 	    {ok, AcceptedOptions, State};
 	{_, _} ->
 	    {error, {undef, "Illegal callback usage. Mode and filename is incompatible."}}
-    catch throw : {Code, Text} ->
-	    {error, {Code, Text}}
+    catch throw : Reason ->
+	    {error, Reason}
     end;
 prepare(_Peer, _Access, _Bin, _Mode, _SuggestedOptions, _Initial) ->
     {error, {undef, "Illegal callback options."}}.
@@ -86,27 +86,33 @@ open(Peer, Access, Filename, Mode, SuggestedOptions, Initial) when is_list(Initi
 	{error, {Code, Text}} ->
 	    {error, {Code, Text}}
     end;
-open(_Peer, Access, Filename, Mode, NegotiatedOptions, State) when is_record(State, read_state) ->
+open(_Peer, Access, Filename, Mode, NegotiatedOptions, #read_state{} = State) ->
     %% Both sides
     try handle_options(Access, Filename, Mode, NegotiatedOptions, State#read_state.is_native_ascii) of
 	{IsNetworkAscii, Options}
 	when Options =:= NegotiatedOptions,
 	     IsNetworkAscii =:= State#read_state.is_network_ascii ->
-	    {ok, NegotiatedOptions, State}
-    catch throw : {Code, Text} ->
-	    {error, {Code, Text}}
+	    {ok, NegotiatedOptions,
+             State#read_state{
+               options = NegotiatedOptions,
+               blksize = lookup_blksize(NegotiatedOptions) }}
+    catch throw : Reason ->
+	    {error, Reason}
     end;
-open(_Peer, Access, Filename, Mode, NegotiatedOptions, State) when is_record(State, write_state) ->
+open(_Peer, Access, Filename, Mode, NegotiatedOptions, #write_state{} = State) ->
     %% Both sides
     try handle_options(Access, Filename, Mode, NegotiatedOptions, State#write_state.is_native_ascii) of
 	{IsNetworkAscii, Options}
 	when Options =:= NegotiatedOptions,
 	     IsNetworkAscii =:= State#write_state.is_network_ascii ->
-	    {ok, NegotiatedOptions, State}
-    catch throw : {Code, Text} ->
-	    {error, {Code, Text}}
+	    {ok, NegotiatedOptions,
+             State#write_state{
+               options = NegotiatedOptions,
+               blksize = lookup_blksize(NegotiatedOptions) }}
+    catch throw : Reason ->
+	    {error, Reason}
     end;
-open(Peer, Access, Filename, Mode, NegotiatedOptions, State) -> 
+open(Peer, Access, Filename, Mode, NegotiatedOptions, State) ->
     %% Handle upgrade from old releases. Please, remove this clause in next release.
     State2 = upgrade_state(State),
     open(Peer, Access, Filename, Mode, NegotiatedOptions, State2).
@@ -177,7 +183,7 @@ handle_mode(Mode, IsNativeAscii) ->
     case Mode of
 	"netascii" when IsNativeAscii =:= true -> true;
 	"octet" -> false;
-	_ -> throw({error, {badop, "Illegal mode " ++ Mode}})
+	_ -> throw({badop, "Illegal mode " ++ Mode})
     end.
 
 do_handle_options(Access, Bin, [{Key, Val} | T]) ->
@@ -208,7 +214,7 @@ handle_integer(Access, Bin, Key, Val, Options, Min, Max) ->
 	Int when Int >= Min, Max =:= infinity ->
 	    [{Key, Val} | do_handle_options(Access, Bin, Options)];
 	_Int ->
-	    throw({error, {badopt, "Illegal " ++ Key ++ " value " ++ Val}})
+	    throw({badopt, "Illegal " ++ Key ++ " value " ++ Val})
     catch error : _ ->
 	    do_handle_options(Access, Bin, Options)
     end.
