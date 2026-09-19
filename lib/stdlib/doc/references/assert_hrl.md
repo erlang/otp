@@ -126,8 +126,7 @@ use `ASSERT`/`NOASSERT` to control only the assert macros.
   `Term`. The assertion fails if `Expr` raises a different exception or if it
   completes normally returning any value.
 
-  Notice that both `Class` and `Term` can be guarded patterns, as in
-  `assertMatch`.
+  Notice that `Term` can be a guarded pattern, as in `assertMatch`.
 
 - **`assertNotException(Class, Term, Expr)`**
 

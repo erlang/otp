@@ -65,7 +65,7 @@ We then use the box drawing parts of Unicode to draw our board:
 ```
 draw_board() ->
     %% Place cursor at row 6 column 0
-    io_ansi:fwrite([{cursor, 6, 0}])
+    io_ansi:fwrite([{cursor, 6, 0}]),
     io:put_chars(
       ["     ╔═══════╤═══════╤═══════╗\r\n",
        "     ║       │       │       ║\r\n",
@@ -101,8 +101,8 @@ main(_Args) ->
         io_ansi:fwrite([alternate_screen, cursor_hide, keypad_transmit_mode]),
         draw_board(),
         loop(0)
-    after ->
-        io_ansi:fwrite([alternate_screen_off, cursor_show, keypad_transmit_mode_off]),
+    after
+        io_ansi:fwrite([alternate_screen_off, cursor_show, keypad_transmit_mode_off])
     end.
 
 loop(Pos) ->

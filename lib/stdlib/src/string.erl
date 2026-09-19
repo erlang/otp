@@ -982,7 +982,7 @@ _Example:_
 -doc(#{group => <<"Functions">>,since => <<"OTP 20.0">>}).
 -spec nth_lexeme(String, N, SeparatorList) -> unicode:chardata() when
       String::unicode:chardata(),
-      N::non_neg_integer(),
+      N::pos_integer(),
       SeparatorList::[grapheme_cluster()].
 
 nth_lexeme(Str, 1, []) -> Str;
@@ -2598,7 +2598,7 @@ cspan([], _Cs, I) -> I.
 %% substr(String, Start, Length)
 %%  Extract a sub-string from String.
 
--doc(#{equiv => substr(String, Start, string:length(String) - Start)}).
+-doc(#{equiv => substr(String, Start, string:length(String) - Start + 1)}).
 -doc(#{group => <<"Obsolete API functions">>}).
 -spec substr(String, Start) -> SubString when
       String :: string(),
@@ -2781,7 +2781,7 @@ w_count([_H|T], Char, Num) -> w_count(T, Char, Num).
 -spec sub_word(String, Number) -> Word when
       String :: string(),
       Word :: string(),
-      Number :: integer().
+      Number :: pos_integer().
 
 sub_word(String, Index) -> sub_word(String, Index, $\s).
 
@@ -2796,7 +2796,7 @@ This function is [obsolete](`m:string#obsolete-api-functions`). Use
 -spec sub_word(String, Number, Character) -> Word when
       String :: string(),
       Word :: string(),
-      Number :: integer(),
+      Number :: pos_integer(),
       Character :: char().
 
 sub_word(String, Index, Char) when is_integer(Index), is_integer(Char) ->

@@ -76,8 +76,10 @@ Section [The Abstract Format](`e:erts:absform.md`) in ERTS User's Guide.
 
 -doc """
 Expands all records in a module to use explicit tuple operations and adds
-explicit module names to calls to BIFs and imported functions. The returned
-module has no references to records, attributes, or code.
+explicit module names to calls to auto-imported BIFs and imported functions.
+
+The code in the returned module has no references to records, imported functions,
+or auto-imported BIFs.
 """.
 -spec(module(AbsForms, CompileOptions) -> AbsForms2 when
       AbsForms :: [erl_parse:abstract_form()],

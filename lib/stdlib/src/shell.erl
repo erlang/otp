@@ -2108,8 +2108,8 @@ function is returned.
 """.
 -doc(#{since => <<"OTP 27.0">>}).
 -spec multiline_prompt_func(PromptFunc) -> PromptFunc2 when
-      PromptFunc :: 'default' | {module(),function()} | string(),
-      PromptFunc2 :: 'default' | {module(),function()} | string().
+      PromptFunc :: 'default' | {module(),atom()} | string(),
+      PromptFunc2 :: 'default' | {module(),atom()} | string().
 
 multiline_prompt_func(PromptFunc) ->
     set_env(stdlib, shell_multiline_prompt, PromptFunc, ?DEF_PROMPT_FUNC).
@@ -2138,8 +2138,8 @@ shell:format_shell_func({shell, erl_pp_format_func}).
 """.
 -doc(#{since => <<"OTP 27.0">>}).
 -spec format_shell_func(ShellFormatFunc) -> ShellFormatFunc2 when
-      ShellFormatFunc :: 'default' | {module(),function()} | string(),
-      ShellFormatFunc2 :: 'default' | {module(),function()} | string().
+      ShellFormatFunc :: 'default' | {module(),atom()} | string(),
+      ShellFormatFunc2 :: 'default' | {module(),atom()} | string().
 format_shell_func(ShellFormatFunc) ->
     set_env(stdlib, format_shell_func, ShellFormatFunc, default).
 

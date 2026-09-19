@@ -791,6 +791,9 @@ by the given `Id`.
 See `which_children/1` for an explanation of the information returned.
 
 If no child with the given `Id` exists, returns `{error, not_found}`.
+
+If the supervisor is a `simple_one_for_one` supervisor, the `Id` must be the pid of a child process,
+otherwise `{error, simple_one_for_one}` is returned.
 """.
 -spec which_child(SupRef, Id) -> Result when
       SupRef :: sup_ref(),
@@ -799,7 +802,7 @@ If no child with the given `Id` exists, returns `{error, not_found}`.
       Child :: child() | 'restarting',
       Type :: worker(),
       Modules :: modules(),
-      Error :: 'not_found'.
+      Error :: 'not_found' | 'simple_one_for_one'.
 which_child(Supervisor, Id) ->
     call(Supervisor, {which_child, Id}).
 

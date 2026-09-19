@@ -565,7 +565,7 @@ setopts(Opts0,State) ->
 		    true ->
 			{ok,ok,State#state{mode=binary}};
 		    false ->
-			{ok,ok,State#state{mode=binary}};
+                        {ok,ok,State#state{mode=list}};
 		    _ ->
 			{ok,ok,State}
 		end;
@@ -602,7 +602,7 @@ the main loop and the creation of an ETS table). Most I/O servers contain code
 similar to this one.
 
 To make the example runnable, we start implementing the reading and writing of
-the data to/from the ETS table. First function `put_chars/3`:
+the data to/from the ETS table. First function `put_chars/2`:
 
 ```erlang
 put_chars(Chars, #state{table = T, position = P} = State) ->

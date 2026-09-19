@@ -147,7 +147,7 @@ Module:format_error(ErrorDescriptor)
 %% parse_file(FileName, IncludePath, PreDefMacros)
 %% macro_defs(Epp)
 
--doc "Equivalent to `epp:open([{name, FileName}, {includes, IncludePath}])`.".
+-doc #{ equiv => open([{name, FileName}, {includes, IncludePath}]) }.
 -spec open(FileName, IncludePath) ->
 	{'ok', Epp} | {'error', ErrorDescriptor} when
       FileName :: file:name(),
@@ -158,10 +158,7 @@ Module:format_error(ErrorDescriptor)
 open(Name, Path) ->
     open(Name, Path, []).
 
--doc """
-Equivalent to
-`epp:open([{name, FileName}, {includes, IncludePath}, {macros, PredefMacros}])`.
-""".
+-doc #{ equiv => open([{name, FileName}, {includes, IncludePath}, {macros, PredefMacros}]) }.
 -spec open(FileName, IncludePath, PredefMacros) ->
 	{'ok', Epp} | {'error', ErrorDescriptor} when
       FileName :: file:name(),
@@ -244,17 +241,17 @@ close(Epp) ->
 
 -doc """
 Returns the raw tokens of the next Erlang form from the opened Erlang source
-file. A tuple `{eof, Line}` is returned at the end of the file. The first form
+file. A tuple `{eof, Location}` is returned at the end of the file. The first form
 corresponds to an implicit attribute `-file(File,1).`, where `File` is the file
 name.
 """.
 -doc(#{since => <<"OTP R13B03">>}).
 -spec scan_erl_form(Epp) ->
     {'ok', Tokens} | {error, ErrorInfo} |
-    {'warning',WarningInfo} | {'eof',Line} when
+    {'warning',WarningInfo} | {'eof',Location} when
       Epp :: epp_handle(),
       Tokens :: erl_scan:tokens(),
-      Line :: erl_anno:line(),
+      Location :: erl_anno:location(),
       ErrorInfo :: erl_scan:error_info() | erl_parse:error_info(),
       WarningInfo :: warning_info().
 
@@ -379,9 +376,10 @@ the list as tuples `{error, ErrorInfo}`.
 		  {'source_name', SourceName :: file:name()} |
 		  {'macros', PredefMacros :: macros()} |
 		  {'default_encoding', DefEncoding :: source_encoding()}],
-      Form :: erl_scan:tokens() | {'error', ErrorInfo} | {'eof', Loc},
+      Form :: erl_scan:tokens() | {'error', ErrorInfo} | {'eof', Loc}| {'warning', WarningInfo},
       Loc :: erl_anno:location(),
       ErrorInfo :: erl_scan:error_info(),
+      WarningInfo :: erl_scan:error_info(),
       Extra :: [{'encoding', source_encoding() | 'none'}],
       OpenError :: file:posix() | badarg | system_limit.
 
@@ -402,6 +400,8 @@ scan_file(Epp) ->
             [Toks|scan_file(Epp)];
 	{error,E} ->
 	    [{error,E}|scan_file(Epp)];
+        {warning,W} ->
+            [{warning,W}|scan_file(Epp)];
 	{eof,Location} ->
 	    [{eof,Location}]
     end.
