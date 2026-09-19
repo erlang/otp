@@ -877,8 +877,15 @@ parse_address(Config) when is_list(Config) ->
          {{16#ff02,12345,0,0,0,0,0,16#12},"ff02::12%012345"},
          %% Zone index after an uncompressed address
          {{16#fe80,7,0,0,0,0,0,16#12},"fe80:0:0:0:0:0:0:12%7"},
+         %% Zone index after compressed address in the last position
+         {{16#fe80,6,5,4,3,2,1,0},"fe80:0:5:4:3:2:1::%6"},
+         %% String zone index with leading digit
          {{16#fe80,0,0,0,0,0,0,16#12},"fe80::12%1x"},
-         {{16#fe80,0,0,0,0,0,0,16#12},"fe80::12%5%6"}]
+         {{16#fe80,0,0,0,0,0,0,16#12},"fe80::12%5%6"},
+         {{16#2003,0,0,0,0,0,0,16#12},"2003::12%5%6"},
+         {{16#fe80,0,0,0,0,0,16#102,16#304},"fe80::1.2.3.4%1x"},
+         {{16#2003,0,0,0,0,0,16#102,16#304},"2003::1.2.3.4%1x"},
+         {{16#fe80,5,0,0,0,0,16#102,16#304},"fe80::1.2.3.4%5"}]
         ++
         [{{P,0,0,0,0,D2,(D1 bsl 8) bor D2,(D3 bsl 8) bor D4},
           Q++erlang:integer_to_list(D2, 16)++":"++S}
@@ -900,11 +907,23 @@ parse_address(Config) when is_list(Config) ->
 	 "172.16.",
 	 "198.168.0.",
          "127.0.0.1.",
+         "1..3.4",
          "",
+         "066.077.088.099",
+         "99.aa.88.77",
+         "0xff,0xfg,0xee,0xdd",
          "1.2.3.4x",
+         "1.2.3x.4",
+         "1.2x.3.4",
+         "1x.2.3.4",
+         "1.2.3.0x",
+         "1.2.0x.4",
+         "1.0x.3.4",
+         "0x.2.3.4",
          " 1.2.3.4"],
     V6Err =
 	[":::",
+         ":",
 	 "f:::2",
 	 "::-1",
 	 "::g",
@@ -914,9 +933,12 @@ parse_address(Config) when is_list(Config) ->
 	 "::01700",
 	 "10000::",
 	 "01000::",
+         "9:8:7:6:5:4:3:2:1",
 	 "::8:7:6:5:4:3:2:1",
 	 "8:7:6:5:4:3:2:1::",
 	 "8:7:6:5:4::3:2:1",
+         ":8:7:6:5:4:3:2:1",
+         "8:7:6:5:4:3:2:1:",
 	 "::1.2.3.4.5",
 	 "::1.2.3.04",
 	 "::1.256.3.4",
@@ -937,7 +959,8 @@ parse_address(Config) when is_list(Config) ->
          "::1%5",
          "2001:db8::1%5",
          "2001::1%5",
-         "fe80:1::1%5"],
+         "fe80:1::1%5",
+         "fe80:1::44.33.22.11%5"],
     t_parse_address
       (parse_ipv6_address,
        false,
@@ -1163,10 +1186,22 @@ ntoa([A | As], Max) ->
     of
         true ->
             S = inet:ntoa(A),
-            {ok, A} = inet:parse_address(S),
-            {ok, A} = inet:parse_address(list_to_binary(S));
+            case inet:parse_address(S) of
+                {ok, A} -> ok;
+                Other1 ->
+                    error({wrong, Other1, A, S})
+            end,
+            case inet:parse_address(list_to_binary(S)) of
+                {ok, A} -> ok;
+                Other2 ->
+                    error({wrong, Other2, A, S})
+            end;
         false ->
-            {error, einval} = inet:ntoa(A)
+            case inet:ntoa(A) of
+                {error, einval} -> ok;
+                Other3 ->
+                    error({wrong, Other3, A})
+            end
     end,
     ntoa(As, Max);
 ntoa([], _Max) ->
