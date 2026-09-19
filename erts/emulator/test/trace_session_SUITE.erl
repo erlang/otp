@@ -46,8 +46,10 @@
 
          end_of_list/1]).
 
--include_lib("common_test/include/ct.hrl").
+-compile([nowarn_deprecated_catch]).
 
+-include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 -undef(line).
 -ifdef(debug).
@@ -1706,15 +1708,15 @@ destroy_do(SName, Destroyer) ->
     [] = trace:session_info(self()),
     [] = trace:session_info(Port),
 
-    {'EXIT',{badarg,_}} = (catch trace:info(SName, Exp, traced)),
-    {'EXIT',{badarg,_}} = (catch trace:info(SName, Loc, traced)),
-    {'EXIT',{badarg,_}} = (catch trace:info(SName, on_load, traced)),
-    {'EXIT',{badarg,_}} = (catch trace:info(SName, send, match_spec)),
-    {'EXIT',{badarg,_}} = (catch trace:info(SName, 'receive', match_spec)),
-    {'EXIT',{badarg,_}} = (catch trace:info(SName, new_processes, flags)),
-    {'EXIT',{badarg,_}} = (catch trace:info(SName, new_ports, flags)),
-    {'EXIT',{badarg,_}} = (catch trace:info(SName, self(), flags)),
-    {'EXIT',{badarg,_}} = (catch trace:info(SName, Port, flags)),
+    ?assertError(badarg, trace:info(SName, Exp, traced)),
+    ?assertError(badarg, trace:info(SName, Loc, traced)),
+    ?assertError(badarg, trace:info(SName, on_load, traced)),
+    ?assertError(badarg, trace:info(SName, send, match_spec)),
+    ?assertError(badarg, trace:info(SName, 'receive', match_spec)),
+    ?assertError(badarg, trace:info(SName, new_processes, flags)),
+    ?assertError(badarg, trace:info(SName, new_ports, flags)),
+    ?assertError(badarg, trace:info(SName, self(), flags)),
+    ?assertError(badarg, trace:info(SName, Port, flags)),
     true.
 
 negative(_Config) ->
@@ -1725,13 +1727,13 @@ negative(_Config) ->
     S = trace:session_create(?MODULE, SessionTracer, []),
 
     %% Specified tracer not allowed
-    {'EXIT',{badarg,_}} = (catch trace:process(S, Tracee, true, [call, {tracer,OtherTracer}])),
+    ?assertError(badarg, trace:process(S, Tracee, true, [call, {tracer,OtherTracer}])),
     1 = catch trace:process(S, Tracee, true, [call]),
     1 = catch trace:process(S, Tracee, false, [call]),
 
     %% Specified meta tracer not allowed
-    {'EXIT',{badarg,_}} = (catch trace:function(S, MFA, true, [{meta,OtherTracer}])),
-    {'EXIT',{badarg,_}} = (catch trace:function(S, MFA, true, [{meta,erl_tracer,OtherTracer}])),
+    ?assertError(badarg, trace:function(S, MFA, true, [{meta,OtherTracer}])),
+    ?assertError(badarg, trace:function(S, MFA, true, [{meta,erl_tracer,OtherTracer}])),
     1 = trace:function(S, MFA, true, [meta]),
     1 = trace:function(S, MFA, false, [meta]),
 
