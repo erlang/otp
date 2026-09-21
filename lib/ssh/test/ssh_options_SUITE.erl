@@ -241,7 +241,18 @@ init_per_group(_, Config) ->
 end_per_group(_, Config) ->
     Config.
 %%--------------------------------------------------------------------
+init_per_testcase(TestCase, Config) when TestCase =:= max_sessions_drops_tcp_connects ->
+    case erlang:system_info(system_architecture) of
+        "x86_64-unknown-netbsd9.0" ->
+            %% saradas too slow for the testcase
+            {skip, "machine too slow for test"};
+        _ ->
+            init(Config)
+    end;
 init_per_testcase(_TestCase, Config) ->
+    init(Config).
+
+init(Config) ->
     ssh:start(),
     %% Create a clean user_dir
     UserDir = filename:join(proplists:get_value(priv_dir, Config), nopubkey),
