@@ -42,7 +42,7 @@ jobs:
           persist-credentials: false
       - id: files
         run:  |
-            FILES=$(find .github/ -name "*.yml" -o -name "*.yaml" -printf "%p ")
+            FILES=$(find .github/ \( -name "*.yml" -o -name "*.yaml" \) -printf "%p ")
             echo "${FILES}"
             echo "files=${FILES}" >> $GITHUB_OUTPUT
 
