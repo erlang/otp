@@ -89,8 +89,7 @@
          client_keylog_on_alert/0,
          client_keylog_on_alert/1,
          keylog_hs_secret_order/0,
-         keylog_hs_secret_order/1
-        ]).
+         keylog_hs_secret_order/1]).
 
 
 %% Test callback
@@ -671,7 +670,18 @@ receive_client_keylog_for_server_cert_alert() ->
                                   "CLIENT_TRAFFIC_SECRET_0",
                                   "SERVER_TRAFFIC_SECRET_0"], CKeyLog) of
                 true ->
-                    ok;
+                    CTS = extract_secret("CLIENT_TRAFFIC_SECRET_0",  CKeyLog),
+                    STS = extract_secret("SERVER_TRAFFIC_SECRET_0",  CKeyLog),
+                    %% Before the fix, both were identical
+                    %% After the fix, they must be distinct.
+                    case CTS =/= STS of
+                        true ->
+                            ok;
+                        false ->
+                            ct:fail({traffic_secrets_identical,
+                                             [{client_traffic_secret_0, CTS},
+                                              {server_traffic_secret_0, STS}]})
+                    end;
                 false ->
                     ct:fail({client_received, CKeyLog})
             end
@@ -797,10 +807,10 @@ keylog_hs_secret_order(Config) when is_list(Config) ->
     %% Extract the secret value from each label on each side.
     %% The client-side path is known correct; the server-side
     %% had a swap bug — this cross-check detects it.
-    ServerCHS = extract_hs_secret("CLIENT_HANDSHAKE_TRAFFIC_SECRET", ServerKeyLog),
-    ServerSHS = extract_hs_secret("SERVER_HANDSHAKE_TRAFFIC_SECRET", ServerKeyLog),
-    ClientCHS = extract_hs_secret("CLIENT_HANDSHAKE_TRAFFIC_SECRET", ClientKeyLog),
-    ClientSHS = extract_hs_secret("SERVER_HANDSHAKE_TRAFFIC_SECRET", ClientKeyLog),
+    ServerCHS = extract_secret("CLIENT_HANDSHAKE_TRAFFIC_SECRET", ServerKeyLog),
+    ServerSHS = extract_secret("SERVER_HANDSHAKE_TRAFFIC_SECRET", ServerKeyLog),
+    ClientCHS = extract_secret("CLIENT_HANDSHAKE_TRAFFIC_SECRET", ClientKeyLog),
+    ClientSHS = extract_secret("SERVER_HANDSHAKE_TRAFFIC_SECRET", ClientKeyLog),
 
     %% The two secrets must be different (sanity) and both sides
     %% must agree on which secret belongs to which label.
@@ -820,7 +830,7 @@ keylog_hs_secret_order(Config) when is_list(Config) ->
 %% Internal functions and callbacks -----------------------------------
 %%--------------------------------------------------------------------
 
-extract_hs_secret(Prefix, KeyLog) ->
+extract_secret(Prefix, KeyLog) ->
     Flat = [lists:flatten(L) || L <- KeyLog],
     case [L || L <- Flat, lists:prefix(Prefix, L)] of
         [Line] ->
