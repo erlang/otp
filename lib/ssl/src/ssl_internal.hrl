@@ -127,7 +127,7 @@
 -define('FROM_TLS-1_2_ONLY_OPTIONS', [signature_algs,
                                       signature_algs_cert]).
 -define('PRE_TLS-1_3_ONLY_OPTIONS', [client_renegotiation,
-                                     dh_file,
+                                     dhfile,
                                      eccs,
                                      fallback,
                                      secure_renegotiate,

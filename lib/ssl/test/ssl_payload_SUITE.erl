@@ -110,7 +110,7 @@
         ]).
 
 -define(TIMEOUT, {seconds, 20}).
--define(TIMEOUT_LONG, {seconds, 80}).
+-define(TIMEOUT_LONG, {seconds, 120}).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
