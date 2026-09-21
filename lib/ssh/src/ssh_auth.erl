@@ -660,7 +660,7 @@ keyboard_interact_fun(KbdInteractFun, Name, Instr,  PromptInfos) ->
                      length(Responses) == length(PromptInfos) ->
 	    Responses;
 	_ ->
-            nok
+            not_ok
     end.
 
 
