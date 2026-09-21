@@ -26,9 +26,8 @@
 -moduledoc false.
 
 -behaviour(supervisor).
--include("ssh.hrl").
 
--export([start_link/1, start_child/8]).
+-export([start_link/1, start_child/7]).
 
 %% Supervisor callback
 -export([init/1]).
@@ -40,16 +39,11 @@ start_link(Args) ->
     supervisor:start_link(?MODULE, [Args]).
 
 
-start_child(client, ChannelSup, ConnRef, Callback, Id, Args, Exec, _Opts) when is_pid(ConnRef) ->
+start_child(client, ChannelSup, ConnRef, Callback, Id, Args, Exec) when is_pid(ConnRef) ->
     start_the_channel(ssh_client_channel, ChannelSup, ConnRef, Callback, Id, Args, Exec);
 
-start_child(server, ChannelSup, ConnRef, Callback, Id, Args, Exec, Opts) when is_pid(ConnRef) ->
-     case max_num_channels_not_exceeded(ChannelSup, Opts) of
-         true ->
-             start_the_channel(ssh_server_channel, ChannelSup, ConnRef, Callback, Id, Args, Exec);
-         false ->
-             {error, max_num_channels_exceeded}
-    end.
+start_child(server, ChannelSup, ConnRef, Callback, Id, Args, Exec) when is_pid(ConnRef) ->
+    start_the_channel(ssh_server_channel, ChannelSup, ConnRef, Callback, Id, Args, Exec).
 
 
 %%%=========================================================================
@@ -66,14 +60,6 @@ init(_Args) ->
 %%%=========================================================================
 %%%  Internal functions
 %%%=========================================================================
-max_num_channels_not_exceeded(ChannelSup, Opts) ->
-    MaxNumChannels = ?GET_OPT(max_channels, Opts),
-    NumChannels = length([x || {_,_,worker,[ssh_server_channel]} <- 
-				   supervisor:which_children(ChannelSup)]),
-    %% Note that NumChannels is BEFORE starting a new one
-    NumChannels < MaxNumChannels.
-
-
 start_the_channel(ChanMod, ChannelSup, ConnRef, Callback, Id, Args, Exec) ->
     ChildSpec =
         #{id       => make_ref(),

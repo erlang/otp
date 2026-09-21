@@ -88,8 +88,9 @@ acceptor_loop(LSock, ListenAddrStr, ListenPort, ConnectToAddr, ChanType, ChanCB,
                 {ok,ChId} ->
                     gen_tcp:controlling_process(Sock, ConnPid),
                     ConnPid ! {fwd_connect_received, Sock, ChId, ChanCB};
-                _ ->
-                    gen_tcp:close(Sock)
+                Other ->
+                    gen_tcp:close(Sock),
+                    ConnPid ! {fwd_connect_failed, Other}
             end,
             acceptor_loop(LSock, ListenAddrStr, ListenPort, ConnectToAddr, ChanType, ChanCB, ConnPid);
 
