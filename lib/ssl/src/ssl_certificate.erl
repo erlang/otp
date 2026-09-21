@@ -114,23 +114,33 @@ trusted_cert_and_paths([#cert{otp = Peer}] = Chain,  CertDbHandle, CertDbRef, Pa
             [handle_incomplete_chain(Chain, PartialChainHandler, {unknown_ca, Chain},
                                      CertDbHandle, CertDbRef)]
     end;
-trusted_cert_and_paths(Chain,  CertDbHandle, CertDbRef, PartialChainHandler) ->
+trusted_cert_and_paths([Peer | _] = Chain,  CertDbHandle, CertDbRef, PartialChainHandler) ->
     %% Construct possible certificate paths from the chain certificates.
     %% If the chain contains extraneous certificates there could be
     %% more than one possible path such chains might be used to phase out
     %% an old certificate.
-    Paths = paths(Chain, CertDbHandle),
-    lists:map(fun(Path) ->
-                      case handle_partial_chain(Path, PartialChainHandler, CertDbHandle, CertDbRef) of
-                          {unknown_ca, _} = Result ->
-                              handle_incomplete_chain(Chain, 
-                                                      PartialChainHandler, 
-                                                      Result,
-                                                      CertDbHandle, CertDbRef);
-                          {_Root, _NewChain} = Result ->
-                              Result
-                      end
-              end, Paths).
+    case paths(Chain, CertDbHandle) of
+        [] ->
+            %% The certificates sent by the peer do not form any path
+            %% (for example [Peer, UnrelatedCA] where the real issuer is
+            %% only in the trust store). Treat the chain as an incomplete
+            %% peer-only chain so that the trust store, verify_fun and
+            %% partial_chain still get consulted instead of failing with
+            %% unknown_ca up front.
+            trusted_cert_and_paths([Peer], CertDbHandle, CertDbRef, PartialChainHandler);
+        Paths ->
+            lists:map(fun(Path) ->
+                              case handle_partial_chain(Path, PartialChainHandler, CertDbHandle, CertDbRef) of
+                                  {unknown_ca, _} = Result ->
+                                      handle_incomplete_chain(Chain,
+                                                              PartialChainHandler,
+                                                              Result,
+                                                              CertDbHandle, CertDbRef);
+                                  {_Root, _NewChain} = Result ->
+                                      Result
+                              end
+                      end, Paths)
+    end.
 %%--------------------------------------------------------------------
 -spec certificate_chain([] | binary() | #'OTPCertificate'{} , ssl_manager:db_handle(),
                         ssl_manager:certdb_ref() | {extracted, list()}) ->
