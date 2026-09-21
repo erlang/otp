@@ -86,6 +86,9 @@ protected:
     const a64::Gp c_p = a64::x21;
     const a64::Gp FCALLS = a64::w22;
     const a64::Gp HTOP = a64::x23;
+#ifdef ERLANG_FRAME_POINTERS
+    const a64::Gp frame_pointer = a64::x29;
+#endif
 
     /* Local copy of the active code index.
      *
@@ -427,21 +430,48 @@ protected:
     };
 
     void emit_enter_erlang_frame() {
-        a.str(a64::x30, a64::Mem(E, -8).pre());
+        if (ERTS_UNLIKELY(erts_frame_layout == ERTS_FRAME_LAYOUT_FP_RA)) {
+#ifdef ERLANG_FRAME_POINTERS
+            a.stp(frame_pointer, a64::x30, a64::Mem(E, -16).pre());
+            a.mov(frame_pointer, E);
+#endif
+        } else {
+            ASSERT(erts_frame_layout == ERTS_FRAME_LAYOUT_RA);
+            a.str(a64::x30, a64::Mem(E, -8).pre());
+        }
     }
 
     void emit_leave_erlang_frame() {
-        a.ldr(a64::x30, a64::Mem(E).post(8));
+        if (ERTS_UNLIKELY(erts_frame_layout == ERTS_FRAME_LAYOUT_FP_RA)) {
+#ifdef ERLANG_FRAME_POINTERS
+            a.mov(E, frame_pointer);
+            a.ldp(frame_pointer, a64::x30, a64::Mem(E).post(16));
+#endif
+        } else {
+            ASSERT(erts_frame_layout == ERTS_FRAME_LAYOUT_RA);
+            a.ldr(a64::x30, a64::Mem(E).post(8));
+        }
     }
 
     void emit_enter_runtime_frame() {
         a.stp(a64::x29, a64::x30, a64::Mem(a64::sp, -16).pre());
-        a.mov(a64::x29, a64::sp);
+
+        if (ERTS_LIKELY(erts_frame_layout == ERTS_FRAME_LAYOUT_RA)) {
+            a.mov(a64::x29, a64::sp);
+        } else {
+            ASSERT(erts_frame_layout == ERTS_FRAME_LAYOUT_FP_RA);
+        }
     }
 
     void emit_leave_runtime_frame() {
-        a.mov(a64::sp, a64::x29);
-        a.ldp(a64::x29, a64::x30, a64::Mem(a64::sp).post(16));
+        if (ERTS_LIKELY(erts_frame_layout == ERTS_FRAME_LAYOUT_RA)) {
+            a.mov(a64::sp, a64::x29);
+            a.ldp(a64::x29, a64::x30, a64::Mem(a64::sp).post(16));
+        } else {
+            ASSERT(erts_frame_layout == ERTS_FRAME_LAYOUT_FP_RA);
+            a.ldr(a64::x30, a64::Mem(a64::sp, 8));
+            a.add(a64::sp, a64::sp, imm(16));
+        }
     }
 
     /* We keep the first six X registers in machine registers. Some of those
@@ -484,6 +514,14 @@ protected:
 #endif
             }
         }
+
+#ifdef ERLANG_FRAME_POINTERS
+        if ((Spec & Update::eStack) &&
+            erts_frame_layout == ERTS_FRAME_LAYOUT_FP_RA) {
+            a.str(frame_pointer,
+                  a64::Mem(c_p, offsetof(Process, frame_pointer)));
+        }
+#endif
 
         if (Spec & Update::eReductions) {
             a.str(FCALLS, a64::Mem(c_p, offsetof(Process, fcalls)));
@@ -546,10 +584,25 @@ protected:
             /* Load HTOP and E in one go. */
             ERTS_CT_ASSERT_FIELD_PAIR(Process, htop, stop);
             a.ldp(HTOP, E, a64::Mem(c_p, offsetof(Process, htop)));
+#ifdef ERLANG_FRAME_POINTERS
+            if (ERTS_UNLIKELY(erts_frame_layout == ERTS_FRAME_LAYOUT_FP_RA)) {
+                a.ldr(frame_pointer,
+                      a64::Mem(c_p, offsetof(Process, frame_pointer)));
+            }
+#endif
         } else if (Spec & Update::eHeap) {
             a.ldr(HTOP, a64::Mem(c_p, offsetof(Process, htop)));
         } else if (Spec & Update::eStack) {
-            a.ldr(E, a64::Mem(c_p, offsetof(Process, stop)));
+            if (ERTS_UNLIKELY(erts_frame_layout == ERTS_FRAME_LAYOUT_FP_RA)) {
+#ifdef ERLANG_FRAME_POINTERS
+                /* Load E and the frame pointer in one go. */
+                ERTS_CT_ASSERT_FIELD_PAIR(Process, stop, frame_pointer);
+                a.ldp(E, frame_pointer, a64::Mem(c_p, offsetof(Process, stop)));
+#endif
+            } else {
+                ASSERT(erts_frame_layout == ERTS_FRAME_LAYOUT_RA);
+                a.ldr(E, a64::Mem(c_p, offsetof(Process, stop)));
+            }
         }
 
         if (Spec & Update::eReductions) {

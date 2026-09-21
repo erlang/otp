@@ -26,13 +26,16 @@
          init_per_suite/1, end_per_suite/1,
          init_per_group/2, end_per_group/2,
          init_per_testcase/2, end_per_testcase/2]).
--export([annotate/1, jmsingle/1, named_labels/1, symbols/1, perfdirectory_set/1, perfdirectory_not_set/1]).
+-export([annotate/1, frame_pointers/1, jmsingle/1, named_labels/1,
+         symbols/1, perfdirectory_set/1, perfdirectory_not_set/1]).
+-export([frame_pointer_workload/0]).
 
 suite() ->
     [{timetrap, {minutes, 4}}].
 
 groups() ->
-    [{perf, [symbols, annotate, perfdirectory_set, perfdirectory_not_set]}].
+    [{perf, [symbols, annotate, frame_pointers,
+             perfdirectory_set, perfdirectory_not_set]}].
 
 all() ->
     [{group, perf}, jmsingle, named_labels].
@@ -106,6 +109,13 @@ end_per_group(perf, Config) ->
 end_per_group(_, _Config) ->
     ok.
 
+init_per_testcase(frame_pointers, Config) ->
+    case erlang:system_info(system_architecture) of
+        "aarch64" ++ _ ->
+            Config;
+        _ ->
+            {skip, "AArch64-specific test"}
+    end;
 init_per_testcase(named_labels, Config) ->
     %% Only run named_labels on platforms where we know it works.
     case erlang:system_info(system_architecture) of
@@ -149,6 +159,50 @@ symbols(Config) ->
         nomatch ->
             ct:fail("Did not find lists:seq symbol in:~n~ts",[Script])
     end.
+
+frame_pointers(Config) ->
+    BuildIdDir = proplists:get_value(buildiddir, Config),
+    DataFile = filename:join(
+                 proplists:get_value(priv_dir, Config),
+                 atom_to_list(?FUNCTION_NAME) ++ ".data"),
+    ModulePath = filename:dirname(code:which(?MODULE)),
+    Cmd = "perf " ++ BuildIdDir ++ " record -q -F 99 -g " ++
+        "--call-graph fp -o " ++ DataFile ++ " " ++
+        "erl +S 1 +JPperf map -noshell -pa " ++ ModulePath ++ " " ++
+        "-s jit_SUITE frame_pointer_workload -s init stop",
+    "" = os:cmd(Cmd),
+    Script = os:cmd("perf " ++ BuildIdDir ++ " script -i " ++ DataFile),
+    Samples = string:split(Script, "\n\n", all),
+    Depths = [length(Matches) || Sample <- Samples,
+               {match, Matches} <-
+                   [re:run(Sample, "\\$jit_SUITE:frame_pointer_[abc]/1",
+                           [global, {capture, first, list}])]],
+    case Depths =/= [] andalso lists:max(Depths) >= 8 of
+        true ->
+            ok;
+        false ->
+            ct:fail("Did not find a deep Erlang call chain")
+    end.
+
+frame_pointer_workload() ->
+    End = erlang:monotonic_time(millisecond) + 2000,
+    frame_pointer_repeat(End).
+
+frame_pointer_repeat(End) ->
+    _ = frame_pointer_a(32),
+    case erlang:monotonic_time(millisecond) < End of
+        true -> frame_pointer_repeat(End);
+        false -> ok
+    end.
+
+frame_pointer_a(0) -> 1;
+frame_pointer_a(N) -> 1 + frame_pointer_b(N - 1).
+
+frame_pointer_b(0) -> 1;
+frame_pointer_b(N) -> 1 + frame_pointer_c(N - 1).
+
+frame_pointer_c(0) -> 1;
+frame_pointer_c(N) -> 1 + frame_pointer_a(N - 1).
     
 annotate(Config) ->
     BuildIdDir = proplists:get_value(buildiddir, Config),

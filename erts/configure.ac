@@ -3237,7 +3237,7 @@ dnl to control whether we accept `perf`-related options.
 dnl
 case $OPSYS in
     linux*)
-        if test X${enable_native_stack} = Xyes; then
+        if test X${enable_native_stack} = Xyes || test X${JIT_ARCH} = Xarm; then
           AC_DEFINE(ERLANG_FRAME_POINTERS, [],
                     [Define if we need frame pointers on the Erlang stack])
         fi
