@@ -673,12 +673,26 @@ system_limit(Config) when is_list(Config) ->
     {'EXIT',{system_limit,_}} = (catch <<0:(1 bsl 67)>>),
     {'EXIT',{system_limit,_}} = (catch <<0:((1 bsl 64)+1)>>),
 
+    %% A size that the compiler cannot calculate must be accepted when it
+    %% is within the limit, and rejected when it is not.
+    137 = fill(6, 143),
+    1 = fill(0, 1),
+    1000 = fill(0, 1000),
+    ?assertError(system_limit, fill(0, 1 bsl 60)),
+
     case WordSize of
 	4 ->
 	    system_limit_32();
 	8 ->
 	    ok
     end.
+
+%% Build the binary in a loop, which keeps the size in a register.
+fill(Current, Desired) when Current < Desired ->
+    Bin = <<0:(Desired - Current)/unit:8>>,
+    byte_size(Bin) + fill(Current + byte_size(Bin), Desired);
+fill(_Current, _Desired) ->
+    0.
 
 system_limit_32() ->
     {'EXIT',{badarg,_}} = (catch <<42:(-1)>>),

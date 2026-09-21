@@ -1863,7 +1863,7 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
                                     BSC_INFO_SIZE,
                                     BSC_VALUE_ARG3));
                 }
-                a.tst(TMP1, imm(0xffful << (SMALL_BITS - ERL_UNIT_BITS)));
+                a.tst(TMP1, imm(0xfffull << (SMALL_BITS - ERL_UNIT_BITS)));
                 a.b_ne(resolve_label(error, disp1MB));
                 mov_imm(TMP2, seg.unit);
                 a.madd(sizeReg, TMP1, TMP2, sizeReg);
