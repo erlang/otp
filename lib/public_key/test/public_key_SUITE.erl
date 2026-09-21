@@ -173,7 +173,8 @@
          short_crl_issuer_hash/0,
          short_crl_issuer_hash/1,
          cacerts_load/0, cacerts_load/1,
-         ocsp_extensions/0, ocsp_extensions/1
+         ocsp_extensions/0, ocsp_extensions/1,
+         cert_without_policy_qualifiers/0, cert_without_policy_qualifiers/1
         ]).
 
 %% Explicit parameters for EC are currently not implemented.
@@ -245,7 +246,8 @@ all() ->
      short_crl_issuer_hash,
      cacerts_load,
      ocsp_extensions,
-     pkix_ocsp_validate | maybe_more()
+     pkix_ocsp_validate,
+     cert_without_policy_qualifiers | maybe_more()
     ].
 
 groups() ->
@@ -2345,6 +2347,18 @@ j1exw1nyGDYNeBhQXyk+uKGkEN53Rrb+wYnfK74ItBBdf/5XotYTGH24wB2GLwdO
 bAMOCtAd2sl//30zzUVW1dc=
 -----END PRIVATE KEY-----
 """.
+
+%%--------------------------------------------------------------------
+cert_without_policy_qualifiers() ->
+    [{doc, "Decode certificate with policy qualifiers omitted"}].
+cert_without_policy_qualifiers(Config) when is_list(Config) ->
+    Datadir = proplists:get_value(data_dir, Config),
+
+     [{_, Der, _} = Entry] =
+        erl_make_certs:pem_to_der(
+          filename:join(Datadir, "policy_qualifiers_missing.pem")),
+    pubkey_cert_records:decode_cert(Der),
+    asn1_encode_decode(Entry).
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
