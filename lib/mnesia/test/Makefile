@@ -58,7 +58,8 @@ MODULES= \
 	ext_test \
 	ext_test_server \
 	mnesia_index_plugin_test \
-	mnesia_external_backend_test
+	mnesia_external_backend_test \
+	gen_tcp_blocking_dist
 
 DocExamplesDir := ../doc/src/
 
@@ -79,7 +80,7 @@ ExampleModules = \
 
 ERL_FILES= $(MODULES:%=%.erl) $(DocExampleModules:%=$(DocExamplesDir)/%.erl) $(ExampleModules:%=$(ExamplesDir)/%.erl)
 
-HRL_FILES= mnesia_test_lib.hrl ext_test_server.hrl $(DocExamplesHrl:%=$(DocExamplesDir)/%)
+HRL_FILES= mnesia_test_lib.hrl ext_test_server.hrl gen_tcp_blocking_dist.hrl $(DocExamplesHrl:%=$(DocExamplesDir)/%)
 
 TARGET_FILES= \
 	$(MODULES:%=$(EBIN)/%.$(EMULATOR)) $(DocExampleModules:%=$(EBIN)/%.$(EMULATOR)) $(ExampleModules:%=$(EBIN)/%.$(EMULATOR))

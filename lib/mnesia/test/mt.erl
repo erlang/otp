@@ -33,15 +33,18 @@
 -module(mt).
 -author('hakan@erix.ericsson.se').
 -export([
-	 t/0, t/1, t/2, t/3,                % Run test cases
-	 loop/1, loop/2, loop/3,            % loop test cases
-	 doc/0, doc/1,                      % Generate test case doc
-	 struct/0, struct/1,                % View test suite struct
-	 shutdown/0, ping/0, start_nodes/0, % Node admin
-	 read_config/0, write_config/1      % Config admin
-	]).
+         t/0, t/1, t/2, t/3,                % Run test cases
+         loop/1, loop/2, loop/3,            % loop test cases
+         doc/0, doc/1,                      % Generate test case doc
+         struct/0, struct/1,                % View test suite struct
+         shutdown/0, ping/0, start_nodes/0, % Node admin
+         start_peers/1,                     % Peers for mt script
+         read_config/0, write_config/1      % Config admin
+        ]).
 
 -compile({no_auto_import,[alias/1]}).
+
+-include("gen_tcp_blocking_dist.hrl").
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Aliases for the (sub) test suites
@@ -278,3 +281,47 @@ ok_result([{_T,{TC,List}}|R]) when is_tuple(TC), is_list(List) ->
     ok_result(List) andalso ok_result(R);
 ok_result([]) -> true;
 ok_result(_) -> error.
+
+%% Peer nodes for mt script
+start_peers(Args) ->
+    [Name2, Name3, TmpDirA | ExtraArgs0] = Args,
+    CodePaths = lists:append([["-pa", P] || P <- code:get_path(), P /= "."]),
+    DistOpts = ?NETWORK_BLOCKER_DIST_OPTS,
+    ExtraArgs =
+        case mnesia_test_lib:has_network_blocker() of
+            true ->
+                CodePaths ++ DistOpts ++ ExtraArgs0;
+            false ->
+                CodePaths ++ ExtraArgs0
+        end,
+    TmpDir = atom_to_list(TmpDirA),
+    {Name2, P2, N2} = start_peer(Name2, TmpDir, ExtraArgs),
+    {Name3, P3, N3} = start_peer(Name3, TmpDir, ExtraArgs),
+    ok = mnesia_test_lib:set_peer_ref(N2, P2),
+    ok = mnesia_test_lib:set_peer_ref(N3, P3).
+
+start_peer(Name, TmpDir, ExtraArgs) ->
+    Dir = TmpDir ++ "/" ++ atom_to_list(Name) ++ "/",
+    ok = filelib:ensure_dir(Dir),
+    Erl = case init:get_argument(progname) of
+              {ok, [[Prog]]} ->
+                  case os:find_executable(Prog) of
+                      false -> "erl";
+                      Found -> Found
+                  end;
+              _ -> "erl"
+          end,
+    RunErl = os:find_executable("run_erl"),
+    {ok, Peer, Node} = peer:start(#{
+        name => Name,
+        host => "localhost",
+        connection => 0,
+        detached => false,
+        exec => {RunErl, ["-daemon"]},
+        post_process_args => fun(Args) ->
+            Cmd = lists:flatten([Erl, " ", lists:join(" ", Args)]),
+            [Dir, Dir, "exec " ++ Cmd]
+        end,
+        args => ExtraArgs
+    }),
+    {Name, Peer, Node}.

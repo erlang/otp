@@ -60,7 +60,7 @@ suite() -> [{ct_hooks,[{ts_install_cth,[{nodenames,2}]}]}].
 
 all() -> 
     [app, appup, {group, light}, {group, medium}, {group, heavy},
-     clean_up_suite, {group, external}].
+     {group, external}, clean_up_suite].
 
 groups() -> 
     %% The 'light' test suite runs a selected set of test suites and is
