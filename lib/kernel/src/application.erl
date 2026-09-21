@@ -50,11 +50,11 @@ For details about applications and behaviours, see
 [kernel](kernel_app.md), [app](app.md)
 """.
 -export([ensure_all_started/1, ensure_all_started/2, ensure_all_started/3,
-	 start/1, start/2,
-	 start_boot/1, start_boot/2, stop/1,
-	 load/1, load/2, unload/1, takeover/2,
-	 which_applications/0, which_applications/1,
-	 loaded_applications/0, permit/2]).
+         start/1, start/2,
+         start_boot/1, start_boot/2, stop/1,
+         load/1, load/2, unload/1, takeover/2,
+         which_applications/0, which_applications/1,
+         loaded_applications/0, permit/2]).
 -export([ensure_started/1, ensure_started/2]).
 -export([set_env/1, set_env/2, set_env/3, set_env/4, unset_env/2, unset_env/3]).
 -export([get_env/1, get_env/2, get_env/3, get_all_env/0, get_all_env/1]).

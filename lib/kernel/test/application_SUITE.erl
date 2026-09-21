@@ -39,9 +39,9 @@
 	 nodedown_start/1, init2973/0, loop2973/0, loop5606/1, otp_16504/1]).
 
 -export([config_change/1, persistent_env/1, invalid_app_file/1,
-	 distr_changed_tc1/1, distr_changed_tc2/1,
-	 ensure_started/1, ensure_all_started/1, ensure_all_started_limit/1,
-	 shutdown_func/1, do_shutdown/1, shutdown_timeout/1,
+         distr_changed_tc1/1, distr_changed_tc2/1,
+         ensure_started/1, ensure_all_started/1, ensure_all_started_limit/1,
+         shutdown_func/1, do_shutdown/1, shutdown_timeout/1,
          shutdown_application_call/1,shutdown_deadlock/1,
          config_relative_paths/1, handle_many_config_files/1,
          format_log_1/1, format_log_2/1,
