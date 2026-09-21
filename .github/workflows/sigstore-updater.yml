@@ -23,7 +23,7 @@
 ## 1. update-release-sigstore: Regenerates Sigstore attestation files
 ##    when an existing GitHub release is edited.
 ## 2. attest-vex: Creates Sigstore attestations for modified OpenVEX
-##    files in PRs targeting the master branch.
+##    files in PRs targeting the openvex branch.
 ##
 
 name: Update Sigstore Files
@@ -32,7 +32,7 @@ on:
   release:
     types: [edited]
   pull_request:
-    branches: [master]
+    branches: [openvex]
     paths:
       - 'vex/*.openvex.json'
 
@@ -105,7 +105,7 @@ jobs:
       - name: Find modified OpenVEX files
         id: changed
         run: |
-          git diff --name-only --diff-filter=AM origin/master -- 'vex/*.openvex.json' > /tmp/changed-vex.txt
+          git diff --name-only --diff-filter=AM origin/openvex -- 'vex/*.openvex.json' > /tmp/changed-vex.txt
           echo "Modified OpenVEX files:"
           cat /tmp/changed-vex.txt
           if [ -s /tmp/changed-vex.txt ]; then
