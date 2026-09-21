@@ -987,7 +987,7 @@ parse_address(Config) when is_list(Config) ->
        V4Reversable++V6Reversable++V6Sloppy++
        [S || {_,S} <- V4Sloppy]++V4Err++V6Err),
     ok = parse_address_binary_combined(),
-    ok = parse_address_non_char_elements().
+    ok = parse_address_out_of_character().
 
 t_parse_address(Func, _Reversable, []) ->
     io:format("~p done.~n", [Func]),
@@ -1033,33 +1033,45 @@ parse_address_binary_combined() ->
     {error, einval} = inet:parse_strict_address(<<"not.an.ip">>, inet6),
     ok.
 
-parse_address_non_char_elements() ->
-    %% A list element that is not an integer must give {error, einval} and not an exception;
-    %% in particular a float within the range of a digit or a hex letter, which passes a plain
-    %% comparison guard but not an is_integer/3 guard
-    Bad =
-        [[$1 + 0.5, $., $2, $., $3, $., $4],
-         "1.2.3." ++ [$4 + 0.5],
-         "0x" ++ [$1 + 0.5],
-         "::" ++ [$0 + 0.5],
-         "::" ++ [$a + 0.5],
-         "::" ++ [$A + 0.5],
-         [$1 + 0.5] ++ "::",
-         "1:" ++ [$2 + 0.5] ++ ":3::",
-         "1:2:3:4:5:6:7:" ++ [$8 + 0.5],
-         "::1." ++ [$2 + 0.5] ++ ".3.4",
-         "::ffff:1.2.3." ++ [$4 + 0.5]],
-    lists:foreach(
-      fun (S) ->
-              io:format("~p.~n", [S]),
-              {error, einval} = inet:parse_ipv4_address(S),
-              {error, einval} = inet:parse_ipv4strict_address(S),
-              {error, einval} = inet:parse_ipv6_address(S),
-              {error, einval} = inet:parse_ipv6strict_address(S),
-              {error, einval} = inet:parse_address(S),
-              {error, einval} = inet:parse_strict_address(S)
-      end, Bad),
+parse_address_out_of_character() ->
+    %% When the argument is of the wrong type, that is
+    %% not `string() | binary()`, an error exception should be raised.
+    %% Check also that this happens when an element in the list
+    %% that is not a `char()` is encountered.
+    %%
+    [verify_parse_error_exception(Parse, S) ||
+        S <-
+            ['127.0.0.1',
+             "127.0.0."++[$1+0.0]],
+        Parse <-
+            [fun inet:parse_ipv4_address/1,
+             fun inet:parse_ipv4strict_address/1,
+             fun inet:parse_address/1,
+             fun inet:parse_strict_address/1
+            ]],
+    [verify_parse_error_exception(Parse, S) ||
+        S <-
+            ["::"++[$1+0.0],
+             [a]++":b:c:d:e:f:9:8",
+             "a:b:c:d:e:f:9:8"++[a],
+             "a:b:c:d:e:f:9:8"++a,
+             "::f%0"++1,
+             "::f:11.22.33.44%6to"++[$0+4.0]],
+        Parse <-
+            [fun inet:parse_ipv6_address/1,
+             fun inet:parse_ipv6strict_address/1,
+             fun inet:parse_address/1,
+             fun inet:parse_strict_address/1
+            ]],
     ok.
+
+verify_parse_error_exception(Parse, S) ->
+    try
+        io:format("~p, ~p.~n", [Parse, S]),
+        Parse(S)
+    of    Whatever  -> error({unexpected_success, Whatever})
+    catch error : _ -> ok
+    end.
 
 parse_strict_address(Config) when is_list(Config) ->
     Lo = "127.0.0.1",
