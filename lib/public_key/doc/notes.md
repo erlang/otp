@@ -19,6 +19,16 @@ limitations under the License.
 -->
 # Public_Key Release Notes
 
+## Public_Key 1.17.1.6
+
+### Fixed Bugs and Malfunctions
+
+- Align moduli and pubkey_moduli.hrl to state on OTP-28 and newer.
+
+  Own Id: OTP-20367 Aux Id: [PR-11574]
+
+[PR-11574]: https://github.com/erlang/otp/pull/11574
+
 ## Public_Key 1.17.1.5
 
 ### Fixed Bugs and Malfunctions
