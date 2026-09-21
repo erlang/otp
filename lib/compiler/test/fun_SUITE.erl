@@ -26,7 +26,8 @@
 	 test1/1,overwritten_fun/1,otp_7202/1,bif_fun/1,
          external/1,eep37/1,badarity/1,badfun/1,
          duplicated_fun/1,unused_fun/1,parallel_scopes/1,
-         coverage/1,leaky_environment/1,chain/1]).
+         coverage/1,leaky_environment/1,chain/1,
+         recursive_dependency/1]).
 
 %% Internal exports.
 -export([call_me/1,dup1/0,dup2/0]).
@@ -44,7 +45,8 @@ groups() ->
       [test1,overwritten_fun,otp_7202,bif_fun,external,eep37,chain,
        badarity,badfun,duplicated_fun,unused_fun,
        parallel_scopes,
-       coverage,leaky_environment]}].
+       coverage,leaky_environment,
+       recursive_dependency]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -606,6 +608,29 @@ leaky_environment(_Config) ->
     F = fun(A) -> G(A, 0) end,
     ?assertError({badarity, {_, [1, flurb]}}, F(1, flurb)),
     ok.
+
+%% GH-11619.
+recursive_dependency(_Config) ->
+    [0,0] = rec_dep_original(),
+    [0,0,0] = rec_dep_explicit(),
+    ok.
+
+rec_dep_original() ->
+    F = fun Fn(0) -> 0; Fn(N) -> Fn(N - 1) end,
+    [F(X) || X <- [1, 2]].
+
+rec_dep_explicit() ->
+    F = fun rde_zero/1,
+    rde_lc([1, 2, 3], F).
+
+rde_lc(L, F) ->
+    case L of
+        [H|T] -> [F(H)|rde_lc(T, F)];
+        [] -> []
+    end.
+
+rde_zero(0) -> 0;
+rde_zero(N) -> rde_zero(N - 1).
 
 id(I) ->
     I.
