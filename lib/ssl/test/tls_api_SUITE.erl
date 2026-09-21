@@ -32,6 +32,7 @@
 -include_lib("ssl/src/ssl_connection.hrl").
 -include_lib("ssl/src/ssl_alert.hrl").
 -include_lib("ssl/src/ssl_cipher.hrl").
+-include_lib("ssl/src/tls_handshake_1_3.hrl").
 
 %% Common test
 -export([all/0,
@@ -121,6 +122,8 @@
          tls_reject_unoffered_cipher_suite/1,
          tls_reject_unoffered_alpn/0,
          tls_reject_unoffered_alpn/1,
+         tls13_reject_unsolicited_psk/0,
+         tls13_reject_unsolicited_psk/1,
          tls_reject_non_null_compression/0,
          tls_reject_non_null_compression/1
         ]).
@@ -142,6 +145,15 @@
 %% Rogue-server tests: an anonymous suite a default client never offers, and an
 %% ordinary suite pinned so the ALPN test can echo an *offered* suite.
 -define(ROGUE_ANON_SUITE, ?TLS_DH_anon_WITH_AES_128_CBC_SHA).
+%% TLS 1.3 constants for the unsolicited-pre_shared_key rogue-server test.
+%% Only genuinely-new TLS-1.3 extension/group constants with no equivalent in
+%% the included headers are declared here; handshake/content-type constants
+%% reuse the header macros (?ENCRYPTED_EXTENSIONS, ?FINISHED, ?HANDSHAKE,
+%% ?APPLICATION_DATA).
+-define(TLS13_KEY_SHARE_EXT, 51).
+-define(TLS13_PRE_SHARED_KEY_EXT, 41).
+-define(TLS13_SUPPORTED_VERSIONS_EXT, 43).
+-define(TLS13_GROUP_X25519, 16#001d).
 -define(ALPN_TEST_SUITE_BIN, <<16#C0, 16#2F>>). %% TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
 -define(ALPN_TEST_SUITE_MAP, #{key_exchange => ecdhe_rsa, cipher => aes_128_gcm,
                                mac => aead, prf => sha256}).
@@ -217,8 +229,8 @@ seq_test() ->
 rogue_server_tests() ->
     [tls_reject_unoffered_cipher_suite,
      tls_reject_unoffered_alpn,
+     tls13_reject_unsolicited_psk,
      tls_reject_non_null_compression].
-
 
 init_per_suite(Config0) ->
     catch application:stop(crypto),
@@ -998,6 +1010,177 @@ rogue_read_record(Sock) ->
             end;
         {error, _} = E -> E
     end.
+
+%%--------------------------------------------------------------------
+tls13_reject_unsolicited_psk() ->
+    [{doc, "A malicious/on-path server sends a complete, otherwise-valid "
+      "TLS-1.3 flight (ServerHello, ChangeCipherSpec, encrypted "
+      "{EncryptedExtensions, Finished}) that carries a pre_shared_key "
+      "extension the client never offered, and NO Certificate/CertificateVerify. "
+      "RFC 8446 4.2.11 requires the client to abort with illegal_parameter. On "
+      "vulnerable code the verify_peer client instead accepts the unsolicited "
+      "PSK, keys the handshake with the zero PSK, skips the certificate states "
+      "and connects -- a complete server-authentication bypass "
+      "(ANT-2026-HEF8F3FY / OTP-20388). Checked for session_tickets=disabled "
+      "(default) and =auto with an empty ticket store."}].
+tls13_reject_unsolicited_psk(Config) when is_list(Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ok = rogue_tls13_psk(ClientOpts, []),
+    ok = rogue_tls13_psk(ClientOpts, [{session_tickets, auto}]),
+    ok.
+
+%% Drive a real TLS-1.3 verify_peer client against a raw-TCP attacker that
+%% forges the full flight, and assert the mandated illegal_parameter alert.
+rogue_tls13_psk(ClientOpts0, ExtraOpts) ->
+    {ok, LSock} = gen_tcp:listen(0, [binary, {active, false},
+                                     {reuseaddr, true}, {packet, 0}]),
+    {ok, Port} = inet:port(LSock),
+    Parent = self(),
+    Attacker = spawn_link(fun() -> Parent ! {attacker, rogue_tls13_server(LSock)} end),
+    ClientOpts = ExtraOpts ++
+        [{versions, ['tlsv1.3']},
+         {ciphers, ["TLS_AES_128_GCM_SHA256"]},
+         {supported_groups, [x25519]},
+         {server_name_indication, disable},
+         {active, false} | ClientOpts0],
+    Result = ssl:connect("localhost", Port, ClientOpts, 5000),
+    gen_tcp:close(LSock),
+    Observed = receive {attacker, O} -> O after 5000 -> unlink(Attacker), timeout end,
+    ct:log("extra=~p~n ssl:connect -> ~p~n attacker -> ~p",
+           [ExtraOpts, Result, Observed]),
+    %% With a well-formed flight, a PATCHED client aborts with
+    %% illegal_parameter in wait_sh (the unsolicited-PSK check). A
+    %% VULNERABLE client instead accepts the unsolicited PSK, skips the
+    %% certificate states and returns {ok, Socket} (verified: without the
+    %% fix this case fails here with {ok,_}). The reason atom
+    %% {unsolicited_pre_shared_key,_} is not rendered into the tls_alert
+    %% description string, so we assert on the description + the fact that
+    %% a vulnerable client connects.
+    case Result of
+        {error, {tls_alert, {illegal_parameter, _}}} ->
+            ok;
+        {ok, Sock} ->
+            ssl:close(Sock),
+            ct:fail("SERVER-AUTHENTICATION BYPASS: verify_peer client connected "
+                    "to a certificate-less server that sent an unsolicited "
+                    "pre_shared_key (extra ~p). Attacker observed ~p.",
+                    [ExtraOpts, Observed]);
+        Other ->
+            ct:fail("Expected illegal_parameter for unsolicited pre_shared_key "
+                    "(extra ~p); got ~p (attacker ~p)",
+                    [ExtraOpts, Other, Observed])
+    end.
+
+%% Raw-TCP rogue TLS-1.3 server. No certificate. Sends a valid ServerHello +
+%% CCS + encrypted {EncryptedExtensions, Finished} using the RFC 8446 7.1 key
+%% schedule so that an UNPATCHED client would complete the handshake.
+rogue_tls13_server(LSock) ->
+    {ok, Sock} = gen_tcp:accept(LSock, 5000),
+    {?HANDSHAKE, CHHandshake} = rogue_read_record(Sock),
+    ClientShare = rogue_tls13_client_x25519(CHHandshake),
+    SessionId = rogue_tls13_client_session_id(CHHandshake),
+
+    {ServerPub, ServerPriv} = crypto:generate_key(ecdh, x25519),
+    SHBody = rogue_tls13_server_hello_body(ServerPub, SessionId),
+    SHHandshake = rogue_handshake(?SERVER_HELLO, SHBody),
+
+    %% RFC 8446 7.1 handshake secrets (transcript = ClientHello ++ ServerHello).
+    Alg = sha256,
+    HashLen = 32,
+    Shared = crypto:compute_key(ecdh, ClientShare, ServerPriv, x25519),
+    Zero = binary:copy(<<0>>, HashLen),
+    EarlySecret = tls_v1:hkdf_extract(Alg, Zero, Zero),
+    DerivedEarly = rogue_derive_secret(Alg, HashLen, EarlySecret, <<"derived">>, <<>>),
+    HSSecret = tls_v1:hkdf_extract(Alg, DerivedEarly, Shared),
+    Transcript0 = <<CHHandshake/binary, SHHandshake/binary>>,
+    ServerHS = rogue_derive_secret(Alg, HashLen, HSSecret, <<"s hs traffic">>, Transcript0),
+    Key = tls_v1:hkdf_expand_label(ServerHS, <<"key">>, <<>>, 16, Alg),
+    IV  = tls_v1:hkdf_expand_label(ServerHS, <<"iv">>,  <<>>, 12, Alg),
+
+    EE = <<?ENCRYPTED_EXTENSIONS, 2:24, 0:16>>,
+    Transcript1 = <<Transcript0/binary, EE/binary>>,
+    FinKey = tls_v1:hkdf_expand_label(ServerHS, <<"finished">>, <<>>, HashLen, Alg),
+    THash = crypto:hash(Alg, Transcript1),
+    VerifyData = tls_v1:hmac_hash(Alg, FinKey, THash),
+    Finished = <<?FINISHED, (byte_size(VerifyData)):24, VerifyData/binary>>,
+
+    Inner = <<EE/binary, Finished/binary, ?HANDSHAKE>>,
+    EncRecord = rogue_tls13_encrypt(Key, IV, 0, Inner),
+
+    ok = gen_tcp:send(Sock, rogue_record(?HANDSHAKE, SHHandshake)),
+    ok = gen_tcp:send(Sock, <<20, 3, 3, 1:16, 1>>),   %% ChangeCipherSpec
+    ok = gen_tcp:send(Sock, EncRecord),
+
+    Obs = rogue_observe(Sock),
+    gen_tcp:close(Sock),
+    Obs.
+
+rogue_tls13_server_hello_body(ServerPub, SessionId) ->
+    Random = crypto:strong_rand_bytes(32),
+    SVExt  = <<?TLS13_SUPPORTED_VERSIONS_EXT:16, 2:16, 16#03, 16#04>>,
+    KSData = <<?TLS13_GROUP_X25519:16, (byte_size(ServerPub)):16, ServerPub/binary>>,
+    KSExt  = <<?TLS13_KEY_SHARE_EXT:16, (byte_size(KSData)):16, KSData/binary>>,
+    PSKExt = <<?TLS13_PRE_SHARED_KEY_EXT:16, 2:16, 0:16>>,  %% selected_identity = 0
+    Exts   = <<SVExt/binary, KSExt/binary, PSKExt/binary>>,
+    %% RFC 8446 4.1.3: the ServerHello MUST echo the client's
+    %% legacy_session_id, otherwise the client aborts with
+    %% session_id_echo_mismatch before the pre_shared_key is examined.
+    <<16#03, 16#03, Random/binary,
+      (byte_size(SessionId)), SessionId/binary,
+      16#13, 16#01, 0,                                %% TLS_AES_128_GCM_SHA256, compression=null
+      (byte_size(Exts)):16, Exts/binary>>.
+
+rogue_derive_secret(Alg, HashLen, Secret, Label, Messages) ->
+    Hash = crypto:hash(Alg, Messages),
+    tls_v1:hkdf_expand_label(Secret, Label, Hash, HashLen, Alg).
+
+%% Encrypt one TLS-1.3 record (outer type application_data), RFC 8446 5.2.
+rogue_tls13_encrypt(Key, IV, SeqNo, Inner) ->
+    TagLen = 16,
+    Len = byte_size(Inner) + TagLen,
+    AAD = <<?APPLICATION_DATA, 3, 3, Len:16>>,
+    Nonce = rogue_tls13_nonce(SeqNo, IV),
+    {Enc, Tag} = crypto:crypto_one_time_aead(aes_128_gcm, Key, Nonce, Inner, AAD, TagLen, true),
+    Payload = <<Enc/binary, Tag/binary>>,
+    <<?APPLICATION_DATA, 3, 3, (byte_size(Payload)):16, Payload/binary>>.
+
+rogue_tls13_nonce(SeqNo, IV) ->
+    Padded = <<0:((byte_size(IV) - 8) * 8), SeqNo:64>>,
+    crypto:exor(Padded, IV).
+
+%% Parse client's legacy_session_id from the ClientHello handshake message.
+rogue_tls13_client_session_id(CHHandshake) ->
+    <<_HsType, _HsLen:24, Body/binary>> = CHHandshake,
+    <<_LegacyVsn:16, _Random:32/binary, SidLen, Sid:SidLen/binary, _/binary>> = Body,
+    Sid.
+
+%% Parse client's x25519 key_share from the ClientHello handshake message.
+rogue_tls13_client_x25519(CHHandshake) ->
+    <<_HsType, _HsLen:24, Body/binary>> = CHHandshake,
+    <<_LegacyVsn:16, _Random:32/binary, R0/binary>> = Body,
+    <<SidLen, R1/binary>> = R0,
+    <<_Sid:SidLen/binary, R2/binary>> = R1,
+    <<CsLen:16, R3/binary>> = R2,
+    <<_Cs:CsLen/binary, R4/binary>> = R3,
+    <<CompLen, R5/binary>> = R4,
+    <<_Comp:CompLen/binary, R6/binary>> = R5,
+    <<_ExtsLen:16, Exts/binary>> = R6,
+    rogue_tls13_find_key_share(Exts).
+
+rogue_tls13_find_key_share(<<?TLS13_KEY_SHARE_EXT:16, ExtLen:16, ExtData:ExtLen/binary, _/binary>>) ->
+    <<_SharesLen:16, Shares/binary>> = ExtData,
+    rogue_tls13_find_x25519(Shares);
+rogue_tls13_find_key_share(<<_Type:16, ExtLen:16, _ExtData:ExtLen/binary, Rest/binary>>) ->
+    rogue_tls13_find_key_share(Rest);
+rogue_tls13_find_key_share(<<>>) ->
+    ct:fail(client_offered_no_key_share).
+
+rogue_tls13_find_x25519(<<?TLS13_GROUP_X25519:16, KeLen:16, Ke:KeLen/binary, _/binary>>) ->
+    Ke;
+rogue_tls13_find_x25519(<<_Group:16, KeLen:16, _Ke:KeLen/binary, Rest/binary>>) ->
+    rogue_tls13_find_x25519(Rest);
+rogue_tls13_find_x25519(<<>>) ->
+    ct:fail(client_offered_no_x25519_share).
 
 %%--------------------------------------------------------------------
 tls_tcp_error_propagation_in_active_mode() ->
