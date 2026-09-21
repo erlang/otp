@@ -23,6 +23,30 @@ limitations under the License.
 
 This document describes the changes made to the Compiler application.
 
+## Compiler 9.0.6.3
+
+### Fixed Bugs and Malfunctions
+
+- In rare circumstances, the type analysis pass of the compiler could run for many minutes.
+
+  Own Id: OTP-20365 Aux Id: [GH-11534], [PR-11566]
+
+- Certain uses of funs could crash the compiler. For example:
+  
+  ```
+  f() ->
+      F = fun Fn(0) -> 0; Fn(N) -> Fn(N - 1) end,
+      [F(X) || X <- [1, 2]].
+  ```
+  This has been corrected.
+
+  Own Id: OTP-20386 Aux Id: [GH-11619], [PR-11638]
+
+[GH-11534]: https://github.com/erlang/otp/issues/11534
+[PR-11566]: https://github.com/erlang/otp/pull/11566
+[GH-11619]: https://github.com/erlang/otp/issues/11619
+[PR-11638]: https://github.com/erlang/otp/pull/11638
+
 ## Compiler 9.0.6.2
 
 ### Fixed Bugs and Malfunctions
