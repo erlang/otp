@@ -55,7 +55,8 @@
          select_proper_tls_1_2_rsa_default_hashsign/1,
          ignore_hassign_extension_pre_tls_1_2/1,
          signature_algorithms/1,
-         drop_unassigned_signature_algorithms/1]).
+         drop_unassigned_signature_algorithms/1,
+         drop_undecodable_certificate_authorities/1]).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -70,7 +71,8 @@ all() -> [decode_hello_handshake,
 	  select_proper_tls_1_2_rsa_default_hashsign,
 	  ignore_hassign_extension_pre_tls_1_2,
 	  signature_algorithms,
-      drop_unassigned_signature_algorithms].
+          drop_unassigned_signature_algorithms,
+          drop_undecodable_certificate_authorities].
 
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
@@ -294,6 +296,26 @@ drop_unassigned_signature_algorithms(_Config) ->
         end,
         SigAlgs).
 
+drop_undecodable_certificate_authorities(_Config) ->
+    GoodAuth0 = {rdnSequence,
+                 [[{'AttributeTypeAndValue', ?'id-at-commonName',
+                    {utf8String, <<"Good CA">>}}]]},
+    GoodDN = public_key:pkix_encode('Name', GoodAuth0, otp),
+    BadDN = base64:decode(<<"MHAxCzAJBgNVBAYMAkJSMRMwEQYDVQQKDApJQ1AtQnJhc2lsMTQwMgY",
+                            "DVQQLDCtBdXRvcmlkYWRlIENlcnRpZmljYWRvcmEgUmFpeiBCcmFz",
+                            "aWxlaXJhIHY1MRYwFAYDVQQDDA1BQyBTeW5ndWxhcklE">>),
+    CertAuths = cert_auths_vector([BadDN, GoodDN]),
+    HashSigns = <<(ssl_cipher:signature_scheme({sha256, rsa})):16>>,
+    HashSignsLen = byte_size(HashSigns),
+    CertAuthsLen = byte_size(CertAuths),
+    CertReq = <<?BYTE(1), ?BYTE(?RSA_SIGN),
+                ?UINT16(HashSignsLen), HashSigns/binary,
+                ?UINT16(CertAuthsLen), CertAuths/binary>>,
+    GoodAuth = public_key:pkix_normalize_name(GoodAuth0),
+
+    #certificate_request{certificate_authorities = [GoodAuth]} =
+        ssl_handshake:decode_handshake(?TLS_1_2, ?CERTIFICATE_REQUEST, CertReq).
+
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
@@ -302,3 +324,9 @@ drop_unassigned_signature_algorithms(_Config) ->
 is_supported(Hash) ->
     Hashs = crypto:supports(hashs),
     lists:member(Hash, Hashs).
+
+cert_auths_vector(Auths) ->
+    list_to_binary([begin
+                        Len = byte_size(Auth),
+                        <<?UINT16(Len), Auth/binary>>
+                    end || Auth <- Auths]).
