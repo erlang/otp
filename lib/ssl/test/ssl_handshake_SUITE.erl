@@ -1,7 +1,9 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -25,11 +27,11 @@
 -behaviour(ct_suite).
 
 -include_lib("common_test/include/ct.hrl").
--include("ssl_alert.hrl").
--include("ssl_handshake.hrl").
--include("ssl_internal.hrl").
--include("ssl_record.hrl").
--include("tls_handshake.hrl").
+-include_lib("ssl/src/ssl_alert.hrl").
+-include_lib("ssl/src/ssl_handshake.hrl").
+-include_lib("ssl/src/ssl_internal.hrl").
+-include_lib("ssl/src/ssl_record.hrl").
+-include_lib("ssl/src/tls_handshake.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
 %% Common test
@@ -54,24 +56,34 @@
          ignore_hassign_extension_pre_tls_1_2/1,
          signature_algorithms/1,
          drop_unassigned_signature_algorithms/1,
-         drop_undecodable_certificate_authorities/1]).
+         drop_undecodable_certificate_authorities/1,
+         server_key_exchange_signature_not_sha1_connection/1,
+         drop_md5_rsa_signature_algorithm_tls_1_2/1,
+         reject_cert_verify_bad_sign_algo_tls_1_2/1,
+         drop_unassigned_signature_algorithms/1,
+         drop_undecodable_certificate_authorities/1,
+         reject_truncated_certificate_entry/1,
+         decode_sni_after_unknown_name_type/1]).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
-all() -> [decode_hello_handshake,
-	  decode_single_hello_extension_correctly,
-	  decode_supported_elliptic_curves_hello_extension_correctly,
-	  decode_unknown_hello_extension_correctly,
-	  encode_single_hello_sni_extension_correctly,
-	  decode_single_hello_sni_extension_correctly,
-	  decode_empty_server_sni_correctly,
-	  select_proper_tls_1_2_rsa_default_hashsign,
-	  ignore_hassign_extension_pre_tls_1_2,
-	  signature_algorithms,
+all() -> [
+          decode_hello_handshake,
+          decode_single_hello_extension_correctly,
+          decode_supported_elliptic_curves_hello_extension_correctly,
+          decode_unknown_hello_extension_correctly,
+          encode_single_hello_sni_extension_correctly,
+          decode_single_hello_sni_extension_correctly,
+          decode_empty_server_sni_correctly,
+          select_proper_tls_1_2_rsa_default_hashsign,
+          ignore_hassign_extension_pre_tls_1_2,
+          signature_algorithms,
           drop_unassigned_signature_algorithms,
-          drop_undecodable_certificate_authorities].
-
+          drop_undecodable_certificate_authorities,
+          reject_truncated_certificate_entry,
+          decode_sni_after_unknown_name_type
+         ].
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
     Config.
@@ -87,20 +99,20 @@ end_per_group(_,Config) ->
 init_per_testcase(TC, Config0) when
       TC =:= ignore_hassign_extension_pre_tls_1_2 orelse
       TC =:= signature_algorithms ->
-    catch crypto:stop(),
-    try crypto:start() of
+    catch application:stop(crypto),
+    try application:start(crypto) of
 	ok ->
 	    case is_supported(sha512) of
 		true ->
 		    ssl_test_lib:clean_start(),
-		    %% make rsa certs using oppenssl
+		    %% make rsa certs using openssl
 		    {ok, _} = make_certs:all(proplists:get_value(data_dir, Config0),
 					     proplists:get_value(priv_dir, Config0)),
 		    Config = ssl_test_lib:cert_options(Config0),
 		    ct:timetrap({seconds, 5}),
 		    Config;
 		false ->
-		    {skip, "Crypto did not support sha512"}  
+		    {skip, "Crypto did not support sha512"}
 	    end
     catch _:_ ->
 	    {skip, "Crypto did not start"}
@@ -109,7 +121,7 @@ init_per_testcase(_, Config0) ->
     Config0.
 
 end_per_testcase(ignore_hassign_extension_pre_tls_1_2, _) ->
-    crypto:stop();
+    application:stop(crypto);
 end_per_testcase(_TestCase, Config) ->
     Config.
 
@@ -129,7 +141,6 @@ decode_hello_handshake(_Config) ->
 		    16#00, 16#23,
 		    16#00, 16#00, 16#33, 16#74, 16#00, 16#07, 16#06, 16#73,
 		    16#70, 16#64, 16#79, 16#2f, 16#32>>,
-	
     Version = ?SSL_3_0,
     DefOpts = ssl:update_options([{verify, verify_none}], client, #{}),
     {Records, _Buffer} = tls_handshake:get_tls_handshakes(Version, HelloPacket, <<>>, DefOpts),
@@ -138,14 +149,15 @@ decode_hello_handshake(_Config) ->
     Extensions = Hello#server_hello.extensions,
     #{renegotiation_info := #renegotiation_info{renegotiated_connection = <<0>>}} = Extensions.
 
-decode_single_hello_extension_correctly(_Config) -> 
+decode_single_hello_extension_correctly(_Config) ->
     Renegotiation = <<?UINT16(?RENEGOTIATION_EXT), ?UINT16(1), 0>>,
     Extensions = ssl_handshake:decode_extensions(Renegotiation, ?TLS_1_2, undefined),
     #{renegotiation_info := #renegotiation_info{renegotiated_connection = <<0>>}} = Extensions.
 
 decode_supported_elliptic_curves_hello_extension_correctly(_Config) ->
     % List of supported and unsupported curves (RFC4492:S5.1.1)
-    ClientEllipticCurves = [0, tls_v1:oid_to_enum(?sect233k1), 37, tls_v1:oid_to_enum(?sect193r2), 16#badc],
+    ClientEllipticCurves = [0, tls_v1:oid_to_enum(?sect233k1), 37,
+                            tls_v1:oid_to_enum(?sect193r2), 16#badc],
     % Construct extension binary - modified version of ssl_handshake:encode_hello_extensions([#elliptic_curves{}], _)
     EllipticCurveList = << <<X:16>> || X <- ClientEllipticCurves>>,
     ListLen = byte_size(EllipticCurveList),
@@ -153,12 +165,13 @@ decode_supported_elliptic_curves_hello_extension_correctly(_Config) ->
     Extension = <<?UINT16(?ELLIPTIC_CURVES_EXT), ?UINT16(Len), ?UINT16(ListLen), EllipticCurveList/binary>>,
     % after decoding we should see only valid curves
     Extensions = ssl_handshake:decode_hello_extensions(Extension, ?TLS_1_1, ?TLS_1_1, client),
-    #{elliptic_curves := #elliptic_curves{elliptic_curve_list = [?sect233k1, ?sect193r2]}} = Extensions. 
+    #{elliptic_curves := #elliptic_curves{elliptic_curve_list = [?sect233k1, ?sect193r2]}} = Extensions.
 
 decode_unknown_hello_extension_correctly(_Config) ->
     FourByteUnknown = <<16#CA,16#FE, ?UINT16(4), 3, 0, 1, 2>>,
     Renegotiation = <<?UINT16(?RENEGOTIATION_EXT), ?UINT16(1), 0>>,
-    Extensions = ssl_handshake:decode_hello_extensions(<<FourByteUnknown/binary, Renegotiation/binary>>, ?TLS_1_1, ?TLS_1_1, client),
+    Extensions = ssl_handshake:decode_hello_extensions(<<FourByteUnknown/binary,
+                                                         Renegotiation/binary>>, ?TLS_1_1, ?TLS_1_1, client),
     #{renegotiation_info := #renegotiation_info{renegotiated_connection = <<0>>}} = Extensions.
 
 
@@ -181,6 +194,26 @@ decode_empty_server_sni_correctly(_Config) ->
     Decoded = ssl_handshake:decode_hello_extensions(SNI, ?TLS_1_2, ?TLS_1_2, server),
     #{sni := #sni{hostname = ""}} = Decoded.
 
+decode_sni_after_unknown_name_type(_Config) ->
+    %% RFC 6066 §3: a ServerNameList may contain entries of name types other
+    %% than host_name (0); a decoder must skip an unknown entry by its
+    %% (byte) length and continue. Regression test: dec_sni/1 used `_:Len`
+    %% (Len *bits*) instead of `_:Len/binary` to skip an unknown entry, so a
+    %% host_name entry following an unknown-type entry was mis-located and
+    %% never decoded. Put an unknown-type entry (type 1, 3 bytes) before the
+    %% host_name entry and require the hostname to still decode.
+    Host = <<"test.com">>,
+    HostLen = byte_size(Host),
+    HostEntry = <<?BYTE(?SNI_NAMETYPE_HOST_NAME), ?UINT16(HostLen), Host/binary>>,
+    UnknownEntry = <<?BYTE(1), ?UINT16(3), "abc">>,
+    NameList = <<UnknownEntry/binary, HostEntry/binary>>,
+    NameListLen = byte_size(NameList),
+    ExtData = <<?UINT16(NameListLen), NameList/binary>>,
+    ExtDataLen = byte_size(ExtData),
+    SNI = <<?UINT16(?SNI_EXT), ?UINT16(ExtDataLen), ExtData/binary>>,
+    Decoded = ssl_handshake:decode_hello_extensions(SNI, ?TLS_1_2, ?TLS_1_2, client),
+    #{sni := #sni{hostname = "test.com"}} = Decoded.
+
 
 select_proper_tls_1_2_rsa_default_hashsign(_Config) ->
     % RFC 5246 section 7.4.1.4.1 tells to use {sha1,rsa} as default signature_algorithm for RSA key exchanges
@@ -195,10 +228,16 @@ ignore_hassign_extension_pre_tls_1_2(Config) ->
     CertFile = proplists:get_value(certfile, Opts),
     [{_, Cert, _}] = ssl_test_lib:pem_to_der(CertFile),
     HashSigns = #hash_sign_algos{hash_sign_algos = [{sha512, rsa}, {sha, dsa}, {sha256, rsa}]},
-    {sha512, rsa} = ssl_handshake:select_hashsign({HashSigns, undefined}, Cert, ecdhe_rsa, tls_v1:default_signature_algs([?TLS_1_2]), ?TLS_1_2),
+    {sha512, rsa} =
+        ssl_handshake:select_hashsign({HashSigns, undefined}, Cert,
+                                      ecdhe_rsa, tls_v1:default_signature_algs([?TLS_1_2]), ?TLS_1_2),
     %%% Ignore
-    {md5sha, rsa} = ssl_handshake:select_hashsign({HashSigns, undefined}, Cert, ecdhe_rsa, tls_v1:default_signature_algs([?TLS_1_1]), ?TLS_1_1),
-    {md5sha, rsa} = ssl_handshake:select_hashsign({HashSigns, undefined}, Cert, ecdhe_rsa, tls_v1:default_signature_algs([?SSL_3_0]), ?SSL_3_0).
+    {md5sha, rsa} =
+        ssl_handshake:select_hashsign({HashSigns, undefined}, Cert,
+                                      ecdhe_rsa, tls_v1:default_signature_algs([?TLS_1_1]), ?TLS_1_1),
+    {md5sha, rsa} =
+        ssl_handshake:select_hashsign({HashSigns, undefined}, Cert,
+                                      ecdhe_rsa, tls_v1:default_signature_algs([?SSL_3_0]), ?SSL_3_0).
 
 signature_algorithms(Config) ->
     Opts = proplists:get_value(server_opts, Config),
@@ -249,6 +288,191 @@ signature_algorithms(Config) ->
                  tls_v1:default_signature_algs([?TLS_1_2]),
                  ?TLS_1_2).
 
+server_key_exchange_signature_not_sha1_connection(_Config) ->
+    %% RFC 9155 §4: MD5 and SHA-1 MUST NOT be used as signature hashes in
+    %% (D)TLS 1.2 digital signatures, which includes the ServerKeyExchange
+    %% signature. Regression test for the TLS-1.2 server signature-selection
+    %% defect (OTP-20390): tls_handshake:handle_client_hello passed the
+    %% signature_algs_cert pool (seeded by default with the "smooth upgrade
+    %% path" {sha, rsa} entry) as the SupportedHashSigns argument to
+    %% ssl_handshake:select_hashsign/5, which returns the first client-offered
+    %% scheme present in that pool. A peer listing SHA-1 first therefore got a
+    %% SHA-1-signed ServerKeyExchange in default configuration. The fix scopes
+    %% the ServerKeyExchange signature to the signature_algs pool (no SHA-1 by
+    %% default); signature_algs_cert stays for certificate-chain signatures
+    %% only. The DTLS sibling already passed the correct pool.
+    %%
+    %% This is a black-box test: it drives a real TLS-1.2 DHE_RSA handshake
+    %% via the public ssl API. The client offers rsa_pkcs1_sha1 FIRST in
+    %% signature_algs_cert (offering it in signature_algs is rejected by the
+    %% option layer with no_supported_algorithms); signature_algs_cert is the
+    %% list select_hashsign/5 iterates for the ServerKeyExchange hash. The
+    %% real signing call ssl_handshake:digitally_signed/5 is traced and the
+    %% hash used for the ServerKeyExchange signature is asserted not to be
+    %% SHA-1.
+    %%
+    %% NOTE: TLS-1.2 specific (TLS-1.3 has no ServerKeyExchange); the version
+    %% is set explicitly and this case must never run in a 'tlsv1.3' group.
+    case is_supported(sha256) andalso
+        lists:member(rsa, crypto:supports(public_keys)) andalso
+        lists:member(dh, crypto:supports(public_keys)) of
+        false ->
+            {skip, "Crypto does not support rsa/dh/sha256"};
+        true ->
+            do_skx_signature_not_sha1_connection()
+    end.
+
+do_skx_signature_not_sha1_connection() ->
+    ssl_test_lib:clean_start(),
+    %% In-memory RSA cert chains (no external openssl / no files needed).
+    #{server_config := ServerConf,
+      client_config := ClientConf} =
+        public_key:pkix_test_data(
+          #{server_chain =>
+                #{root => [{key, ssl_test_lib:hardcode_rsa_key(1)}],
+                  intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(2)}]],
+                  peer => [{key, ssl_test_lib:hardcode_rsa_key(3)}]},
+            client_chain =>
+                #{root => [{key, ssl_test_lib:hardcode_rsa_key(4)}],
+                  intermediates => [[{key, ssl_test_lib:hardcode_rsa_key(5)}]],
+                  peer => [{key, ssl_test_lib:hardcode_rsa_key(6)}]}}),
+
+    %% Force a DHE_RSA cipher so a signed ServerKeyExchange is actually sent.
+    Ciphers = [#{key_exchange => dhe_rsa,
+                 cipher => aes_256_gcm,
+                 mac => aead,
+                 prf => sha384}],
+
+    ServerOpts = [{verify, verify_none}, {versions, ['tlsv1.2']},
+                  {ciphers, Ciphers}, {reuseaddr, true} | ServerConf],
+    %% Client offers SHA-1 FIRST in signature_algs_cert (the pool the buggy
+    %% server iterated for the ServerKeyExchange hash).
+    ClientOpts = [{verify, verify_none}, {versions, ['tlsv1.2']},
+                  {ciphers, Ciphers},
+                  {signature_algs_cert, [rsa_pkcs1_sha1, rsa_pkcs1_sha256]}
+                  | ClientConf],
+
+    %% Trace the actual signing call and collect the hash algorithm argument.
+    Self = self(),
+    Tracer = spawn_link(fun() -> skx_hash_collector(Self, []) end),
+    {ok, _} = dbg:tracer(process, {fun(Msg, _) ->
+                                           Tracer ! {trace_msg, Msg}, []
+                                   end, []}),
+    {ok, _} = dbg:p(all, [c]),
+    {ok, _} = dbg:tpl(ssl_handshake, digitally_signed, 5, []),
+
+    try
+        {ok, LSock} = ssl:listen(0, ServerOpts),
+        {ok, {_, Port}} = ssl:sockname(LSock),
+        ServerPid =
+            spawn(fun() ->
+                          {ok, ASock} = ssl:transport_accept(LSock),
+                          case ssl:handshake(ASock) of
+                              {ok, SSock} -> ssl:close(SSock);
+                              _ -> ok
+                          end
+                  end),
+        {ok, CSock} = ssl:connect("localhost", Port, ClientOpts, 5000),
+        ssl:close(CSock),
+        catch exit(ServerPid, kill),
+        catch ssl:close(LSock),
+
+        %% Give the tracer a moment to deliver, then collect.
+        ct:sleep(200),
+        Tracer ! {get, self()},
+        Hashes = receive {hashes, Hs} -> Hs after 2000 -> timeout end,
+        ct:log("ServerKeyExchange signing hash algorithms observed: ~p", [Hashes]),
+        %% A signed ServerKeyExchange must have been produced ...
+        true = Hashes =/= timeout andalso Hashes =/= [],
+        %% ... and it must NOT use SHA-1, despite the client listing it first.
+        false = lists:member(sha, Hashes),
+        true = lists:member(sha256, Hashes) orelse
+               lists:member(sha384, Hashes) orelse
+               lists:member(sha512, Hashes),
+        ok
+    after
+        dbg:stop()
+    end.
+
+skx_hash_collector(Owner, Acc) ->
+    receive
+        {trace_msg, {trace, _Pid, call,
+                     {ssl_handshake, digitally_signed,
+                      [_Version, _Msg, HashAlgo, _Key, _SignAlgo]}}} ->
+            skx_hash_collector(Owner, [HashAlgo | Acc]);
+        {trace_msg, _Other} ->
+            skx_hash_collector(Owner, Acc);
+        {get, From} ->
+            From ! {hashes, lists:reverse(Acc)},
+            skx_hash_collector(Owner, Acc)
+    end.
+
+drop_md5_rsa_signature_algorithm_tls_1_2(_Config) ->
+    %% MD5 is not a supported standalone signature hash for (D)TLS 1.2
+    %% signature_algorithms; it only ever appeared as the combined md5sha
+    %% construct in pre-TLS-1.2 RSA signatures. A client that (deliberately)
+    %% configures {md5, rsa} in signature_algs for TLS 1.2 must NOT end up
+    %% offering an MD5 signature scheme: option processing filters it out
+    %% (tls_v1:is_pair/3), consistent with the ecdsa case which already
+    %% excluded MD5. SHA-1 ({sha, rsa}) remains a valid deprecated opt-in for
+    %% TLS 1.2 and must be preserved.
+    %%
+    %% Assert on the effective signature_algs produced by the
+    %% public option-processing entry point ssl_config:handle_options/3.
+    Host = net_adm:localhost(),
+    Opts = [{verify, verify_none},
+            {versions, ['tlsv1.2']},
+            {signature_algs, [{md5, rsa}, {sha, rsa}, {sha256, rsa}]}],
+    {ok, #config{ssl = #{signature_algs := SigAlgs}}} =
+        ssl_config:handle_options(Opts, client, Host),
+    ct:log("effective signature_algs = ~p", [SigAlgs]),
+
+    %% {md5, rsa} must be dropped ...
+    false = lists:member({md5, rsa}, SigAlgs),
+    %% ... while the deprecated-but-supported {sha, rsa} opt-in is kept ...
+    true = lists:member({sha, rsa}, SigAlgs),
+    %% ... and the compliant {sha256, rsa} is of course present.
+    true = lists:member({sha256, rsa}, SigAlgs),
+    ok.
+
+reject_cert_verify_bad_sign_algo_tls_1_2(_Config) ->
+    %% RFC 9155 §5: a (D)TLS-1.2 server receiving a CertificateVerify signed
+    %% with a hash/signature algorithm it did not offer (in particular MD5 or
+    %% SHA-1, which are excluded from the default signature_algs) must abort
+    %% with illegal_parameter. This mirrors the TLS-1.3 check in
+    %% tls_handshake_1_3:verify_signature_algorithm/2. The TLS/DTLS-1.2
+    %% wait_cert_verify state now calls
+    %% ssl_handshake:certificate_verify_signature_algorithm/3 before verifying
+    %% the signature; this test exercises that decision function directly.
+    %%
+    %% Server's advertised list = the default signature_algs (no SHA-1/MD5).
+    Supported = tls_v1:default_signature_algs([?TLS_1_2]),
+
+    %% A CertificateVerify claiming SHA-1/RSA must be rejected ...
+    #alert{level = ?FATAL, description = ?ILLEGAL_PARAMETER} =
+        ssl_handshake:certificate_verify_signature_algorithm({sha, rsa}, Supported, ?TLS_1_2),
+    %% ... likewise SHA-1/ECDSA and MD5/RSA ...
+    #alert{description = ?ILLEGAL_PARAMETER} =
+        ssl_handshake:certificate_verify_signature_algorithm({sha, ecdsa}, Supported, ?TLS_1_2),
+    #alert{description = ?ILLEGAL_PARAMETER} =
+        ssl_handshake:certificate_verify_signature_algorithm({md5, rsa}, Supported, ?TLS_1_2),
+
+    %% ... while an advertised strong algorithm is accepted ...
+    valid =
+        ssl_handshake:certificate_verify_signature_algorithm({sha256, rsa}, Supported, ?TLS_1_2),
+
+    %% ... and if the server explicitly advertised SHA-1 (deliberate opt-in),
+    %% a SHA-1 CertificateVerify is accepted (not a §5 violation then).
+    OptIn = Supported ++ [{sha, rsa}],
+    valid =
+        ssl_handshake:certificate_verify_signature_algorithm({sha, rsa}, OptIn, ?TLS_1_2),
+
+    %% Pre-TLS-1.2 (fixed md5sha construct, no negotiated schemes) is unaffected.
+    valid =
+        ssl_handshake:certificate_verify_signature_algorithm({md5sha, rsa}, undefined, ?TLS_1_1),
+    ok.
+
+
 drop_unassigned_signature_algorithms(_Config) ->
     %% Be sure the algo is unsupported
     unassigned = ssl_cipher:hash_algorithm(223),
@@ -292,6 +516,7 @@ drop_undecodable_certificate_authorities(_Config) ->
                  [[{'AttributeTypeAndValue', ?'id-at-commonName',
                     {utf8String, <<"Good CA">>}}]]},
     GoodDN = public_key:pkix_encode('Name', GoodAuth0, otp),
+
     %% emailAddress carried as PrintableString, which the type is not, and
     %% which cannot hold "@" either. Advertised by nfe.svrs.rs.gov.br.
     %% Rejected by public_key on OTP 27 as well as later releases, unlike a
@@ -313,14 +538,34 @@ drop_undecodable_certificate_authorities(_Config) ->
     #certificate_request{certificate_authorities = [GoodAuth]} =
         ssl_handshake:decode_handshake(?TLS_1_2, ?CERTIFICATE_REQUEST, CertReq).
 
+reject_truncated_certificate_entry(_Config) ->
+    %% RFC 8446 §4.4.2: a truncated/malformed CertificateEntry in a TLS-1.3
+    %% Certificate message must abort with decode_error, not be silently
+    %% dropped. Build a Certificate whose single entry declares a cert length
+    %% larger than the bytes actually present.
+    CertData = <<1,2,3,4>>,                    %% 4 bytes of "certificate"
+    ClaimedLen = byte_size(CertData) + 10,     %% overrun: claim 10 more bytes
+    Entries = <<?UINT24(ClaimedLen), CertData/binary, ?UINT16(0)>>,
+    EntriesLen = byte_size(Entries),
+    %% certificate_request_context = <<>> (BYTE 0), then the entry list.
+    Body = <<?BYTE(0), ?UINT24(EntriesLen), Entries/binary>>,
+    try tls_handshake:decode_handshake(?TLS_1_3, ?CERTIFICATE, Body) of
+        Decoded ->
+            ct:fail("Expected decode_error for truncated certificate entry, "
+                    "decoded ~p", [Decoded])
+    catch
+        throw:#alert{description = ?DECODE_ERROR} ->
+            ok;
+        throw:#alert{description = Desc} ->
+            ct:fail("Expected decode_error, got alert ~p", [Desc])
+    end.
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
 
 is_supported(Hash) ->
-    Algos = crypto:supports(),
-    Hashs = proplists:get_value(hashs, Algos), 
+    Hashs = crypto:supports(hashs),
     lists:member(Hash, Hashs).
 
 cert_auths_vector(Auths) ->

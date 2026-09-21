@@ -342,9 +342,21 @@ decode_inner_plaintext(PlainText) ->
               Type =:= ?APPLICATION_DATA orelse
               Type =:= ?HANDSHAKE orelse
               Type =:= ?ALERT ->
-            #ssl_tls{type = Type,
-                     version = ?TLS_1_3, %% Internally use real version
-                     fragment = Bin};
+            %% RFC 8446 Section 5.4: the content of TLSInnerPlaintext (after
+            %% removing padding and the content-type octet) MUST NOT exceed
+            %% 2^14 octets; a receiver MUST abort with a record_overflow alert
+            %% otherwise. The ciphertext length is already bounded on the record
+            %% layer, but a conformant-sized ciphertext can still decrypt to an
+            %% oversized plaintext once padding is stripped.
+            case byte_size(Bin) > ?MAX_PLAIN_TEXT_LENGTH of
+                true ->
+                    ?ALERT_REC(?FATAL, ?RECORD_OVERFLOW,
+                               {plain_text_too_long, byte_size(Bin)});
+                false ->
+                    #ssl_tls{type = Type,
+                             version = ?TLS_1_3, %% Internally use real version
+                             fragment = Bin}
+            end;
         _Else ->
             ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE, empty_alert)
     end.
@@ -354,7 +366,13 @@ pending_early_data_size(PendingMaxEarlyDataSize, PlainFragment) ->
     %% send when using this ticket, in bytes.  Only Application Data
     %% payload (i.e., plaintext but not padding or the inner content
     %% type byte) is counted.
-    PendingMaxEarlyDataSize - (byte_size(PlainFragment)).
+    %%
+    %% Charge at least 1 byte per accepted record so the budget always
+    %% depletes, even for empty (0-length) application-data records;
+    %% otherwise a client could stream unbounded empty 0-RTT records
+    %% without ever reaching max_early_data_size. This mirrors the floor
+    %% used by approximate_pending_early_data_size/3 on the trial path.
+    PendingMaxEarlyDataSize - max(1, byte_size(PlainFragment)).
 
 approximate_pending_early_data_size(PendingMaxEarlyDataSize,
                                     BulkCipherAlgo, CipherFragment) ->

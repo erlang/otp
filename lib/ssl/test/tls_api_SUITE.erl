@@ -118,7 +118,9 @@
          tls_reject_unoffered_cipher_suite/0,
          tls_reject_unoffered_cipher_suite/1,
          tls_reject_unoffered_alpn/0,
-         tls_reject_unoffered_alpn/1
+         tls_reject_unoffered_alpn/1,
+         tls_reject_non_null_compression/0,
+         tls_reject_non_null_compression/1
         ]).
 
 %% Apply export
@@ -206,7 +208,8 @@ api_tests() ->
 
 rogue_server_tests() ->
     [tls_reject_unoffered_cipher_suite,
-     tls_reject_unoffered_alpn].
+     tls_reject_unoffered_alpn,
+     tls_reject_non_null_compression].
 
 init_per_suite(Config0) ->
     catch crypto:stop(),
@@ -816,6 +819,21 @@ tls_reject_unoffered_alpn(Config) when is_list(Config) ->
                   {ciphers, [?ALPN_TEST_SUITE_MAP]} | ClientOpts0],
     rogue_server_illegal_parameter(alpn, ClientOpts).
 
+%%--------------------------------------------------------------------
+tls_reject_non_null_compression() ->
+    [{doc, "An on-path attacker forges a TLS ServerHello whose "
+      "legacy_compression_method is not null (0). RFC 8446 4.1.3 / RFC 5246 "
+      "7.4.1.3: a client that offered only the null method MUST abort with a "
+      "fatal illegal_parameter alert. Regression test: previously a non-null "
+      "compression byte was rejected only via a generic decode_error, not the "
+      "mandated illegal_parameter."}].
+tls_reject_non_null_compression(Config) when is_list(Config) ->
+    %% Echo an offered cipher suite so the compression byte is the sole reason
+    %% for rejection.
+    ClientOpts = [{ciphers, [?ALPN_TEST_SUITE_MAP]}
+                  | ssl_test_lib:ssl_options(client_rsa_verify_opts, Config)],
+    rogue_server_illegal_parameter(compression, ClientOpts).
+
 %% Drive a real ssl client against a raw-TCP attacker that hand-forges a
 %% TLS-1.2 server flight, and assert the client aborts with illegal_parameter.
 rogue_server_illegal_parameter(Kind, ClientOpts) ->
@@ -875,6 +893,11 @@ rogue_server_flight(alpn) ->
     %% selects a protocol the client never advertised.
     AlpnExt = rogue_alpn_extension(<<"unoffered/1">>),
     SH = rogue_server_hello(?ALPN_TEST_SUITE_BIN, AlpnExt),
+    rogue_record(?HANDSHAKE, SH);
+rogue_server_flight(compression) ->
+    %% ServerHello echoing an *offered* cipher suite but with a non-null
+    %% legacy_compression_method (1). Must be rejected with illegal_parameter.
+    SH = rogue_server_hello_bad_compression(?ALPN_TEST_SUITE_BIN),
     rogue_record(?HANDSHAKE, SH).
 
 rogue_observe(Sock) ->
@@ -899,6 +922,17 @@ rogue_server_hello(CipherSuite, Extensions) ->
              CipherSuite/binary,
              0,                           %% compression = null
              ExtLen:16, Extensions/binary>>,
+    rogue_handshake(?SERVER_HELLO, Body).
+
+%% Like rogue_server_hello/2 but with a non-null legacy_compression_method.
+rogue_server_hello_bad_compression(CipherSuite) ->
+    Random = crypto:strong_rand_bytes(32),
+    SessionId = <<>>,
+    Body = <<3, 3,                        %% legacy_version = TLS 1.2
+             Random/binary,
+             (byte_size(SessionId)), SessionId/binary,
+             CipherSuite/binary,
+             1>>,                          %% compression = DEFLATE (non-null!)
     rogue_handshake(?SERVER_HELLO, Body).
 
 rogue_alpn_extension(Protocol) ->

@@ -1954,7 +1954,7 @@ Options only relevant to TLS versions prior to TLS-1.3.
   The DER-encoded Diffie-Hellman parameters. If specified, it overrides option
   `dhfile`.
 
-- **`{dh_file, DHfile}`** - Affects DH key exchange cipher suites
+- **`{dhfile, DHfile}`** - Affects DH key exchange cipher suites
 
   Path to a file containing PEM-encoded Diffie Hellman parameters to be used by
   the server if a cipher suite using Diffie Hellman key exchange is negotiated. If
@@ -2920,7 +2920,7 @@ Equivalent to `cipher_suites/2`, but lists RFC or OpenSSL string names instead o
 -doc(#{title => <<"Utility Functions">>,
        since => <<"OTP 22.0">>}).
 -spec cipher_suites(Description, Version, StringType) -> [string()] when
-      Description :: default | all | exclusive | anonymous,
+      Description :: default | all | exclusive | anonymous | exclusive_anonymous,
       Version :: protocol_version(),
       StringType :: rfc | openssl.
 
@@ -3085,7 +3085,7 @@ rsa_pss_rsae_sha512,rsa_pss_rsae_sha384,rsa_pss_rsae_sha256]
        since => <<"OTP 26.0">>}).
 -spec signature_algs(Description, Version) -> signature_algs() when
       Description :: default | all | exclusive,
-      Version :: protocol_version().
+      Version :: 'tlsv1.3' | 'tlsv1.2' | 'dtlsv1.2'.
 %%--------------------------------------------------------------------
 
 signature_algs(default, 'tlsv1.3') ->
@@ -3391,7 +3391,7 @@ sockname(#sslsocket{pid = [Pid| _], fd = {Transport, Socket,_,_}}) when is_pid(P
 Lists information, mainly concerning TLS/DTLS versions, in runtime for debugging
 and testing purposes.
 
-- **`app_vsn`** - The application version of the SSL application.
+- **`ssl_app`** - The application version of the SSL application.
 
 - **`supported`** - TLS versions supported with current application environment
   and crypto library configuration. Overridden by a version option on
