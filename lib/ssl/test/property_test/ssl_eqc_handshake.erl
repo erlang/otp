@@ -66,20 +66,36 @@
 %%--------------------------------------------------------------------
 
 prop_tls_hs_encode_decode() ->
-    ?FORALL({Handshake, TLSVersion}, ?LET(Version, tls_version(), {tls_msg(Version), Version}),
-            try 
+     ?FORALL({Handshake, TLSVersion}, ?LET(Version, tls_version(), {tls_msg(Version), Version}),
+            begin
                 [Type, _Length, Data] = tls_handshake:encode_handshake(Handshake, TLSVersion),
-                case tls_handshake:decode_handshake(TLSVersion, Type, Data) of
-                    Handshake ->
-                        true;
-                    _ ->
-                        false
-                end
-            catch
-                throw:#alert{} ->
-                    true
+                DecHandshake = tls_handshake:decode_handshake(TLSVersion, Type, Data),
+                RawHandshake = raw_handshake(DecHandshake),
+                equals(RawHandshake,Handshake)
             end
 	   ).
+
+raw_handshake(#client_hello{extensions = Exts} = Hello)->
+    NewExts = raw_ext_client(Exts),
+    Hello#client_hello{extensions = NewExts};
+raw_handshake(Handshake) ->
+    Handshake.
+
+%% binder_length is saved in decode because we need it later to
+%% truncates client hello in handshake history, but it is not defined
+%% as part of the handshake record but calculated at TLS record
+%% layer. So we want to "unset" it for being able to have a simple
+%% property for encoding/decoding testing. Same goes for hybrid
+%% key_exchange where the decode functions splits the key-share into
+%% the two individual key-share values to use.
+raw_ext_client(Exts0) ->
+    case maps:get(pre_shared_key, Exts0, undefined) of
+        #pre_shared_key_client_hello{} = PSKCH ->
+            NewPSKCH = PSKCH#pre_shared_key_client_hello{binder_length = undefined},
+            Exts0#{pre_shared_key => NewPSKCH};
+        _  ->
+            Exts0
+    end.
 
 %%--------------------------------------------------------------------
 %% Message Generators  -----------------------------------------------

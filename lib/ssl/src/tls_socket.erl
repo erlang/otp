@@ -555,16 +555,18 @@ start_new_ticket_server(Listener, Opts) ->
     MaxEarlyDataSize = server_max_early_data(Opts),
     #{session_tickets := Mode,
       anti_replay := AntiReplay,
-      stateless_tickets_seed := Seed} = Opts,
+      stateless_tickets_seed := Seed,
+      early_data := EarlyData} = Opts,
+    EarlyDataEnabled = (EarlyData =:= enabled),
     case maps:get(erl_dist, Opts, false) of
         false ->
             tls_server_session_ticket_sup:start_child([Listener, Mode, LifeTime,
                                                        TicketStoreSize, MaxEarlyDataSize,
-                                                       AntiReplay, Seed]);
+                                                       AntiReplay, Seed, EarlyDataEnabled]);
         true ->
             tls_server_session_ticket_sup:start_child_dist([Listener, Mode, LifeTime,
                                                             TicketStoreSize, MaxEarlyDataSize,
-                                                            AntiReplay, Seed])
+                                                            AntiReplay, Seed, EarlyDataEnabled])
     end.
 
 maybe_start_new_session_tracker(Type, Trackers0, LSocket, Opts) ->
