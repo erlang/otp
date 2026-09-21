@@ -390,7 +390,8 @@ port_proto([$/ | Proto], Port) when Port =/= 0 ->
 %% Check if a String is a string with visible characters #21..#7E
 %% visible_string(String) -> Bool
 %%
-visible_string([C | Cs]) when C >= 16#21, C =< 16#7e -> visible_string(Cs);
+visible_string([C | Cs]) when is_integer(C, 16#21, 16#7e) ->
+    visible_string(Cs);
 visible_string([]) -> true;
 visible_string(_) -> false.
 
@@ -400,8 +401,7 @@ visible_string(_) -> false.
 %%
 %% We regard the empty domain name and domain names ending in a dot
 %% as not valid domain names.  That can be debated.
-domain([])                      -> false;
-domain([_|_] = Cs) ->
+domain(Cs) ->
     is_dom1(Cs) andalso
     %%
     %% Also check that we don't get a IP-address as a domain name
@@ -419,20 +419,21 @@ is_dom1([C | Cs]) ->
         is_integer(C, $A, $Z);
         is_integer(C, $0, $9)   -> is_dom_ldh(Cs);
         true                    -> false
-    end.
+    end;
+is_dom1(_)                      -> false.
+
 
 %% Within a DNS label, but not at the end, `-` and `_` are also allowed.
 %% A `.` ends the label.
 is_dom_ldh([])                  -> true;
-is_dom_ldh([$.])                -> false;
 is_dom_ldh([$_])                -> false;
 is_dom_ldh([$-])                -> false;
 is_dom_ldh([$_,$. | _])         -> false;
 is_dom_ldh([$-,$. | _])         -> false;
-is_dom_ldh([$. | Cs])           -> is_dom1(Cs);
 is_dom_ldh([$_ | Cs])           -> is_dom_ldh(Cs);
 is_dom_ldh([$- | Cs])           -> is_dom_ldh(Cs);
-is_dom_ldh([_|_] = Cs)          -> is_dom1(Cs).
+is_dom_ldh([$. | Cs])           -> is_dom1(Cs);
+is_dom_ldh(Cs)                  -> is_dom1(Cs).
 
 
 %%
