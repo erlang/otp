@@ -23,7 +23,6 @@
 include $(ERL_TOP)/make/target.mk
 include ../vsn.mk
 include $(ERL_TOP)/make/$(TARGET)/otp.mk
--include $(TARGET)/gen_git_version.mk
 
 ENABLE_ALLOC_TYPE_VARS = @ENABLE_ALLOC_TYPE_VARS@
 JIT_ENABLED=@JIT_ENABLED@
@@ -697,11 +696,13 @@ $(TARGET)/erl_version.h: ../vsn.mk $(ERL_TOP)/make/$(TARGET)/otp.mk utils/make_v
 	$(gen_verbose)LANG=C $(PERL) utils/make_version -o $@ $(SYSTEM_VSN) $(OTP_VERSION) $(VSN)$(SERIALNO) $(TARGET)
 GENERATE += $(TARGET)/erl_version.h
 
+# git version include file
+TMPVAR := $(shell utils/gen_git_version $(TARGET)/erl_git_version.h)
+
 # driver table
 $(TTF_DIR)/driver_tab.c: Makefile.in utils/make_driver_tab
 	$(gen_verbose)LANG=C $(PERL) utils/make_driver_tab -o $@ -nifs $(NIF_OBJS) $(STATIC_NIF_SYMBOLS) -drivers $(DRV_OBJS) $(STATIC_DRIVER_LIBS)
 GENERATE += $(TTF_DIR)/driver_tab.c
-
 
 
 ifeq ($(TYPE)@EXTERNAL_WORD_SIZE@,debug64)
@@ -1489,12 +1490,6 @@ endif
 .PHONY: check_emu_registers
 check_emu_registers: $(OBJDIR)/beam_emu$(PROFILE_MARKER).S
 	utils/beam_emu_vars -vars 'c_p E HTOP FCALLS I reg' $^
-
-.PHONY: $(TARGET)/gen_git_version.mk
-$(TARGET)/gen_git_version.mk:
-# We touch beam/erl_bif.info.c if we regenerated the git version to force a
-# rebuild.
-	$(V_at)if utils/gen_git_version $@; then touch beam/erl_bif_info.c; fi
 
 DEPEND_DEPS=jit src drv nif sys target zlib zstd
 ifeq ($(ERTS_USE_BUILTIN_RYU),yes)
