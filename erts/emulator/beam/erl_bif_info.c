@@ -36,6 +36,7 @@
 #include "bif.h"
 #include "big.h"
 #include "erl_version.h"
+#include "erl_git_version.h"
 #include "erl_compile_flags.h"
 #include "erl_db_util.h"
 #include "erl_message.h"
