@@ -765,23 +765,15 @@ loop_aaa_bbb() ->
 
 %% OTP-16994: next_catch returned a bogus stack pointer when call_time tracing
 %% was enabled, crashing the emulator.
-catch_crash(_Config) ->
-    Fun = id(fun() -> catch_crash_1() end),
+catch_crash(Config) ->
+    Data = proplists:get_value(data_dir, Config),
+    File = filename:join(Data, "catch_crash.erl"),
 
-    _ = erlang_trace_pattern({?MODULE,'_','_'}, true, [call_time]),
-    _ = erlang_trace(self(), true, [call]),
-
-    Res = (catch Fun()),
-
-    _ = erlang_trace_pattern({'_','_','_'}, false, [call_time]),
-    _ = erlang_trace(self(), false, [call]),
-
-    id(Res),
+    {ok, Mod, Code} = compile:file(File, [binary, report]),
+    {module, Mod} = code:load_binary(Mod, "", Code),
+    catch_crash:test(),
 
     ok.
-
-catch_crash_1() ->
-    error(crash).
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
