@@ -390,8 +390,9 @@ characters.
 """.
 -type uri_string() :: iodata().
 -doc """
-Error tuple indicating the type of error. Possible values of the second
-component:
+Error tuple indicating the type of error.
+
+Possible values of the second component:
 
 - `invalid_character`
 - `invalid_encoding`
@@ -403,10 +404,21 @@ component:
 - `invalid_utf8`
 - `missing_value`
 
+Which specific error reason that can be returned from which function is documented in the function's specification.
+
 The third component is a term providing additional information about the cause
 of the error.
 """.
--type error() :: {error, atom(), term()}.
+-type error(Reason) :: {error, Reason, term()}.
+
+-doc """
+Error tuple indicating all the types of errors.
+
+See `t:error/1` for more information.
+""".
+-type error() :: error(invalid_character | invalid_encoding |
+                       invalid_input | invalid_map | invalid_percent_encoding |
+                       invalid_scheme | invalid_uri | invalid_utf8 | missing_value).
 
 
 %%-------------------------------------------------------------------------
@@ -449,10 +461,11 @@ _Example:_
 ```
 """.
 -doc(#{since => <<"OTP 21.0">>}).
--spec normalize(URI) -> NormalizedURI when
+-spec normalize(URI) -> NormalizedURI | Error when
       URI :: uri_string() | uri_map(),
-      NormalizedURI :: uri_string()
-                     | error().
+      NormalizedURI :: uri_string(),
+      Error :: error(invalid_input | invalid_percent_encoding |
+                     invalid_scheme | invalid_uri | invalid_utf8).
 normalize(URIMap) ->
     normalize(URIMap, []).
 
@@ -479,11 +492,12 @@ _Example:_
 ```
 """.
 -doc(#{since => <<"OTP 21.0">>}).
--spec normalize(URI, Options) -> NormalizedURI when
+-spec normalize(URI, Options) -> NormalizedURI | Error when
       URI :: uri_string() | uri_map(),
       Options :: [return_map],
-      NormalizedURI :: uri_string() | uri_map()
-                     | error().
+      NormalizedURI :: uri_string() | uri_map(),
+      Error :: error(invalid_input | invalid_percent_encoding |
+                     invalid_scheme | invalid_uri | invalid_utf8).
 normalize(URIMap, []) when is_map(URIMap) ->
     try recompose(normalize_map(URIMap))
     catch
@@ -540,17 +554,19 @@ _Example:_
 ```
 """.
 -doc(#{since => <<"OTP 21.0">>}).
--spec parse(URIString) -> URIMap when
+-spec parse(URIString) -> URIMap | error(invalid_input | invalid_uri) when
       URIString :: uri_string(),
-      URIMap :: uri_map() | error().
+      URIMap :: uri_map().
 parse(URIString) when is_binary(URIString) ->
-    try parse_uri_reference(URIString, #{})
+    try
+        Binary = convert_to_binary(URIString, utf8, utf8),
+        parse_uri_reference(Binary, #{})
     catch
         throw:{error, Atom, RestData} -> {error, Atom, RestData}
     end;
 parse(URIString) when is_list(URIString) ->
     try
-        Binary = unicode:characters_to_binary(URIString),
+        Binary = convert_to_binary(URIString, utf8, utf8),
         Map = parse_uri_reference(Binary, #{}),
         convert_mapfields_to_list(Map)
     catch
@@ -583,10 +599,9 @@ _Example:_
 ```
 """.
 -doc(#{since => <<"OTP 21.0">>}).
--spec recompose(URIMap) -> URIString when
+-spec recompose(URIMap) -> URIString | error(invalid_input | invalid_map | invalid_scheme) when
       URIMap :: uri_map(),
-      URIString :: uri_string()
-                 | error().
+      URIString :: uri_string().
 recompose(Map) ->
     case is_valid_map(Map) of
         false ->
@@ -628,11 +643,10 @@ _Example:_
 ```
 """.
 -doc(#{since => <<"OTP 22.3">>}).
--spec resolve(RefURI, BaseURI) -> TargetURI when
+-spec resolve(RefURI, BaseURI) -> TargetURI | error(invalid_input | invalid_scheme | invalid_uri) when
       RefURI :: uri_string() | uri_map(),
       BaseURI :: uri_string() | uri_map(),
-      TargetURI :: uri_string()
-                 | error().
+      TargetURI :: uri_string().
 resolve(URIMap, BaseURIMap) ->
     resolve(URIMap, BaseURIMap, []).
 
@@ -653,13 +667,18 @@ _Example:_
 ```
 """.
 -doc(#{since => <<"OTP 22.3">>}).
--spec resolve(RefURI, BaseURI, Options) -> TargetURI when
+-spec resolve(RefURI, BaseURI, Options) -> TargetURI | error(invalid_input | invalid_scheme | invalid_uri) when
       RefURI :: uri_string() | uri_map(),
       BaseURI :: uri_string() | uri_map(),
       Options :: [return_map],
-      TargetURI :: uri_string() | uri_map()
-                 | error().
-resolve(URIMap, BaseURIMap, Options) when is_map(URIMap) ->
+      TargetURI :: uri_string() | uri_map().
+resolve(URI, BaseURI, Options) ->
+    try resolve_1(URI, BaseURI, Options)
+    catch
+        throw:{error, Atom, RestData} -> {error, Atom, RestData}
+    end.
+
+resolve_1(URIMap, BaseURIMap, Options) when is_map(URIMap) ->
     case resolve_map(URIMap, BaseURIMap) of
         TargetURIMap when is_map(TargetURIMap) ->
             case Options of
@@ -671,10 +690,10 @@ resolve(URIMap, BaseURIMap, Options) when is_map(URIMap) ->
         Error ->
             Error
     end;
-resolve(URIString, BaseURIMap, Options) ->
+resolve_1(URIString, BaseURIMap, Options) ->
     case parse(URIString) of
         URIMap when is_map(URIMap) ->
-            resolve(URIMap, BaseURIMap, Options);
+            resolve_1(URIMap, BaseURIMap, Options);
         Error ->
             Error
     end.
@@ -705,15 +724,14 @@ _Example:_
 ```
 """.
 -doc(#{since => <<"OTP 21.0">>}).
--spec transcode(URIString, Options) -> Result when
+-spec transcode(URIString, Options) -> Result | error(invalid_input | invalid_percent_encoding) when
       URIString :: uri_string(),
       Options :: [{in_encoding, unicode:encoding()}|{out_encoding, unicode:encoding()}],
-      Result :: uri_string()
-              | error().
+      Result :: uri_string().
 transcode(URIString, Options) when is_binary(URIString) ->
+    InEnc = proplists:get_value(in_encoding, Options, utf8),
+    OutEnc = proplists:get_value(out_encoding, Options, utf8),
     try
-        InEnc = proplists:get_value(in_encoding, Options, utf8),
-        OutEnc = proplists:get_value(out_encoding, Options, utf8),
         List = convert_to_list(URIString, InEnc),
         Output = transcode(List, [], InEnc, OutEnc),
         convert_to_binary(Output, utf8, OutEnc)
@@ -723,8 +741,9 @@ transcode(URIString, Options) when is_binary(URIString) ->
 transcode(URIString, Options) when is_list(URIString) ->
     InEnc = proplists:get_value(in_encoding, Options, utf8),
     OutEnc = proplists:get_value(out_encoding, Options, utf8),
-    Flattened = flatten_list(URIString, InEnc),
-    try transcode(Flattened, [], InEnc, OutEnc)
+    try
+        Flattened = convert_to_list(URIString, InEnc),
+        transcode(Flattened, [], InEnc, OutEnc)
     catch
         throw:{error, Atom, RestData} -> {error, Atom, RestData}
     end.
@@ -805,11 +824,14 @@ _Example:_
 > ```
 """.
 -doc(#{since => <<"OTP 23.2">>}).
--spec percent_decode(URI) -> Result when
+-spec percent_decode(URI) -> Result | Error when
       URI :: uri_string() | uri_map(),
       Result :: uri_string() |
-                uri_map() |
-                {error, {invalid, {atom(), {term(), term()}}}} | error().
+                uri_map(),
+      Error :: error(ErrorReason) |
+               {error,{invalid,{Component,{ErrorReason,term()}}}},
+      ErrorReason :: invalid_input | invalid_percent_encoding | invalid_utf8,
+      Component :: userinfo | host | path | query | fragment.
 percent_decode(URIMap) when is_map(URIMap)->
     Fun = fun (K,V) when K =:= userinfo; K =:= host; K =:= path;
                          K =:= query; K =:= fragment ->
@@ -854,11 +876,14 @@ _Example:_
 > unexpected results.
 """.
 -doc(#{since => <<"OTP 25.0">>}).
--spec quote(Data) -> QuotedData when
+-spec quote(Data) -> QuotedData | error(invalid_input) when
       Data :: unicode:chardata(),
       QuotedData :: unicode:chardata().
 quote(D) ->
-    encode(D, fun is_unreserved/1).
+    try encode(D, fun is_unreserved/1)
+    catch
+        throw:{error, Atom, RestData} -> {error, Atom, RestData}
+    end.
 
 -doc """
 Same as [`quote/1`](`quote/1`), but `Safe` allows user to provide a list of
@@ -880,7 +905,7 @@ _Example:_
 > unexpected results.
 """.
 -doc(#{since => <<"OTP 25.0">>}).
--spec quote(Data, Safe) -> QuotedData when
+-spec quote(Data, Safe) -> QuotedData | error(invalid_input) when
       Data :: unicode:chardata(),
       Safe :: string(),
       QuotedData :: unicode:chardata().
@@ -889,7 +914,10 @@ quote(D, Safe) ->
         fun(C) ->
                 is_unreserved(C) orelse lists:member(C, Safe)
         end,
-    encode(D, UnreservedOrSafe).
+    try encode(D, UnreservedOrSafe)
+    catch
+        throw:{error, Atom, RestData} -> {error, Atom, RestData}
+    end.
 
 -doc """
 Percent decode characters.
@@ -910,7 +938,7 @@ _Example:_
 > unexpected results.
 """.
 -doc(#{since => <<"OTP 25.0">>}).
--spec unquote(QuotedData) -> Data when
+-spec unquote(QuotedData) -> Data | error(invalid_input | invalid_percent_encoding | invalid_utf8) when
       QuotedData :: unicode:chardata(),
       Data :: unicode:chardata().
 unquote(D) ->
@@ -948,10 +976,9 @@ _Example:_
 ```
 """.
 -doc(#{since => <<"OTP 21.0">>}).
--spec compose_query(QueryList) -> QueryString when
+-spec compose_query(QueryList) -> QueryString | error(invalid_encoding | invalid_input) when
       QueryList :: [{unicode:chardata(), unicode:chardata() | true}],
-      QueryString :: uri_string()
-                   | error().
+      QueryString :: uri_string().
 compose_query(List) ->
     compose_query(List, [{encoding, utf8}]).
 
@@ -988,11 +1015,10 @@ _Example:_
 ```
 """.
 -doc(#{since => <<"OTP 21.0">>}).
--spec compose_query(QueryList, Options) -> QueryString when
+-spec compose_query(QueryList, Options) -> QueryString | error(invalid_encoding | invalid_input) when
       QueryList :: [{unicode:chardata(), unicode:chardata() | true}],
       Options :: [{encoding, atom()}],
-      QueryString :: uri_string()
-                   | error().
+      QueryString :: uri_string().
 compose_query([],_Options) ->
     [];
 compose_query(List, Options) ->
@@ -1044,10 +1070,9 @@ _Example:_
 ```
 """.
 -doc(#{since => <<"OTP 21.0">>}).
--spec dissect_query(QueryString) -> QueryList when
+-spec dissect_query(QueryString) -> QueryList | error(invalid_character |invalid_input | invalid_percent_encoding) when
       QueryString :: uri_string(),
-      QueryList :: [{unicode:chardata(), unicode:chardata() | true}]
-                 | error().
+      QueryList :: [{unicode:chardata(), unicode:chardata() | true}].
 dissect_query(<<>>) ->
     [];
 dissect_query([]) ->
@@ -1963,9 +1988,9 @@ decode(Cs) ->
     decode(Cs, <<>>).
 %%
 decode(L, Acc) when is_list(L) ->
-    B0 = unicode:characters_to_binary(L),
+    B0 = convert_to_binary(L, utf8, utf8),
     B1 = decode(B0, Acc),
-    unicode:characters_to_list(B1);
+    convert_to_list(B1, utf8);
 decode(<<$%,C0,C1,Cs/binary>>, Acc) ->
     case is_hex_digit(C0) andalso is_hex_digit(C1) of
         true ->
@@ -1997,19 +2022,17 @@ decode(<<C,Cs/binary>>, Acc) ->
 decode(<<>>, Acc) ->
     check_utf8(Acc).
 
--spec raw_decode(list()|binary()) -> list() | binary() | error().
 raw_decode(Cs) ->
-    raw_decode(Cs, <<>>).
-%%
-raw_decode(L, Acc) when is_list(L) ->
-    try
-        B0 = unicode:characters_to_binary(L),
-        B1 = raw_decode(B0, Acc),
-        unicode:characters_to_list(B1)
+    try raw_decode(Cs, <<>>)
     catch
         throw:{error, Atom, RestData} ->
             {error, Atom, RestData}
-    end;
+    end.
+%%
+raw_decode(L, Acc) when is_list(L) ->
+    B0 = convert_to_binary(L, utf8, utf8),
+    B1 = raw_decode(B0, Acc),
+    convert_to_list(B1, utf8);
 raw_decode(<<$%,C0,C1,Cs/binary>>, Acc) ->
     case is_hex_digit(C0) andalso is_hex_digit(C1) of
         true ->
@@ -2059,8 +2082,8 @@ is_path(Char) -> is_pchar(Char).
 %%-------------------------------------------------------------------------
 -spec encode(list()|binary(), fun()) -> list() | binary().
 encode(Component, Fun) when is_list(Component) ->
-    B = unicode:characters_to_binary(Component),
-    unicode:characters_to_list(encode(B, Fun, <<>>));
+    B = convert_to_binary(Component, utf8, utf8),
+    convert_to_list(encode(B, Fun, <<>>), utf8);
 encode(Component, Fun) when is_binary(Component) ->
     encode(Component, Fun, <<>>).
 %%
@@ -2509,26 +2532,6 @@ convert_to_list(Binary, InEncoding) ->
         Result ->
             Result
     end.
-
-
-%% Flatten input list
-flatten_list([], _) ->
-    [];
-flatten_list(L, InEnc) ->
-    flatten_list(L, InEnc, []).
-%%
-flatten_list([H|T], InEnc, Acc) when is_binary(H) ->
-    L = convert_to_list(H, InEnc),
-    flatten_list(T, InEnc, lists:reverse(L, Acc));
-flatten_list([H|T], InEnc, Acc) when is_list(H) ->
-    flatten_list(H ++ T, InEnc, Acc);
-flatten_list([H|T], InEnc, Acc) ->
-    flatten_list(T, InEnc, [H|Acc]);
-flatten_list([], _InEnc, Acc) ->
-    lists:reverse(Acc);
-flatten_list(Arg, _, _) ->
-    throw({error, invalid_input, Arg}).
-
 
 percent_encode_segment(Segment) ->
     percent_encode_binary(Segment, <<>>).
