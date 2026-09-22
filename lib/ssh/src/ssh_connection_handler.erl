@@ -193,16 +193,16 @@ open_channel(ConnectionHandler,
 	  Timeout}).
 
 %%--------------------------------------------------------------------
-%%% Start a channel handling process in the superviser tree
+%%% Start a channel handling process in the supervisor tree
 -spec start_channel(connection_ref(), atom(), channel_id(), list(), term()) ->
                            {ok, pid()} | {error, term()}.
 
 %% . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
 start_channel(ConnectionHandler, CallbackModule, ChannelId, Args, Exec) ->
-    {ok, {ConnectionSup,Role,Opts}} = call(ConnectionHandler, get_misc),
+    {ok, {ConnectionSup,Role}} = call(ConnectionHandler, get_misc),
     ssh_connection_sup:start_channel(Role, ConnectionSup,
                                     ConnectionHandler, CallbackModule, ChannelId,
-                                    Args, Exec, Opts).
+                                    Args, Exec).
 
 %%--------------------------------------------------------------------
 handle_direct_tcpip(ConnectionHandler, ListenHost, ListenPort, ConnectToHost, ConnectToPort, Timeout) ->
@@ -780,6 +780,13 @@ handle_event(internal, {conn_msg, Msg}, StateName, #data{connection_state = Conn
             end,
             {stop_and_reply, {shutdown,normal}, Repls, D};
 
+        {send_disconnect, {Code, Description}, RepliesConn} ->
+            {Replies, D1} = send_replies(RepliesConn, D0),
+            D = send_msg(#ssh_msg_disconnect{code = Code,
+                                             description = Description},
+                         D1),
+            {stop_and_reply, {shutdown, Description}, Replies, D};
+
 	{Replies, Connection} when is_list(Replies) ->
 	    {Repls, D} = 
 		case StateName of
@@ -1067,37 +1074,48 @@ handle_event({call,From}, {eof, ChannelId}, StateName, D0)
 handle_event({call,From}, get_misc, StateName,
              #data{connection_state = #connection{options = Opts}} = D) when ?CONNECTED(StateName) ->
     ConnectionSup = ?GET_INTERNAL_OPT(connection_sup, Opts),
-    Reply = {ok, {ConnectionSup, ?role(StateName), Opts}},
+    Reply = {ok, {ConnectionSup, ?role(StateName)}},
     {keep_state, D, [{reply,From,Reply}]};
 
 handle_event({call,From},
-	     {open, ChannelPid, Type, InitialWindowSize, MaxPacketSize, Data, Timeout},
-	     StateName,
-	     D0 = #data{connection_state = C}) when ?CONNECTED(StateName) ->
-    erlang:monitor(process, ChannelPid),
-    {ChannelId, D1} = new_channel_id(D0),
+             {open, ChannelPid, Type, InitialWindowSize, MaxPacketSize, Data, Timeout},
+             StateName,
+             D0 = #data{connection_state = C = #connection{channel_id_seed = ChannelId,
+                                                           suggest_window_size = SuggestWindowSize,
+                                                           suggest_packet_size = SuggestPacketSize}})
+  when ?CONNECTED(StateName) ->
     WinSz = case InitialWindowSize of
-                undefined -> C#connection.suggest_window_size;
+                undefined -> SuggestWindowSize;
                 _ -> InitialWindowSize
             end,
     PktSz = case MaxPacketSize of
-                undefined -> C#connection.suggest_packet_size;
+                undefined -> SuggestPacketSize;
                 _ -> MaxPacketSize
             end,
-    D2 = send_msg(ssh_connection:channel_open_msg(Type, ChannelId, WinSz, PktSz, Data),
-		  D1),
-    ssh_client_channel:cache_update(cache(D2),
-			     #channel{type = Type,
-				      sys = "none",
-				      user = ChannelPid,
-				      local_id = ChannelId,
-				      recv_window_size = WinSz,
-				      recv_packet_size = PktSz,
-				      send_buf = queue:new()
-				     }),
-    D = add_request(true, ChannelId, From, D2),
-    start_channel_request_timer(ChannelId, From, Timeout),
-    {keep_state, D, cond_set_idle_timer(D)};
+    Limit = case ?role(StateName) of
+                server -> ?GET_OPT(max_channels, C#connection.options);
+                client -> infinity
+            end,
+    Channel = #channel{type = Type,
+                       sys = "none",
+                       user = ChannelPid,
+                       local_id = ChannelId,
+                       recv_window_size = WinSz,
+                       recv_packet_size = PktSz,
+                       send_buf = queue:new()
+                      },
+    case ssh_client_channel:cache_insert(cache(D0), Channel, Limit) of
+        ok ->
+            erlang:monitor(process, ChannelPid),
+            D1 = D0#data{connection_state = C#connection{channel_id_seed = ChannelId + 1}},
+            D2 = send_msg(ssh_connection:channel_open_msg(Type, ChannelId, WinSz,PktSz, Data),
+                          D1),
+            D = add_request(true, ChannelId, From, D2),
+            start_channel_request_timer(ChannelId, From, Timeout),
+            {keep_state, D, cond_set_idle_timer(D)};
+        Other ->
+            {keep_state, D0, [{reply,From,Other}]}
+    end;
 
 handle_event({call,From}, {send_window, ChannelId}, StateName, D)
   when ?CONNECTED(StateName) ->
@@ -1325,14 +1343,37 @@ handle_event(info, check_cache, _, D) ->
     {keep_state, D, cond_set_idle_timer(D)};
 
 handle_event(info, {fwd_connect_received, Sock, ChId, ChanCB}, StateName, #data{connection_state = Connection}) ->
-    #connection{options = Options,
-                channel_cache = Cache,
+    #connection{channel_cache = Cache,
                 connection_supervisor = ConnectionSup} = Connection,
     Channel = ssh_client_channel:cache_lookup(Cache, ChId),
-    {ok,Pid} = ssh_connection_sup:start_channel(?role(StateName), ConnectionSup, self(), ChanCB, ChId, [Sock], undefined, Options),
+    {ok,Pid} = ssh_connection_sup:start_channel(?role(StateName), ConnectionSup, self(), ChanCB, ChId, [Sock], undefined),
     ssh_client_channel:cache_update(Cache, Channel#channel{user=Pid}),
     gen_tcp:controlling_process(Sock, Pid),
     inet:setopts(Sock, [{active,once}]),
+    keep_state_and_data;
+
+handle_event(info, {fwd_connect_failed, {error, max_num_channels_exceeded}}, StateName,
+             #data{connection_state = #connection{options = Opts}} = D0) ->
+    %% Keep same behavior as before, if channel limit is reached for port forwarding channels
+    %% we close the connection. Previously this was a crash in {fwd_connect_received, ...} on
+    %% {ok, Pid} = ssh_connection_sup:start_channel(...).
+    MsgFun =
+        fun(debug) ->
+                Limit = ?GET_OPT(max_channels, Opts),
+                io_lib:format("Connection terminated. Port forward request reached a "
+                              "channel limit of: ~p",
+                              [Limit]);
+           (_) ->
+                "Connection terminated. Channel limit reached."
+        end,
+    {Shutdown, D} =
+        ?send_disconnect(?SSH_DISCONNECT_BY_APPLICATION,
+                         "Connection terminated. Channel limit reached.",
+                         ?SELECT_MSG(MsgFun),
+                         StateName, D0),
+    {stop, Shutdown, D};
+handle_event(info, {fwd_connect_failed, _Other}, _StateName, _D) ->
+    %% Ignore other reasons
     keep_state_and_data;
 
 handle_event({call,From},
@@ -1891,12 +1932,6 @@ add_request(Fun, ChannelId, From, #data{connection_state =
                                             Connection} = State) when is_function(Fun) ->
     Requests = Requests0 ++ [{ChannelId, From, Fun}],
     State#data{connection_state = Connection#connection{requests = Requests}}.
-
-new_channel_id(#data{connection_state = #connection{channel_id_seed = Id} =
-			 Connection}
-	       = State) ->
-    {Id, State#data{connection_state =
-			Connection#connection{channel_id_seed = Id + 1}}}.
 
 
 %%%----------------------------------------------------------------
