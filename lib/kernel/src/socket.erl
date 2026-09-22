@@ -5166,29 +5166,27 @@ sendmmsg_deadline(SockRef, Msgs, Flags, Deadline) ->
     Handle = make_ref(),
     case prim_socket:sendmmsg(SockRef, Msgs, Flags, Handle) of
         {select_write, _SentCount} ->
-            Now = erlang:monotonic_time(millisecond),
-            case Deadline - Now of
-                TimeLeft when TimeLeft > 0 ->
-                    receive
-                        ?socket_msg(_Socket, select, Handle) ->
-                            sendmmsg_deadline(SockRef, Msgs, Flags, Deadline);
-                        ?socket_msg(_Socket, abort, {Handle, Reason}) ->
-                            _ = cancel(SockRef, sendmmsg, Handle),
-                            {error, Reason}
-                    after TimeLeft ->
-                            _ = cancel(SockRef, sendmmsg, Handle),
-                            {error, timeout}
-                    end;
-                _ ->
-                    _ = cancel(SockRef, sendmmsg, Handle),
-                    {error, timeout}
-            end;
+            sendmmsg_deadline_select(SockRef, Msgs, Flags, Deadline, Handle);
+        select ->
+            sendmmsg_deadline_select(SockRef, Msgs, Flags, Deadline, Handle);
         ok ->
             ok;
         {ok, ResultList} ->
             {ok, sendmmsg_rest_from_result(Msgs, ResultList)};
         {error, _} = Error ->
             Error
+    end.
+
+sendmmsg_deadline_select(SockRef, Msgs, Flags, Deadline, Handle) ->
+    Timeout = timeout(Deadline),
+    receive
+        ?socket_msg(?socket(SockRef), select, Handle) ->
+            sendmmsg_deadline(SockRef, Msgs, Flags, Deadline);
+        ?socket_msg(_Socket, abort, {Handle, Reason}) ->
+            {error, Reason}
+    after Timeout ->
+            _ = cancel(SockRef, sendmmsg, Handle),
+            {error, timeout}
     end.
 
 sendmsg_deadline_cont(SockRef, Data, Cont, Deadline, HasWritten) ->

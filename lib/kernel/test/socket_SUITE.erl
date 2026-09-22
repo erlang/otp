@@ -158,6 +158,7 @@
          sendmmsg_invalid_msg_format/1,
          recvmmsg_dirty_scheduler_udp4/1,
          sendmmsg_dirty_scheduler_udp4/1,
+         sendmmsg_select_timeout_tcp4/1,
 
          %% Socket IOCTL simple
          ioctl_simple1/1,
@@ -393,7 +394,8 @@ batch_cases() ->
      sendmmsg_with_addresses_udp4,
      sendmmsg_invalid_msg_format,
      recvmmsg_dirty_scheduler_udp4,
-     sendmmsg_dirty_scheduler_udp4
+     sendmmsg_dirty_scheduler_udp4,
+     sendmmsg_select_timeout_tcp4
     ].
 
 ioctl_cases() ->
@@ -15789,6 +15791,79 @@ sendmmsg_dirty_scheduler_udp4(_Config) when is_list(_Config) ->
             ok
         end
     ).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Test sendmmsg with a timeout (0, integer and infinity) when nothing
+%% can be sent (EAGAIN). It shall wait for the socket to become writable
+%% or time out, not crash (see GH-11557).
+%%
+sendmmsg_select_timeout_tcp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(30)),
+    tc_try(
+        ?FUNCTION_NAME,
+        fun() ->
+            has_support_ipv4(),
+            has_sendmmsg_support()
+        end,
+        fun() ->
+            {ok, L} = socket:open(inet, stream, tcp),
+            ok = socket:setopt(L, socket, rcvbuf, 4096),
+            ok = socket:bind(L, #{family => inet, addr => loopback, port => 0}),
+            ok = socket:listen(L),
+            {ok, LSA} = socket:sockname(L),
+            {ok, S} = socket:open(inet, stream, tcp),
+            ok = socket:setopt(S, socket, sndbuf, 4096),
+            ok = socket:connect(S, LSA),
+            {ok, R} = socket:accept(L),
+            %% Fill up both the send and the receive buffers
+            Payload = <<0:(16 * 1024 * 1024 * 8)>>,
+            {error, {timeout, _}} = socket:send(S, Payload, [], 100),
+            Msgs = [#{iov => [<<"x">>]}],
+            {error, timeout} = socket:sendmmsg(S, Msgs, [], 0),
+            {error, timeout} = socket:sendmmsg(S, Msgs, [], 100),
+            Self = self(),
+            {Pid, MRef} =
+                spawn_monitor(
+                  fun() ->
+                          Self ! {self(), socket:sendmmsg(S, Msgs, [], infinity)}
+                  end),
+            receive
+                {Pid, Unexpected} ->
+                    ct:fail({unexpected_sendmmsg_result, Unexpected});
+                {'DOWN', MRef, process, Pid, Reason} ->
+                    ct:fail({unexpected_sender_exit, Reason})
+            after 500 ->
+                    ok
+            end,
+            %% Drain the receiver until the blocked sendmmsg completes
+            ok = sendmmsg_drain(R, Pid, MRef),
+            ok = socket:close(S),
+            ok = socket:close(R),
+            ok = socket:close(L),
+            ok
+        end
+    ).
+
+sendmmsg_drain(R, Pid, MRef) ->
+    receive
+        {Pid, Result} ->
+            receive {'DOWN', MRef, process, Pid, _} -> ok end,
+            Result;
+        {'DOWN', MRef, process, Pid, Reason} ->
+            ct:fail({unexpected_sender_exit, Reason})
+    after 0 ->
+            case socket:recv(R, 0, 100) of
+                {ok, _} ->
+                    sendmmsg_drain(R, Pid, MRef);
+                {error, timeout} ->
+                    sendmmsg_drain(R, Pid, MRef);
+                {error, {timeout, _}} ->
+                    sendmmsg_drain(R, Pid, MRef);
+                {error, _} = Error ->
+                    Error
+            end
+    end.
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
