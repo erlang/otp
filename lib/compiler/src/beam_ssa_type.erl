@@ -2827,7 +2827,8 @@ infer_relop('=:=', [LHS,RHS], [LType,RType], Ds) ->
     Type = beam_types:meet(LType, RType),
     {[{LHS,Type},{RHS,Type}] ++ EqTypes, []};
 infer_relop('=/=', [LHS,RHS], [LType,RType], Ds) ->
-    NeTypes = infer_ne_type(map_get(LHS, Ds), RType),
+    LHSDef = map_get(LHS, Ds),
+    NeTypes = infer_ne_type(LHSDef, RType),
 
     %% We must be careful with types inferred from '=/='.
     %%
@@ -2840,9 +2841,19 @@ infer_relop('=/=', [LHS,RHS], [LType,RType], Ds) ->
     %% value and vice versa. We must not subtract the meet of the two
     %% as it may be too specific. See beam_type_SUITE:type_subtraction/1
     %% for details.
-    {[{V,beam_types:subtract(ThisType, OtherType)} ||
-         {V, ThisType, OtherType} <:- [{RHS, RType, LType}, {LHS, LType, RType}],
-         beam_types:is_singleton_type(OtherType)], NeTypes};
+    PosTypes = [{V,beam_types:subtract(ThisType, OtherType)} ||
+                   {V, ThisType, OtherType} <:- [{RHS, RType, LType},
+                                                 {LHS, LType, RType}],
+                   beam_types:is_singleton_type(OtherType)],
+    EqTypes = case beam_types:is_singleton_type(RType) of
+                    true ->
+                        infer_eq_type(LHSDef,
+                                      beam_types:subtract(LType, RType));
+                    false ->
+                        []
+                end,
+
+    {PosTypes ++ EqTypes, NeTypes};
 infer_relop(Op, Args, Types, _Ds) ->
     {infer_relop(Op, Args, Types), []}.
 
