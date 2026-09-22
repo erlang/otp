@@ -865,6 +865,46 @@ This document describes the changes made to the SSL application.
 [PR-9511]: https://github.com/erlang/otp/pull/9511
 [PR-9670]: https://github.com/erlang/otp/pull/9670
 
+## SSL 11.2.12.13
+
+### Fixed Bugs and Malfunctions
+
+- Undecodable `certificate_authorities` names are now skipped, as they are just a hint.
+
+  Own Id: OTP-20327 Aux Id: [PR-11356], [GH-11338]
+
+- Corrected generated keylog information generated from the `keylog_hs` option in the corner case that it was invoked after the client had reached its connection state, but the server closed the connection before it reached its connection state.
+
+  Own Id: OTP-20358 Aux Id: [PR-11570], ERIERL-1356
+
+- Fix  restart bug for TLS-1.3 session ticket server, introduced by backport commit 
+  in OTP-27.3.4.14, would case a restart to fail due to wrong number of arguments.
+
+  Own Id: OTP-20384 Aux Id: [PR-11632]
+
+- Reject unsolicited TLS-1.3 pre_shared_key in client.
+
+  Own Id: OTP-20388 Aux Id: [CVE-2026-89422], [PR-11641]
+
+- Security and  robustness hardening returning RFC mandated alert reasons, narrowing/correcting
+  length checks.
+  
+  Correct signature algorithm handling that slightly mixed up signature algorithms and signature algorithms cert in TLS-1.2.
+  
+  Add missing TLS-1.3 Brainpool groups support. (Not relevant in 27 patch)
+  
+  Enhanced/corrected documentation and spec errors/deviations.
+
+  Own Id: OTP-20390 Aux Id: [PR-11651]
+
+[PR-11356]: https://github.com/erlang/otp/pull/11356
+[GH-11338]: https://github.com/erlang/otp/issues/11338
+[PR-11570]: https://github.com/erlang/otp/pull/11570
+[PR-11632]: https://github.com/erlang/otp/pull/11632
+[CVE-2026-89422]: https://nvd.nist.gov/vuln/detail/2026-89422
+[PR-11641]: https://github.com/erlang/otp/pull/11641
+[PR-11651]: https://github.com/erlang/otp/pull/11651
+
 ## SSL 11.2.12.12
 
 ### Improvements and New Features
