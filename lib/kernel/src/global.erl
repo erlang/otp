@@ -663,19 +663,19 @@ del_lock({_ResourceId, _LockRequesterId} = Id, Nodes) ->
     _ = gen_server:multi_call(Nodes, global_name_server, {del_lock, Id}),
     true.
 
--type trans_fun() :: function() | {module(), atom()}.
+-type trans_fun(Res) :: fun(() -> Res).
 
 -doc(#{equiv => trans(Id, Fun, [node() | nodes()], infinity)}).
 -spec trans(Id, Fun) -> Res | aborted when
       Id :: id(),
-      Fun :: trans_fun(),
+      Fun :: trans_fun(Res),
       Res :: term().
 trans(Id, Fun) -> trans(Id, Fun, [node() | nodes()], infinity).
 
 -doc(#{equiv => trans(Id, Fun, Nodes, infinity)}).
 -spec trans(Id, Fun, Nodes) -> Res | aborted when
       Id :: id(),
-      Fun :: trans_fun(),
+      Fun :: trans_fun(Res),
       Nodes :: [node()],
       Res :: term().
 trans(Id, Fun, Nodes) -> trans(Id, Fun, Nodes, infinity).
@@ -692,7 +692,7 @@ the transaction does not abort.
 """.
 -spec trans(Id, Fun, Nodes, Retries) -> Res | aborted when
       Id :: id(),
-      Fun :: trans_fun(),
+      Fun :: trans_fun(Res),
       Nodes :: [node()],
       Retries :: retries(),
       Res :: term().
