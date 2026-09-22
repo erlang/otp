@@ -501,7 +501,7 @@ ipv4_addr(Cs) ->
             D1 = Db bsr 8,
             {D1,D2,D3,D4};
         [D,D1] when
-              is_integer(D, 0, 16#ff_ffff),
+              is_integer(D,  0, 16#ff_ffff),
               is_integer(D1, 0, 16#ff) ->
             D4 = D band 16#ff,
             Da = D bsr 8,
@@ -509,7 +509,7 @@ ipv4_addr(Cs) ->
             D2 = Da bsr 8,
             {D1,D2,D3,D4};
         [D,D2,D1] when
-              is_integer(D, 0, 16#ffff),
+              is_integer(D,  0, 16#ffff),
               is_integer(D2, 0, 16#ff),
               is_integer(D1, 0, 16#ff) ->
             D4 = D band 16#ff,
@@ -521,8 +521,8 @@ ipv4_addr(Cs) ->
               is_integer(D2, 0, 16#ff),
               is_integer(D1, 0, 16#ff) ->
             {D1,D2,D3,D4};
-        _ ->
-            throw(error)
+        Ds when length(Ds) =< 4 ->
+            throw(error) % Some fields(s) out of bounds
     end.
 
 -define(is_char(C), (is_integer((C), 0, 16#10ffff))).
@@ -530,46 +530,40 @@ ipv4_addr(Cs) ->
 %% Right after the dot of the previous field,
 %% or at the start of the first field, and then Cs is not empty
 %%
-ipv4_addr([],      _Ds)             -> throw(error); % Truncated
-ipv4_addr([_|_],    [_,_,_,_|_])    -> throw(error); % Trailing char
-ipv4_addr("."++_,  _Ds) -> throw(error); % Empty field
-ipv4_addr("0x",    _Ds) -> throw(error); % Truncated field
-ipv4_addr("0X",    _Ds) -> throw(error); % Truncated field
-ipv4_addr("0x."++_,_Ds) -> throw(error); % Truncated field
-ipv4_addr("0X."++_,_Ds) -> throw(error); % Truncated field
-ipv4_addr("0x"++Cs, Ds) -> ipv4_addr_hex(Cs, Ds, 0, 0);
-ipv4_addr("0X"++Cs, Ds) -> ipv4_addr_hex(Cs, Ds, 0, 0);
-ipv4_addr("0"++Cs,  Ds) -> ipv4_addr_oct(Cs, Ds, 0, 0);
-ipv4_addr([_|_]=Cs, Ds) -> ipv4_addr_dec(Cs, Ds, 0, 0).
-%% 8 hex, 11 octal, or 10 decimal chars are
+ipv4_addr([],      _Ds) ->              throw(error); % Truncated
+ipv4_addr([_|_],    [_,_,_,_]) ->       throw(error); % Trailing char(s)
+ipv4_addr("."++_,  _Ds) ->              throw(error); % Empty field
+ipv4_addr("0x"++Cs, Ds) ->              ipv4_addr_hex(Cs, Ds, 0, 0);
+ipv4_addr("0X"++Cs, Ds) ->              ipv4_addr_hex(Cs, Ds, 0, 0);
+ipv4_addr("0"++Cs,  Ds) ->              ipv4_addr_oct(Cs, Ds, 0, 0);
+ipv4_addr([_|_]=Cs, Ds) ->              ipv4_addr_dec(Cs, Ds, 0, 0).
 
-%% We limit the maximum number of characters to
-%% what is needed for a 32 bit unsigned integer
+%% We limit the maximum number of characters (count N)
+%% to what is needed for a 32 bit unsigned integer
 
-ipv4_addr_hex([],      Ds, D, _N) ->            [D | Ds];
-ipv4_addr_hex([$.|Cs], Ds, D, _N) ->
-    ipv4_addr(Cs, [D|Ds]);
-ipv4_addr_hex([C |Cs], Ds, D,  N)
+ipv4_addr_hex([],     _Ds, _D,  0) ->   throw(error); % Truncated field
+ipv4_addr_hex([],      Ds,  D, _N) ->   [D | Ds];
+ipv4_addr_hex([$.|_], _Ds, _D,  0) ->   throw(error); % Truncated field
+ipv4_addr_hex([$.|Cs], Ds,  D, _N) ->   ipv4_addr(Cs, [D|Ds]);
+ipv4_addr_hex([C |Cs], Ds,  D,  N)
   when ?is_char(C) ->
-    N < 8 orelse throw(error),                  % Too many digits
+    N < 8 orelse                        throw(error), % Too many digits
     ipv4_addr_hex(Cs, Ds, (D bsl 4) bor ipv6_hex_digit(C), N + 1).
 
-ipv4_addr_oct([],      Ds, D, _N) ->            [D | Ds];
-ipv4_addr_oct([$.|Cs], Ds, D, _N) ->
-    ipv4_addr(Cs, [D|Ds]);
+ipv4_addr_oct([],      Ds, D, _N) ->    [D | Ds];
+ipv4_addr_oct([$.|Cs], Ds, D, _N) ->    ipv4_addr(Cs, [D|Ds]);
 ipv4_addr_oct([C |Cs], Ds, D,  N)
   when ?is_char(C) ->
-    N < 11 orelse throw(error),                 % Too many digits
-    is_integer(C, $0, $7) orelse throw(error),  % Invalid digit
+    N < 11 orelse                       throw(error), % Too many digits
+    is_integer(C, $0, $7) orelse        throw(error), % Invalid digit
     ipv4_addr_oct(Cs, Ds, (D bsl 3) bor (C - $0), N + 1).
 
-ipv4_addr_dec([],      Ds, D, _N) ->            [D | Ds];
-ipv4_addr_dec([$.|Cs], Ds, D, _N) ->
-    ipv4_addr(Cs, [D|Ds]);
+ipv4_addr_dec([],      Ds, D, _N) ->    [D | Ds];
+ipv4_addr_dec([$.|Cs], Ds, D, _N) ->    ipv4_addr(Cs, [D|Ds]);
 ipv4_addr_dec([C |Cs], Ds, D,  N)
   when ?is_char(C) ->
-    N < 10 orelse throw(error),                 % Too many digits
-    is_integer(C, $0, $9) orelse throw(error),  % Invalid digit
+    N < 10 orelse                       throw(error), % Too many digits
+    is_integer(C, $0, $9) orelse        throw(error), % Invalid digit
     ipv4_addr_dec(Cs, Ds, (D * 10) + (C - $0), N + 1).
 
 
@@ -587,7 +581,7 @@ ipv4strict_address(Bin) when is_binary(Bin) ->
             {error, einval}
     end;
 ipv4strict_address(Cs) when is_list(Cs) ->
-    try ipv4s_c1(Cs) of
+    try ipv4s_addr(Cs) of
         IP ->
             {ok, IP}
     catch throw : error ->
@@ -623,91 +617,45 @@ ipv4s_octet($2, $5, C3) when is_integer(C3, $0, $5) ->
 ipv4s_octet(C1, C2, C3) when ?is_char(C1), ?is_char(C2), ?is_char(C3) ->
     throw(error).
 
-%% Single-pass charlist parser for strict IPv4 addresses.
-%% Four functions, one per octet — no packed accumulator, no dot
-%% counter, no bit unpacking.
-
-ipv4s_c1(Cs) ->
+%% Parser for strict IPv4 address in a list.
+%%
+ipv4s_addr(Cs) -> ipv4s_addr(Cs, [], 1).
+%%
+ipv4s_addr(Cs, Ds, N) when is_integer(N, 1, 3) ->
+    %% First 3 fields
+    %%
+    %% All the clauses for specific list lengths and ?is_char(_) guards
+    %% are needed to get an error exception when the list contains
+    %% terms that are not char().  A catchall at the end of the
+    %% case statement that throw(error) would either cause
+    %% a case clause for truncated fields, or throw(error)
+    %% (i.e. return {error, einval}) for non-char() elements.
     case Cs of
         []                                                  -> throw(error);
         [C1] when ?is_char(C1)                              -> throw(error);
-        [C1, $. | T]                -> ipv4s_c2(T, ipv4s_octet(C1));
-        [C1, C2]
+        [C1,$.|T]           -> ipv4s_addr(T, [ipv4s_octet(C1)|Ds], N+1);
+        [C1,C2]
           when ?is_char(C1), ?is_char(C2)                   -> throw(error);
-        [C1, C2, $. | T]            -> ipv4s_c2(T, ipv4s_octet(C1, C2));
-        [C1, C2, C3]
+        [C1,C2,$.|T]        -> ipv4s_addr(T, [ipv4s_octet(C1, C2)|Ds], N+1);
+        [C1,C2,C3]
           when ?is_char(C1), ?is_char(C2), ?is_char(C3)     -> throw(error);
-        [C1, C2, C3, $. | T]        -> ipv4s_c2(T, ipv4s_octet(C1, C2, C3));
-        [C1, C2, C3, C4 | _]
+        [C1,C2,C3,$.|T]     -> ipv4s_addr(T, [ipv4s_octet(C1, C2, C3)|Ds], N+1);
+        [C1,C2,C3,C4|_]
           when ?is_char(C1), ?is_char(C2),
                ?is_char(C3), ?is_char(C4)                   -> throw(error)
-    end.
-
-ipv4s_c2(Cs, A) ->
+    end;
+ipv4s_addr(Cs, Ds, 4) ->
+    %% Last field
     case Cs of
         []                                                  -> throw(error);
-        [C1] when ?is_char(C1)                              -> throw(error);
-        [C1, $. | T]            -> ipv4s_c3(T, A, ipv4s_octet(C1));
-        [C1, C2]
-          when ?is_char(C1), ?is_char(C2)                   -> throw(error);
-        [C1, C2, $. | T]        -> ipv4s_c3(T, A, ipv4s_octet(C1, C2));
-        [C1, C2, C3]
-          when ?is_char(C1), ?is_char(C2), ?is_char(C3)     -> throw(error);
-        [C1, C2, C3, $. | T]    -> ipv4s_c3(T, A, ipv4s_octet(C1, C2, C3));
-        [C1, C2, C3, C4 | _]
-          when ?is_char(C1), ?is_char(C2),
-               ?is_char(C3), ?is_char(C4)                   -> throw(error)
-    end.
-
-ipv4s_c3(Cs, A, B) ->
-    case Cs of
-        []                                                  -> throw(error);
-        [C1] when ?is_char(C1)                              -> throw(error);
-        [C1, $. | T]            -> ipv4s_c4(T, A, B, ipv4s_octet(C1));
-        [C1, C2]
-          when ?is_char(C1), ?is_char(C2)                   -> throw(error);
-        [C1, C2, $. | T]        -> ipv4s_c4(T, A, B, ipv4s_octet(C1, C2));
-        [C1, C2, C3]
-          when ?is_char(C1), ?is_char(C2), ?is_char(C3)     -> throw(error);
-        [C1, C2, C3, $. | T]    -> ipv4s_c4(T, A, B, ipv4s_octet(C1, C2, C3));
-        [C1, C2, C3, C4 | _]
-          when ?is_char(C1), ?is_char(C2),
-               ?is_char(C3), ?is_char(C4)                   -> throw(error)
-    end.
-
--ifdef(undefined).
-
-ipv4s_c2(Cs, A) ->
-    case Cs of
-        [C1, $. | T]            -> ipv4s_c3(T, A, ipv4s_octet(C1));
-        [C1, C2, $. | T]        -> ipv4s_c3(T, A, ipv4s_octet(C1, C2));
-        [C1, C2, C3, $. | T]    -> ipv4s_c3(T, A, ipv4s_octet(C1, C2, C3));
-        [C1, C2, C3, C4 | _]
-          when ?is_char(C1), ?is_char(C2), ?is_char(C3), ?is_char(C4) ->
-            throw(error)
-    end.
-
-ipv4s_c3(Cs, A, B) ->
-    case Cs of
-        [C1, $. | T]            -> ipv4s_c4(T, A, B, ipv4s_octet(C1));
-        [C1, C2, $. | T]        -> ipv4s_c4(T, A, B, ipv4s_octet(C1, C2));
-        [C1, C2, C3, $. | T]    -> ipv4s_c4(T, A, B, ipv4s_octet(C1, C2, C3));
-        [C1, C2, C3, C4 | _]
-          when ?is_char(C1), ?is_char(C2), ?is_char(C3), ?is_char(C4) ->
-            throw(error)
-    end.
-
--endif.
-
-ipv4s_c4(Cs, A, B, C) ->
-    case Cs of
-        []                                                  -> throw(error);
-        [C1]                    -> {A, B, C, ipv4s_octet(C1)};
-        [C1, C2]                -> {A, B, C, ipv4s_octet(C1, C2)};
-        [C1, C2, C3]            -> {A, B, C, ipv4s_octet(C1, C2, C3)};
-        [C1, C2, C3 | _]
+        [C1]                -> ipv4s_addr(ipv4s_octet(C1), Ds);
+        [C1,C2]             -> ipv4s_addr(ipv4s_octet(C1, C2), Ds);
+        [C1,C2,C3]          -> ipv4s_addr(ipv4s_octet(C1, C2, C3), Ds);
+        [C1,C2,C3|_]
           when ?is_char(C1), ?is_char(C2), ?is_char(C3)     -> throw(error)
     end.
+%%
+ipv4s_addr(D, [C,B,A]) -> {A, B, C, D}.
 
 
 %% Single-pass binary parser for strict IPv4 addresses.
@@ -987,7 +935,7 @@ ipv6_addr_v4(Cs, Ar, Br, Compr, N, A) ->
     end.
 
 ipv6_addr_v4(Cs, A) ->
-    {A, B, C, D} = ipv4s_c2(Cs, A), % Parse the remaining 3 suffix fields
+    {A, B, C, D} = ipv4s_addr(Cs, [A], 2), % Parse suffix fields 2..4
     X6 = (A bsl 8) bor B,
     X7 = (C bsl 8) bor D,
     {X6, X7}.
