@@ -21,6 +21,16 @@ limitations under the License.
 -->
 # Public_Key Release Notes
 
+## Public_Key 1.21.7
+
+### Fixed Bugs and Malfunctions
+
+- Handle that policy qualifiers are optional.
+
+  Own Id: OTP-20393 Aux Id: [PR-11630]
+
+[PR-11630]: https://github.com/erlang/otp/pull/11630
+
 ## Public_Key 1.21.6
 
 ### Fixed Bugs and Malfunctions
