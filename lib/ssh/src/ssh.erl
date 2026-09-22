@@ -691,9 +691,15 @@ daemon_info(DaemonRef) ->
     case ssh_system_sup:get_daemon_listen_address(DaemonRef) of
         {ok,A} ->
             Address =
-                case inet:parse_strict_address(A#address.address) of
-                    {ok,IP} -> A#address{address=IP};
-                    _ -> A
+                case A#address.address of
+                    Addr when is_list(Addr); is_binary(Addr) ->
+                        case inet:parse_strict_address(Addr) of
+                            {ok,IP} -> A#address{address=IP};
+                            _ -> A
+                        end;
+                    _ ->
+                        %% Already an IP address tuple or the atom 'any'/'loopback'
+                        A
                 end,
             Opts =
                 %% Pick a subset of the Options to present:
