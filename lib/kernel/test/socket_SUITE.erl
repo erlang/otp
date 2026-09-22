@@ -159,6 +159,7 @@
          recvmmsg_dirty_scheduler_udp4/1,
          sendmmsg_dirty_scheduler_udp4/1,
          sendmmsg_select_timeout_tcp4/1,
+         sendmmsg_unsent_tail_udp4/1,
 
          %% Socket IOCTL simple
          ioctl_simple1/1,
@@ -395,7 +396,8 @@ batch_cases() ->
      sendmmsg_invalid_msg_format,
      recvmmsg_dirty_scheduler_udp4,
      sendmmsg_dirty_scheduler_udp4,
-     sendmmsg_select_timeout_tcp4
+     sendmmsg_select_timeout_tcp4,
+     sendmmsg_unsent_tail_udp4
     ].
 
 ioctl_cases() ->
@@ -15864,6 +15866,42 @@ sendmmsg_drain(R, Pid, MRef) ->
                     Error
             end
     end.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Test that messages not sent by sendmmsg, either because the syscall stopped early
+%% or because they were beyond the internal batch limit, are returned in Rest (see GH-11550).
+%%
+sendmmsg_unsent_tail_udp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(30)),
+    tc_try(
+        ?FUNCTION_NAME,
+        fun() ->
+            has_support_ipv4(),
+            has_sendmmsg_support()
+        end,
+        fun() ->
+            {ok, S} = socket:open(inet, dgram, udp),
+            ok = socket:bind(S, #{family => inet, addr => loopback, port => 0}),
+            {ok, SA} = socket:sockname(S),
+            %% The second message exceeds the maximum UDP payload size,
+            %% so the kernel stops after the first message.
+            GoodIOV = [<<"g">>],
+            BadIOV  = [<<7:(70000 * 8)>>],
+            Good = #{addr => SA, iov => GoodIOV},
+            Bad  = #{addr => SA, iov => BadIOV},
+            {ok, [BadIOV, GoodIOV]} = socket:sendmmsg(S, [Good, Bad, Good], [], nowait),
+            {ok, <<"g">>} = socket:recv(S, 0, 1000),
+            %% More messages than the internal batch limit (1024)
+            NumMessages = 1030,
+            IOVs = [[integer_to_binary(N)] || N <- lists:seq(1, NumMessages)],
+            Msgs = [#{addr => SA, iov => IOV} || IOV <- IOVs],
+            {ok, Rest} = socket:sendmmsg(S, Msgs, [], infinity),
+            true = length(Rest) >= NumMessages - 1024,
+            Rest = lists:nthtail(NumMessages - length(Rest), IOVs),
+            ok = socket:close(S)
+        end
+    ).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
