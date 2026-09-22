@@ -168,6 +168,16 @@ limitations under the License.
 [PR-10839]: https://github.com/erlang/otp/pull/10839
 [PR-10993]: https://github.com/erlang/otp/pull/10993
 
+## Public_Key 1.20.3.5
+
+### Fixed Bugs and Malfunctions
+
+- Handle that policy qualifiers are optional.
+
+  Own Id: OTP-20393 Aux Id: [PR-11630]
+
+[PR-11630]: https://github.com/erlang/otp/pull/11630
+
 ## Public_Key 1.20.3.4
 
 ### Fixed Bugs and Malfunctions
