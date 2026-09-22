@@ -1029,7 +1029,7 @@ format_exception(Class, Reason, [Top,Next|_]) ->
     SF = fun(Mod, _, _) -> Mod =:= erl_eval end,
     Enc = unicode,
     Str = erl_error:format_exception(I, Class, Reason, Stacktrace, SF, PF, Enc),
-    Tag ++ string:trim(lists:flatten(Str), trailing).
+    Tag ++ string:trim(Str, trailing).
 
 clean_stacktrace_item({M,F,A,Info0}) ->
     Info = lists:keydelete(line, 1, Info0),
