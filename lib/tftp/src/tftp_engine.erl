@@ -1255,12 +1255,12 @@ pre_verify_options(Config, Req) ->
                             {error, {badopt, "Too large blksize"}}
                     end;
                 false ->
-                    {error, {badopt, "Too large tsize"}}
+                    {error, {enospc, "Too large tsize"}}
             end;
         {error, Reason} ->
             {error, Reason}
     end.
-    
+
 post_verify_options(Config, Req, NewOptions, Text) ->
     OldOptions = Req#tftp_msg_req.options,
     BadOptions  =
