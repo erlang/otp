@@ -43,7 +43,8 @@
          paragraph_in_between_test/1, quote_with_anchor_test/1, quote_without_space/1]).
 
 %% paragraph
--export([paragraph_after_heading_test/1, quote_before_and_after_paragraph_test/1]).
+-export([paragraph_after_heading_test/1, quote_before_and_after_paragraph_test/1,
+         large_plain_paragraph_test/1, large_midword_underscore_test/1]).
 
 %% inline code
 -export([single_line_code_test/1, multiple_line_code_test/1, paragraph_between_code_test/1]).
@@ -179,7 +180,9 @@ quote_tests() ->
 
 paragraph_tests() ->
     [ paragraph_after_heading_test,
-      quote_before_and_after_paragraph_test
+      quote_before_and_after_paragraph_test,
+      large_plain_paragraph_test,
+      large_midword_underscore_test
     ].
 
 code_tests() ->
@@ -469,6 +472,23 @@ quote_before_and_after_paragraph_test(_Conf) ->
                blockquote(p(~"Quote 2")),
                p(~"Body content")],
     compile_and_compare(Input, Result).
+
+%% A long contiguous text run must collapse into a single binary,
+%% and must parse in linear time -- appending one character at a time was quadratic.
+large_plain_paragraph_test(_Config) ->
+    %% 20000 chars of plain prose with spaces (no format symbols).
+    Word = ~"lorem ipsum dolor sit amet ",
+    Input = list_to_binary(lists:duplicate(740, Word)),
+    Expected = p(Input),
+    compile_and_compare(Input, Expected).
+
+%% A long run of mid-word underscores (e.g. ssh_daemon_channel) must
+%% stay plain text and not be interpreted as italics, even when batched.
+large_midword_underscore_test(_Config) ->
+    Token = ~"ssh_daemon_channel_name_here ",
+    Input = list_to_binary(lists:duplicate(500, Token)),
+    Expected = p(Input),
+    compile_and_compare(Input, Expected).
 
 single_line_code_test(_Conf) ->
     Input = ~"# Here\n    This is code",
