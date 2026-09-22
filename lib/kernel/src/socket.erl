@@ -8133,7 +8133,7 @@ timeout(Deadline) ->
     end.
 
 timestamp() ->
-    erlang:monotonic_time(milli_seconds).
+    erlang:monotonic_time(millisecond).
 
 
 f(F, A) ->
