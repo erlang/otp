@@ -3,8 +3,8 @@
   "@id": "https://erlang.org/download/vex/otp-30.openvex.json",
   "author": "vexctl",
   "timestamp": "2026-06-17T09:56:01.322434+02:00",
-  "last_updated": "2026-09-07T13:28:56.842703224+02:00",
-  "version": 3,
+  "last_updated": "2026-09-22T11:27:11.863512269+02:00",
+  "version": 8,
   "statements": [
     {
       "vulnerability": {
@@ -31,6 +31,71 @@
       ],
       "status": "not_affected",
       "justification": "vulnerable_code_not_present"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-89156"
+      },
+      "timestamp": "2026-09-22T11:27:11.755699328+02:00",
+      "products": [
+        {
+          "@id": "pkg:github/PCRE2Project/pcre2@f454e231fe5006dd7ff8f4693fd2b8eb94333429"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-89157"
+      },
+      "timestamp": "2026-09-22T11:27:11.78307507+02:00",
+      "products": [
+        {
+          "@id": "pkg:github/PCRE2Project/pcre2@f454e231fe5006dd7ff8f4693fd2b8eb94333429"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-89158"
+      },
+      "timestamp": "2026-09-22T11:27:11.810134466+02:00",
+      "products": [
+        {
+          "@id": "pkg:github/PCRE2Project/pcre2@f454e231fe5006dd7ff8f4693fd2b8eb94333429"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-89160"
+      },
+      "timestamp": "2026-09-22T11:27:11.836603355+02:00",
+      "products": [
+        {
+          "@id": "pkg:github/PCRE2Project/pcre2@f454e231fe5006dd7ff8f4693fd2b8eb94333429"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-89161"
+      },
+      "timestamp": "2026-09-22T11:27:11.863513041+02:00",
+      "products": [
+        {
+          "@id": "pkg:github/PCRE2Project/pcre2@f454e231fe5006dd7ff8f4693fd2b8eb94333429"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_in_execute_path"
     }
   ]
 }
