@@ -81,6 +81,7 @@ groups() ->
 all() ->
     [start_stop,
      add_remove_handler,
+     add_remove_handlers_race,
      multiple_handlers,
      add_remove_filter,
      change_config,
@@ -159,6 +160,35 @@ multiple_handlers(_Config) ->
     ok.
 
 multiple_handlers(cleanup,_Config) ->
+    logger:remove_handler(h1),
+    logger:remove_handler(h2),
+    ok.
+
+%% Testcase that tries to add and remove handlers in a race condition.
+add_remove_handlers_race(_Config) ->
+
+    Parent = self(),
+
+    %% The symptom of the race is that an added handler is not registered properly
+    %% when the add_handler call races with the remove handler.
+    
+    ok = logger:add_handler(h1,?MODULE,#{}),
+    spawn_monitor(fun() ->
+        AddCall = fun(C) -> Parent ! sleeping, timer:sleep(1000), {ok, C} end,
+        logger:add_handler(h2, ?MODULE, #{ add_call => AddCall })
+    end),
+    receive 
+        sleeping -> ok
+    end,
+    ok = logger:remove_handler(h1),
+    receive
+        {'DOWN',_,_,_,_} -> ok
+    end,
+    true = lists:member(h2, logger:get_handler_ids()),
+    
+    ok.
+
+add_remove_handlers_race(cleanup,_Config) ->
     logger:remove_handler(h1),
     logger:remove_handler(h2),
     ok.
@@ -1381,8 +1411,10 @@ check_maps(Expected,Got,What) ->
     end.
 
 %% Handler
-adding_handler(#{add_call:=Fun}) ->
+adding_handler(#{add_call:=Fun}) when is_function(Fun, 0) ->
     Fun();
+adding_handler(#{add_call:=Fun} = C) when is_function(Fun, 1) ->
+    Fun(C);
 adding_handler(Config) ->
     maybe_send(add),
     {ok,Config}.
