@@ -23,6 +23,24 @@ limitations under the License.
 
 This document describes the changes made to the Compiler application.
 
+## Compiler 10.0.6
+
+### Fixed Bugs and Malfunctions
+
+- Certain uses of funs could crash the compiler. For example:
+  
+  ```
+  f() ->
+      F = fun Fn(0) -> 0; Fn(N) -> Fn(N - 1) end,
+      [F(X) || X <- [1, 2]].
+  ```
+  This has been corrected.
+
+  Own Id: OTP-20386 Aux Id: [GH-11619], [PR-11638]
+
+[GH-11619]: https://github.com/erlang/otp/issues/11619
+[PR-11638]: https://github.com/erlang/otp/pull/11638
+
 ## Compiler 10.0.5
 
 ### Fixed Bugs and Malfunctions
