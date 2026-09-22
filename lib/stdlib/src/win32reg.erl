@@ -417,8 +417,6 @@ collect_values(P, Result) ->
 	    {error, Reason}
     end.
 
--spec collect_keys(port(), string()) -> {'ok', [string()]} | {'error', ErrorId :: atom()}.
-
 collect_keys(P, Result) ->
     case get_result(P) of
 	ok ->
