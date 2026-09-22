@@ -92,7 +92,7 @@ decode_big_chars(Val, N) ->
     decode_big_chars_1(decode_chars(Val, N)).
 
 decode_oid(Octets) ->
-    [First|Rest] = dec_subidentifiers(Octets, 0, []),
+    [First|Rest] = dec_subidentifiers(Octets),
     Idlist = if
 		 First < 40 ->
 		     [0,First|Rest];
@@ -104,7 +104,7 @@ decode_oid(Octets) ->
     list_to_tuple(Idlist).
 
 decode_relative_oid(Octets) ->
-    list_to_tuple(dec_subidentifiers(Octets, 0, [])).
+    list_to_tuple(dec_subidentifiers(Octets)).
 
 encode_chars(Val, NumBits) ->
     << <<C:NumBits>> || C <- Val >>.
@@ -374,12 +374,20 @@ decode_big_chars_1([H|T]) ->
     [list_to_tuple(binary_to_list(<<H:32>>))|decode_big_chars_1(T)];
 decode_big_chars_1([]) -> [].
 
-dec_subidentifiers([H|T], Av, Al) when H >=16#80 ->
-    dec_subidentifiers(T, (Av bsl 7) bor (H band 16#7F), Al);
-dec_subidentifiers([H|T], Av, Al) ->
-    dec_subidentifiers(T, 0, [(Av bsl 7) bor H|Al]);
-dec_subidentifiers([], _Av, Al) ->
-    lists:reverse(Al).
+dec_subidentifiers(Octets) ->
+    dec_subidentifiers_1(Octets, 0, 0).
+
+%% Reject overlong OID components to mitigate a DoS vector. This should be
+%% enough bits for all legitimate uses until someone can prove otherwise. For
+%% comparison, golang limits to 30 bits per component.
+dec_subidentifiers_1([H | T], N, Av0) when H >= 16#80, N < 16 ->
+    Av = (Av0 bsl 7) bor (H band 16#7F),
+    dec_subidentifiers_1(T, N + 1, Av);
+dec_subidentifiers_1([H | T], N, Av0) when N < 16 ->
+    Av = (Av0 bsl 7) bor H,
+    [Av | dec_subidentifiers_1(T, 0, 0)];
+dec_subidentifiers_1([], _N, _Av) ->
+    [].
 
 enc_char(C0, Lb, Tab) ->
     try	element(C0-Lb, Tab) of
