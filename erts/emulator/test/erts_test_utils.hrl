@@ -20,6 +20,8 @@
 %% %CopyrightEnd%
 %%
 
+-define(Catch(Call), (fun() -> try Call catch _CatchE:_CatchR:_CatchST -> {_CatchE, _CatchR, _CatchST} end end)()).
+
 %% Same as AssertErrorStack in test_lib.hrl
 -define(AssertErrorStack(Error, Stack, Expr),
         erts_test_utils:assert_error_stack(

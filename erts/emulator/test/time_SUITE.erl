@@ -52,6 +52,7 @@
 -export([local_to_univ_utc/1]).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 -export([linear_time/1]).
 
@@ -179,9 +180,8 @@ bad_univ_to_local(Config) when is_list(Config) ->
 
 bad_test_univ_to_local([Utc|Rest]) ->
     io:format("Testing ~p~n", [Utc]),
-    case catch erlang:universaltime_to_localtime(Utc) of
-	      {'EXIT', {badarg, _}} -> bad_test_univ_to_local(Rest)
-	  end;
+    ?assertError(badarg, erlang:universaltime_to_localtime(Utc)),
+    bad_test_univ_to_local(Rest);
 bad_test_univ_to_local([]) ->
     ok.
 
@@ -193,9 +193,8 @@ bad_local_to_univ(Config) when is_list(Config) ->
 
 bad_test_local_to_univ([Local|Rest]) ->
     io:format("Testing ~p~n", [Local]),
-    case catch erlang:localtime_to_universaltime(Local) of
-	      {'EXIT', {badarg, _}} -> bad_test_local_to_univ(Rest)
-	  end;
+    ?assertError(badarg, erlang:localtime_to_universaltime(Local)),
+    bad_test_local_to_univ(Rest);
 bad_test_local_to_univ([]) ->
     ok.
 
