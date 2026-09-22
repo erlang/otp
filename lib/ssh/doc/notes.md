@@ -279,6 +279,37 @@ limitations under the License.
 [PR-11010]: https://github.com/erlang/otp/pull/11010
 [PR-11012]: https://github.com/erlang/otp/pull/11012
 
+## Ssh 5.5.2.6
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a vulnerability where the `max_channels` daemon option was not enforced for session channels without an active subsystem, allowing a remote authenticated user to open an infinite number of channels and exhaust server resources despite the configured limit.
+  
+  
+  The default value of the max_channels daemon option has been changed
+  from infinity to 256. Deployments requiring more than 256
+  simultaneous channels per connection can restore the previous behavior
+  by setting `{max_channels, infinity}`.
+  
+  
+  The default value of the max_sessions daemon option has been changed
+  from infinity to 1024. Deployments requiring more concurrent SSH
+  connections can restore the previous behavior by setting
+  `{max_sessions, infinity}`.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-20287 Aux Id: [PR-11523], [CVE-2026-68956], GHSA-qhcm-px9c-rvfh
+
+- The SSH daemon no longer rejects a `subsystem` request that is preceded by `env` or `pty-req` request on the same channel.
+
+  Own Id: OTP-20371 Aux Id: [GH-11586], [PR-11616], ERIERL-1363
+
+[PR-11523]: https://github.com/erlang/otp/pull/11523
+[CVE-2026-68956]: https://nvd.nist.gov/vuln/detail/2026-68956
+[GH-11586]: https://github.com/erlang/otp/issues/11586
+[PR-11616]: https://github.com/erlang/otp/pull/11616
+
 ## Ssh 5.5.2.5
 
 ### Fixed Bugs and Malfunctions

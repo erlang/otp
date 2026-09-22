@@ -524,6 +524,29 @@ This document describes the changes made to the STDLIB application.
 [PR-10938]: https://github.com/erlang/otp/pull/10938
 [PR-10948]: https://github.com/erlang/otp/pull/10948
 
+## STDLIB 7.3.0.3
+
+### Fixed Bugs and Malfunctions
+
+- When `beam_lib` returns an error tuple, the filename in the information tuple is now a list of characters instead of an atom.
+  
+  Example:
+  
+  ```
+  1> beam_lib:chunks(code:which(lists), ["nope"]).
+  {error,beam_lib,
+         {missing_chunk,".../git/otp/lib/stdlib/ebin/lists.beam",
+                        "nope"}}
+  ```
+  
+  The reason for this change is that a long file name is not guaranteed to fit in an atom. Applications or tools that do deep inspection of the `beam_lib` errors (not recommended) will need to be updated.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-20118 Aux Id: [PR-11167], ERIERL-1361
+
+[PR-11167]: https://github.com/erlang/otp/pull/11167
+
 ## STDLIB 7.3.0.2
 
 ### Fixed Bugs and Malfunctions
