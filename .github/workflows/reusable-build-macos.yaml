@@ -52,12 +52,22 @@ jobs:
         with:
           name: otp_prebuilt
 
+      - name: Fingerprint Homebrew deps for wxWidgets
+        id: brew-fingerprint
+        shell: bash
+        run: |
+          export HOMEBREW_NO_ENV_HINTS=1
+          deps=$(brew deps --include-build --include-optional --include-test --include-requirements wxwidgets | sort -u)
+          manifest=$(printf '%s\n' "$deps" | xargs brew list --versions | sort)
+          fingerprint=$(printf '%s\n' "$manifest" | shasum -a 256 | awk '{print $1}')
+          echo "value=$fingerprint" >> "$GITHUB_OUTPUT"
+
       - name: Cache wxWidgets
         id: wxwidgets-cache
         uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # ratchet:actions/cache@v5.0.3
         with:
           path: wxWidgets
-          key: wxWidgets-${{ env.WXWIDGETS_VERSION }}-${{ runner.os }}-${{ hashFiles('.github/scripts/build-macos-wxwidgets.sh') }}-${{ env.MACOS_VERSION }}
+          key: wxWidgets-${{ env.WXWIDGETS_VERSION }}-${{ runner.os }}-${{ hashFiles('.github/scripts/build-macos-wxwidgets.sh') }}-${{ env.MACOS_VERSION }}-${{ steps.brew-fingerprint.outputs.value }}
 
       - name: Compile wxWidgets
         if: steps.wxwidgets-cache.outputs.cache-hit != 'true'
