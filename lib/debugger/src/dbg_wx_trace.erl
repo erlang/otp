@@ -24,6 +24,8 @@
 -module(dbg_wx_trace).
 -moduledoc false.
 
+-compile([{nowarn_deprecated_function, [{erlang,exit,2}]}]).
+
 %% External exports
 -export([start/1, start/3, start/4]).
 -export([title/1]).

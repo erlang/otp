@@ -32,6 +32,8 @@
 -module(ct_repeat).
 -moduledoc false.
 
+-compile([{nowarn_deprecated_function, [{erlang,exit,2}]}]).
+
 %% Script interface
 -export([loop_test/2]).
 -export([log_loop_info/1]).

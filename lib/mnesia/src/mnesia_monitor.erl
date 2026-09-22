@@ -24,6 +24,8 @@
 -module(mnesia_monitor).
 -moduledoc false.
 
+-compile([{nowarn_deprecated_function, [{erlang,exit,2}]}]).
+
 -behaviour(gen_server).
 
 %% Public exports

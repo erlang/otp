@@ -25,6 +25,9 @@
 %%----------------------------------------------------------------------
 
 -module(et_collector).
+
+-compile([{nowarn_deprecated_function, [{erlang,exit,2}]}]).
+
 -moduledoc """
 Collect trace events and provide a backing storage appropriate for iteration
 

@@ -22,6 +22,8 @@
 -module(observer_tv_table).
 -moduledoc false.
 
+-compile([{nowarn_deprecated_function, [{erlang,exit,2}]}]).
+
 -export([start_link/2]).
 
 %% wx_object callbacks

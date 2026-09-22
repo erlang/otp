@@ -25,6 +25,8 @@
 %%----------------------------------------------------------------------
 
 -module(inets).
+-compile([{nowarn_deprecated_function, [{erlang,exit,2}]}]).
+
 -moduledoc """
 The Inets services API.
 

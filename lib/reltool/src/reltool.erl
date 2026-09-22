@@ -20,6 +20,9 @@
 %% %CopyrightEnd%
 
 -module(reltool).
+
+-compile([{nowarn_deprecated_function, [{erlang,exit,2}]}]).
+
 -moduledoc """
 Main API of the Reltool application
 

@@ -28,6 +28,8 @@
 -module(ssh_info).
 -moduledoc false.
 
+-compile([{nowarn_deprecated_function, [{erlang,exit,2}]}]).
+
 -export([print/0,
 	 print/1,
 	 string/0,

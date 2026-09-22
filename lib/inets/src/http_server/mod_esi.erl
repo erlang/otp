@@ -21,6 +21,9 @@
 %%
 %%
 -module(mod_esi).
+
+-compile([{nowarn_deprecated_function, [{erlang,exit,2}]}]).
+
 -moduledoc """
 Erlang Server Interface
 

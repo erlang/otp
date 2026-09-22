@@ -20,6 +20,9 @@
 %% %CopyrightEnd%
 %%
 -module(cpu_sup).
+
+-compile([{nowarn_deprecated_function, [{erlang,exit,2}]}]).
+
 -moduledoc """
 A CPU Load and CPU Utilization Supervisor Process
 

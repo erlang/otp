@@ -25,6 +25,9 @@
 %% Purpose: Interface to the UDP transport module for Megaco/H.248
 %%-----------------------------------------------------------------
 -module(megaco_udp).
+
+-compile([{nowarn_deprecated_function, [{erlang,exit,2}]}]).
+
 -moduledoc """
 Interface module to UDP transport protocol for Megaco/H.248.
 

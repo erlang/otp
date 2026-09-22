@@ -27,6 +27,8 @@
 -module(ct_gen_conn).
 -moduledoc false.
 
+-compile([{nowarn_deprecated_function, [{erlang,exit,2}]}]).
+
 -behaviour(gen_server).
 
 -export([start/4,

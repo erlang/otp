@@ -24,6 +24,8 @@
 %%
 
 -module(eprof).
+-compile([{nowarn_deprecated_function, [{erlang,exit,2}]}]).
+
 -moduledoc """
 A Time Profiling Tool for Erlang
 

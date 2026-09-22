@@ -22,6 +22,8 @@
 -module(snmpa_agent).
 -moduledoc false.
 
+-compile([{nowarn_deprecated_function, [{erlang,exit,2}]}]).
+
 -include_lib("kernel/include/file.hrl").
 -include("snmpa_internal.hrl").
 -include("snmp_types.hrl").

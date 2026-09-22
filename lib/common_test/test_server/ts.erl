@@ -641,7 +641,7 @@ validate_test(Testspec) ->
 	    io:format("This testspec does not seem to be "
 		      "available.~n Please try ts:tests() "
 		      "to see available tests.~n"),
-	    exit(self(), {error, test_not_available})
+            erlang:exit_signal(self(), {error, test_not_available})
     end.
     
 configvars(Opts) ->

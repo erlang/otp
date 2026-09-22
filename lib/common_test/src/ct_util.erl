@@ -29,6 +29,8 @@
 -module(ct_util).
 -moduledoc false.
 
+-compile([{nowarn_deprecated_function, [{erlang,exit,2}]}]).
+
 -compile([{nowarn_possibly_unsafe_function, {file, consult, 1}}]).
 
 -export([start/0, start/1, start/3, start/4,

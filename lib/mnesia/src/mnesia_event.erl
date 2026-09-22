@@ -24,6 +24,8 @@
 -module(mnesia_event).
 -moduledoc false.
 
+-compile([{nowarn_deprecated_function, [{erlang,exit,2}]}]).
+
 -behaviour(gen_event).
 %-behaviour(mnesia_event).
 

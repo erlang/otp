@@ -29,7 +29,8 @@
 -moduledoc false.
 
 -compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}},
-          {nowarn_possibly_unsafe_function, {file, consult, 1}}]).
+          {nowarn_possibly_unsafe_function, {file, consult, 1}},
+          {nowarn_deprecated_function, [{erlang,exit,2}]}]).
 
 -behaviour(supervisor).
 
