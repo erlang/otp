@@ -26,7 +26,8 @@
 -author('rossi@erix.ericsson.se').
 -include("mnesia_test_lib.hrl").
 
--compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}}]).
+-compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}},
+          {nowarn_deprecated_function,{erlang,exit,2}}]).
 
 -export([init_per_testcase/2, end_per_testcase/2,
          init_per_group/2, end_per_group/2,
@@ -236,7 +237,7 @@ kill_self_in_middle_of_trans(Config) when is_list(Config) ->
     A ! fun() ->
 		mnesia:write(Rec1B),
                 exit(self(), kill), % that should kill the process himself
-		                        %   - poor guy !
+                                                %   - poor guy !
 		mnesia:write(Rec1C)
 	 end,
     %%
@@ -369,7 +370,7 @@ mnesia_down_during_infinite_trans(Config) when is_list(Config) ->
 
     %% Second transaction gets the read lock
     ?match_receive({A2, [{Tab, 1, test_ok}]}),
-    exit(A1, kill), % Needed since we trap exit
+    erlang:exit_signal(A1, kill), % Needed since we trap exit
 
     ?verify_mnesia([Node2], [Node1]).
 
@@ -863,7 +864,7 @@ check_fixtable_release(Tab) ->
                             end)
                   end),
     ?match({Tab, true}, {Tab, wait_until_fixed(Tab, true)}),
-    exit(Coord, kill),
+    erlang:exit_signal(Coord, kill),
     ?match({Tab, false}, {Tab, wait_until_fixed(Tab, false)}).
 
 %% The fix is released asynchronously

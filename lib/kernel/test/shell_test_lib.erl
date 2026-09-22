@@ -154,7 +154,7 @@ setup_tty(Config) ->
                   PeerRef = erlang:monitor(process, Peer),
                   receive
                       {'DOWN',TCRef,_,_,Reason} ->
-                          exit(Peer, Reason);
+                          erlang:exit_signal(Peer, Reason);
                       {'DOWN',PeerRef,_,_,_} ->
                           ok
                   end

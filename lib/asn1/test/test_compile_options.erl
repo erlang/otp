@@ -23,6 +23,8 @@
 
 -module(test_compile_options).
 
+-compile([{nowarn_deprecated_function, [{erlang,exit,2}]}]).
+
 -include_lib("common_test/include/ct.hrl").
 -include_lib("stdlib/include/assert.hrl").
 

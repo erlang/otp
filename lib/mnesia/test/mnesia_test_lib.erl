@@ -820,7 +820,7 @@ kill_tc(Pid, Time) ->
 		    %% [GenDump(Node) || Node <- nodes()],
 
 		    %% erlang:halt("DebugTimeTrap"),
-		    exit(Pid, kill)
+                    erlang:exit_signal(Pid, kill)
 	    end
     end.
 
