@@ -2243,6 +2243,10 @@ AS_CASE([$host_os],
                         [[#include <sys/socket.h>]])
         ])
 
+dnl Check for accept4, which accepts a socket and sets it non-blocking
+dnl and close-on-exec in one call
+AC_CHECK_FUNCS([accept4])
+
 
 dnl ----------------------------------------------------------------------
 dnl Checks for library functions.
