@@ -442,30 +442,30 @@ is_dom_ldh(Cs)                  -> is_dom1(Cs).
 %%
 address(Bin) when is_binary(Bin) ->
     %% Try binary parsing first, strict
-    try ipv4s_c1b(Bin) of                   IP  -> {ok, IP}
+    try ipv4s_c1b(Bin) of                   IP -> {ok, IP}
     catch throw : error ->
             Cs = binary_to_list(Bin),
-            try ipv4_addr(Cs) of            IP  -> {ok, IP}
+            try ipv4_addr(Cs) of            IP -> {ok, IP}
             catch throw : error ->
-                    try ipv6_addr(Cs) of    IP  -> {ok, IP}
-                    catch throw : error         -> {error, einval}
+                    try ipv6_addr(Cs) of    IP -> {ok, IP}
+                    catch        throw : error -> {error, einval}
                     end
             end
     end;
 address(Cs) when is_list(Cs) ->
     case ipv4_address(Cs) of
-        {ok, IP} ->
-            {ok, IP};
-        _ ->
+        {ok, IP} ->                               {ok, IP};
+        {error, _} ->
             ipv6strict_address(Cs)
     end.
 
-%%Parse ipv4 strict address or ipv6 strict address
-strict_address(Addr) when is_list(Addr); is_binary(Addr) ->
+%% Parse ipv4 strict address or ipv6 strict address
+strict_address(Addr)
+  when is_list(Addr);
+       is_binary(Addr) ->
     case ipv4strict_address(Addr) of
-        {ok, IP} ->
-            {ok, IP};
-        _ ->
+        {ok, IP} ->                               {ok, IP};
+        {error, _} ->
             ipv6strict_address(Addr)
     end.
 
@@ -482,11 +482,11 @@ strict_address(Addr) when is_list(Addr); is_binary(Addr) ->
 %%
 %% Return {ok, IP} | {error, einval}
 %%
-ipv4_address(Bin) when is_binary(Bin) -> ipv4_address(binary_to_list(Bin));
-ipv4_address([])                      -> {error,einval};
+ipv4_address(Bin) when is_binary(Bin) ->    ipv4_address(binary_to_list(Bin));
+ipv4_address([]) ->                         {error,einval};
 ipv4_address([_|_] = Cs) ->
-    try ipv4_addr(Cs) of Addr         -> {ok,Addr}
-    catch throw : error               -> {error,einval}
+    try ipv4_addr(Cs) of            Addr -> {ok,Addr}
+    catch                  throw : error -> {error,einval}
     end.
 
 ipv4_addr(Cs) ->
@@ -521,8 +521,7 @@ ipv4_addr(Cs) ->
               is_integer(D2, 0, 16#ff),
               is_integer(D1, 0, 16#ff) ->
             {D1,D2,D3,D4};
-        Ds when length(Ds) =< 4 ->
-            throw(error) % Some fields(s) out of bounds
+        Ds when length(Ds) =< 4 ->      throw(error) % Fields(s) out of bounds
     end.
 
 -define(is_char(C), (is_integer((C), 0, 16#10ffff))).
@@ -531,8 +530,8 @@ ipv4_addr(Cs) ->
 %% or at the start of the first field, and then Cs is not empty
 %%
 ipv4_addr([],      _Ds) ->              throw(error); % Truncated
-ipv4_addr([_|_],    [_,_,_,_]) ->       throw(error); % Trailing char(s)
-ipv4_addr("."++_,  _Ds) ->              throw(error); % Empty field
+ipv4_addr([C|_],    [_,_,_,_])
+  when ?is_char(C) ->                   throw(error); % Trailing char(s)
 ipv4_addr("0x"++Cs, Ds) ->              ipv4_addr_hex(Cs, Ds, 0, 0);
 ipv4_addr("0X"++Cs, Ds) ->              ipv4_addr_hex(Cs, Ds, 0, 0);
 ipv4_addr("0"++Cs,  Ds) ->              ipv4_addr_oct(Cs, Ds, 0, 0);
@@ -541,31 +540,32 @@ ipv4_addr([_|_]=Cs, Ds) ->              ipv4_addr_dec(Cs, Ds, 0, 0).
 %% We limit the maximum number of characters (count N)
 %% to what is needed for a 32 bit unsigned integer
 
-ipv4_addr_hex([],     _Ds, _D,  0) ->   throw(error); % Truncated field
-ipv4_addr_hex([],      Ds,  D, _N) ->   [D | Ds];
-ipv4_addr_hex([$.|_], _Ds, _D,  0) ->   throw(error); % Truncated field
-ipv4_addr_hex([$.|Cs], Ds,  D, _N) ->   ipv4_addr(Cs, [D|Ds]);
-ipv4_addr_hex([C |Cs], Ds,  D,  N)
+%% A hex field cannot be empty
+ipv4_addr_hex([],      _Ds, _D,  0) ->  throw(error); % Truncated field
+ipv4_addr_hex([],       Ds,  D, _N) ->  [D|Ds];
+ipv4_addr_hex([$.|_],  _Ds, _D,  0) ->  throw(error); % Truncated field
+ipv4_addr_hex([$.|Cs],  Ds,  D, _N) ->  ipv4_addr(Cs, [D|Ds]);
+ipv4_addr_hex([C |Cs],  Ds,  D,  N)
   when ?is_char(C) ->
-    N < 8 orelse                        throw(error), % Too many digits
+    is_integer(N, 0, 7) orelse          throw(error), % Too many digits
     ipv4_addr_hex(Cs, Ds, (D bsl 4) bor ipv6_hex_digit(C), N + 1).
 
-ipv4_addr_oct([],      Ds, D, _N) ->    [D | Ds];
-ipv4_addr_oct([$.|Cs], Ds, D, _N) ->    ipv4_addr(Cs, [D|Ds]);
-ipv4_addr_oct([C |Cs], Ds, D,  N)
+ipv4_addr_oct([],       Ds,  D, _N) ->  [D|Ds];
+ipv4_addr_oct([$.|Cs],  Ds,  D, _N) ->  ipv4_addr(Cs, [D|Ds]);
+ipv4_addr_oct([C |Cs],  Ds,  D,  N)
   when ?is_char(C) ->
-    N < 11 orelse                       throw(error), % Too many digits
+    is_integer(N, 0, 10) orelse         throw(error), % Too many digits
     is_integer(C, $0, $7) orelse        throw(error), % Invalid digit
     ipv4_addr_oct(Cs, Ds, (D bsl 3) bor (C - $0), N + 1).
 
-ipv4_addr_dec([],      Ds, D, _N) ->    [D | Ds];
-ipv4_addr_dec([$.|Cs], Ds, D, _N) ->    ipv4_addr(Cs, [D|Ds]);
-ipv4_addr_dec([C |Cs], Ds, D,  N)
+ipv4_addr_dec([],       Ds,  D, _N) ->  [D|Ds];
+ipv4_addr_dec([$.|_],  _Ds, _D,  0) ->  throw(error); % Truncated field
+ipv4_addr_dec([$.|Cs],  Ds,  D, _N) ->  ipv4_addr(Cs, [D|Ds]);
+ipv4_addr_dec([C |Cs],  Ds,  D,  N)
   when ?is_char(C) ->
-    N < 10 orelse                       throw(error), % Too many digits
+    is_integer(N, 0, 9) orelse          throw(error), % Too many digits
     is_integer(C, $0, $9) orelse        throw(error), % Invalid digit
     ipv4_addr_dec(Cs, Ds, (D * 10) + (C - $0), N + 1).
-
 
 %%
 %% Parse IPv4 strict dotted decimal address, no leading zeros:
@@ -593,18 +593,19 @@ ipv4strict_address(Cs) when is_list(Cs) ->
 %% "0".."9", "10".."99", "100..255"
 -compile({inline, [ipv4s_octet/1,ipv4s_octet/2,ipv4s_octet/3]}).
 %%
-%% 0..9
+%% One digit. 0..9
 ipv4s_octet(C1) when is_integer((C1), $0, $9) ->
     C1 - $0;
 ipv4s_octet(C1) when ?is_char(C1) ->
     throw(error).
 %%
-%% 10..99
+%% Two digits. 10..99
 ipv4s_octet(C1, C2) when is_integer(C1, $1, $9), is_integer(C2, $0, $9) ->
     C1*10 + C2 - $0*11;
 ipv4s_octet(C1, C2) when ?is_char(C1), ?is_char(C2) ->
     throw(error).
 %%
+%% Three digits.
 %% 100..199
 ipv4s_octet($1, C2, C3) when is_integer(C2, $0, $9), is_integer(C3, $0, $9) ->
     (100 - $0*11) + C2*10 + C3;
@@ -619,42 +620,30 @@ ipv4s_octet(C1, C2, C3) when ?is_char(C1), ?is_char(C2), ?is_char(C3) ->
 
 %% Parser for strict IPv4 address in a list.
 %%
+%% Enter
 ipv4s_addr(Cs) -> ipv4s_addr(Cs, [], 1).
 %%
+%% Loop
 ipv4s_addr(Cs, Ds, N) when is_integer(N, 1, 3) ->
     %% First 3 fields
-    %%
-    %% All the clauses for specific list lengths and ?is_char(_) guards
-    %% are needed to get an error exception when the list contains
-    %% terms that are not char().  A catchall at the end of the
-    %% case statement that throw(error) would either cause
-    %% a case clause for truncated fields, or throw(error)
-    %% (i.e. return {error, einval}) for non-char() elements.
     case Cs of
-        []                                                  -> throw(error);
-        [C1] when ?is_char(C1)                              -> throw(error);
-        [C1,$.|T]           -> ipv4s_addr(T, [ipv4s_octet(C1)|Ds], N+1);
-        [C1,C2]
-          when ?is_char(C1), ?is_char(C2)                   -> throw(error);
-        [C1,C2,$.|T]        -> ipv4s_addr(T, [ipv4s_octet(C1, C2)|Ds], N+1);
-        [C1,C2,C3]
-          when ?is_char(C1), ?is_char(C2), ?is_char(C3)     -> throw(error);
-        [C1,C2,C3,$.|T]     -> ipv4s_addr(T, [ipv4s_octet(C1, C2, C3)|Ds], N+1);
-        [C1,C2,C3,C4|_]
-          when ?is_char(C1), ?is_char(C2),
-               ?is_char(C3), ?is_char(C4)                   -> throw(error)
+        [] ->                   throw(error); % Truncated
+        [C1,$.|T] ->            ipv4s_addr(T, [ipv4s_octet(C1)|Ds], N+1);
+        [C1,C2,$.|T] ->         ipv4s_addr(T, [ipv4s_octet(C1,C2)|Ds], N+1);
+        [C1,C2,C3,$.|T] ->      ipv4s_addr(T, [ipv4s_octet(C1,C2,C3)|Ds], N+1);
+        [_|_] ->                throw(error) % Truncated or no dot
     end;
 ipv4s_addr(Cs, Ds, 4) ->
     %% Last field
     case Cs of
-        []                                                  -> throw(error);
-        [C1]                -> ipv4s_addr(ipv4s_octet(C1), Ds);
-        [C1,C2]             -> ipv4s_addr(ipv4s_octet(C1, C2), Ds);
-        [C1,C2,C3]          -> ipv4s_addr(ipv4s_octet(C1, C2, C3), Ds);
-        [C1,C2,C3|_]
-          when ?is_char(C1), ?is_char(C2), ?is_char(C3)     -> throw(error)
+        [] ->                   throw(error); % Truncated
+        [C1] ->                 ipv4s_addr(ipv4s_octet(C1), Ds);
+        [C1,C2] ->              ipv4s_addr(ipv4s_octet(C1,C2), Ds);
+        [C1,C2,C3] ->           ipv4s_addr(ipv4s_octet(C1,C2,C3), Ds);
+        [_,_,_|_] ->            throw(error) % Extra characters
     end.
 %%
+%% Done
 ipv4s_addr(D, [C,B,A]) -> {A, B, C, D}.
 
 
@@ -666,36 +655,35 @@ ipv4s_addr(D, [C,B,A]) -> {A, B, C, D}.
 
 ipv4s_c1b(Bin) ->
     case Bin of
-        <<C1,$.,R/binary>>       -> ipv4s_c2b(R, ipv4s_octet(C1));
-        <<C1,C2,$.,R/binary>>    -> ipv4s_c2b(R, ipv4s_octet(C1, C2));
+        <<C1,$.,R/binary>> ->       ipv4s_c2b(R, ipv4s_octet(C1));
+        <<C1,C2,$.,R/binary>> ->    ipv4s_c2b(R, ipv4s_octet(C1, C2));
         <<C1,C2,C3,$.,R/binary>> -> ipv4s_c2b(R, ipv4s_octet(C1, C2, C3));
-        <<_/binary>>             -> throw(error)
+        <<_/binary>> ->             throw(error)
     end.
 
 ipv4s_c2b(Bin, A) ->
     case Bin of
-        <<C1,$.,R/binary>>       -> ipv4s_c3b(R, A, ipv4s_octet(C1));
-        <<C1,C2,$.,R/binary>>    -> ipv4s_c3b(R, A, ipv4s_octet(C1, C2));
+        <<C1,$.,R/binary>> ->       ipv4s_c3b(R, A, ipv4s_octet(C1));
+        <<C1,C2,$.,R/binary>> ->    ipv4s_c3b(R, A, ipv4s_octet(C1, C2));
         <<C1,C2,C3,$.,R/binary>> -> ipv4s_c3b(R, A, ipv4s_octet(C1, C2, C3));
-        <<_/binary>>             -> throw(error)
+        <<_/binary>> ->             throw(error)
     end.
 
 ipv4s_c3b(Bin, A, B) ->
     case Bin of
-        <<C,$.,R/binary>>        -> ipv4s_c4b(R, A, B, ipv4s_octet(C));
-        <<C1,C2,$.,R/binary>>    -> ipv4s_c4b(R, A, B, ipv4s_octet(C1, C2));
+        <<C1,$.,R/binary>> ->       ipv4s_c4b(R, A, B, ipv4s_octet(C1));
+        <<C1,C2,$.,R/binary>> ->    ipv4s_c4b(R, A, B, ipv4s_octet(C1, C2));
         <<C1,C2,C3,$.,R/binary>> -> ipv4s_c4b(R, A, B, ipv4s_octet(C1, C2, C3));
-        <<_/binary>>             -> throw(error)
+        <<_/binary>> ->             throw(error)
     end.
 
 ipv4s_c4b(Bin, A, B, C) ->
     case Bin of
-        <<C1>>          -> {A,B,C,ipv4s_octet(C1)};
-        <<C1, C2>>      -> {A,B,C,ipv4s_octet(C1, C2)};
-        <<C1, C2, C3>>  -> {A,B,C,ipv4s_octet(C1, C2, C3)};
-        <<_/binary>>             -> throw(error)
+        <<C1>>  ->                  {A,B,C,ipv4s_octet(C1)};
+        <<C1, C2>> ->               {A,B,C,ipv4s_octet(C1, C2)};
+        <<C1, C2, C3>> ->           {A,B,C,ipv4s_octet(C1, C2, C3)};
+        <<_/binary>> ->             throw(error)
     end.
-
 
 %%
 %% Forgiving IPv6 address
@@ -717,7 +705,7 @@ ipv6_address(Cs) ->
     case ipv4_address(Cs) of
         {ok, {D1, D2, D3, D4}} ->
             {ok, {0, 0, 0, 0, 0, 16#ffff, (D1 bsl 8) bor D2, (D3 bsl 8) bor D4}};
-        _ ->
+        {error, _} ->
             ipv6strict_address(Cs)
     end.
 
@@ -740,36 +728,33 @@ ipv6_address(Cs) ->
 ipv6strict_address(Bin) when is_binary(Bin) ->
     ipv6strict_address(binary_to_list(Bin));
 ipv6strict_address(Cs) when is_list(Cs) ->
-    try ipv6_addr(Cs) of
-        Addr ->
-            {ok, Addr}
-    catch throw : error ->
-            {error, einval}
-    end;
-ipv6strict_address(_) ->
-    {error, einval}.
+    try ipv6_addr(Cs) of        Addr -> {ok, Addr}
+    catch              throw : error -> {error, einval}
+    end.
 
-ipv6_addr("") ->
-    throw(error); % Null string
+ipv6_addr("") ->                        throw(error); % Null string
+%% We handle all leading :: here
 ipv6_addr("::") ->
     ipv6_addr_done(0, [], [], true, 0);
+ipv6_addr("::%"++Cs) ->
+    ipv6_addr_scope(Cs, [], [], true, 0, 0);
 ipv6_addr("::"++Cs) ->
     ipv6_addr(Cs, [], [0], true, 1);
-ipv6_addr(":"++_) ->
-    throw(error); % Missing first field
+%%
+ipv6_addr(":"++_) ->                    throw(error); % Missing first field
 ipv6_addr(Cs) ->
     ipv6_addr(Cs, [], [], false, 0).
 
 -compile({inline, [ipv6_hex_digit/1]}).
 ipv6_hex_digit(C) ->
-    if  is_integer(C, $0, $9) -> C - $0;
-        is_integer(C, $a, $f) -> C - ($a-10);
-        is_integer(C, $A, $F) -> C - ($A-10);
-        ?is_char(C) ->
-            throw(error)      % Invalid character
+    if  is_integer(C, $0, $9) ->        C - $0;
+        is_integer(C, $a, $f) ->        C - ($a-10);
+        is_integer(C, $A, $F) ->        C - ($A-10);
+        ?is_char(C) ->                  throw(error) % Invalid character
     end.
 
-%% 1..4 hex characters in a field, convert to field value, X
+%% 1..4 hex characters in a field, convert to field value, X.
+%%
 -define(ipv6_hex_field(C), (ipv6_hex_digit(C))).
 -define(ipv6_hex_field(C1, C2),
         ((ipv6_hex_digit(C1) bsl 4) bor ipv6_hex_digit(C2))).
@@ -797,72 +782,69 @@ ipv6_hex_digit(C) ->
 %% Cs is not []
 %%
 %% Something after the eight field
-ipv6_addr(_Cs, _Ar, _Br, _Compr, N) when N >= 8 ->
-    throw(error); % Missing end
+ipv6_addr(_, _Ar, _Br, _Compr, N) when N >= 8 ->  throw(error); % Missing end
 %%
 %% Empty field
-ipv6_addr([$: | Cs], Ar, Br, Compr, N) ->
+ipv6_addr([$:|Cs], Ar, Br, Compr, N) ->
     case Compr of
         false -> % This is the first ::
             case Cs of
                 [] ->
                     ipv6_addr_done(N, Br, Ar, true, 0);
-                [$% | _] ->
+                [$%|_] ->
                     ipv6_addr_scope(tl(Cs), Br, Ar, true, N, 0);
-                [C | _] when ?is_char(C) ->
-                    ipv6_addr(Cs, Br, [0 | Ar], true, N+1)
+                [C|_] when ?is_char(C) ->
+                    ipv6_addr(Cs, Br, [0|Ar], true, N+1)
             end;
-        true  ->
-            throw(error) % More than one ::, or :::
+        true  ->                                  throw(error) % Extra :
     end;
-ipv6_addr([$% | _], _Ar, _Br, _Compr, _N) ->
+ipv6_addr([$%|_], _Ar, _Br, _Compr, _N) ->
     throw(error); % Empty field before scope id suffix
-ipv6_addr([$. | _], _Ar, _Br, _Compr, _N) ->
-    throw(error); % Empty decimal field
+ipv6_addr([$.|_], _Ar, _Br, _Compr, _N) ->        throw(error); % Empty field
 %%
 %% One character field
 ipv6_addr([C1], Ar, Br, Compr, N) ->
     ipv6_addr_done(N, Ar, Br, Compr, ?ipv6_hex_field(C1));
-ipv6_addr([C1, $: | Cs], Ar, Br, Compr, N) ->
+ipv6_addr([C1,$:|Cs], Ar, Br, Compr, N) ->
     ipv6_addr_field(Cs, Ar, Br, Compr, N, ?ipv6_hex_field(C1));
-ipv6_addr([C1, $% | Cs], Ar, Br, Compr, N) ->
+ipv6_addr([C1,$%|Cs], Ar, Br, Compr, N) ->
     ipv6_addr_scope(Cs, Ar, Br, Compr, N, ?ipv6_hex_field(C1));
-ipv6_addr([C1, $. | Cs], Ar, Br, Compr, N) ->
+ipv6_addr([C1,$.|Cs], Ar, Br, Compr, N) ->
     ipv6_addr_v4(Cs, Ar, Br, Compr, N, ipv4s_octet(C1));
 %%
 %% Two characters field
-ipv6_addr([C1, C2], Ar, Br, Compr, N) ->
+ipv6_addr([C1,C2], Ar, Br, Compr, N) ->
     ipv6_addr_done(N, Ar, Br, Compr, ?ipv6_hex_field(C1, C2));
-ipv6_addr([C1, C2, $: | Cs], Ar, Br, Compr, N) ->
+ipv6_addr([C1,C2,$:|Cs], Ar, Br, Compr, N) ->
     ipv6_addr_field(Cs, Ar, Br, Compr, N, ?ipv6_hex_field(C1, C2));
-ipv6_addr([C1, C2, $% | Cs], Ar, Br, Compr, N) ->
+ipv6_addr([C1,C2,$%| Cs], Ar, Br, Compr, N) ->
     ipv6_addr_scope(Cs, Ar, Br, Compr, N, ?ipv6_hex_field(C1, C2));
-ipv6_addr([C1, C2, $. | Cs], Ar, Br, Compr, N) ->
+ipv6_addr([C1,C2,$.|Cs], Ar, Br, Compr, N) ->
     ipv6_addr_v4(Cs, Ar, Br, Compr, N, ipv4s_octet(C1, C2));
 %%
 %% Three characters field
-ipv6_addr([C1, C2, C3], Ar, Br, Compr, N) ->
+ipv6_addr([C1,C2,C3], Ar, Br, Compr, N) ->
     ipv6_addr_done(N, Ar, Br, Compr, ?ipv6_hex_field(C1, C2, C3));
-ipv6_addr([C1, C2, C3, $: | Cs], Ar, Br, Compr, N) ->
+ipv6_addr([C1,C2,C3,$:|Cs], Ar, Br, Compr, N) ->
     ipv6_addr_field(Cs, Ar, Br, Compr, N, ?ipv6_hex_field(C1, C2, C3));
-ipv6_addr([C1, C2, C3, $% | Cs], Ar, Br, Compr, N) ->
+ipv6_addr([C1,C2,C3,$%|Cs], Ar, Br, Compr, N) ->
     ipv6_addr_scope(Cs, Ar, Br, Compr, N, ?ipv6_hex_field(C1, C2, C3));
-ipv6_addr([C1, C2, C3, $. | Cs], Ar, Br, Compr, N) ->
+ipv6_addr([C1,C2,C3,$.|Cs], Ar, Br, Compr, N) ->
     ipv6_addr_v4(Cs, Ar, Br, Compr, N, ipv4s_octet(C1, C2, C3));
 %%
 %% Four characters field
-ipv6_addr([C1, C2, C3, C4], Ar, Br, Compr, N) ->
+ipv6_addr([C1,C2,C3,C4], Ar, Br, Compr, N) ->
     ipv6_addr_done(N, Ar, Br, Compr, ?ipv6_hex_field(C1, C2, C3, C4));
-ipv6_addr([C1, C2, C3, C4, $: | Cs], Ar, Br, Compr, N) ->
+ipv6_addr([C1,C2,C3,C4,$:|Cs], Ar, Br, Compr, N) ->
     ipv6_addr_field(Cs, Ar, Br, Compr, N, ?ipv6_hex_field(C1, C2, C3, C4));
-ipv6_addr([C1, C2, C3, C4, $% | Cs], Ar, Br, Compr, N) ->
+ipv6_addr([C1,C2,C3,C4,$%|Cs], Ar, Br, Compr, N) ->
     ipv6_addr_scope(Cs, Ar, Br, Compr, N, ?ipv6_hex_field(C1, C2, C3, C4));
 %%
 %% More than four characters field,
 %% or first IPv4 suffix field with more than three characters
-ipv6_addr([C1, C2, C3, C4, C5 | _], _Ar, _Br, _Compr, _N)
-  when ?is_char(C1), ?is_char(C2), ?is_char(C3), ?is_char(C4), ?is_char(C5) ->
-    throw(error). % Too wide field
+ipv6_addr([C1,C2,C3,C4|_], _Ar, _Br, _Compr, _N)
+  when ?is_char(C1), ?is_char(C2), ?is_char(C3), ?is_char(C3), ?is_char(C4)
+       ->                                         throw(error). % Too wide field
 
 ipv6_addr_done(N, Ar, Br, Compr, X) ->
     ipv6_addr_done(N+1, [X | Ar], Br, Compr).
@@ -871,14 +853,12 @@ ipv6_addr_done(N, Ar, Br, Compr) ->
     list_to_tuple(ipv6_addr_fill_zeros(N, Ar, Br, Compr)).
 
 %% IPv6 hex field
-ipv6_addr_field([], _Ar, _Br, _Compr, _N, _X) ->
-    throw(error); % Truncated after :
+ipv6_addr_field([], _Ar, _Br, _Compr, _N, _X) ->  throw(error); % Truncated
 ipv6_addr_field(Cs, Ar, Br, Compr, N, X) ->
     ipv6_addr(Cs, [X | Ar], Br, Compr, N+1).
 
 %% After %
-ipv6_addr_scope([], _Ar, _Br, _Compr, _N, _X) ->
-    throw(error); %<zone_id> has to be a non-null string (RFC 4007)
+ipv6_addr_scope([], _Ar, _Br, _Compr, _N, _X) ->  throw(error); % Null string
 ipv6_addr_scope(Cs, Ar, Br, Compr, N, X) ->
     ipv6_addr_scope_dec(Cs, [X | Ar], Br, Compr, N+1, 0).
 
@@ -889,16 +869,17 @@ ipv6_addr_scope_dec([C|Cs], Ar, Br, Compr, N, ScopeId) ->
         is_integer(C, $0, $9) ->
             ScopeId_1 = ScopeId*10 + C - $0,
             if  is_integer(ScopeId_1, 0, 16#ffff) ->
-                    ipv6_addr_scope_dec(Cs, Ar, Br, Compr, N, ScopeId_1);
-                true ->
-                    throw(error) % 16-bit overflow
+                    ipv6_addr_scope_dec(
+                      Cs, Ar, Br, Compr, N, ScopeId_1);
+                true ->                           throw(error) % 16-bit overflow
             end;
        ?is_char(C) ->
             %% Non-numerical <zone_id> - ignore it
             ipv6_addr_scope_str(Cs, Ar, Br, Compr, N)
     end.
 
-%% Check that scope_id is a string
+%% Check that scope_id is a string.
+%% XXX There should maybe be a max length check here
 ipv6_addr_scope_str([], Ar, Br, Compr, N) ->
     ipv6_addr_done(N, Ar, Br, Compr);
 ipv6_addr_scope_str([C|Cs], Ar, Br, Compr, N)
@@ -912,15 +893,13 @@ ipv6_addr_scope_done(ScopeId, Ar, Br, Compr, N) when is_integer(ScopeId) ->
     case ipv6_addr_fill_zeros(N, Ar, Br, Compr) of
         [X1, 0 | Xs] when
               X1 =:= 16#fe80;
-              X1 =:= 16#ff02 ->
-            list_to_tuple([X1, ScopeId | Xs]);
-        Xs when length(Xs) == 8 ->
-            throw(error) % Inappropriate address for scope id
+              X1 =:= 16#ff02 ->           list_to_tuple([X1, ScopeId | Xs]);
+        Xs when length(Xs) == 8 ->                throw(error) % Bad address
+%%% XXX We should maybe ignore this instead
     end.
 
 %% IPv4 suffix, first value in A
-ipv6_addr_v4(Cs, Ar, Br, Compr, N, A) ->
-    N =< 6 orelse throw(error), % Too many fields
+ipv6_addr_v4(Cs, Ar, Br, Compr, N, A) when is_integer(N, 0, 6) ->
     case list_pos($%, Cs) of
         0 ->
             %% No scope id suffix
@@ -932,26 +911,32 @@ ipv6_addr_v4(Cs, Ar, Br, Compr, N, A) ->
             {X6, X7} = ipv6_addr_v4(IPv4Tail, A),
             ipv6_addr_scope(
               ScopeIdSuffix, [X6 | Ar], Br, Compr, N+1, X7)
-    end.
+    end;
+ipv6_addr_v4(_, _Ar, _Br, _Compr, N, _A)
+  when is_integer(N) ->                           throw(error). % Too many fields
 
 ipv6_addr_v4(Cs, A) ->
     {A, B, C, D} = ipv4s_addr(Cs, [A], 2), % Parse suffix fields 2..4
     X6 = (A bsl 8) bor B,
-    X7 = (C bsl 8) bor D,
-    {X6, X7}.
+    X7 = (C bsl 8) bor D,                         {X6, X7}.
 
 ipv6_addr_fill_zeros(N, Ar, [], false) ->
-    if  N == 8 ->
-            lists:reverse(Ar);
-        N < 8 ->
-            throw(error) % Too few fields
+    if  N =:= 8 ->                                lists:reverse(Ar);
+        is_integer(N, 0, 7) ->                    throw(error) % Too few fields
     end;
 ipv6_addr_fill_zeros(N, Ar, Br, true) ->
-    if  N == 8 ->
-            lists:reverse(Br, lists:reverse(Ar));
-        N < 8 ->
+    if  N =:= 8 ->
+            Xs =
+                lists:reverse(
+                  Br, lists:reverse(Ar)),         Xs;
+        is_integer(N, 0, 7) ->
             %% Fill in the gap with zeros
-            lists:reverse(Br, dup(8-N, 0, lists:reverse(Ar)))
+            Xs =
+                lists:reverse(
+                  Br,
+                  dup(
+                    8 - N, 0,
+                    lists:reverse(Ar))),          Xs
     end.
 
 %% Return the position of element E in string L,
@@ -960,17 +945,17 @@ ipv6_addr_fill_zeros(N, Ar, Br, true) ->
 %%
 list_pos(E, L) -> list_pos(E, L, 1).
 %%
-list_pos(E, [E | _], N)             -> N;
+list_pos(E, [E | _], N) ->              N;
 list_pos(E, [_ | L], N)
   when is_integer(N), N >= 1 ->
     list_pos(E, L, N+1);
-list_pos(_, _,  _)                  -> 0.
+list_pos(_, _,  _) ->                   0.
 
 
 %% Duplicate E N times onto head of L
-dup(0, _, L) ->
-    L;
-dup(N, E, L) when is_integer(N), N >= 1 ->
+dup(0, _, L) ->                         L;
+dup(N, E, L)
+  when is_integer(N), N >= 1 ->
     dup(N-1, E, [E|L]).
 
 
