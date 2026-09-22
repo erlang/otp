@@ -105,6 +105,7 @@
 
 -include_lib("common_test/include/ct_event.hrl").
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 -define(CHECK(Cond,Term),
 	case (catch (Cond)) of
@@ -3113,6 +3114,27 @@ t_erts_internal_order(_Config) when is_list(_Config) ->
     -1 = erts_internal:cmp_term(0,2147483648),
     0  = erts_internal:cmp_term(2147483648,2147483648),
     1  = erts_internal:cmp_term(2147483648,0),
+
+    %% check that atom comparison in map keys is consistent across nodes
+    %% We use erl_eval to create atoms and reverse the order the keys are listed in the map
+    %% to make sure that the atom indexes are different.
+    CmpTerm =
+        fun(AMap, BMap) ->
+                {ok, Peer, Node} = ?CT_PEER(),
+                try
+                    erpc:call(Node,
+                              fun() ->
+                                      erts_internal:cmp_term(
+                                        erl_eval:eval_str(AMap ++ ".\n"),
+                                        erl_eval:eval_str(BMap ++ ".\n"))
+                              end)
+                after
+                    peer:stop(Peer)
+                end
+        end,
+    Res1 = CmpTerm("#{ bbb => 2, aaa => 1 }", "#{ bbb => 1, aaa => 2 }"),
+    Res2 = CmpTerm("#{ aaa => 1, bbb => 2 }", "#{ aaa => 2, bbb => 1 }"),
+    ?assertEqual(Res1, Res2),
 
     %% Make sure it's not the internal flatmap order
     %% where low indexed 'true' < 'a'.
