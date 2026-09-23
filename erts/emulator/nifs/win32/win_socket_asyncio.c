@@ -5473,6 +5473,19 @@ ERL_NIF_TERM esaio_close(ErlNifEnv*       env,
     /* Prepare for closing the socket */
     descP->readState  |= ESOCK_STATE_CLOSING;
     descP->writeState |= ESOCK_STATE_CLOSING;
+
+    /* Create the closeEnv + closeRef *before* do_stop().
+     *
+     * do_stop() calls CancelIoEx(), which lets the I/O completion
+     * threads run the abort/complete handlers and, once all request
+     * queues are drained, call esaio_stop(). esaio_stop() only sends
+     * the 'close' message when descP->closeEnv != NULL.  The closer
+     * could then block forever in socket:close/1 awaiting a message
+     * that was never sent.
+     */
+    descP->closeEnv = esock_alloc_env("esock_close_do - close-env");
+    descP->closeRef = MKREF(descP->closeEnv);
+
     if (do_stop(env, descP)) {
 
         // stop() has been scheduled - wait for it
@@ -5480,14 +5493,15 @@ ERL_NIF_TERM esaio_close(ErlNifEnv*       env,
                ("WIN-ESAIO", "esaio_close {%d} -> stop was scheduled\r\n",
                 descP->sock) );
 
-        // Create closeRef for the close msg that esock_stop() will send
-        descP->closeEnv = esock_alloc_env("esock_close_do - close-env");
-        descP->closeRef = MKREF(descP->closeEnv);
-
         return esock_make_ok2(env, CP_TERM(env, descP->closeRef));
 
     } else {
         // The socket may be closed - tell caller to finalize
+
+        esock_free_env("esaio_close - no stop", descP->closeEnv);
+        descP->closeEnv = NULL;
+        descP->closeRef = esock_atom_undefined;
+
         SSDBG( descP,
                ("WIN-ESAIO",
                 "esaio_close {%d} -> stop was called\r\n",
