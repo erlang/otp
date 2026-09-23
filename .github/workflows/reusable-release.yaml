@@ -197,9 +197,8 @@ jobs:
           else
             echo "Release does not exist, creating..."
             gh release create "${TAG}" --title "OTP ${VSN}" --latest=false \
-            gh release upload "${TAG}" --clobber \
-               artifacts/*.tar.gz \
-               artifacts/*.txt
+                artifacts/*.tar.gz \
+                artifacts/*.txt
           fi
 
       - name: Deploy on erlang.org
