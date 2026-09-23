@@ -4478,6 +4478,8 @@ ERL_NIF_TERM essio_sendmmsg(ErlNifEnv*       env,
          */
         unsigned int sentCount = (unsigned int) sendResult;
         ERL_NIF_TERM partials  = MKEL(env);
+        size_t       written   = 0;
+        size_t       maxLen    = 0;
         unsigned int k;
 
         ESOCK_ASSERT( sentCount <= msgCount );
@@ -4486,6 +4488,9 @@ ERL_NIF_TERM essio_sendmmsg(ErlNifEnv*       env,
             for (k = 0; k < iovecPtrs[i]->iovcnt; k++) {
                 expectedLen += iovecPtrs[i]->iov[k].iov_len;
             }
+            written += sendMmsghdrs[i].msg_len;
+            if (sendMmsghdrs[i].msg_len > maxLen)
+                maxLen = sendMmsghdrs[i].msg_len;
             if (sendMmsghdrs[i].msg_len != expectedLen) {
                 partials = MKC(env,
                                MKT2(env, MKI(env, (int) i),
@@ -4498,6 +4503,14 @@ ERL_NIF_TERM essio_sendmmsg(ErlNifEnv*       env,
         } else {
             ret = MKT3(env, esock_atom_ok, partials, MKUI(env, sentCount));
         }
+
+        /* Each sent message counts as a package, as in send_check_ok */
+        ESOCK_CNT_INC(env, descP, sockRef,
+                      esock_atom_write_pkg, &descP->writePkgCnt, sentCount);
+        ESOCK_CNT_INC(env, descP, sockRef,
+                      esock_atom_write_byte, &descP->writeByteCnt, written);
+        if (maxLen > descP->writePkgMax)
+            descP->writePkgMax = maxLen;
 
         /* Done: release the current writer, as in send_check_ok */
         if (descP->currentWriterP != NULL) {

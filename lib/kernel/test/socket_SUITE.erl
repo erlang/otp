@@ -161,6 +161,7 @@
          sendmmsg_select_timeout_tcp4/1,
          sendmmsg_writer_release_tcp4/1,
          sendmmsg_unsent_tail_udp4/1,
+         sendmmsg_counters_udp4/1,
 
          %% Socket IOCTL simple
          ioctl_simple1/1,
@@ -399,7 +400,8 @@ batch_cases() ->
      sendmmsg_dirty_scheduler_udp4,
      sendmmsg_select_timeout_tcp4,
      sendmmsg_writer_release_tcp4,
-     sendmmsg_unsent_tail_udp4
+     sendmmsg_unsent_tail_udp4,
+     sendmmsg_counters_udp4
     ].
 
 ioctl_cases() ->
@@ -15993,6 +15995,59 @@ sendmmsg_unsent_tail_udp4(_Config) when is_list(_Config) ->
             ok = socket:close(S)
         end
     ).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Test that sendmmsg updates the write counters: each message sent counts
+%% as a package, and messages not sent are not counted.
+%%
+sendmmsg_counters_udp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(
+        ?FUNCTION_NAME,
+        fun() ->
+            has_support_ipv4(),
+            has_sendmmsg_support()
+        end,
+        fun() ->
+            {ok, S} = socket:open(inet, dgram, udp),
+            ok = socket:bind(S, #{family => inet, addr => loopback, port => 0}),
+            {ok, SA} = socket:sockname(S),
+            #{write_tries := 0, write_fails := 0,
+              write_pkg := 0, write_byte := 0, write_pkg_max := 0} =
+                sendmmsg_write_counters(S),
+            %% The last message has two iov elements
+            Msgs1 = [#{addr => SA, iov => [<<0:(1 * 8)>>]},
+                     #{addr => SA, iov => [<<0:(10 * 8)>>]},
+                     #{addr => SA, iov => [<<0:(50 * 8)>>, <<0:(50 * 8)>>]}],
+            ok = socket:sendmmsg(S, Msgs1, [], infinity),
+            #{write_tries := 1, write_fails := 0,
+              write_pkg := 3, write_byte := 111, write_pkg_max := 100} =
+                sendmmsg_write_counters(S),
+            %% Smaller messages do not lower the max
+            Msgs2 = [#{addr => SA, iov => [<<0:(2 * 8)>>]}],
+            ok = socket:sendmmsg(S, Msgs2, [], infinity),
+            #{write_tries := 2, write_fails := 0,
+              write_pkg := 4, write_byte := 113, write_pkg_max := 100} =
+                sendmmsg_write_counters(S),
+            %% The second message exceeds the maximum UDP payload size,
+            %% so the kernel stops after the first message: only that one
+            %% is counted.
+            Good = #{addr => SA, iov => [<<0:(3 * 8)>>]},
+            Bad  = #{addr => SA, iov => [<<0:(70000 * 8)>>]},
+            {ok, [_, _]} = socket:sendmmsg(S, [Good, Bad, Good], [], infinity),
+            #{write_tries := 3, write_fails := 0,
+              write_pkg := 5, write_byte := 116, write_pkg_max := 100} =
+                sendmmsg_write_counters(S),
+            ok = socket:close(S),
+            ok
+        end
+    ).
+
+sendmmsg_write_counters(S) ->
+    #{counters := Counters} = socket:info(S),
+    maps:with([write_tries, write_fails, write_pkg, write_byte, write_pkg_max],
+              Counters).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
