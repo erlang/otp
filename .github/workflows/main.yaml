@@ -333,6 +333,7 @@ jobs:
     runs-on: ubuntu-latest
     if: always()
     needs:
+      - setup
       - pack
       - build-macos
       - build-ios
