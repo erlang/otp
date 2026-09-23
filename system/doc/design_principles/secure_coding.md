@@ -1026,6 +1026,13 @@ One issue with this being the potential for atom exhaustion, but more
 importantly you could potentially end up with a `mnesia` table containing
 harmful data ([`CWE-502`]). Other examples are `m:dets` and `m:disk_log`.
 
+The `erlang:binary_to_term/2` function can be used to deserialize data
+and must also only be used with trusted data. It is recommended to use
+both the `safe` flag, to avoid atom exhaustion ([`DSG-003`]), and
+the `non_executable` flag, to raise when deserializing external or
+anonymous functions. The latter protects untrusted data from potentially
+escalating into remote code execution.
+
 JSON is an example of a better format to use when communicating with untrusted
 entities. Erlang/OTP provides the `m:json` module for JSON encoding/decoding.
 XML is another example of a format that can be used. The [`xmerl`] application

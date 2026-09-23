@@ -1359,6 +1359,26 @@ The allowed options are:
   tjenixen
   ```
 
+- **`non_executable`** - Use this option when receiving binaries from a source
+  that should not be allowed to deliver executable terms.
+
+  When enabled, decoding fails with a `badarg` error if the binary contains
+  any function references, including anonymous funs (`fun () -> ... end`) and
+  external function references (`fun Module:Name/Arity`). This is useful when
+  the consumer never expects to receive a function from the producer and
+  wishes to defend against attacks that would otherwise smuggle a function
+  through the encoded term.
+
+  The `non_executable` option can be combined with `safe`.
+
+  ## Examples
+
+  ```erlang
+  1> Bin = term_to_binary(fun erlang:length/1).
+  2> binary_to_term(Bin, [non_executable]).
+  ** exception error: bad argument
+  ```
+
 - **`used`** - Changes the return value to `{Term, Used}` where `Used` is the
   number of bytes actually read from `Binary`.
 
@@ -1373,7 +1393,8 @@ The allowed options are:
   {<<131,119,5,104,101,108,108,111>>, <<"world">>}
   ```
 
-Failure: `badarg` if `safe` is specified and unsafe data is decoded.
+Failure: `badarg` if `safe` is specified and unsafe data is decoded, or if
+`non_executable` is specified and the binary contains a function reference.
 
 See also `term_to_binary/1`, `binary_to_term/1`, and `list_to_existing_atom/1`.
 """.
@@ -1381,7 +1402,7 @@ See also `term_to_binary/1`, `binary_to_term/1`, and `list_to_existing_atom/1`.
 -doc #{ category => terms }.
 -spec binary_to_term(Binary, Opts) -> term() | {term(), Used} when
       Binary :: ext_binary(),
-      Opt :: safe | used,
+      Opt :: safe | non_executable | used,
       Opts :: [Opt],
       Used :: pos_integer().
 binary_to_term(_Binary, _Opts) ->
