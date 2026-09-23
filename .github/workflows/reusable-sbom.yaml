@@ -234,11 +234,14 @@ jobs:
       # allows Dependabot to give us alert of the vendor libraries that use semantic versioning
       # it also allows dependencies to be looked up from github dependencies
       #
-      # trigger the upload only on merged pull requests
-      #
+      # The Dependency Submission API stores one snapshot per branch. We submit
+      # only on push to maint (the currently maintained release line) so the
+      # dependency graph reflects the vendored libraries actually shipping.
+      # The previous merged-PR gate never fired: the caller (main.yaml) uses a
+      # bare `pull_request:` trigger, which never delivers the `closed` action.
       #
       - name: Upload SBOM to Github Dependency API
-        if: ${{ github.event_name == 'pull_request' &&
-                github.event.action == 'closed'     &&
-                github.event.pull_request.merged == true }}
+        if: ${{ github.event_name == 'push' &&
+                github.ref == 'refs/heads/maint' &&
+                github.repository == 'erlang/otp' }}
         uses: advanced-security/spdx-dependency-submission-action@169d22427d74f3faf93504e70b03eede8dab272a # ratchet:advanced-security/spdx-dependency-submission-actionv0.2.0
