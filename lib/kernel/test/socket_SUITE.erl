@@ -159,6 +159,7 @@
          recvmmsg_dirty_scheduler_udp4/1,
          sendmmsg_dirty_scheduler_udp4/1,
          sendmmsg_select_timeout_tcp4/1,
+         sendmmsg_writer_release_tcp4/1,
          sendmmsg_unsent_tail_udp4/1,
 
          %% Socket IOCTL simple
@@ -397,6 +398,7 @@ batch_cases() ->
      recvmmsg_dirty_scheduler_udp4,
      sendmmsg_dirty_scheduler_udp4,
      sendmmsg_select_timeout_tcp4,
+     sendmmsg_writer_release_tcp4,
      sendmmsg_unsent_tail_udp4
     ].
 
@@ -15809,37 +15811,14 @@ sendmmsg_select_timeout_tcp4(_Config) when is_list(_Config) ->
             has_sendmmsg_support()
         end,
         fun() ->
-            {ok, L} = socket:open(inet, stream, tcp),
-            ok = socket:setopt(L, socket, rcvbuf, 4096),
-            ok = socket:bind(L, #{family => inet, addr => loopback, port => 0}),
-            ok = socket:listen(L),
-            {ok, LSA} = socket:sockname(L),
-            {ok, S} = socket:open(inet, stream, tcp),
-            ok = socket:setopt(S, socket, sndbuf, 4096),
-            ok = socket:connect(S, LSA),
-            {ok, R} = socket:accept(L),
-            %% Fill up both the send and the receive buffers
-            Payload = <<0:(16 * 1024 * 1024 * 8)>>,
-            {error, {timeout, _}} = socket:send(S, Payload, [], 100),
+            {L, S, R} = sendmmsg_full_tcp4(),
             Msgs = [#{iov => [<<"x">>]}],
             {error, timeout} = socket:sendmmsg(S, Msgs, [], 0),
             {error, timeout} = socket:sendmmsg(S, Msgs, [], 100),
-            Self = self(),
-            {Pid, MRef} =
-                spawn_monitor(
-                  fun() ->
-                          Self ! {self(), socket:sendmmsg(S, Msgs, [], infinity)}
-                  end),
-            receive
-                {Pid, Unexpected} ->
-                    ct:fail({unexpected_sendmmsg_result, Unexpected});
-                {'DOWN', MRef, process, Pid, Reason} ->
-                    ct:fail({unexpected_sender_exit, Reason})
-            after 500 ->
-                    ok
-            end,
+            Writer = sendmmsg_blocked_writer(S, Msgs),
             %% Drain the receiver until the blocked sendmmsg completes
-            ok = sendmmsg_drain(R, Pid, MRef),
+            [{Writer, ok}] = sendmmsg_drain_writers(R, [Writer]),
+            ok = sendmmsg_stop_writers([Writer]),
             ok = socket:close(S),
             ok = socket:close(R),
             ok = socket:close(L),
@@ -15847,25 +15826,137 @@ sendmmsg_select_timeout_tcp4(_Config) when is_list(_Config) ->
         end
     ).
 
-sendmmsg_drain(R, Pid, MRef) ->
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Test that a sendmmsg that succeeds after having waited for the socket
+%% to become writable releases the socket's current writer, so that the
+%% next writer, queued or new, gets to write.
+%% The writers are kept alive after their sendmmsg has returned, since
+%% a dying current writer is released by its monitor, hiding the issue.
+%%
+sendmmsg_writer_release_tcp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(30)),
+    tc_try(
+        ?FUNCTION_NAME,
+        fun() ->
+            has_support_ipv4(),
+            has_sendmmsg_support()
+        end,
+        fun() ->
+            {L, S, R} = sendmmsg_full_tcp4(),
+            Msgs = [#{iov => [<<"x">>]}],
+            %% First writer gets EAGAIN and becomes the current writer
+            Writer1 = sendmmsg_blocked_writer(S, Msgs),
+            %% Second writer gets queued behind the first one
+            Writer2 = sendmmsg_blocked_writer(S, Msgs),
+            %% The second writer only gets to write if the first one,
+            %% when done, activates it
+            Results = sendmmsg_drain_writers(R, [Writer1, Writer2]),
+            Expected = lists:sort([{Writer1, ok}, {Writer2, ok}]),
+            Expected = lists:sort(Results),
+            %% And a new writer only gets to write if the second one,
+            %% when done, has released the socket
+            ok = sendmmsg_drain_receiver(R),
+            ok = socket:send(S, <<"y">>, [], 5000),
+            ok = sendmmsg_stop_writers([Writer1, Writer2]),
+            ok = socket:close(S),
+            ok = socket:close(R),
+            ok = socket:close(L),
+            ok
+        end
+    ).
+
+%% Connected TCP sockets {Listen, Sender, Receiver}, with small buffers
+%% and both the send and the receive buffers filled up.
+sendmmsg_full_tcp4() ->
+    {ok, L} = socket:open(inet, stream, tcp),
+    ok = socket:setopt(L, socket, rcvbuf, 4096),
+    ok = socket:bind(L, #{family => inet, addr => loopback, port => 0}),
+    ok = socket:listen(L),
+    {ok, LSA} = socket:sockname(L),
+    {ok, S} = socket:open(inet, stream, tcp),
+    ok = socket:setopt(S, socket, sndbuf, 4096),
+    ok = socket:connect(S, LSA),
+    {ok, R} = socket:accept(L),
+    Payload = <<0:(16 * 1024 * 1024 * 8)>>,
+    {error, {timeout, _}} = socket:send(S, Payload, [], 100),
+    {L, S, R}.
+
+%% Spawn a process doing a sendmmsg with infinity timeout on a full
+%% socket and verify that it blocks. The process reports its result
+%% and then stays alive until told to stop.
+sendmmsg_blocked_writer(S, Msgs) ->
+    Self = self(),
+    Pid = spawn(fun() ->
+                        Self ! {self(), socket:sendmmsg(S, Msgs, [], infinity)},
+                        receive stop -> ok end
+                end),
+    _ = erlang:monitor(process, Pid),
     receive
-        {Pid, Result} ->
-            receive {'DOWN', MRef, process, Pid, _} -> ok end,
-            Result;
-        {'DOWN', MRef, process, Pid, Reason} ->
-            ct:fail({unexpected_sender_exit, Reason})
+        {Pid, Unexpected} ->
+            ct:fail({unexpected_sendmmsg_result, Unexpected});
+        {'DOWN', _, process, Pid, Reason} ->
+            ct:fail({unexpected_writer_exit, Reason})
+    after 500 ->
+            Pid
+    end.
+
+%% Drain the receiver until all writers have reported their result
+sendmmsg_drain_writers(R, Writers) ->
+    Deadline = erlang:monotonic_time(millisecond) + 10000,
+    sendmmsg_drain_writers(R, Writers, Deadline, []).
+
+sendmmsg_drain_writers(_R, [], _Deadline, Results) ->
+    Results;
+sendmmsg_drain_writers(R, Writers, Deadline, Results) ->
+    receive
+        {Pid, Result} when is_pid(Pid) ->
+            true = lists:member(Pid, Writers),
+            sendmmsg_drain_writers(
+              R, lists:delete(Pid, Writers), Deadline, [{Pid, Result} | Results]);
+        {'DOWN', _, process, Pid, Reason} ->
+            ct:fail({unexpected_writer_exit, Pid, Reason})
     after 0 ->
-            case socket:recv(R, 0, 100) of
-                {ok, _} ->
-                    sendmmsg_drain(R, Pid, MRef);
-                {error, timeout} ->
-                    sendmmsg_drain(R, Pid, MRef);
-                {error, {timeout, _}} ->
-                    sendmmsg_drain(R, Pid, MRef);
-                {error, _} = Error ->
-                    Error
+            case erlang:monotonic_time(millisecond) < Deadline of
+                true ->
+                    ok = sendmmsg_recv_some(R),
+                    sendmmsg_drain_writers(R, Writers, Deadline, Results);
+                false ->
+                    ct:fail({blocked_writers, Writers})
             end
     end.
+
+%% Drain the receiver until there is nothing more to read
+sendmmsg_drain_receiver(R) ->
+    case socket:recv(R, 0, 100) of
+        {ok, _} ->
+            sendmmsg_drain_receiver(R);
+        {error, timeout} ->
+            ok;
+        {error, {timeout, _}} ->
+            ok;
+        {error, _} = Error ->
+            Error
+    end.
+
+sendmmsg_recv_some(R) ->
+    case socket:recv(R, 0, 100) of
+        {ok, _} ->
+            ok;
+        {error, timeout} ->
+            ok;
+        {error, {timeout, _}} ->
+            ok;
+        {error, _} = Error ->
+            Error
+    end.
+
+sendmmsg_stop_writers(Writers) ->
+    lists:foreach(
+      fun(Pid) ->
+              Pid ! stop,
+              receive {'DOWN', _, process, Pid, normal} -> ok end
+      end, Writers).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

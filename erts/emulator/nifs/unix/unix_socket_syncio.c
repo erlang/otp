@@ -4498,6 +4498,19 @@ ERL_NIF_TERM essio_sendmmsg(ErlNifEnv*       env,
         } else {
             ret = MKT3(env, esock_atom_ok, partials, MKUI(env, sentCount));
         }
+
+        /* Done: release the current writer, as in send_check_ok */
+        if (descP->currentWriterP != NULL) {
+            ESOCK_ASSERT( DEMONP("essio_sendmmsg -> current writer",
+                                 env, descP, &descP->currentWriter.mon) == 0);
+        }
+        if (!esock_activate_next_writer(env, descP, sockRef)) {
+            SSDBG( descP,
+                   ("UNIX-ESSIO", "essio_sendmmsg(%T) {%d} -> no more writers\r\n",
+                    sockRef, descP->sock) );
+
+            descP->currentWriterP = NULL;
+        }
     }
 
 cleanup:
