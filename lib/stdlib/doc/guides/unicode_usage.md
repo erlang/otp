@@ -1093,7 +1093,7 @@ To open a file for writing and place the BOM first is even simpler:
 ```erlang
 open_bom_file_for_writing(File,Encoding) ->
     {ok,F} = file:open(File,[write,binary]),
-    ok = file:write(File,unicode:encoding_to_bom(Encoding)),
+    ok = file:write(F,unicode:encoding_to_bom(Encoding)),
     io:setopts(F,[{encoding,Encoding}]),
     {ok,F}.
 ```

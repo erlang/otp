@@ -64,11 +64,9 @@ commands.
 %%-----------------------------------------------------------------------
 
 -doc """
-Displays help information: all valid shell internal commands, and commands in
-this module.
+Displays help information about all valid commands in this module.
 """.
 -spec help() -> 'ok'.
-
 help() ->
     io:put_chars(<<"bt(Pid)    -- stack backtrace for a process\n"
                    "c(Mod)     -- compile and load module or file <Mod>\n"
@@ -113,8 +111,8 @@ help() ->
 %% c(Module)
 %%  Compile a module/file.
 
--doc "Works like [`c(Module, [])`](`c/2`).".
--spec c(Module) -> {'ok', ModuleName} | 'error' when
+-doc #{ equiv => c(Module, []) }.
+-spec c(Module) -> {'ok', ModuleName} | 'ok' | 'error' | {'error', Reason :: term()} when
       Module :: file:name(),
       ModuleName :: module().
 
@@ -147,7 +145,7 @@ Notice that purging the code means that any processes lingering in old code for
 the module are killed without warning. For more information, see the `m:code`
 module.
 """.
--spec c(Module, Options) -> {'ok', ModuleName} | 'error' when
+-spec c(Module, Options) -> {'ok', ModuleName} | 'ok' | 'error' | {'error', Reason :: term()} when
       Module :: file:name(),
       Options :: [compile:option()] | compile:option(),
       ModuleName :: module().
@@ -197,7 +195,7 @@ the module are killed without warning. For more information, see the `m:code`
 module.
 """.
 -doc(#{since => <<"OTP 20.0">>}).
--spec c(Module, Options, Filter) -> {'ok', ModuleName} | 'error' when
+-spec c(Module, Options, Filter) -> {'ok', ModuleName} | 'ok' | 'error' | {'error', Reason :: term()} when
       Module :: atom(),
       Options :: [compile:option()],
       Filter :: fun ((compile:option()) -> boolean()),
@@ -233,7 +231,7 @@ c(SrcFile, NewOpts, Filter, BeamFile, Info) ->
     format("Recompiling ~ts\n", [SrcFile]),
     safe_recompile(SrcFile, Options, BeamFile).
 
--type h_return() :: ok | {error, missing | {unknown_format, unicode:chardata()}}.
+-type h_return() :: ok | {error, atom() | {unknown_format, unicode:chardata()}}.
 -type hf_return() :: h_return() | {error, function_missing}.
 -type ht_return() :: h_return() | {error, type_missing}.
 -type hcb_return() :: h_return() | {error, callback_missing}.

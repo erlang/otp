@@ -267,8 +267,7 @@ prepare([], #sections{type = Type}) ->
 prepare(BadOptions, _) ->
     throw({badarg, BadOptions}).
 
--type section_name() :: shebang | comment | emu_args | body .
--type extract_option() :: compile_source | {section, [section_name()]}.
+-type extract_option() :: compile_source.
 -doc """
 Parses an escript and extracts its sections. This is the reverse of `create/2`.
 
