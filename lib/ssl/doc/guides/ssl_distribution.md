@@ -37,7 +37,10 @@ module.
 
 The security level depends on the parameters provided to the TLS connection
 setup. Erlang node cookies are however always used, as they can be used to
-differentiate between two different Erlang networks.
+differentiate between two different Erlang networks. With `inet_tcp_dist` the
+cookie is the only authentication of a connecting node. With `inet_tls_dist` it
+is still checked, after the TLS handshake, so a connecting node has to pass
+both the TLS options described below and the cookie challenge.
 
 To set up Erlang distribution over TLS:
 
@@ -213,15 +216,43 @@ untrusted certificate will be rejected. This option is preferably combined with
 `{fail_if_no_peer_cert, true}` or a client will still be accepted if it does not
 present any certificate.
 
-> #### Note {: .note }
-net_kernel:allow/1 node restrictions rely on verifying the peer
-certificate. To enforce them, the server must set `{verify,
-verify_peer}` and `{fail_if_no_peer_cert, true}` (default when
-verify_peer is set). Without these options, any node can connect
-regardless of the allowed list.
+> #### Note {: .info }
+>
+> With these options the server checks that the client certificate is issued by
+> a root it trusts. It does not by itself check that the certificate belongs to
+> the node that presents it: unless `net_kernel:allow/1` is in use, a certificate
+> issued by a trusted root is accepted whatever node name or address the
+> connecting node uses. With an allowed list, the server matches the subject
+> alternative names of the certificate against the hosts of the allowed nodes
+> and against the address of the connecting node, not against node names: a
+> certificate that names an allowed host, or that address, admits any node
+> name on that host or address, in the list or not; a certificate that names
+> neither, or carries no subject alternative name, is refused.
+
+> #### Warning {: .warning }
+>
+> With `{verify, verify_none}`, or with `{verify, verify_peer}` and
+> `{fail_if_no_peer_cert, false}`, the server accepts a connection from a node
+> that presents no certificate. TLS then encrypts the connection but does not
+> authenticate the connecting node, and the cookie is the only remaining
+> authentication, as with `inet_tcp_dist`. `net_kernel:allow/1` node
+> restrictions are then checked only against the node name the connecting node
+> declares, as with `inet_tcp_dist`, and that name is not authenticated. To tie
+> them to the peer certificate, the server must set `{verify, verify_peer}` and
+> `{fail_if_no_peer_cert, true}` (the default when `verify_peer` is set).
 
 A node started in this way is fully functional, using TLS as the distribution
 protocol.
+
+`inet_tls_dist` changes how the node communicates, not where it listens. The
+listener is bound like the one of `inet_tcp_dist`: on all interfaces, unless
+the Kernel parameter
+[`inet_dist_use_interface`](`e:kernel:kernel_app.md#inet_dist_use_interface`)
+is set or
+[`inet_dist_listen_options`](`e:kernel:kernel_app.md#inet_dist_listen_options`)
+carries an `{ip, Address}` option; both apply to `inet_tls_dist` unchanged.
+Binding is not authentication: a node that reaches the bound address still has
+to pass the checks above.
 
 ## verify_fun Configuration Example
 
