@@ -345,6 +345,8 @@ unicode_args_file(Config) when is_list(Config) ->
     end.
 
 env(Config) when is_list(Config) ->
+
+    %% Test that environment variables ERL_AFLAGS, ERL_FLAGS and ERL_ZFLAGS are parsed in correct order
     os:putenv("ERL_AFLAGS", "-MiscArg1 +#100 -extra +XtraArg1 +XtraArg2"),
     CmdLine = "+#200 -MiscArg2 -extra +XtraArg3 +XtraArg4",
     os:putenv("ERL_FLAGS", "-MiscArg3 +#300 -extra +XtraArg5"),
@@ -356,6 +358,20 @@ env(Config) when is_list(Config) ->
     verify_args(["+XtraArg1", "+XtraArg2", "+XtraArg3", "+XtraArg4",
 		       "+XtraArg5", "+XtraArg6"],
 		      Extra),
+    
+    %% Test that we can override the environment variables with command line arguments
+    EnvErlAFlags="-env ERL_AFLAGS \"-MiscArg5 +#500 -extra +XtraArg7 +XtraArg8\" ",
+    EnvErlFlags="-env ERL_FLAGS \"-MiscArg6 +#600 -extra +XtraArg9\" ",
+    EnvErlZFlags="-env ERL_ZFLAGS \"-MiscArg7 +#700 -extra +XtraArg10\" ",
+
+    {EmuEnv, MiscEnv, ExtraEnv} = emu_args(CmdLine ++ EnvErlAFlags ++ EnvErlFlags ++ EnvErlZFlags),
+    verify_args(["-#500", "-#200", "-#600", "-#700"], EmuEnv),
+    verify_args(["-MiscArg5", "-MiscArg2", "-MiscArg6", "-MiscArg7"],
+                      MiscEnv),
+    verify_args(["+XtraArg7", "+XtraArg8", "+XtraArg3", "+XtraArg4",
+                       "+XtraArg9", "+XtraArg10"],
+                      ExtraEnv),
+
     ok.
 
 args_file_env(Config) when is_list(Config) ->

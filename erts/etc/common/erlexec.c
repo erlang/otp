@@ -475,6 +475,19 @@ int main(int argc, char **argv)
     free_env_val(s);
 #endif
 
+    i = 1;
+
+    /* We parse -env before initial_argv_massage so that they are used for ERL_*FLAGS */
+    while (i < argc) {
+        if (strcmp(argv[i], "-env") == 0) { /* -env VARNAME VARVALUE */
+            NEXT_ARG_CHECK();
+            i += 1;
+            NEXT_ARG_CHECK_NAMED("-env");
+            set_env(argv[i], argv[i+1]);
+        }
+        i += 1;
+    }
+
     initial_argv_massage(&argc, &argv); /* Merge with env; expand -args_file */
 
     i = 1;
@@ -722,11 +735,7 @@ int main(int argc, char **argv)
 		    } else if (strcmp(argv[i], "-emu_qouted_cmd_exit") == 0) {
 			print_qouted_cmd_exit = 1;
 		    } else if (strcmp(argv[i], "-env") == 0) { /* -env VARNAME VARVALUE */
-                        NEXT_ARG_CHECK();
-                        i += 1;
-                        NEXT_ARG_CHECK_NAMED("-env");
-			set_env(argv[i], argv[i+1]);
-			i += 1;
+                        i += 2; /* already parsed earlier */
 		    } else if (strcmp(argv[i], "-epmd") == 0) {
                         NEXT_ARG_CHECK();
 			epmd_prog = argv[i+1];
