@@ -2271,26 +2271,27 @@ scan_binary(<<>>, Bin, Acc) ->
     [NonEmpty || NonEmpty <- lists:reverse([Bin | Acc]), NonEmpty =/= <<>>]. 
 
 lookup_vts(Data) ->
-    try
-        %% Check that data starts with a known VTS sequence e.g. \e[34m for blue
-        %% throws {blue, <<\e[34m>>, Rest} on success.
-        F = fun(<<VTSCSI, VtsPrefixedData/binary>>, Key, <<CSI, Value/binary>>) -> 
-                case VtsPrefixedData of
-                    <<Value:(byte_size(Value))/binary, Rest/binary>> when CSI =:= $\e; CSI =:= 155 ->
-                        [{Key, <<VTSCSI, Value/binary>>, Rest}];
-                    _ ->
-                        []
-                end
-            end,
-        %% There may be multiple matches since some VTSs are prefixes of other VTSs
-        %% e.g. `reset` is a prefix of `reset_underline_color`.
-        %% We want to find the longest match, so we take the last one after sorting by length.
-        case lists:flatten([F(Data, Key, Value) || Key := Values <- get_vts_mappings(), Value <- Values]) of
-            [] -> undefined;
-            Result -> lists:last(lists:keysort(2, Result))
-        end
-    catch throw:KeyValueRest ->
-        KeyValueRest
+    %% Check that data starts with a known VTS sequence e.g. \e[34m for blue
+    F = fun(<<VTSCSI, VtsPrefixedData/binary>>, Key, <<CSI, Value/binary>>) -> 
+            case VtsPrefixedData of
+                <<Value:(byte_size(Value))/binary, Rest/binary>> when CSI =:= $\e; CSI =:= 155 ->
+                    [{Key, <<VTSCSI, Value/binary>>, Rest}];
+                _ ->
+                    []
+            end
+        end,
+    %% We use `maps:iterator/1` to get the mappings in a deterministic order, so that we can
+    %% if there are multiple mappings to the same VTS, we always return the same one. For example
+    %% `bold` and `bright`.
+    case lists:flatten([F(Data, Key, Value) ||
+                Key := Values <- maps:iterator(get_vts_mappings(), ordered), Value <- Values]) of
+        [] -> undefined;
+        Result ->
+            %% There may be multiple matches since some VTSs are prefixes of other VTSs
+            %% e.g. `alternate_character_set_mode_off` ("\e(B") is a prefix of
+            %% `reset` ("\e(B\e[m"). We want to find the longest match, so we take the last
+            %% one after sorting by length.
+            lists:last(lists:keysort(2, Result))
     end.
 
 -doc #{ equiv => render(Data, []) }.
