@@ -4399,14 +4399,6 @@ ERL_NIF_TERM essio_sendmmsg(ErlNifEnv*       env,
         }
     }
 
-    /* Initialize arrays to ensure safe cleanup on early exit.
-     * This is especially important for iovecPtrs which may not be
-     * set if validation fails before enif_inspect_iovec() is called.
-     */
-    for (i = 0; i < msgCount; i++) {
-        iovecPtrs[i] = NULL;
-    }
-
     /* Process each message */
     i = 0;
     tail = eMsgs;
