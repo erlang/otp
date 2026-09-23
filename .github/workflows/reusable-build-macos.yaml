@@ -64,9 +64,19 @@ jobs:
         id: brew-fingerprint
         shell: bash
         run: |
+          set -x
           export HOMEBREW_NO_ENV_HINTS=1
+          if ! command -v brew >/dev/null 2>&1; then
+              echo "brew not found on $(uname -m) runner; skipping fingerprint"
+              echo "value=no-brew" >> "$GITHUB_OUTPUT"
+              exit 0
+          fi
           deps=$(brew deps --include-build --include-optional --include-test --include-requirements wxwidgets | sort -u)
-          manifest=$(printf '%s\n' "$deps" | xargs brew list --versions | sort)
+          # brew list --versions exits non-zero for deps that are not
+          # installed on this runner image; that is expected here (we are
+          # only fingerprinting what is present), so do not let it abort
+          # the step under 'set -o pipefail'.
+          manifest=$(printf '%s\n' "$deps" | xargs -r brew list --versions 2>/dev/null | sort || true)
           fingerprint=$(printf '%s\n' "$manifest" | shasum -a 256 | awk '{print $1}')
           echo "value=$fingerprint" >> "$GITHUB_OUTPUT"
 
