@@ -4377,13 +4377,14 @@ ERL_NIF_TERM essio_sendmmsg(ErlNifEnv*       env,
         msgCount = ESOCK_MMSG_MAX;
 
     {
+        size_t wCtrlSz = descP->wCtrlSz;
         size_t mmsghdrs_sz     = msgCount * sizeof(struct mmsghdr);
         size_t addrs_sz        = msgCount * sizeof(ESockAddress);
         size_t ctrlBufs_sz     = msgCount * sizeof(char*);
         size_t ctrlBufLens_sz  = msgCount * sizeof(size_t);
         size_t ctrlBufUseds_sz = msgCount * sizeof(size_t);
         size_t iovecPtrs_sz    = msgCount * sizeof(ErlNifIOVec*);
-        size_t ctrlBufData_sz  = msgCount * descP->wCtrlSz;
+        size_t ctrlBufData_sz  = msgCount * wCtrlSz;
         size_t total_sz = mmsghdrs_sz + addrs_sz + ctrlBufs_sz + ctrlBufLens_sz + ctrlBufUseds_sz + iovecPtrs_sz + ctrlBufData_sz;
         ESOCK_ASSERT((heapPool = (char*) MALLOC(total_sz)) != NULL );
         sys_memzero(heapPool, total_sz);
@@ -4395,7 +4396,7 @@ ERL_NIF_TERM essio_sendmmsg(ErlNifEnv*       env,
         iovecPtrs    = (ErlNifIOVec**) (heapPool + mmsghdrs_sz + addrs_sz + ctrlBufs_sz + ctrlBufLens_sz + ctrlBufUseds_sz);
         ctrlBufData  = (char*) (heapPool + mmsghdrs_sz + addrs_sz + ctrlBufs_sz + ctrlBufLens_sz + ctrlBufUseds_sz + iovecPtrs_sz);
         for (i = 0; i < msgCount; i++) {
-            ctrlBufs[i] = ctrlBufData + (i * descP->wCtrlSz);
+            ctrlBufs[i] = ctrlBufData + (i * wCtrlSz);
         }
     }
 
