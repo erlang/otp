@@ -104,8 +104,11 @@
                export_all         = false :: boolean(),
 
                %% signatures: used to create signatures from it.
-               signatures = #{} :: #{{FunName    :: atom(), Arity      :: non_neg_integer()}
-                                     => {FunName    :: atom(),
+               signatures = #{} :: #{{Kind       :: function | callback,
+                                      FunName    :: atom(),
+                                      Arity      :: non_neg_integer()}
+                                     => {Kind       :: function | callback,
+                                         FunName    :: atom(),
                                          ListOfVars :: [atom()],
                                          Arity      :: non_neg_integer()}},
 
@@ -406,7 +409,8 @@ extract_signature_from_spec0({attribute, Anno, Tag, Form}, State) when Tag =:= s
 
       true ?= is_list(Vars),
       Arity ?= length(Vars),
-      update_signature0(State, Anno, {Name, reverse(Vars), Arity})
+      Kind = case Tag of spec -> function; callback -> callback end,
+      update_signature0(State, Anno, {Kind, Name, reverse(Vars), Arity})
    else
       _ ->
          State
@@ -431,9 +435,9 @@ extract_args_from_spec({{Name, Arity}, Types}) ->
 extract_args_from_spec({{_Mod, Name, Arity}, Types}) ->
    extract_args_from_spec({{Name, Arity}, Types}).
 
-update_signature0(#docs{signatures = Signatures}=State, _Anno, {FunName, Vars, Arity}=Signature)
+update_signature0(#docs{signatures = Signatures}=State, _Anno, {Kind, FunName, Vars, Arity}=Signature)
   when is_atom(FunName) andalso is_list(Vars) andalso is_number(Arity) ->
-   State#docs{signatures = Signatures#{{FunName, Arity} => Signature}}.
+   State#docs{signatures = Signatures#{{Kind, FunName, Arity} => Signature}}.
 
 
 %% Documentation tracking is a two-step (stateful phase).
@@ -1018,7 +1022,7 @@ extract_documentation_from_funs({function, _Anno0, F, A, _Body}=AST,
    {Doc1, Anno1} = fetch_doc_and_anno(State, AST),
    case sets:is_element({F, A}, ExpFuns) orelse State#docs.export_all of
       true ->
-         {Signature, DocsWithoutSignature} = extract_signature(Doc1, State, F, A),
+         {Signature, DocsWithoutSignature} = extract_signature(function, Doc1, State, F, A),
          AttrBody = {function, F, A},
          gen_doc(Anno1, AttrBody, Signature, DocsWithoutSignature, State);
       false ->
@@ -1111,7 +1115,7 @@ info_string(String) when is_list(String) ->
 %% Generates the documentation inferring the signature from the documentation.
 gen_doc_with_signature({Attr, _Anno0, F, A, Args}=AST, State) ->
     {Doc1, Anno1} = fetch_doc_and_anno(State, AST),
-    {Signature, DocsWithoutSignature} = extract_signature(Doc1, State, F, A, Args),
+    {Signature, DocsWithoutSignature} = extract_signature(Attr, Doc1, State, F, A, Args),
     AttrBody = {Attr, F, A},
     gen_doc(Anno1, AttrBody, Signature, DocsWithoutSignature, State).
 
@@ -1136,12 +1140,12 @@ fun_to_varargs({var,_,_} = Name) ->
 fun_to_varargs(Else) ->
    Else.
 
-extract_signature(Doc, State, F, A) ->
-   extract_signature(Doc, State, F, A, [invalid]).
-extract_signature(Doc, State, F, A, Args) ->
+extract_signature(Kind, Doc, State, F, A) ->
+   extract_signature(Kind, Doc, State, F, A, [invalid]).
+extract_signature(Kind, Doc, State, F, A, Args) ->
    %% order of the strategy matters
    StrategyOrder = [fun signature_strategy_doc_attr/5,
-                    fun signature_strategy_spec/5,
+                    make_signature_strategy_spec(Kind),
                     fun signature_strategy_args/5,
                     fun signature_strategy_default/5],
 
@@ -1166,15 +1170,25 @@ signature_strategy_doc_attr(Doc, _State, F, A, _Args) ->
          false
    end.
 
-signature_strategy_spec(Doc, State, F, A, _Args) ->
-   case maps:get({F, A}, State#docs.signatures, none) of
-      {F, Vars, A} ->
-         VarString = join(", ",[atom_to_list(Var) || Var <- Vars]),
-         Signature = unicode:characters_to_list(io_lib:format("~p(~s)", [F, VarString])),
-         {Signature, Doc};
-      none ->
-         false
-   end.
+%% Builds the spec-based signature strategy for a given kind. Callbacks and
+%% functions/specs are stored in separate namespaces in the signatures map so
+%% that a `-callback foo/1` and a `-spec foo/1` (with a function `foo/1`) do
+%% not clobber each other's argument names (GH-11584). Types never store a
+%% signature here, so they never match.
+make_signature_strategy_spec(Kind) when Kind =:= function; Kind =:= callback ->
+   fun (Doc, State, F, A, _Args) ->
+      case maps:get({Kind, F, A}, State#docs.signatures, none) of
+         {Kind, F, Vars, A} ->
+            VarString = join(", ",[atom_to_list(Var) || Var <- Vars]),
+            Signature = unicode:characters_to_list(io_lib:format("~p(~s)", [F, VarString])),
+            {Signature, Doc};
+         none ->
+            false
+      end
+   end;
+make_signature_strategy_spec(_Kind) ->
+   %% Types (and any other kind) have no spec-derived signature stored.
+   fun (_Doc, _State, _F, _A, _Args) -> false end.
 
 signature_strategy_args(Doc, _State, F, _A, Args) ->
    case all(fun is_var_without_underscore/1, Args)  of
