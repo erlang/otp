@@ -527,15 +527,26 @@ canonical_arg(R0) ->
 expand(any) -> {'-inf','+inf'};
 expand({_,_}=R) -> R.
 
-normalize({'-inf','-inf'}) ->
-    {'-inf',-1};
-normalize({'-inf','+inf'}) ->
+normalize({A,B}) ->
+    normalize(inf_cap(A), inf_cap(B)).
+
+normalize('-inf', '-inf') ->
+    %% It is important that we don't suddenly widen the range.
+    %% Therefore, we can't set the upper end of the range to -1, which
+    %% we used to do.
+    Max = (-1 bsl ?NUM_BITS) + 1,
+    {'-inf',Max};
+normalize('-inf', '+inf') ->
     any;
-normalize({'+inf','+inf'}) ->
-    {0,'+inf'};
-normalize({Min,Max}=T) ->
+normalize('+inf', '+inf') ->
+    %% It is important that we don't suddenly widen the range.
+    %% Therefore, we can't set the lower end of the range to 0, which
+    %% we used to do.
+    Min = (1 bsl ?NUM_BITS) - 1,
+    {Min,'+inf'};
+normalize(Min, Max) ->
     true = inf_ge(Max, Min),
-    T.
+    {Min,Max}.
 
 clamp(V, A, B) ->
     inf_min(inf_max(V, A), B).
