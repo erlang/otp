@@ -332,7 +332,9 @@ applications are started. If not supplied, it defaults to `serial`.
 
 `Mode` can also be `{concurrent, Limit}` where `Limit` is a positive integer
 or `infinity`. `Limit` controls the maximum number of concurrent application
-starts when in `concurrent` mode. Defaults to `infinity` (no limit).
+starts when in `concurrent` mode. Defaults to the number of `schedulers_online`
+(i.e.,`erlang:system_info(schedulers_online)`) but this is not something to
+rely on and may change if we observe that dirty schedulers are the limiting factor.
 
 Returns `{ok, AppNames}` for a successful start or for an already started
 application (which is, however, omitted from the `AppNames` list).
@@ -356,7 +358,7 @@ ensure_all_started(Application, Type, Mode) when is_atom(Application) ->
 ensure_all_started(Applications, Type, serial) when is_list(Applications) ->
     ensure_all_started_1(Applications, Type, serial, infinity);
 ensure_all_started(Applications, Type, concurrent) when is_list(Applications) ->
-    ensure_all_started_1(Applications, Type, concurrent, infinity);
+    ensure_all_started_1(Applications, Type, concurrent, erlang:system_info(schedulers_online));
 ensure_all_started(Applications, Type, {concurrent, Limit}) when is_list(Applications),
       is_integer(Limit), Limit > 0 ->
     ensure_all_started_1(Applications, Type, concurrent, Limit);
