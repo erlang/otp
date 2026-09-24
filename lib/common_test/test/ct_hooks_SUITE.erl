@@ -703,7 +703,11 @@ test_events(minimal_and_maximal_cth) ->
     ];
 
 test_events(faulty_cth_undef) ->
-    FailReasonStr = "undef_cth:pre_init_per_suite/3 CTH call failed",
+    FailReasonStr = fun(S) ->
+        true = lists:prefix(
+            "undef_cth:pre_init_per_suite/3 CTH call failed:\n", S),
+        match
+    end,
     FailReason = {ct_cth_empty_SUITE,init_per_suite,
 		  {failed,FailReasonStr}},
     [
@@ -2924,7 +2928,10 @@ test_events(crash_groups) ->
      {?eh,tc_start,{ct_framework,error_in_suite}},
      {?eh,tc_done,{ct_framework,error_in_suite,
                    {failed,
-                    {error,"all_and_groups_cth:post_groups/2 CTH call failed"}}}},
+                    {error,fun(S) ->
+                        true = lists:prefix(
+                            "all_and_groups_cth:post_groups/2 CTH call failed:", S),
+                        match end}}}},
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,cth,{empty_cth,terminate,[[]]}},
      {?eh,stop_logging,[]}
@@ -2944,7 +2951,10 @@ test_events(crash_all) ->
      {?eh,tc_start,{ct_framework,error_in_suite}},
      {?eh,tc_done,{ct_framework,error_in_suite,
                    {failed,
-                    {error,"all_and_groups_cth:post_all/3 CTH call failed"}}}},
+                    {error,fun(S) ->
+                        true = lists:prefix(
+                            "all_and_groups_cth:post_all/3 CTH call failed:", S),
+                        match end}}}},
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,cth,{empty_cth,terminate,[[]]}},
      {?eh,stop_logging,[]}
