@@ -73,7 +73,12 @@ jobs:
         uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # ratchet:actions/cache@v5.0.3
         with:
           path: wxWidgets
-          key: wxWidgets-${{ env.WXWIDGETS_VERSION }}-${{ steps.image.outputs.os }}
+          # The cached directory is a built wxWidgets that bakes in WebView2 and setup.h edits,
+          # plus the build command -- all defined in this workflow.
+          #
+          # We hash the workflow file so any change to those build-affecting inputs
+          # invalidates the cache (otherwise it would be silently skipped by the cache-hit on the build steps).
+          key: wxWidgets-${{ env.WXWIDGETS_VERSION }}-${{ steps.image.outputs.os }}-${{ hashFiles('.github/workflows/reusable-build-windows.yaml') }}
 
       # actions/cache on Windows sometimes does not set cache-hit even though there was one. Setting it manually.
       - name: Set wxWidgets cache
