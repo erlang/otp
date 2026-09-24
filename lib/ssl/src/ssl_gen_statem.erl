@@ -745,8 +745,12 @@ handle_common_event(internal, {handshake, {Handshake, Raw}}, StateName,
 handle_common_event(internal, {protocol_record, TLSorDTLSRecord}, StateName,
                     #state{static_env = #static_env{protocol_cb = Connection}} = State) ->
     Connection:handle_protocol_record(TLSorDTLSRecord, StateName, State);
-handle_common_event(timeout, hibernate, _, _) ->
-    {keep_state_and_data, [hibernate]};
+handle_common_event(timeout, hibernate, _, #state{connection_states = ConnectionStates} = State) ->
+    %% The AEAD handles are a cache; drop them so that an idle connection
+    %% does not hold one per direction. The next record recreates them.
+    {keep_state, State#state{connection_states =
+                                 ssl_record:drop_aead_handles(ConnectionStates)},
+     [hibernate]};
 handle_common_event({timeout, handshake}, close, _StateName,
                     #state{recv = #recv{from = StartFrom} = Recv} = State) ->
     {stop_and_reply,
