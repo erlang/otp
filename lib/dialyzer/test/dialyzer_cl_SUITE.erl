@@ -1,3 +1,25 @@
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright 2021 Facebook, Inc. and its affiliates.
+%% Copyright Ericsson AB 2023-2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+%%
 -module(dialyzer_cl_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
@@ -11,7 +33,8 @@
 -export([
     can_add_multiple_plts_to_another_plt/1,
     unknown_function_warning_includes_callsite/1,
-    call_to_missing_warning_includes_callsite/1
+    call_to_missing_warning_includes_callsite/1,
+    bad_pa_dir_returns_error/1
 ]).
 
 suite() -> [{timetrap, {minutes, 3}}].
@@ -20,7 +43,8 @@ all() ->
     [
         can_add_multiple_plts_to_another_plt,
         unknown_function_warning_includes_callsite,
-        call_to_missing_warning_includes_callsite
+        call_to_missing_warning_includes_callsite,
+        bad_pa_dir_returns_error
     ].
 
 init_per_suite(Config) ->
@@ -144,6 +168,35 @@ can_add_multiple_plts_to_another_plt(Config) when is_list(Config) ->
                      {plts, [ErtsPlt, StdlibPlt]},
                      {output_plt, OutputPlt}])),
 
+    ok.
+
+%% Regression test: a throw raised in the `of` body of the try/of in
+%% dialyzer_cl_parse:start/1 used to escape the surrounding catch,
+%% because a try/of only runs its catch clauses over the guarded
+%% expression, not over the `of` body. A non-existent -pa directory
+%% makes postprocess_side_effects/1 call cl_error/1, which throws
+%% {dialyzer_cl_parse_error, _} from the `of` body. Before the fix this
+%% escaped as {nocatch, ...} and crashed the CLI with a non-standard
+%% exit status instead of the documented graceful error.
+%%
+%% start/1 takes the argument list directly, so we can drive the exact
+%% parsing path without spawning a node, and assert that it returns
+%% {error, Msg} (which the CLI turns into a clean "dialyzer: <msg>"
+%% diagnostic) rather than raising.
+bad_pa_dir_returns_error(Config) when is_list(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    BadDir = filename:join(PrivDir, "this_dir_does_not_exist"),
+    %% Sanity: the directory really must not exist for the -pa side
+    %% effect to fail with {error, bad_directory}.
+    false = filelib:is_dir(BadDir),
+
+    Res = dialyzer_cl_parse:start(["-pa", BadDir, "some_file.beam"]),
+
+    %% Before the fix this call raised {dialyzer_cl_parse_error, _};
+    %% now it must return a clean error tuple.
+    ?assertMatch({error, _}, Res),
+    {error, Msg} = Res,
+    ?assert(string:find(Msg, "Bad directory for -pa") =/= nomatch),
     ok.
 
 compile(Config, Module, CompileOpts) ->
