@@ -45,17 +45,20 @@
 #include <signal.h>
 #include <locale.h>
 #if defined(HAVE_TERMCAP)
-#include <termios.h>
-#if defined(HAVE_NCURSES_CURSES_H)
-#include <ncurses/curses.h>
-#include <ncurses/term.h>
-#elif defined(HAVE_CURSES_H) && defined(HAVE_TERM_H)
-#include <curses.h>
-#include <term.h>
-#else
+#  include <termios.h>
+#  if defined(HAVE_NCURSES_CURSES_H)
+#    include <ncurses/curses.h>
+#    include <ncurses/term.h>
+#  elif defined(HAVE_CURSES_H) && defined(HAVE_TERM_H)
+#    include <curses.h>
+#    include <term.h>
+#  else
 /* We detected TERMCAP support, but could not find the correct headers to include */
-#undef HAVE_TERMCAP
-#endif
+#    undef HAVE_TERMCAP
+#  endif
+#  if !defined(NCURSES_CONST)
+#    define NCURSES_CONST
+#  endif
 #endif
 #ifndef __WIN32__
 #include <unistd.h>
