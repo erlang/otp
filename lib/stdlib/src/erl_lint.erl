@@ -2867,6 +2867,10 @@ gexpr({call,Anno,{atom,_Ar,is_record},[E0,{atom,_,_Name},{Type,_,_}]},
 gexpr({call,Anno,{atom,_Ar,is_record},[_,_,_]=Asvt0}, Vt, St0) ->
     {Asvt,St1} = gexpr_list(Asvt0, Vt, St0),
     {Asvt,add_error(Anno, illegal_guard_expr, St1)};
+gexpr({call,_Anno,{remote,_,{atom,_,erlang},{atom,_,is_record}},
+       [E0,{atom,_,_},{Type,_,_}]},
+      Vt, St0) when Type =:= integer; Type =:= atom ->
+    gexpr(E0, Vt, St0);
 gexpr({call,Anno,{remote,_,{atom,_,erlang},{atom,_,is_record}=Isr},[_,_,_]=Args},
       Vt, St0) ->
     gexpr({call,Anno,Isr,Args}, Vt, St0);

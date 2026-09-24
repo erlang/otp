@@ -5830,6 +5830,12 @@ native_records(Conf) ->
            """,
            [],
            []},
+          {no_auto_import_guard,
+            <<"-compile([no_auto_import]).
+              t(X) when erlang:is_record(X, mod, a) -> ok.
+             ">>,
+           [],
+           []},
           {redefine_imported_native_record_1,
            <<"-record #a{}.
               -record(b, {}).
