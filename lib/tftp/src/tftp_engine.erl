@@ -259,9 +259,9 @@ daemon_loop(#daemon_state{config = DaemonConfig,
                     Reply = #tftp_msg_error{code = enospc, text = "Too many connections"},
                     Peer = peer_info(ServerConfig),
                     warning_msg(DaemonConfig,
-				"Daemon has too many connections (~p)."
-				"\n\tRejecting request from ~p\n",
-				[N, Peer]),
+                                "Daemon has too many connections (~p)."
+                                "\n\tRejecting request from ~p\n",
+                                [N, Peer]),
                     send_msg(ServerConfig, daemon, Reply),
                     ?MODULE:daemon_loop(State);
                 #tftp_decode_error{reply = Reply} ->

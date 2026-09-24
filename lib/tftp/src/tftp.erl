@@ -126,8 +126,8 @@ in parallel with the ongoing one, the server consumes less resources.
 Information about the peer provided for callback.
 """.
 -type peer() :: {PeerType :: inet | inet6 | undefined,
-		 PeerHost :: string(),
-		 PeerPort :: inet:port_number()}.
+                 PeerHost :: string(),
+                 PeerPort :: inet:port_number()}.
 -doc """
 Access mode.
 """.
@@ -243,8 +243,8 @@ All options most of them common to the client and server.
 Error reason codes.
 """.
 -type error_code() :: undef | enoent | eacces | enospc |
-		      badop | eexist | baduser | badopt | badblk |
-		      pos_integer().
+                      badop | eexist | baduser | badopt | badblk |
+                      pos_integer().
 
 
 -doc """
@@ -311,8 +311,8 @@ functions.
 """.
 -doc(#{since => <<"OTP 18.1">>}).
 -callback read(State :: term()) -> {more, binary(), NewState :: term()} |
-				   {last, binary(), ResultState :: term()} |
-				   {error, {Code :: error_code(), string()}}.
+                                   {last, binary(), ResultState :: term()} |
+                                   {error, {Code :: error_code(), string()}}.
 
 -doc """
 Writes a chunk to the file.

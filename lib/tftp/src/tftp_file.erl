@@ -166,14 +166,14 @@ open(Peer, Access, Filename, Mode, NegotiatedOptions, State) ->
 
 do_open(#state{ filename = Filename} = State, Options) ->
     case file:open(Filename, file_options(State)) of
-	{ok, Fd} ->
-	    {ok, Options,
+        {ok, Fd} ->
+            {ok, Options,
              State#state{
                fd = Fd,
                options = Options,
                blksize = lookup_blksize(Options) }};
-	{error, Reason} when is_atom(Reason) ->
-	    {error, file_error(Reason)}
+        {error, Reason} when is_atom(Reason) ->
+            {error, file_error(Reason)}
     end.
 
 file_options(State) ->
@@ -214,19 +214,19 @@ file_error(Reason) when is_atom(Reason) ->
 read(#state{access = read} = State) ->
     BlkSize = State#state.blksize,
     case file:read(State#state.fd, BlkSize) of
-	{ok, Bin} when is_binary(Bin), byte_size(Bin) =:= BlkSize ->
-	    Count = State#state.count + byte_size(Bin),
-	    {more, Bin, State#state{count = Count}};
-	{ok, Bin} when is_binary(Bin), byte_size(Bin) < BlkSize ->
-	    _ = file:close(State#state.fd),
-	    Count = State#state.count + byte_size(Bin),
-	    {last, Bin, Count};
-	eof ->
-	    _ = file:close(State#state.fd),
-	    {last, <<>>, State#state.count};
-	{error, Reason} ->
-	    _ = file:close(State#state.fd),
-	    {error, file_error(Reason)}
+        {ok, Bin} when is_binary(Bin), byte_size(Bin) =:= BlkSize ->
+            Count = State#state.count + byte_size(Bin),
+            {more, Bin, State#state{count = Count}};
+        {ok, Bin} when is_binary(Bin), byte_size(Bin) < BlkSize ->
+            _ = file:close(State#state.fd),
+            Count = State#state.count + byte_size(Bin),
+            {last, Bin, Count};
+        eof ->
+            _ = file:close(State#state.fd),
+            {last, <<>>, State#state.count};
+        {error, Reason} ->
+            _ = file:close(State#state.fd),
+            {error, file_error(Reason)}
     end;
 read(State) ->
     %% Handle upgrade from old releases. Please, remove this clause in next release.
@@ -294,11 +294,11 @@ write(Bin, State) ->
 abort(_Code, _Text, #state{fd = Fd, access = Access} = State) ->
     _ = file:close(Fd),
     case Access of
-	write ->
-	    _ = file:delete(State#state.filename),
+        write ->
+            _ = file:delete(State#state.filename),
             ok;
-	read ->
-	    ok
+        read ->
+            ok
     end.
 
 %%-------------------------------------------------------------------
