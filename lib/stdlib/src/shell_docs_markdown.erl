@@ -766,12 +766,49 @@ process_format(<<Format, Continuation/binary>>, Fs, Buffer)
 %%
 %% Handle non-formatting characters
 %%
-process_format(<<Char, Rest/binary>>, Format, Buffer) ->
-    process_format(Rest, Format, merge_buffers([<<Char>>],  Buffer));
+process_format(<<Char, Rest0/binary>> = Bin, Format, Buffer) ->
+    %% The leading byte reached this clause, so it is plain text. Append
+    %% a maximal run of following plain bytes in one go; if the very next
+    %% byte must be handled per-clause (e.g. it is a format symbol), fall
+    %% back to appending just this character, exactly as before.
+    case plain_run_length(Bin, 0) of
+        0 ->
+            process_format(Rest0, Format, merge_buffers([<<Char>>], Buffer));
+        RunLen ->
+            <<Run:RunLen/binary, Rest/binary>> = Bin,
+            process_format(Rest, Format, merge_buffers([Run], Buffer))
+    end;
 process_format(<<>>, [], Buffer) ->
     {ok, Buffer};
 process_format(<<>>, _Format, Buffer) ->
     {not_closed, Buffer}.
+
+%% Length (in bytes) of the leading run of plain-text bytes that can be
+%% appended in one go without changing how the remaining bytes are
+%% parsed. A byte is part of the run only if:
+%%   * it cannot itself begin an earlier clause -- not a format symbol
+%%     ($*, $_), inline code ($`), escape ($\\) or $\r; and
+%%   * the byte that follows it is not a format symbol. Several clauses
+%%     (e.g. the "ssh_added_here" mid-word clause and the opening-format
+%%     clauses) match on a character immediately preceding a $* or $_,
+%%     so that preceding character must reach the per-clause dispatch as
+%%     the leading byte rather than being swallowed into the run.
+plain_run_length(<<Char, Next, _/binary>> = Bin, N)
+  when Char =/= $* andalso Char =/= $_ andalso Char =/= $` andalso
+       Char =/= $\\ andalso Char =/= $\r ->
+    case ?VALID_FORMAT(Next) of
+        true ->
+            N;
+        false ->
+            <<_, Rest/binary>> = Bin,
+            plain_run_length(Rest, N + 1)
+    end;
+plain_run_length(<<Char>>, N)
+  when Char =/= $* andalso Char =/= $_ andalso Char =/= $` andalso
+       Char =/= $\\ andalso Char =/= $\r ->
+    N + 1;
+plain_run_length(_, N) ->
+    N.
 
 %%
 %% Parses text until it finds a closing $`
