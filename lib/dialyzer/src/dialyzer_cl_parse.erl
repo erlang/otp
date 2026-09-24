@@ -24,7 +24,7 @@
 
 -compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}}]).
 
--export([start/0]).
+-export([start/0, start/1]).
 
 -include("dialyzer.hrl").
 
@@ -37,21 +37,29 @@
 
 -spec start() -> dial_cl_parse_ret().
 start() ->
-    Args = init:get_plain_arguments(),
-    try argparse:parse(Args, cli(), #{progname => dialyzer}) of
-        {ok, ArgMap, _, _} ->
-            {Command, Opts} = postprocess_side_effects(ArgMap),
-            case dialyzer_options:build(maps:to_list(Opts)) of
-                {error, Msg2} ->
-                    {error, Msg2};
-                OptsRecord ->
-                    {Command, OptsRecord}
-            end;
-        {error, Error} ->
-            {error, argparse:format_error(Error)}
+    start(init:get_plain_arguments()).
+
+-spec start([string()]) -> dial_cl_parse_ret().
+-doc false.
+start(Args) ->
+    try
+        case argparse:parse(Args, cli(), #{progname => dialyzer}) of
+            {ok, ArgMap, _, _} ->
+                {Command, Opts} = postprocess_side_effects(ArgMap),
+                case dialyzer_options:build(maps:to_list(Opts)) of
+                    {error, Msg2} ->
+                        {error, Msg2};
+                    OptsRecord ->
+                        {Command, OptsRecord}
+                end;
+            {error, Error} ->
+                {error, argparse:format_error(Error)}
+        end
     catch
         throw:{dialyzer_cl_parse_error, Msg} ->
             {error, Msg};
+        throw:{dialyzer_error, Msg} ->
+            {error, lists:flatten(Msg)};
         _:R:S ->
             Msg = io_lib:format("~tp\n~tp\n", [R, S]),
             {error, lists:flatten(Msg)}
