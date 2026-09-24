@@ -199,12 +199,13 @@ suite() ->
 
 %%--------------------------------------------------------------------
 %% Function: init_per_suite(Config0) ->
-%%               Config1 | {skip,Reason} | {skip_and_save,Reason,Config1}
+%%               Config1 | {skip,Reason} | {fail,Reason} |
+%%               {skip_and_save,Reason,Config1}
 %%
 %% Config0 = Config1 = [tuple()]
 %%   A list of key/value pairs, holding the test case configuration.
 %% Reason = term()
-%%   The reason for skipping the suite.
+%%   The reason for skipping or failing the suite.
 %%
 %% Description: Initialization before the suite.
 %%
@@ -227,14 +228,16 @@ end_per_suite(_Config) ->
 
 %%--------------------------------------------------------------------
 %% Function: init_per_group(GroupName, Config0) ->
-%%               Config1 | {skip,Reason} | {skip_and_save,Reason,Config1}
+%%               Config1 | {skip,Reason} | {fail,Reason} |
+%%               {skip_and_save,Reason,Config1}
 %%
 %% GroupName = atom()
 %%   Name of the test case group that is about to run.
 %% Config0 = Config1 = [tuple()]
 %%   A list of key/value pairs, holding configuration data for the group.
 %% Reason = term()
-%%   The reason for skipping all test cases and subgroups in the group.
+%%   The reason for skipping or failing all test cases and subgroups
+%%   in the group.
 %%
 %% Description: Initialization before each test case group.
 %%--------------------------------------------------------------------
@@ -396,7 +399,8 @@ suite() ->
 
 %%--------------------------------------------------------------------
 %% Function: init_per_suite(Config0) ->
-%%               Config1 | {skip,Reason} | {skip_and_save,Reason,Config1}
+%%               Config1 | {skip,Reason} | {fail,Reason} |
+%%               {skip_and_save,Reason,Config1}
 %% Config0 = Config1 = [tuple()]
 %% Reason = term()
 %%--------------------------------------------------------------------
@@ -412,7 +416,8 @@ end_per_suite(_Config) ->
 
 %%--------------------------------------------------------------------
 %% Function: init_per_group(GroupName, Config0) ->
-%%               Config1 | {skip,Reason} | {skip_and_save,Reason,Config1}
+%%               Config1 | {skip,Reason} | {fail,Reason} |
+%%               {skip_and_save,Reason,Config1}
 %% GroupName = atom()
 %% Config0 = Config1 = [tuple()]
 %% Reason = term()
