@@ -3015,9 +3015,11 @@ infer_type({bif,is_binary}, [#b_var{}=Arg], _Ts, _Ds) ->
 infer_type({bif,is_bitstring}, [#b_var{}=Arg], Ts, _Ds) ->
     T = {Arg, beam_types:meet(concrete_type(Arg, Ts), #t_bs_matchable{})},
     {[T], [T]};
-infer_type({bif,is_boolean}, [#b_var{}=Arg], _Ts, _Ds) ->
-    T = {Arg, beam_types:make_boolean()},
-    {[T], [T]};
+infer_type({bif,is_boolean}, [#b_var{}=Arg], _Ts, Ds) ->
+    Bool = beam_types:make_boolean(),
+    EqTypes = infer_eq_type(map_get(Arg, Ds), Bool),
+    T = {Arg, Bool},
+    {[T|EqTypes], [T]};
 infer_type({bif,is_float}, [#b_var{}=Arg], _Ts, _Ds) ->
     T = {Arg, #t_float{}},
     {[T], [T]};
