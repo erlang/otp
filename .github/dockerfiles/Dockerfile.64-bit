@@ -54,7 +54,7 @@ ENV SKIPPED_OSSF_LDFLAGS="-Wl,-z,nodlopen -fPIE -fPIC -shared"
 ## Configure (if not cached), check that no application are disabled and then make
 RUN if [ ! -f Makefile ]; then \
       touch README.md && \
-      ./configure --prefix="/Erlang ∅⊤℞" --enable-pie && \
+      ./configure --prefix="/Erlang ∅⊤℞" --enable-pie --with-gmp && \
       if cat lib/*/CONF_INFO || cat lib/*/SKIP || cat lib/SKIP-APPLICATIONS; then exit 1; fi && \
       find . -type f -newer README.md | xargs tar --transform 's:^./:otp/:' -cf ../otp_cache.tar; \
     fi && \

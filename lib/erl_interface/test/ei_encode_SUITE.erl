@@ -32,6 +32,7 @@
          test_ei_encode_ulong/1,
          test_ei_encode_longlong/1,
          test_ei_encode_ulonglong/1,
+         test_ei_encode_bignum/1,
          test_ei_encode_char/1,
          test_ei_encode_misc/1,
          test_ei_encode_fails/1,
@@ -44,6 +45,7 @@ suite() ->
 all() -> 
     [test_ei_encode_long, test_ei_encode_ulong,
      test_ei_encode_longlong, test_ei_encode_ulonglong,
+     test_ei_encode_bignum,
      test_ei_encode_char, test_ei_encode_misc,
      test_ei_encode_fails, test_ei_encode_utf8_atom,
      test_ei_encode_utf8_atom_len].
@@ -146,6 +148,30 @@ test_ei_encode_ulonglong(Config) when is_list(Config) ->
     
     runner:recv_eot(P),
     ok.
+
+%% ######################################################################## %%
+
+test_ei_encode_bignum(Config) when is_list(Config) ->
+
+    P = runner:start(Config, ?test_ei_encode_bignum),
+
+    case get_binary(P) of
+        <<"skip">> ->
+            runner:recv_eot(P),
+            {skip, "GMP 4.1 or later is required for this test"};
+        <<"run">> ->
+            BigNum = 1234567890123456789012345678901234567890,
+            NegBigNum = -1 * BigNum,
+            BigNumBytes = <<210,10,63,206,150,95,188,172,184,243,219,192,117,32,201,160,3>>,
+
+            {<<111,0,0,0,17,0,BigNumBytes/binary>>, BigNum} = get_buf_and_term(P),
+            {<<111,0,0,0,17,1,BigNumBytes/binary>>, NegBigNum} = get_buf_and_term(P),
+
+            runner:recv_eot(P),
+
+            ok
+
+    end.
 
 
 %% ######################################################################## %%
