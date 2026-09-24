@@ -149,3 +149,7 @@ jobs:
         with:
           name: otp_win32_installer
           path: otp/release/win32/otp*.exe
+          # Fail the build if installer_win32 produced no installer;
+          # the default 'warn' would let a build that shipped nothing
+          # pass as green (there is no in-CI consumer to catch it).
+          if-no-files-found: error
