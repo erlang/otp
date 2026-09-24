@@ -554,8 +554,10 @@ status_request(server_hello) ->
     "".
 
 early_data_indication() ->
-    elements([#early_data_indication{},
-              #early_data_indication_nst{indication = 500}]).
+    %% In ClientHello and EncryptedExtensions the early_data extension is
+    %% empty (RFC 8446/9846 4.2.10). The max_early_data_size form
+    %% (#early_data_indication_nst{}) is only valid in NewSessionTicket.
+    #early_data_indication{}.
 
 cookie() ->
     %% Can be bigger, but value is not important here.
