@@ -604,11 +604,15 @@ maybe_automatic_session_resumption(#state{ssl_options =
     %% resumption while Ticket2 can only be used for session
     %% resumption.
     EarlyDataSize = tls_handshake_1_3:early_data_size(EarlyData),
+    %% find_ticket locks the candidate pair atomically.
+    %% Choose one to use and release the other candidate so it
+    %% is available to other connections.
     KeyPair =
         tls_client_ticket_store:find_ticket(self(), Ciphers, HashAlgos,
                                             SNI, EarlyDataSize),
     UseTicket = tls_handshake_1_3:choose_ticket(KeyPair, EarlyData),
-    tls_client_ticket_store:lock_tickets(self(), [UseTicket]),
+    Unused = keypair_others(KeyPair, UseTicket),
+    tls_client_ticket_store:unlock_tickets(self(), Unused),
     State = State0#state{ssl_options = SslOpts0#{use_ticket => [UseTicket]}},
     {[UseTicket], State};
 maybe_automatic_session_resumption(#state{
@@ -980,6 +984,14 @@ cipher_hash_algos(Ciphers) ->
                   Hash
           end,
     lists:map(Fun, Ciphers).
+
+%% The candidate ticket pair {Ticket0, Ticket2} returned (and locked) by
+%% find_ticket. Return the members that were NOT chosen for use and are not
+%% undefined, so they can be unlocked and made available to other connections.
+keypair_others({Ticket0, Ticket2}, UseTicket) ->
+    [K || K <- [Ticket0, Ticket2], K =/= undefined, K =/= UseTicket];
+keypair_others(_, _) ->
+    [].
 
 maybe_queue_cert_cert_cv(#state{handshake_env = #handshake_env{client_certificate_status = not_requested}}
                          = State) ->
