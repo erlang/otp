@@ -2937,7 +2937,41 @@ net_getservbyname(Name, Protocol) when is_atom(Protocol) ->
     net:getservbyname(Name, Protocol).
 
 
--doc "Parse an `t:ip_address/0` to an IPv4 or IPv6 address string.".
+-doc """
+Convert an `t:ip_address/0` to an IPv4 or IPv6 address string.
+
+The returned string, if parsed with `parse_address/1`
+or `parse_strict_address/1` will return the same `IpAddress`.
+
+An `t:ip4_address/0` returns a string in dot-decimal notation,
+as described for `parse_ipv4strict_address/1`.
+
+An `t:ip6_address/0` returns a string in the format
+described for `parse_ipv6strict_address/1`.
+
+The first of the longest sequence of consecutive zeros
+in the `t:ip6_address/0` is compressed with `"::"`.
+
+IPv4-Mapped and IPv4-Compatible IPv6 addresses are converted
+to an address string with dot-decimal notation suffix.
+
+A link-local unicast or multicast address that has a non-zero
+second word; embedded interface index, gets at in a scope id suffix,
+that is, a `"%"` char followed by a decimal integer string.
+
+Examples:
+
+``` text
+{127,0,0,1}                         -> "127.0.0.1"
+{0,0,0,0,0,0,0,0}                   -> "::"
+{8193,3512,0,0,8,2048,8204,16762}   -> "2001:db8::8:800:200c:417a"
+{0,0,0,0,0,65535,32512,1}           -> "::ffff:127.0.0.1"
+{0,0,0,0,0,0,32512,1}               -> "::127.0.0.1"
+{0,0,0,0,0,1,32512,1}               -> "::1:7f00:1"
+{65282,0,0,0,0,0,0,17}              -> "ff02::17"
+{65152,3,0,0,0,0,0,1}               -> "fe80::1%3"
+```
+""".
 -doc(#{since => <<"OTP R16B02">>}).
 -spec ntoa(IpAddress) -> Address | {error, einval} when
       Address :: string(),
@@ -2948,8 +2982,65 @@ ntoa(Addr) ->
 -doc """
 Parse (relaxed) an IPv4 address string to an `t:ip4_address/0`.
 
-Accepts a short form IPv4 address string (less than 4 fields)
-such as `"127.1"` or `"0x7f000001"`.
+The allowed formats are according to the documentation of
+the libc function inet_aton(), the so called numbers-and-dots notation,
+a fairly flexible format.
+
+In short, the string shall have 1..4 dot separated fields.
+Each field is a decimal number starting with `"1"`..`"9"`, an octal number
+starting with `"0"`, or a hexadecimal number starting with `"0x"` or `"0X"`.
+A hexadecimal number has to have at least one hexadecimal character.
+
+All fields have a length limitation of the number of digits
+needed to specify a 32 bit unsigned integer, which are 10 decimal,
+11 octal (after the initial `"0"`), and 8 hexadecimal (after
+the initial `"0x"`.
+
+If there are 4 fields: **A.B.C.D**, all are bytes assigned in
+left-to-right order. This corresponds to a legacy Class C
+network address, for example `"192.168.0.17"`.
+
+If there are 3 fields: **A.B.C**, then **A** and **B** are the two
+initial bytes, and **C** is the 16 bit big endian value that follows.
+This corresponds to a legacy Class B network address,
+for example `"172.16.4711"`.
+
+If there are 2 fields: **A.B**, then **A** is the initial byte,
+and **B** is the 24 bit big endian value that follows.
+This corresponds to a legacy Class A network address,
+for example `"10.174711"`.
+
+If there is only 1 field it is a 32 bit big endian value.
+
+In this notation all these strings represent the
+`t:ip4_address/0` `{127,0,0,1}`, where the first one is in the strict format
+accepted by `parse_ipv4strict_address/1` and output by `ntoa/1`.
+
+``` text
+"127.0.0.1"
+"127.0.1"
+"127.1"
+"0x7f000001"
+"0X7f.0.0.1"
+"0177.0.0.1"
+"0177.1"
+"000000000177.000000000001"
+"127.0x00000001"
+```
+
+The description above implies that leading and trailing characters
+are not allowed, and fields are not allowed to be empty.
+So for example the following strings return `{error,einval}`:
+
+``` text
+" 127.0.0.1"
+"127.0.0.1\n"
+"127.0.0."
+".0.0.0"
+"127..0.1"
+"x7f.0.0.1"
+"127.0.0.x1"
+```
 """.
 -doc(#{since => <<"OTP R16B">>}).
 -spec parse_ipv4_address(Address) ->
@@ -2962,8 +3053,17 @@ parse_ipv4_address(Addr) ->
 -doc """
 Parse (relaxed) an IPv6 address string to an `t:ip6_address/0`.
 
-Also accepts a (relaxed) IPv4 address string like `parse_ipv4_address/1`
-and returns an IPv4-mapped IPv6 address.
+"Relaxed" in this case means that if `Address` is
+a "relaxed" IPv4 address string as accepted by `parse_ipv4_address/1`,
+this function returns an IPv4-mapped IPv6 address.
+
+Example: `"127.0.0.1"` gives `{0,0,0,0,0,65535,32512,1}`,
+as does `"::ffff.127.0.0.1"`
+
+Otherwise `Address` has to be an IPv6 address string
+as accepted by `parse_ipv6strict_address/1`.
+
+Example: `"2001::1"` gives `{8193,0,0,0,0,0,0,1}`.
 """.
 -doc(#{since => <<"OTP R16B">>}).
 -spec parse_ipv6_address(Address) ->
@@ -2976,8 +3076,33 @@ parse_ipv6_address(Addr) ->
 -doc """
 Parse an IPv4 address string to an `t:ip4_address/0`.
 
-Requires an IPv4 address string containing four fields,
-that is; _not_ a short form address string.
+The allowed format is according to the documentation of
+the libc function inet_pton(), the so called dot-decimal notation,
+without leading zeros.
+
+The string chall have 4 dot separated fields with decimal numbers
+of 1..3 digits in the range 0..255.  Leading zeros are not allowed,
+which rules out the ambiguity whether a leading zero could mean octal notation.
+
+These are some address strings that are succesfully parsed:
+
+``` text
+"0.0.0.0"
+"127.0.0.1"
+"255.255.255.255"
+```
+
+As for `parse_ipv4_address/1` leading and trailing characters
+are not allowed.
+
+Here are some examples of strings that return `{error,einval}`:
+
+``` text
+" 0.0.0.0"
+"0.0.0.0\n"
+"127.000.000.001"
+"127.0.0.256"
+```
 """.
 -doc(#{since => <<"OTP R16B">>}).
 -spec parse_ipv4strict_address(Address) ->
@@ -2990,9 +3115,43 @@ parse_ipv4strict_address(Addr) ->
 -doc """
 Parse an IPv6 address string to an `t:ip6_address/0`.
 
-_Doesn't_ accept an IPv4 address string.  An IPv6 address string, though,
-allows an IPv4 tail like this: `"::127.0.0.1"`
-(which is the same as `"::7f00:0001"`).
+Accepted address strings are those according to RFC 4291 section 2.2,
+IP Version 6 Addressing Architecture - Text Representation of Addressses.
+
+In short, and address string is 8 colon separated 1..4 hexadecimal
+digits fields where leading zeros are allowed.  One double colon
+can be used to fill out the address with one or more zero fields.
+The double colon is also allowed at the start and the end of the string.
+
+Both the letters `"a"`..`"f"` and `"A"`..`"F"` are allowed
+in the hexadecimal fields.
+
+The last two fields can be expressed with IPv4 dot-decimal notation
+as accepted by `parse_ipv4strict_address/1`.
+
+An address can have a suffix denoting the IPv6 scope id.  It is
+a `"%"` character followed by a non-empty string.  If that string
+is a decimal integer (leading zeros are allowed), the address
+has to be a link-local unicast or multicast IPv6 address,
+and then the decimal integer is embedded into the second field
+of the address, which is supposed to be zero.  This is the
+FreeBSD approach of embedding a link index into a link-local IPv6 address.
+Strings that are not decimal integers are currently ignored.
+
+Examples:
+
+``` text
+"2001:DB8:0:0:8:800:200C:417A"
+"2001:db8::8:800:200c:417a"
+"ff02:0:0:0:0:0:0:1010"
+"ff02::1010"
+"2000::"
+"::"
+"::1"
+"::127.0.0.1"
+"::ffff:192.168.0.53"
+"fe80::1%3"
+```
 """.
 -doc(#{since => <<"OTP R16B">>}).
 -spec parse_ipv6strict_address(Address) ->
@@ -3005,10 +3164,14 @@ parse_ipv6strict_address(Addr) ->
 -doc """
 Parse an IP address string to an `t:ip_address/0`.
 
-Returns an `t:ip4_address/0` or an `t:ip6_address/0` depending
-on which parsing that succeeds.
+First tries to parse the `Address` string with `parse_ipv4_address/1`
+and if that fails with `parse_ipv6strict_address/1`.
 
-Accepts a short form IPv4 address string like `parse_ipv4_address/1`.
+Hence this function accepts either an IPv4 address string in
+numbers-and-dots notation, or an IPv6 address string.
+
+Returns an `t:ip4_address/0` or an `t:ip6_address/0`
+depending on which parsing that succeeds.
 """.
 -doc(#{since => <<"OTP R16B">>}).
 -spec parse_address(Address) ->
@@ -3035,7 +3198,14 @@ parse_address(Addr, inet6) ->
 -doc """
 Parse an IP address string to an `t:ip_address/0`.
 
-Like `parse_address/1` but _doesn't_ accept a short form IPv4 address string.
+First tries to parse the `Address` string with `parse_ipv4strict_address/1`
+and if that fails with `parse_ipv6strict_address/1`.
+
+Hence this function accepts either an IPv4 address string in
+dot-decimal notation, or an IPv6 address string.
+
+Returns an `t:ip4_address/0` or an `t:ip6_address/0`
+depending on which parsing that succeeds.
 """.
 -doc(#{since => <<"OTP R16B">>}).
 -spec parse_strict_address(Address) ->
