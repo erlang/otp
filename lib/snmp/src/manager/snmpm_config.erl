@@ -31,7 +31,8 @@
 
 -behaviour(gen_server).
 
--compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}}]).
+-compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}},
+          {nowarn_deprecated_function, [{erlang,exit,2}]}]).
 
 %% External exports
 %% Avoid warning for local function error/1 clashing with autoimported BIF.

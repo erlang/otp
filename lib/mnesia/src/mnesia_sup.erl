@@ -26,6 +26,8 @@
 -module(mnesia_sup).
 -moduledoc false.
 
+-compile([{nowarn_deprecated_function, [{erlang,exit,2}]}]).
+
 -behaviour(supervisor).
 
 -export([start_link/1, init/1, start_event/0, kill/0]).

@@ -20,6 +20,9 @@
 %% %CopyrightEnd%
 %%
 -module(memsup).
+
+-compile([{nowarn_deprecated_function, [{erlang,exit,2}]}]).
+
 -moduledoc """
 A Memory Supervisor Process
 

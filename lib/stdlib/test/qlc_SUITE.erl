@@ -1519,7 +1519,7 @@ process_dies(Config) when is_list(Config) ->
           PF = process_flag(trap_exit, true),
           F = fun(T) -> not is_pid(T) end,
           [Pid|_] = lists:dropwhile(F, tuple_to_list(Term)),
-          exit(Pid, kill),
+          erlang:exit_signal(Pid, kill),
           timer:sleep(1),
           {'EXIT', {{qlc_cursor_pid_no_longer_exists, Pid}, _}} =
                 (catch qlc:next_answers(C)),
@@ -1531,7 +1531,7 @@ process_dies(Config) when is_list(Config) ->
           F = fun(T) -> not is_pid(T) end,
           [Pid|_] = lists:dropwhile(F, tuple_to_list(Term)),
           [1] = qlc:next_answers(C, 1),
-          exit(Pid, stop),
+          erlang:exit_signal(Pid, stop),
           timer:sleep(1),
           {'EXIT', {{qlc_cursor_pid_no_longer_exists, Pid}, _}} =
               (catch qlc:next_answers(C)),
@@ -1544,16 +1544,17 @@ process_dies(Config) when is_list(Config) ->
           F = fun(T) -> not is_pid(T) end,
           [Pid|_] = lists:dropwhile(F, tuple_to_list(Term)),
           [1] = qlc:next_answers(C, 1),
-          exit(Pid, stop),
+          erlang:exit_signal(Pid, stop),
           timer:sleep(1),
           {'EXIT', {{qlc_cursor_pid_no_longer_exists, Pid}, _}} =
               (catch qlc:next_answers(C)),
           process_flag(trap_exit, PF)">>,
 
-       <<"PF = process_flag(trap_exit, true),
+       {cres,
+          <<"PF = process_flag(trap_exit, true),
           E = ets:new(test, []),
           %% Hard kill. No cleanup will be done.
-          H = qlc:q([X || begin exit(self(), kill), true end, 
+          H = qlc:q([X || begin exit(self(), kill), true end,
                           X <- ets:table(E)]),
           C = qlc:cursor(H),
           {'EXIT', {{qlc_cursor_pid_no_longer_exists, _}, _}} =
@@ -1561,11 +1562,13 @@ process_dies(Config) when is_list(Config) ->
           false = ets:info(E, safe_fixed), % - but Ets cleans up anyway.
           true = ets:delete(E),
           process_flag(trap_exit, PF)">>,
+        [{nowarn_deprecated_function,{erlang,exit,2}}],
+        []},
 
        <<"E = ets:new(test, []),
           true = ets:insert(E, [{1,a}]),
           %% The signal is caught by trap_exit. No process dies...
-          H = qlc:q([X || begin exit(self(), normal), true end, 
+          H = qlc:q([X || begin erlang:exit_signal(self(), normal), true end,
                           X <- ets:table(E)]),
           C = qlc:cursor(H, {spawn_options, []}),
           [{1,a}] = qlc:next_answers(C),
@@ -1577,7 +1580,7 @@ process_dies(Config) when is_list(Config) ->
           %% The same as last example.
           H = qlc:q([X || begin 
                               process_flag(trap_exit, true), 
-                              exit(self(), normal), true 
+                              erlang:exit_signal(self(), normal), true
                           end, 
                           X <- ets:table(E)]),
           C = qlc:cursor(H, {spawn_options, []}),

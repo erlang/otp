@@ -28,6 +28,8 @@
 -module(ssh_cli).
 -moduledoc false.
 
+-compile([{nowarn_deprecated_function, [{erlang,exit,2}]}]).
+
 -behaviour(ssh_server_channel).
 
 -include("ssh.hrl").

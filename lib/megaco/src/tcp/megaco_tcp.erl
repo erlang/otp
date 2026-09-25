@@ -28,6 +28,9 @@
 %%
 %%-----------------------------------------------------------------
 -module(megaco_tcp).
+
+-compile([{nowarn_deprecated_function, [{erlang,exit,2}]}]).
+
 -moduledoc """
 Interface module to TPKT transport protocol for Megaco/H.248.
 

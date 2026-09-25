@@ -23,6 +23,7 @@
 -moduledoc false.
 
 -compile(nowarn_deprecated_catch).
+-compile([{nowarn_deprecated_function, [{erlang,exit,2}]}]).
 
 %% External exports
 -export([start_link/2, start_type/0, stop/1]).

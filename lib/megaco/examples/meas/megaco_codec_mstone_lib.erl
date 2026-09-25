@@ -482,7 +482,7 @@ start_flex_scanner() ->
         {flex_scanner_error, Reason} ->
             error({failed_loading_flex_scanner_driver, Reason})
     after 10000 ->
-            exit(Pid, kill),
+            erlang:exit_signal(Pid, kill),
             error({failed_starting_flex_scanner, timeout})
     end.
 

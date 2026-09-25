@@ -341,7 +341,7 @@ auto_super(Server, M) ->
 	{'EXIT', Pid, _} ->
 	    ok
     after ?AUTO_TIMEOUT	->
-	    exit(Pid, kill),
+            erlang:exit_signal(Pid, kill),
 	    io:put_chars("\n== EUnit: automatic test was aborted ==\n"),
 	    io:put_chars("\n> ")
     end,

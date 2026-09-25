@@ -42,7 +42,8 @@
 
 -module(mnesia_controller).
 -moduledoc false.
--compile([{nowarn_deprecated_function, [{erlang,phash,2}]}]).
+-compile([{nowarn_deprecated_function, [{erlang,phash,2}]},
+          {nowarn_deprecated_function, [{erlang,exit,2}]}]).
 
 -behaviour(gen_server).
 

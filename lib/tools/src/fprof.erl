@@ -28,6 +28,8 @@
 %%%----------------------------------------------------------------------
 
 -module(fprof).
+-compile([{nowarn_deprecated_function, [{erlang,exit,2}]}]).
+
 -moduledoc """
 A Time Profiling Tool using trace to file for minimal runtime performance
 impact.

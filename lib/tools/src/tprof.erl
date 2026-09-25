@@ -26,6 +26,8 @@
 %% Erlang Process Tracing profiler.
 %%
 -module(tprof).
+-compile([{nowarn_deprecated_function, [{erlang,exit,2}]}]).
+
 -moduledoc """
 Process Tracing Profiling Tool
 

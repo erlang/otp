@@ -458,7 +458,7 @@ measure_codec(Factor, Codec, Func, Conf, Version, Bin, MCount)
 		case (catch process_info(Pid)) of
 		    I when is_list(I) ->
                         erlang:demonitor(MRef),
-			exit(Pid, kill),
+                        erlang:exit_signal(Pid, kill),
 			I;
 		    _ ->
 			undefined
@@ -690,7 +690,7 @@ start_flex_scanner() ->
         {flex_scanner_error, Reason} ->
             throw({error, {failed_loading_flex_scanner_driver, Reason}})
     after 10000 ->
-            exit(Pid, kill),
+            erlang:exit_signal(Pid, kill),
             throw({error, {failed_starting_flex_scanner, timeout}})
     end.
 

@@ -1173,7 +1173,7 @@ inst_fallback_process_dies(Config) when is_list(Config) ->
     
     A ! fun() -> mnesia:install_fallback(install_backup) end,    
     [{AnsPid,fallback_preswap}] = receive_messages([fallback_preswap]),
-    exit(A, kill),
+    erlang:exit_signal(A, kill),
     AnsPid ! {self(), fallback_continue},
     ?match_receive({'EXIT', A, killed}), 
     timer:sleep(2000),  %% Wait till fallback is installed everywhere
@@ -1241,7 +1241,7 @@ fatal_when_inconsistency(Config) when is_list(Config) ->
         end,    
 
     [{AnsPid,fallback_preswap}] = receive_messages([fallback_preswap]),
-    exit(AnsPid, kill),  %% Kill install-fallback on local node will 
+    erlang:exit_signal(AnsPid, kill),  %% Kill install-fallback on local node will
     AnsPid ! {self(), fallback_continue},
     ?deactivate_debug_fun(DebugId),
         

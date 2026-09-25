@@ -21,6 +21,9 @@
 %%
 
 -module(diameter_tcp).
+
+-compile([{nowarn_deprecated_function, [{erlang,exit,2}]}]).
+
 -moduledoc """
 Diameter transport over TCP.
 

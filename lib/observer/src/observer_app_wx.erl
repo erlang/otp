@@ -21,7 +21,8 @@
 -module(observer_app_wx).
 -moduledoc false.
 
--compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}}]).
+-compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}},
+          {nowarn_deprecated_function, [{erlang,exit,2}]}]).
 
 -export([start_link/3]).
 
