@@ -78,7 +78,8 @@ groups() ->
      {http, [parallel], real_requests()},
      {http_ipv6, [parallel], [request_options]},
      {sim_http, [parallel], only_simulated() ++ server_closing_connection()},
-     {sim_http_process_leak, [process_leak_on_keepalive]},
+     {sim_http_process_leak, [process_leak_on_keepalive,
+                              async_alias_does_not_grow_caller]},
      {sim_http_ipv6, [parallel], only_simulated() ++ server_closing_connection()
           % The following two tests are not functional on IPv6 yet:
           % ++ [process_leak_on_keepalive]
@@ -1741,6 +1742,82 @@ process_leak_on_keepalive(Config) ->
     %% the new one, so children count should stay the same
     ChildrenCount = supervisor:count_children(httpc_handler_sup),
     ok.
+
+%%-------------------------------------------------------------------------
+%% An asynchronous request must not leave an active alias in the caller.
+%% Synchronous requests still use an alias. handle_answer/5 deactivates it
+%% when the reply arrives, including a connection error delivered as a
+%% message. A bad scheme throws after the alias is created and never
+%% reaches handle_answer/5, so the catch around the request must
+%% deactivate it.
+%%
+%% One leaked alias is about 100 bytes of process_info(memory), and that
+%% counter also moves by a heap class of about 20KB. 1500 calls put a full
+%% leak near 150KB. The ceiling clears two upward classes and still fails
+%% if the heap steps down once on top of a full leak.
+
+async_alias_does_not_grow_caller(Config) ->
+    Request = {url(group_name(Config), "/dummy.html", Config), []},
+    Profile = ?profile(Config),
+    Self = self(),
+    Samples = 1500,
+    Ceiling = 49152,
+    Async = fun() ->
+        {ok, Id} = httpc:request(get, Request, [], [{sync, false}], Profile),
+        receive
+            {http, {Id, _}} ->
+                ok
+        after
+            5000 ->
+                ct:fail(no_async_reply)
+        end
+    end,
+    AsyncOwn = fun() ->
+        Receiver = fun(Reply) -> Self ! {reply, Reply} end,
+        {ok, Id} = httpc:request(get, Request, [],
+            [{sync, false}, {receiver, Receiver}], Profile),
+        receive
+            {reply, {Id, _}} ->
+                ok
+        after
+            5000 ->
+                ct:fail(no_receiver_reply)
+        end
+    end,
+    Sync = fun() ->
+        {ok, _} = httpc:request(get, Request, [], [], Profile)
+    end,
+    BadScheme = fun() ->
+        {error, {bad_scheme, "ftp"}} =
+            httpc:request(get, {"ftp://127.0.0.1/", []}, [], [], Profile)
+    end,
+    Refused = fun() ->
+        {error, _} = httpc:request(get, {"http://127.0.0.1:1/", []},
+            [{timeout, 1000}], [], Profile)
+    end,
+    lists:foreach(
+        fun({Name, Fun}) ->
+            Growth = caller_memory_growth(Fun, Samples),
+            ct:pal("~s growth ~p", [Name, Growth]),
+            ?assert(Growth < Ceiling)
+        end,
+        [
+            {"async", Async},
+            {"async own receiver", AsyncOwn},
+            {"sync", Sync},
+            {"sync bad scheme", BadScheme},
+            {"sync refused", Refused}
+        ]),
+    ok.
+
+caller_memory_growth(Fun, N) ->
+    Fun(),
+    erlang:garbage_collect(),
+    {memory, Before} = erlang:process_info(self(), memory),
+    lists:foreach(fun(_) -> Fun() end, lists:seq(1, N)),
+    erlang:garbage_collect(),
+    {memory, After} = erlang:process_info(self(), memory),
+    After - Before.
 
 %%-------------------------------------------------------------------------
 
