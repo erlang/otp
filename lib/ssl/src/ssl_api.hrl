@@ -30,7 +30,7 @@
                     payload_sender,    %% pid()
                     transport_cb,      %% ssl:transport_option()
                     connection_cb,     %% :: tls_gen_connection | dtls_gen_connection
-                    tab,               %% ets table
+                    tab,               %% ssl_shared_opts:t()
                     listener_config    %% :: #config{} (listen socket) | [pid()] list of trackers
                  }).
 
