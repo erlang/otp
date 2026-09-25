@@ -1178,18 +1178,15 @@ get_pre_shared_key(manual = SessionTickets, UseTicket, _HKDFAlgo, ServerPSK) ->
         {_, PSK, _, _, _} ->
             {ok, PSK}
     end;
-get_pre_shared_key(auto = SessionTickets, UseTicket, _HKDFAlgo, ServerPSK) ->
-    TicketData = get_ticket_data(self(), SessionTickets, UseTicket),
+get_pre_shared_key(auto = SessionTickets, TicketData0, _HKDFAlgo, ServerPSK) ->
+    TicketData = get_ticket_data(self(), SessionTickets, TicketData0),
     case choose_psk(TicketData, ServerPSK) of
         undefined -> %% No PSK was offered that matches the server selection
-            tls_client_ticket_store:unlock_tickets(self(), UseTicket),
-            {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER, {unsolicited_pre_shared_key, ServerPSK})};
+            {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER,
+                               {unsolicited_pre_shared_key, ServerPSK})};
         illegal_parameter ->
-            tls_client_ticket_store:unlock_tickets(self(), UseTicket),
             {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER)};
-        {Key, PSK, _, _, _} ->
-            tls_client_ticket_store:remove_tickets([Key]),  %% Remove single-use ticket
-            tls_client_ticket_store:unlock_tickets(self(), UseTicket -- [Key]),
+        {_Key, PSK, _, _, _} ->
             {ok, PSK}
     end.
 %%
@@ -2002,16 +1999,14 @@ ciphers_for_early_data0(CipherSuite) ->
         false -> false
     end.
 
-
 get_ticket_data(_, undefined, _) ->
     undefined;
 get_ticket_data(_, _, undefined) ->
     undefined;
 get_ticket_data(_, manual, UseTicket) ->
     process_user_tickets(UseTicket);
-get_ticket_data(Pid, auto, UseTicket) ->
-    tls_client_ticket_store:get_tickets(Pid, UseTicket).
-
+get_ticket_data(_, auto, [#ticket_data{}] = AutoTicketData) ->
+    AutoTicketData.
 
 process_user_tickets(UseTicket) ->
     process_user_tickets(UseTicket, [], 0).
