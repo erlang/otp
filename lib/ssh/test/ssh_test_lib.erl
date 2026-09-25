@@ -139,7 +139,8 @@ get_public_key_algorithms_with_valid_host_key/1,
 get_public_key_algorithms_with_valid_host_key/2,
 remove_comment/1,
 timetrap_scale/0,
-connect_with_retry/2
+connect_with_retry/2,
+with_retry/2, with_retry/3
         ]).
 
 %% logger callbacks and related helpers
@@ -209,23 +210,35 @@ connect_with_retry(Host, Port, Options0) ->
                              {save_accepted_host, false},
                              {user_interaction, false}
                             ], Options0),
-    connect_with_retry_loop(Host, Port, Options, 3, 1000).
+    with_retry(fun() -> ssh:connect(Host, Port, Options, 10000) end, 3, 1000).
 
-connect_with_retry_loop(Host, Port, Options, 0, _Delay) ->
-    R = ssh:connect(Host, Port, Options),
-    ?CT_LOG("ssh:connect(~p, ~p, ...) -> ~p", [Host, Port, R]),
-    {ok, ConnectionRef} = R,
-    ConnectionRef;
-connect_with_retry_loop(Host, Port, Options, Retries, Delay) ->
-    case ssh:connect(Host, Port, Options, 10000) of
-        {ok, Ref} ->
-            ?CT_LOG("ssh:connect(~p, ~p, ...) -> {ok,~p}", [Host, Port, Ref]),
-            Ref;
+%% Retry a transient-failing action with exponential backoff.
+%% Fun returns {ok, R} | {error, Reason}. Retries on {error,_} and on an
+%% exit/timeout raised by the action (e.g. a bounded gen_statem:call that
+%% timed out), sleeping Delay ms and doubling it between attempts. The
+%% final attempt is unguarded so a genuine, repeatable failure surfaces
+%% with its real reason instead of being masked. Returns R on success.
+with_retry(Fun, Attempts) ->
+    with_retry(Fun, Attempts, 1000).
+
+with_retry(Fun, 1, _Delay) ->
+    {ok, R} = Fun(),
+    R;
+with_retry(Fun, Attempts, Delay) when Attempts > 1 ->
+    try Fun() of
+        {ok, R} ->
+            R;
         {error, Reason} ->
-            ?CT_LOG("ssh:connect(~p, ~p, ...) failed: ~p, ~p retries left",
-                    [Host, Port, Reason, Retries - 1]),
+            ?CT_LOG("with_retry: {error,~p}, ~p attempt(s) left",
+                    [Reason, Attempts - 1]),
             timer:sleep(Delay),
-            connect_with_retry_loop(Host, Port, Options, Retries - 1, Delay * 2)
+            with_retry(Fun, Attempts - 1, Delay * 2)
+    catch
+        exit:{timeout, _} = Reason ->
+            ?CT_LOG("with_retry: exit ~p, ~p attempt(s) left",
+                    [Reason, Attempts - 1]),
+            timer:sleep(Delay),
+            with_retry(Fun, Attempts - 1, Delay * 2)
     end.
 
 set_opts_if_not_set(OptsToSet, Options0) ->
