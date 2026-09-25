@@ -38,6 +38,8 @@
 -export([undefined_lambda/3]).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
+-include("erts_test_utils.hrl").
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -74,7 +76,9 @@ bad_apply(Config) when is_list(Config) ->
     ok.
 
 bad_apply_fc(Fun, Args) ->
-    Res = (catch apply(Fun, Args)),
+    Res = try apply(Fun, Args)
+          catch error:Reason:Where -> {'EXIT', {Reason, Where}}
+          end,
     erlang:garbage_collect(),
     erlang:yield(),
     case Res of
@@ -86,7 +90,9 @@ bad_apply_fc(Fun, Args) ->
     end.
 
 bad_apply_badarg(Fun, Args) ->
-    Res = (catch apply(Fun, Args)),
+    Res = try apply(Fun, Args)
+          catch error:Reason:Where -> {'EXIT', {Reason, Where}}
+          end,
     erlang:garbage_collect(),
     erlang:yield(),
     case Res of
@@ -113,7 +119,9 @@ bad_fun_call(Config) when is_list(Config) ->
 
 bad_call_fc(Fun) ->
     Args = [some,stupid,args],
-    Res = (catch Fun(Fun(Args))),
+    Res = try Fun(Fun(Args))
+          catch error:Reason:Where -> {'EXIT', {Reason, Where}}
+          end,
     case Res of
 	{'EXIT',{{badfun,Fun},_Where}} ->
 	    ok = io:format("~p(~p) -> ~p\n", [Fun,Args,Res]);
@@ -125,12 +133,12 @@ bad_call_fc(Fun) ->
 % Test erlang:apply with non-proper arg-list
 bad_arglist(Config) when is_list(Config) ->
     Fun = fun(A,B) -> A+B end,
-    {'EXIT', {badarg,_}} = (catch apply(Fun, 17)),
-    {'EXIT', {badarg,_}} = (catch apply(Fun, [17|18])),
-    {'EXIT', {badarg,_}} = (catch apply(Fun, [17,18|19])),
-    {'EXIT', {badarg,_}} = (catch apply(lists,seq, 17)),
-    {'EXIT', {badarg,_}} = (catch apply(lists,seq, [17|18])),
-    {'EXIT', {badarg,_}} = (catch apply(lists,seq, [17,18|19])),
+    ?assertError(badarg, apply(Fun, 17)),
+    ?assertError(badarg, apply(Fun, [17|18])),
+    ?assertError(badarg, apply(Fun, [17,18|19])),
+    ?assertError(badarg, apply(lists,seq, 17)),
+    ?assertError(badarg, apply(lists,seq, [17|18])),
+    ?assertError(badarg, apply(lists,seq, [17,18|19])),
     ok.
 
 
@@ -143,7 +151,9 @@ badarity(Config) when is_list(Config) ->
 
     %% Simple call.
 
-    Res = (catch Fun(some, Stupid, here)),
+    Res = try Fun(some, Stupid, here)
+          catch error:Reason1:Where1 -> {'EXIT', {Reason1, Where1}}
+          end,
     erlang:garbage_collect(),
     erlang:yield(),
     case Res of
@@ -156,7 +166,9 @@ badarity(Config) when is_list(Config) ->
 
     %% Apply.
 
-    Res2 = (catch apply(Fun, Args)),
+    Res2 = try apply(Fun, Args)
+           catch error:Reason2:Where2 -> {'EXIT', {Reason2, Where2}}
+           end,
     erlang:garbage_collect(),
     erlang:yield(),
     case Res2 of
@@ -177,7 +189,9 @@ ext_badarity(Config) when is_list(Config) ->
 
     %% Simple call.
 
-    Res = (catch Fun(some, Stupid, here)),
+    Res = try Fun(some, Stupid, here)
+          catch error:Reason1:Where1 -> {'EXIT', {Reason1, Where1}}
+          end,
     erlang:garbage_collect(),
     erlang:yield(),
     case Res of
@@ -190,7 +204,9 @@ ext_badarity(Config) when is_list(Config) ->
 
     %% Apply.
 
-    Res2 = (catch apply(Fun, Args)),
+    Res2 = try apply(Fun, Args)
+           catch error:Reason2:Where2 -> {'EXIT', {Reason2, Where2}}
+           end,
     erlang:garbage_collect(),
     erlang:yield(),
     case Res2 of
@@ -425,9 +441,10 @@ fun_to_port(Config) when is_list(Config) ->
     ok.
 
 fun_to_port(Port, IoList) ->
-    case catch port_command(Port, IoList) of
-	{'EXIT',{badarg,_}} -> ok;
+    try port_command(Port, IoList) of
 	Other -> ct:fail({unexpected_retval,Other})
+    catch
+        error:badarg -> ok
     end.
 
 build_io_list(0) -> [];
@@ -512,7 +529,7 @@ md5(Config) when is_list(Config) ->
     ok.
     
 bad_md5(Bad) ->
-    {'EXIT',{badarg,_}} = (catch erlang:md5(Bad)).
+    ?assertError(badarg, erlang:md5(Bad)).
 
 fun_refc(F) ->
     {refc,Count} = erlang:fun_info(F, refc),
@@ -648,8 +665,8 @@ f(_A1, _A2, _A3, _A4, _A5, _A6, _A7, _A8,
     ok.
 
 bad_arity(A) ->
-    {'EXIT',_} = (catch is_function(fun() -> ok end, A)),
-    {'EXIT',_} = (catch is_function(no_fun, A)),
+    ?assertError(_, is_function(fun() -> ok end, A)),
+    ?assertError(_, is_function(no_fun, A)),
     ok.
 
 t_fun_info(Config) when is_list(Config) ->
@@ -673,7 +690,7 @@ t_fun_info(Config) when is_list(Config) ->
     verify_not_undef(F, new_index),
     verify_not_undef(F, new_uniq),
     verify_not_undef(F, refc),
-    {'EXIT',_} = (catch erlang:fun_info(F, blurf)),    
+    ?assertError(_, erlang:fun_info(F, blurf)),    
 
     %% Module fun.
     FF = fun ?MODULE:t_fun_info/1,
@@ -693,7 +710,7 @@ t_fun_info(Config) when is_list(Config) ->
     verify_undef(FF, new_index),
     verify_undef(FF, new_uniq),
     verify_undef(FF, refc),
-    {'EXIT',_} = (catch erlang:fun_info(FF, blurf)),
+    ?assertError(_, erlang:fun_info(FF, blurf)),
 
     %% Not fun.
     bad_info(abc),
@@ -720,7 +737,7 @@ t_fun_info_mfa(Config) when is_list(Config) ->
     {M2,F2,A2=1} = erlang:fun_info_mfa(Fun2),
 
     %% Not fun.
-    {'EXIT',_} = (catch erlang:fun_info_mfa(id(d))),
+    ?assertError(_, erlang:fun_info_mfa(id(d))),
     ok.
 
 t_fun_to_list(Config) when is_list(Config) ->
@@ -773,9 +790,9 @@ spurious_badfun(Config) ->
 do_spurious_badfun(0, _Mod, _Bin, _Fun) ->
     ok;
 do_spurious_badfun(N, Mod, Bin, Fun) ->
-    _ = catch erlang:purge_module(Mod),
+    _ = try erlang:purge_module(Mod) catch _:_ -> ok end,
     _ = erlang:delete_module(Mod),
-    _ = catch erlang:purge_module(Mod),
+    _ = try erlang:purge_module(Mod) catch _:_ -> ok end,
 
     Prepared = erlang:prepare_loading(Mod, Bin),
 
@@ -853,7 +870,7 @@ fun_arity(F) ->
     Arity.
 
 wait_until(Fun) ->
-    case catch Fun() of
+    case ?Catch(Fun()) of
 	true -> ok;
-	_ -> receive after 100 -> wait_until(Fun) end
+        _ -> receive after 100 -> wait_until(Fun) end
     end.

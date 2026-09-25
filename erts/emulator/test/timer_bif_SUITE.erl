@@ -38,16 +38,15 @@
          huge_timeout/1]).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
+-include("erts_test_utils.hrl").
 
 -define(SHORT_TIMEOUT, 5000). %% Bif timers as short as this may be pre-allocated
 -define(TIMEOUT_YIELD_LIMIT, 100).
 -define(AUTO_CANCEL_YIELD_LIMIT, 100).
 
 init_per_testcase(_Case, Config) ->
-    case catch erts_debug:get_internal_state(available_internal_state) of
-	true -> ok;
-	_ -> erts_debug:set_internal_state(available_internal_state, true)
-    end,
+    erts_test_utils:available_internal_state(true),
     Config.
 
 end_per_testcase(_Case, Config) ->
@@ -58,7 +57,7 @@ init_per_suite(Config) ->
     Config.
 
 end_per_suite(_Config) ->
-    catch erts_debug:set_internal_state(available_internal_state, false).
+    erts_debug:set_internal_state(available_internal_state, false).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -225,46 +224,44 @@ cancel_timer_sync_test(SameSched) ->
 
 %% Error cases for start_timer/3
 start_timer_e(Config) when is_list(Config) ->
-    {'EXIT', _} = (catch erlang:start_timer(-4, self(), hej)),
-    {'EXIT', _} = (catch erlang:start_timer(1 bsl 64,
-                                            self(), hej)),
+    ?assertError(_, erlang:start_timer(-4, self(), hej)),
+    ?assertError(_, erlang:start_timer(1 bsl 64, self(), hej)),
 
-    {'EXIT', _} = (catch erlang:start_timer(4.5, self(), hej)),
-    {'EXIT', _} = (catch erlang:start_timer(a, self(), hej)),
+    ?assertError(_, erlang:start_timer(4.5, self(), hej)),
+    ?assertError(_, erlang:start_timer(a, self(), hej)),
 
     {ok, Peer, Node} = ?CT_PEER(),
     Pid = spawn(Node, timer, sleep, [10000]),
-    {'EXIT', _} = (catch erlang:start_timer(1000, Pid, hej)),
+    ?assertError(_, erlang:start_timer(1000, Pid, hej)),
     peer:stop(Peer).
 
 %% Error cases for send_after/3
 send_after_e(Config) when is_list(Config) ->
-    {'EXIT', _} = (catch erlang:send_after(-4, self(), hej)),
-    {'EXIT', _} = (catch erlang:send_after(1 bsl 64,
-                                           self(), hej)),
+    ?assertError(_, erlang:send_after(-4, self(), hej)),
+    ?assertError(_, erlang:send_after(1 bsl 64, self(), hej)),
 
-    {'EXIT', _} = (catch erlang:send_after(4.5, self(), hej)),
-    {'EXIT', _} = (catch erlang:send_after(a, self(), hej)),
+    ?assertError(_, erlang:send_after(4.5, self(), hej)),
+    ?assertError(_, erlang:send_after(a, self(), hej)),
 
     {ok, Peer, Node} = ?CT_PEER(),
     Pid = spawn(Node, timer, sleep, [10000]),
-    {'EXIT', _} = (catch erlang:send_after(1000, Pid, hej)),
+    ?assertError(_, erlang:send_after(1000, Pid, hej)),
     peer:stop(Peer).
 
 %% Error cases for cancel_timer/1
 cancel_timer_e(Config) when is_list(Config) ->
-    {'EXIT', _} = (catch erlang:cancel_timer(1)),
-    {'EXIT', _} = (catch erlang:cancel_timer(self())),
-    {'EXIT', _} = (catch erlang:cancel_timer(a)),
+    ?assertError(_, erlang:cancel_timer(1)),
+    ?assertError(_, erlang:cancel_timer(self())),
+    ?assertError(_, erlang:cancel_timer(a)),
     ok.
 
 %% Trivial and error test cases for read_timer/1.
 read_timer_trivial(Config) when is_list(Config) ->
     false = erlang:read_timer(make_ref()),
-    {'EXIT', _} = (catch erlang:read_timer(42)),
-    {'EXIT', _} = (catch erlang:read_timer(423497834744444444457667444444)),
-    {'EXIT', _} = (catch erlang:read_timer(self())),
-    {'EXIT', _} = (catch erlang:read_timer(ab)),
+    ?assertError(_, erlang:read_timer(42)),
+    ?assertError(_, erlang:read_timer(423497834744444444457667444444)),
+    ?assertError(_, erlang:read_timer(self())),
+    ?assertError(_, erlang:read_timer(ab)),
     ok.
 
 %% Test that read_timer/1 seems to return the correct values.
@@ -821,13 +818,13 @@ process_is_cleaned_up(P) when is_pid(P) ->
     undefined == erts_debug:get_internal_state({process_status, P}).
 
 wait_until(Pred) when is_function(Pred) ->
-    case catch Pred() of
+    case ?Catch(Pred()) of
         true -> ok;
         _ -> receive after 50 -> ok end, wait_until(Pred)
     end.
 
 busy_wait_until(Pred) when is_function(Pred) ->
-    case catch Pred() of
+    case ?Catch(Pred()) of
         true -> ok;
         _ -> busy_wait_until(Pred)
     end.

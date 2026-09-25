@@ -22,6 +22,7 @@
 
 -module(list_bif_SUITE).
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 -export([all/0, suite/0,
          init_per_testcase/2, end_per_testcase/2]).
@@ -47,13 +48,13 @@ end_per_testcase(_TestCase, Config) ->
 
 %% Tests list_to_integer and string:to_integer
 t_list_to_integer(Config) when is_list(Config) ->
-    {'EXIT',{badarg,_}} = (catch list_to_integer("12373281903728109372810937209817320981321ABC")),
-    12373281903728109372810937209817320981321 = (catch list_to_integer("12373281903728109372810937209817320981321")),
-    12373 = (catch list_to_integer("12373")),
-    -12373 =  (catch list_to_integer("-12373")),
-    12373 = (catch list_to_integer("+12373")),
-    {'EXIT',{badarg,_}} = (catch list_to_integer(abc)),
-    {'EXIT',{badarg,_}} = (catch list_to_integer("")),
+    ?assertError(badarg, list_to_integer("12373281903728109372810937209817320981321ABC")),
+    12373281903728109372810937209817320981321 = list_to_integer("12373281903728109372810937209817320981321"),
+    12373 = list_to_integer("12373"),
+    -12373 = list_to_integer("-12373"),
+    12373 = list_to_integer("+12373"),
+    ?assertError(badarg, list_to_integer(abc)),
+    ?assertError(badarg, list_to_integer("")),
     {12373281903728109372810937209817320981321,"ABC"} = string:to_integer("12373281903728109372810937209817320981321ABC"),
     {-12373281903728109372810937209817320981321,"ABC"} = string:to_integer("-12373281903728109372810937209817320981321ABC"),
     {12,[345]} = string:to_integer([$1,$2,345]),
@@ -63,9 +64,9 @@ t_list_to_integer(Config) when is_list(Config) ->
 
     %% System limit.
     Digits = lists:duplicate(3_000_000, $9),
-    {'EXIT',{system_limit,_}} = catch list_to_integer(Digits),
+    ?assertError(system_limit, list_to_integer(Digits)),
     _ = erlang:garbage_collect(),
-    {'EXIT',{system_limit,_}} = catch list_to_integer(Digits, 16),
+    ?assertError(system_limit, list_to_integer(Digits, 16)),
     _ = erlang:garbage_collect(),
     {error,system_limit} = string:to_integer(Digits),
     _ = erlang:garbage_collect(),
@@ -75,23 +76,14 @@ t_list_to_integer(Config) when is_list(Config) ->
 %% Test hd/1 with correct and incorrect arguments.
 hd_test(Config) when is_list(Config) ->
     $h = hd(id("hejsan")),
-    case catch hd(id($h)) of
-        {'EXIT', {badarg, _}} -> ok;
-        Res ->
-            ct:fail("hd/1 with incorrect args succeeded.~nResult: ~p", [Res])
-    end,
+    ?assertError(badarg, hd(id($h))),
     ok.
 
 
 %% Test tl/1 with correct and incorrect arguments.
 tl_test(Config) when is_list(Config) ->
     "ejsan" = tl(id("hejsan")),
-    case catch tl(id(104)) of
-        {'EXIT', {badarg, _}} ->
-            ok;
-        Res ->
-            ct:fail("tl/1 with incorrect args succeeded.~nResult: ~p", [Res])
-    end,
+    ?assertError(badarg, tl(id(104))),
     ok.
 
 
@@ -106,13 +98,8 @@ t_length(Config) when is_list(Config) ->
     3 = length("abc"),
     4 = length(id([x|"abc"])),
     6 = length("hejsan"),
-    {'EXIT',{badarg,_}} = (catch length(id([a,b|c]))),
-    case catch length({tuple}) of
-        {'EXIT', {badarg, _}} ->
-            ok;
-        Res ->
-            ct:fail("length/1 with incorrect args succeeded.~nResult: ~p", [Res])
-    end,
+    ?assertError(badarg, length(id([a,b|c]))),
+    ?assertError(badarg, length({tuple})),
     ok.
 	      
 
@@ -122,13 +109,7 @@ t_list_to_pid(Config) when is_list(Config) ->
     Me = self(),
     MyListedPid = pid_to_list(Me),
     Me = list_to_pid(MyListedPid),
-    case catch list_to_pid(id("Incorrect list")) of
-        {'EXIT', {badarg, _}} ->
-            ok;
-        Res ->
-            ct:fail("list_to_pid/1 with incorrect arg succeeded.~n"
-                    "Result: ~p", [Res])
-    end,
+    ?assertError(badarg, list_to_pid(id("Incorrect list"))),
     ok.
 
 %% Test list_to_port/1 with correct and incorrect arguments.
@@ -137,30 +118,16 @@ t_list_to_port(Config) when is_list(Config) ->
     Me = hd(erlang:ports()),
     MyListedPid = port_to_list(Me),
     Me = list_to_port(MyListedPid),
-    case catch list_to_port(id("Incorrect list")) of
-        {'EXIT', {badarg, _}} ->
-            ok;
-        Res ->
-            ct:fail("list_to_port/1 with incorrect arg succeeded.~n"
-                    "Result: ~p", [Res])
-    end,
+    ?assertError(badarg, list_to_port(id("Incorrect list"))),
     ok.
 
 t_list_to_ref(Config) when is_list(Config) ->
     Ref = make_ref(),
     RefStr = ref_to_list(Ref),
     Ref = list_to_ref(RefStr),
-    try list_to_ref(id("Incorrect list")) of
-        Res ->
-            ct:fail("list_to_ref/1 with incorrect arg succeeded.~n"
-                    "Result: ~p", [Res])
-    catch error:badarg -> ok
-    end,
+    ?assertError(badarg, list_to_ref(id("Incorrect list"))),
 
-    try erlang:list_to_ref(id("#Ref<0.0.0.0.0.0.>")) of
-        Res2 -> ct:fail("list_to_ref/1 with incorrect arg succeeded.~nResult: ~p", [Res2])
-    catch error:badarg -> ok
-    end,
+    ?assertError(badarg, erlang:list_to_ref(id("#Ref<0.0.0.0.0.0.>"))),
 
     ok.
 
@@ -236,11 +203,7 @@ make_0_creation(X) when is_pid(X); is_port(X); is_reference(X) ->
 t_list_to_float(Config) when is_list(Config) ->
     5.89000 = list_to_float(id("5.89")),
     5.89898 = list_to_float(id("5.89898")),
-    case catch list_to_float(id("58")) of
-        {'EXIT', {badarg, _}} -> ok;
-        Res ->
-            ct:fail("list_to_float with incorrect arg succeeded.~nResult: ~p", [Res])
-    end,
+    ?assertError(badarg, list_to_float(id("58"))),
     ok.
 
 id(I) -> I.

@@ -25,6 +25,7 @@
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
 -include_lib("stdlib/include/assert.hrl").
+-include("erts_test_utils.hrl").
 
 -export([all/0, suite/0, init_per_testcase/2, end_per_testcase/2]).
 
@@ -388,8 +389,8 @@ atom_roundtrip(String) ->
     Atom.
 
 atom_badarg(String) ->
-    {'EXIT',{badarg,_}} = (catch list_to_atom(String)),
-    {'EXIT',{badarg,_}} = (catch list_to_existing_atom(String)),
+    ?assertError(badarg, list_to_atom(String)),
+    ?assertError(badarg, list_to_existing_atom(String)),
     ok.
 
 t_list_to_existing_atom(Config) when is_list(Config) ->
@@ -483,8 +484,8 @@ test_7526(N) ->
 	    {error,N,Other}
     end.
 
--define(BADARG(E), {'EXIT',{badarg,_}} = (catch E)).
--define(SYS_LIMIT(E), {'EXIT',{system_limit,_}} = (catch E)).
+-define(BADARG(E), ?assertError(badarg, E)).
+-define(SYS_LIMIT(E), ?assertError(system_limit, E)).
 
 t_binary_to_atom(Config) when is_list(Config) ->
     HalfLong = lists:seq(0, 127),
@@ -640,7 +641,7 @@ t_binary_to_existing_atom(Config) when is_list(Config) ->
                      196, 133, 196, 133, 196, 133, 196, 133, 196, 133,
                      196, 133, 196, 133, 196, 133, 196, 133, 196, 133,
                      196, 133, 196, 133, 196, 133, 196, 133, 196, 133>>,
-    {'EXIT', _} = (catch binary_to_existing_atom(OverflowAtom, latin1)),
+    ?assertError(_, binary_to_existing_atom(OverflowAtom, latin1)),
 
     ok.
 
@@ -1036,7 +1037,7 @@ start_halting_node(Args) ->
 				 atom_to_list(node())),
     Node = list_to_atom(Name ++ HostSuffix),
     Pa = filename:dirname(code:which(?MODULE)),
-    Prog = case catch init:get_argument(progname) of
+    Prog = case ?Catch(init:get_argument(progname)) of
 	       {ok,[[P]]} -> P;
 	       _ -> exit(no_progname_argument_found)
 	   end,
@@ -1683,8 +1684,8 @@ test_length(I, N, Inc, Good, Bad) when I < N ->
             ok
     end,
 
-    {'EXIT',{badarg,[{erlang,length,[[I|_]],_}|_]}} = (catch length(Bad)),
-    {'EXIT',{badarg,[{erlang,length,[[I|_]],_}|_]}} = (catch erlang:Length(Bad)),
+    ?AssertErrorStack(badarg, [{erlang,length,[[I|_]],_}|_], length(Bad)),
+    ?AssertErrorStack(badarg, [{erlang,length,[[I|_]],_}|_], erlang:Length(Bad)),
     IncSeq = lists:seq(I + 1, I + Inc),
     test_length(I+Inc, N, Inc,
                 lists:reverse(IncSeq, Good),
@@ -1696,15 +1697,15 @@ test_length(_, _, _, _, _) -> ok.
 fixed_apply_badarg(Config) when is_list(Config) ->
     Bad = id({}),
 
-    {'EXIT',{badarg, [{erlang,apply,[{},baz,[a,b]],[{error_info,_}]} | _]}} =
-        (catch Bad:baz(a,b)),
-    {'EXIT',{badarg, [{erlang,apply,[baz,{},[c,d]],[{error_info,_}]} | _]}} =
-        (catch baz:Bad(c,d)),
+    ?AssertErrorStack(badarg, [{erlang,apply,[{},baz,[a,b]],[{error_info,_}]} | _],
+        Bad:baz(a,b)),
+    ?AssertErrorStack(badarg, [{erlang,apply,[baz,{},[c,d]],[{error_info,_}]} | _],
+        baz:Bad(c,d)),
 
-    {'EXIT',{badarg, [{erlang,apply,[{},baz,[e,f]],[{error_info,_}]} | _]}} =
-        (catch apply(Bad,baz,[e,f])),
-    {'EXIT',{badarg, [{erlang,apply,[baz,{},[g,h]],[{error_info,_}]} | _]}} =
-        (catch apply(baz,Bad,[g,h])),
+    ?AssertErrorStack(badarg, [{erlang,apply,[{},baz,[e,f]],[{error_info,_}]} | _],
+        apply(Bad,baz,[e,f])),
+    ?AssertErrorStack(badarg, [{erlang,apply,[baz,{},[g,h]],[{error_info,_}]} | _],
+        apply(baz,Bad,[g,h])),
 
     ok.
 
@@ -1727,7 +1728,7 @@ external_fun_apply3(_Config) ->
     Self = Apply(erlang, self, []),
     true = is_pid(Self),
 
-    {'EXIT',{undef,_}} = (catch Apply(does, 'not', [exist])),
+    ?assertError(undef, Apply(does, 'not', [exist])),
 
     ok.
 
@@ -1790,7 +1791,7 @@ test_node_3(E, Node) when is_reference(E) ->
 
 node_error(E0) ->
     E = id(E0),
-    {'EXIT',{badarg,[{erlang,node,[E],_}|_]}} = catch node(E),
+    ?AssertErrorStack(badarg,[{erlang,node,[E],_}|_], node(E)),
     if
         node(E) ->
             ct:fail(should_fail);

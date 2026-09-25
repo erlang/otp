@@ -76,6 +76,7 @@
 -else.
 -include_lib("common_test/include/ct.hrl").
 -include_lib("common_test/include/ct_event.hrl").
+-include_lib("stdlib/include/assert.hrl").
 -endif.
 
 -ifdef(debug).
@@ -248,12 +249,7 @@ basic_test() ->
                     0,0,0,0,0,97,2,97,1>>,
     25769064 = phash_from_external(ExternalFun),
 
-    case (catch erlang:phash(1,0)) of
-	{'EXIT',{badarg, _}} ->
-	    ok;
-	_ ->
-	    exit(phash_accepted_zero_as_range)
-    end.
+    ?assertError(badarg, erlang:phash(1,0)).
 
 phash_from_external(Ext) ->
     erlang:phash(binary_to_term(Ext), 16#FFFFFFFF).
@@ -1057,7 +1053,7 @@ test_fun_1(_,_,_,_,_,_) ->
     ok.
 
 init_table() ->
-    (catch ets:delete(?MODULE)),
+    try ets:delete(?MODULE) catch _:_ -> ok end,
     ets:new(?MODULE,[ordered_set,named_table]).
    
 collect_hits() ->
