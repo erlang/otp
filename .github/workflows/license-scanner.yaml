@@ -35,13 +35,13 @@ jobs:
   run-scan:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6.0.2
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
             fetch-depth: '0'
             persist-credentials: false
       - uses: erlef/setup-beam@e6d7c94229049569db56a7ad5a540c051a010af9 # ratchet:erlef/setup-beam@v1.20.4
         with:
-            otp-version: '27'
+            otp-version: '29.1.1'
 
       - name: License Compliance Check all files
         run: ./scripts/license-header.es ci
