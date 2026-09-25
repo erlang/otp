@@ -153,6 +153,7 @@
          recvmmsg_partial_receive_udp4/1,
          recvmmsg_trunc_bufsz_clamp_udp4/1,
          recvmmsg_select_nowait_udp4/1,
+         recvmmsg_select_read_timeout_udp4/1,
          sendmmsg_select_nowait_udp4/1,
          sendmmsg_with_addresses_udp4/1,
          sendmmsg_invalid_msg_format/1,
@@ -393,6 +394,7 @@ batch_cases() ->
      recvmmsg_partial_receive_udp4,
      recvmmsg_trunc_bufsz_clamp_udp4,
      recvmmsg_select_nowait_udp4,
+     recvmmsg_select_read_timeout_udp4,
      sendmmsg_select_nowait_udp4,
      sendmmsg_with_addresses_udp4,
      sendmmsg_invalid_msg_format,
@@ -15556,6 +15558,44 @@ recvmmsg_select_nowait_udp4(_Config) when is_list(_Config) ->
                 Other ->
                     ct:fail("Unexpected result: ~p", [Other])
             end,
+            ok = socket:close(S),
+            ok
+        end
+    ).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Test recvmmsg with a timeout (integer and infinity) and the
+%% {otp, select_read} option. The received messages shall be returned and
+%% the select activated after the read cancelled, since there is no place
+%% for a continuation in the return value.
+%%
+recvmmsg_select_read_timeout_udp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(
+        ?FUNCTION_NAME,
+        fun() ->
+            has_support_ipv4(),
+            has_recvmmsg_support()
+        end,
+        fun() ->
+            {ok, S} = socket:open(inet, dgram, udp),
+            ok = socket:setopt(S, {otp, select_read}, true),
+            ok = socket:bind(S, #{family => inet, addr => loopback, port => 0}),
+            {ok, SA} = socket:sockname(S),
+            ok = socket:sendto(S, <<"a">>, SA),
+            {ok, [#{iov := [<<"a">>]}]} = socket:recvmmsg(S, 1, 0, 0, [], 1000),
+            ok = socket:sendto(S, <<"b">>, SA),
+            {ok, [#{iov := [<<"b">>]}]} = socket:recvmmsg(S, 1, 0, 0, [], infinity),
+            %% No select left behind: new data shall not trigger a select message
+            ok = socket:sendto(S, <<"c">>, SA),
+            receive
+                {'$socket', _, select, _} = Unexpected ->
+                    ct:fail({unexpected_select_message, Unexpected})
+            after 500 ->
+                    ok
+            end,
+            {ok, [#{iov := [<<"c">>]}]} = socket:recvmmsg(S, 1, 0, 0, [], 1000),
             ok = socket:close(S),
             ok
         end

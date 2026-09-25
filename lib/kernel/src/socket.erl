@@ -85,8 +85,9 @@ has been received.
 >
 > On `select` systems, when the `{otp, select_read}` option is `true`,
 > the asynchronous [`recv/3,4`](#recv-nowait),
-> [`recvfrom/3,4`](#recvfrom-nowait), and
-> [`recvmsg/3,4,5`](#recvmsg-nowait) functions may also return:
+> [`recvfrom/3,4`](#recvfrom-nowait),
+> [`recvmsg/3,4,5`](#recvmsg-nowait), and
+> [`recvmmsg/6`](`recvmmsg/6`) functions may also return:
 >
 > - `{select_read, {`[`SelectInfo`](`t:select_info/0`)`, Data}`
 >
@@ -6971,25 +6972,9 @@ recvmmsg_nowait(SockRef, VLen, BufSz, CtrlSz, Flags, Handle) ->
 recvmmsg_deadline(SockRef, VLen, BufSz, CtrlSz, Flags, Deadline) ->
     Handle = make_ref(),
     case prim_socket:recvmmsg(SockRef, VLen, BufSz, CtrlSz, Flags, Handle) of
-        {select_read, _Msgs} ->
+        {select_read, Msgs} ->
             _ = cancel(SockRef, recvmmsg, Handle),
-            Now = erlang:monotonic_time(millisecond),
-            case Deadline - Now of
-                TimeLeft when TimeLeft > 0 ->
-                    receive
-                        ?socket_msg(_Socket, select, Handle) ->
-                            recvmmsg_deadline(SockRef, VLen, BufSz, CtrlSz, Flags, Deadline);
-                        ?socket_msg(_Socket, abort, {Handle, Reason}) ->
-                            _ = cancel(SockRef, recvmmsg, Handle),
-                            {error, Reason}
-                    after TimeLeft ->
-                            _ = cancel(SockRef, recvmmsg, Handle),
-                            {error, timeout}
-                    end;
-                _ ->
-                    _ = cancel(SockRef, recvmmsg, Handle),
-                    {error, timeout}
-            end;
+            {ok, Msgs};
 
         select = Tag ->
             %% There is nothing just now, but we will be notified when there
