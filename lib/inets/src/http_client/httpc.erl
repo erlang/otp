@@ -216,7 +216,7 @@ request(Url, Profile) ->
       HttpOption :: {timeout, timeout()}
                   | {connect_timeout, timeout()}
                   | {ssl, [ssl:tls_option()]}
-                  | {autoredirect, boolean()}
+                  | {autoredirect, boolean() | no_downgrade}
                   | {autoretry, timeout()}
                   | {proxy_auth, {string(), string()}}
                   | {version, HttpVersion} | {relaxed, boolean()},
@@ -296,7 +296,18 @@ HTTP options:
   For some 30X-result codes, automatic redirect is not allowed. In these cases
   the 30X-result is always returned.
 
-  Default is `true`.
+  If `no_downgrade`, a redirect from `https` to `http` is treated as not
+  allowed and the 30X-result is returned instead, since following it would
+  silently drop transport security; a redirect from `http` to `https`, or
+  between two URIs using the same scheme, is still followed. Use `true` to
+  restore the previous behavior of following every redirect regardless of
+  scheme.
+
+  Default is `no_downgrade`.
+
+  > #### Change {: .info }
+  >
+  > The default changed from `true` to `no_downgrade` in Erlang/OTP 29.1.
 
 - [](){: #opt_autoretry } **`autoretry`** - The client automatically retries the request **once** after receiving
   a Retry-After header from the server.
@@ -473,7 +484,7 @@ Options details:
       HttpOption :: {timeout, timeout()}
                   | {connect_timeout, timeout()}
                   | {ssl, [ssl:tls_option()]}
-                  | {autoredirect, boolean()}
+                  | {autoredirect, boolean() | no_downgrade}
                   | {autoretry, timeout()}
                   | {proxy_auth, {string(), string()}}
                   | {version, HttpVersion} | {relaxed, boolean()},
@@ -1466,7 +1477,13 @@ http_options_default() ->
 		     (_) ->
 			  error
 		  end,
-    AutoRedirectPost =  boolfun(),
+    AutoRedirectPost =  fun(Value) when (Value =:= true) orelse
+					 (Value =:= false) orelse
+					 (Value =:= no_downgrade) ->
+				{ok, Value};
+			   (_) ->
+				error
+			end,
 
     AutoRetryPost = fun(Value) when is_integer(Value)
                                     andalso Value >= 0 ->
@@ -1512,7 +1529,7 @@ http_options_default() ->
     [
      {version,         {value, "HTTP/1.1"},            #http_options.version,         VersionPost}, 
      {timeout,         {value, ?HTTP_REQUEST_TIMEOUT}, #http_options.timeout,         TimeoutPost},
-     {autoredirect,    {value, true},                  #http_options.autoredirect,    AutoRedirectPost},
+     {autoredirect,    {value, no_downgrade},          #http_options.autoredirect,    AutoRedirectPost},
      {autoretry,       {value, infinity},              #http_options.autoretry,       AutoRetryPost},
      %% can crash if no os bundle is present. therefore the options are only evaluated on demand
      {ssl,             {value_lazy, SslOptsLazyFn},    #http_options.ssl,             SslPost},

@@ -242,6 +242,10 @@ misc() ->
 sim_mixed() ->
     [
      redirect_http_to_https,
+     redirect_https_to_http_blocked_by_default,
+     redirect_https_to_http_blocked_case_insensitive,
+     redirect_https_to_http_allowed_when_explicit,
+     redirect_https_to_http_blocked_after_upgrade,
      redirect_relative_different_port
     ].
 
@@ -931,6 +935,72 @@ redirect_http_to_https(Config) when is_list(Config) ->
     {ok, {{_,200,_}, [_ | _], [_|_]}}
 	= httpc:request(post, {URL301, Headers, "text/plain", "foobar"},
 			[?SSL_NO_VERIFY], RequestOpts, Profile).
+
+%%-------------------------------------------------------------------------
+redirect_https_to_http_blocked_by_default() ->
+    [{doc, "The no_downgrade default for autoredirect must not follow a "
+      "30X redirect from https to http."}].
+redirect_https_to_http_blocked_by_default(Config) when is_list(Config) ->
+    URL301 = mixed_url(https, "/301_custom_url.html", Config),
+    TargetUrl = mixed_url(http, "/dummy.html", Config),
+    RequestOpts = proplists:get_value(request_opts, Config, []),
+    Profile = ?profile(Config),
+    Headers = [{"x-test-301-url", TargetUrl}],
+
+    {ok, {{_,301,_}, [_ | _], _}}
+	= httpc:request(get, {URL301, Headers}, [?SSL_NO_VERIFY], RequestOpts, Profile),
+
+    {ok, {{_,301,_}, [_ | _], _}}
+	= httpc:request(get, {URL301, Headers}, [{autoredirect, no_downgrade}, ?SSL_NO_VERIFY],
+			RequestOpts, Profile).
+
+%%-------------------------------------------------------------------------
+redirect_https_to_http_blocked_case_insensitive() ->
+    [{doc, "The no_downgrade scheme check must not be bypassed by a "
+      "case-varied scheme in the Location header (RFC 3986 3.1: scheme "
+      "names are case-insensitive)."}].
+redirect_https_to_http_blocked_case_insensitive(Config) when is_list(Config) ->
+    URL301 = mixed_url(https, "/301_custom_url.html", Config),
+    TargetUrl = mixed_url(http, "/dummy.html", Config),
+    "http" ++ Rest = TargetUrl,
+    UpperTargetUrl = "HTTP" ++ Rest,
+    RequestOpts = proplists:get_value(request_opts, Config, []),
+    Profile = ?profile(Config),
+    Headers = [{"x-test-301-url", UpperTargetUrl}],
+
+    {ok, {{_,301,_}, [_ | _], _}}
+	= httpc:request(get, {URL301, Headers}, [?SSL_NO_VERIFY], RequestOpts, Profile).
+
+%%-------------------------------------------------------------------------
+redirect_https_to_http_allowed_when_explicit() ->
+    [{doc, "autoredirect set to true must still follow a 30X redirect from "
+      "https to http, for backwards compatibility."}].
+redirect_https_to_http_allowed_when_explicit(Config) when is_list(Config) ->
+    URL301 = mixed_url(https, "/301_custom_url.html", Config),
+    TargetUrl = mixed_url(http, "/dummy.html", Config),
+    RequestOpts = proplists:get_value(request_opts, Config, []),
+    Profile = ?profile(Config),
+    Headers = [{"x-test-301-url", TargetUrl}],
+
+    {ok, {{_,200,_}, [_ | _], [_|_]}}
+	= httpc:request(get, {URL301, Headers}, [{autoredirect, true}, ?SSL_NO_VERIFY],
+			RequestOpts, Profile).
+
+%%-------------------------------------------------------------------------
+redirect_https_to_http_blocked_after_upgrade() ->
+    [{doc, "The downgrade check must use the current scheme after a prior "
+      "redirect, not the original request's scheme: http -> https must "
+      "still be followed, but the following https -> http hop must not."}].
+redirect_https_to_http_blocked_after_upgrade(Config) when is_list(Config) ->
+    URL301 = mixed_url(http, "/301_custom_url.html", Config),
+    Step2Url = mixed_url(https, "/302_custom_url_2.html", Config),
+    FinalUrl = mixed_url(http, "/dummy.html", Config),
+    RequestOpts = proplists:get_value(request_opts, Config, []),
+    Profile = ?profile(Config),
+    Headers = [{"x-test-301-url", Step2Url}, {"x-test-302-url-2", FinalUrl}],
+
+    {ok, {{_,302,_}, [_ | _], _}}
+	= httpc:request(get, {URL301, Headers}, [?SSL_NO_VERIFY], RequestOpts, Profile).
 
 %%-------------------------------------------------------------------------
 redirect_relative_different_port() ->
@@ -3170,6 +3240,15 @@ handle_uri(_,"/301_custom_url.html",_,Headers,_,_) ->
 	"Location:" ++ NewUri ++  "\r\n" ++
 	"Content-Length:" ++ integer_to_list(length(Body))
 	++ "\r\n\r\n" ++ Body;
+
+%% A second custom-redirect endpoint, distinct from /301_custom_url.html, so
+%% that a 30X redirect chain can carry two different targets (one per hop)
+%% in two different headers instead of looping back to the first target.
+handle_uri(_,"/302_custom_url_2.html",_,Headers,_,_) ->
+    NewUri = proplists:get_value("x-test-302-url-2", Headers),
+    "HTTP/1.1 302 Found\r\n" ++
+	"Location:" ++ NewUri ++  "\r\n" ++
+	"Content-Length:0\r\n\r\n";
 
 handle_uri("HEAD","/302.html",Port,_,Socket,_) ->
     NewUri = url_start(Socket) ++
