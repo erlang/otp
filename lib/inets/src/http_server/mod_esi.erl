@@ -53,6 +53,38 @@ them as common CGI scripts.
 %%%=========================================================================
 %%%  Types
 %%%=========================================================================
+-export_type([esi_option/0]).
+
+-doc """
+- [](){: #prop_esi_alias } **`{erl_script_alias, {URLPath, [AllowedModule]}}`**  
+  `URLPath = string()` and `AllowedModule = atom()`. `erl_script_alias` marks
+  all URLs matching url-path as erl scheme scripts. A matching URL is mapped
+  into a specific module and function, for example:
+
+  ```erlang
+  {erl_script_alias, {"/cgi-bin/example", [httpd_example]}}
+  ```
+
+  A request to http://your.server.org/cgi-bin/example/httpd_example:yahoo would
+  refer to httpd_example:yahoo/3 or, if that does not exist,
+  httpd_example:yahoo/2 and http://your.server.org/cgi-bin/example/other:yahoo
+  would not be allowed to execute.
+
+- [](){: #prop_esi_nocache } **`{erl_script_nocache, boolean()}`**  
+  If `erl_script_nocache` is set to `true`, the server adds HTTP header fields
+  preventing proxies from caching the page. This is generally a good idea for
+  dynamic content, as the content often varies between each request. Default is
+  `false`.
+
+- [](){: #prop_esi_timeout } **`{erl_script_timeout, integer()}`**  
+  If `erl_script_timeout` sets the time in seconds the server waits between each
+  chunk of data to be delivered through `mod_esi:deliver/2`. Default is `15`.
+  This is only relevant for scripts that use the erl scheme.
+""".
+-type esi_option() :: {erl_script_alias, {string(), [atom()]}} |
+                      {erl_script_nocache, boolean()} |
+                      {erl_script_timeout, non_neg_integer()}.
+
 -doc """
 Environment data associated with a request.
 
@@ -111,7 +143,7 @@ Called by `mod_esi` in response to requests.
 
 `Module` must be found in the code path and export `Function` with an arity of
 three. An `erl_script_alias` must also be set up in the configuration file for
-the web server, see [the ESI properties documentation](`m:httpd#prop_esi_alias`).
+the web server, see [the ESI properties documentation](`m:mod_esi#prop_esi_alias`).
 
 The `Module` and `Function` that are called depend on the URL. See [the ESI
 introductory documentation](http_server.md#esi) for more details.
@@ -169,7 +201,6 @@ JSON response body, one could pass the following:
 "status: 201 Created\r\ncontent-type: application/json\r\n\r\n{}"
 ```
 """.
--doc(#{group => <<"ESI Callback Functions">>}).
 -callback 'Function'(SessionID, Env, Input) -> {continue, State} | _
                         when
                             SessionID :: session_id(),
