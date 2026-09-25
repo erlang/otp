@@ -82,6 +82,9 @@
          t2b_system_limit/1,
          term_to_iovec/1,
          is_binary_test/1,
+         pid_to_binary_test/1,
+         port_to_binary_test/1,
+         ref_to_binary_test/1,
          local_ext/1]).
 
 %% Internal exports.
@@ -113,6 +116,7 @@ all() ->
      robustness, otp_8180, trapping, large,
      error_after_yield, cmp_old_impl,
      is_binary_test,
+     pid_to_binary_test, port_to_binary_test, ref_to_binary_test,
      local_ext].
 
 groups() -> 
@@ -2208,6 +2212,50 @@ concat_stuff(A, B) when is_integer(B); is_binary(B) ->
            Y when is_binary(Y) -> Y;
            _ -> integer_to_binary(B)
        end)/binary>>.
+
+%% Test the pid_to_binary/1 BIF
+pid_to_binary_test(Config) when is_list(Config) ->
+    LocalPid = self(),
+    LocalBin = pid_to_binary(LocalPid),
+    LocalBin = list_to_binary(pid_to_list(LocalPid)),
+
+    %% External pid.
+    {ok, ExtPid, _Node} = ?CT_PEER(),
+    ExtBin = pid_to_binary(ExtPid),
+    ExtBin = list_to_binary(pid_to_list(ExtPid)),
+
+    %% Non-pid arguments raise badarg.
+    ?assertError(badarg, pid_to_binary(an_atom)),
+    ?assertError(badarg, pid_to_binary(make_ref())),
+    ?assertError(badarg, pid_to_binary(42)),
+    ?assertError(badarg, pid_to_binary(<<"not a pid">>)),
+    ok.
+
+%% Test the port_to_binary/1 BIF
+port_to_binary_test(Config) when is_list(Config) ->
+    Port = hd(erlang:ports()),
+    Bin = port_to_binary(Port),
+    Bin = list_to_binary(port_to_list(Port)),
+
+    %% Non-port arguments raise badarg.
+    ?assertError(badarg, port_to_binary(an_atom)),
+    ?assertError(badarg, port_to_binary(self())),
+    ?assertError(badarg, port_to_binary(make_ref())),
+    ?assertError(badarg, port_to_binary(42)),
+    ok.
+
+%% Test the ref_to_binary/1 BIF
+ref_to_binary_test(Config) when is_list(Config) ->
+    Ref = make_ref(),
+    Bin = ref_to_binary(Ref),
+    Bin = list_to_binary(ref_to_list(Ref)),
+
+    %% Non-reference arguments raise badarg.
+    ?assertError(badarg, ref_to_binary(an_atom)),
+    ?assertError(badarg, ref_to_binary(self())),
+    ?assertError(badarg, ref_to_binary(42)),
+    ?assertError(badarg, ref_to_binary(<<"not a ref">>)),
+    ok.
 
 %% Utilities.
 

@@ -714,6 +714,8 @@ format_erlang_error(phash2, [_,N], _) ->
     [[], must_be_pos_int(N)];
 format_erlang_error(posixtime_to_universaltime, [_], _) ->
     [not_integer];
+format_erlang_error(pid_to_binary, [_], _) ->
+    [not_pid];
 format_erlang_error(pid_to_list, [_], _) ->
     [not_pid];
 format_erlang_error(port_call, [Port,Operation,_Data], _) ->
@@ -747,6 +749,8 @@ format_erlang_error(port_info, [Port,_], Cause) ->
         _ ->
             [must_be_local_port(Port),bad_option]
     end;
+format_erlang_error(port_to_binary, [_], _) ->
+    [not_port];
 format_erlang_error(port_to_list, [_], _) ->
     [not_port];
 format_erlang_error(prepare_loading, [Module,Code], _) ->
@@ -800,6 +804,8 @@ format_erlang_error(read_timer, [_], _) ->
 format_erlang_error(read_timer, [Ref,Options], _) ->
     Arg1 = must_be_ref(Ref),
     [Arg1,maybe_option_list_error(Options, Arg1)];
+format_erlang_error(ref_to_binary, [_], _) ->
+    [not_ref];
 format_erlang_error(ref_to_list, [_], _) ->
     [not_ref];
 format_erlang_error(register, [Name,PidOrPort], Cause) ->
