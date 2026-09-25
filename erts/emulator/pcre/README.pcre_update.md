@@ -51,51 +51,80 @@ with any build support from the PCRE2 project. We have our own
 makefiles etc.
 
 ## Update PCRE2 Repo, quick guide
-1. Check out our PCRE2 fork:
+1. Set ERL_TOP for your OTP repo for these instructions.
+
+2. Create and checkout a topic branch to receive the PCRE2 upgrade.
+
+3. Check out our PCRE2 fork repo:
 `git clone https://github.com/erlang/pcre2.git`
 
-2. Change directory: `cd pcre2`
+4. Set the pcre2 repo path for these instructions:
+```
+cd pcre2
+PCRE2_REPO=`pwd`
+```
 
-3. Add upstream repo remote in git repo:
+5. Add upstream repo remote in git repo:
 ```
 git remote add upstream https://github.com/PCRE2Project/pcre2.git
 git fetch upstream
 ```
 
-4. Checkout the branch:
+6. Checkout the branch:
 `git checkout ERLANG_INTEGRATION`
 
-5. Set versions for the rest of these instructions
+7. Set PCRE2 versions for the rest of these instructions
 ```
 FROM_VER=10.45
 TO_VER=10.46
 ```
 
-6. Merge in the new pcre2 version:
-`git merge pcre2-$TO_VER`
+9. Verify that PCRE2 source files are identical in the two repos.
+```
+cd $PCRE2_REPO
+for x in `ls $ERL_TOP/erts/emulator/pcre/*.[ch]`; do NAME=`basename $x`; if [ -e src/$NAME ]; then if diff -q $x src/$NAME; then echo "$NAME ok"; fi; fi; done
+```
+
+If some file(s) differ it's probably because changes have been made in the OTP
+repo without updating the PCRE2 fork repo.
+
+Identify the lost changes and commit them to the other repo. The two repos
+must be in sync, otherwise changes may be lost when source files are copied
+below.
+
+Tip: You can copy a specific version of a file from a git repo without having to
+check it out with
+`git show $SHA:source/file/name > destination/file/name`
+
+10. Merge in the new pcre2 version:
+```
+cd $PCRE2_REPO
+git merge pcre2-$TO_VER
+```
 
 Jump to *what the diff means* below, for more details on merge conflicts.
 
-7. Fix all the conflicts. Once that is done review it all to verify that conflicts automatically resolved are sane.
+11. Fix all the conflicts. Once that is done review it all to verify that conflicts automatically resolved are sane.
 `gitk`
 
-8. Check if there are new loops in pcre2_match.c's match function, that are missing
+12. Check if there are new loops in pcre2_match.c's match function, that are missing
 comments /* LOOP_COUNT: Ok/COST/CHK */
 
-9. Check that it builds
+13. Check that it builds
 ./autogen.sh
 mkdir build
 cd build
 ../configure
 make
 
-10. Push the changes
+14. Push the changes
 `git push -u origin ERLANG_INTEGRATION`
 
 ## Updating OTP repo with pcre2 changes
 
 1. Check if there are new files we need to deal with:
 ```
+cd $PCRE2_REPO
 git worktree add ../pcre2-$FROM_VER pcre2-$FROM_VER
 git worktree add ../pcre2-$TO_VER pcre2-$TO_VER
 cd ../pcre2-$FROM_VER
@@ -113,7 +142,7 @@ cd build
 make
 
 # go back to main pcre2 repo
-cd ../../pcre2
+cd $PCRE2_REPO
 
 # list files
 
