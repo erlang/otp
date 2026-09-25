@@ -107,7 +107,16 @@
 -define(OTP_GH_URI, "https://raw.githubusercontent.com/" ++ ?GH_ACCOUNT ++ "/refs/heads/openvex/").
 
 %% GH default options
--define(GH_ADVISORIES_OPTIONS, "state=published&direction=desc&per_page=100&sort=updated").
+%%
+%% Sort by `created` (descending) so advisories are returned
+%% newest-first by a monotonic publication-time proxy. paginate_years/2
+%% stops paginating once a page contains no advisory within the last
+%% ?GH_ADVISORIES_FROM_LAST_X_YEARS years; that early-stop is only sound
+%% if the sort key decreases monotonically with the date used for
+%% filtering (published_at). `sort=updated` broke this: a re-edited old
+%% advisory sorts near the top, so a page could look "out of range"
+%% while newer-published advisories remain on later pages.
+-define(GH_ADVISORIES_OPTIONS, "state=published&direction=desc&per_page=100&sort=created").
 
 %% Advisories to download from last X years.
 -define(GH_ADVISORIES_FROM_LAST_X_YEARS, 5).
@@ -2979,9 +2988,21 @@ paginate_years(Branch, Cmd) when is_list(Cmd) ->
     end.
 
 process_gh_page(Year, Branch, Body) ->
+    %% Advisories older than the year cutoff are filtered out by
+    %% filter_gh_cve_by({year, _}, _), which returns #{}. Such entries
+    %% must be dropped here: forwarding #{} to the {otp, _} filter (or
+    %% later to extract_advisory_info/1) would fail with a function_clause
+    %% because those clauses require a #{~"vulnerabilities" := _} shape.
+    %% Dropping them also lets paginate_years/2 correctly stop when a
+    %% whole page is older than the cutoff (it treats an empty result as
+    %% "nothing more in range").
     lists:foldl(fun (Vuln0, Acc0) ->
-                        Vuln1 = filter_gh_cve_by({year, Year}, Vuln0),
-                        [filter_gh_cve_by({otp, Branch}, Vuln1) | Acc0]
+                        case filter_gh_cve_by({year, Year}, Vuln0) of
+                            EmptyMap when map_size(EmptyMap) =:= 0 ->
+                                Acc0;
+                            Vuln1 ->
+                                [filter_gh_cve_by({otp, Branch}, Vuln1) | Acc0]
+                        end
                 end, [], Body).
 
 filter_gh_cve_by({year, Year},
@@ -3018,7 +3039,12 @@ filter_gh_cve_by({otp, <<"otp-", Version/binary>>},
                                       get_otp_app_version_from_gh_vulnerability(Version, VulnerableVersion, AppName, AppVersions),
                                   [Pkg#{~"patched_versions" := A,
                                         ~"vulnerable_version_range" := V} ||  {A, V} <- AppVersions1] ++ Acc
-                          end, [], Vulns)}.
+                          end, [], Vulns)};
+filter_gh_cve_by({otp, _}, Map) when map_size(Map) =:= 0 ->
+    %% Defensive: an advisory that was filtered out by the year filter
+    %% yields #{}. process_gh_page/3 already drops these, but keep the
+    %% pipeline crash-safe if an empty map ever reaches here.
+    Map.
 
 %% Input: <<"27">> and <<">= 3.2">> and <<"ssl">>, and <<"4.15.3, 5.1.5, 5.2.9">>
 %% Output: [{~"27.3.3", ~"4.15.3"}]
