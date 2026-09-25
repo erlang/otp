@@ -110,8 +110,12 @@ init(Args) ->
 
 -spec handle_call(Request :: term(), From :: {pid(), term()}, State :: term()) ->
                          {reply, Reply :: term(), NewState :: term()} .
-handle_call({find_ticket, Pid, Ciphers, HashAlgos, SNI, EarlyDataSize}, _From, State) ->
-    Key = do_find_ticket(State, Pid, Ciphers, HashAlgos, SNI, EarlyDataSize),
+handle_call({find_ticket, Pid, Ciphers, HashAlgos, SNI, EarlyDataSize}, _From, State0) ->
+    %% Find candidate tickets AND lock atomically.
+    %% This prevents race condition ticket steeling by parallel connection processes.
+    %% The caller chooses one of the returned pairs and unlocks the others.
+    Key = do_find_ticket(State0, Pid, Ciphers, HashAlgos, SNI, EarlyDataSize),
+    State = lock_ticket_pair(State0, Pid, Key),
     {reply, Key, State};
 handle_call({get_tickets, Pid, Keys}, _From, State) ->
     Data = get_tickets(State, Pid, Keys),
@@ -212,7 +216,8 @@ iterate_tickets(Iter0, Pid, Ciphers, Hash, SNI, Lifetime, EarlyDataSize, Acc) ->
         {Key, #data{cipher_suite = {_,Hash},
                     lock = Lock} = Data, Iter} when Lock =:= undefined orelse
                                                     Lock =:= Pid ->
-            handle_available_ticket(Key, Data, Iter, Pid, Ciphers, SNI, Lifetime, EarlyDataSize, Acc);
+            handle_available_ticket(Key, Data, Iter, Pid, Ciphers, SNI,
+                                    Lifetime, EarlyDataSize, Acc);
         {_, _, Iter} ->
             iterate_tickets(Iter, Pid, Ciphers, Hash, SNI, Lifetime, EarlyDataSize, Acc);
         none ->
@@ -418,6 +423,17 @@ lock_tickets(State0, Pid, Keys) ->
     Ref = erlang:monitor(process, Pid),
     State#state{user_monitors = Monitors0#{Pid => Ref}}.
 
+%% Lock the candidate ticket pair returned by do_find_ticket atomically at
+%% find time. Same monitoring semantics as lock_tickets/3. Undefined slots
+%% (no matching ticket) are skipped. set_lock/update_data_lock never steal a
+%% lock held by another pid, so a candidate already locked by a concurrent
+%% connection is simply not taken.
+lock_ticket_pair(State, _Pid, {undefined, undefined}) ->
+    State;
+lock_ticket_pair(State0, Pid, {Ticket0, Ticket2}) ->
+    Keys = [K || K <- [Ticket0, Ticket2], K =/= undefined],
+    lock_tickets(State0, Pid, Keys).
+
 
 unlock_tickets(State0, Pid, Keys) ->
     State = #state{user_monitors = Monitors0} = set_lock(State0, Pid, Keys, unlock),
@@ -459,7 +475,8 @@ set_lock(#state{db = Db0} = State, Pid, [Key|T], Cmd) ->
     end.
 
 
-update_data_lock(Value, Pid, lock) ->
+update_data_lock(#data{lock = Lock} = Value, Pid, lock)
+  when Lock =:= undefined orelse Lock =:= Pid ->
     Value#data{lock = Pid};
 update_data_lock(#data{lock = Pid} = Value, Pid, unlock) ->
     Value#data{lock = undefined};
