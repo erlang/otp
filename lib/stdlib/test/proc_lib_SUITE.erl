@@ -32,8 +32,11 @@
          sync_start_monitor/1, sync_start_monitor_link/1,
          sync_start_timeout/1, sync_start_link_timeout/1,
          sync_start_monitor_link_timeout/1,
+         sync_start_big_mailbox/1,
+         sync_start_init_fail/1, sync_start_dictionary/1,
+         sync_start_crash_before_ack/1,
          spawn_opt/1, sp1/0, sp1_with_label/0, sp2/0, sp3/1, sp4/2,
-         sp5/1, sp6/1, sp7/1, sp8/1, sp9/1, sp10/1,
+         sp5/1, sp6/1, sp7/1, sp8/1, sp9/1, sp10/1, sp11/1, sp12/3, sp13/1,
          '\x{447}'/0, hibernate/1, stop/1, t_format/1, t_format_arbitrary/1]).
 -export([ otp_6345/1, init_dont_hang/1]).
 
@@ -76,7 +79,10 @@ groups() ->
      {sync_start, [], [sync_start_nolink, sync_start_link,
                        sync_start_monitor, sync_start_monitor_link,
                        sync_start_timeout, sync_start_link_timeout,
-                       sync_start_monitor_link_timeout]}].
+                       sync_start_monitor_link_timeout,
+                       sync_start_big_mailbox,
+                       sync_start_init_fail, sync_start_dictionary,
+                       sync_start_crash_before_ack]}].
 
 init_per_suite(Config) ->
     Config.
@@ -529,6 +535,115 @@ sp4(Parent, Tester) ->
 	go_on -> ok
     end,
     proc_lib:init_ack(Parent, self()).
+
+%% Start with a big message queue; nothing in it may be consumed or lost.
+sync_start_big_mailbox(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    N = 100000,
+    _ = [self() ! {junk, I} || I <- lists:seq(1, N)],
+    {message_queue_len, N} = process_info(self(), message_queue_len),
+
+    Pid1 = proc_lib:start(?MODULE, sp11, [self()]),
+    true = is_pid(Pid1),
+    {message_queue_len, N} = process_info(self(), message_queue_len),
+
+    Pid2 = proc_lib:start_link(?MODULE, sp11, [self()]),
+    true = is_pid(Pid2),
+    {message_queue_len, N} = process_info(self(), message_queue_len),
+
+    {error, big_nack} =
+        proc_lib:start_link(?MODULE, sp12,
+                            [self(), {error, big_nack}, {exit, normal}]),
+    {message_queue_len, N} = process_info(self(), message_queue_len),
+
+    {error, timeout} =
+        proc_lib:start_link(?MODULE, sp13, [self()], 100),
+    {message_queue_len, N} = process_info(self(), message_queue_len),
+
+    {error, big_crash} = proc_lib:start(?MODULE, sp13, [{crash, big_crash}]),
+    {message_queue_len, N} = process_info(self(), message_queue_len),
+
+    _ = [receive {junk, I} -> ok end || I <- lists:seq(1, N)],
+    {message_queue_len, 0} = process_info(self(), message_queue_len),
+
+    exit(Pid1, kill),
+    exit(Pid2, kill),
+    receive {'EXIT', Pid2, killed} -> ok end,
+    ok.
+
+sync_start_init_fail(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+
+    {error, r1} = proc_lib:start(?MODULE, sp12,
+                                 [self(), {error, r1}, {exit, normal}]),
+    {message_queue_len, 0} = process_info(self(), message_queue_len),
+
+    {error, r2} = proc_lib:start_link(?MODULE, sp12,
+                                      [self(), {error, r2}, {exit, shutdown}]),
+    {message_queue_len, 0} = process_info(self(), message_queue_len),
+
+    {error, r3} = proc_lib:start(?MODULE, sp12,
+                                 [self(), {error, r3}, {error, r3}]),
+    {message_queue_len, 0} = process_info(self(), message_queue_len),
+
+    {{error, r4}, Mon} =
+        proc_lib:start_monitor(?MODULE, sp12,
+                               [self(), {error, r4}, {exit, normal}]),
+    receive
+        {'DOWN', Mon, process, _, normal} -> ok
+    after 1000 ->
+            ct:fail(no_down)
+    end,
+    {message_queue_len, 0} = process_info(self(), message_queue_len),
+    ok.
+
+sync_start_dictionary(Config) when is_list(Config) ->
+    Self = self(),
+    Pid = proc_lib:start(?MODULE, sp11, [self()]),
+    {dictionary, Dict} = process_info(Pid, dictionary),
+    io:format("~p~n", [Dict]),
+    false = lists:keymember('$proc_lib_start_tag', 1, Dict),
+    {'$ancestors', [Self|_]} = lists:keyfind('$ancestors', 1, Dict),
+    {?MODULE, sp11, ['Argument__1']} = proc_lib:initial_call(Pid),
+    {?MODULE, sp11, 1} = proc_lib:translate_initial_call(Pid),
+    {initial_call, {proc_lib, init_p, 5}} = process_info(Pid, initial_call),
+    exit(Pid, kill),
+    ok.
+
+sync_start_crash_before_ack(Config) when is_list(Config) ->
+    error_logger:add_report_handler(?MODULE, self()),
+    {error, before_ack} = proc_lib:start(?MODULE, sp13, [{crash, before_ack}]),
+    receive
+        {crash_report, Pid, [Crash, _Links]} ->
+            io:format("~p~n", [Crash]),
+            {pid, Pid} = lists:keyfind(pid, 1, Crash),
+            {error_info, {exit, before_ack, _}} =
+                lists:keyfind(error_info, 1, Crash),
+            {dictionary, Dict} = lists:keyfind(dictionary, 1, Crash),
+            {sp13, before_ack} = lists:keyfind(sp13, 1, Dict),
+            false = lists:keymember('$proc_lib_start_tag', 1, Dict)
+    after 5000 ->
+            ct:fail(no_crash_report)
+    end,
+    error_logger:delete_report_handler(?MODULE),
+    ok.
+
+sp11(Parent) ->
+    proc_lib:init_ack(Parent, self()),
+    receive
+        die -> exit(die)
+    end.
+
+sp12(Parent, Return, Exception) ->
+    proc_lib:init_fail(Parent, Return, Exception).
+
+sp13({crash, Reason}) ->
+    put(sp13, Reason),
+    exit(Reason);
+sp13(_Parent) ->
+    receive
+        die -> exit(die)
+    end.
 
 '\x{447}'() ->
     receive

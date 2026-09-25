@@ -126,6 +126,8 @@ is _not_ part of these options.
                 end
         end).
 
+-define(START_TAG_KEY, '$proc_lib_start_tag').
+
 -doc """
 An exception passed to `init_fail/3`. See `erlang:raise/3` for a description
 of `Class`, `Reason` and `Stacktrace`.
@@ -286,10 +288,11 @@ spawn_opt(Node, M, F, A, Opts) when is_atom(M), is_atom(F), is_list(A) ->
     Ancestors = get_ancestors(),
     erlang:spawn_opt(Node, ?MODULE, init_p, [Parent,Ancestors,M,F,A], Opts).
 
-spawn_mon(M,F,A) ->
+spawn_mon(M, F, A, Tag, SpawnOpts) ->
     Parent = get_my_name(),
     Ancestors = get_ancestors(),
-    erlang:spawn_monitor(?MODULE, init_p, [Parent,Ancestors,M,F,A]).
+    erlang:spawn_opt(?MODULE, init_p, [{Parent,Tag},Ancestors,M,F,A],
+                     [{monitor, [{tag, Tag}]} | SpawnOpts]).
 
 -doc """
 This function does the same as (and does call) the
@@ -322,8 +325,12 @@ init_p(Parent, Ancestors, Fun) when is_function(Fun) ->
     end.
 
 -doc false.
--spec init_p(pid(), [pid()], atom(), atom(), [term()]) -> term().
+-spec init_p(Parent | {Parent, Tag}, [pid()], atom(), atom(), [term()]) ->
+          term() when Parent :: pid() | atom(), Tag :: reference().
 
+init_p({Parent, Tag}, Ancestors, M, F, A) when is_reference(Tag) ->
+    put(?START_TAG_KEY, Tag),
+    init_p(Parent, Ancestors, M, F, A);
 init_p(Parent, Ancestors, M, F, A) when is_atom(M), is_atom(F), is_list(A) ->
     put('$ancestors', [Parent|Ancestors]),
     put('$initial_call', trans_init(M, F, A)),
@@ -388,7 +395,8 @@ start(M, F, A) when is_atom(M), is_atom(F), is_list(A) ->
       Ret :: term() | {error, Reason :: term()}.
 
 start(M, F, A, Timeout) when is_atom(M), is_atom(F), is_list(A) ->
-    sync_start(spawn_mon(M, F, A), Timeout).
+    Tag = make_ref(),
+    sync_start(spawn_mon(M, F, A, Tag, []), Tag, Timeout).
 
 -doc """
 Starts a new process synchronously. Spawns the process and waits for it to
@@ -434,23 +442,27 @@ Argument `SpawnOpts`, if specified, is passed as the last argument to the
 
 start(M, F, A, Timeout, SpawnOpts) when is_atom(M), is_atom(F), is_list(A) ->
     ?VERIFY_NO_MONITOR_OPT(M, F, A, Timeout, SpawnOpts),
-    sync_start(?MODULE:spawn_opt(M, F, A, [monitor|SpawnOpts]), Timeout).
+    Tag = make_ref(),
+    sync_start(spawn_mon(M, F, A, Tag, SpawnOpts), Tag, Timeout).
 
-sync_start({Pid, Ref}, Timeout) ->
+%% All clauses match on Tag so that the compiler can use a receive
+%% marker and skip messages received before the process was spawned.
+%%
+sync_start({Pid, Mon}, Tag, Timeout) ->
     receive
-	{ack, Pid, Return} ->
-	    erlang:demonitor(Ref, [flush]),
+        {ack, Tag, Return} ->
+            erlang:demonitor(Mon, [flush]),
             Return;
-	{nack, Pid, Return} ->
+        {nack, Tag, Return} ->
             flush_EXIT(Pid),
-            _ = await_DOWN(Pid, Ref),
+            _ = await_DOWN(Pid, Mon, Tag),
             Return;
-	{'DOWN', Ref, process, Pid, Reason} ->
+        {Tag, Mon, process, Pid, Reason} ->
             flush_EXIT(Pid),
             {error, Reason}
     after Timeout ->
             kill_flush_EXIT(Pid),
-            _ = await_DOWN(Pid, Ref),
+            _ = await_DOWN(Pid, Mon, Tag),
             {error, timeout}
     end.
 
@@ -474,7 +486,8 @@ start_link(M, F, A) when is_atom(M), is_atom(F), is_list(A) ->
       Ret :: term() | {error, Reason :: term()}.
 
 start_link(M, F, A, Timeout) when is_atom(M), is_atom(F), is_list(A) ->
-    sync_start(?MODULE:spawn_opt(M, F, A, [link,monitor]), Timeout).
+    Tag = make_ref(),
+    sync_start(spawn_mon(M, F, A, Tag, [link]), Tag, Timeout).
 
 -doc """
 Starts a new process synchronously. Spawns the process and waits for it to
@@ -511,8 +524,8 @@ process.
 
 start_link(M,F,A,Timeout,SpawnOpts) when is_atom(M), is_atom(F), is_list(A) ->
     ?VERIFY_NO_MONITOR_OPT(M, F, A, Timeout, SpawnOpts),
-    sync_start(
-      ?MODULE:spawn_opt(M, F, A, [link,monitor|SpawnOpts]), Timeout).
+    Tag = make_ref(),
+    sync_start(spawn_mon(M, F, A, Tag, [link|SpawnOpts]), Tag, Timeout).
 
 
 -doc(#{equiv => start_monitor(Module, Function, Args, infinity)}).
@@ -538,7 +551,7 @@ start_monitor(M, F, A) when is_atom(M), is_atom(F), is_list(A) ->
       Ret :: term() | {error, Reason :: term()}.
 
 start_monitor(M, F, A, Timeout) when is_atom(M), is_atom(F), is_list(A) ->
-    sync_start_monitor(spawn_mon(M, F, A), Timeout).
+    sync_start_monitor(?MODULE:spawn_opt(M, F, A, [monitor]), Timeout).
 
 -doc """
 Starts a new process synchronously. Spawns the process and waits for it to
@@ -625,6 +638,12 @@ await_DOWN(Pid, Ref) ->
             Down
     end.
 
+await_DOWN(Pid, Mon, Tag) ->
+    receive
+        {Tag, Mon, process, Pid, _} = Down ->
+            Down
+    end.
+
 
 -doc """
 This function must only be used by a process that has been started by a
@@ -674,7 +693,7 @@ init(Parent) ->
       Ret :: term().
 
 init_ack(Parent, Return) ->
-    Parent ! {ack, self(), Return},
+    Parent ! {ack, start_tag(), Return},
     ok.
 
 -doc """
@@ -734,7 +753,7 @@ init(Parent) ->
 -doc(#{since => <<"OTP 26.0">>}).
 -spec init_fail(Parent :: pid(), Return :: term(), Exception :: exception()) -> no_return().
 init_fail(Parent, Return, Exception) ->
-    _ = Parent ! {nack, self(), Return},
+    _ = Parent ! {nack, start_tag(), Return},
     case Exception of
         {error, Reason} ->
             erlang:error(Reason);
@@ -757,6 +776,12 @@ Equivalent to [`init_fail(Parent, Return, Exception)`](`init_fail/3`) where
 init_fail(Return, Exception) ->
     [Parent|_] = get('$ancestors'),
     init_fail(Parent, Return, Exception).
+
+start_tag() ->
+    case erase(?START_TAG_KEY) of
+        undefined -> self();
+        Tag -> Tag
+    end.
 
 %% -----------------------------------------------------
 %% Fetch the initial call of a proc_lib spawned process.
@@ -1029,6 +1054,8 @@ clean_dict([{'$ancestors',_}|Dict]) ->
 clean_dict([{'$initial_call',_}|Dict]) ->
     clean_dict(Dict);
 clean_dict([{'$process_label',_}|Dict]) ->
+    clean_dict(Dict);
+clean_dict([{?START_TAG_KEY,_}|Dict]) ->
     clean_dict(Dict);
 clean_dict([E|Dict]) ->
     [E|clean_dict(Dict)];
