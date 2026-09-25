@@ -85,6 +85,8 @@
          dh_params/1,
          hibernate_client/0,
          hibernate_client/1,
+         hibernate_drops_aead_handles/0,
+         hibernate_drops_aead_handles/1,
          hibernate_server/0,
          hibernate_server/1,
          listen_socket/0,
@@ -368,6 +370,7 @@ beast_mitigation_test() ->
 
 tls13_group() ->
     [
+     hibernate_drops_aead_handles,
      supported_groups,
      honor_server_cipher_order_tls13,
      honor_client_cipher_order_tls13,
@@ -1443,6 +1446,57 @@ hibernate_server(Config) ->
                            StartServerOpts, StartClientOpts,
                            ServerOpts, ClientOpts, infinity, T) ||
         T <- [1000, 0, 1]].
+
+hibernate_drops_aead_handles() ->
+    [{doc, "Check that the cached AEAD handles are dropped when a TLS 1.3 "
+      "connection hibernates, and recreated when it is used again."}].
+
+hibernate_drops_aead_handles(Config) ->
+    HibernateAfter = 1000,
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+                                        {from, self()},
+                                        {mfa, {ssl_test_lib, no_result, []}},
+                                        {options, [{hibernate_after, HibernateAfter}
+                                                   | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    {ok, Socket} = ssl:connect(Hostname, Port,
+                               [{hibernate_after, HibernateAfter}, {active, false}
+                                | ClientOpts]),
+    #sslsocket{connection_handler = Receiver, payload_sender = Sender} = Socket,
+    %% A record in each direction, so that both sides cache a handle.
+    ok = ssl:send(Socket, "from client"),
+    ok = ssl_test_lib:send(Server, "from server"),
+    {ok, _} = ssl:recv(Socket, 0, 5000),
+    true = has_aead_handle(sys:get_state(Receiver)),
+    true = has_aead_handle(sys:get_state(Sender)),
+    %% sys:get_state/1 above woke both processes, so wait for them again.
+    ct:sleep(2 * HibernateAfter),
+    {current_function, {gen_statem, loop_hibernate, 3}} =
+        process_info(Receiver, current_function),
+    false = has_aead_handle(sys:get_state(Receiver)),
+    false = has_aead_handle(sys:get_state(Sender)),
+    %% The connection still works: the handles are recreated.
+    ok = ssl:send(Socket, "after hibernation"),
+    ok = ssl_test_lib:send(Server, "and back"),
+    {ok, _} = ssl:recv(Socket, 0, 5000),
+    true = has_aead_handle(sys:get_state(Receiver)),
+    ssl:close(Socket),
+    ssl_test_lib:close(Server).
+
+%% Whether any map in the term carries an `aead_handle' key. Avoids
+%% depending on the layout of the state records.
+has_aead_handle(Map) when is_map(Map) ->
+    maps:is_key(aead_handle, Map) orelse
+        lists:any(fun has_aead_handle/1, maps:values(Map));
+has_aead_handle(Tuple) when is_tuple(Tuple) ->
+    lists:any(fun has_aead_handle/1, tuple_to_list(Tuple));
+has_aead_handle([H | T]) ->
+    has_aead_handle(H) orelse has_aead_handle(T);
+has_aead_handle(_) ->
+    false.
 
 hibernate_helper(Version, CheckServer, StartServerOpts, StartClientOpts,
                  ServerOpts0, ClientOpts0,
