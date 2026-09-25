@@ -977,7 +977,7 @@ handle_msg(#ssh_msg_channel_open{channel_type = "direct-tcpip",
                                  data = <<?DEC_BIN(HostToConnect,_L1),        ?UINT32(PortToConnect),
                                           ?DEC_BIN(_OriginatorIPaddress,_L2), ?UINT32(_OrignatorPort)
                                         >>
-                                } = Msg,
+                                } = _Msg,
            #connection{channel_cache = Cache,
                        channel_id_seed = ChId,
                        suggest_window_size = WinSz,
@@ -985,7 +985,7 @@ handle_msg(#ssh_msg_channel_open{channel_type = "direct-tcpip",
                        options = Options,
                        connection_supervisor = ConnectionSup
                       } = C,
-           server, SSH) ->
+           server, _SSH) ->
     Allowed = case ?GET_OPT(tcpip_tunnel_in, Options) of
                   T when is_boolean(T) -> T;
                   AllowedFun when is_function(AllowedFun, 2) ->
@@ -1022,25 +1022,35 @@ handle_msg(#ssh_msg_channel_open{channel_type = "direct-tcpip",
                                           },
                         case ssh_client_channel:cache_insert(Cache, Channel, Limit) of
                             ok ->
-                                {ok,Pid} = ssh_connection_sup:start_channel(server, ConnectionSup, self(),
-                                                                            ssh_tcpip_forward_srv, ChId,
-                                                                            [Sock], undefined),
-                                ssh_client_channel:cache_update(Cache, Channel#channel{user = Pid}),
-                                gen_tcp:controlling_process(Sock, Pid),
-                                inet:setopts(Sock, [{active,once}]),
+                                case ssh_connection_sup:start_channel(server, ConnectionSup, self(),
+                                                                      ssh_tcpip_forward_srv, ChId,
+                                                                      [Sock], undefined) of
+                                    {ok,Pid} ->
+                                        ssh_client_channel:cache_update(Cache, Channel#channel{user = Pid}),
+                                        gen_tcp:controlling_process(Sock, Pid),
+                                        inet:setopts(Sock, [{active,once}]),
 
-                                {channel_open_confirmation_msg(RemoteId, ChId, WinSz, PktSz),
-                                 ChId + 1};
+                                        {channel_open_confirmation_msg(RemoteId, ChId, WinSz, PktSz),
+                                         ChId + 1};
+                                    {error, _Reason} ->
+                                        %% Roll back cache, refuse channel.
+                                        ssh_client_channel:cache_delete(Cache, ChId),
+                                        gen_tcp:close(Sock),
+                                        {channel_open_failure_msg(RemoteId,
+                                                                  ?SSH_OPEN_RESOURCE_SHORTAGE,
+                                                                  "Could not start forwarding channel",
+                                                                  "en"),
+                                         ChId}
+                                end;
                             {error, max_num_channels_exceeded} ->
+                                %% Refuse this channel, keep connection.
+                                %% Same reason as the session channel.
                                 gen_tcp:close(Sock),
-                                MsgFun = fun(M, L) ->
-                                                 io_lib:format("Connection terminated. Message: ~w"
-                                                               " reached a limit of: ~p", [M, L],
-                                                               [{chars_limit, ssh_lib:max_log_len(SSH)}])
-                                         end,
-                                ?LOG_DEBUG(MsgFun, [Msg, Limit]),
-                                {send_disconnect, {?SSH_DISCONNECT_BY_APPLICATION, "Connection terminated. "
-                                                   "Channel limit reached."}}
+                                {channel_open_failure_msg(RemoteId,
+                                                          ?SSH_OPEN_CONNECT_FAILED,
+                                                          "Connection refused",
+                                                          "en"),
+                                 ChId}
                         end;
 
                     {error,Error} ->
@@ -1051,12 +1061,8 @@ handle_msg(#ssh_msg_channel_open{channel_type = "direct-tcpip",
                          ChId}
                 end
         end,
-    case Result of
-        {send_disconnect, Reason} ->
-            {send_disconnect, Reason, handle_stop(C)};
-        {ReplyMsg, NextChId} ->
-            {[{connection_reply, ReplyMsg}], C#connection{channel_id_seed = NextChId}}
-    end;
+    {ReplyMsg, NextChId} = Result,
+    {[{connection_reply, ReplyMsg}], C#connection{channel_id_seed = NextChId}};
 
 handle_msg(#ssh_msg_channel_open{channel_type = "session",
 				 sender_channel = RemoteId}, 
