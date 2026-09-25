@@ -529,7 +529,8 @@ downgrade(Type, Msg, State) ->
 %%--------------------------------------------------------------------
 maybe_send_early_data(#state{
                          handshake_env =
-                             #handshake_env{tls_handshake_history = {Hist, _}},
+                             #handshake_env{tls_handshake_history = {Hist, _},
+                                            auto_ticket_data = AutoTicketData},
                          protocol_specific = #{sender := _Sender},
                          ssl_options = #{versions := [?TLS_1_3|_],
                                          use_ticket := UseTicket,
@@ -541,8 +542,9 @@ maybe_send_early_data(#state{
     State1 = tls_gen_connection_1_3:maybe_queue_change_cipher_spec(State0, last),
     %% Early traffic secret
     EarlyDataSize = tls_handshake_1_3:early_data_size(EarlyData),
+    PreSharedKeyData = select_ticket_data(SessionTickets, UseTicket, AutoTicketData),
     case tls_handshake_1_3:get_pre_shared_key_early_data(SessionTickets,
-                                                         UseTicket) of
+                                                         PreSharedKeyData) of
         {ok, {PSK, Cipher, HKDF, MaxSize}} when EarlyDataSize =< MaxSize ->
             State2 =
                 tls_handshake_1_3:calculate_client_early_traffic_secret(Hist,
@@ -594,22 +596,43 @@ maybe_automatic_session_resumption(#state{ssl_options =
     AvailableCipherSuites = ssl_handshake:available_suites(UserSuites, Version),
     HashAlgos = cipher_hash_algos(AvailableCipherSuites),
     Ciphers = tls_handshake_1_3:ciphers_for_early_data(AvailableCipherSuites),
-    %% Find a pair of tickets KeyPair = {Ticket0, Ticket2} where
-    %% Ticket0 satisfies requirements for early_data and session
-    %% resumption while Ticket2 can only be used for session
-    %% resumption.
     EarlyDataSize = tls_handshake_1_3:early_data_size(EarlyData),
     KeyPair =
-        tls_client_ticket_store:find_ticket(self(), Ciphers, HashAlgos,
-                                            SNI, EarlyDataSize),
+        tls_client_ticket_store:find_ticket_candidates(self(), Ciphers, HashAlgos,
+                                                       SNI, EarlyDataSize),
     UseTicket = tls_handshake_1_3:choose_ticket(KeyPair, EarlyData),
-    tls_client_ticket_store:lock_tickets(self(), [UseTicket]),
-    State = State0#state{ssl_options = SslOpts0#{use_ticket => [UseTicket]}},
+    %% Reflect the chosen ticket in use_ticket so the rest of the handshake
+    %% (early-data send guard, ServerHello PSK validation) sees it, exactly as
+    %% for manual mode. When no suitable ticket was found UseTicket = undefined,
+    %% so use_ticket becomes [undefined] and the early-data path is correctly
+    %% skipped (a full handshake without early data is performed).
+    SslOpts = SslOpts0#{use_ticket => [UseTicket]},
+    HsEnv = State0#state.handshake_env,
+    State = State0#state{ssl_options = SslOpts,
+                         handshake_env =
+                             HsEnv#handshake_env{auto_ticket_data =
+                                                     take_resumption_ticket(UseTicket)}},
     {[UseTicket], State};
 maybe_automatic_session_resumption(#state{
                                       ssl_options = #{use_ticket := UseTicket}
                                      } = State) ->
     {UseTicket, State}.
+
+%% Take the chosen ticket out of the store. undefined (no ticket chosen) or a
+%% key already gone (taken by another connection meanwhile) yields undefined
+%% ticket data -> the connection performs a full handshake.
+take_resumption_ticket(undefined) ->
+    undefined;
+take_resumption_ticket(Key) ->
+    tls_client_ticket_store:take_ticket(self(), Key).
+
+%% Select the ticket data to validate the server's PSK selection against:
+%% for auto mode the data kept in the connection (already taken from the
+%% store), for manual mode the user-supplied use_ticket option.
+select_ticket_data(auto, _UseTicket, AutoTicketData) ->
+    AutoTicketData;
+select_ticket_data(_SessionTickets, UseTicket, _AutoTicketData) ->
+    UseTicket.
 
 maybe_resumption(#state{handshake_env =
                             #handshake_env{resumption = true}} = State) ->
@@ -651,6 +674,7 @@ do_handle_exlusive_1_3_hello_or_hello_retry_request(
                                   transport_cb = Transport,
                                   socket = Socket},
          handshake_env = #handshake_env{renegotiation = {Renegotiation, _},
+                                        auto_ticket_data = AutoTicketData,
                                         stapling_state = StaplingState},
          connection_env = #connection_env{negotiated_version =
                                               NegotiatedVersion},
@@ -696,7 +720,9 @@ do_handle_exlusive_1_3_hello_or_hello_retry_request(
         %% of the triggering HelloRetryRequest.
         ClientKeyShare = ssl_cipher:generate_client_shares([SelectedGroup]),
         TicketData =
-            tls_handshake_1_3:get_ticket_data(self(), SessionTickets, UseTicket),
+            tls_handshake_1_3:get_ticket_data(
+              self(), SessionTickets,
+              select_ticket_data(SessionTickets, UseTicket, AutoTicketData)),
         OcspNonce = maps:get(ocsp_nonce, StaplingState, undefined),
         Hello0 = tls_handshake:client_hello(Host, Port,
                                             ConnectionStates0, SslOpts,
@@ -768,11 +794,15 @@ handle_server_hello(#server_hello{cipher_suite = SelectedCipherSuite,
                                   random = Random,
                                   session_id = SessionId,
                                   extensions = Extensions} = ServerHello,
-                    #state{handshake_env = #handshake_env{key_share = ClientKeyShare},
+                    #state{handshake_env = #handshake_env{key_share = ClientKeyShare,
+                                                          auto_ticket_data = AutoTicketData},
                            ssl_options = #{ciphers := ClientCiphers,
                                            supported_groups := ClientGroups0,
                                            session_tickets := SessionTickets,
                                            use_ticket := UseTicket}} = State0) ->
+    %% For auto mode the ticket data is kept in the connection; for manual mode
+    %% it comes from the user-supplied use_ticket option.
+    PreSharedKeyData = select_ticket_data(SessionTickets, UseTicket, AutoTicketData),
     {Ref,Maybe} = tls_gen_connection_1_3:do_maybe(),
     try
         ClientGroups =
@@ -812,7 +842,7 @@ handle_server_hello(#server_hello{cipher_suite = SelectedCipherSuite,
         #security_parameters{prf_algorithm = HKDFAlgo} = SecParamsR,
 
         PSK = Maybe(tls_handshake_1_3:get_pre_shared_key(SessionTickets,
-                                                         UseTicket,
+                                                         PreSharedKeyData,
                                                          HKDFAlgo,
                                                          ServerPreSharedKey)),
 

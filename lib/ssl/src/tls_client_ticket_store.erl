@@ -30,14 +30,10 @@
 -include("tls_handshake_1_3.hrl").
 
 %% API
--export([find_ticket/5,
-         get_tickets/2,
-         lock_tickets/2,
-         remove_tickets/1,
+-export([find_ticket_candidates/5,
+         take_ticket/2,
          start_link/2,
-         store_ticket/4,
-         unlock_tickets/2,
-         update_ticket/2]).
+         store_ticket/4]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -46,8 +42,7 @@
 -record(state, {
                 db,
                 lifetime,
-                max,
-                user_monitors = #{}  %% #{Pid => MonitorRef}
+                max
                }).
 
 -record(data, {
@@ -56,8 +51,7 @@
                sni,
                psk,
                timestamp,
-               ticket,
-               lock = undefined
+               ticket
               }).
 
 %%%===================================================================
@@ -70,30 +64,22 @@
 start_link(Max, Lifetime) ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [Max, Lifetime], []).
 
-find_ticket(Pid, Ciphers, HashAlgos, SNI, EarlyDataSize) ->
-    gen_server:call(?MODULE, {find_ticket, Pid, Ciphers, HashAlgos, SNI, EarlyDataSize}, infinity).
+%% Find the candidate ticket pair {Ticket0, Ticket2} (keys) that the caller
+%% (via tls_handshake_1_3:choose_ticket/2) can choose from.
+find_ticket_candidates(Pid, Ciphers, HashAlgos, SNI, EarlyDataSize) ->
+    gen_server:call(?MODULE, {find_ticket_candidates, Pid, Ciphers, HashAlgos, SNI, EarlyDataSize},
+                    infinity).
 
-get_tickets(Pid, Keys) ->
-    gen_server:call(?MODULE, {get_tickets, Pid, Keys}, infinity).
-
-lock_tickets(_, undefined) ->
-    ok;
-lock_tickets(Pid, Keys) ->
-    gen_server:call(?MODULE, {lock, Pid, Keys}, infinity).
-
-remove_tickets([]) ->
-    ok;
-remove_tickets(Keys) ->
-    gen_server:cast(?MODULE, {remove_tickets, Keys}).
+%% Remove the chosen ticket from the store and return its #ticket_data{} (in a
+%% single-element list, matching the manual-mode shape) so the connection can
+%% keep it for the whole handshake. Returns undefined if the key is no longer
+%% present (e.g. taken by another connection or evicted meanwhile) -> the
+%% connection falls back to a full handshake.
+take_ticket(Pid, Key) ->
+    gen_server:call(?MODULE, {take_ticket, Pid, Key}, infinity).
 
 store_ticket(Ticket, CipherSuite, SNI, PSK) ->
     gen_server:call(?MODULE, {store_ticket, Ticket, CipherSuite, SNI, PSK}, infinity).
-
-unlock_tickets(Pid, Keys) ->
-    gen_server:call(?MODULE, {unlock, Pid, Keys}, infinity).
-
-update_ticket(Key, Pos) ->
-    gen_server:call(?MODULE, {update_ticket, Key, Pos}, infinity).
 
 %%%===================================================================
 %%% gen_server callbacks
@@ -108,30 +94,18 @@ init(Args) ->
 
 -spec handle_call(Request :: term(), From :: {pid(), term()}, State :: term()) ->
                          {reply, Reply :: term(), NewState :: term()} .
-handle_call({find_ticket, Pid, Ciphers, HashAlgos, SNI, EarlyDataSize}, _From, State) ->
+handle_call({find_ticket_candidates, Pid, Ciphers, HashAlgos, SNI, EarlyDataSize}, _From, State) ->
     Key = do_find_ticket(State, Pid, Ciphers, HashAlgos, SNI, EarlyDataSize),
     {reply, Key, State};
-handle_call({get_tickets, Pid, Keys}, _From, State) ->
-    Data = get_tickets(State, Pid, Keys),
+handle_call({take_ticket, Pid, Key}, _From, State0) ->
+    {Data, State} = take_ticket(State0, Pid, Key),
     {reply, Data, State};
-handle_call({lock, Pid, Keys}, _From, State0) ->
-    State = lock_tickets(State0, Pid, Keys),
-    {reply, ok, State};
 handle_call({store_ticket, Ticket, CipherSuite, SNI, PSK}, _From, State0) ->
     State = store_ticket(State0, Ticket, CipherSuite, SNI, PSK),
-    {reply, ok, State};
-handle_call({unlock, Pid, Keys}, _From, State0) ->
-    State = unlock_tickets(State0, Pid, Keys),
-    {reply, ok, State};
-handle_call({update_ticket, Key, Pos}, _From, State0) ->
-    State = update_ticket(State0, Key, Pos),
     {reply, ok, State}.
 
 -spec handle_cast(Request :: term(), State :: term()) ->
                          {noreply, NewState :: term()}.
-handle_cast({remove_tickets, Key}, State0) ->
-    State = remove_tickets(State0, Key),
-    {noreply, State};
 handle_cast(_Request, State) ->
     {noreply, State}.
 
@@ -140,15 +114,6 @@ handle_cast(_Request, State) ->
 handle_info(remove_invalid_tickets, State0) ->
     State = remove_invalid_tickets(State0),
     {noreply, State};
-handle_info({'DOWN', Ref, process, Pid, _Reason}, #state{user_monitors = Monitors} = State0) ->
-    case maps:get(Pid, Monitors, undefined) of
-        undefined ->
-            {noreply, State0};
-        Ref ->
-            %% Locker terminated without releasing its ticket locks
-            State = unlock_all_tickets(State0, Pid),
-            {noreply, State#state{user_monitors = maps:remove(Pid, Monitors)}}
-    end;
 handle_info(_Info, State) ->
     {noreply, State}.
 
@@ -207,10 +172,9 @@ iterate_tickets(Iter0, Pid, Ciphers, Hash, SNI, Lifetime, EarlyDataSize) ->
 
 iterate_tickets(Iter0, Pid, Ciphers, Hash, SNI, Lifetime, EarlyDataSize, Acc) ->
     case gb_trees:next(Iter0) of
-        {Key, #data{cipher_suite = {_,Hash},
-                    lock = Lock} = Data, Iter} when Lock =:= undefined orelse
-                                                    Lock =:= Pid ->
-            handle_available_ticket(Key, Data, Iter, Pid, Ciphers, SNI, Lifetime, EarlyDataSize, Acc);
+        {Key, #data{cipher_suite = {_,Hash}} = Data, Iter} ->
+            handle_available_ticket(Key, Data, Iter, Pid, Ciphers, SNI,
+                                    Lifetime, EarlyDataSize, Acc);
         {_, _, Iter} ->
             iterate_tickets(Iter, Pid, Ciphers, Hash, SNI, Lifetime, EarlyDataSize, Acc);
         none ->
@@ -273,25 +237,13 @@ verify_ticket_sni(SNI, SNI) ->
 verify_ticket_sni(_, _) ->
     nomatch.
 
-%% Get tickets that are not locked by another process
-get_tickets(State, Pid, Keys) ->
-    get_tickets(State, Pid, Keys, []).
-
-get_tickets(_, _, [], []) ->
-    undefined; %% No tickets found, fallback on full handshake
-get_tickets(_, _, [], Acc) ->
-    Acc; %% If empty will result in illegal parameter
-get_tickets(#state{db = Db} = State, Pid, [Key|T], Acc) ->
-    try gb_trees:get(Key, Db) of
-        #data{pos = Pos,
-              cipher_suite = CipherSuite,
+take_ticket(#state{db = Db0} = State, _Pid, Key) ->
+    try gb_trees:get(Key, Db0) of
+        #data{cipher_suite = CipherSuite,
               psk = PSK,
               timestamp = Timestamp,
-              ticket = NewSessionTicket,
-              lock = Lock} when Lock =:= undefined orelse
-                                Lock =:= Pid ->
+              ticket = NewSessionTicket} ->
             #new_session_ticket{
-               ticket_lifetime = _LifeTime,
                ticket_age_add = AgeAdd,
                ticket_nonce = Nonce,
                ticket = Ticket,
@@ -305,19 +257,21 @@ get_tickets(#state{db = Db} = State, Pid, [Key|T], Acc) ->
             MaxEarlyData = tls_handshake_1_3:get_max_early_data(Extensions),
             TicketData = #ticket_data{
                            key = Key,
-                           pos = Pos,
+                           %% auto mode offers exactly one ticket, so its
+                           %% position in the ClientHello offered_psks is 0.
+                           %% This must match the server's selected_identity in
+                           %% choose_psk/2 at ServerHello time.
+                           pos = 0,
                            identity = Identity,
                            psk = PSK,
                            nonce = Nonce,
                            cipher_suite = CipherSuite,
                            max_size = MaxEarlyData},
-            get_tickets(State, Pid, T, [TicketData|Acc]);
-        _ ->
-            %% Ticket locked by another connection, skip
-            get_tickets(State, Pid, T, Acc)
+            Db = gb_trees:delete(Key, Db0),
+            {[TicketData], State#state{db = Db}}
     catch
         _:_ ->
-            get_tickets(State, Pid, T, Acc)
+            {undefined, State}
     end.
 
 %% The "obfuscated_ticket_age"
@@ -354,9 +308,6 @@ collect_invalid_tickets(Iter, Lifetime) ->
     collect_invalid_tickets(Iter, Lifetime, []).
 
 collect_invalid_tickets(Iter0, Lifetime, Acc) ->
-    %% Tickets that have expired are invalid
-    %% regardless if a process has locked them
-    %% for potential usage or not.
     case gb_trees:next(Iter0) of
         {Key, #data{timestamp = Timestamp}, Iter} ->
             Age = erlang:monotonic_time(millisecond) - Timestamp,
@@ -388,17 +339,6 @@ store_ticket(#state{db = Db0, max = Max} = State, Ticket, CipherSuite, SNI, PSK)
     State#state{db = Db}.
 
 
-update_ticket(#state{db = Db0} = State, Key, Pos) ->
-    try gb_trees:get(Key, Db0) of
-        Value ->
-            Db = gb_trees:update(Key, Value#data{pos = Pos}, Db0),
-            State#state{db = Db}
-    catch
-        _:_ ->
-            State
-    end.
-
-
 delete_oldest(Db0) ->
     try gb_trees:take_smallest(Db0) of
         {_, _, Db} ->
@@ -407,59 +347,3 @@ delete_oldest(Db0) ->
         _:_ ->
             Db0
     end.
-
-lock_tickets(State0, Pid, Keys) ->
-    State = #state{user_monitors = Monitors0} = set_lock(State0, Pid, Keys, lock),
-    %% There will only one monitor as ssl:connect will not return until
-    %% the handshake is finished and the process has released its locks upon
-    %% successful connect or process dies and monitor DOWN message is received.
-    Ref = erlang:monitor(process, Pid),
-    State#state{user_monitors = Monitors0#{Pid => Ref}}.
-
-
-unlock_tickets(State0, Pid, Keys) ->
-    State = #state{user_monitors = Monitors0} = set_lock(State0, Pid, Keys, unlock),
-    Ref = maps:get(Pid, Monitors0, undefined),
-    case Ref of
-        undefined ->
-            State;
-        _ ->
-            {Ref, Monitors} = maps:take(Pid, Monitors0),
-            erlang:demonitor(Ref, [flush]),
-            State#state{user_monitors = Monitors}
-    end.
-
-unlock_all_tickets(#state{db = Db0} = State, Pid) ->
-    Db = unlock_ticket(gb_trees:iterator(Db0), Pid, Db0),
-    State#state{db = Db}.
-
-unlock_ticket(Iter0, Pid, Db) ->
-    case gb_trees:next(Iter0) of
-        {Key, #data{lock = Pid} = Value, Iter} ->
-            unlock_ticket(Iter, Pid,
-                            gb_trees:update(Key, Value#data{lock = undefined}, Db));
-        {_, _, Iter} ->
-            unlock_ticket(Iter, Pid, Db);
-        none ->
-            Db
-    end.
-
-set_lock(State, _, [], _) ->
-    State;
-set_lock(#state{db = Db0} = State, Pid, [Key|T], Cmd) ->
-    try gb_trees:get(Key, Db0) of
-        Value ->
-            Db = gb_trees:update(Key, update_data_lock(Value, Pid, Cmd), Db0),
-            set_lock(State#state{db = Db}, Pid, T, Cmd)
-    catch
-        _:_ ->
-            set_lock(State, Pid, T, Cmd)
-    end.
-
-
-update_data_lock(Value, Pid, lock) ->
-    Value#data{lock = Pid};
-update_data_lock(#data{lock = Pid} = Value, Pid, unlock) ->
-    Value#data{lock = undefined};
-update_data_lock(Value, _, _) ->
-    Value.

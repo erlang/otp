@@ -193,7 +193,13 @@ initial_hello({call, From}, {start, Timeout},
     %% also takes it into account if the ticket is suitable for sending early data not exceeding
     %% the max_early_data_size or if it can only be used for session resumption.
     {UseTicket, State1} = tls_client_connection_1_3:maybe_automatic_session_resumption(State0),
-    TicketData = tls_handshake_1_3:get_ticket_data(self(), SessionTickets, UseTicket),
+    TicketData =
+        case SessionTickets of
+            auto ->
+                (State1#state.handshake_env)#handshake_env.auto_ticket_data;
+            _ ->
+                tls_handshake_1_3:get_ticket_data(self(), SessionTickets, UseTicket)
+        end,
     OcspNonce = tls_handshake:ocsp_nonce(SslOpts),
     Hello0 = tls_handshake:client_hello(Host, Port, ConnectionStates0, SslOpts,
                                         Session#session.session_id,
@@ -306,7 +312,11 @@ hello(internal, #server_hello{} = Hello,
         case tls_handshake:hello(Hello, SslOptions, ConnectionStates0, Renegotiation, OldId) of
             %% Legacy TLS 1.2 and older
             {Version, NewId, ConnectionStates, ProtoExt, Protocol, StaplingState} ->
-                maybe_unlock_tickets(State),
+                %% A TLS-1.3 client with session_tickets=auto may have offered a
+                %% ticket that the server ignored by downgrading to TLS-1.2. The
+                %% ticket was already taken out of the store when it was offered
+                %% (single-use, RFC 8446 C.4), so there is nothing to release
+                %% here; the ticket is simply consumed by the attempt.
                 tls_dtls_client_connection:handle_session(
                   Hello, Version, NewId, ConnectionStates, ProtoExt, Protocol,
                   State#state{
@@ -493,15 +503,6 @@ code_change(_OldVsn, StateName, State, _) ->
 %%====================================================================
 %% Internal functions
 %%====================================================================
-%% When a TLS 1.3 client with session_tickets=auto downgrades to
-%% TLS 1.2, the locked ticket must be released since get_pre_shared_key
-%% (which normally unlocks) will never be called.
-maybe_unlock_tickets(#state{ssl_options = #{session_tickets := auto,
-                                            use_ticket := UseTicket}}) ->
-    tls_client_ticket_store:unlock_tickets(self(), UseTicket);
-maybe_unlock_tickets(_) ->
-    ok.
-
 gen_state(StateName, Type, Event, State) ->
     try tls_dtls_client_connection:StateName(Type, Event, State)
     catch throw:#alert{} = Alert ->
