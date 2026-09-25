@@ -66,23 +66,23 @@ side, but some of them differs a little.
 A `tftp` callback module is to be implemented as a `tftp` behavior and export
 the functions listed in the following.
 
-On the server side, the callback interaction starts with a call to `open/5` with
-the registered initial callback state. `open/5` is expected to open the
+On the server side, the callback interaction starts with a call to `open/6` with
+the registered initial callback state. `open/6` is expected to open the
 (virtual) file. Then either function [`Module:read/1`](`c:read/1`) or
 [`Module:write/2`](`c:write/2`) is invoked repeatedly, once per transferred block. At
 each function call, the state returned from the previous call is obtained. When
 the last block is encountered, function [`Module:read/1`](`c:read/1`) or
 [`Module:write/2`](`c:write/2`) is expected to close the (virtual) file and return its
 last state. Function [`Module:abort/3`](`c:abort/3`) is only used in error situations.
-Function `prepare/5` is not used on the server side.
+Function `prepare/6` is not used on the server side.
 
 On the client side, the callback interaction is the same, but it starts and ends
-a bit differently. It starts with a call to `prepare/5` with the same arguments
-as `open/5` takes. `prepare/5` is expected to validate the TFTP options
+a bit differently. It starts with a call to `prepare/6` with the same arguments
+as `open/6` takes. `prepare/6` is expected to validate the TFTP options
 suggested by the user and to return the subset of them that it accepts. Then the
 options are sent to the server, which performs the same TFTP option negotiation
 procedure. The options that are accepted by the server are forwarded to function
-`open/5` on the client side. On the client side, function `open/5` must accept
+`open/6` on the client side. On the client side, function `open/6` must accept
 all option as-is or reject the transfer. Then the callback interaction follows
 the same pattern as described for the server side. When the last block is
 encountered in [`Module:read/1`](`c:read/1`) or [`Module:write/2`](`c:write/2`), the returned
@@ -125,9 +125,9 @@ in parallel with the ongoing one, the server consumes less resources.
 -doc """
 Information about the peer provided for callback.
 """.
--type peer() :: {PeerType :: inet | inet6,
-		 PeerHost :: inet:ip_address(),
-		 PeerPort :: port()}.
+-type peer() :: {PeerType :: inet | inet6 | undefined,
+                 PeerHost :: string(),
+                 PeerPort :: inet:port_number()}.
 -doc """
 Access mode.
 """.
@@ -243,8 +243,8 @@ All options most of them common to the client and server.
 Error reason codes.
 """.
 -type error_code() :: undef | enoent | eacces | enospc |
-		      badop | eexist | baduser | badopt |
-		      pos_integer().
+                      badop | eexist | baduser | badopt | badblk |
+                      pos_integer().
 
 
 -doc """
@@ -259,9 +259,9 @@ Prepares to open a file on the client side.
 No new options can be added, but those present in `SuggestedOptions` can be
 omitted or replaced with new values in `AcceptedOptions`.
 
-This is followed by a call to `open/4` before any read/write access is
+This is followed by a call to `open/6` before any read/write access is
 performed. `AcceptedOptions` is sent to the server, which replies with the
-options that it accepts. These are then forwarded to `open/4` as
+options that it accepts. These are then forwarded to `open/6` as
 `SuggestedOptions`.
 
 """.
@@ -279,10 +279,10 @@ options that it accepts. These are then forwarded to `open/4` as
 -doc """
 Opens a file for read or write access.
 
-On the client side, where the `open/5` call has been preceded by a call to
-`prepare/5`, all options must be accepted or rejected.
+On the client side, where the `open/6` call has been preceded by a call to
+`prepare/6`, all options must be accepted or rejected.
 
-On the server side, where there is no preceding `prepare/5` call, no new options
+On the server side, where there is no preceding `prepare/6` call, no new options
 can be added, but those present in `SuggestedOptions` can be omitted or replaced
 with new values in `AcceptedOptions`.
 
@@ -311,8 +311,8 @@ functions.
 """.
 -doc(#{since => <<"OTP 18.1">>}).
 -callback read(State :: term()) -> {more, binary(), NewState :: term()} |
-				   {last, binary(), integer()} |
-				   {error, {Code :: error_code(), string()}}.
+                                   {last, binary(), ResultState :: term()} |
+                                   {error, {Code :: error_code(), string()}}.
 
 -doc """
 Writes a chunk to the file.
@@ -327,7 +327,7 @@ functions.
 -doc(#{since => <<"OTP 18.1">>}).
 -callback write(binary(), State :: term()) ->
     {more, NewState :: term()} |
-    {last, FileSize :: integer()} |
+    {last, ResultState :: term()} |
     {error, {Code :: error_code(), string()}}.
 
 -doc """
@@ -396,7 +396,7 @@ matching regexp is found.
         {ok, LastCallbackState} | {error, Reason} when
     RemoteFilename    :: file:filename(),
     LocalFilename     :: file:filename_all() | binary,
-    Options           :: [option()],
+    Options           :: [connection_option()],
     LastCallbackState :: term(),
     Reason            :: term().
 
