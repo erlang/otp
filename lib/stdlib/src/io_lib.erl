@@ -73,7 +73,8 @@ used for flattening deep lists.
 
 -export([fwrite/2,fwrite/3,fread/2,fread/3,format/2,format/3]).
 -export([bfwrite/2, bfwrite/3, bformat/2, bformat/3]).
--export([scan_format/2,unscan_format/1,build_text/1,build_text/2]).
+-export([scan_format/2,unscan_format/1]).
+-export([build_text/1,build_text/2,build_binary/1,build_binary/2]).
 -export([print/1,print/4,bprint/1,bprint/2,indentation/2]).
 
 -export([write/1,write/2,write/3,write/5,bwrite/2]).
@@ -89,6 +90,8 @@ used for flattening deep lists.
 
 -export([quote_atom/2, char_list/1, latin1_char_list/1,
 	 deep_char_list/1, deep_latin1_char_list/1,
+         printable_binary/1, printable_binary/2, printable_binary/3,
+         printable_character/1, printable_character/2,
 	 printable_list/1, printable_latin1_list/1, printable_unicode_list/1]).
 
 %% Utilities for collecting characters mostly used by group
@@ -115,6 +118,9 @@ used for flattening deep lists.
             [string_bin_escape_unicode/6,
              string_bin_escape_latin1/6]},
            no_improper_lists]).
+
+%% Inlining printable character speeds it up by about 10-50% depending on the data.
+-compile({inline, [printable_character/2]}).
 
 %%----------------------------------------------------------------------
 
@@ -403,7 +409,7 @@ Returns a list corresponding to the specified format string, where control
 sequences have been replaced with corresponding tuples. This list can be passed
 to:
 
-- `build_text/1` to have the same effect as [`format(Format, Args)`](`format/2`)
+- `build_text/1`/`build_binary/1` to have the same effect as [`format(Format, Args)`](`format/2`)/[`bformat(Format, Args)`](`bformat/2`)
 - `unscan_format/1` to get the corresponding pair of `Format` and `Args` (with
   every `*` and corresponding argument expanded to numeric values)
 
@@ -457,6 +463,30 @@ build_text(FormatList) ->
 
 build_text(FormatList, Options) ->
     try io_lib_format:build(FormatList, Options)
+    catch
+        C:R:S ->
+            test_modules_loaded(C, R, S),
+            erlang:error(badarg, [FormatList, Options])
+    end.
+
+-doc "For details, see `scan_format/2`.".
+-doc #{ since => <<"OTP 30.0">> }.
+-spec build_binary(FormatList) -> unicode:unicode_binary() when
+      FormatList :: [char() | format_spec()].
+build_binary(FormatList) ->
+    try io_lib_format:build_bin(FormatList)
+    catch
+        C:R:S ->
+            test_modules_loaded(C, R, S),
+            erlang:error(badarg, [FormatList])
+    end.
+
+-doc false.
+-spec build_binary(FormatList, Options) -> unicode:unicode_binary() when
+      FormatList :: [char() | format_spec()],
+      Options :: format_options().
+build_binary(FormatList, Options) ->
+    try io_lib_format:build_bin(FormatList, Options)
     catch
         C:R:S ->
             test_modules_loaded(C, R, S),
@@ -1466,6 +1496,70 @@ deep_char_list(_, _More) ->		%Everything else is false
 deep_unicode_char_list(Term) ->
     deep_char_list(Term).
 
+-doc #{ equiv => printable_character(Char, io:printable_range()) }.
+-doc #{ since => <<"OTP 30.0">> }.
+-spec printable_character(Char :: non_neg_integer()) -> boolean().
+printable_character(Char) when is_integer(Char) ->
+    printable_character(Char, io:printable_range()).
+
+-doc """
+Returns `true` if `Char` is a printable character, otherwise `false`.
+
+The `PrintableRange` is the characters range that is considered to be printable.
+By default it is determined by the Erlang VM startup flag `+pc`, which can be either
+`latin1` or `unicode`. See `io:printable_range/0` and [`erl(1)`](`e:erts:erl_cmd.md`) for more information.
+""".
+-doc #{ since => <<"OTP 30.0">> }.
+-spec printable_character(Char :: non_neg_integer(), PrintableRange :: 'latin1' | 'unicode') -> boolean().
+printable_character(Char, latin1) when is_integer(Char) ->
+    (Char >= 16#20 andalso Char =< 16#7E) orelse
+      (Char >= 16#A0 andalso Char =< 16#FF) orelse
+      (Char =:= $\t) orelse
+      (Char =:= $\n) orelse
+      (Char =:= $\r) orelse
+      (Char =:= $\v) orelse
+      (Char =:= $\b) orelse
+      (Char =:= $\f) orelse
+      (Char =:= $\e);
+printable_character(Char, unicode) when is_integer(Char) ->
+    printable_character(Char, latin1) orelse
+       (Char >= 16#100 andalso Char =< 16#D7FF) orelse
+       (Char >= 16#E000 andalso Char =< 16#FFFD) orelse
+       (Char >= 16#10000 andalso Char =< 16#10FFFF).
+
+-doc #{ equiv => printable_binary(Term, unicode, io:printable_range()) }.
+-doc #{ since => <<"OTP 30.0">> }.
+-spec printable_binary(Term :: term()) -> boolean().
+printable_binary(S) ->
+    printable_binary(S, unicode).
+
+-doc #{ equiv => printable_binary(Term, BinaryEncoding, io:printable_range()) }.
+-doc #{ since => <<"OTP 30.0">> }.
+-spec printable_binary(Term :: term(), BinaryEncoding :: 'latin1' | 'unicode') -> boolean().
+printable_binary(S, BinaryEncoding) ->
+    printable_binary(S, BinaryEncoding, io:printable_range()).
+
+
+-doc """
+Returns `true` if `Term` is a binary of printable characters, otherwise `false`.
+
+`BinaryEncoding` is the character encoding of the binary, either `latin1` or `unicode`.
+
+The `PrintableRange` is the characters range that is considered to be printable.
+By default it is determined by the Erlang VM startup flag `+pc`, which can be either
+`latin1` or `unicode`. See `io:printable_range/0` and [`erl(1)`](`e:erts:erl_cmd.md`) for more information.
+""".
+-doc #{ since => <<"OTP 30.0">> }.
+-spec printable_binary(Term :: term(), BinaryEncoding :: 'latin1' | 'unicode', PrintableRange :: 'latin1' | 'unicode') -> boolean().
+printable_binary(<<C, Bin/binary>>, latin1, Encoding) ->
+    printable_character(C, Encoding) andalso printable_binary(Bin, latin1, Encoding);
+printable_binary(<<C/utf8, Bin/binary>>, unicode, Encoding) ->
+    printable_character(C, Encoding) andalso printable_binary(Bin, unicode, Encoding);
+printable_binary(<<>>, _, _) ->
+    true;
+printable_binary(_, _, _) ->
+    false.
+
 %% printable_latin1_list([Char]) -> boolean()
 %%  Return true if CharList is a list of printable Latin1 characters, else
 %%  false.
@@ -1478,17 +1572,8 @@ otherwise `false`.
 -spec printable_latin1_list(Term) -> boolean() when
       Term :: term().
 
-printable_latin1_list([C|Cs]) when is_integer(C), C >= $\040, C =< $\176 ->
-    printable_latin1_list(Cs);
-printable_latin1_list([C|Cs]) when is_integer(C), C >= $\240, C =< $\377 ->
-    printable_latin1_list(Cs);
-printable_latin1_list([$\n|Cs]) -> printable_latin1_list(Cs);
-printable_latin1_list([$\r|Cs]) -> printable_latin1_list(Cs);
-printable_latin1_list([$\t|Cs]) -> printable_latin1_list(Cs);
-printable_latin1_list([$\v|Cs]) -> printable_latin1_list(Cs);
-printable_latin1_list([$\b|Cs]) -> printable_latin1_list(Cs);
-printable_latin1_list([$\f|Cs]) -> printable_latin1_list(Cs);
-printable_latin1_list([$\e|Cs]) -> printable_latin1_list(Cs);
+printable_latin1_list([C|Cs]) when is_integer(C) ->
+    printable_character(C, latin1) andalso printable_latin1_list(Cs);
 printable_latin1_list([]) -> true;
 printable_latin1_list(_) -> false.			%Everything else is false
 
@@ -1532,20 +1617,8 @@ otherwise `false`.
 -spec printable_unicode_list(Term) -> boolean() when
       Term :: term().
 
-printable_unicode_list([C|Cs]) when is_integer(C), C >= $\040, C =< $\176 ->
-    printable_unicode_list(Cs);
-printable_unicode_list([C|Cs])
-  when is_integer(C), C >= 16#A0, C < 16#D800;
-       is_integer(C), C > 16#DFFF, C < 16#FFFE;
-       is_integer(C), C > 16#FFFF, C =< 16#10FFFF ->
-    printable_unicode_list(Cs);
-printable_unicode_list([$\n|Cs]) -> printable_unicode_list(Cs);
-printable_unicode_list([$\r|Cs]) -> printable_unicode_list(Cs);
-printable_unicode_list([$\t|Cs]) -> printable_unicode_list(Cs);
-printable_unicode_list([$\v|Cs]) -> printable_unicode_list(Cs);
-printable_unicode_list([$\b|Cs]) -> printable_unicode_list(Cs);
-printable_unicode_list([$\f|Cs]) -> printable_unicode_list(Cs);
-printable_unicode_list([$\e|Cs]) -> printable_unicode_list(Cs);
+printable_unicode_list([C|Cs]) when is_integer(C) ->
+    printable_character(C, unicode) andalso printable_unicode_list(Cs);
 printable_unicode_list([]) -> true;
 printable_unicode_list(_) -> false.		%Everything else is false
 

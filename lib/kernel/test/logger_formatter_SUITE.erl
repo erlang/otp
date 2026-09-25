@@ -262,7 +262,7 @@ template(_Config) ->
     Ref8 = erlang:make_ref(),
     Meta8 = #{atom=>some_atom,
               integer=>632,
-              list=>[list,"string",4321,#{},{tuple}],
+              list=>[list,~"binstr","string",4321,#{},{tuple}],
               mfa=>{mod,func,0},
               pid=>self(),
               ref=>Ref8,
@@ -277,7 +277,7 @@ template(_Config) ->
     ct:log(String8),
     SelfStr = pid_to_list(self()),
     RefStr8 = ref_to_list(Ref8),
-    ListStr = "[list,\"string\",4321,#{},{tuple}]",
+    ListStr = "[list,<<\"binstr\">>,\"string\",4321,#{},{tuple}]",
     ExpectedTime8 = default_time_format(Time),
     ["some_atom",
      "632",
@@ -912,4 +912,4 @@ log(Log,#{formatter:={M,C}}) ->
 
 check_log() ->
     {S,C} = erase(log),
-    {string:lexemes(S,"\n"),C}.
+    {string:lexemes(unicode:characters_to_list(S),"\n"),C}.
