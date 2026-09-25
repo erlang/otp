@@ -1,3 +1,25 @@
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2016-2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+%%
+
 %% This suite contains cases that cannot be written
 %% in Erlang itself and must be done via the abstract
 %% format.
@@ -8,12 +30,12 @@
 -include("dialyzer_test_constants.hrl").
 
 -export([suite/0, all/0, init_per_suite/0, init_per_suite/1, end_per_suite/1]).
--export([generated_case/1]).
+-export([generated_case/1, unmatched_return_tag/1]).
 
 suite() ->
     [{timetrap, {minutes, 1}}].
 all() ->
-    [generated_case].
+    [generated_case, unmatched_return_tag].
 
 init_per_suite() ->
   [{timetrap, ?plt_timeout}].
@@ -85,6 +107,21 @@ generated_case(Config) when is_list(Config) ->
     %% Location is a line (no column):
     "fileName.erl:3: Function bar/0 has no local return\n" =
         dialyzer:format_warning(W),
+    ok.
+
+unmatched_return_tag(Config) when is_list(Config) ->
+    [{warn_unmatched_return, _Loc, {unmatched_return, [_]}}] =
+        test([{attribute, 1, module, foo},
+              {attribute, 2, export, [{a, 0}]},
+              {attribute, 3, dialyzer, [unmatched_returns]},
+              {function, 4, a, 0,
+               [{clause, 4, [], [],
+                 [{call, 5, {atom, 5, b}, []},
+                  {integer, 6, 1}]}]},
+              {function, 8, b, 0,
+               [{clause, 8, [], [],
+                 [{tuple, 9, [{atom, 9, a}, {atom, 9, b}]}]}]}],
+             Config, [], []),
     ok.
 
 test(Prog0, Config, COpts, DOpts) ->
