@@ -68,7 +68,14 @@
          ssl_connection/1,
          ssl_conn_socket_info/1,
          start_tls_on_ssl_should_fail/1,
+         start_tls_preserves_disabled_server_name_indication/1,
+         start_tls_preserves_explicit_server_name_indication/1,
+         start_tls_sends_server_name_indication/1,
+         start_tls_strips_trailing_dot_from_sni/1,
          start_tls_twice_should_fail/1,
+         start_tls_verify_peer_checks_hostname/1,
+         start_tls_verify_peer_checks_hostname_for_atom_host/1,
+         start_tls_verify_peer_rejects_hostname_mismatch/1,
          tcp_connection/1,
          tcp_connection_option/1
         ]).
@@ -100,6 +107,13 @@ suite() ->
 all() ->
     [app,
      appup,
+     start_tls_sends_server_name_indication,
+     start_tls_strips_trailing_dot_from_sni,
+     start_tls_preserves_explicit_server_name_indication,
+     start_tls_preserves_disabled_server_name_indication,
+     start_tls_verify_peer_checks_hostname,
+     start_tls_verify_peer_rejects_hostname_mismatch,
+     start_tls_verify_peer_checks_hostname_for_atom_host,
      {group, encode_decode},
      {group, return_values},
      {group, v4_connections},
@@ -334,6 +348,30 @@ init_per_testcase(TC, Config) when TC == ssl_connection; TC == ssl_conn_socket_i
 		    {fail, "ssl:listen/2 failed"}
 	    after 5000 ->
 		    {fail, "Waiting for ssl:listen timeout"}
+	    end;
+	false ->
+	    {skip, "ssl not available"}
+    end;
+
+init_per_testcase(TC, Config) when TC == start_tls_sends_server_name_indication;
+                                    TC == start_tls_strips_trailing_dot_from_sni;
+                                    TC == start_tls_preserves_explicit_server_name_indication;
+                                    TC == start_tls_preserves_disabled_server_name_indication;
+                                    TC == start_tls_verify_peer_checks_hostname;
+                                    TC == start_tls_verify_peer_rejects_hostname_mismatch;
+                                    TC == start_tls_verify_peer_checks_hostname_for_atom_host ->
+    case proplists:get_value(ssl_available,Config) of
+	true ->
+	    case gen_tcp:listen(0, [{reuseaddr, true}]) of
+		{ok,LSock} ->
+		    {ok,{_,Port}} = inet:sockname(LSock),
+		    [{listen_socket,LSock},
+		     {listen_port,Port},
+		     {listen_host,"localhost"},
+		     {tcp_connect_opts,[]}
+		     | Config];
+		Other ->
+		    {fail, Other}
 	    end;
 	false ->
 	    {skip, "ssl not available"}
@@ -1106,6 +1144,160 @@ start_tls_on_ssl_should_fail(Config) ->
     {ok,H} = open_bind(Config),
     {error,tls_already_started} = eldap:start_tls(H, []),
     eldap:close(H).
+
+%%%----------------------------------------------------------------
+%%% Test that start_tls offers the connected host as SNI, so that the
+%%% peer certificate's hostname check (performed by verify_peer) runs
+%%% against the intended DNS name. Without it, ssl:connect/3 (the
+%%% socket-upgrade form start_tls uses) has no Host to derive
+%%% server_name_indication from, so the check runs against the raw
+%%% peer IP address instead (see start_tls_verify_peer_checks_hostname
+%%% for the end-to-end consequence of that).
+start_tls_sends_server_name_indication(Config) ->
+    Host = proplists:get_value(listen_host, Config),
+    assert_start_tls_sni(Config, Host, [], Host).
+
+%%%----------------------------------------------------------------
+%%% SNI must not contain a trailing dot, same as the host-based
+%%% ssl:connect/3,4 path used for LDAPS (ssl_config:
+%%% server_name_indication_default/1 strips it); otherwise a legal
+%%% absolute hostname makes TLS servers reject the ClientHello outright.
+start_tls_strips_trailing_dot_from_sni(Config) ->
+    Host = proplists:get_value(listen_host, Config),
+    assert_start_tls_sni(Config, Host ++ ".", [], Host).
+
+%%%----------------------------------------------------------------
+%%% A caller-supplied server_name_indication (e.g. because the caller
+%%% knows better than the connected host, such as a load balancer VIP)
+%%% must not be overridden by the new default.
+start_tls_preserves_explicit_server_name_indication(Config) ->
+    Host = proplists:get_value(listen_host, Config),
+    assert_start_tls_sni(Config, Host, [{server_name_indication, "other.example"}], "other.example").
+
+%%%----------------------------------------------------------------
+%%% A caller explicitly disabling SNI (server_name_indication=disable)
+%%% must not have it re-enabled by the new default.
+start_tls_preserves_disabled_server_name_indication(Config) ->
+    Host = proplists:get_value(listen_host, Config),
+    assert_start_tls_sni(Config, Host, [{server_name_indication, disable}], undefined).
+
+assert_start_tls_sni(Config, ConnectHost, ExtraTlsOpts, ExpectedSNI) ->
+    Port = proplists:get_value(listen_port, Config),
+    Opts = proplists:get_value(tcp_connect_opts, Config),
+    CertFile = filename:join(proplists:get_value(data_dir,Config), "certs/server/cert.pem"),
+    KeyFile = filename:join(proplists:get_value(data_dir,Config), "certs/server/key.pem"),
+    Sl = proplists:get_value(listen_socket, Config),
+    Parent = self(),
+    %% The socket must be upgraded to TLS by the process that owns it,
+    %% so accept and handshake happen in the same process here rather
+    %% than being handed off from the test process.
+    _Server = spawn_link(
+                fun() ->
+                        {ok, S} = gen_tcp:accept(Sl, 1000),
+                        ok = inet:setopts(S, [{packet, asn1}, {active, false}]),
+                        {ok, TLSSocket} =
+                            respond_to_start_tls(S, [{certfile,CertFile},{keyfile,KeyFile}]),
+                        {ok, Info} = ssl:connection_information(TLSSocket, [sni_hostname]),
+                        Parent ! {sni, proplists:get_value(sni_hostname, Info)}
+                end),
+    {ok, H} = eldap:open([ConnectHost], [{port,Port}|Opts]),
+    ok = eldap:start_tls(H, [{verify, verify_none} | ExtraTlsOpts], 5000),
+    receive
+        {sni, ExpectedSNI} -> ok;
+        {sni, Other} -> ct:fail({unexpected_sni, Other})
+    after 5000 ->
+            ct:fail("server side of the StartTLS upgrade did not complete")
+    end,
+    eldap:close(H).
+
+%%%----------------------------------------------------------------
+%%% End-to-end proof of the security property this fix restores:
+%%% with verify_peer and a leaf certificate whose SAN covers the
+%%% connected host, the StartTLS handshake now succeeds. Before this
+%%% fix, the hostname check ran against the raw peer IP address
+%%% instead (tls_socket:upgrade/4's inet:peername/1 fallback, used
+%%% whenever server_name_indication is left unset), which fails
+%%% against an ordinary DNS-named certificate like this one.
+start_tls_verify_peer_checks_hostname(Config) ->
+    assert_start_tls_verify_peer(Config, net_adm:localhost(), accepted).
+
+%%%----------------------------------------------------------------
+%%% The flip side of start_tls_verify_peer_checks_hostname: verify_peer
+%%% must still reject a certificate whose SAN does not cover the
+%%% connected host, proving the check is enforced and not a no-op
+%%% that would have let anything through.
+start_tls_verify_peer_rejects_hostname_mismatch(Config) ->
+    assert_start_tls_verify_peer(Config, "127.0.0.1", rejected).
+
+%%%----------------------------------------------------------------
+%%% An atom is a spec-legal eldap Host (inet:hostname() :: atom() |
+%%% string()), and add_server_name_indication/2 must recover the real
+%%% hostname from it the same way it does for a string, instead of
+%%% silently falling through to no SNI and reverting to the pre-fix
+%%% peer-IP fallback for this one input shape.
+start_tls_verify_peer_checks_hostname_for_atom_host(Config) ->
+    assert_start_tls_verify_peer(Config, list_to_atom(net_adm:localhost()), accepted).
+
+%%% Relies on pkix_test_data/1's default server peer SAN, which is
+%%% net_adm:localhost(), so ConnectHost must match that for `accepted`.
+assert_start_tls_verify_peer(Config, ConnectHost, ExpectedOutcome) ->
+    Port = proplists:get_value(listen_port, Config),
+    Opts = proplists:get_value(tcp_connect_opts, Config),
+    Sl = proplists:get_value(listen_socket, Config),
+    RsaKey = {rsa, 2048, 65537},
+    #{server_config := ServerConf} =
+        public_key:pkix_test_data(
+          #{server_chain => #{root => [{key, RsaKey}],
+                               peer => [{key, RsaKey}]},
+            client_chain => #{root => [{key, RsaKey}],
+                               peer => [{key, RsaKey}]}}),
+    CaCerts = proplists:get_value(cacerts, ServerConf),
+    Parent = self(),
+    _Server = spawn_link(
+                fun() ->
+                        {ok, S} = gen_tcp:accept(Sl, 1000),
+                        ok = inet:setopts(S, [{packet, asn1}, {active, false}]),
+                        Parent ! {result, respond_to_start_tls(S, ServerConf)}
+                end),
+    {ok, H} = eldap:open([ConnectHost], [{port,Port}|Opts]),
+    Result = eldap:start_tls(H, [{verify, verify_peer}, {cacerts, CaCerts}], 5000),
+    case ExpectedOutcome of
+        accepted ->
+            ok = Result,
+            receive
+                {result, {ok, _TLSSocket}} -> ok;
+                {result, Other} -> ct:fail({server_side_handshake_failed, Other})
+            after 5000 ->
+                    ct:fail("server side of the StartTLS upgrade did not complete")
+            end;
+        rejected ->
+            {error, {tls_alert, _}} = Result,
+            receive
+                {result, _} -> ok
+            after 5000 ->
+                    ct:fail("server side of the StartTLS upgrade did not complete")
+            end
+    end,
+    eldap:close(H).
+
+%%% Plays the server side of the StartTLS extended operation on an
+%%% already-accepted, plain-text LDAP socket, then upgrades it to TLS
+%%% using the given ssl server options.
+respond_to_start_tls(S, TlsServerOpts) ->
+    {ok, ReqBytes} = gen_tcp:recv(S, 0, 1000),
+    {ok, #'LDAPMessage'{messageID = Id, protocolOp = {extendedReq, _}}} =
+        'ELDAPv3':decode('LDAPMessage', ReqBytes),
+    {ok, RespBytes} =
+        'ELDAPv3':encode(
+          'LDAPMessage',
+          #'LDAPMessage'{messageID = Id,
+                         protocolOp =
+                             {extendedResp,
+                              #'ExtendedResponse'{resultCode = success,
+                                                   matchedDN = "",
+                                                   diagnosticMessage = ""}}}),
+    ok = gen_tcp:send(S, RespBytes),
+    ssl:handshake(S, TlsServerOpts).
 
 %%%----------------------------------------------------------------
 encode(_Config) ->
