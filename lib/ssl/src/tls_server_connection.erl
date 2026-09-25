@@ -179,7 +179,6 @@ initial_hello({call, From}, {start, Timeout},
     end;
 initial_hello({call, From}, {start, {Opts, EmOpts}, Timeout},
      #state{static_env = #static_env{role = Role},
-            handshake_env = #handshake_env{} = Env,
             ssl_options = OrigSSLOptions,
             socket_options = SockOpts} = State0) ->
     try
@@ -191,9 +190,10 @@ initial_hello({call, From}, {start, {Opts, EmOpts}, Timeout},
                               Other ->
                                   Other
                           end,
+        HsEnv = State#state.handshake_env,
         initial_hello({call, From}, {start, Timeout},
 	     State#state{ssl_options = SslOpts,
-                         handshake_env = Env#handshake_env{continue_status = CountinueStatus},
+                         handshake_env = HsEnv#handshake_env{continue_status = CountinueStatus},
                          socket_options = ssl_config:new_emulated(EmOpts, SockOpts)})
     catch throw:Error ->
 	   {stop_and_reply, {shutdown, normal}, {reply, From, {error, Error}}, State0}

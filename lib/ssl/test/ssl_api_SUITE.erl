@@ -83,6 +83,8 @@
          active_n/1,
          dh_params/0,
          dh_params/1,
+         dh_params_handshake_option/0,
+         dh_params_handshake_option/1,
          hibernate_client/0,
          hibernate_client/1,
          hibernate_server/0,
@@ -258,8 +260,7 @@ groups() ->
     [
      {'tlsv1.3', [parallel], ((gen_api_tests() ++ tls13_group() ++
                                    handshake_paus_tests()) --
-                                  [dh_params,
-                                   new_options_in_handshake,
+                                  [new_options_in_handshake,
                                    handshake_continue_tls13_client])
       ++ (since_1_2() -- [conf_signature_algs])},
      {'tlsv1.2', [parallel],  gen_api_tests() ++ since_1_2() ++ handshake_paus_tests() ++ pre_1_3() ++
@@ -271,7 +272,7 @@ groups() ->
           handshake_paus_tests() -- [handshake_continue_tls13_client] ++ pre_1_3()},
      {'dtlsv1', [parallel],  gen_api_tests() -- [new_options_in_handshake, hibernate_server] ++
           handshake_paus_tests() -- [handshake_continue_tls13_client] ++ pre_1_3() ++ pre_1_2()},
-     {transport_socket,  [parallel], gen_api_tests() -- [ssl_not_started, dh_params]}
+     {transport_socket,  [parallel], gen_api_tests() -- [ssl_not_started, dh_params, dh_params_handshake_option]}
     ].
 
 since_1_2() ->
@@ -288,7 +289,9 @@ since_1_2() ->
 pre_1_3() ->
     [
      default_reject_anonymous,
-     connection_information_with_srp
+     connection_information_with_srp,
+     dh_params,
+     dh_params_handshake_option
     ].
 
 pre_1_2() ->
@@ -315,7 +318,6 @@ gen_api_tests() ->
      versions,
      new_options_in_handshake,
      active_n,
-     dh_params,
      hibernate_client,
      hibernate_server,
      listen_socket,
@@ -869,6 +871,111 @@ dh_params(Config) when is_list(Config) ->
 
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
+
+%%--------------------------------------------------------------------
+dh_params_handshake_option() ->
+    [{doc, "Test that dh/dhfile supplied via ssl:handshake/3 server options "
+      "(listen -> transport_accept -> handshake(S, Opts, T)) take effect. "
+      "Regression test for OTP-20408: the configured DH group was discarded "
+      "and the built-in default was used instead."}].
+
+dh_params_handshake_option(Config) when is_list(Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    %% Use the 3072-bit ffdhe group: distinct from the built-in 2048-bit
+    %% default, and above the client's minimum DH prime size. The
+    %% negotiated prime size tells us whether the configured group was
+    %% honored on the ssl:handshake/3 server path.
+    DHParams = #'DHParameter'{prime = ssl_dh_groups:ffdhe3072_prime(),
+                              base = ssl_dh_groups:ffdhe3072_generator()},
+    DH = public_key:der_encode('DHParameter', DHParams),
+    ExpectedDHSize = 3072,
+    Ciphers = [{dhe_rsa, aes_256_cbc, sha}],
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    %% Capture the DH prime that goes into the ServerKeyExchange on the wire
+    %% using an isolated trace session (trace:session_create/3) rather than
+    %% the global, singleton dbg tracer: dbg's tracer and dbg:stop/0 are
+    %% process-wide, so in a [parallel] test group concurrent cases race on
+    %% setting up and tearing down the single dbg tracer. A trace session has
+    %% its own tracer and its own patterns/flags, cleaned up independently by
+    %% session_destroy/1, so parallel cases cannot interfere.
+    %%
+    %% The session traces encode_server_key on ALL node-local processes (the
+    %% connection process is spawned by ssl:handshake later, so we cannot
+    %% target it up front). That means sibling parallel cases' server key
+    %% exchanges (DH of other sizes, ECDH, SRP, ...) are also reported. To
+    %% keep those out of the tester's mailbox (where check_result/4 does a
+    %% non-selective receive for {Pid, Result} tuples), the session tracer is
+    %% a dedicated collector process, NOT the tester. The collector forwards
+    %% only the DH prime size of interest back to the tester. 3072 is unique
+    %% to this case, so matching it proves this case's configured group went
+    %% on the wire; a timeout means it did not (the OTP-20408 defect).
+    %%
+    %% ssl_handshake is loaded lazily on first use; a call-trace pattern set
+    %% on an unloaded module matches nothing, so load it before arming trace.
+    {module, ssl_handshake} = code:ensure_loaded(ssl_handshake),
+    Tester = self(),
+    Collector = spawn_link(fun() -> dh_prime_collector(Tester, ExpectedDHSize) end),
+    Session = trace:session_create(?FUNCTION_NAME, Collector, []),
+    1 = trace:function(Session, {ssl_handshake, encode_server_key, 1},
+                       true, [local]),
+    trace:process(Session, all, true, [call]),
+
+    %% Server: listen WITHOUT dh options, then supply them on handshake/3
+    %% via ssl_extra_opts (the reported flow). versions/ciphers on both
+    %% listen and handshake for a deterministic DHE-RSA negotiation.
+    Server = ssl_test_lib:start_server(
+               [{node, ServerNode}, {port, 0}, {from, self()},
+                {mfa, {ssl_test_lib, send_recv_result_active, []}},
+                {options, [{versions, ['tlsv1.2']}, {ciphers, Ciphers}
+                           | ServerOpts]},
+                {ssl_extra_opts, [{dh, DH},
+                                  {versions, ['tlsv1.2']},
+                                  {ciphers, Ciphers} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client(
+               [{node, ClientNode}, {port, Port}, {host, Hostname},
+                {from, self()},
+                {mfa, {ssl_test_lib, send_recv_result_active, []}},
+                {options, [{versions, ['tlsv1.2']}, {ciphers, Ciphers}
+                           | ClientOpts]}]),
+
+    %% Wait for the collector to report the EXPECTED DH prime size. Only
+    %% {dh_prime_bits, _} arrives here (the collector filters out sibling
+    %% cases' non-DH / other-size key exchanges), so this cannot collide with
+    %% the {Pid, Result} tuples check_result/4 consumes below.
+    receive
+        {dh_prime_bits, ExpectedDHSize} ->
+            trace:session_destroy(Session),
+            ok
+    after 5000 ->
+            trace:session_destroy(Session),
+            ct:fail({dh_group_not_honored, {expected, ExpectedDHSize},
+                     no_matching_server_key_exchange_captured})
+    end,
+
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+%% Trace-session tracer: forward ONLY the configured DH prime size to the
+%% tester, dropping every other traced key exchange (sibling parallel cases'
+%% DH of other sizes, ECDH, SRP, ...). Filtering here keeps the tester's
+%% mailbox free of stray messages that would otherwise poison check_result/4.
+dh_prime_collector(Tester, ExpectedDHSize) ->
+    receive
+        {trace, _, call,
+         {ssl_handshake, encode_server_key,
+          [{server_dh_params, P, _G, _Y}]}}
+          when bit_size(P) =:= ExpectedDHSize ->
+            Tester ! {dh_prime_bits, bit_size(P)},
+            dh_prime_collector(Tester, ExpectedDHSize);
+        _Other ->
+            dh_prime_collector(Tester, ExpectedDHSize)
+    end.
 
 %%--------------------------------------------------------------------
 conf_signature_algs() ->
