@@ -706,8 +706,6 @@ enable_trace(Spec, Options) ->
 enable_trace(Server, Spec, Options) ->
     enable_session_trace(get_session(Server), Spec, Options).
 
-enable_session_trace(Session, Spec) ->
-    enable_session_trace(Session, Spec, default_trace_options()).
 enable_session_trace(Session, Procs, Options) when Procs =:= all; Procs =:= new; Procs =:= existing ->
     trace:process(Session, Procs, true, trace_options(Options));
 enable_session_trace(Session, {Children, PidOrName}, Options) when Children =:= children; Children =:= all_children ->
@@ -1402,7 +1400,7 @@ ad_hoc_run(Session, What, Options, Map, Type) ->
     %% enable tracing for items in the rootset
     RootSet = maps:get(rootset, Options, []),
     %% ignore errors when setting up rootset trace
-    _ = enable_session_trace(Session, RootSet),
+    _ = enable_session_trace(Session, RootSet, Options),
 
     %% spawn a separate process to run the user-supplied MFA
     %% if RootSet is 'all' or 'new', skip the trace flags
