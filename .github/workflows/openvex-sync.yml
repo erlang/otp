@@ -39,12 +39,12 @@ jobs:
       pull-requests: write  # use inside the otp-compliance.es
     if: github.repository == 'erlang/otp'
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6.0.2
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           ref: 'master' # '' = default branch
           persist-credentials: false
 
-      - uses: erlef/setup-beam@e6d7c94229049569db56a7ad5a540c051a010af9 # ratchet:erlef/setup-beam@v1.20.4
+      - uses: erlef/setup-beam@54075bcc5e249e4758d363f27d099f55d843f124 # v1.24.1
         with:
           otp-version: '28'
 
@@ -52,7 +52,7 @@ jobs:
         with:
           vexctl-release: '0.3.0'
 
-      - uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # ratchet:actions/create-github-app-token@v2.2.1
+      - uses: actions/create-github-app-token@fee1f7d63c2ff003460e3d139729b119787bc349 # v2.2.2
         id: app-token
         with:
           # required
