@@ -158,6 +158,10 @@ extern ERL_NIF_TERM atom_mlkem768;
 extern ERL_NIF_TERM atom_mlkem1024;
 #endif
 
+#ifdef HAVE_CONTEXT_STRING
+extern ERL_NIF_TERM atom_context_string;
+#endif
+
 int init_atoms(ErlNifEnv *env);
 
 #endif /* E_ATOMS_H__ */

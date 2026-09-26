@@ -41,6 +41,10 @@ typedef struct PKeySignOptions {
     const EVP_MD *rsa_mgf1_md;
     int rsa_padding;
     int rsa_pss_saltlen;
+#ifdef HAVE_CONTEXT_STRING
+    ErlNifBinary context_string;
+    bool context_string_has_value;
+#endif
 } PKeySignOptions;
 
 
@@ -409,12 +413,15 @@ static int get_pkey_sign_options(ErlNifEnv *env,
 	opt->rsa_padding = 0;
 	opt->rsa_pss_saltlen = 0;
     }
+#ifdef HAVE_CONTEXT_STRING
+    opt->context_string_has_value = false;
+#endif
 
     if (enif_is_empty_list(env, argv[options_arg_num]))
 	return 1;
 
-    if (argv[algorithm_arg_num] != atom_rsa)
-        assign_goto(*err_return, err, EXCP_BADARG_N(env, options_arg_num, "Only RSA supports Options"));
+    if (argv[algorithm_arg_num] != atom_rsa && pkey_type == NULL)
+        assign_goto(*err_return, err, EXCP_BADARG_N(env, options_arg_num, "Only RSA, ML-DSA and SLH-DSA support Options"));
 
     tail = argv[options_arg_num];
     while (enif_get_list_cell(env, tail, &head, &tail)) {
@@ -422,7 +429,7 @@ static int get_pkey_sign_options(ErlNifEnv *env,
             (tpl_arity != 2))
             assign_goto(*err_return, err, EXCP_BADARG_N(env, options_arg_num, "Expects only two-tuples in the list"));
 
-        if (tpl_terms[0] == atom_rsa_mgf1_md) {
+        if (tpl_terms[0] == atom_rsa_mgf1_md && argv[algorithm_arg_num] == atom_rsa) {
             if (!enif_is_atom(env, tpl_terms[1]))
                 assign_goto(*err_return, err, EXCP_BADARG_N(env, options_arg_num, "Atom expected as argument to option rsa_mgf1_md"));
 
@@ -434,7 +441,7 @@ static int get_pkey_sign_options(ErlNifEnv *env,
             
             opt->rsa_mgf1_md = opt_md;
 
-        } else if (tpl_terms[0] == atom_rsa_padding) {
+        } else if (tpl_terms[0] == atom_rsa_padding && argv[algorithm_arg_num] == atom_rsa) {
             if (tpl_terms[1] == atom_rsa_pkcs1_padding) {
                 opt->rsa_padding = RSA_PKCS1_PADDING;
 
@@ -457,10 +464,19 @@ static int get_pkey_sign_options(ErlNifEnv *env,
                 assign_goto(*err_return, err, EXCP_BADARG_N(env, options_arg_num, "Bad value in option rsa_padding"));
             }
 
-        } else if (tpl_terms[0] == atom_rsa_pss_saltlen) {
+        } else if (tpl_terms[0] == atom_rsa_pss_saltlen && argv[algorithm_arg_num] == atom_rsa) {
             if (!enif_get_int(env, tpl_terms[1], &(opt->rsa_pss_saltlen)) ||
                 (opt->rsa_pss_saltlen < -2) )
                 assign_goto(*err_return, err, EXCP_BADARG_N(env, options_arg_num, "Bad value in option rsa_pss_saltlen"));
+
+#ifdef HAVE_CONTEXT_STRING
+        } else if (tpl_terms[0] == atom_context_string && pkey_type != NULL) {
+            if (!enif_inspect_binary(env, tpl_terms[1], &(opt->context_string)) ||
+                (opt->context_string.size > MAX_CONTEXT_STRING_SIZE)) {
+                assign_goto(*err_return, err, EXCP_BADARG_N(env, options_arg_num, "Bad value in option 'context-string'"));
+            }
+            opt->context_string_has_value = true;
+#endif
 
         } else {
             assign_goto(*err_return, err, EXCP_BADARG_N(env, options_arg_num, "Bad option"));
@@ -770,6 +786,13 @@ ERL_NIF_TERM pkey_sign_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
     struct pkey_type_t *pkey_type = get_pkey_type(argv[0]);
     EVP_PKEY_CTX *ctx = NULL;
     size_t siglen;
+# ifdef HAS_PREFETCH_SIGN_INIT
+    OSSL_PARAM *p = NULL;
+# endif
+# ifdef HAVE_CONTEXT_STRING
+    OSSL_PARAM params[2];
+    int i = 0;
+# endif
 #else
     int len;
     unsigned int siglen;
@@ -833,7 +856,14 @@ ERL_NIF_TERM pkey_sign_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
         }
 # ifdef HAS_PREFETCH_SIGN_INIT
         if (pkey_type && pkey_type->sign.alg) {
-            if (EVP_PKEY_sign_message_init(ctx, pkey_type->sign.alg, NULL) != 1)
+#  ifdef HAVE_CONTEXT_STRING
+            if (sig_opt.context_string_has_value) {
+                params[i++] = OSSL_PARAM_construct_octet_string("context-string", sig_opt.context_string.data, sig_opt.context_string.size);
+                params[i++] = OSSL_PARAM_construct_end();
+                p = params;
+            }
+#  endif
+            if (EVP_PKEY_sign_message_init(ctx, pkey_type->sign.alg, p) != 1)
                 assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_PKEY_sign_message_init"));
         }
         else
@@ -1016,6 +1046,13 @@ ERL_NIF_TERM pkey_verify_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]
 #ifdef HAS_EVP_PKEY_CTX
     struct pkey_type_t *pkey_type = get_pkey_type(argv[0]);
     EVP_PKEY_CTX *ctx = NULL;
+# ifdef HAS_PREFETCH_SIGN_INIT
+    OSSL_PARAM *p = NULL;
+# endif
+# ifdef HAVE_CONTEXT_STRING
+    OSSL_PARAM params[2];
+    int i = 0;
+# endif
 #else
     RSA *rsa = NULL;
 # ifdef HAVE_DSA
@@ -1068,7 +1105,14 @@ ERL_NIF_TERM pkey_verify_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]
         }
 # ifdef HAS_PREFETCH_SIGN_INIT
         if (pkey_type && pkey_type->sign.alg) {
-            if (EVP_PKEY_verify_message_init(ctx, pkey_type->sign.alg, NULL) != 1)
+#  ifdef HAVE_CONTEXT_STRING
+            if (sig_opt.context_string_has_value) {
+                params[i++] = OSSL_PARAM_construct_octet_string("context-string", sig_opt.context_string.data, sig_opt.context_string.size);
+                params[i++] = OSSL_PARAM_construct_end();
+                p = params;
+            }
+#  endif
+            if (EVP_PKEY_verify_message_init(ctx, pkey_type->sign.alg, p) != 1)
                 assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_PKEY_verify_message_init"));
         }
         else
