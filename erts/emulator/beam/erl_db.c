@@ -1368,6 +1368,25 @@ BIF_RETTYPE ets_take_2(BIF_ALIST_2)
     BIF_RET(ret);
 }
 
+/*
+** take_one(Tab, Key)
+*/
+BIF_RETTYPE ets_take_one_2(BIF_ALIST_2)
+{
+    DbTable* tb;
+    int cret;
+    Eterm ret;
+    CHECK_TABLES();
+
+    DB_BIF_GET_TABLE(tb, DB_WRITE, LCK_WRITE_REC, BIF_ets_take_one_2);
+
+    cret = tb->common.meth->db_take_one(BIF_P, tb, BIF_ARG_2, &ret);
+
+    ASSERT(cret == DB_ERROR_NONE); (void)cret;
+    db_unlock(tb, LCK_WRITE_REC);
+    BIF_RET(ret);
+}
+
 static BIF_RETTYPE do_update_element(Process *p, DbTable *tb,
 		Eterm key, Eterm pos_val, Eterm default_obj)
 {
