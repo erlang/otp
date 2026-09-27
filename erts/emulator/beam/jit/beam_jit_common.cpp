@@ -367,13 +367,13 @@ BeamModuleAssembler::BeamModuleAssembler(BeamGlobalAssembler *_ga,
     }
 }
 
-void *BeamModuleAssembler::register_metadata(const BeamCodeHeader *header) {
+void BeamModuleAssembler::prepare_metadata(const BeamCodeHeader *header) {
 #ifndef WIN32
     const BeamCodeLineTab *line_table = header->line_table;
 
     char name_buffer[MAX_ATOM_SZ_LIMIT];
     std::string module_name = getAtom(mod);
-    AsmMetadata metadata;
+    AsmMetadata &metadata = prepared_metadata;
     std::vector<AsmRange> &ranges = metadata.ranges;
     ERTS_DECL_AM(erts_beamasm);
 
@@ -495,10 +495,20 @@ void *BeamModuleAssembler::register_metadata(const BeamCodeHeader *header) {
              .stop = (ErtsCodePtr)(code.base_address() + code.code_size()),
              .name = module_name + "::codeFooter"});
 
-    return beamasm_metadata_insert(module_name,
+    metadata_prepared = true;
+#endif
+}
+
+void *BeamModuleAssembler::register_metadata(const BeamCodeHeader *header) {
+#ifndef WIN32
+    /* Runtime-generated helper modules bypass the BEAM loader. */
+    if (!metadata_prepared) {
+        prepare_metadata(header);
+    }
+    return beamasm_metadata_insert(getAtom(mod),
                                    (ErtsCodePtr)code.base_address(),
                                    code.code_size(),
-                                   metadata);
+                                   prepared_metadata);
 #else
     return NULL;
 #endif

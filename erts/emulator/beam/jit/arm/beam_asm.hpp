@@ -1120,6 +1120,9 @@ public:
 
     void codegen(char *buff, size_t len);
 
+    AsmMetadata prepared_metadata;
+    bool metadata_prepared = false;
+    void prepare_metadata(const BeamCodeHeader *header);
     void *register_metadata(const BeamCodeHeader *header);
 
     ErtsCodePtr getCode(unsigned label);
