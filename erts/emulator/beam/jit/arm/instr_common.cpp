@@ -802,19 +802,19 @@ void BeamModuleAssembler::emit_put_tuple2(const ArgRegister &Dst,
     data.insert(data.end(), std::begin(args), std::end(args));
 
     size_t size = data.size();
-    ImmedRegCache values(*this,
-                         ARG3,
-                         ARG4,
-                         ARG5,
-                         ARG6,
-                         ARG7,
-                         ARG8,
-                         TMP1,
-                         TMP2,
-                         TMP3,
-                         TMP4,
-                         TMP5,
-                         TMP6);
+    ImmedRegCache<12> values(*this,
+                             ARG3,
+                             ARG4,
+                             ARG5,
+                             ARG6,
+                             ARG7,
+                             ARG8,
+                             TMP1,
+                             TMP2,
+                             TMP3,
+                             TMP4,
+                             TMP5,
+                             TMP6);
     Variable<a64::Gp> regs[2] = {a64::xzr, a64::xzr};
 
     for (int i = 0; i < size; i++) {

@@ -259,18 +259,18 @@ void BeamModuleAssembler::emit_i_create_local_native_record(
     a.stp(TMP1, TMP2, a64::Mem(HTOP).post(sizeof(Eterm[2])));
 
     /* We'll keep a cache of loaded immediate values. */
-    ImmedRegCache values(*this,
-                         ARG4,
-                         ARG5,
-                         ARG6,
-                         ARG7,
-                         ARG8,
-                         TMP1,
-                         TMP2,
-                         TMP3,
-                         TMP4,
-                         TMP5,
-                         TMP6);
+    ImmedRegCache<11> values(*this,
+                             ARG4,
+                             ARG5,
+                             ARG6,
+                             ARG7,
+                             ARG8,
+                             TMP1,
+                             TMP2,
+                             TMP3,
+                             TMP4,
+                             TMP5,
+                             TMP6);
 
     argp = 0;
     for (int i = 0; i < field_count; i += 2) {

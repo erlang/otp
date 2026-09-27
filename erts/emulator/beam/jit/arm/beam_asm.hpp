@@ -858,6 +858,8 @@ protected:
     public:
         template<typename... Regs>
         ImmedRegCache(BeamAssembler &ba, Regs... regs) : regs{regs...}, ba(ba) {
+            static_assert(sizeof...(Regs) == N,
+                          "ImmedRegCache register count must match N");
             reg_values.fill(THE_NON_VALUE);
         }
 
@@ -882,9 +884,6 @@ protected:
             return new_reg;
         }
     };
-
-    template<typename... Args>
-    ImmedRegCache(Args...) -> ImmedRegCache<sizeof...(Args) - 1>;
 };
 
 #include "beam_asm_global.hpp"
