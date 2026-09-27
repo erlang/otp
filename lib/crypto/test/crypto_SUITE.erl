@@ -65,6 +65,7 @@
          cipher_info_prop_aead_attr/0,
          cipher_info_prop_aead_attr/1,
          cipher_padding/1,
+         aead_reuse/1,
          cmac/0,
          cmac/1,
          cmac_update/0,
@@ -258,6 +259,7 @@ all() ->
      {group, fips},
      {group, non_fips},
      cipher_padding,
+     aead_reuse,
      doctests,
      ec_key_padding,
      node_supports_cache,
@@ -2034,6 +2036,50 @@ aead_cipher_ng({Type, Key, PlainText, IV, AAD, CipherText, CipherTag, TagLen, _I
                         end,
                         Plain)
     end.
+
+%%--------------------------------------------------------------------
+aead_reuse(_Config) ->
+    %% Check that a state from crypto_one_time_aead_init/4 can be reused for
+    %% several messages (the key schedule is kept between calls).
+    Algs = [{aes_128_gcm, <<0:128>>},
+            {aes_256_gcm, <<0:256>>},
+            {chacha20_poly1305, <<0:256>>},
+            {aes_128_ccm, <<0:128>>},
+            {aes_256_ccm, <<0:256>>}],
+    lists:foreach(fun({Type, Key}) ->
+                          case is_supported(Type) of
+                              true ->
+                                  aead_reuse_test(Type, Key);
+                              false ->
+                                  ok
+                          end
+                  end, Algs).
+
+aead_reuse_test(Type, Key) ->
+    TagLen = 16,
+    EncState = crypto:crypto_one_time_aead_init(Type, Key, TagLen, true),
+    DecState = crypto:crypto_one_time_aead_init(Type, Key, TagLen, false),
+    Messages = [{<<"first message">>, <<>>},
+                {<<>>, <<"aad only">>},
+                {<<0:1024>>, <<1:96>>},
+                {<<"last message">>, <<"aad">>}],
+    lists:foreach(
+      fun({I, {Plain, AAD}}) ->
+              IV = <<I:96>>,
+              {Cipher, Tag} = crypto:crypto_one_time_aead(Type, Key, IV, Plain, AAD, TagLen, true),
+              CipherTag = crypto:crypto_one_time_aead(EncState, IV, Plain, AAD),
+              CipherLen = byte_size(CipherTag) - TagLen,
+              <<Cipher:CipherLen/binary, Tag:TagLen/binary>> = CipherTag,
+              Plain = crypto:crypto_one_time_aead(DecState, IV, CipherTag, AAD)
+      end, lists:zip(lists:seq(1, length(Messages)), Messages)),
+    %% A failed tag check must not break the state for later messages
+    IV = <<255:96>>,
+    Plain = <<"after failed tag">>,
+    {Cipher, Tag} = crypto:crypto_one_time_aead(Type, Key, IV, Plain, <<>>, TagLen, true),
+    <<T0, TRest/binary>> = Tag,
+    error = crypto:crypto_one_time_aead(DecState, IV, <<Cipher/binary, (T0 bxor 1), TRest/binary>>, <<>>),
+    Plain = crypto:crypto_one_time_aead(DecState, IV, <<Cipher/binary, Tag/binary>>, <<>>),
+    ok.
 
 aead_cipher_bad_tag({Type, Key, _PlainText, IV, AAD, CipherText, CipherTag, _Info}=T) ->
     BadTag = mk_bad_tag(CipherTag),
