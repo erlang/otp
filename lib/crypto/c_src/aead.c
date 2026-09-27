@@ -38,6 +38,7 @@ struct aead_cipher_ctx {
     unsigned int tag_len;
     ErlNifEnv *env;
     ErlNifMutex * aead_m;  /* Should protect 'ctx', which needs to be thread-safe */
+    int key_set;
 };
 
 static void aead_cipher_ctx_dtor(ErlNifEnv* env, struct aead_cipher_ctx* ctx) {
@@ -79,6 +80,7 @@ ERL_NIF_TERM aead_cipher_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
         return EXCP_ERROR(env, "Can't allocate resource");
 
     ctx_res->ctx = NULL;
+    ctx_res->key_set = 0;
     ctx_res->env = enif_alloc_env();
     encflg_arg = argv[3];
 
@@ -291,9 +293,16 @@ ERL_NIF_TERM aead_cipher_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
     } else
 #endif
         { /* GCM_MODE or CHACHA20_POLY1305 */
-            /* Set key and iv */
-            if (EVP_CipherInit_ex(ctx, NULL, NULL, key.data, iv.data, -1) != 1)
+            /* Set key and iv. A reused GCM state already has the key set,
+               so pass NULL as the key to keep the key schedule and only
+               set the new IV. */
+            const unsigned char *key_data = key.data;
+            if (argc == 4 && ctx_res->key_set)
+                key_data = NULL;
+            if (EVP_CipherInit_ex(ctx, NULL, NULL, key_data, iv.data, -1) != 1)
                 {ret = EXCP_ERROR(env, "Can't set key and iv"); goto done;}
+            if (argc == 4 && (cipherp->flags & GCM_MODE))
+                ctx_res->key_set = 1;
         }
 
     /* Set the AAD */
