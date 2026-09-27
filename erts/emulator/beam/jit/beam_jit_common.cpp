@@ -377,7 +377,7 @@ void *BeamModuleAssembler::register_metadata(const BeamCodeHeader *header) {
     std::vector<AsmRange> &ranges = metadata.ranges;
     ERTS_DECL_AM(erts_beamasm);
 
-    ranges.reserve(functions.size() + 2);
+    ranges.reserve(2 * functions.size() + 2);
 
     if (line_table && beam) {
         Uint32 file_count = beam->lines.name_count;
@@ -485,7 +485,7 @@ void *BeamModuleAssembler::register_metadata(const BeamCodeHeader *header) {
 
         ranges.push_back({.start = start,
                           .stop = stop,
-                          .name = function_name,
+                          .name = std::move(function_name),
                           .lines = std::move(lines)});
     }
 

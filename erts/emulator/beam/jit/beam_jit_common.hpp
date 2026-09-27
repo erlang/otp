@@ -58,7 +58,7 @@ using namespace asmjit;
 struct AsmRange {
     ErtsCodePtr start;
     ErtsCodePtr stop;
-    const std::string name;
+    std::string name;
 
     struct LineData {
         ErtsCodePtr start;
@@ -66,7 +66,7 @@ struct AsmRange {
         unsigned line;
     };
 
-    const std::vector<LineData> lines;
+    std::vector<LineData> lines;
 };
 
 struct AsmMetadata {
