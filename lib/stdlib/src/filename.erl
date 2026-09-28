@@ -362,9 +362,9 @@ _Examples:_
 -spec basename(Filename, Ext) -> file:filename_all() when
       Filename :: file:name_all(),
       Ext :: file:name_all().
-basename(Name, Ext) when is_binary(Name), is_list(Ext) ->
+basename(Name, Ext) when is_binary(Name), (is_list(Ext) orelse is_atom(Ext)) ->
     basename(Name,filename_string_to_binary(Ext));
-basename(Name, Ext) when is_list(Name), is_binary(Ext) ->
+basename(Name, Ext) when (is_list(Name) orelse is_atom(Name)), is_binary(Ext) ->
     basename(filename_string_to_binary(Name),Ext);
 basename(Name, Ext) when is_binary(Name), is_binary(Ext) ->
     BName = basename(Name),
