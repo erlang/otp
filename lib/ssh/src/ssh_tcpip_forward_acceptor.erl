@@ -75,29 +75,40 @@ start_link(LSock, {ListenAddrStr,ListenPort}, ConnectToAddr, ChanType, ChanCB, C
 acceptor_loop(LSock, ListenAddrStr, ListenPort, ConnectToAddr, ChanType, ChanCB, ConnPid) ->
     case gen_tcp:accept(LSock) of
         {ok, Sock} ->
-            {ok, {RemHost,RemPort}} = inet:peername(Sock),
-            RemHostBin = list_to_binary(encode_ip(RemHost)),
-            Data = 
-                case ConnectToAddr of
-                    undefined ->
-                        <<?STRING(ListenAddrStr), ?UINT32(ListenPort),
-                          ?STRING(RemHostBin), ?UINT32(RemPort)>>;
-                    {ConnectToHost, ConnectToPort} ->
-                        <<?STRING(ConnectToHost), ?UINT32(ConnectToPort),
-                          ?STRING(RemHostBin), ?UINT32(RemPort)>>
-                end,
-            case ssh_connection:open_channel(ConnPid, ChanType, Data, infinity) of
-                {ok,ChId} ->
-                    gen_tcp:controlling_process(Sock, ConnPid),
-                    ConnPid ! {fwd_connect_received, Sock, ChId, ChanCB};
-                Other ->
-                    gen_tcp:close(Sock),
-                    ConnPid ! {fwd_connect_failed, Other}
+            %% A peer RST can make peername/1 return {error,enotconn};
+            %% drop the connection instead of crashing.
+            case inet:peername(Sock) of
+                {ok, {RemHost,RemPort}} ->
+                    RemHostBin = list_to_binary(encode_ip(RemHost)),
+                    Data =
+                        case ConnectToAddr of
+                            undefined ->
+                                <<?STRING(ListenAddrStr), ?UINT32(ListenPort),
+                                  ?STRING(RemHostBin), ?UINT32(RemPort)>>;
+                            {ConnectToHost, ConnectToPort} ->
+                                <<?STRING(ConnectToHost), ?UINT32(ConnectToPort),
+                                  ?STRING(RemHostBin), ?UINT32(RemPort)>>
+                        end,
+                    case ssh_connection:open_channel(ConnPid, ChanType, Data, infinity) of
+                        {ok,ChId} ->
+                            gen_tcp:controlling_process(Sock, ConnPid),
+                            ConnPid ! {fwd_connect_received, Sock, ChId, ChanCB};
+                        Other ->
+                            gen_tcp:close(Sock),
+                            ConnPid ! {fwd_connect_failed, Other}
+                    end;
+                {error, _} ->
+                    gen_tcp:close(Sock)
             end,
             acceptor_loop(LSock, ListenAddrStr, ListenPort, ConnectToAddr, ChanType, ChanCB, ConnPid);
 
-        {error,closed} ->
-            ok
+        {error, closed} ->
+            %% Listen socket closed - forwarding torn down.
+            ok;
+
+        {error, _Reason} ->
+            %% Transient accept error (e.g. econnaborted); keep serving.
+            acceptor_loop(LSock, ListenAddrStr, ListenPort, ConnectToAddr, ChanType, ChanCB, ConnPid)
     end.
 
 %%%----------------------------------------------------------------
@@ -106,9 +117,18 @@ get_fwd_listen_opts(<<"0.0.0.0">>  ) -> {ok, [inet]};
 get_fwd_listen_opts(<<"::">>       ) -> {ok, [inet6]};
 get_fwd_listen_opts(<<"localhost">>) -> {ok, [{ip,loopback}]};
 get_fwd_listen_opts(AddrStr) ->
-    case inet:getaddr(binary_to_list(AddrStr), inet) of
-        {ok, Addr} -> {ok, [{ip,Addr}]};
-        {error,Error} -> {error,Error}
+    %% Resolve the listen host. Try IPv4 first (preserving the previous
+    %% default), then fall back to IPv6 so an IPv6-only host does not
+    %% fail deterministically with {error,nxdomain}.
+    Host = binary_to_list(AddrStr),
+    case inet:getaddr(Host, inet) of
+        {ok, Addr} ->
+            {ok, [{ip,Addr}]};
+        {error,_} ->
+            case inet:getaddr(Host, inet6) of
+                {ok, Addr} -> {ok, [inet6, {ip,Addr}]};
+                {error,Error} -> {error,Error}
+            end
     end.
 
 %%%----------------------------------------------------------------
