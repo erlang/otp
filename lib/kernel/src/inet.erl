@@ -2956,8 +2956,8 @@ IPv4-Mapped and IPv4-Compatible IPv6 addresses are converted
 to an address string with dot-decimal notation suffix.
 
 A link-local unicast or multicast address that has a non-zero
-second word; embedded interface index, gets at in a scope id suffix,
-that is, a `"%"` char followed by a decimal integer string.
+second word (an embedded interface index), outputs that interface index
+in a scope id suffix (a `"%"` char followed by a decimal integer string).
 
 Examples:
 
@@ -2968,7 +2968,7 @@ Examples:
 {0,0,0,0,0,65535,32512,1}           -> "::ffff:127.0.0.1"
 {0,0,0,0,0,0,32512,1}               -> "::127.0.0.1"
 {0,0,0,0,0,1,32512,1}               -> "::1:7f00:1"
-{65282,0,0,0,0,0,0,17}              -> "ff02::17"
+{65282,0,0,0,0,0,0,17}              -> "ff02::11"
 {65152,3,0,0,0,0,0,1}               -> "fe80::1%3"
 ```
 """.
@@ -2987,28 +2987,34 @@ the libc function inet_aton(), the so called numbers-and-dots notation,
 a fairly flexible format.
 
 In short, the string shall have 1..4 dot separated fields.
-Each field is a decimal number starting with `"1"`..`"9"`, an octal number
-starting with `"0"`, or a hexadecimal number starting with `"0x"` or `"0X"`.
-A hexadecimal number has to have at least one hexadecimal character.
 
-All fields have a length limitation of the number of digits
-needed to specify a 32 bit unsigned integer, which are 10 decimal,
-11 octal (after the initial `"0"`), and 8 hexadecimal (after
-the initial `"0x"`.
+Each field can be one of:
+* A decimal number with at most ten digits, starting with one digit
+  `"1"`..`"9"`, and followed by decimal digits `"0"`..`"9"`.
+* The decimal number `"0"`.  Note that this is actually also allowed
+  by the the following octal number rule:
+* An octal number starting with `"0"`, followed by
+  at most eleven octal digits `"0"`..`"7"`.
+* A hexadecimal number prefixed by `"0x"` or `"0X"`,
+  followed by at most eight hexadecimal digits
+  `"0"`..`"9"`, `"a"`..`"f"` or `"A"`..`"F"`.
 
-If there are 4 fields: **A.B.C.D**, all are bytes assigned in
+Note that decimal numbers cannot be written with leading zeros,
+since that means octal numbers.
+
+If there are 4 fields, **A.B.C.D**, then all are bytes assigned in
 left-to-right order. This corresponds to a legacy Class C
 network address, for example `"192.168.0.17"`.
 
-If there are 3 fields: **A.B.C**, then **A** and **B** are the two
+If there are 3 fields, **A.B.C**, then **A** and **B** are the two
 initial bytes, and **C** is the 16 bit big endian value that follows.
 This corresponds to a legacy Class B network address,
-for example `"172.16.4711"`.
+for example `"172.16.4711"`, which is equivalent to `"172.16.18.103"`.
 
-If there are 2 fields: **A.B**, then **A** is the initial byte,
+If there are 2 fields, **A.B**, then **A** is the initial byte,
 and **B** is the 24 bit big endian value that follows.
 This corresponds to a legacy Class A network address,
-for example `"10.174711"`.
+for example `"10.174711"`, which is equivalent to `"10.2.170.119"`.
 
 If there is only 1 field it is a 32 bit big endian value.
 
@@ -3024,8 +3030,8 @@ accepted by `parse_ipv4strict_address/1` and output by `ntoa/1`.
 "0X7f.0.0.1"
 "0177.0.0.1"
 "0177.1"
-"000000000177.000000000001"
-"127.0x00000001"
+"0177.0001"
+"127.0x01"
 ```
 
 The description above implies that leading and trailing characters
@@ -3058,7 +3064,7 @@ a "relaxed" IPv4 address string as accepted by `parse_ipv4_address/1`,
 this function returns an IPv4-mapped IPv6 address.
 
 Example: `"127.0.0.1"` gives `{0,0,0,0,0,65535,32512,1}`,
-as does `"::ffff.127.0.0.1"`
+as does `"::ffff:127.0.0.1"`
 
 Otherwise `Address` has to be an IPv6 address string
 as accepted by `parse_ipv6strict_address/1`.
@@ -3171,7 +3177,7 @@ Hence this function accepts either an IPv4 address string in
 numbers-and-dots notation, or an IPv6 address string.
 
 Returns an `t:ip4_address/0` or an `t:ip6_address/0`
-depending on which parsing that succeeds.
+depending on which parsing succeeds.
 """.
 -doc(#{since => <<"OTP R16B">>}).
 -spec parse_address(Address) ->
@@ -3205,7 +3211,7 @@ Hence this function accepts either an IPv4 address string in
 dot-decimal notation, or an IPv6 address string.
 
 Returns an `t:ip4_address/0` or an `t:ip6_address/0`
-depending on which parsing that succeeds.
+depending on which parsing succeeds.
 """.
 -doc(#{since => <<"OTP R16B">>}).
 -spec parse_strict_address(Address) ->

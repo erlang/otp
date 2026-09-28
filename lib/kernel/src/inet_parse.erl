@@ -843,7 +843,7 @@ ipv6_addr([C1,C2,C3,C4,$%|Cs], Ar, Br, Compr, N) ->
 %% More than four characters field,
 %% or first IPv4 suffix field with more than three characters
 ipv6_addr([C1,C2,C3,C4|_], _Ar, _Br, _Compr, _N)
-  when ?is_char(C1), ?is_char(C2), ?is_char(C3), ?is_char(C3), ?is_char(C4)
+  when ?is_char(C1), ?is_char(C2), ?is_char(C3), ?is_char(C4)
        ->                                         throw(error). % Too wide field
 
 ipv6_addr_done(N, Ar, Br, Compr, X) ->
