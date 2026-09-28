@@ -777,11 +777,9 @@ handle_msg(#ssh_msg_channel_open_confirmation{recipient_channel = ChannelId,
 					      initial_window_size = WindowSz,
 					      maximum_packet_size = PacketSz}, 
 	   #connection{channel_cache = Cache} = Connection0, _, _SSH) ->
-    
-    #channel{remote_id = undefined, user = U} = Channel =
-	ssh_client_channel:cache_lookup(Cache, ChannelId), 
-    
-    if U /= undefined ->
+
+    case ssh_client_channel:cache_lookup(Cache, ChannelId) of
+        #channel{remote_id = undefined, user = U} = Channel when U /= undefined ->
             ssh_client_channel:cache_update(Cache, Channel#channel{
                                              remote_id = RemoteId,
                                              recv_packet_size = max(32768, % rfc4254/5.2
@@ -790,12 +788,19 @@ handle_msg(#ssh_msg_channel_open_confirmation{recipient_channel = ChannelId,
                                              send_window_size = WindowSz,
                                              send_packet_size = PacketSz}),
             reply_msg(Channel, Connection0, {open, ChannelId});
-        true ->
-            %% There is no user process so nobody cares about the channel
-            %% close it and remove from the cache, reply from the peer will be
-            %% ignored
+        #channel{remote_id = undefined} ->
+            %% Channel exists but has no user process (the guard above
+            %% failed, so user == undefined): nobody owns it. Tell the
+            %% peer to close its side and drop the channel from the
+            %% cache so any later message for it is discarded.
             CloseMsg = channel_close_msg(RemoteId),
             ssh_client_channel:cache_delete(Cache, ChannelId),
+            {[{connection_reply, CloseMsg}], Connection0};
+        undefined ->
+            %% Cache miss: the local channel was already torn down (e.g.
+            %% a forwarded-socket RST) before this confirmation arrived.
+            %% Tell the peer to close its side.
+            CloseMsg = channel_close_msg(RemoteId),
             {[{connection_reply, CloseMsg}], Connection0}
     end;
  

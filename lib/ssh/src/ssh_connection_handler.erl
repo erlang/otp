@@ -1338,11 +1338,18 @@ handle_event(info, check_cache, _, D) ->
 handle_event(info, {fwd_connect_received, Sock, ChId, ChanCB}, StateName, #data{connection_state = Connection}) ->
     #connection{channel_cache = Cache,
                 connection_supervisor = ConnectionSup} = Connection,
-    Channel = ssh_client_channel:cache_lookup(Cache, ChId),
-    {ok,Pid} = ssh_connection_sup:start_channel(?role(StateName), ConnectionSup, self(), ChanCB, ChId, [Sock], undefined),
-    ssh_client_channel:cache_update(Cache, Channel#channel{user=Pid}),
-    gen_tcp:controlling_process(Sock, Pid),
-    inet:setopts(Sock, [{active,once}]),
+    %% The forwarded channel may be gone (e.g. peer RST) by the time we
+    %% process this message; on a cache-miss drop the socket instead of
+    %% crashing the connection handler.
+    case ssh_client_channel:cache_lookup(Cache, ChId) of
+        #channel{} = Channel ->
+            {ok,Pid} = ssh_connection_sup:start_channel(?role(StateName), ConnectionSup, self(), ChanCB, ChId, [Sock], undefined),
+            ssh_client_channel:cache_update(Cache, Channel#channel{user=Pid}),
+            gen_tcp:controlling_process(Sock, Pid),
+            inet:setopts(Sock, [{active,once}]);
+        undefined ->
+            gen_tcp:close(Sock)
+    end,
     keep_state_and_data;
 
 handle_event(info, {fwd_connect_failed, {error, max_num_channels_exceeded}}, StateName,
