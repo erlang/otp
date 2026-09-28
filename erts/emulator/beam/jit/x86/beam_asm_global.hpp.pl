@@ -97,7 +97,6 @@ my @beam_global_funcs = qw(
     minus_guard_shared
     mul_add_body_shared
     mul_add_guard_shared
-    mul_body_shared
     mul_guard_shared
     new_map_shared
     plus_body_shared
