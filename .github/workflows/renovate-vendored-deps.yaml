@@ -63,6 +63,8 @@ jobs:
         if: ${{ failure() }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           if [ ! -f vendor.log ]; then
             echo "vendor.log not found!"
@@ -74,7 +76,7 @@ jobs:
           # Truncate log to last ~60k characters to stay under GitHub comment limits
           LOG_CONTENT=$(tail -c 60000 vendor.log)
 
-          gh pr comment "$GITHUB_REF_NAME" --body "🚨 Vendor update failed. Log output:
+          gh pr comment "$PR_NUMBER" --body "🚨 Vendor update failed. Log output:
 
           \`\`\`text
           $LOG_CONTENT
