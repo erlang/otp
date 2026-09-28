@@ -40,6 +40,11 @@
          erl_md5/1
         ]).
 
+%% Define the limits used in beam_bounds.
+-define(NUM_BITS, 128).
+-define(MIN_UNCAPPED, ((-1 bsl ?NUM_BITS) + 1)).
+-define(MAX_UNCAPPED, ((1 bsl ?NUM_BITS) - 1)).
+
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
@@ -567,8 +572,9 @@ bsl_bounds(_Config) ->
     {-7,10} = do_bsl({-7,10}, {'-inf',0}),
     {-28,40} = do_bsl({-7,10}, {'-inf',2}),
 
-    {'-inf',-1} = do_bsl({-10,-1}, {500,1024}),
-    {0,'+inf'} = do_bsl({1,10}, {500,1024}),
+    {'-inf',?MIN_UNCAPPED} = do_bsl({-10,-1}, {500,1024}),
+
+    {?MAX_UNCAPPED,'+inf'} = do_bsl({1,10}, {500,1024}),
 
     {'-inf',-40} = do_bsl({'-inf',-10}, {2,64}),
     {'-inf',224} = do_bsl({'-inf',7}, {3,5}),
