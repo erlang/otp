@@ -50,11 +50,11 @@ For details about applications and behaviours, see
 [kernel](kernel_app.md), [app](app.md)
 """.
 -export([ensure_all_started/1, ensure_all_started/2, ensure_all_started/3,
-	 start/1, start/2,
-	 start_boot/1, start_boot/2, stop/1, 
-	 load/1, load/2, unload/1, takeover/2,
-	 which_applications/0, which_applications/1,
-	 loaded_applications/0, permit/2]).
+         start/1, start/2,
+         start_boot/1, start_boot/2, stop/1,
+         load/1, load/2, unload/1, takeover/2,
+         which_applications/0, which_applications/1,
+         loaded_applications/0, permit/2]).
 -export([ensure_started/1, ensure_started/2]).
 -export([set_env/1, set_env/2, set_env/3, set_env/4, unset_env/2, unset_env/3]).
 -export([get_env/1, get_env/2, get_env/3, get_all_env/0, get_all_env/1]).
@@ -330,6 +330,12 @@ graph is built and the leaves of the graph are started concurrently and
 recursively. In both modes, no assertion can be made about the order the
 applications are started. If not supplied, it defaults to `serial`.
 
+`Mode` can also be `{concurrent, Limit}` where `Limit` is a positive integer
+or `infinity`. `Limit` controls the maximum number of concurrent application
+starts when in `concurrent` mode. Defaults to the number of `schedulers_online`
+(i.e.,`erlang:system_info(schedulers_online)`) but this is not something to
+rely on and may change if we observe that dirty schedulers are the limiting factor.
+
 Returns `{ok, AppNames}` for a successful start or for an already started
 application (which is, however, omitted from the `AppNames` list).
 
@@ -344,18 +350,30 @@ bring the set of running applications back to its initial state.
 -spec ensure_all_started(Applications, Type, Mode) -> {'ok', Started} | {'error', AppReason} when
       Applications :: atom() | [atom()],
       Type :: restart_type(),
-      Mode :: serial | concurrent,
+      Mode :: serial | concurrent | {concurrent, Limit :: pos_integer() | infinity},
       Started :: [atom()],
       AppReason :: {atom(), term()}.
 ensure_all_started(Application, Type, Mode) when is_atom(Application) ->
     ensure_all_started([Application], Type, Mode);
-ensure_all_started(Applications, Type, Mode) when is_list(Applications) ->
-    Opts = #{type => Type, mode => Mode},
+ensure_all_started(Applications, Type, serial) when is_list(Applications) ->
+    ensure_all_started_1(Applications, Type, serial, infinity);
+ensure_all_started(Applications, Type, concurrent) when is_list(Applications) ->
+    ensure_all_started_1(Applications, Type, concurrent, erlang:system_info(schedulers_online));
+ensure_all_started(Applications, Type, {concurrent, Limit}) when is_list(Applications),
+      is_integer(Limit), Limit > 0 ->
+    ensure_all_started_1(Applications, Type, concurrent, Limit);
+ensure_all_started(Applications, Type, {concurrent, infinity}) when is_list(Applications) ->
+    ensure_all_started_1(Applications, Type, concurrent, infinity);
+ensure_all_started(_Applications, _Type, _Mode) ->
+    erlang:error(badarg).
 
-    case enqueue_or_start(Applications, [], #{}, [], [], Opts) of
+ensure_all_started_1(Applications, Type, Mode, Limit) ->
+    InternalOpts = #{type => Type, mode => Mode, limit => Limit},
+
+    case enqueue_or_start(Applications, [], #{}, [], [], InternalOpts) of
         {ok, DAG, _Pending, Started} when Mode =:= concurrent ->
             ReqIDs = gen_server:reqids_new(),
-            concurrent_dag_start(maps:to_list(DAG), ReqIDs, [], Started, Type);
+            concurrent_dag_start(maps:to_list(DAG), ReqIDs, [], Started, InternalOpts);
         {ok, DAG, _Pending, Started} when Mode =:= serial ->
             0 = map_size(DAG),
             {ok, lists:reverse(Started)};
@@ -426,29 +444,37 @@ enqueue_or_start_app(Name, App, DAG, Pending, Started, Opts) ->
             ErrorAppReasonStarted
     end.
 
-concurrent_dag_start([], ReqIDs, _Done, Started, _Type) ->
+concurrent_dag_start([], ReqIDs, _Done, Started, _Opts) ->
     wait_all_enqueued(ReqIDs, Started, false);
-concurrent_dag_start(Pending0, ReqIDs0, Done, Started0, Type) ->
-    {Pending1, ReqIDs1} = enqueue_dag_leaves(Pending0, ReqIDs0, [], Done, Type),
+concurrent_dag_start(Pending0, ReqIDs0, Done, Started0, Opts) ->
+    #{type := Type, limit := Limit} = Opts,
+    {Pending1, ReqIDs1} = enqueue_dag_leaves(Pending0, ReqIDs0, [], Done, Type, Limit),
 
     case wait_one_enqueued(ReqIDs1, Started0) of
         {ok, App, ReqIDs2, Started1} ->
-            concurrent_dag_start(Pending1, ReqIDs2, [App], Started1, Type);
+            concurrent_dag_start(Pending1, ReqIDs2, [App | Done], Started1, Opts);
         {error, AppReason, ReqIDs2} ->
             wait_all_enqueued(ReqIDs2, Started0, AppReason)
     end.
 
-enqueue_dag_leaves([{App, Children} | Rest], ReqIDs, Acc, Done, Type) ->
-    case Children -- Done of
-        [] ->
-            Req = application_controller:start_application_request(App, Type),
-            NewReqIDs = gen_server:reqids_add(Req, App, ReqIDs),
-            enqueue_dag_leaves(Rest, NewReqIDs, Acc, Done, Type);
-        NewChildren ->
-            NewAcc = [{App, NewChildren} | Acc],
-            enqueue_dag_leaves(Rest, ReqIDs, NewAcc, Done, Type)
+enqueue_dag_leaves([{App, Children} | Rest], ReqIDs, Acc, Done, Type, Limit) ->
+    CurrentSize = gen_server:reqids_size(ReqIDs),
+    case (Limit =:= infinity) orelse (CurrentSize < Limit) of
+        true ->
+            case Children -- Done of
+                [] ->
+                    Req = application_controller:start_application_request(App, Type),
+                    NewReqIDs = gen_server:reqids_add(Req, App, ReqIDs),
+                    enqueue_dag_leaves(Rest, NewReqIDs, Acc, Done, Type, Limit);
+                NewChildren ->
+                    NewAcc = [{App, NewChildren} | Acc],
+                    enqueue_dag_leaves(Rest, ReqIDs, NewAcc, Done, Type, Limit)
+            end;
+        false ->
+            %% Limit reached, keep this and remaining items for later
+            enqueue_dag_leaves([], ReqIDs, [{App, Children} | Rest] ++ Acc, Done, Type, Limit)
     end;
-enqueue_dag_leaves([], ReqIDs, Acc, _Done, _Type) ->
+enqueue_dag_leaves([], ReqIDs, Acc, _Done, _Type, _Limit) ->
     {Acc, ReqIDs}.
 
 wait_one_enqueued(ReqIDs0, Started) ->
@@ -748,13 +774,13 @@ and `vsn` application specification keys, respectively.
       Description :: string(),
       Vsn :: string().
 
-loaded_applications() -> 
+loaded_applications() ->
     application_controller:loaded_applications().
 
 -doc false.
 -spec info() -> term().
 
-info() -> 
+info() ->
     application_controller:info().
 
 -doc(#{equiv => set_env(Config, [])}).
@@ -814,7 +840,7 @@ set_env(Config, Opts) when is_list(Config), is_list(Opts) ->
       Par :: atom(),
       Val :: term().
 
-set_env(Application, Key, Val) -> 
+set_env(Application, Key, Val) ->
     application_controller:set_env(Application, Key, Val).
 
 -doc """
@@ -859,7 +885,7 @@ set_env(Application, Key, Val, Opts) when is_list(Opts) ->
       Application :: atom(),
       Par :: atom().
 
-unset_env(Application, Key) -> 
+unset_env(Application, Key) ->
     application_controller:unset_env(Application, Key).
 
 -doc """
@@ -898,7 +924,7 @@ unset_env(Application, Key, Opts) when is_list(Opts) ->
       Par :: atom(),
       Val :: term().
 
-get_env(Key) -> 
+get_env(Key) ->
     application_controller:get_pid_env(group_leader(), Key).
 
 -doc """
@@ -915,7 +941,7 @@ Returns `undefined` if any of the following applies:
       Par :: atom(),
       Val :: term().
 
-get_env(Application, Key) -> 
+get_env(Application, Key) ->
     application_controller:get_env(Application, Key).
 
 -doc """
@@ -936,7 +962,7 @@ get_env(Application, Key, Default) ->
 -spec get_all_env() -> Env when
       Env :: [{Par :: atom(), Val :: term()}].
 
-get_all_env() -> 
+get_all_env() ->
     application_controller:get_pid_all_env(group_leader()).
 
 -doc """
@@ -949,7 +975,7 @@ does not belong to any application, the function returns `[]`.
       Application :: atom(),
       Env :: [{Par :: atom(), Val :: term()}].
 
-get_all_env(Application) -> 
+get_all_env(Application) ->
     application_controller:get_all_env(Application).
 
 -doc(#{equiv => get_key(application:get_application(), Key)}).
@@ -957,7 +983,7 @@ get_all_env(Application) ->
       Key :: atom(),
       Val :: term().
 
-get_key(Key) -> 
+get_key(Key) ->
     application_controller:get_pid_key(group_leader(), Key).
 
 -doc """
@@ -974,7 +1000,7 @@ Returns `undefined` if any of the following applies:
       Key :: atom(),
       Val :: term().
 
-get_key(Application, Key) -> 
+get_key(Application, Key) ->
     application_controller:get_key(Application, Key).
 
 -doc(#{equiv => get_all_key(application:get_application())}).
@@ -997,14 +1023,14 @@ returns `[]`.
       Application :: atom(),
       Keys :: {'ok', [{Key :: atom(),Val :: term()},...]}.
 
-get_all_key(Application) -> 
+get_all_key(Application) ->
     application_controller:get_all_key(Application).
 
 -doc(#{equiv => get_application(self())}).
 -spec get_application() -> 'undefined' | {'ok', Application} when
       Application :: atom().
 
-get_application() -> 
+get_application() ->
     application_controller:get_application(group_leader()).
 
 -doc """
