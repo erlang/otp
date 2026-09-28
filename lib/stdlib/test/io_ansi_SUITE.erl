@@ -243,13 +243,20 @@ format_no_color_env(Config) ->
 scan(_Config) ->
     %% Verifies scan tokenization for:
     %% - unknown CSI sequences
-    %% - mixed plain text + unknown CSI
-    %% - known emitted ANSI sequences
     ?assertEqual([{csi, <<"\e[42">>}, <<"z">>], io_ansi:scan(<<"\e[42z">>)),
+    %% - mixed plain text + unknown CSI
     ?assertEqual([<<"aa">>, {csi, <<"\e[42">>}, <<"zbb">>], io_ansi:scan(<<"aa\e[42zbb">>)),
+    %% - known emitted ANSI sequences
     ?assertEqual([blue, <<"x">>, reset],
                  io_ansi:scan(io_ansi:format([blue, "x"], [],
-                                             [{enabled,true}, {color,true}]))).
+                                             [{enabled,true}, {color,true}]))),
+    %% - known emitted ANSI sequences with duplicate meanings (bold / bright)
+    %%   bright is chosen here because it sorts after bold by textually comparing
+    %%   the atoms.
+    ?assertEqual([bright, <<"x">>, reset],
+                 io_ansi:scan(io_ansi:format([bright, "x"], [],
+                                             [{enabled,true}, {color,true}]))),
+    ok.
 
 doctests(Config) ->
     SkipTests = case os:type() of
