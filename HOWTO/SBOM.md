@@ -671,7 +671,7 @@ OTP creates an emergency patch to fix this vendor dependency, and states that th
           },
           {
               "pkg:github/madler/zlib@04f42cecafika2026brod": "FIKA-2026-BROD",
-              "status": "fix"
+              "status": "fixed"
           },
     ]
 }
