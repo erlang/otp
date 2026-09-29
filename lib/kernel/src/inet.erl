@@ -376,12 +376,19 @@ Add the following directive to the module:
 -type ip_address() :: ip4_address() | ip6_address().
 
 -doc """
-An IP address in text form, as accepted by the `parse_*` functions.
+An IP address in text form, as accepted by the
+[`parse_`*](`parse_address/1`) functions.
 
 Either a [character list](`t:string/0`) such as `"192.168.0.1"`,
 or a `t:binary/0` such as `~"192.168.0.1"`.
 
-*Since OTP @OTP-20357@* a binary is accepted; before that only a list.
+> #### Note {: .info }
+>
+> *Since OTP @OTP-20357@* a binary is accepted; before that only a list.
+>
+> With that change, the `parse_`* functions mostly raise an error exception
+> for an argument that is not according to this type.  Before this,
+> common bad arguments were handled and returned `{error, einval}`.
 """.
 -type address_string() :: string() | binary().
 
@@ -2991,8 +2998,8 @@ In short, the string shall have 1..4 dot separated fields.
 Each field can be one of:
 * A decimal number with at most ten digits, starting with one digit
   `"1"`..`"9"`, and followed by decimal digits `"0"`..`"9"`.
-* The decimal number `"0"`.  Note that this is actually also allowed
-  by the the following octal number rule:
+* The decimal number `"0"`, also as according to
+  the following octal number rule:
 * An octal number starting with `"0"`, followed by
   at most eleven octal digits `"0"`..`"7"`.
 * A hexadecimal number prefixed by `"0x"` or `"0X"`,
@@ -3019,34 +3026,45 @@ for example `"10.174711"`, which is equivalent to `"10.2.170.119"`.
 If there is only 1 field it is a 32 bit big endian value.
 
 In this notation all these strings represent the
-`t:ip4_address/0` `{127,0,0,1}`, where the first one is in the strict format
-accepted by `parse_ipv4strict_address/1` and output by `ntoa/1`.
-
+`t:ip4_address/0` `{127,0,0,1}`, where the first one is in
+dot-decimal notation as accepted by `parse_ipv4strict_address/1`
+and output by `ntoa/1`, which is a stricter subset of the
+numbers-and-dots notation parsed by this function.
 ``` text
 "127.0.0.1"
-"127.0.1"
-"127.1"
-"0x7f000001"
-"0X7f.0.0.1"
-"0177.0.0.1"
-"0177.1"
-"0177.0001"
-"127.0x01"
+"127.0.1"               % Class B 127.0.0.1
+"127.1"                 % Class C 127.0.0.1
+"0x7f000001"            % Hexadecimal 32-bit
+"0X7f.0.0.1"            % Hexadecimal first byte
+"0177.0.0.1"            % Octal first byte
+"0177.0000.0000.0001"   % Leading zeros in octal fields
+"0x7f.0x00.0x00.0x01"   % Leading zeros in hexadecimal fields
 ```
 
 The description above implies that leading and trailing characters
 are not allowed, and fields are not allowed to be empty.
-So for example the following strings return `{error,einval}`:
+So for example the following strings return `{error, einval}`:
 
 ``` text
-" 127.0.0.1"
-"127.0.0.1\n"
-"127.0.0."
-".0.0.0"
-"127..0.1"
-"x7f.0.0.1"
-"127.0.0.x1"
+" 127.0.0.1"            % Leading whitespace
+"127.0.0.1\n"           % Trailing whitespace
+"127.0.0."              % Empty field
+".0.0.0"                % Empty field
+"127..0.1"              % Empty field
+"x7f.0.0.1"             % Malformed prefix
+"127.0.0.x1"            % Malformed prefix
+"127.0.0.256"           % Byte overflow
+"127.0.65536"           % 16-bit word overflow
+"127.0x01000000"        % 24-bit word overflow
 ```
+
+> #### Note {: .info }
+>
+> *Since OTP @OTP-20357@* a binary is accepted; before that only a list.
+>
+> With that change, this function mostly raises an error exception
+> for an argument that is of an invalid type.  Before this,
+> common bad arguments were handled and returned `{error, einval}`.
 """.
 -doc(#{since => <<"OTP R16B">>}).
 -spec parse_ipv4_address(Address) ->
@@ -3070,6 +3088,14 @@ Otherwise `Address` has to be an IPv6 address string
 as accepted by `parse_ipv6strict_address/1`.
 
 Example: `"2001::1"` gives `{8193,0,0,0,0,0,0,1}`.
+
+> #### Note {: .info }
+>
+> *Since OTP @OTP-20357@* a binary is accepted; before that only a list.
+>
+> With that change, this function mostly raises an error exception
+> for an argument that is of an invalid type.  Before this,
+> common bad arguments were handled and returned `{error, einval}`.
 """.
 -doc(#{since => <<"OTP R16B">>}).
 -spec parse_ipv6_address(Address) ->
@@ -3086,11 +3112,11 @@ The allowed format is according to the documentation of
 the libc function inet_pton(), the so called dot-decimal notation,
 without leading zeros.
 
-The string chall have 4 dot separated fields with decimal numbers
+The string shall have 4 dot separated fields with decimal numbers
 of 1..3 digits in the range 0..255.  Leading zeros are not allowed,
 which rules out the ambiguity whether a leading zero could mean octal notation.
 
-These are some address strings that are succesfully parsed:
+These are some address strings that are successfully parsed:
 
 ``` text
 "0.0.0.0"
@@ -3101,14 +3127,22 @@ These are some address strings that are succesfully parsed:
 As for `parse_ipv4_address/1` leading and trailing characters
 are not allowed.
 
-Here are some examples of strings that return `{error,einval}`:
+Here are some examples of strings that return `{error, einval}`:
 
 ``` text
-" 0.0.0.0"
-"0.0.0.0\n"
-"127.000.000.001"
-"127.0.0.256"
+" 0.0.0.0"              % Leading whitespace
+"0.0.0.0\n"             % Trailing whitespace
+"127.000.000.001"       % Leading zeros
+"127.0.0.256"           % Byte overflow
 ```
+
+> #### Note {: .info }
+>
+> *Since OTP @OTP-20357@* a binary is accepted; before that only a list.
+>
+> With that change, this function mostly raises an error exception
+> for an argument that is of an invalid type.  Before this,
+> common bad arguments were handled and returned `{error, einval}`.
 """.
 -doc(#{since => <<"OTP R16B">>}).
 -spec parse_ipv4strict_address(Address) ->
@@ -3122,7 +3156,7 @@ parse_ipv4strict_address(Addr) ->
 Parse an IPv6 address string to an `t:ip6_address/0`.
 
 Accepted address strings are those according to RFC 4291 section 2.2,
-IP Version 6 Addressing Architecture - Text Representation of Addressses.
+IP Version 6 Addressing Architecture - Text Representation of Addresses.
 
 In short, and address string is 8 colon separated 1..4 hexadecimal
 digits fields where leading zeros are allowed.  One double colon
@@ -3158,6 +3192,14 @@ Examples:
 "::ffff:192.168.0.53"
 "fe80::1%3"
 ```
+
+> #### Note {: .info }
+>
+> *Since OTP @OTP-20357@* a binary is accepted; before that only a list.
+>
+> With that change, this function mostly raises an error exception
+> for an argument that is of an invalid type.  Before this,
+> common bad arguments were handled and returned `{error, einval}`.
 """.
 -doc(#{since => <<"OTP R16B">>}).
 -spec parse_ipv6strict_address(Address) ->
@@ -3171,13 +3213,21 @@ parse_ipv6strict_address(Addr) ->
 Parse an IP address string to an `t:ip_address/0`.
 
 First tries to parse the `Address` string with `parse_ipv4_address/1`
-and if that fails with `parse_ipv6strict_address/1`.
+and if that returns `{error, einval}` with `parse_ipv6strict_address/1`.
 
 Hence this function accepts either an IPv4 address string in
 numbers-and-dots notation, or an IPv6 address string.
 
 Returns an `t:ip4_address/0` or an `t:ip6_address/0`
 depending on which parsing succeeds.
+
+> #### Note {: .info }
+>
+> *Since OTP @OTP-20357@* a binary is accepted; before that only a list.
+>
+> With that change, this function mostly raises an error exception
+> for an argument that is of an invalid type.  Before this,
+> common bad arguments were handled and returned `{error, einval}`.
 """.
 -doc(#{since => <<"OTP R16B">>}).
 -spec parse_address(Address) ->
@@ -3205,13 +3255,21 @@ parse_address(Addr, inet6) ->
 Parse an IP address string to an `t:ip_address/0`.
 
 First tries to parse the `Address` string with `parse_ipv4strict_address/1`
-and if that fails with `parse_ipv6strict_address/1`.
+and if that returns `{error, einval}` with `parse_ipv6strict_address/1`.
 
 Hence this function accepts either an IPv4 address string in
 dot-decimal notation, or an IPv6 address string.
 
 Returns an `t:ip4_address/0` or an `t:ip6_address/0`
 depending on which parsing succeeds.
+
+> #### Note {: .info }
+>
+> *Since OTP @OTP-20357@* a binary is accepted; before that only a list.
+>
+> With that change, this function mostly raises an error exception
+> for an argument that is of an invalid type.  Before this,
+> common bad arguments were handled and returned `{error, einval}`.
 """.
 -doc(#{since => <<"OTP R16B">>}).
 -spec parse_strict_address(Address) ->
