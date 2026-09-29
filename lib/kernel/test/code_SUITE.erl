@@ -565,18 +565,19 @@ purge_many_exits_do(PurgeF) ->
     %% Give them time to start...
     receive after 1000 -> ok end,
     true = code:delete(code_b_test),
+    TargetPids = maps:from_keys([Pid1 || {Pid1, _} <- TPids], true),
     lists:foreach(fun ({Pid1, Pid2}) ->
-			  true = erlang:is_process_alive(Pid1),
-			  false = code_b_test:check_exit(Pid1),
-			  true = erlang:is_process_alive(Pid2)
-		  end, TPids),
+                          true = erlang:is_process_alive(Pid1),
+                          true = erlang:is_process_alive(Pid2)
+                  end, TPids),
+    none = code_b_test:check_all_exit(TargetPids),
     PurgeF(code_b_test, true),
+    all = code_b_test:check_all_exit(TargetPids),
     lists:foreach(fun ({Pid1, Pid2}) ->
-			  false = erlang:is_process_alive(Pid1),
-			  true = code_b_test:check_exit(Pid1),
-			  true = erlang:is_process_alive(Pid2),
-			  exit(Pid2, kill)
-		  end, TPids),
+                          false = erlang:is_process_alive(Pid1),
+                          true = erlang:is_process_alive(Pid2),
+                          exit(Pid2, kill)
+                  end, TPids),
     lists:foreach(fun ({_Pid1, Pid2}) ->
 			  receive {'EXIT', Pid2, _} -> ok end
 		  end, TPids).
