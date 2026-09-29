@@ -23,6 +23,7 @@
 -module(crypto_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 -export([all/0, suite/0,
          t_md5/1,t_md5_update/1,error/1,unaligned_context/1,random_lists/1,
@@ -43,23 +44,23 @@ misc_errors(Config) when is_list(Config) ->
     1135871753 = erlang:adler32(L),
     L2 = lists:duplicate(22000,3),
     1100939744 = erlang:adler32(L2),
-    {'EXIT', {badarg,_}} = (catch erlang:adler32(L++[a])),
-    {'EXIT', {badarg,_}} = (catch erlang:crc32(L++[a])),
-    {'EXIT', {badarg,_}} = (catch erlang:crc32([1,2,3|<<25:7>>])),
-    {'EXIT', {badarg,_}} = (catch erlang:crc32([1,2,3|4])),
+    ?assertError(badarg, erlang:adler32(L++[a])),
+    ?assertError(badarg, erlang:crc32(L++[a])),
+    ?assertError(badarg, erlang:crc32([1,2,3|<<25:7>>])),
+    ?assertError(badarg, erlang:crc32([1,2,3|4])),
     Big = 111111111111111111111111111111,
-    {'EXIT', {badarg,_}} = (catch erlang:crc32(Big,<<"hej">>)),
-    {'EXIT', {badarg,_}} = (catch erlang:crc32(25,[1,2,3|4])),
-    {'EXIT', {badarg,_}} = (catch erlang:crc32_combine(Big,3,3)),
-    {'EXIT', {badarg,_}} = (catch erlang:crc32_combine(3,Big,3)),
-    {'EXIT', {badarg,_}} = (catch erlang:crc32_combine(3,3,Big)),
-    {'EXIT', {badarg,_}} = (catch erlang:adler32(Big,<<"hej">>)),
-    {'EXIT', {badarg,_}} = (catch erlang:adler32(25,[1,2,3|4])),
-    {'EXIT', {badarg,_}} = (catch erlang:adler32_combine(Big,3,3)),
-    {'EXIT', {badarg,_}} = (catch erlang:adler32_combine(3,Big,3)),
-    {'EXIT', {badarg,_}} = (catch erlang:adler32_combine(3,3,Big)),
-    {'EXIT', {badarg,_}} = (catch erlang:md5_update(<<"hej">>,<<"hej">>)),
-    {'EXIT', {badarg,_}} = (catch erlang:md5_final(<<"hej">>)),
+    ?assertError(badarg, erlang:crc32(Big,<<"hej">>)),
+    ?assertError(badarg, erlang:crc32(25,[1,2,3|4])),
+    ?assertError(badarg, erlang:crc32_combine(Big,3,3)),
+    ?assertError(badarg, erlang:crc32_combine(3,Big,3)),
+    ?assertError(badarg, erlang:crc32_combine(3,3,Big)),
+    ?assertError(badarg, erlang:adler32(Big,<<"hej">>)),
+    ?assertError(badarg, erlang:adler32(25,[1,2,3|4])),
+    ?assertError(badarg, erlang:adler32_combine(Big,3,3)),
+    ?assertError(badarg, erlang:adler32_combine(3,Big,3)),
+    ?assertError(badarg, erlang:adler32_combine(3,3,Big)),
+    ?assertError(badarg, erlang:md5_update(<<"hej">>,<<"hej">>)),
+    ?assertError(badarg, erlang:md5_final(<<"hej">>)),
     ok.
 
 
@@ -249,15 +250,12 @@ t_md5_update_1(Tr) when is_function(Tr, 1) ->
 %%
 %%
 error(Config) when is_list(Config) ->
-    {'EXIT',{badarg,_}} = (catch erlang:md5(bit_sized_binary(<<"abc">>))),
+    ?assertError(badarg, erlang:md5(bit_sized_binary(<<"abc">>))),
     Ctx0 = erlang:md5_init(),
-    {'EXIT',{badarg,_}} =
-    (catch erlang:md5_update(Ctx0, bit_sized_binary(<<"abcfjldjd">>))),
-    {'EXIT',{badarg,_}} =
-    (catch erlang:md5_update(Ctx0, ["something",bit_sized_binary(<<"abcfjldjd">>)])),
-    {'EXIT',{badarg,_}} =
-    (catch erlang:md5_update(bit_sized_binary(Ctx0), "something")),
-    {'EXIT',{badarg,_}} = (catch erlang:md5_final(bit_sized_binary(Ctx0))),
+    ?assertError(badarg, erlang:md5_update(Ctx0, bit_sized_binary(<<"abcfjldjd">>))),
+    ?assertError(badarg, erlang:md5_update(Ctx0, ["something",bit_sized_binary(<<"abcfjldjd">>)])),
+    ?assertError(badarg, erlang:md5_update(bit_sized_binary(Ctx0), "something")),
+    ?assertError(badarg, erlang:md5_final(bit_sized_binary(Ctx0))),
     m(erlang:md5_final(Ctx0), hexstr2bin("d41d8cd98f00b204e9800998ecf8427e")),
     ok.
 

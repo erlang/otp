@@ -23,6 +23,7 @@
 -module(module_info_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 -export([all/0, suite/0,
 	 exports/1,functions/1,deleted/1,native/1,info/1,nifs/1]).
@@ -60,7 +61,7 @@ all_functions() ->
 exports(Config) when is_list(Config) ->
     All = all_exported(),
     All = lists:sort(?MODULE:module_info(exports)),
-    (catch ?MODULE:foo()),
+    try ?MODULE:foo() catch _:_ -> ok end,
     All = lists:sort(?MODULE:module_info(exports)),
     ok.
 
@@ -94,15 +95,15 @@ deleted(Config) when is_list(Config) ->
 
     %% first delete it
     true = erlang:delete_module(module_info_test),
-    {'EXIT',{undef, _}} = (catch module_info_test:f()),
-    {'EXIT',{badarg, _}} = (catch erlang:get_module_info(module_info_test,attributes)),
-    {'EXIT',{badarg, _}} = (catch erlang:get_module_info(module_info_test)),
+    ?assertError(undef, module_info_test:f()),
+    ?assertError(badarg, erlang:get_module_info(module_info_test,attributes)),
+    ?assertError(badarg, erlang:get_module_info(module_info_test)),
 
     %% then purge it
     true = erlang:purge_module(module_info_test),
-    {'EXIT',{undef, _}} = (catch module_info_test:f()),
-    {'EXIT',{badarg, _}} = (catch erlang:get_module_info(module_info_test,attributes)),
-    {'EXIT',{badarg, _}} = (catch erlang:get_module_info(module_info_test)),
+    ?assertError(undef, module_info_test:f()),
+    ?assertError(badarg, erlang:get_module_info(module_info_test,attributes)),
+    ?assertError(badarg, erlang:get_module_info(module_info_test)),
     ok.
 
 %% Test that the list of exported functions from this module is correct.
