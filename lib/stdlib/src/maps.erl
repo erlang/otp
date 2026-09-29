@@ -880,7 +880,7 @@ arity 3.
 -spec fold(Fun, Init, MapOrIter) -> Acc when
     Fun :: fun((Key, Value, AccIn) -> AccOut),
     Init :: term(),
-    Acc :: AccOut,
+    Acc :: Init | AccOut,
     AccIn :: Init | AccOut,
     MapOrIter :: #{Key => Value} | iterator(Key, Value).
 
