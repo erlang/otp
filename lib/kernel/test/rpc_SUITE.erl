@@ -614,7 +614,7 @@ multicall_mix(Config) ->
     true = (A == 1) orelse (A == [bling]),
 
     {[], Nodes}
-        = rpc:multicall(Nodes, timer, sleep, [100], 50),
+        = rpc:multicall(Nodes, timer, sleep, [1000], 50),
 
     OtherNodes = Nodes -- [ThisNode],
 
