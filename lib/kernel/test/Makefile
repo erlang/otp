@@ -109,6 +109,7 @@ MODULES = \
 	global_group_SUITE \
 	heart_SUITE \
 	inet_SUITE \
+	inet_parse_property_test_SUITE \
 	inet_sockopt_SUITE \
 	inet_res_SUITE \
 	interactive_shell_SUITE \
@@ -246,7 +247,7 @@ release_tests_spec: make_emakefile
 		kernel.spec kernel_smoke.spec kernel_bench.spec kernel_gh.spec logger.spec \
 		$(EMAKEFILE) $(COVERFILE) "$(RELSYSDIR)"
 	chmod -R u+w "$(RELSYSDIR)"
-	tar cf - *_SUITE_data | (cd "$(RELSYSDIR)"; tar xf -)
+	tar cf - *_SUITE_data property_test | (cd "$(RELSYSDIR)"; tar xf -)
 	$(INSTALL_DIR) "$(RELSYSDIR)/kernel_SUITE_data"
 	$(INSTALL_DATA) $(ERL_TOP)/make/otp_version_tickets "$(RELSYSDIR)/kernel_SUITE_data"
 	(cd ..; tar cf - examples | (cd "$(RELSYSDIR)/"; tar xf -))
