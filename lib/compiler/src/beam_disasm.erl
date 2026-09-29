@@ -1426,9 +1426,9 @@ resolve_inst({get_record_elements_id,Args0},_,_,_) ->
     List = resolve_args(List0),
     {get_record_elements_id,Fail,Id,Src,{list,List}};
 resolve_inst({update_record_id,Args0},_,_,_) ->
-    [Hint,Id,Src,Dst,{u,_},{{z,1},{u,_Len},List0}] = Args0,
+    [Fail,Hint,Id,Src,Dst,{u,_},{{z,1},{u,_Len},List0}] = Args0,
     List = resolve_args(List0),
-    {update_record_id,Hint,Id,Src,Dst,{list,List}};
+    {update_record_id,Fail,Hint,Id,Src,Dst,{list,List}};
 
 %%
 %% Catches instructions that are not yet handled.

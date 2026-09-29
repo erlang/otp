@@ -942,6 +942,10 @@ instr_labels({put_map,Lbl,_Op,_Src,_Dst,_Live,_List}) ->
     do_instr_labels(Lbl);
 instr_labels({get_map_elements,Lbl,_Src,_List}) ->
     do_instr_labels(Lbl);
+instr_labels({put_record,Lbl,_,_Src,_,_,_}) ->
+    do_instr_labels(Lbl);
+instr_labels({update_record_id,Lbl,_,_,_Src,_,_,_}) ->
+    do_instr_labels(Lbl);
 instr_labels({get_record_elements,Lbl,_Src,_List}) ->
     do_instr_labels(Lbl);
 instr_labels({get_record_elements_id,{f,_}=Lbl,_Id,_Src,_List}) ->
