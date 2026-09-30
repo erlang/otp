@@ -92,13 +92,19 @@ ei_recv_internal (int fd,
   
   len = get32be(s);
 
-  /* got tick - respond and return */
-  if (!len) {
-    char tock[] = {0,0,0,0};
-    ssize_t wlen = sizeof(tock);
-    ei_write_fill_ctx_t__(cbs, ctx, tock, &wlen, tmo); /* Failure no problem */
-    *msglenp = 0;
-    return ERL_TICK;
+  if (len < 1) {
+      if (!len) {
+          /* got tick - respond and return */
+          char tock[] = {0,0,0,0};
+          ssize_t wlen = sizeof(tock);
+          ei_write_fill_ctx_t__(cbs, ctx, tock, &wlen, tmo); /* Failure no problem */
+          *msglenp = 0;
+          return ERL_TICK;
+      }
+      else {
+          EI_CONN_SAVE_ERRNO__(EBADMSG);
+          return ERL_ERROR;
+      }
   }
   
   /* turn off tracing on each receive. it will be turned back on if
