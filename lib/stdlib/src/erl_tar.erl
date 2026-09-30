@@ -1331,7 +1331,7 @@ join_split_ustar_path([Part|_], {ok, _, nil})
   when byte_size(Part) > ?USTAR_PREFIX_LEN ->
     false;
 join_split_ustar_path([Part|_], {ok, _Name, Acc})
-  when (byte_size(Part)+byte_size(Acc)) > ?USTAR_PREFIX_LEN ->
+  when (byte_size(Acc)+1+byte_size(Part)) > ?USTAR_PREFIX_LEN ->
     false;
 join_split_ustar_path([Part|Rest], {ok, Name, nil}) ->
     join_split_ustar_path(Rest, {ok, Name, Part});
