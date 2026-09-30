@@ -119,9 +119,7 @@ The call fails with a `{badmap,Map}` exception if `Map` is not a map, or with a
 """.
 -doc(#{since => <<"OTP 17.0">>}).
 -spec get(Key, Map) -> Value when
-    Key :: term(),
-    Map :: map(),
-    Value :: term().
+    Map :: #{Key => Value, _ => _}.
 
 get(_, _) -> erlang:nif_error(undef).
 
