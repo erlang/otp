@@ -33,7 +33,7 @@
          roundtrip_metadata/1, apply_file_info_opts/1,
          incompatible_options/1, table_absolute_names/1,
          streamed_extract/1, symlink_parent_dir/1,
-         streamed_extract/1, max_size/1]).
+         streamed_extract/1, max_size/1, pax_record_length/1]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -50,7 +50,7 @@ all() ->
      sparse,init,leading_slash,dotdot,roundtrip_metadata,
      apply_file_info_opts,incompatible_options, table_absolute_names,
      streamed_extract, symlink_parent_dir,
-     max_size].
+     max_size, pax_record_length].
 
 groups() -> 
     [].
@@ -1312,6 +1312,29 @@ max_size(Config) when is_list(Config) ->
 
     verify_ports(Config).
 
+%% Test that the length of a PAX record is counted in bytes.
+pax_record_length(Config) when is_list(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    Dir = filename:join(PrivDir, ?FUNCTION_NAME),
+    ok = file:make_dir(Dir),
+    Tar = filename:join(Dir, "pax.tar"),
+
+    %% U+00E9 is two bytes in UTF-8. From 42 of them the path record
+    %% is at least 100 bytes long but shorter than 100 characters.
+    Names = ["lib/" ++ lists:duplicate(N, 16#E9) ++ ".ex" ||
+                N <- lists:seq(40, 60)],
+    {ok, Fd} = erl_tar:open(Tar, [write]),
+    _ = [ok = erl_tar:add(Fd, <<"contents">>, Name, []) || Name <- Names],
+    ok = erl_tar:close(Fd),
+
+    {ok, Bin} = file:read_file(Tar),
+    Names = [unicode:characters_to_list(Path) ||
+                {<<"path">>, Path} <- pax_attributes(Bin)],
+    {ok, Names} = erl_tar:table(Tar),
+
+    ok = delete_files([Dir]),
+    verify_ports(Config).
+
 %% Delete the given list of files.
 delete_files([]) -> ok;
 delete_files([Item|Rest]) ->
@@ -1390,6 +1413,30 @@ is_ustar(File) ->
         _ -> true
     end.
 
+%% Returns the attributes in the PAX extended headers of a tar archive.
+%% A record is read by the length it starts with, which counts all bytes
+%% of the record including the length itself and the trailing newline.
+pax_attributes(<<0:512/unit:8, _/binary>>) ->
+    [];
+pax_attributes(<<Header:512/binary, Rest0/binary>>) ->
+    <<_:124/binary, Size0:11/binary, _:21/binary, Type, _/binary>> = Header,
+    Size = binary_to_integer(Size0, 8),
+    Padding = (512 - Size rem 512) rem 512,
+    <<Data:Size/binary, _:Padding/binary, Rest/binary>> = Rest0,
+    case Type of
+        $x -> pax_records(Data) ++ pax_attributes(Rest);
+        _ -> pax_attributes(Rest)
+    end.
+
+pax_records(<<>>) ->
+    [];
+pax_records(Data) ->
+    [Len, _] = binary:split(Data, <<" ">>),
+    RecordSize = binary_to_integer(Len) - byte_size(Len) - 2,
+    <<_:(byte_size(Len))/binary, " ", Record:RecordSize/binary, "\n",
+      Rest/binary>> = Data,
+    [Key, Value] = binary:split(Record, <<"=">>),
+    [{Key, Value}|pax_records(Rest)].
 
 verify_ports(Config) ->
     PortsBefore = proplists:get_value(ports, Config),
