@@ -1703,7 +1703,7 @@ int ei_receive_tmo(int fd, unsigned char *bufp, int bufsize, unsigned ms)
 	return ERL_TICK;
     }
     
-    if (len > bufsize) {
+    if (len < 1 || len > bufsize) {
 	/* FIXME: We should drain the message. */
 	erl_errno = EMSGSIZE;
 	return ERL_ERROR;
