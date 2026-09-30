@@ -28,7 +28,8 @@
          create/1,explicit_module_name/1,
          term_order/1,gc/1,external_term_format/1,
          messages/1,errors/1,records_module/1, dist/1,
-         gh_11398/1]).
+         gh_11398/1,
+         fail_label/1]).
 
 -record #a{x=1, y=2}.
 -record #b{x=none, y=none, z=none}.
@@ -64,7 +65,8 @@ all() ->
      errors,
      records_module,
      dist,
-     gh_11398].
+     gh_11398,
+     fail_label].
 
 groups() ->
     [].
@@ -588,6 +590,20 @@ y(A, N) when is_integer(A) ->
         (binary:copy(<<$w, 1, "a">>, N))/bytes,
         (binary:copy(AValue, N))/bytes
     >>.
+
+%% Ensure emulator can handle put_record/6 instruction with
+%% a non-zero fail label.
+fail_label(_Config) ->
+    [true] = ext_creation(),
+    [true] = ext_update(#ext_records:vector{}),
+    ok.
+
+
+ext_creation() ->
+    [try #ext_records:vector{a = 1} catch _:_ -> true end].
+
+ext_update(R) ->
+    [try R#ext_records:vector{a = 1} catch _:_ -> true end].
 
 %%% Common utilities.
 
