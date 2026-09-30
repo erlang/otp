@@ -41,7 +41,7 @@ char **ei_global_names(ei_cnode *ec, int fd, int *count)
 {
   char buf[GLOBALNAMEBUF];
   char *bufp=buf;
-  char tmpbuf[64];
+  char tmpbuf[4];
   int size = 0;
   int index = 0;
   erlang_pid *self = ei_self(ec);
@@ -87,7 +87,7 @@ char **ei_global_names(ei_cnode *ec, int fd, int *count)
   if (ei_decode_version(buf,&index,&version) 
       || ei_decode_tuple_header(buf,&index,&arity) 
       || (arity != 2) 
-      || ei_decode_atom(buf,&index,tmpbuf) 
+      || ei_decode_atom_as(buf,&index,tmpbuf,sizeof(tmpbuf),ERLANG_ASCII,NULL,NULL)
       || strcmp(tmpbuf,"rex")
       || ei_decode_list_header(buf,&index,&arity))  {
       EI_CONN_SAVE_ERRNO__(EBADMSG);
