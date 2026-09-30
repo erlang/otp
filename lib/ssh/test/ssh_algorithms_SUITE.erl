@@ -428,7 +428,10 @@ sshd_simple_exec(Config) ->
     ConnectionRef = ssh_test_lib:connect_with_retry(?SSH_DEFAULT_PORT,
                                                     [proplists:get_value(pref_algs,Config)
                                                      | ClientPubKeyOpts]),
-    {ok, ChannelId0} = ssh_connection:session_channel(ConnectionRef, infinity),
+    ChannelId0 =
+        ssh_test_lib:with_retry(
+          fun() -> ssh_connection:session_channel(ConnectionRef, 30000) end,
+          3),
     success = ssh_connection:exec(ConnectionRef, ChannelId0,
 				  "echo testing", infinity),
     Data0 = {ssh_cm, ConnectionRef, {data, ChannelId0, 0, <<"testing\n">>}},
@@ -444,7 +447,10 @@ sshd_simple_exec(Config) ->
 	    ct:fail(Other0)
     end,
 
-    {ok, ChannelId1} = ssh_connection:session_channel(ConnectionRef, infinity),
+    ChannelId1 =
+        ssh_test_lib:with_retry(
+          fun() -> ssh_connection:session_channel(ConnectionRef, 30000) end,
+          3),
     success = ssh_connection:exec(ConnectionRef, ChannelId1,
 				  "echo testing1", infinity),
     Data1 = {ssh_cm, ConnectionRef, {data, ChannelId1, 0, <<"testing1\n">>}},
