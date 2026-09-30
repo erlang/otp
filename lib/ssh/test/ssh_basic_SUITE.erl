@@ -91,6 +91,7 @@
          shell/1,
          shell_disabled/1,
          shell_exit_status/1,
+         shell_latin1_exception/1,
          shell_no_unicode/1,
          shell_socket/1,
          shell_ssh_conn/1,
@@ -161,6 +162,7 @@ groups() ->
                              misc_ssh_options, inet_option, inet6_option,
                              shell, shell_disabled, shell_socket, shell_ssh_conn,
                              shell_no_unicode, shell_unicode_string,
+                             shell_latin1_exception,
                              close]}].
 
 %%--------------------------------------------------------------------
@@ -197,7 +199,8 @@ end_per_group(_, Config) ->
 %%--------------------------------------------------------------------
 init_per_testcase(TestCase, Config)
   when TestCase==shell_no_unicode;
-       TestCase==shell_unicode_string ->
+       TestCase==shell_unicode_string;
+       TestCase==shell_latin1_exception ->
     PrivDir = proplists:get_value(priv_dir, Config),
     UserDir = proplists:get_value(priv_dir, Config),
     SysDir =  proplists:get_value(data_dir, Config),
@@ -227,7 +230,8 @@ init_per_testcase(TestCase, Config) ->
 
 end_per_testcase(TestCase, Config)
   when TestCase==shell_no_unicode;
-       TestCase==shell_unicode_string ->
+       TestCase==shell_unicode_string;
+       TestCase==shell_latin1_exception ->
     case proplists:get_value(sftpd, Config) of
 	{Pid, _, _} ->
             try ssh:stop_daemon(Pid) catch _:_ -> ok end,
@@ -1346,6 +1350,17 @@ shell_unicode_string(Config) ->
 		  new_prompt,
 		  {type,"exit()."}
 		 ]).
+
+%%--------------------------------------------------------------------
+shell_latin1_exception(Config) ->
+    new_do_shell(proplists:get_value(io,Config),
+                 [new_prompt,
+                  {type,"1/0."},
+                  {expect,"**"},
+                  {expect,"exception error"},
+                  new_prompt,
+                  {type,"exit()."}
+                 ]).
 
 %%--------------------------------------------------------------------
 %%% Test basic connection with openssh_zlib
