@@ -71,7 +71,9 @@
          verify_fun_pass/0,
          verify_fun_pass/1,
          epmd_module/0,
-         epmd_module/1
+         epmd_module/1,
+         dist_sender_no_crash_on_peer_down/0,
+         dist_sender_no_crash_on_peer_down/1
          ]).
 
 %% Apply export
@@ -118,6 +120,7 @@ all() ->
      ktls_encrypt_decrypt,
      ktls_verify,
      monitor_nodes,
+     dist_sender_no_crash_on_peer_down,
      payload,
      dist_port_overload,
      plain_options,
@@ -385,6 +388,92 @@ ktls_count_tls_dist(Node) ->
 %% Test net_kernel:monitor_nodes with nodedown_reason (OTP-17838)
 monitor_nodes(Config) when is_list(Config) ->
     gen_dist_test(monitor_nodes_test, Config).
+
+%%--------------------------------------------------------------------
+%% OTP-20430: when a TLS distribution send fails (peer gone), tls_sender
+%% must tear the connection down cleanly rather than crash with a
+%% function_clause in gen:reply/2. For distribution traffic
+%% send_application_data/4 is called with the atom marker 'dist_data' as
+%% From, which is not a valid gen_statem reply target; before the fix a
+%% {error,closed} from tls_socket:send/3 fell through to the generic reply
+%% path and crashed. This is a deterministic unit test that drives a real
+%% tls_sender into 'connection' state with a transport whose send/2 fails,
+%% then triggers the distribution tick send path (From =:= dist_data) and
+%% asserts the sender does not crash with the function_clause signature.
+dist_sender_no_crash_on_peer_down() ->
+    [{doc,"tls_sender must not crash with a gen:reply/2 function_clause when "
+          "a distribution send fails; it must tear down cleanly (OTP-20430)"}].
+dist_sender_no_crash_on_peer_down(Config) when is_list(Config) ->
+    %% A connected TCP socket we immediately close, so that gen_tcp:send/2
+    %% (used as the sender's transport_cb) returns {error,closed} - the
+    %% distribution send error that triggered the OTP-20430 crash.
+    {ok, LSock} = gen_tcp:listen(0, [binary, {active, false}]),
+    {ok, Port} = inet:port(LSock),
+    {ok, CSock} = gen_tcp:connect({127,0,0,1}, Port, [binary, {active, false}]),
+    {ok, ASock} = gen_tcp:accept(LSock),
+    ok = gen_tcp:close(ASock),
+    ok = gen_tcp:close(LSock),
+
+    %% Start a real tls_sender and configure it as a TLS-1.2 distribution
+    %% sender (dist_handle set, erl_dist true) with the dead socket.
+    {ok, Sender} = tls_sender:start_link(),
+    ConnStates = tls_record:init_connection_states(client, {3,3}, disabled, 0),
+    #{current_write := WriteState} = ConnStates,
+    Init = #{current_write => WriteState,
+             beast_mitigation => disabled,
+             role => client,
+             socket => CSock,
+             socket_options => undefined,
+             erl_dist => true,
+             trackers => [],
+             transport_cb => gen_tcp,
+             negotiated_version => {3,3},
+             renegotiate_at => 268435456,
+             key_update_at => 38873663997,
+             log_level => none,
+             hibernate_after => infinity,
+             keylog_fun => undefined},
+    ok = tls_sender:initialize(Sender, Init),           %% init -> handshake
+    ok = tls_sender:update_connection_state(            %% handshake -> connection
+           Sender, WriteState, {3,3}, undefined),
+
+    %% Trigger the distribution send path: the 'tick' info event sends a
+    %% fixed packet with From =:= dist_data. tls_socket:send/3 -> gen_tcp:send
+    %% on the closed socket returns {error,closed}, exercising the send-error
+    %% clause fixed by OTP-20430.
+    MRef = erlang:monitor(process, Sender),
+    Sender ! tick,
+
+    %% The sender must NOT die with the OTP-20430 crash signature. With the
+    %% fix a distribution connection goes to the 'death_row' state and stays
+    %% alive until a 5s timeout, so no DOWN is expected in the short window;
+    %% a quick DOWN with a function_clause/gen:reply reason is the regression.
+    receive
+        {'DOWN', MRef, process, Sender, DownReason} ->
+            ct:log("tls_sender terminated: ~p", [DownReason]),
+            false = is_tls_sender_crash(DownReason)
+    after 1000 ->
+            %% Still alive (expected: in death_row). Clean up.
+            true = is_process_alive(Sender),
+            erlang:demonitor(MRef, [flush]),
+            unlink(Sender),
+            exit(Sender, kill)
+    end,
+    ok.
+
+%% A crash from the OTP-20430 defect shows up as a function_clause whose
+%% stack points at gen:reply/2 or tls_sender:send_application_data/4. Match
+%% that shape defensively rather than pinning one exact reason.
+is_tls_sender_crash({function_clause, Stack}) when is_list(Stack) ->
+    lists:any(
+      fun ({gen, reply, _, _}) -> true;
+          ({tls_sender, send_application_data, _, _}) -> true;
+          (_) -> false
+      end, Stack);
+is_tls_sender_crash({{function_clause, Stack}, _}) when is_list(Stack) ->
+    is_tls_sender_crash({function_clause, Stack});
+is_tls_sender_crash(_) ->
+    false.
 
 %%--------------------------------------------------------------------
 payload() ->
