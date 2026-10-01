@@ -165,6 +165,11 @@ Supported algorithms are (in the default order):
 - diffie-hellman-group18-sha512
 - diffie-hellman-group14-sha256
 
+The experimental `mlkem512-sha256`, `mlkem768-sha256`, and
+`mlkem1024-sha384` key exchange algorithms are supported when the corresponding
+ML-KEM parameter set is available from `crypto`. They are not enabled by
+default; select them with `preferred_algorithms` or `modify_algorithms`.
+
 The following unsecure `SHA1` algorithms are now disabled by default:
 
 - (diffie-hellman-group14-sha1)
@@ -430,6 +435,13 @@ The following RFCs are supported:
   Comment: Implements ssh-mldsa-44, ssh-mldsa-65, and ssh-mldsa-87 as specified
   in revision -08, when the corresponding ML-DSA parameter set is available
   from `crypto`. The algorithms are disabled by default.
+
+- [draft-harrison-sshm-mlkem](https://datatracker.ietf.org/doc/draft-harrison-sshm-mlkem/),
+  pure ML-KEM key exchange for SSH.
+
+  Comment: Implements mlkem512-sha256, mlkem768-sha256, and mlkem1024-sha384
+  as opt-in algorithms. The shared secret is encoded as an SSH string in the
+  exchange hash and key derivation, as in OQS OpenSSH.
 
 ## See Also
 
