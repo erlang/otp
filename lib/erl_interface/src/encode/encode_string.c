@@ -38,14 +38,18 @@ int ei_encode_string_len(char *buf, int *index, const char *p, int len)
     char *s0 = s;
     int i;
 
-    if (len == 0) {
+    if (len <= 0) {
 
-      if (!buf) {
-	s += 1;
-      } else {
-	put8(s,ERL_NIL_EXT);
-      }
-
+        if (len == 0) {
+            if (!buf) {
+                s += 1;
+            } else {
+                put8(s,ERL_NIL_EXT);
+            }
+        }
+        else {
+            return -1;
+        }
     } else if (len <= 0xffff) {
 
       if (!buf) {
@@ -57,8 +61,7 @@ int ei_encode_string_len(char *buf, int *index, const char *p, int len)
       }
       s += len;
 
-    } else {
-
+    } else if (len < (INT_MAX-6)/2) {
       if (!buf) {
 	s += 5 + (2*len) + 1;
       } else {
@@ -72,7 +75,9 @@ int ei_encode_string_len(char *buf, int *index, const char *p, int len)
 	}
 	put8(s,ERL_NIL_EXT);
       }
-
+    }
+    else {
+        return -1; // Insane length
     }
 
     *index += s-s0; 
