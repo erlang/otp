@@ -773,13 +773,6 @@ handle_event(internal, {conn_msg, Msg}, StateName, #data{connection_state = Conn
             end,
             {stop_and_reply, {shutdown,normal}, Repls, D};
 
-        {send_disconnect, {Code, Description}, RepliesConn} ->
-            {Replies, D1} = send_replies(RepliesConn, D0),
-            D = send_msg(#ssh_msg_disconnect{code = Code,
-                                             description = Description},
-                         D1),
-            {stop_and_reply, {shutdown, Description}, Replies, D};
-
 	{Replies, Connection} when is_list(Replies) ->
 	    {Repls, D} = 
 		case StateName of
@@ -1339,32 +1332,22 @@ handle_event(info, {fwd_connect_received, Sock, ChId, ChanCB}, StateName, #data{
     #connection{channel_cache = Cache,
                 connection_supervisor = ConnectionSup} = Connection,
     Channel = ssh_client_channel:cache_lookup(Cache, ChId),
-    {ok,Pid} = ssh_connection_sup:start_channel(?role(StateName), ConnectionSup, self(), ChanCB, ChId, [Sock], undefined),
-    ssh_client_channel:cache_update(Cache, Channel#channel{user=Pid}),
-    gen_tcp:controlling_process(Sock, Pid),
-    inet:setopts(Sock, [{active,once}]),
-    keep_state_and_data;
+    case ssh_connection_sup:start_channel(?role(StateName), ConnectionSup, self(), ChanCB, ChId, [Sock], undefined) of
+        {ok, Pid} ->
+            ssh_client_channel:cache_update(Cache, Channel#channel{user=Pid}),
+            gen_tcp:controlling_process(Sock, Pid),
+            inet:setopts(Sock, [{active,once}]),
+            keep_state_and_data;
+        {error, _Reason} ->
+            %% Refuse connection; limit handled via {fwd_connect_failed,...}.
+            gen_tcp:close(Sock),
+            keep_state_and_data
+    end;
 
-handle_event(info, {fwd_connect_failed, {error, max_num_channels_exceeded}}, StateName,
-             #data{connection_state = #connection{options = Opts}} = D0) ->
-    %% Keep same behavior as before, if channel limit is reached for port forwarding channels
-    %% we close the connection. Previously this was a crash in {fwd_connect_received, ...} on
-    %% {ok, Pid} = ssh_connection_sup:start_channel(...).
-    MsgFun =
-        fun(debug) ->
-                Limit = ?GET_OPT(max_channels, Opts),
-                io_lib:format("Connection terminated. Port forward request reached a "
-                              "channel limit of: ~p",
-                              [Limit]);
-           (_) ->
-                "Connection terminated. Channel limit reached."
-        end,
-    {Shutdown, D} =
-        ?send_disconnect(?SSH_DISCONNECT_BY_APPLICATION,
-                         "Connection terminated. Channel limit reached.",
-                         ?SELECT_MSG(MsgFun),
-                         StateName, D0),
-    {stop, Shutdown, D};
+handle_event(info, {fwd_connect_failed, {error, max_num_channels_exceeded}}, _StateName, _D) ->
+    %% Channel was rejected in open_channel; socket already closed. Keep
+    %% the connection alive.
+    keep_state_and_data;
 handle_event(info, {fwd_connect_failed, _Other}, _StateName, _D) ->
     %% Ignore other reasons
     keep_state_and_data;
