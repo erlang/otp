@@ -737,13 +737,13 @@ write_bin1(Atom, _D, Enc, _O, Sz, Acc) when is_atom(Atom) ->
     {Str, StrSz} = write_atom_bin(Atom, Enc),
     {<<Acc/binary, Str/binary>>, StrSz+Sz};
 write_bin1(Term, _D, _Enc, _O, Sz, Acc) when is_port(Term) ->
-    Str = (list_to_binary(erlang:port_to_list(Term))),
+    Str = erlang:port_to_binary(Term),
     {<<Acc/binary, Str/binary>>, byte_size(Str)+Sz};
 write_bin1(Term, _D, _Enc, _O, Sz, Acc) when is_pid(Term) ->
-    Str = (list_to_binary(pid_to_list(Term))),
+    Str = erlang:pid_to_binary(Term),
     {<<Acc/binary, Str/binary>>, byte_size(Str)+Sz};
 write_bin1(Term, _D, _Enc, _O, Sz, Acc) when is_reference(Term) ->
-    Str = (list_to_binary(erlang:ref_to_list(Term))),
+    Str = erlang:ref_to_binary(Term),
     {<<Acc/binary, Str/binary>>, byte_size(Str)+Sz};
 write_bin1(<<_/bitstring>>=Term, D, _Enc, _O, Sz, Acc) ->
     write_binary_bin0(Term, D, Sz, Acc);
