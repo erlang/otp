@@ -1370,7 +1370,7 @@ i_create_local_native_record(Def, Dst, Live, N) {
     }
 }
 
-i_create_native_record(Id, Live, N) {
+i_create_native_record(Fail, Id, Live, N) {
     Eterm res;
 
     HEAVY_SWAPOUT;
@@ -1387,7 +1387,7 @@ i_create_native_record(Id, Live, N) {
             $DISPATCH();
         }
 
-        $FAIL_BODY();
+        $FAIL_HEAD_OR_BODY($Fail);
     } else {
         reg[MAX_REG-1] = res;
         $NEXT($NEXT_INSTRUCTION+$N);
@@ -1415,14 +1415,14 @@ finish_create_record() {
     $NEXT(next);
 }
 
-i_update_native_record(Src, Dst, Live, N) {
+i_update_native_record(Fail, Src, Dst, Live, N) {
     Eterm res;
 
     HEAVY_SWAPOUT;
     res = erl_update_native_record(c_p, reg, $Src, $Live, $N, $NEXT_INSTRUCTION);
     HEAVY_SWAPIN;
     if (is_non_value(res)) {
-        $FAIL_BODY();
+        $FAIL_HEAD_OR_BODY($Fail);
     } else {
         $REFRESH_GEN_DEST();
         $Dst = res;

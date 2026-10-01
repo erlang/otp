@@ -292,8 +292,8 @@ void BeamGlobalAssembler::emit_create_native_record_shared() {
     a.bind(error);
     {
         emit_leave_frame();
-        mov_imm(ARG4, 0);
-        emit_raise_exception();
+        emit_test_the_non_value(RET);
+        a.ret();
     }
 
     a.bind(trap);
@@ -343,15 +343,14 @@ void BeamGlobalAssembler::emit_create_native_record_shared() {
         a.push(TMP_MEM1q);
 #endif
 
-        emit_test_the_non_value(RET);
-        a.je(error);
-
         emit_leave_frame();
+        emit_test_the_non_value(RET);
         a.ret();
     }
 }
 
 void BeamModuleAssembler::emit_i_create_native_record(
+        const ArgLabel &Fail,
         const ArgConstant &Id,
         const ArgRegister &Dst,
         const ArgWord &Live,
@@ -363,6 +362,16 @@ void BeamModuleAssembler::emit_i_create_native_record(
     mov_imm(ARG5, size_live);
     embed_vararg_rodata(args, ARG6, 0);
     fragment_call(ga->get_create_native_record_shared());
+    if (Fail.get() != 0) {
+        a.je(resolve_beam_label(Fail));
+    } else {
+        Label next = a.new_label();
+        a.short_().jne(next);
+
+        emit_raise_exception();
+
+        a.bind(next);
+    }
     mov_arg(Dst, RET);
 }
 
@@ -407,13 +416,12 @@ void BeamModuleAssembler::emit_i_update_local_native_record(
 }
 
 void BeamModuleAssembler::emit_i_update_native_record(
+        const ArgLabel &Fail,
         const ArgSource &Src,
         const ArgRegister &Dst,
         const ArgWord &Live,
         const ArgWord &size,
         const Span<const ArgVal> &args) {
-    Label next = a.new_label();
-
     mov_arg(ARG3, Src);
     a.mov(ARG1, c_p);
     load_x_reg_array(ARG2);
@@ -429,12 +437,19 @@ void BeamModuleAssembler::emit_i_update_native_record(
 
     emit_leave_runtime<Update::eHeapAlloc | Update::eReductions>();
 
-    emit_test_the_non_value(RET);
-    a.short_().jne(next);
+    if (Fail.get() != 0) {
+        emit_test_the_non_value(RET);
+        a.je(resolve_beam_label(Fail));
+    } else {
+        Label next = a.new_label();
 
-    emit_raise_exception();
+        emit_test_the_non_value(RET);
+        a.short_().jne(next);
 
-    a.bind(next);
+        emit_raise_exception();
+
+        a.bind(next);
+    }
     mov_arg(Dst, RET);
 }
 

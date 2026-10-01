@@ -1794,11 +1794,11 @@ cg_block([#cg_set{op=bs_skip,args=Args0,anno=Anno}=I,
 cg_block([#cg_set{op=update_record_id,dst=Dst0,args=Args0}=Set,
           #cg_set{op=succeeded,dst=Bool}], {Bool,Fail0}, St) ->
     %% Update a native record.
-    {f,0} = bif_fail(Fail0),                    %Assertion.
+    Fail = bif_fail(Fail0),
     Hint = {atom,reuse},
     Live = get_live(Set),
     [Dst,Id,Src|List] = beam_args([Dst0|Args0], St),
-    I = {update_record_id,Hint,Id,Src,Dst,Live,{list,List}},
+    I = {update_record_id,Fail,Hint,Id,Src,Dst,Live,{list,List}},
     {[I],St};
 cg_block([#cg_set{op=Op,dst=Dst0,args=Args0}=I,
           #cg_set{op=succeeded,dst=Bool}], {Bool,Fail}, St) ->

@@ -951,9 +951,9 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
     case op_update_map_assoc_cdtI:
     case op_update_map_exact_xjdtI:
     case op_update_map_exact_yjdtI:
-    case op_i_create_native_record_ctI:
+    case op_i_create_native_record_jctI:
     case op_i_create_local_native_record_qdtI:
-    case op_i_update_native_record_sdtI:
+    case op_i_update_native_record_jsdtI:
     case op_i_get_record_elements_jxI:
     case op_i_get_record_elements_jyI:
 	{
