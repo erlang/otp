@@ -93,7 +93,7 @@ ssh_msg(<<"dh_gex">>) ->
  	     ]),
           list_to_binary(M));
 
-ssh_msg(<<"mlkem">>) ->
+ssh_msg(<<"mlkem768x25519">>) ->
     ?LET(M,oneof(
              [
               [msg_code('SSH_MSG_KEX_HYBRID_INIT'),gen_mlkem_init_string()],  % 30
@@ -158,7 +158,7 @@ rest_ssh_msgs() ->
      [msg_code('SSH_MSG_USERAUTH_SUCCESS')]
     ].
 
-kex_family() -> oneof([<<"dh">>, <<"dh_gex">>, <<"ecdh">>, <<"mlkem">>]).
+kex_family() -> oneof([<<"dh">>, <<"dh_gex">>, <<"ecdh">>, <<"mlkem768x25519">>]).
 
 gen_boolean() -> choose(0,1).
 
