@@ -153,11 +153,16 @@
          recvmmsg_partial_receive_udp4/1,
          recvmmsg_trunc_bufsz_clamp_udp4/1,
          recvmmsg_select_nowait_udp4/1,
+         recvmmsg_select_read_timeout_udp4/1,
          sendmmsg_select_nowait_udp4/1,
          sendmmsg_with_addresses_udp4/1,
          sendmmsg_invalid_msg_format/1,
          recvmmsg_dirty_scheduler_udp4/1,
          sendmmsg_dirty_scheduler_udp4/1,
+         sendmmsg_select_timeout_tcp4/1,
+         sendmmsg_writer_release_tcp4/1,
+         sendmmsg_unsent_tail_udp4/1,
+         sendmmsg_counters_udp4/1,
 
          %% Socket IOCTL simple
          ioctl_simple1/1,
@@ -389,11 +394,16 @@ batch_cases() ->
      recvmmsg_partial_receive_udp4,
      recvmmsg_trunc_bufsz_clamp_udp4,
      recvmmsg_select_nowait_udp4,
+     recvmmsg_select_read_timeout_udp4,
      sendmmsg_select_nowait_udp4,
      sendmmsg_with_addresses_udp4,
      sendmmsg_invalid_msg_format,
      recvmmsg_dirty_scheduler_udp4,
-     sendmmsg_dirty_scheduler_udp4
+     sendmmsg_dirty_scheduler_udp4,
+     sendmmsg_select_timeout_tcp4,
+     sendmmsg_writer_release_tcp4,
+     sendmmsg_unsent_tail_udp4,
+     sendmmsg_counters_udp4
     ].
 
 ioctl_cases() ->
@@ -15555,6 +15565,44 @@ recvmmsg_select_nowait_udp4(_Config) when is_list(_Config) ->
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Test recvmmsg with a timeout (integer and infinity) and the
+%% {otp, select_read} option. The received messages shall be returned and
+%% the select activated after the read cancelled, since there is no place
+%% for a continuation in the return value.
+%%
+recvmmsg_select_read_timeout_udp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(
+        ?FUNCTION_NAME,
+        fun() ->
+            has_support_ipv4(),
+            has_recvmmsg_support()
+        end,
+        fun() ->
+            {ok, S} = socket:open(inet, dgram, udp),
+            ok = socket:setopt(S, {otp, select_read}, true),
+            ok = socket:bind(S, #{family => inet, addr => loopback, port => 0}),
+            {ok, SA} = socket:sockname(S),
+            ok = socket:sendto(S, <<"a">>, SA),
+            {ok, [#{iov := [<<"a">>]}]} = socket:recvmmsg(S, 1, 0, 0, [], 1000),
+            ok = socket:sendto(S, <<"b">>, SA),
+            {ok, [#{iov := [<<"b">>]}]} = socket:recvmmsg(S, 1, 0, 0, [], infinity),
+            %% No select left behind: new data shall not trigger a select message
+            ok = socket:sendto(S, <<"c">>, SA),
+            receive
+                {'$socket', _, select, _} = Unexpected ->
+                    ct:fail({unexpected_select_message, Unexpected})
+            after 500 ->
+                    ok
+            end,
+            {ok, [#{iov := [<<"c">>]}]} = socket:recvmmsg(S, 1, 0, 0, [], 1000),
+            ok = socket:close(S),
+            ok
+        end
+    ).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Test sendmmsg with nowait on a potentially blocking socket
 %%
 sendmmsg_select_nowait_udp4(_Config) when is_list(_Config) ->
@@ -15789,6 +15837,257 @@ sendmmsg_dirty_scheduler_udp4(_Config) when is_list(_Config) ->
             ok
         end
     ).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Test sendmmsg with a timeout (0, integer and infinity) when nothing
+%% can be sent (EAGAIN). It shall wait for the socket to become writable
+%% or time out, not crash (see GH-11557).
+%%
+sendmmsg_select_timeout_tcp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(30)),
+    tc_try(
+        ?FUNCTION_NAME,
+        fun() ->
+            has_support_ipv4(),
+            has_sendmmsg_support()
+        end,
+        fun() ->
+            {L, S, R} = sendmmsg_full_tcp4(),
+            Msgs = [#{iov => [<<"x">>]}],
+            {error, timeout} = socket:sendmmsg(S, Msgs, [], 0),
+            {error, timeout} = socket:sendmmsg(S, Msgs, [], 100),
+            Writer = sendmmsg_blocked_writer(S, Msgs),
+            %% Drain the receiver until the blocked sendmmsg completes
+            [{Writer, ok}] = sendmmsg_drain_writers(R, [Writer]),
+            ok = sendmmsg_stop_writers([Writer]),
+            ok = socket:close(S),
+            ok = socket:close(R),
+            ok = socket:close(L),
+            ok
+        end
+    ).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Test that a sendmmsg that succeeds after having waited for the socket
+%% to become writable releases the socket's current writer, so that the
+%% next writer, queued or new, gets to write.
+%% The writers are kept alive after their sendmmsg has returned, since
+%% a dying current writer is released by its monitor, hiding the issue.
+%%
+sendmmsg_writer_release_tcp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(30)),
+    tc_try(
+        ?FUNCTION_NAME,
+        fun() ->
+            has_support_ipv4(),
+            has_sendmmsg_support()
+        end,
+        fun() ->
+            {L, S, R} = sendmmsg_full_tcp4(),
+            Msgs = [#{iov => [<<"x">>]}],
+            %% First writer gets EAGAIN and becomes the current writer
+            Writer1 = sendmmsg_blocked_writer(S, Msgs),
+            %% Second writer gets queued behind the first one
+            Writer2 = sendmmsg_blocked_writer(S, Msgs),
+            %% The second writer only gets to write if the first one,
+            %% when done, activates it
+            Results = sendmmsg_drain_writers(R, [Writer1, Writer2]),
+            Expected = lists:sort([{Writer1, ok}, {Writer2, ok}]),
+            Expected = lists:sort(Results),
+            %% And a new writer only gets to write if the second one,
+            %% when done, has released the socket
+            ok = sendmmsg_drain_receiver(R),
+            ok = socket:send(S, <<"y">>, [], 5000),
+            ok = sendmmsg_stop_writers([Writer1, Writer2]),
+            ok = socket:close(S),
+            ok = socket:close(R),
+            ok = socket:close(L),
+            ok
+        end
+    ).
+
+%% Connected TCP sockets {Listen, Sender, Receiver}, with small buffers
+%% and both the send and the receive buffers filled up.
+sendmmsg_full_tcp4() ->
+    {ok, L} = socket:open(inet, stream, tcp),
+    ok = socket:setopt(L, socket, rcvbuf, 4096),
+    ok = socket:bind(L, #{family => inet, addr => loopback, port => 0}),
+    ok = socket:listen(L),
+    {ok, LSA} = socket:sockname(L),
+    {ok, S} = socket:open(inet, stream, tcp),
+    ok = socket:setopt(S, socket, sndbuf, 4096),
+    ok = socket:connect(S, LSA),
+    {ok, R} = socket:accept(L),
+    Payload = <<0:(16 * 1024 * 1024 * 8)>>,
+    {error, {timeout, _}} = socket:send(S, Payload, [], 100),
+    {L, S, R}.
+
+%% Spawn a process doing a sendmmsg with infinity timeout on a full
+%% socket and verify that it blocks. The process reports its result
+%% and then stays alive until told to stop.
+sendmmsg_blocked_writer(S, Msgs) ->
+    Self = self(),
+    Pid = spawn(fun() ->
+                        Self ! {self(), socket:sendmmsg(S, Msgs, [], infinity)},
+                        receive stop -> ok end
+                end),
+    _ = erlang:monitor(process, Pid),
+    receive
+        {Pid, Unexpected} ->
+            ct:fail({unexpected_sendmmsg_result, Unexpected});
+        {'DOWN', _, process, Pid, Reason} ->
+            ct:fail({unexpected_writer_exit, Reason})
+    after 500 ->
+            Pid
+    end.
+
+%% Drain the receiver until all writers have reported their result
+sendmmsg_drain_writers(R, Writers) ->
+    Deadline = erlang:monotonic_time(millisecond) + 10000,
+    sendmmsg_drain_writers(R, Writers, Deadline, []).
+
+sendmmsg_drain_writers(_R, [], _Deadline, Results) ->
+    Results;
+sendmmsg_drain_writers(R, Writers, Deadline, Results) ->
+    receive
+        {Pid, Result} when is_pid(Pid) ->
+            true = lists:member(Pid, Writers),
+            sendmmsg_drain_writers(
+              R, lists:delete(Pid, Writers), Deadline, [{Pid, Result} | Results]);
+        {'DOWN', _, process, Pid, Reason} ->
+            ct:fail({unexpected_writer_exit, Pid, Reason})
+    after 0 ->
+            case erlang:monotonic_time(millisecond) < Deadline of
+                true ->
+                    ok = sendmmsg_recv_some(R),
+                    sendmmsg_drain_writers(R, Writers, Deadline, Results);
+                false ->
+                    ct:fail({blocked_writers, Writers})
+            end
+    end.
+
+%% Drain the receiver until there is nothing more to read
+sendmmsg_drain_receiver(R) ->
+    case socket:recv(R, 0, 100) of
+        {ok, _} ->
+            sendmmsg_drain_receiver(R);
+        {error, timeout} ->
+            ok;
+        {error, {timeout, _}} ->
+            ok;
+        {error, _} = Error ->
+            Error
+    end.
+
+sendmmsg_recv_some(R) ->
+    case socket:recv(R, 0, 100) of
+        {ok, _} ->
+            ok;
+        {error, timeout} ->
+            ok;
+        {error, {timeout, _}} ->
+            ok;
+        {error, _} = Error ->
+            Error
+    end.
+
+sendmmsg_stop_writers(Writers) ->
+    lists:foreach(
+      fun(Pid) ->
+              Pid ! stop,
+              receive {'DOWN', _, process, Pid, normal} -> ok end
+      end, Writers).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Test that messages not sent by sendmmsg, either because the syscall stopped early
+%% or because they were beyond the internal batch limit, are returned in Rest (see GH-11550).
+%%
+sendmmsg_unsent_tail_udp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(30)),
+    tc_try(
+        ?FUNCTION_NAME,
+        fun() ->
+            has_support_ipv4(),
+            has_sendmmsg_support()
+        end,
+        fun() ->
+            {ok, S} = socket:open(inet, dgram, udp),
+            ok = socket:bind(S, #{family => inet, addr => loopback, port => 0}),
+            {ok, SA} = socket:sockname(S),
+            %% The second message exceeds the maximum UDP payload size,
+            %% so the kernel stops after the first message.
+            GoodIOV = [<<"g">>],
+            BadIOV  = [<<7:(70000 * 8)>>],
+            Good = #{addr => SA, iov => GoodIOV},
+            Bad  = #{addr => SA, iov => BadIOV},
+            {ok, [BadIOV, GoodIOV]} = socket:sendmmsg(S, [Good, Bad, Good], [], nowait),
+            {ok, <<"g">>} = socket:recv(S, 0, 1000),
+            %% More messages than the internal batch limit (1024)
+            NumMessages = 1030,
+            IOVs = [[integer_to_binary(N)] || N <- lists:seq(1, NumMessages)],
+            Msgs = [#{addr => SA, iov => IOV} || IOV <- IOVs],
+            {ok, Rest} = socket:sendmmsg(S, Msgs, [], infinity),
+            true = length(Rest) >= NumMessages - 1024,
+            Rest = lists:nthtail(NumMessages - length(Rest), IOVs),
+            ok = socket:close(S)
+        end
+    ).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Test that sendmmsg updates the write counters: each message sent counts
+%% as a package, and messages not sent are not counted.
+%%
+sendmmsg_counters_udp4(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(
+        ?FUNCTION_NAME,
+        fun() ->
+            has_support_ipv4(),
+            has_sendmmsg_support()
+        end,
+        fun() ->
+            {ok, S} = socket:open(inet, dgram, udp),
+            ok = socket:bind(S, #{family => inet, addr => loopback, port => 0}),
+            {ok, SA} = socket:sockname(S),
+            #{write_tries := 0, write_fails := 0,
+              write_pkg := 0, write_byte := 0, write_pkg_max := 0} =
+                sendmmsg_write_counters(S),
+            %% The last message has two iov elements
+            Msgs1 = [#{addr => SA, iov => [<<0:(1 * 8)>>]},
+                     #{addr => SA, iov => [<<0:(10 * 8)>>]},
+                     #{addr => SA, iov => [<<0:(50 * 8)>>, <<0:(50 * 8)>>]}],
+            ok = socket:sendmmsg(S, Msgs1, [], infinity),
+            #{write_tries := 1, write_fails := 0,
+              write_pkg := 3, write_byte := 111, write_pkg_max := 100} =
+                sendmmsg_write_counters(S),
+            %% Smaller messages do not lower the max
+            Msgs2 = [#{addr => SA, iov => [<<0:(2 * 8)>>]}],
+            ok = socket:sendmmsg(S, Msgs2, [], infinity),
+            #{write_tries := 2, write_fails := 0,
+              write_pkg := 4, write_byte := 113, write_pkg_max := 100} =
+                sendmmsg_write_counters(S),
+            %% The second message exceeds the maximum UDP payload size,
+            %% so the kernel stops after the first message: only that one
+            %% is counted.
+            Good = #{addr => SA, iov => [<<0:(3 * 8)>>]},
+            Bad  = #{addr => SA, iov => [<<0:(70000 * 8)>>]},
+            {ok, [_, _]} = socket:sendmmsg(S, [Good, Bad, Good], [], infinity),
+            #{write_tries := 3, write_fails := 0,
+              write_pkg := 5, write_byte := 116, write_pkg_max := 100} =
+                sendmmsg_write_counters(S),
+            ok = socket:close(S),
+            ok
+        end
+    ).
+
+sendmmsg_write_counters(S) ->
+    #{counters := Counters} = socket:info(S),
+    maps:with([write_tries, write_fails, write_pkg, write_byte, write_pkg_max],
+              Counters).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
