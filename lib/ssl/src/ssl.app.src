@@ -21,6 +21,7 @@
 	       tls_record_1_3,
 	       tls_socket,
 	       tls_socket_tcp,
+	       ssl_shared_opts,
 	       tls_v1,
 	       tls_connection_sup,
 	       tls_gen_connection,
