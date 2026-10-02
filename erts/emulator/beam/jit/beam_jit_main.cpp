@@ -633,6 +633,12 @@ extern "C"
                     out_rw_hdr);
     }
 
+    void beamasm_prepare_metadata(void *instance,
+                                  const BeamCodeHeader *header) {
+        BeamModuleAssembler *ba = static_cast<BeamModuleAssembler *>(instance);
+        ba->prepare_metadata(header);
+    }
+
     void *beamasm_register_metadata(void *instance,
                                     const BeamCodeHeader *header) {
         BeamModuleAssembler *ba = static_cast<BeamModuleAssembler *>(instance);

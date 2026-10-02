@@ -367,16 +367,40 @@ BeamModuleAssembler::BeamModuleAssembler(BeamGlobalAssembler *_ga,
     }
 }
 
-void *BeamModuleAssembler::register_metadata(const BeamCodeHeader *header) {
+void BeamModuleAssembler::prepare_metadata(const BeamCodeHeader *header) {
 #ifndef WIN32
     const BeamCodeLineTab *line_table = header->line_table;
 
     char name_buffer[MAX_ATOM_SZ_LIMIT];
     std::string module_name = getAtom(mod);
-    std::vector<AsmRange> ranges;
+    AsmMetadata &metadata = prepared_metadata;
+    std::vector<AsmRange> &ranges = metadata.ranges;
     ERTS_DECL_AM(erts_beamasm);
 
-    ranges.reserve(functions.size() + 2);
+    ranges.reserve(2 * functions.size() + 2);
+
+    if (line_table && beam) {
+        Uint32 file_count = beam->lines.name_count;
+
+        metadata.files.reserve(file_count);
+
+        for (Uint32 i = 0; i < file_count; i++) {
+            Eterm fname = line_table->fname_ptr[i];
+            Sint n;
+
+            ERTS_ASSERT(is_nil(fname) || is_list(fname));
+
+            int res = erts_unicode_list_to_buf(fname,
+                                               (byte *)name_buffer,
+                                               sizeof(name_buffer),
+                                               sizeof(name_buffer) / 4,
+                                               &n);
+
+            ERTS_ASSERT(res != -1);
+
+            metadata.files.emplace_back(name_buffer, n);
+        }
+    }
 
     ASSERT((ErtsCodePtr)getBaseAddress() == (ErtsCodePtr)header);
     ASSERT(functions.size() == header->num_functions);
@@ -429,6 +453,8 @@ void *BeamModuleAssembler::register_metadata(const BeamCodeHeader *header) {
             const void **line_cursor = line_table->func_tab[i];
             const int loc_size = line_table->loc_size;
 
+            lines.reserve(line_table->func_tab[i + 1] - line_cursor);
+
             /* Register all lines belonging to this function. */
             while ((intptr_t)line_cursor[0] < (intptr_t)stop) {
                 ptrdiff_t line_index;
@@ -444,25 +470,12 @@ void *BeamModuleAssembler::register_metadata(const BeamCodeHeader *header) {
                 }
 
                 if (loc != LINE_INVALID_LOCATION) {
-                    Uint32 file;
-                    Eterm fname;
-                    int res;
+                    Uint32 file = LOC_FILE(loc);
 
-                    file = LOC_FILE(loc);
-                    fname = line_table->fname_ptr[file];
-
-                    ERTS_ASSERT(is_nil(fname) || is_list(fname));
-
-                    res = erts_unicode_list_to_buf(fname,
-                                                   (byte *)name_buffer,
-                                                   sizeof(name_buffer),
-                                                   sizeof(name_buffer) / 4,
-                                                   &n);
-
-                    ERTS_ASSERT(res != -1);
+                    ERTS_ASSERT(file < metadata.files.size());
 
                     lines.push_back({.start = line_cursor[0],
-                                     .file = std::string(name_buffer, n),
+                                     .file = file,
                                      .line = LOC_LINE(loc)});
                 }
 
@@ -472,8 +485,8 @@ void *BeamModuleAssembler::register_metadata(const BeamCodeHeader *header) {
 
         ranges.push_back({.start = start,
                           .stop = stop,
-                          .name = function_name,
-                          .lines = lines});
+                          .name = std::move(function_name),
+                          .lines = std::move(lines)});
     }
 
     /* Push info about the footer */
@@ -482,10 +495,20 @@ void *BeamModuleAssembler::register_metadata(const BeamCodeHeader *header) {
              .stop = (ErtsCodePtr)(code.base_address() + code.code_size()),
              .name = module_name + "::codeFooter"});
 
-    return beamasm_metadata_insert(module_name,
+    metadata_prepared = true;
+#endif
+}
+
+void *BeamModuleAssembler::register_metadata(const BeamCodeHeader *header) {
+#ifndef WIN32
+    /* Runtime-generated helper modules bypass the BEAM loader. */
+    if (!metadata_prepared) {
+        prepare_metadata(header);
+    }
+    return beamasm_metadata_insert(getAtom(mod),
                                    (ErtsCodePtr)code.base_address(),
                                    code.code_size(),
-                                   ranges);
+                                   prepared_metadata);
 #else
     return NULL;
 #endif
