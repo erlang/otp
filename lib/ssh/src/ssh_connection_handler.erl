@@ -1338,18 +1338,24 @@ handle_event(info, check_cache, _, D) ->
 handle_event(info, {fwd_connect_received, Sock, ChId, ChanCB}, StateName, #data{connection_state = Connection}) ->
     #connection{channel_cache = Cache,
                 connection_supervisor = ConnectionSup} = Connection,
-    Channel = ssh_client_channel:cache_lookup(Cache, ChId),
-    case ssh_connection_sup:start_channel(?role(StateName), ConnectionSup, self(), ChanCB, ChId, [Sock], undefined) of
-        {ok, Pid} ->
-            ssh_client_channel:cache_update(Cache, Channel#channel{user=Pid}),
-            gen_tcp:controlling_process(Sock, Pid),
-            inet:setopts(Sock, [{active,once}]),
-            keep_state_and_data;
-        {error, _Reason} ->
-            %% Refuse connection; limit handled via {fwd_connect_failed,...}.
-            gen_tcp:close(Sock),
-            keep_state_and_data
-    end;
+    %% The forwarded channel may be gone (e.g. peer RST) by the time we
+    %% process this message; on a cache-miss drop the socket instead of
+    %% crashing the connection handler.
+    case ssh_client_channel:cache_lookup(Cache, ChId) of
+        #channel{} = Channel ->
+            case ssh_connection_sup:start_channel(?role(StateName), ConnectionSup, self(), ChanCB, ChId, [Sock], undefined) of
+                {ok, Pid} ->
+                    ssh_client_channel:cache_update(Cache, Channel#channel{user=Pid}),
+                    gen_tcp:controlling_process(Sock, Pid),
+                    inet:setopts(Sock, [{active,once}]);
+                {error, _Reason} ->
+                    %% Refuse connection; limit handled via {fwd_connect_failed,...}.
+                    gen_tcp:close(Sock)
+            end;
+        undefined ->
+            gen_tcp:close(Sock)
+    end,
+    keep_state_and_data;
 
 handle_event(info, {fwd_connect_failed, {error, max_num_channels_exceeded}}, _StateName, _D) ->
     %% Channel was rejected in open_channel; socket already closed. Keep
