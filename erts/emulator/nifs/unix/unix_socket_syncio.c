@@ -2448,12 +2448,63 @@ ERL_NIF_TERM essio_accept(ErlNifEnv*       env,
             return essio_accept_accepting_current(env, descP, sockRef, accRef);
 
         } else {
+            SOCKET accSock;
+            int    save_errno;
 
-            /* Not the "current acceptor", so (maybe) push onto queue */
+            /* Not the "current acceptor".
+             *
+             * Try to accept before parking this caller on the acceptor queue.
+             * If a connection is already pending there is no reason to make
+             * this caller wait for the current acceptor to hand over the
+             * baton: that handover costs a pollset update, a poll wakeup, a
+             * message and a reschedule for every single connection, which is
+             * why adding acceptors to a listening socket has made it slower
+             * rather than faster.
+             *
+             * accept() on a listening socket may be called from several
+             * processes at once; the kernel hands each caller a distinct
+             * connection. If this call takes the connection that the current
+             * acceptor was woken for, that acceptor sees EAGAIN, which it
+             * already handles - a spurious poll trigger produces exactly the
+             * same thing.
+             */
 
             SSDBG( descP,
                    ("UNIX-ESSIO",
-                    "essio_accept_accepting {%d} -> *not* current acceptor\r\n",
+                    "essio_accept_accepting {%d} -> *not* current acceptor - "
+                    "try accept anyway\r\n",
+                    descP->sock) );
+
+            ESOCK_CNT_INC(env, descP, sockRef,
+                          esock_atom_acc_tries, &descP->accTries, 1);
+
+            accSock = sock_accept(descP->sock, NULL, NULL);
+
+            if (! ESOCK_IS_ERROR(accSock))
+                return essio_accept_listening_accept(env, descP, sockRef,
+                                                     accSock, caller);
+
+            save_errno = sock_errno();
+
+            if ((save_errno != ERRNO_BLOCK) && (save_errno != EAGAIN)) {
+
+                SSDBG( descP,
+                       ("UNIX-ESSIO",
+                        "essio_accept_accepting {%d} -> errno: %d\r\n",
+                        descP->sock, save_errno) );
+
+                ESOCK_CNT_INC(env, descP, sockRef,
+                              esock_atom_acc_fails, &descP->accFails, 1);
+
+                return esock_make_error_errno(env, save_errno);
+            }
+
+            /* Nothing pending - queue up behind the current acceptor */
+
+            SSDBG( descP,
+                   ("UNIX-ESSIO",
+                    "essio_accept_accepting {%d} -> nothing pending - "
+                    "enqueue\r\n",
                     descP->sock) );
 
             return essio_accept_accepting_other(env, descP, accRef, caller);
