@@ -33,7 +33,8 @@
          roundtrip_metadata/1, apply_file_info_opts/1,
          incompatible_options/1, table_absolute_names/1,
          streamed_extract/1, symlink_parent_dir/1,
-         streamed_extract/1, max_size/1, pax_record_length/1]).
+         streamed_extract/1, max_size/1, pax_record_length/1,
+         ustar_prefix_length/1]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -50,7 +51,7 @@ all() ->
      sparse,init,leading_slash,dotdot,roundtrip_metadata,
      apply_file_info_opts,incompatible_options, table_absolute_names,
      streamed_extract, symlink_parent_dir,
-     max_size, pax_record_length].
+     max_size, pax_record_length, ustar_prefix_length].
 
 groups() -> 
     [].
@@ -1331,6 +1332,37 @@ pax_record_length(Config) when is_list(Config) ->
     Names = [unicode:characters_to_list(Path) ||
                 {<<"path">>, Path} <- pax_attributes(Bin)],
     {ok, Names} = erl_tar:table(Tar),
+
+    ok = delete_files([Dir]),
+    verify_ports(Config).
+
+%% Test that the separator between the ustar prefix and name is counted
+%% when checking that a path fits in the ustar header.
+ustar_prefix_length(Config) when is_list(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    Dir = filename:join(PrivDir, ?FUNCTION_NAME),
+    ok = file:make_dir(Dir),
+
+    %% The ustar prefix of A/B/c is A/B, which is A+B+1 bytes long. It
+    %% fits in the 155 byte prefix field when A+B is at most 154.
+    Path = fun(A, B) ->
+                   lists:duplicate(A, $a) ++ "/" ++
+                       lists:duplicate(B, $b) ++ "/c"
+           end,
+    Names = [Path(A, B) || A <- lists:seq(75, 79), B <- lists:seq(75, 79)],
+    Tar = filename:join(Dir, "ustar.tar"),
+    ok = erl_tar:create(Tar, [{Name, list_to_binary(Name)} || Name <- Names]),
+    {ok, Names} = erl_tar:table(Tar),
+    {ok, Files} = erl_tar:extract(Tar, [memory]),
+    Expected = [{Name, list_to_binary(Name)} || Name <- Names],
+    Expected = lists:sort(Files),
+
+    Tar155 = filename:join(Dir, "prefix155.tar"),
+    ok = erl_tar:create(Tar155, [{Path(77, 77), <<>>}]),
+    true = is_ustar(Tar155),
+    Tar156 = filename:join(Dir, "prefix156.tar"),
+    ok = erl_tar:create(Tar156, [{Path(77, 78), <<>>}]),
+    false = is_ustar(Tar156),
 
     ok = delete_files([Dir]),
     verify_ports(Config).
