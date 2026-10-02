@@ -59,7 +59,8 @@
          binary_aliases/1,gh_6923/1,
          bs_test_tail/1,
          otp_19019/1,
-         gh_10878/1]).
+         gh_10878/1,
+         repeated_native_match/1]).
 
 -export([coverage_id/1,coverage_external_ignore/2]).
 
@@ -106,7 +107,8 @@ groups() ->
        gh_6923,
        bs_test_tail,
        otp_19019,
-       gh_10878]}].
+       gh_10878,
+       repeated_native_match]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -127,6 +129,16 @@ init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
 
 end_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
     ok.
+
+repeated_native_match(Config) when is_list(Config) ->
+    [] = repeated_native_match_1(<<>>),
+    [ok] = repeated_native_match_1(<<0:3>>),
+    [] = repeated_native_match_1(<<1:3>>),
+    ok.
+
+repeated_native_match_1(Bin) ->
+    [ok || <<0:0/integer-unit:9-signed-little,
+             0:1/integer-unit:3-unsigned-native>> <= Bin].
 
 size_shadow(Config) when is_list(Config) ->
     %% Originally OTP-5270.
