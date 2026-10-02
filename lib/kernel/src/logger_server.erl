@@ -200,15 +200,15 @@ handle_call({add_handler,Id,Module,HConfig}, From, #state{tid=Tid}=State) ->
 handle_call({remove_handler,HandlerId}, From, #state{tid=Tid}=State) ->
     case logger_config:get(Tid,HandlerId) of
         {ok,#{module:=Module}=HConfig} ->
-            {ok,Config} = logger_config:get(Tid,primary),
-            Handlers0 = maps:get(handlers,Config,[]),
-            Handlers = lists:delete(HandlerId,Handlers0),
             call_h_async(
               fun() ->
                       %% inform the handler
                       call_h(Module,removing_handler,[HConfig],ok)
               end,
               fun(_Res) ->
+                      {ok,Config} = logger_config:get(Tid,primary),
+                      Handlers0 = maps:get(handlers,Config,[]),
+                      Handlers = lists:delete(HandlerId,Handlers0),
                       logger_config:set(Tid,primary,Config#{handlers=>Handlers}),
                       logger_config:delete(Tid,HandlerId),
                       ok
