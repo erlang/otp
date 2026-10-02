@@ -961,13 +961,13 @@ print_length(Term, _D, _T, _RF, {_In, utf8}, _Str, _Ord) ->
             S = float_to_binary(Term, [short]),
             {S, byte_size(S), 0, no_more};
        is_pid(Term) ->
-            S = list_to_binary(pid_to_list(Term)),
+            S = erlang:pid_to_binary(Term),
             {S, byte_size(S), 0, no_more};
        is_reference(Term) ->
-            S = list_to_binary(ref_to_list(Term)),
+            S = erlang:ref_to_binary(Term),
             {S, byte_size(S), 0, no_more};
        is_port(Term) ->
-            S = list_to_binary(erlang:port_to_list(Term)),
+            S = erlang:port_to_binary(Term),
             {S, byte_size(S), 0, no_more}
     end;
 print_length(Term, _D, _T, _RF, _Enc, _Str, _Ord) ->
