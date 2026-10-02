@@ -40,6 +40,7 @@
 
 -export([
          connect_with_ssh_agent/1,
+         connect_with_mldsa_agent/1,
          request_identities/1,
          sign_request/1
         ]).
@@ -51,7 +52,8 @@ suite() ->
     [{timetrap, {seconds, 30}}].
 
 all() ->
-    [request_identities, sign_request, connect_with_ssh_agent].
+    [request_identities, sign_request,
+     connect_with_ssh_agent, connect_with_mldsa_agent].
 
 init_per_suite(Config) ->
     ?CHECK_CRYPTO(
@@ -80,6 +82,30 @@ init_per_testcase(connect_with_ssh_agent, Config) ->
     {ok,_} = file:copy(filename:join(DataDir,"id_rsa"),
                        filename:join(AgentUserDir,"id_rsa")),
     Config;
+init_per_testcase(connect_with_mldsa_agent, Config) ->
+    PublicKeys = proplists:get_value(public_keys, crypto:supports(), []),
+    case lists:member(mldsa65, PublicKeys) of
+        false ->
+            {skip, "ML-DSA-65 is not supported by crypto"};
+        true ->
+            UserDir = proplists:get_value(priv_dir, Config),
+            AgentUserDir = filename:join(UserDir, "agent"),
+            file:make_dir(AgentUserDir),
+            ct:log("Host keys setup for: ~p",
+                   [ssh_test_lib:setup_all_host_keys(Config)]),
+            {PublicKey, PrivateKey} = public_key:generate_key(mldsa65),
+            PrivatePem =
+                public_key:pem_encode(
+                  [public_key:pem_entry_encode('PrivateKeyInfo', PrivateKey)]),
+            ok = file:write_file(filename:join(AgentUserDir, "id_mldsa65"),
+                                 PrivatePem),
+            AuthorizedKey =
+                ssh_file:encode([{PublicKey, [{comment, "mldsa-agent"}]}],
+                                auth_keys),
+            ok = file:write_file(filename:join(UserDir, "authorized_keys"),
+                                 AuthorizedKey),
+            Config
+    end;
 init_per_testcase(_TestCase, Config) ->
     Config.
 
@@ -145,10 +171,17 @@ sign_request(_Config) ->
 
 %%% Connect with RSA key from SSH agent
 connect_with_ssh_agent(Config) ->
+    connect_with_agent('rsa-sha2-256', Config).
+
+%%% Connect with ML-DSA-65 key from SSH agent
+connect_with_mldsa_agent(Config) ->
+    connect_with_agent('ssh-mldsa-65', Config).
+
+connect_with_agent(SigAlg, Config) ->
     UserDir = PrivDir = proplists:get_value(priv_dir, Config),
     AgentUserDir = filename:join(UserDir,"agent"),
     SystemDir = filename:join(PrivDir, "system"),
-    {ok, SocketPath} = ssh_agent_mock_server:start_link('rsa-sha2-256', AgentUserDir),
+    {ok, SocketPath} = ssh_agent_mock_server:start_link(SigAlg, AgentUserDir),
     {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SystemDir},
                                              {user_dir, UserDir}]),
     ConnectionRef = ssh_test_lib:connect(Host, Port, [{user_dir, UserDir},

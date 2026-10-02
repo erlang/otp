@@ -79,6 +79,12 @@
          ssh_openssh_key_with_comment/1,
          ssh_openssh_key_long_header/1,
 
+         mldsa_public_key_blob/1,
+         mldsa_sign_verify/1,
+         connect_mldsa44/1,
+         connect_mldsa65/1,
+         connect_mldsa87/1,
+
          ssh_hostkey_fingerprint_md5_implicit/1,
          ssh_hostkey_fingerprint_md5/1,
          ssh_hostkey_fingerprint_sha/1,
@@ -111,6 +117,7 @@ all() ->
      {group, option_space},
      {group, ssh_hostkey_fingerprint},
      {group, ssh_public_key_decode_encode},
+     {group, mldsa},
      {group, pkcs8},
      chk_known_hosts,
      ec_private_key_version_compat
@@ -154,6 +161,12 @@ groups() ->
      {passphrase,  [], ?tests_old},
      {option_space,[], [{group,new_format}]},
      {pkcs8, [], [ssh_hostkey_pkcs8]},
+
+     {mldsa, [], [mldsa_public_key_blob,
+                  mldsa_sign_verify,
+                  connect_mldsa44,
+                  connect_mldsa65,
+                  connect_mldsa87]},
 
      {ssh_hostkey_fingerprint, [],
       [ssh_hostkey_fingerprint_md5_implicit,
@@ -228,6 +241,14 @@ init_per_group(ssh_public_key_decode_encode, Config) ->
       filename:join([proplists:get_value(data_dir, Config),
                      "public_key"])
      } | Config];
+
+init_per_group(mldsa, Config) ->
+    case mldsa_supported() of
+        true ->
+            Config;
+        false ->
+            {skip, "ML-DSA is not supported by crypto"}
+    end;
 
 init_per_group(_, Config) ->
     Config.
@@ -430,6 +451,72 @@ connect_ed448_to_ed25519(Config) ->
 
 connect_ed448_to_ed448(Config) ->
     try_connect(Config).
+
+%%%----------------------------------------------------------------
+%% ML-DSA (draft-sfluhrer-ssh-mldsa) uses the pure ML-DSA variants
+%% with an empty context.  In public_key this is selected by the
+%% digest type 'none'.
+
+mldsa_public_key_blob(_Config) ->
+    lists:foreach(
+      fun({MLDSA, SshAlg, PublicKeySize, _SignatureSize}) ->
+              {PublicKey = #'ML-DSAPublicKey'{key = RawKey}, _PrivateKey} =
+                  public_key:generate_key(MLDSA),
+              PublicKeySize = byte_size(RawKey),
+
+              Encoded = iolist_to_binary(ssh_message:ssh2_pubkey_encode(PublicKey)),
+              AlgBin = atom_to_binary(SshAlg, latin1),
+              AlgSize = byte_size(AlgBin),
+              <<AlgSize:32, AlgBin:AlgSize/binary,
+                PublicKeySize:32, RawKey:PublicKeySize/binary>> = Encoded,
+              EncodedSize = PublicKeySize + AlgSize + 8,
+              EncodedSize = byte_size(Encoded),
+              PublicKey = ssh_message:ssh2_pubkey_decode(Encoded),
+              SshAlg = ssh_transport:public_algo(PublicKey),
+              true = ssh_transport:valid_key_sha_alg(public, PublicKey, SshAlg)
+      end, mldsa_parameters()).
+
+mldsa_sign_verify(_Config) ->
+    Message = <<"SSH ML-DSA signature test">>,
+    lists:foreach(
+      fun({MLDSA, SshAlg, _PublicKeySize, SignatureSize}) ->
+              {PublicKey, PrivateKey} = public_key:generate_key(MLDSA),
+              PublicKey = ssh_file:extract_public_key(PrivateKey),
+
+              Signature = public_key:sign(Message, none, PrivateKey),
+              SignatureSize = byte_size(Signature),
+              true = public_key:verify(Message, none, Signature, PublicKey),
+              false = public_key:verify(<<Message/binary, 0>>, none,
+                                        Signature, PublicKey),
+
+              %% ssh_transport additionally enforces the exact signature
+              %% length required by the SSH ML-DSA draft before verifying.
+              none = ssh_transport:sha(SshAlg),
+              TransportSignature =
+                  ssh_transport:sign(Message, none, PrivateKey),
+              SignatureSize = byte_size(TransportSignature),
+              true = ssh_transport:verify(Message, SshAlg, TransportSignature,
+                                          PublicKey, undefined),
+              Truncated = binary:part(TransportSignature, 0, SignatureSize - 1),
+              false = ssh_transport:verify(Message, SshAlg, Truncated,
+                                           PublicKey, undefined),
+              false = ssh_transport:verify(Message, SshAlg,
+                                           <<TransportSignature/binary, 0>>,
+                                           PublicKey, undefined),
+              false = ssh_transport:verify(Message,
+                                           other_mldsa_alg(SshAlg),
+                                           TransportSignature,
+                                           PublicKey, undefined)
+      end, mldsa_parameters()).
+
+connect_mldsa44(Config) ->
+    connect_mldsa(mldsa44, Config).
+
+connect_mldsa65(Config) ->
+    connect_mldsa(mldsa65, Config).
+
+connect_mldsa87(Config) ->
+    connect_mldsa(mldsa87, Config).
 
 %%%----------------------------------------------------------------
 check_dsa_disabled(Config) ->
@@ -912,9 +999,89 @@ try_connect_disabled(Config) ->
     catch error:{badmatch,{error,"Service not available"}} -> ok
     end.
 
+
+connect_mldsa(MLDSA, Config) ->
+    {_MLDSA, SshAlg, _PublicKeySize, _SignatureSize} =
+        lists:keyfind(MLDSA, 1, mldsa_parameters()),
+    Seed = crypto:strong_rand_bytes(32),
+    {RawPublicKey, {seed, Seed}} =
+        crypto:generate_key(MLDSA, [], {seed, Seed}),
+    PublicKey = #'ML-DSAPublicKey'{algorithm = MLDSA, key = RawPublicKey},
+    PrivateKey = #'ML-DSAPrivateKey'{algorithm = MLDSA, seed = Seed},
+    PublicKey = ssh_file:extract_public_key(PrivateKey),
+
+    PrivDir = proplists:get_value(priv_dir, Config),
+    BaseDir = filename:join(PrivDir, atom_to_list(MLDSA)),
+    SystemDir = filename:join(BaseDir, "system"),
+    UserDir = filename:join(BaseDir, "user"),
+    ok = filelib:ensure_dir(filename:join(SystemDir, "dummy")),
+    ok = filelib:ensure_dir(filename:join(UserDir, "dummy")),
+
+    PrivatePem = public_key:pem_encode(
+                   [public_key:pem_entry_encode('PrivateKeyInfo', PrivateKey)]),
+    ok = file:write_file(filename:join(SystemDir, mldsa_key_file(host, MLDSA)),
+                         PrivatePem),
+    ok = file:write_file(filename:join(UserDir, mldsa_key_file(user, MLDSA)),
+                         PrivatePem),
+    AuthorizedKey = ssh_file:encode([{PublicKey, [{comment, "mldsa-test"}]}],
+                                    auth_keys),
+    [{PublicKey, [{comment, "mldsa-test"}]}] =
+        ssh_file:decode(AuthorizedKey, auth_keys),
+    ok = file:write_file(filename:join(UserDir, "authorized_keys"), AuthorizedKey),
+
+    %% These calls explicitly verify the ML-DSA filename mappings as well as
+    %% PKCS#8 import and public-key extraction.
+    {ok, PrivateKey} = ssh_file:host_key(SshAlg, [{system_dir, SystemDir}]),
+    {ok, PrivateKey} = ssh_file:user_key(SshAlg, [{user_dir, UserDir}]),
+    true = ssh_file:is_auth_key(PublicKey, "mldsa-user", [{user_dir, UserDir}]),
+
+    Preferred = [{preferred_algorithms, [{public_key, [SshAlg]}]}],
+    {Pid, Host, Port} =
+        ssh_test_lib:daemon([{system_dir, SystemDir},
+                             {user_dir, UserDir},
+                             {auth_methods, "publickey"}
+                             | Preferred]),
+    try
+        Connection =
+            ssh_test_lib:connect(Host, Port,
+                                 [{user, "mldsa-user"},
+                                  {user_dir, UserDir},
+                                  {connect_timeout, 10000},
+                                  {silently_accept_hosts, true},
+                                  {save_accepted_host, false},
+                                  {user_interaction, false}
+                                  | Preferred]),
+        {algorithms, Algorithms} = ssh:connection_info(Connection, algorithms),
+        SshAlg = proplists:get_value(hkey, Algorithms),
+        ssh:close(Connection)
+    after
+        ssh:stop_daemon(Pid)
+    end.
+
 %%%----------------------------------------------------------------
 %%% Local ---------------------------------------------------------
 %%%----------------------------------------------------------------
+mldsa_supported() ->
+    PublicKeys = proplists:get_value(public_keys, crypto:supports(), []),
+    lists:all(fun(Alg) -> lists:member(Alg, PublicKeys) end,
+              [mldsa44, mldsa65, mldsa87]).
+
+mldsa_parameters() ->
+    [{mldsa44, 'ssh-mldsa-44', 1312, 2420},
+     {mldsa65, 'ssh-mldsa-65', 1952, 3309},
+     {mldsa87, 'ssh-mldsa-87', 2592, 4627}].
+
+other_mldsa_alg('ssh-mldsa-44') -> 'ssh-mldsa-65';
+other_mldsa_alg('ssh-mldsa-65') -> 'ssh-mldsa-87';
+other_mldsa_alg('ssh-mldsa-87') -> 'ssh-mldsa-44'.
+
+mldsa_key_file(user, mldsa44) -> "id_mldsa44";
+mldsa_key_file(user, mldsa65) -> "id_mldsa65";
+mldsa_key_file(user, mldsa87) -> "id_mldsa87";
+mldsa_key_file(host, mldsa44) -> "ssh_host_mldsa44_key";
+mldsa_key_file(host, mldsa65) -> "ssh_host_mldsa65_key";
+mldsa_key_file(host, mldsa87) -> "ssh_host_mldsa87_key".
+
 setup_user_system_dir(ClientAlg, ServerAlg, Config) ->
     case supported(public_key, ClientAlg) andalso supported(public_key, ServerAlg) of
         true ->

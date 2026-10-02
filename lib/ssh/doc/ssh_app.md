@@ -46,7 +46,8 @@ The SSH application uses Configuration Parameters. Where to set them are
 described in [config User's Guide](`e:kernel:config.md`) with SSH details in
 [Configuration in SSH](configurations.md).
 
-Some special configuration files from OpenSSH are also used:
+The default key callback recognizes these conventional configuration and key
+file names:
 
 - `known_hosts`
 - `authorized_keys`
@@ -57,12 +58,21 @@ Some special configuration files from OpenSSH are also used:
 - `id_ecdsa`
 - `id_ed25519`
 - `id_ed448`
+- `id_mldsa44`
+- `id_mldsa65`
+- `id_mldsa87`
 - `ssh_host_dsa_key` _(supported but disabled by default)_
 - `ssh_host_rsa_key` _(SHA1 sign/verify are supported but disabled by default
   from OTP-24)_
 - `ssh_host_ecdsa_key`
 - `ssh_host_ed25519_key`
 - `ssh_host_ed448_key`
+- `ssh_host_mldsa44_key`
+- `ssh_host_mldsa65_key`
+- `ssh_host_mldsa87_key`
+
+The ML-DSA algorithms and key files are available only when the cryptographic
+backend used by `crypto` provides the corresponding ML-DSA parameter set.
 
 By default, `ssh` looks for `id_*`, `known_hosts`, and `authorized_keys` in
 `~/.ssh`, and for the ssh\_host\_\*\_key files in `/etc/ssh`. These locations can
@@ -107,9 +117,8 @@ See [ssh_file](`m:ssh_file#FILE-authorized_keys`) for details.
 
 ## Host Keys
 
-RSA, DSA (if enabled), ECDSA, ED25519 and ED448 host keys are supported and are
-expected to be found in files named `ssh_host_rsa_key`, `ssh_host_dsa_key`,
-`ssh_host_ecdsa_key`, `ssh_host_ed25519_key` and `ssh_host_ed448_key`.
+RSA, DSA (if enabled), ECDSA, EdDSA, and ML-DSA host keys are supported. See
+`m:ssh_file` for their conventional file names and formats.
 
 See [ssh_file](`m:ssh_file#FILE-ssh_host_STAR_key`) for details.
 
@@ -174,6 +183,12 @@ for example the Option value
 - ecdsa-sha2-nistp256
 - rsa-sha2-512
 - rsa-sha2-256
+- ssh-mldsa-87
+- ssh-mldsa-65
+- ssh-mldsa-44
+
+The ML-DSA algorithms are listed after the established algorithms because their
+keys and signatures are larger and their SSH specification is still a draft.
 
 The following unsecure `SHA1` algorithms are supported but disabled by
 default:
@@ -400,6 +415,11 @@ The following RFCs are supported:
 
   Comment: Implements mlkem768x25519-sha256. The ML-KEM-768 component is
   defined by [NIST FIPS 203](https://csrc.nist.gov/pubs/fips/203/final).
+- [draft-sfluhrer-ssh-mldsa](https://datatracker.ietf.org/doc/draft-sfluhrer-ssh-mldsa/),
+  ML-DSA Authentication for the Secure Shell Protocol.
+
+  Comment: Implements ssh-mldsa-44, ssh-mldsa-65, and ssh-mldsa-87 when the
+  corresponding ML-DSA parameter set is available from `crypto`.
 
 ## See Also
 

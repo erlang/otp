@@ -635,7 +635,12 @@ mldsa_priv_pkcs8() ->
 mldsa_priv_pkcs8(Config) when is_list(Config) ->
     ml_dsa_priv("mldsa-44.pem", ?'id-ml-dsa-44', Config),
     ml_dsa_priv("mldsa-65.pem", ?'id-ml-dsa-65', Config),
-    ml_dsa_priv("mldsa-87.pem", ?'id-ml-dsa-87', Config).
+    ml_dsa_priv("mldsa-87.pem", ?'id-ml-dsa-87', Config),
+    [ml_dsa_expanded_priv(Alg, Size)
+     || {Alg, Size} <- [{mldsa44, 2560},
+                        {mldsa65, 4032},
+                        {mldsa87, 4896}]],
+    ok.
 
 ml_dsa_priv(File, AlgOid, Config) ->
     Datadir = proplists:get_value(data_dir, Config),
@@ -646,6 +651,14 @@ ml_dsa_priv(File, AlgOid, Config) ->
     PrivEntry0 = public_key:pem_entry_encode('PrivateKeyInfo', MLDSAKey),
     MLDSAPemNoEndNewLines = strip_licence(strip_superfluous_newlines(MLDSAPrivPem)),
     MLDSAPemNoEndNewLines = strip_superfluous_newlines(public_key:pem_encode([PrivEntry0])).
+
+ml_dsa_expanded_priv(Alg, Size) ->
+    ExpandedKey = binary:copy(<<0>>, Size),
+    PrivateKey0 = #'ML-DSAPrivateKey'{algorithm = Alg,
+                                       expandedkey = ExpandedKey},
+    PKCS8Key = public_key:pem_entry_encode('PrivateKeyInfo', PrivateKey0),
+    PrivateKey0 = public_key:pem_entry_decode(PKCS8Key),
+    ok.
 
 mldsa_pub_pem() ->
     [{doc, "ML-DSA public_key decode/encode"}].
@@ -1066,7 +1079,24 @@ mldsa_sign(Config) when is_list(Config) ->
         public_key:pem_decode(MLDSAPrivPem),
     MLDSAPrivKey = #'ML-DSAPrivateKey'{} = public_key:pem_entry_decode(PubEntry1),
     Signature = public_key:sign(Msg, none, MLDSAPrivKey),
-    public_key:verify(Msg, none, Signature, MLDSAPubKey).
+    true = public_key:verify(Msg, none, Signature, MLDSAPubKey),
+    [ml_dsa_generated_sign(Alg, Msg) || Alg <- [mldsa44, mldsa65, mldsa87]],
+    ok.
+
+ml_dsa_generated_sign(Alg, Msg) ->
+    {PublicKey, PrivateKey = #'ML-DSAPrivateKey'{seed = <<>>,
+                                                 expandedkey = ExpandedKey}} =
+        public_key:generate_key(Alg),
+    true = byte_size(ExpandedKey) > 0,
+    Signature = public_key:sign(Msg, none, PrivateKey),
+    true = public_key:verify(Msg, none, Signature, PublicKey),
+    PKCS8Key = public_key:pem_entry_encode('PrivateKeyInfo', PrivateKey),
+    ImportedPrivateKey = #'ML-DSAPrivateKey'{seed = <<>>,
+                                                 expandedkey = ExpandedKey} =
+        public_key:pem_entry_decode(PKCS8Key),
+    ImportedSignature = public_key:sign(Msg, none, ImportedPrivateKey),
+    true = public_key:verify(Msg, none, ImportedSignature, PublicKey),
+    ok.
 
 %--------------------------------------------------------------------
 slh_dsa_verify() ->
