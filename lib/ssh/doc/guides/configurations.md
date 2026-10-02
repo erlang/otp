@@ -158,7 +158,8 @@ Erlang/OTP 29 [erts-16.3.1] [source] [64-bit] [smp:4:4] [ds:4:4:10] [async-threa
 
 Eshell V16.3.1 (press Ctrl+G to abort, type help(). for help)
 1> ssh:default_algorithms().
-[{kex,['mlkem768x25519-sha256','curve25519-sha256',
+[{kex,['mlkem768x25519-sha256','mlkem768nistp256-sha256',
+       'mlkem1024nistp384-sha384','curve25519-sha256',
        'curve25519-sha256@libssh.org','curve448-sha512',
        'ecdh-sha2-nistp521','ecdh-sha2-nistp384',
        'ecdh-sha2-nistp256',

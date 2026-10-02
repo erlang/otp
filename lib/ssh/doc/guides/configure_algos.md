@@ -102,7 +102,8 @@ There is an important command to list the actual algorithms and their ordering:
 
 ```erlang
 0> ssh:default_algorithms().
-[{kex,['mlkem768x25519-sha256','curve25519-sha256',
+[{kex,['mlkem768x25519-sha256','mlkem768nistp256-sha256',
+       'mlkem1024nistp384-sha384','curve25519-sha256',
        'curve25519-sha256@libssh.org','curve448-sha512',
        'ecdh-sha2-nistp521','ecdh-sha2-nistp384','ecdh-sha2-nistp256',
        'diffie-hellman-group-exchange-sha256',
@@ -201,7 +202,8 @@ possible to change both directions at once:
 2> ssh:chk_algos_opts(
      [{preferred_algorithms,
          [{cipher, ['aes128-ctr']}]}]).
-[{kex,['mlkem768x25519-sha256','curve25519-sha256',
+[{kex,['mlkem768x25519-sha256','mlkem768nistp256-sha256',
+       'mlkem1024nistp384-sha384','curve25519-sha256',
        'curve25519-sha256@libssh.org','curve448-sha512',
        'ecdh-sha2-nistp521','ecdh-sha2-nistp384','ecdh-sha2-nistp256',
        'diffie-hellman-group-exchange-sha256',
@@ -237,7 +239,8 @@ possible to change only one of the directions:
 3> ssh:chk_algos_opts(
      [{preferred_algorithms,
          [{cipher, [{client2server, ['aes128-ctr']}]}]}]).
-[{kex,['mlkem768x25519-sha256','curve25519-sha256',
+[{kex,['mlkem768x25519-sha256','mlkem768nistp256-sha256',
+       'mlkem1024nistp384-sha384','curve25519-sha256',
        'curve25519-sha256@libssh.org','curve448-sha512',
        'ecdh-sha2-nistp521','ecdh-sha2-nistp384','ecdh-sha2-nistp256',
        'diffie-hellman-group-exchange-sha256',
@@ -326,6 +329,7 @@ supported according to [Supported algorithms](ssh_app.md#supported_algos).
      [{modify_algorithms,
          [{prepend, [{kex, ['diffie-hellman-group1-sha1']}]}]}]).
 [{kex,['diffie-hellman-group1-sha1','mlkem768x25519-sha256',
+       'mlkem768nistp256-sha256','mlkem1024nistp384-sha384',
        'curve25519-sha256','curve25519-sha256@libssh.org',
        'curve448-sha512','ecdh-sha2-nistp521','ecdh-sha2-nistp384',
        'ecdh-sha2-nistp256','diffie-hellman-group-exchange-sha256',
@@ -369,6 +373,7 @@ the `'ecdh-sha2-nistp521'` to the end in the kex list, that is, `append` it.
          [{prepend, [{kex, ['diffie-hellman-group1-sha1']}]},
           {append,  [{kex, ['ecdh-sha2-nistp521']}]}]}]).
 [{kex,['diffie-hellman-group1-sha1','mlkem768x25519-sha256',
+       'mlkem768nistp256-sha256','mlkem1024nistp384-sha384',
        'curve25519-sha256','curve25519-sha256@libssh.org',
        'curve448-sha512','ecdh-sha2-nistp384','ecdh-sha2-nistp256',
        'diffie-hellman-group-exchange-sha256',
