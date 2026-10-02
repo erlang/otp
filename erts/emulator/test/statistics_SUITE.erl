@@ -43,6 +43,7 @@
 -export([hog/1]).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -592,12 +593,8 @@ io(Config) when is_list(Config) ->
 
 %% Tests that some illegal arguments to statistics fails.
 badarg(Config) when is_list(Config) ->
-    case catch statistics(1) of
-        {'EXIT', {badarg, _}} -> ok
-    end,
-    case catch statistics(bad_atom) of
-        {'EXIT', {badarg, _}} -> ok
-    end.
+    ?assertError(badarg, statistics(1)),
+    ?assertError(badarg, statistics(bad_atom)).
 
 tok_loop() ->
     tok_loop().
@@ -775,7 +772,8 @@ msacc_test(TmpFile) ->
     Refs = [erlang:send_after(10000,self(),ok) ||  _ <- lists:seq(1,100)],
 
     %% Do some nif work
-    catch [crypto:strong_rand_bytes(128) || _ <- lists:seq(1,100)],
+    try [crypto:strong_rand_bytes(128) || _ <- lists:seq(1,100)]
+    catch _:_ -> ok end,
 
     %% Cancel some timers
     [erlang:cancel_timer(R) ||  R <- Refs],

@@ -25,6 +25,7 @@
          new_limits/1, error_info/1]).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -82,22 +83,22 @@ unsigned_do(Ref, Ix) ->
     ok.
 
 bad(Config) when is_list(Config) ->
-    {'EXIT',{badarg,_}} = (catch atomics:new(-(1 bsl 64),[])),
-    {'EXIT',{badarg,_}} = (catch atomics:new(0,[])),
-    {'EXIT',{badarg,_}} = (catch atomics:new(10,[bad])),
-    {'EXIT',{badarg,_}} = (catch atomics:new(10,[{signed,bad}])),
-    {'EXIT',{badarg,_}} = (catch atomics:new(10,[{signed,true}, bad])),
-    {'EXIT',{badarg,_}} = (catch atomics:new(10,[{signed,false} | bad])),
+    ?assertError(badarg, atomics:new(-(1 bsl 64),[])),
+    ?assertError(badarg, atomics:new(0,[])),
+    ?assertError(badarg, atomics:new(10,[bad])),
+    ?assertError(badarg, atomics:new(10,[{signed,bad}])),
+    ?assertError(badarg, atomics:new(10,[{signed,true}, bad])),
+    ?assertError(badarg, atomics:new(10,[{signed,false} | bad])),
 
-    {'EXIT',{system_limit,_}} = (catch atomics:new(1 bsl 64, [])),
+    ?assertError(system_limit, atomics:new(1 bsl 64, [])),
 
     Ref = atomics:new(10,[]),
-    {'EXIT',{badarg,_}} = (catch atomics:get(1742, 7)),
-    {'EXIT',{badarg,_}} = (catch atomics:get(make_ref(), 7)),
-    {'EXIT',{badarg,_}} = (catch atomics:get(Ref, -1)),
-    {'EXIT',{badarg,_}} = (catch atomics:get(Ref, 0)),
-    {'EXIT',{badarg,_}} = (catch atomics:get(Ref, 11)),
-    {'EXIT',{badarg,_}} = (catch atomics:get(Ref, 7.0)),
+    ?assertError(badarg, atomics:get(1742, 7)),
+    ?assertError(badarg, atomics:get(make_ref(), 7)),
+    ?assertError(badarg, atomics:get(Ref, -1)),
+    ?assertError(badarg, atomics:get(Ref, 0)),
+    ?assertError(badarg, atomics:get(Ref, 11)),
+    ?assertError(badarg, atomics:get(Ref, 7.0)),
     ok.
 
 
@@ -117,8 +118,8 @@ signed_limits(Config) when is_list(Config) ->
     ok = atomics:put(Ref, 1, 0),
     ok = atomics:add(Ref, 1, IncrMax),
     -1 = atomics:get(Ref, 1),
-    {'EXIT',{badarg,_}} = (catch atomics:add(Ref, 1, IncrMax+1)),
-    {'EXIT',{badarg,_}} = (catch atomics:add(Ref, 1, Min-1)),
+    ?assertError(badarg, atomics:add(Ref, 1, IncrMax+1)),
+    ?assertError(badarg, atomics:add(Ref, 1, Min-1)),
 
     ok.
 
@@ -137,12 +138,12 @@ unsigned_limits(Config) when is_list(Config) ->
     atomics:put(Ref, 1, Max),
     io:format("Max=~p~n", [atomics:get(Ref, 1)]),
 
-    {'EXIT',{badarg,_}} = (catch atomics:add(Ref, 1, Max+1)),
+    ?assertError(badarg, atomics:add(Ref, 1, Max+1)),
     IncrMin = -(1 bsl (Bits-1)),
     ok = atomics:put(Ref, 1, -IncrMin),
     ok = atomics:add(Ref, 1, IncrMin),
     0 = atomics:get(Ref, 1),
-    {'EXIT',{badarg,_}} = (catch atomics:add(Ref, 1, IncrMin-1)),
+    ?assertError(badarg, atomics:add(Ref, 1, IncrMin-1)),
 
     ok.
 
