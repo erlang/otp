@@ -34,6 +34,7 @@
 %-define(line_trace, 1).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("erts_test_utils.hrl").
 
 %% Slot count per page of a loader index table (see erts/emulator/beam/index.h).
 %% The table only enforces its limit when a new page must be allocated, so a
@@ -81,7 +82,7 @@ end_per_testcase(_, Config) ->
 %%%
 
 process_count(Config) when is_list(Config) ->
-    case catch erlang:system_info(modified_timing_level) of
+    case ?Catch(erlang:system_info(modified_timing_level)) of
 	Level when is_integer(Level) ->
 	    {skipped,
 	     "Modified timing (level " ++ integer_to_list(Level)
@@ -217,7 +218,7 @@ memory(Config) when is_list(Config) ->
     after
 	process_flag(min_heap_size, MinHeapSize),
 	process_flag(priority, Prio),
-	catch erts_debug:set_internal_state(available_internal_state, false)
+        erts_debug:set_internal_state(available_internal_state, false)
     end.
 
 memory_test(_Config) ->

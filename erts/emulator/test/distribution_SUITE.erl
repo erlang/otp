@@ -38,6 +38,7 @@
 %% Tests distribution and the tcp driver.
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("erts_test_utils.hrl").
 
 -export([all/0, suite/0, groups/0,
          init_per_suite/1, end_per_suite/1,
@@ -3818,7 +3819,7 @@ wait_until(Fun) ->
 wait_until(_Fun, Timeout) when Timeout < 0 ->
     timeout;
 wait_until(Fun, Timeout) ->
-    case catch Fun() of
+    case ?Catch(Fun()) of
         true ->
             ok;
         _ ->
@@ -4060,35 +4061,37 @@ mk_pid({NodeName, Creation}, Number, Serial) when is_atom(NodeName) ->
     <<?VERSION_MAGIC, NodeNameExt/binary>> = term_to_binary(NodeName),
     mk_pid({NodeNameExt, Creation}, Number, Serial);
 mk_pid({NodeNameExt, Creation}, Number, Serial) ->
-    case catch binary_to_term(list_to_binary([?VERSION_MAGIC,
-                                              ?PID_EXT,
-                                              NodeNameExt,
-                                              uint32_be(Number),
-                                              uint32_be(Serial),
-                                              uint8(Creation)])) of
+    try binary_to_term(list_to_binary([?VERSION_MAGIC,
+                                       ?PID_EXT,
+                                       NodeNameExt,
+                                       uint32_be(Number),
+                                       uint32_be(Serial),
+                                       uint8(Creation)])) of
         Pid when is_pid(Pid) ->
             Pid;
-        {'EXIT', {badarg, _}} ->
-            exit({badarg, mk_pid, [{NodeNameExt, Creation}, Number, Serial]});
         Other ->
             exit({unexpected_binary_to_term_result, Other})
+    catch
+        error:badarg ->
+            exit({badarg, mk_pid, [{NodeNameExt, Creation}, Number, Serial]})
     end.
 
 mk_port({NodeName, Creation}, Number) when is_atom(NodeName) ->
     <<?VERSION_MAGIC, NodeNameExt/binary>> = term_to_binary(NodeName),
     mk_port({NodeNameExt, Creation}, Number);
 mk_port({NodeNameExt, Creation}, Number) ->
-    case catch binary_to_term(list_to_binary([?VERSION_MAGIC,
-                                              ?PORT_EXT,
-                                              NodeNameExt,
-                                              uint32_be(Number),
-                                              uint8(Creation)])) of
+    try binary_to_term(list_to_binary([?VERSION_MAGIC,
+                                       ?PORT_EXT,
+                                       NodeNameExt,
+                                       uint32_be(Number),
+                                       uint8(Creation)])) of
         Port when is_port(Port) ->
             Port;
-        {'EXIT', {badarg, _}} ->
-            exit({badarg, mk_port, [{NodeNameExt, Creation}, Number]});
         Other ->
             exit({unexpected_binary_to_term_result, Other})
+    catch
+        error:badarg ->
+            exit({badarg, mk_port, [{NodeNameExt, Creation}, Number]})
     end.
 
 mk_ref({NodeName, Creation}, [Number] = NL) when is_atom(NodeName),
@@ -4098,17 +4101,18 @@ mk_ref({NodeName, Creation}, [Number] = NL) when is_atom(NodeName),
     mk_ref({NodeNameExt, Creation}, NL);
 mk_ref({NodeNameExt, Creation}, [Number]) when is_integer(Creation),
                                                is_integer(Number) ->
-    case catch binary_to_term(list_to_binary([?VERSION_MAGIC,
-                                              ?REFERENCE_EXT,
-                                              NodeNameExt,
-                                              uint32_be(Number),
-                                              uint8(Creation)])) of
+    try binary_to_term(list_to_binary([?VERSION_MAGIC,
+                                       ?REFERENCE_EXT,
+                                       NodeNameExt,
+                                       uint32_be(Number),
+                                       uint8(Creation)])) of
         Ref when is_reference(Ref) ->
             Ref;
-        {'EXIT', {badarg, _}} ->
-            exit({badarg, mk_ref, [{NodeNameExt, Creation}, [Number]]});
         Other ->
             exit({unexpected_binary_to_term_result, Other})
+    catch
+        error:badarg ->
+            exit({badarg, mk_ref, [{NodeNameExt, Creation}, [Number]]})
     end;
 mk_ref({NodeName, Creation}, Numbers) when is_atom(NodeName),
                                            is_integer(Creation),
@@ -4117,21 +4121,22 @@ mk_ref({NodeName, Creation}, Numbers) when is_atom(NodeName),
     mk_ref({NodeNameExt, Creation}, Numbers);
 mk_ref({NodeNameExt, Creation}, Numbers) when is_integer(Creation),
                                               is_list(Numbers) ->
-    case catch binary_to_term(list_to_binary([?VERSION_MAGIC,
-                                              ?NEW_REFERENCE_EXT,
-                                              uint16_be(length(Numbers)),
-                                              NodeNameExt,
-                                              uint8(Creation),
+    try binary_to_term(list_to_binary([?VERSION_MAGIC,
+                                       ?NEW_REFERENCE_EXT,
+                                       uint16_be(length(Numbers)),
+                                       NodeNameExt,
+                                       uint8(Creation),
                                               lists:map(fun (N) ->
                                                                 uint32_be(N)
                                                         end,
                                                         Numbers)])) of
         Ref when is_reference(Ref) ->
             Ref;
-        {'EXIT', {badarg, _}} ->
-            exit({badarg, mk_ref, [{NodeNameExt, Creation}, Numbers]});
         Other ->
             exit({unexpected_binary_to_term_result, Other})
+    catch
+        error:badarg ->
+            exit({badarg, mk_ref, [{NodeNameExt, Creation}, Numbers]})
     end.
 
 uint64_be(Uint) when is_integer(Uint), 0 =< Uint, Uint < 1 bsl 64 ->

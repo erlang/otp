@@ -22,6 +22,7 @@
 
 -module(persistent_term_SUITE).
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 -export([all/0,suite/0,init_per_suite/1,end_per_suite/1,
 	 init_per_testcase/2, end_per_testcase/2,
@@ -96,12 +97,12 @@ basic(_Config) ->
              true = persistent_term:erase(Key),
              false = persistent_term:erase(Key),
 
-             {'EXIT',{badarg,_}} = (catch persistent_term:get(Key)),
+             ?assertError(badarg, persistent_term:get(Key)),
              {not_present,Key} = persistent_term:get(Key, {not_present,Key}),
 
              ok = persistent_term:put_new(Key, {value, I}),
              ok = persistent_term:put_new(Key, {value, I}),
-             {'EXIT',{badarg,_}} = (catch persistent_term:put_new(Key, {new_value, I})),
+             ?assertError(badarg, persistent_term:put_new(Key, {new_value, I})),
              {value, I} = persistent_term:get(Key),
              true = persistent_term:erase(Key)
          end || I <- Seq],
@@ -190,7 +191,7 @@ purging_tester(Parent, Key) ->
     Parent ! {self(),gotten},
     receive
         {Parent,erased} ->
-            {'EXIT',{badarg,_}} = (catch persistent_term:get(Key)),
+            ?assertError(badarg, persistent_term:get(Key)),
             purging_tester_1(Term, 1);
         {Parent,replaced} ->
             {?MODULE,new} = persistent_term:get(Key),
@@ -814,7 +815,7 @@ do_test_init_restart_cmd(File) ->
             ok = file:delete(File),
             _ = [begin
                      Key = {?MODULE,I},
-                     {'EXIT',{badarg,_}} = (catch persistent_term:get(Key))
+                     ?assertError(badarg, persistent_term:get(Key))
                  end || I <- Seq],
             io:put_chars("ok"),
             init:stop()
