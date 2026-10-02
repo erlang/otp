@@ -249,6 +249,85 @@ For more information about configuration parameters, see file
   specifies which one to listen on. For the type definition of `ip_address()`,
   see `m:inet`.
 
+  To accept incoming distribution connections only from the local host, for
+  example for a development node or a tool that only needs a local remote
+  shell (`-remsh`), set this parameter to a loopback address and give the node
+  a name whose host part resolves to that address. Example for IPv4:
+
+  ```text
+  erl -name mynode@127.0.0.1 \
+      -kernel inet_dist_use_interface '{127,0,0,1}' \
+      -env ERL_EPMD_ADDRESS 127.0.0.1
+  ```
+
+  A shell on that node is then opened with:
+
+  ```text
+  erl -name shell@127.0.0.1 -dist_listen false -remsh mynode@127.0.0.1
+  ```
+
+  For IPv6 the loopback address is `::1`, and both the node and the shell need
+  `-proto_dist inet6_tcp`, as a node using the IPv4 carrier cannot connect to
+  an IPv6 node:
+
+  ```text
+  erl -proto_dist inet6_tcp -name mynode@::1 \
+      -kernel inet_dist_use_interface '{0,0,0,0,0,0,0,1}' \
+      -env ERL_EPMD_ADDRESS ::1
+
+  erl -proto_dist inet6_tcp -name shell@::1 -dist_listen false \
+      -remsh mynode@::1
+  ```
+
+  Each part of the example has its own effect:
+
+  - **`inet_dist_use_interface`** - Binds the listening socket to the given
+    address. The node name alone does not; a node started with only
+    `-name mynode@127.0.0.1` still listens on all interfaces. Only incoming
+    connections are restricted: the node can still connect to other nodes, and
+    such a connection carries traffic in both directions. To also limit which
+    nodes this node may connect to, see `net_kernel:allow/1`.
+
+  - **The node name** - Its host part must resolve to the address the listener
+    is bound to, as that is the address other nodes, including a remote shell,
+    connect to; a connection to any other address is refused, even another
+    loopback address such as `127.0.1.1`. A short name without a host part
+    (`-sname mynode`) uses the host's own hostname, so whether the node can be
+    reached depends on what that hostname resolves to; a name whose host part
+    is an IP address, as in the example, needs no name resolution. A short name
+    with an explicit host part, `-sname mynode@localhost`, works where
+    `localhost` resolves to `127.0.0.1`, and is then reached with a plain
+    `erl -remsh mynode@localhost`.
+
+  - **The shell node** - Must use the same kind of node name, long (`-name`)
+    or short (`-sname`), as the node it connects to.
+    [`-remsh`](`e:erts:erl_cmd.md#remsh`) without `-name` or `-sname` starts
+    a short-named node with a
+    [dynamic node name](`e:system:distributed.md#dyn_node_name`), which cannot
+    connect to a long-named node, so `erl -remsh mynode@127.0.0.1` alone is
+    refused. `-dist_listen false` keeps the shell node from opening a listening
+    socket of its own; without it, the shell node itself listens on all
+    interfaces. A dynamic node name implies `-dist_listen false`, so the plain
+    `erl -remsh mynode@localhost` above does not need the flag.
+
+  - **`ERL_EPMD_ADDRESS`** - Keeps [`epmd`](`e:erts:epmd_cmd.md`) from
+    answering on other interfaces, so the name and port of the node cannot be
+    looked up from the network; `epmd` listens on both `127.0.0.1` and `::1`,
+    regardless of which one is given. It does not affect the listener of the
+    node, and it only applies when this node is the one that starts the
+    daemon. An `epmd` that is already running keeps the addresses it was
+    started with, and the node registers with it without any warning; the node
+    is then still confined by `inet_dist_use_interface`, but its name and port
+    remain visible through `epmd`. To confine `epmd` as well, stop the running
+    daemon and start one with the address before starting the node, for
+    example `epmd -address 127.0.0.1 -daemon`.
+
+  > #### Warning {: .warning }
+  >
+  > Binding to loopback limits who can reach the node; it does not replace the
+  > cookie. Any local process that knows the cookie can still connect to the
+  > node. See [Security](`e:system:distributed.md#security`).
+
 - **`inet_dist_listen_min = First`{: #inet_dist_listen }  
   `inet_dist_listen_max = Last`**  
   Defines the `First..Last` port range for the listener socket of a distributed
