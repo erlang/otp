@@ -3189,13 +3189,21 @@ jump_iv(<<X, Rest/binary>>, JumpIV) ->
 
 -doc(#{group => <<"Public Key Sign and Verify">>,
        equiv => rsa_sign_verify_padding()}).
--type pk_sign_verify_opts() :: [ rsa_sign_verify_opt() ] .
+-type pk_sign_verify_opts() :: [rsa_sign_verify_opt()
+                               | ml_dsa_sign_verify_opt()
+                               | slh_dsa_sign_verify_opt()].
 
 -doc(#{group => <<"Public Key Sign and Verify">>,
        equiv => rsa_sign_verify_padding()}).
 -type rsa_sign_verify_opt() :: {rsa_padding, rsa_sign_verify_padding()}
                              | {rsa_pss_saltlen, integer()}
                              | {rsa_mgf1_md, sha2()}.
+
+-doc(#{group => <<"Public Key Sign and Verify">>}).
+-type ml_dsa_sign_verify_opt() :: {'context-string', binary()}.
+
+-doc(#{group => <<"Public Key Sign and Verify">>}).
+-type slh_dsa_sign_verify_opt() :: {'context-string', binary()}.
 
 -doc """
 Options for sign and verify.
