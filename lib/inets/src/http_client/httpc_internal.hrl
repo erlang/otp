@@ -51,8 +51,10 @@
 	  %% ms before a request times out
 	  timeout = ?HTTP_REQUEST_TIMEOUT :: timeout(),
 
-	  %% true if auto redirect on 30x response
-	  autoredirect = true :: boolean(),
+	  %% true: redirect on any 30x response, including a downgrade from
+	  %% https to http; no_downgrade: redirect on any 30x response except
+	  %% one that would downgrade https to http; false: never redirect
+	  autoredirect = no_downgrade :: boolean() | no_downgrade,
 
           %% limits the maximum wait time before a retry
           autoretry = infinity :: timeout(),
