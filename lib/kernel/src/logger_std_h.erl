@@ -609,8 +609,7 @@ file_ctrl_loop(State) ->
 
         %% synchronous event
         {{log,Bin},{From,MRef}} ->
-            State1 = ensure_file(State),
-            State2 = write_to_dev(Bin,State1),
+            State2 = write_to_dev(Bin,State),
             From ! {MRef,ok},
             file_ctrl_loop(State2);
 
