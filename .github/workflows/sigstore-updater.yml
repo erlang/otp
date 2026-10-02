@@ -58,6 +58,7 @@ jobs:
         with:
           subject-path: |
             artifacts/*.tar.gz
+            bom.*.json
           sbom-path: bom.spdx.json
       - name: Copy SBoM provenance
         id: sbom-provenance

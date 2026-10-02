@@ -1,0 +1,100 @@
+## %CopyrightBegin%
+##
+## SPDX-License-Identifier: Apache-2.0
+##
+## Copyright Ericsson AB 2026. All Rights Reserved.
+##
+## Licensed under the Apache License, Version 2.0 (the "License");
+## you may not use this file except in compliance with the License.
+## You may obtain a copy of the License at
+##
+##     http://www.apache.org/licenses/LICENSE-2.0
+##
+## Unless required by applicable law or agreed to in writing, software
+## distributed under the License is distributed on an "AS IS" BASIS,
+## WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+## See the License for the specific language governing permissions and
+## limitations under the License.
+##
+## %CopyrightEnd%
+
+##
+## attest-vex: creates .sigstore files for otp-*.openvex.json files
+##             on openvex branch
+##
+
+name: Attest OpenVEX Files
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+jobs:
+  attest-vex:
+    if: github.repository == 'erlang/otp'
+    permissions:
+      contents: read
+      attestations: write
+      id-token: write
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout openvex branch
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6.0.2
+        with:
+          ref: openvex
+          persist-credentials: false
+
+      - name: Fetch helper scripts from master
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6.0.2
+        with:
+          ref: master
+          sparse-checkout: .github/scripts
+          path: .otp-scripts
+          persist-credentials: false
+
+      - name: Attest OpenVEX files
+        id: attest
+        uses: actions/attest@59d89421af93a897026c735860bf21b6eb4f7b26 # ratchet:actions/attest@v4.10
+        with:
+          subject-path: 'otp-*.openvex.json'
+
+      - uses: actions/create-github-app-token@29824e69f54612133e76f7eaac726eef6c875baf # ratchet:actions/create-github-app-token@v2.2.1
+        id: app-token
+        with:
+          app-id: ${{ vars.ERLANG_BOT_APP_ID }}
+          private-key: ${{ secrets.ERLANG_BOT_PRIVATE_KEY }}
+          owner: ${{ github.repository_owner }}
+          repositories: otp
+          permission-contents: write
+
+      - name: Get GitHub App User ID
+        id: get-user-id
+        env:
+          GH_TOKEN: "${{ steps.app-token.outputs.token }}"
+          APP_SLUG: "${{ steps.app-token.outputs.app-slug }}"
+        run: echo "user-id=$(gh api "/users/${APP_SLUG}[bot]" --jq .id)" >> "$GITHUB_OUTPUT"
+
+      - name: Distribute and commit attestation
+        env:
+          ATTESTATION: "${{ steps.attest.outputs.bundle-path }}"
+          APP_SLUG: "${{ steps.app-token.outputs.app-slug }}"
+          APP_TOKEN: "${{ steps.app-token.outputs.token }}"
+          USER_ID: "${{ steps.get-user-id.outputs.user-id }}"
+          REPOSITORY: "${{ github.repository }}"
+        run: |
+          for FILE in otp-*.openvex.json; do
+            cp "$ATTESTATION" "${FILE}.sigstore"
+          done
+          ls otp-*.openvex.json > /tmp/vex-files.txt
+          bash .otp-scripts/.github/scripts/add-vex-license.sh /tmp/vex-files.txt
+          git config user.name "${APP_SLUG}[bot]"
+          git config user.email "${USER_ID}+${APP_SLUG}[bot]@users.noreply.github.com"
+          git remote set-url origin "https://x-access-token:${APP_TOKEN}@github.com/${REPOSITORY}.git"
+          git add otp-*.openvex.json.sigstore otp-*.openvex.json.sigstore.license
+          ## Recursion guard
+          if git diff --cached --quiet; then
+            echo "No signature changes"
+            exit 0
+          fi
+          git commit -m "Update sigstore attestations for OpenVEX files"
+          git push origin HEAD:openvex
