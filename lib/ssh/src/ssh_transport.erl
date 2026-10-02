@@ -214,6 +214,8 @@ supported_algorithms(kex) ->
     select_crypto_supported(
       [
        {'mlkem768x25519-sha256',                [{kems, mlkem768}, {public_keys,ecdh}, {curves,x25519}, {hashs,sha256}]},
+       {'mlkem768nistp256-sha256',              [{kems, mlkem768}, {public_keys,ecdh}, {curves,secp256r1}, {hashs,sha256}]},
+       {'mlkem1024nistp384-sha384',             [{kems, mlkem1024}, {public_keys,ecdh}, {curves,secp384r1}, {hashs,sha384}]},
        {'curve25519-sha256',                    [{public_keys,ecdh}, {curves,x25519}, {hashs,sha256}]},
        {'curve25519-sha256@libssh.org',         [{public_keys,ecdh}, {curves,x25519}, {hashs,sha256}]},
        {'curve448-sha512',                      [{public_keys,ecdh}, {curves,x448},   {hashs,sha512}]},
@@ -600,14 +602,17 @@ key_exchange_first_msg(Kex, Ssh0) when Kex == 'ecdh-sha2-nistp256' ;
     {SshPacket, Ssh1} = ssh_packet(#ssh_msg_kex_ecdh_init{q_c=Public},  Ssh0),
     {ok, SshPacket,
      Ssh1#ssh{keyex_key = {{Public,Private},Curve}}};
-key_exchange_first_msg(Kex, Ssh0) when Kex == 'mlkem768x25519-sha256' ->
+key_exchange_first_msg(Kex, Ssh0) when Kex == 'mlkem768x25519-sha256';
+                                       Kex == 'mlkem768nistp256-sha256';
+                                       Kex == 'mlkem1024nistp384-sha384' ->
     Curve = ecdh_curve(Kex),
+    Kem = hybrid_kem(Kex),
     {C_publickey1, C_privkey1} = generate_key(ecdh, Curve),
-    {C_publickey2, C_privkey2} = generate_key(mlkem768, []),
+    {C_publickey2, C_privkey2} = generate_key(Kem, []),
     {SshPacket, Ssh1} = ssh_packet(
                           #ssh_msg_kex_hybrid_init{c_init = {C_publickey2, C_publickey1}},  Ssh0),
     {ok, SshPacket,
-     Ssh1#ssh{keyex_key = {{mlkem768, {C_publickey2, C_privkey2}},
+     Ssh1#ssh{keyex_key = {{Kem, {C_publickey2, C_privkey2}},
                            {Curve, {C_publickey1, C_privkey1}}}}}.
 
 %%%----------------------------------------------------------------
@@ -965,9 +970,10 @@ handle_kex_hybrid_init(#ssh_msg_kex_hybrid_init{c_init = C_init},
                                    opts = Opts}) ->
     %% at server
     Curve = ecdh_curve(Kex),
+    Kem = hybrid_kem(Kex),
     {S_publickey1, S_privkey1} = generate_key(ecdh, Curve),
     try
-        compute_key(hybrid_server, C_init, S_privkey1, Curve)
+        compute_key(hybrid_server, C_init, S_privkey1, {Kem, Curve})
     of
         {S_ciphertext2, K_enc} ->
             MyPrivHostKey = get_host_key(SignAlg, Opts),
@@ -1015,13 +1021,13 @@ handle_kex_hybrid_reply(#ssh_msg_kex_hybrid_reply{public_host_key = PeerPubHostK
                                                   s_reply = S_reply,
                                                   h_sig = H_SIG},
                         #ssh{keyex_key =
-                                 {{mlkem768, {C_publickey2, C_privkey2}},
+                                 {{Kem, {C_publickey2, C_privkey2}},
                                   {Curve, {C_publickey1, C_privkey1}}}
                             } = Ssh0
                        ) ->
     %% at client
     try
-        compute_key(hybrid_client, S_reply, {C_privkey2, C_privkey1}, Curve)
+        compute_key(hybrid_client, S_reply, {C_privkey2, C_privkey1}, {Kem, Curve})
     of
 	K_enc ->
             H = kex_hash(Ssh0, PeerPubHostKey, sha(Curve),
@@ -2413,6 +2419,8 @@ sha('curve25519-sha256@libssh.org' ) -> sha256;
 sha('curve448-sha512') -> sha512;
 sha(x25519) -> sha256;
 sha('mlkem768x25519-sha256') -> sha256;
+sha('mlkem768nistp256-sha256') -> sha256;
+sha('mlkem1024nistp384-sha384') -> sha384;
 sha(x448) -> sha512;
 sha(Str) when is_list(Str), length(Str)<50 -> sha(list_to_existing_atom(Str)).
 
@@ -2462,24 +2470,26 @@ parallell_gen_key(Ssh = #ssh{keyex_key = {x, {G, P}},
     {Public, Private} = generate_key(dh, [P,G,2*Sz]),
     Ssh#ssh{keyex_key = {{Private, Public}, {G, P}}}.
 
-generate_key(mlkem768, Args) ->
-    crypto:generate_key(mlkem768, Args);
+generate_key(Kem, Args) when Kem == mlkem768; Kem == mlkem1024 ->
+    crypto:generate_key(Kem, Args);
 generate_key(ecdh, Args) ->
     crypto:generate_key(ecdh, Args);
 generate_key(dh, [P,G,Sz2]) ->
     {Public,Private} = crypto:generate_key(dh, [P, G, max(Sz2,?MIN_DH_KEY_SIZE)] ),
     {crypto:bytes_to_integer(Public), crypto:bytes_to_integer(Private)}.
 
-compute_key(hybrid_server, C_init, S_privkey1, Curve) ->
-    <<C_publickey2:?MLKEM768_PUBLICKEY_SIZE/binary,
-      C_publickey1:32/binary>> = C_init,
-    {K_pq_secret, S_ciphertext2} = crypto:encapsulate_key(mlkem768, C_publickey2),
+compute_key(hybrid_server, C_init, S_privkey1, {Kem, Curve}) ->
+    KemSize = hybrid_public_key_size(Kem),
+    <<C_publickey2:KemSize/binary, C_publickey1/binary>> = C_init,
+    ok = validate_hybrid_point(Curve, C_publickey1),
+    {K_pq_secret, S_ciphertext2} = crypto:encapsulate_key(Kem, C_publickey2),
     SharedSecret = hybrid_common(K_pq_secret, Curve, C_publickey1, S_privkey1),
     {S_ciphertext2, <<?Ebinary(SharedSecret)>>};
-compute_key(hybrid_client, S_reply, {C_privkey2, C_privkey1}, Curve) ->
-    <<S_ciphertext2:?MLKEM768_CIPHERTEXT_SIZE/binary,
-      S_publickey1:?X25519_PUBLICKEY_SIZE/binary>> = S_reply,
-    K_pq_secret = crypto:decapsulate_key(mlkem768, C_privkey2, S_ciphertext2),
+compute_key(hybrid_client, S_reply, {C_privkey2, C_privkey1}, {Kem, Curve}) ->
+    CtSize = hybrid_ciphertext_size(Kem),
+    <<S_ciphertext2:CtSize/binary, S_publickey1/binary>> = S_reply,
+    ok = validate_hybrid_point(Curve, S_publickey1),
+    K_pq_secret = crypto:decapsulate_key(Kem, C_privkey2, S_ciphertext2),
     SharedSecret = hybrid_common(K_pq_secret, Curve, S_publickey1, C_privkey1),
     <<?Ebinary(SharedSecret)>>;
 compute_key(Algorithm, PeerPublic, MyPrivate, Args) ->
@@ -2488,8 +2498,30 @@ compute_key(Algorithm, PeerPublic, MyPrivate, Args) ->
 
 hybrid_common(K_pq_secret, Curve, PeerPublic, MyPrivate) ->
     K_cl_secret = compute_key(ecdh, PeerPublic, MyPrivate, Curve),
-    K_cl_secret_fixed = <<K_cl_secret:(?X25519_PUBLICKEY_SIZE*8)/big-unsigned-integer>>,
+    SecretBits = hybrid_secret_size(Curve) * 8,
+    K_cl_secret_fixed = <<K_cl_secret:SecretBits/big-unsigned-integer>>,
     crypto:hash(sha(Curve), <<K_pq_secret/binary, K_cl_secret_fixed/binary>>).
+
+hybrid_kem('mlkem768x25519-sha256') -> mlkem768;
+hybrid_kem('mlkem768nistp256-sha256') -> mlkem768;
+hybrid_kem('mlkem1024nistp384-sha384') -> mlkem1024.
+
+hybrid_public_key_size(mlkem768) -> ?MLKEM768_PUBLICKEY_SIZE;
+hybrid_public_key_size(mlkem1024) -> ?MLKEM1024_PUBLICKEY_SIZE.
+
+hybrid_ciphertext_size(mlkem768) -> ?MLKEM768_CIPHERTEXT_SIZE;
+hybrid_ciphertext_size(mlkem1024) -> ?MLKEM1024_CIPHERTEXT_SIZE.
+
+hybrid_secret_size(x25519) -> 32;
+hybrid_secret_size(secp256r1) -> 32;
+hybrid_secret_size(secp384r1) -> 48.
+
+validate_hybrid_point(x25519, <<_:?X25519_PUBLICKEY_SIZE/binary>>) -> ok;
+validate_hybrid_point(secp256r1, <<4, _:64/binary>>) -> ok;
+validate_hybrid_point(secp256r1, <<Tag, _:32/binary>>) when Tag == 2; Tag == 3 -> ok;
+validate_hybrid_point(secp384r1, <<4, _:96/binary>>) -> ok;
+validate_hybrid_point(secp384r1, <<Tag, _:48/binary>>) when Tag == 2; Tag == 3 -> ok;
+validate_hybrid_point(_, _) -> error(invalid_hybrid_point).
 
 dh_bits(#alg{encrypt = Encrypt,
              send_mac = SendMac}) ->
@@ -2524,6 +2556,8 @@ ecdh_curve('ecdh-sha2-nistp521') -> secp521r1;
 ecdh_curve('curve448-sha512'   ) -> x448;
 ecdh_curve('curve25519-sha256') -> x25519;
 ecdh_curve('mlkem768x25519-sha256') -> x25519;
+ecdh_curve('mlkem768nistp256-sha256') -> secp256r1;
+ecdh_curve('mlkem1024nistp384-sha384') -> secp384r1;
 ecdh_curve('curve25519-sha256@libssh.org') -> x25519.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

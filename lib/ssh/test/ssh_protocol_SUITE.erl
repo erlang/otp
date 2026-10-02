@@ -143,7 +143,9 @@
                    'ecdh-sha2-nistp521',
                    'ecdh-sha2-nistp384',
                    'ecdh-sha2-nistp256']).
--define(HYBRID_KEX, ['mlkem768x25519-sha256']).
+-define(HYBRID_KEX, ['mlkem768x25519-sha256',
+                     'mlkem768nistp256-sha256',
+                     'mlkem1024nistp384-sha384']).
 
 -define(CIPHERS, ['aes256-ctr','aes192-ctr','aes128-ctr','aes128-cbc','3des-cbc']).
 -define(DEFAULT_CIPHERS, (fun() -> Ciphs = filter_supported(cipher, ?CIPHERS),
@@ -349,7 +351,7 @@ init_per_group(guess, Config) ->
                 end,
             case {filter_supported(kex, KexInput), filter_supported(kex, ?ECDH_KEX)} of
                 {Kex, KexEcdh} when length(Kex) == 1, length(KexEcdh) >= 1, ParentGroup == hybrid ->
-                    %% There is only one hybrid kex supported, we have to fill algorithms with other
+                    %% Fill the list when only one hybrid kex is supported.
                     [{kex, Kex ++ KexEcdh}, {public_key, PubKey} | Config];
                 {Kex, _} when length(Kex) >= 2 ->
                     [{kex, Kex}, {public_key, PubKey} | Config];
