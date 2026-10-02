@@ -383,8 +383,12 @@ connection(info, {send, From, Ref, Data}, _StateData) ->
     {keep_state_and_data,
      [{next_event, {call, {self(), undefined}},
        {application_data, erlang:iolist_to_iovec(Data)}}]};
-connection(timeout, hibernate, _StateData) ->
-    {keep_state_and_data, [hibernate]};
+connection(timeout, hibernate, #data{connection_states = ConnectionStates} = StateData) ->
+    %% The AEAD handles are a cache; drop them so that an idle connection
+    %% does not hold one per direction. The next record recreates them.
+    {keep_state, StateData#data{connection_states =
+                                    ssl_record:drop_aead_handles(ConnectionStates)},
+     [hibernate]};
 connection(Type, Msg, StateData) ->
     handle_common(connection, Type, Msg, StateData).
 
