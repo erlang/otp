@@ -26656,7 +26656,7 @@ fi
 
 case $OPSYS in
     linux*)
-        if test X${enable_native_stack} = Xyes; then
+        if test X${enable_native_stack} = Xyes || test X${JIT_ARCH} = Xarm; then
 
 printf "%s\n" "#define ERLANG_FRAME_POINTERS /**/" >>confdefs.h
 

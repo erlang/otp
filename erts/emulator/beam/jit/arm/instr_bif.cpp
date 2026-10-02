@@ -840,7 +840,7 @@ void BeamModuleAssembler::emit_call_bif_mfa(const ArgAtom &M,
 
 void BeamGlobalAssembler::emit_call_nif_early() {
     a.mov(ARG2, a64::x30);
-    a.sub(ARG2, ARG2, imm(BEAM_ASM_FUNC_PROLOGUE_SIZE + sizeof(ErtsCodeInfo)));
+    a.sub(ARG2, ARG2, imm(BEAM_ASM_BP_RETURN_OFFSET + sizeof(ErtsCodeInfo)));
 
     emit_enter_runtime();
 

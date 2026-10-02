@@ -306,7 +306,15 @@ void BeamGlobalAssembler::emit_raise_exception_shared() {
      * The fake CP is discarded by handle_error() before jumping to
      * a catch handler, and is ignored as a duplicate in stack
      * traces because it's equal to the error address. */
-    a.str(ARG2, a64::Mem(E, -8).pre());
+    if (ERTS_UNLIKELY(erts_frame_layout == ERTS_FRAME_LAYOUT_FP_RA)) {
+#ifdef ERLANG_FRAME_POINTERS
+        a.stp(frame_pointer, ARG2, a64::Mem(E, -16).pre());
+        a.mov(frame_pointer, E);
+#endif
+    } else {
+        ASSERT(erts_frame_layout == ERTS_FRAME_LAYOUT_RA);
+        a.str(ARG2, a64::Mem(E, -8).pre());
+    }
 
     emit_enter_runtime<Update::eHeapAlloc | Update::eXRegs>();
 
