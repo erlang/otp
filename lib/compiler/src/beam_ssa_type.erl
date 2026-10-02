@@ -127,8 +127,16 @@ opt_start_1(Wl0, ArgDb, StMap0, FuncDb0, MetaCache, Seen0) ->
             #opt_st{ssa=Linear0,args=Args} = St0 = map_get(Id, StMap0),
 
             Ts = #{Arg => Type || Arg <- Args && Type <- ArgTypes},
+
+            %% Having finished the signatures pass, the argument types
+            %% must not be widened from now on.
+            #{Id := Fi0} = FuncDb0,
+            Fi = Fi0#func_info{prev_joined_args=Ts},
+            FuncDb1 = FuncDb0#{Id := Fi},
+
             {Linear, FuncDb} = opt_function(Linear0, Args, Id, Ts,
-                                            FuncDb0, MetaCache),
+                                            FuncDb1, MetaCache),
+
             St = St0#opt_st{ssa=Linear},
             StMap = StMap0#{ Id := St },
 
@@ -545,20 +553,25 @@ sig_update_args_1(Callee, Types, #sig_st{updates=Us0,wl=Wl0}=State) ->
       Args :: [beam_ssa:b_var()],
       Anno :: beam_ssa:anno(),
       FuncDb :: func_info_db().
-opt_continue(Linear0, Args, Anno, FuncDb) when FuncDb =/= #{} ->
+opt_continue(Linear0, Args, Anno, FuncDb0) when FuncDb0 =/= #{} ->
     Id = get_func_id(Anno),
-    case FuncDb of
-        #{ Id := #func_info{exported=false,arg_types=ArgTypes} } ->
+    case FuncDb0 of
+        #{ Id := #func_info{exported=false,
+                            prev_joined_args=Prev,
+                            arg_types=ArgTypes}=Fi0 } ->
             %% This is a local function and we're guaranteed to have visited
             %% every call site at least once, so we know that the parameter
             %% types are at least as narrow as the join of all argument types.
             Ts = join_arg_types(Args, ArgTypes),
+            ensure_not_widened(Id, Args, Prev, Ts),
+            Fi = Fi0#func_info{prev_joined_args=Ts},
+            FuncDb = FuncDb0#{Id := Fi},
             opt_function(Linear0, Args, Id, Ts, FuncDb);
         #{ Id := #func_info{exported=true} } ->
             %% We can't infer the parameter types of exported functions, but
             %% running the pass again could still help other functions.
             Ts = #{V => any || #b_var{}=V <- Args},
-            opt_function(Linear0, Args, Id, Ts, FuncDb)
+            opt_function(Linear0, Args, Id, Ts, FuncDb0)
     end;
 opt_continue(Linear0, Args, Anno, _FuncDb) ->
     %% Module-level optimization is disabled, pass an empty function database
@@ -567,6 +580,40 @@ opt_continue(Linear0, Args, Anno, _FuncDb) ->
     Ts = #{V => any || #b_var{}=V <- Args},
     {Linear, _} = opt_function(Linear0, Args, Id, Ts, #{}),
     {Linear, #{}}.
+
+ensure_not_widened(Id, Args, Prev, Current) ->
+    _ = [begin
+             A = map_get(Arg, Prev),
+             B = map_get(Arg, Current),
+             case check_widened(A, B) of
+                 ok ->
+                     ok;
+                 {error,Meet} ->
+                     io:format("~p/~p\n",
+                               [Id#b_local.name#b_literal.val,
+                                Id#b_local.arity]),
+                     io:format("Arg: ~p\n", [Arg#b_var.name]),
+                     io:format("Previous: ~p\n", [A]),
+                     io:format("Current:  ~p\n", [B]),
+                     io:format("Meet: ~p\n", [Meet]),
+                     error(argument_widened)
+             end
+         end || Arg <- Args],
+    ok.
+
+check_widened(A0, B) ->
+    case beam_types:meet(A0, B) of
+        B ->
+            ok;
+        _ ->
+            A = beam_types:normalize(A0),
+            case beam_types:meet(A, B) of
+                B ->
+                    ok;
+                Meet ->
+                    {error,Meet}
+            end
+    end.
 
 join_arg_types(Args, TypeMaps) ->
     #{Arg => beam_types:join(maps:values(TypeMap)) ||
@@ -2827,7 +2874,8 @@ infer_relop('=:=', [LHS,RHS], [LType,RType], Ds) ->
     Type = beam_types:meet(LType, RType),
     {[{LHS,Type},{RHS,Type}] ++ EqTypes, []};
 infer_relop('=/=', [LHS,RHS], [LType,RType], Ds) ->
-    NeTypes = infer_ne_type(map_get(LHS, Ds), RType),
+    LHSDef = map_get(LHS, Ds),
+    NeTypes = infer_ne_type(LHSDef, RType),
 
     %% We must be careful with types inferred from '=/='.
     %%
@@ -2840,9 +2888,19 @@ infer_relop('=/=', [LHS,RHS], [LType,RType], Ds) ->
     %% value and vice versa. We must not subtract the meet of the two
     %% as it may be too specific. See beam_type_SUITE:type_subtraction/1
     %% for details.
-    {[{V,beam_types:subtract(ThisType, OtherType)} ||
-         {V, ThisType, OtherType} <:- [{RHS, RType, LType}, {LHS, LType, RType}],
-         beam_types:is_singleton_type(OtherType)], NeTypes};
+    PosTypes = [{V,beam_types:subtract(ThisType, OtherType)} ||
+                   {V, ThisType, OtherType} <:- [{RHS, RType, LType},
+                                                 {LHS, LType, RType}],
+                   beam_types:is_singleton_type(OtherType)],
+    EqTypes = case beam_types:is_singleton_type(RType) of
+                    true ->
+                        infer_eq_type(LHSDef,
+                                      beam_types:subtract(LType, RType));
+                    false ->
+                        []
+                end,
+
+    {PosTypes ++ EqTypes, NeTypes};
 infer_relop(Op, Args, Types, _Ds) ->
     {infer_relop(Op, Args, Types), []}.
 
@@ -3004,9 +3062,11 @@ infer_type({bif,is_binary}, [#b_var{}=Arg], _Ts, _Ds) ->
 infer_type({bif,is_bitstring}, [#b_var{}=Arg], Ts, _Ds) ->
     T = {Arg, beam_types:meet(concrete_type(Arg, Ts), #t_bs_matchable{})},
     {[T], [T]};
-infer_type({bif,is_boolean}, [#b_var{}=Arg], _Ts, _Ds) ->
-    T = {Arg, beam_types:make_boolean()},
-    {[T], [T]};
+infer_type({bif,is_boolean}, [#b_var{}=Arg], _Ts, Ds) ->
+    Bool = beam_types:make_boolean(),
+    EqTypes = infer_eq_type(map_get(Arg, Ds), Bool),
+    T = {Arg, Bool},
+    {[T|EqTypes], [T]};
 infer_type({bif,is_float}, [#b_var{}=Arg], _Ts, _Ds) ->
     T = {Arg, #t_float{}},
     {[T], [T]};
