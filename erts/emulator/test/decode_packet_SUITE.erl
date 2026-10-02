@@ -58,13 +58,33 @@ basic(Config) when is_list(Config) ->
 
     {more, 5+1} = decode_pkt(1,<<5,1,2,3,4>>),
     {more, 5+2} = decode_pkt(2,<<0,5,1,2,3,4>>),
+    {more, 5+3} = decode_pkt(3,<<0,0,5,1,2,3,4>>),
+    {more, 5+3} = decode_pkt({3,big},<<0,0,5,1,2,3,4>>),
+    {more, 5+3} = decode_pkt({3,little},<<5,0,0,1,2,3,4>>),
     {more, 5+4} = decode_pkt(4,<<0,0,0,5,1,2,3,4>>),
 
     {more, undefined} = decode_pkt(1,<<>>),
     {more, undefined} = decode_pkt(2,<<0>>),
+    {more, undefined} = decode_pkt(3,<<0,0>>),
     {more, undefined} = decode_pkt(4,<<0,0,0>>),
+    {more, 16#0102 + 2} = decode_pkt({2,big}, <<16#0102:16/big>>),
+    {more, 16#0102 + 2} =
+        decode_pkt({2,little}, <<16#0102:16/little>>),
+    {more, 16#0102 + 2} =
+        decode_pkt({2,native}, <<16#0102:16/native>>),
+    {more, 16#010203 + 3} = decode_pkt(3, <<16#010203:24>>),
+    {more, 16#010203 + 3} =
+        decode_pkt({3,big}, <<16#010203:24/big>>),
+    {more, 16#010203 + 3} =
+        decode_pkt({3,little}, <<16#010203:24/little>>),
+    {more, 16#010203 + 3} =
+        decode_pkt({3,native}, <<16#010203:24/native>>),
 
-    Types = [1,2,4,asn1,sunrm,cdr,fcgi,tpkt,ssl_tls],
+    Types = [1,2,3,4,
+             {2,big},{2,little},{2,native},
+             {3,big},{3,little},{3,native},
+             {4,big},{4,little},{4,native},
+             asn1,sunrm,cdr,fcgi,tpkt,ssl_tls],
 
     %% Run tests for different header types and bit offsets.
 
@@ -132,9 +152,32 @@ pack(1,Bin) ->
 pack(2,Bin) ->
     Psz = byte_size(Bin),
     {<<Psz:16,Bin/binary>>, Bin};
+pack(3,Bin) ->
+    Psz = byte_size(Bin),
+    {<<Psz:24,Bin/binary>>, Bin};
 pack(4,Bin) ->
     Psz = byte_size(Bin),
     {<<Psz:32,Bin/binary>>, Bin};
+pack({N,big},Bin) ->
+    pack(N,Bin);
+pack({2,little},Bin) ->
+    Psz = byte_size(Bin),
+    {<<Psz:16/little,Bin/binary>>, Bin};
+pack({3,little},Bin) ->
+    Psz = byte_size(Bin),
+    {<<Psz:24/little,Bin/binary>>, Bin};
+pack({4,little},Bin) ->
+    Psz = byte_size(Bin),
+    {<<Psz:32/little,Bin/binary>>, Bin};
+pack({2,native},Bin) ->
+    Psz = byte_size(Bin),
+    {<<Psz:16/native,Bin/binary>>, Bin};
+pack({3,native},Bin) ->
+    Psz = byte_size(Bin),
+    {<<Psz:24/native,Bin/binary>>, Bin};
+pack({4,native},Bin) ->
+    Psz = byte_size(Bin),
+    {<<Psz:32/native,Bin/binary>>, Bin};
 pack(asn1,Bin) ->
     Ident = case rand:uniform(3) of
                 1 -> <<17>>;
@@ -244,12 +287,23 @@ packet_size(Config) when is_list(Config) ->
                         ok
                 end
         end,
-    lists:foreach(F, [{T,D} || T<-[1,2,4,asn1,sunrm,cdr,fcgi,tpkt,ssl_tls],
+    Types = [1,2,3,4,
+             {2,big},{2,little},{2,native},
+             {3,big},{3,little},{3,native},
+             {4,big},{4,little},{4,native},
+             asn1,sunrm,cdr,fcgi,tpkt,ssl_tls],
+    lists:foreach(F, [{T,D} || T<-Types,
                                D<-lists:seq(0, byte_size(Packet)*2)]),
 
     %% Test OTP-8102, "negative" 4-byte sizes.
     lists:foreach(fun(Size) -> 
-                          {error,_} = decode_pkt(4,<<Size:32,Packet/binary>>)
+                          {error,_} = decode_pkt(4,<<Size:32,Packet/binary>>),
+                          {error,_} = decode_pkt({4,big},
+                                                 <<Size:32/big,Packet/binary>>),
+                          {error,_} = decode_pkt({4,little},
+                                                 <<Size:32/little,Packet/binary>>),
+                          {error,_} = decode_pkt({4,native},
+                                                 <<Size:32/native,Packet/binary>>)
                   end, 
                   lists:seq(-10,-1)),
 
@@ -285,7 +339,10 @@ neg(Config) when is_list(Config) ->
 
     %% Invalid Type args
     lists:foreach(fun(T)-> BadargF(T,Bin,[]) end, 
-                  [3,-1,5,2.0,{2},unknown,[],"line",Bin,Fun,self()]),
+                  [-1,5,2.0,
+                   {0,big},{1,big},{5,big},{2},{2,middle},{3,middle},{4,middle},
+                   {2,big,extra},{2.0,big},
+                   unknown,[],"line",Bin,Fun,self()]),
 
     %% Invalid Bin args
     lists:foreach(fun(B)-> BadargF(0,B,[]) end, 
