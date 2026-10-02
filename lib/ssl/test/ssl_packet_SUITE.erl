@@ -678,7 +678,7 @@ packet_send_to_large(Config) when is_list(Config) ->
 					{options, [{active, true} | ClientOpts]}]),
 
     ssl_test_lib:check_result(Server, {error, {badarg, 
-					       {packet_to_large, 300, 255}}}),
+                                               {packet_too_large, 300, 255}}}),
 
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).

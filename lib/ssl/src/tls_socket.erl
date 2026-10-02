@@ -596,6 +596,12 @@ validate_inet_option(active, Value)
 validate_inet_option(active, Value)
   when Value =/= true, Value =/= false, Value =/= once ->
     throw({error, {options, {active,Value}}});
+validate_inet_option(Name, Value)
+  when Name == high_watermark; Name == low_watermark ->
+    case ssl_shared_opts:is_valid_watermark(Value) of
+        true -> ok;
+        false -> throw({error, {options, {Name, Value}}})
+    end;
 validate_inet_option(_, _) ->
     ok.
 

@@ -1919,9 +1919,11 @@ emulated_options(Transport, Socket, Protocol, Opts) ->
     EmulatedOptions = tls_socket:emulated_options(Transport),
     {ok, Inherited} = case Socket of
                           {'$socket', _} ->
-                              %% This can't be set on a socket socket,
-                              %% so set Inherited the only possibly defaults.
-                              {ok, tls_socket:internal_inet_values(tcp)};
+                              %% Raw sockets do not expose inet's emulated
+                              %% options. Preserve their internal values and
+                              %% fill in the transport-specific defaults.
+                              {ok, tls_socket:internal_inet_values(tcp) ++
+                                   tls_socket:default_inet_values(Transport)};
                           _ ->
                               tls_socket:getopts(Transport, Socket, EmulatedOptions)
                       end,
