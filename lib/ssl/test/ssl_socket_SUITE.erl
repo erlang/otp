@@ -56,7 +56,13 @@
          invalid_inet_set_option_improper_list/0,
          invalid_inet_set_option_improper_list/1,
          raw_inet_option/0,
-         raw_inet_option/1
+         raw_inet_option/1,
+         packet_option_round_trip/0,
+         packet_option_round_trip/1,
+         watermark_options_round_trip/0,
+         watermark_options_round_trip/1,
+         send_after_close_returns_closed/0,
+         send_after_close_returns_closed/1
         ]).
 
 %% Apply export
@@ -83,9 +89,10 @@ all() ->
 
 groups() ->
     [
-     {tls,[], socket_tests() ++ raw_inet_opt()},
+     {tls,[], socket_tests() ++ raw_inet_opt() ++ shared_opts_tests()},
      {dtls,[], socket_tests()},
-     {transport_socket, [], socket_tests() ++ raw_inet_opt()}
+     {transport_socket, [], socket_tests() ++ raw_inet_opt() ++ shared_opts_tests()
+      ++ emulated_watermark_tests()}
     ].
 
 socket_tests() ->
@@ -103,6 +110,20 @@ socket_tests() ->
 raw_inet_opt() ->
     [
      raw_inet_option
+    ].
+
+%% Options that ssl:send/2 and the sender process read without asking the
+%% connection process.
+shared_opts_tests() ->
+    [
+     packet_option_round_trip,
+     send_after_close_returns_closed
+    ].
+
+%% The watermarks are emulated only on the tls_socket_tcp transport.
+emulated_watermark_tests() ->
+    [
+     watermark_options_round_trip
     ].
 
 
@@ -473,3 +494,85 @@ wait_for_send(Socket) ->
     %% Make sure TLS process processed send message event
     _ = ssl:connection_information(Socket).
 
+%%--------------------------------------------------------------------
+packet_option_round_trip() ->
+    [{doc,"setopts/getopts of every packet type on an established socket, "
+      "and ssl:send/2 encodes with the type set last"}].
+
+packet_option_round_trip(Config) when is_list(Config) ->
+    {Server, Client} = connected_pair(Config),
+    Types = [raw, 0, 1, 2, 4, asn1, cdr, sunrm, fcgi, tpkt, line,
+             http, httph, http_bin, httph_bin],
+    lists:foreach(
+      fun(Type) ->
+              ok = ssl:setopts(Server, [{packet, Type}]),
+              {ok, [{packet, Type}]} = ssl:getopts(Server, [packet])
+      end, Types),
+    %% The sender encodes with the type set last: a 2-byte length header.
+    ok = ssl:setopts(Server, [{packet, 2}]),
+    ok = ssl:send(Server, <<"hello">>),
+    {ok, <<0, 5, "hello">>} = ssl:recv(Client, 7, 5000),
+    ok = ssl:setopts(Server, [{packet, raw}]),
+    ok = ssl:send(Server, <<"raw">>),
+    {ok, <<"raw">>} = ssl:recv(Client, 3, 5000),
+    ok = ssl:close(Server),
+    ok = ssl:close(Client).
+
+%%--------------------------------------------------------------------
+watermark_options_round_trip() ->
+    [{doc,"high_watermark and low_watermark on the tls_socket_tcp transport: "
+      "the transport defaults, values set, 0 accepted, negative values rejected"}].
+
+watermark_options_round_trip(Config) when is_list(Config) ->
+    {Server, Client} = connected_pair(Config),
+    %% tls_socket:default_inet_values(tls_socket_tcp) seeds both at init.
+    {ok, [{high_watermark, 8192}]} = ssl:getopts(Server, [high_watermark]),
+    {ok, [{low_watermark, 4096}]} = ssl:getopts(Server, [low_watermark]),
+    ok = ssl:setopts(Server, [{high_watermark, 100000}, {low_watermark, 0}]),
+    {ok, [{high_watermark, 100000}]} = ssl:getopts(Server, [high_watermark]),
+    {ok, [{low_watermark, 0}]} = ssl:getopts(Server, [low_watermark]),
+    {error, {options, {socket_options, {high_watermark, -1}}}} =
+        ssl:setopts(Server, [{high_watermark, -1}]),
+    {error, {options, {socket_options, {low_watermark, -1}}}} =
+        ssl:setopts(Server, [{low_watermark, -1}]),
+    {ok, [{high_watermark, 100000}]} = ssl:getopts(Server, [high_watermark]),
+    ok = ssl:close(Server),
+    ok = ssl:close(Client).
+
+%%--------------------------------------------------------------------
+send_after_close_returns_closed() ->
+    [{doc,"ssl:send/2 on a socket its owner has closed returns {error, closed}"}].
+
+send_after_close_returns_closed(Config) when is_list(Config) ->
+    {Server, Client} = connected_pair(Config),
+    ok = ssl:close(Server),
+    {error, closed} = ssl:send(Server, <<"after close">>),
+    ok = ssl:close(Client).
+
+%%--------------------------------------------------------------------
+%% Both ends of a TLS connection, owned by the calling process, passive and
+%% in binary mode.
+connected_pair(Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    GroupOpts = proplists:get_value(group_opts, Config, []),
+    {_ClientNode, _ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Common = [{active, false}, {mode, binary} | GroupOpts],
+    {ok, Listen} = ssl:listen(0, Common ++ ServerOpts),
+    {ok, {_, Port}} = ssl:sockname(Listen),
+    Self = self(),
+    _Connector = spawn_link(
+                   fun() ->
+                           {ok, C} = ssl:connect(Hostname, Port, Common ++ ClientOpts, 10000),
+                           ok = ssl:controlling_process(C, Self),
+                           Self ! {client_socket, C}
+                   end),
+    {ok, Accepted} = ssl:transport_accept(Listen, 10000),
+    {ok, Server} = ssl:handshake(Accepted, 10000),
+    Client = receive
+                 {client_socket, C} -> C
+             after 10000 ->
+                     exit(client_connect_timeout)
+             end,
+    ok = ssl:close(Listen),
+    {Server, Client}.

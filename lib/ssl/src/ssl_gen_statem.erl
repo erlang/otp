@@ -160,7 +160,7 @@ init_statem([Role, Sup, Host, Port, Socket, {TLSOpts, EmOpts, Trackers}, User, C
     end,
 
     init_label(Role, Host, Port, TLSOpts),
-    Tab = ets:new(tls_socket, []),
+    Tab = ssl_shared_opts:new(),
 
     set_default_opts(Tab, EmOpts),
 
@@ -187,7 +187,7 @@ init_statem([Role, Host, Port, Socket, {DTLSOpts,EmOpts,Trackers}, User, CbInfo]
     process_flag(trap_exit, true),
 
     init_label(Role, Host, Port, DTLSOpts),
-    Tab = ets:new(tls_socket, []),
+    Tab = ssl_shared_opts:new(),
 
     SocketOpts = dtls_socket:emulated_socket_options(EmOpts, #socket_options{}),
     Opts = {DTLSOpts, SocketOpts, Trackers},
@@ -2032,17 +2032,11 @@ get_socket_opts(Connection, Transport, Socket, Tab, [packet_size | Tags], SockOp
     get_socket_opts(Connection, Transport, Socket, Tab, Tags, SockOpts,
 		    [{packet_size, SockOpts#socket_options.packet_size} | Acc]);
 get_socket_opts(tls_gen_connection, tls_socket_tcp, Socket, Tab, [high_watermark | Tags], SockOpts, Acc) ->
-    Emulated = try ets:lookup_element(Tab, high_watermark, 2) of
-                   Val -> Val
-               catch _:_ -> 8196
-               end,
+    Emulated = ssl_shared_opts:get_high_watermark(Tab, 8196),
     get_socket_opts(tls_gen_connection, tls_socket_tcp, Socket, Tab, Tags, SockOpts,
 		    [{high_watermark, Emulated} | Acc]);
 get_socket_opts(tls_gen_connection, tls_socket_tcp, Socket, Tab, [low_watermark | Tags], SockOpts, Acc) ->
-    Emulated = try ets:lookup_element(Tab, low_watermark, 2) of
-                   Val -> Val
-               catch _:_ -> 4096
-               end,
+    Emulated = ssl_shared_opts:get_low_watermark(Tab, 4096),
     get_socket_opts(tls_gen_connection, tls_socket_tcp, Socket, Tab, Tags, SockOpts,
 		    [{low_watermark, Emulated} | Acc]);
 get_socket_opts(Connection, Transport, Socket, Tab, [Tag | Tags], SockOpts, Acc) ->
@@ -2125,24 +2119,24 @@ set_socket_opts(tls_gen_connection, Transport, Socket, Tab, [{packet, Packet}| O
        Packet == httph;
        Packet == http_bin;
        Packet == httph_bin ->
-    true = ets:insert(Tab, {{socket_options, packet}, Packet}),
+    ok = ssl_shared_opts:set_packet(Tab, Packet),
     set_socket_opts(tls_gen_connection, Transport, Socket, Tab, Opts,
 		    SockOpts#socket_options{packet = Packet}, Other);
 
 set_socket_opts(tls_gen_connection, tls_socket_tcp, Socket, Tab,
                 [{high_watermark, Sz}=Opt|Opts], SockOpts, Other) ->
-    case is_integer(Sz) of
+    case is_integer(Sz) andalso Sz >= 0 of
         true ->
-            true = ets:insert(Tab, {high_watermark, Sz}),
+            ok = ssl_shared_opts:set_high_watermark(Tab, Sz),
             set_socket_opts(tls_gen_connection, tls_socket_tcp, Socket, Tab, Opts, SockOpts, Other);
         false ->
             {{error,{options, {socket_options, Opt}}}, SockOpts}
     end;
 set_socket_opts(tls_gen_connection, tls_socket_tcp, Socket, Tab,
                 [{low_watermark, Sz}=Opt|Opts], SockOpts, Other) ->
-    case is_integer(Sz) of
+    case is_integer(Sz) andalso Sz >= 0 of
         true ->
-            true = ets:insert(Tab, {low_watermark, Sz}),
+            ok = ssl_shared_opts:set_low_watermark(Tab, Sz),
             set_socket_opts(tls_gen_connection, tls_socket_tcp, Socket, Tab, Opts, SockOpts, Other);
         false ->
             {{error,{options, {socket_options, Opt}}}, SockOpts}
@@ -2196,8 +2190,8 @@ set_default_opts(Tab, EmOpts) ->
         High ->
             Low = proplists:get_value(low_watermark, EmOpts, undefined),
             true = Low =/= undefined,  %% If High exists low exists
-            true = ets:insert(Tab, {high_watermark, High}),
-            true = ets:insert(Tab, {low_watermark, Low}),
+            ok = ssl_shared_opts:set_high_watermark(Tab, High),
+            ok = ssl_shared_opts:set_low_watermark(Tab, Low),
             ok
     end.
 
