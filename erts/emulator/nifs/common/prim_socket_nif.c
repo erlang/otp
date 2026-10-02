@@ -7606,9 +7606,9 @@ ERL_NIF_TERM nif_close(ErlNifEnv*         env,
  * Socket (ref) - Points to the socket descriptor.
  */
 static
-ERL_NIF_TERM nif_finalize_close(ErlNifEnv*         env,
-                                int                argc,
-                                const ERL_NIF_TERM argv[])
+ERL_NIF_TERM nif_finalize_close_dirty(ErlNifEnv*         env,
+                                      int                argc,
+                                      const ERL_NIF_TERM argv[])
 {
     ESockDescriptor* descP;
     ERL_NIF_TERM result;
@@ -7641,6 +7641,35 @@ ERL_NIF_TERM nif_finalize_close(ErlNifEnv*         env,
     MUNLOCK(descP->readMtx);
 
     return result;
+}
+
+
+/* Only a lingering close - SO_LINGER {onoff = true, linger > 0} - can
+ * block in close(), so only then do we need the dirty scheduler.  The
+ * answer is already on the descriptor: closeMayBlock is maintained where
+ * the option is set and starts out TRUE, so a socket whose linger state
+ * was never established still takes the dirty path, where the proper
+ * state checks run under the locks as before.
+ */
+static
+ERL_NIF_TERM nif_finalize_close(ErlNifEnv*         env,
+                                int                argc,
+                                const ERL_NIF_TERM argv[])
+{
+    ESockDescriptor* descP;
+
+    ESOCK_ASSERT( argc == 1 );
+
+    if (! ESOCK_GET_RESOURCE(env, argv[0], (void**) &descP)) {
+        return enif_make_badarg(env);
+    }
+
+    if (descP->closeMayBlock)
+        return enif_schedule_nif(env, "nif_finalize_close",
+                                 ERL_NIF_DIRTY_JOB_IO_BOUND,
+                                 nif_finalize_close_dirty, argc, argv);
+
+    return nif_finalize_close_dirty(env, argc, argv);
 }
 
 
@@ -11390,8 +11419,27 @@ static ERL_NIF_TERM esock_setopt_level_opt(ErlNifEnv*       env,
 {
     if (socket_setopt(descP->sock, level, opt, optVal, optLen))
         return esock_make_error_errno(env, sock_errno());
-    else
-        return esock_atom_ok;
+
+#if defined(SO_LINGER)
+    /* Every setsockopt passes through here, so this is the one place that
+     * sees SO_LINGER whether it arrived as the 'linger' option or as a
+     * setopt_native.  Caching it keeps the close path from having to ask
+     * the kernel. */
+    if ((level == SOL_SOCKET) && (opt == SO_LINGER)) {
+        if (optLen == sizeof(struct linger)) {
+            struct linger* lp = (struct linger*) optVal;
+
+            descP->closeMayBlock =
+                ((lp->l_onoff != 0) && (lp->l_linger > 0)) ? TRUE : FALSE;
+        } else {
+            /* The kernel took a shape we do not parse; assume the close
+             * can block rather than cache a guess. */
+            descP->closeMayBlock = TRUE;
+        }
+    }
+#endif
+
+    return esock_atom_ok;
 }
 
 
@@ -11426,56 +11474,43 @@ int socket_setopt(int sock, int level, int opt,
     int res;
 
 #if  defined(IP_TOS) && defined(SOL_IP) && defined(SO_PRIORITY)
-    int          tmpIValPRIO = 0;
-    int          tmpIValTOS = 0;
-    int          resPRIO;
-    int          resTOS;
-    SOCKOPTLEN_T tmpArgSzPRIO = sizeof(tmpIValPRIO);
-    SOCKOPTLEN_T tmpArgSzTOS  = sizeof(tmpIValTOS);
+    /* Setting IP_TOS makes the kernel derive a new SO_PRIORITY from it,
+     * so that one option - and only that one - has to have the priority
+     * saved and put back to keep the two looking independent to the
+     * user. Setting anything else leaves both alone, and paying a
+     * getsockopt for each of them plus a setsockopt to restore on every
+     * option set was most of the system calls a connection made.
+     */
+    if ((level == SOL_IP) && (opt == IP_TOS)) {
+        int          savedPRIO;
+        int          resPRIO;
+        SOCKOPTLEN_T savedSzPRIO = sizeof(savedPRIO);
 
-    resPRIO = sock_getopt(sock, SOL_SOCKET, SO_PRIORITY,
-                           &tmpIValPRIO, &tmpArgSzPRIO);
-    resTOS  = sock_getopt(sock, SOL_IP, IP_TOS,
-                          &tmpIValTOS, &tmpArgSzTOS);
+        resPRIO = sock_getopt(sock, SOL_SOCKET, SO_PRIORITY,
+                              &savedPRIO, &savedSzPRIO);
 
-    res = sock_setopt(sock, level, opt, optVal, optLen);
-    if (res == 0) {
+        res = sock_setopt(sock, level, opt, optVal, optLen);
 
-        /* Ok, now we *maybe* need to "maybe" restore PRIO and TOS...
-         * maybe, possibly, ...
-         */
+        if ((res == 0) && (resPRIO == 0)) {
+            resPRIO = sock_setopt(sock, SOL_SOCKET, SO_PRIORITY,
+                                  &savedPRIO, savedSzPRIO);
 
-        if (opt != SO_PRIORITY) {
-	    if ((opt != IP_TOS) && (resTOS == 0)) {
-		resTOS = sock_setopt(sock, SOL_IP, IP_TOS,
-                                     (void *) &tmpIValTOS,
-                                     tmpArgSzTOS);
-                res = resTOS;
-            }
-	    if ((res == 0) && (resPRIO == 0)) {
-		resPRIO = sock_setopt(sock, SOL_SOCKET, SO_PRIORITY,
-                                      &tmpIValPRIO,
-                                      tmpArgSzPRIO);
+            /* Some kernels set a SO_PRIORITY by default
+             * that you are not permitted to reset,
+             * silently ignore this error condition.
+             */
 
-                /* Some kernels set a SO_PRIORITY by default
-                 * that you are not permitted to reset,
-                 * silently ignore this error condition.
-                 */
+            if ((resPRIO != 0) && (sock_errno() == EPERM))
+                res = 0;
+            else
+                res = resPRIO;
+        }
 
-                if ((resPRIO != 0) && (sock_errno() == EPERM)) {
-                    res = 0;
-                } else {
-                    res = resPRIO;
-		}
-	    }
-	}
+        return res;
     }
-
-#else
+#endif
 
     res = sock_setopt(sock, level, opt, optVal, optLen);
-
-#endif
 
     return res;
 }
@@ -13072,6 +13107,33 @@ ERL_NIF_TERM esock_getopt_uint_opt(ErlNifEnv*       env,
     return esock_make_ok2(env, MKUI(env, val));
 }
 #endif
+
+
+
+/* esock_close_may_block - can a close() on this socket block?
+ *
+ * Only a lingering close, SO_LINGER {onoff = true, linger > 0}, can.
+ * Fail-safe: an option we cannot read answers TRUE.
+ */
+extern
+BOOLEAN_T esock_close_may_block(SOCKET sock)
+{
+#if defined(SO_LINGER)
+    struct linger val;
+    SOCKOPTLEN_T  valSz = sizeof(val);
+
+#ifdef __WIN32__
+    if (sock_getopt(sock, SOL_SOCKET, SO_LINGER, (char*) &val, &valSz) != 0)
+#else
+    if (sock_getopt(sock, SOL_SOCKET, SO_LINGER, &val, &valSz) != 0)
+#endif
+        return TRUE;
+
+    return ((val.l_onoff != 0) && (val.l_linger > 0)) ? TRUE : FALSE;
+#else
+    return FALSE;
+#endif
+}
 
 
 
@@ -17023,6 +17085,7 @@ ESockDescriptor* esock_alloc_descriptor(SOCKET sock)
     esock_requestor_init(&descP->currentReader);
     descP->currentReaderP = NULL; // currentReader not used
     descP->buf.data = NULL;
+    descP->closeMayBlock = TRUE; /* narrowed once the linger state is known */
 #endif
     descP->readersQ.first = NULL;
     descP->readersQ.last  = NULL;
@@ -18744,7 +18807,7 @@ ErlNifFunc esock_funcs[] =
      * is called after the close *select* has "completed".
      */
     {"nif_cancel",              3, nif_cancel, 0},
-    {"nif_finalize_close",      1, nif_finalize_close, ERL_NIF_DIRTY_JOB_IO_BOUND}
+    {"nif_finalize_close",      1, nif_finalize_close, 0}
 };
 
 
