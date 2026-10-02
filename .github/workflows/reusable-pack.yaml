@@ -140,7 +140,7 @@ jobs:
         run: .github/scripts/init-pre-release.sh otp_archive.tar.gz otp_src.tar.gz
 
       - name: Upload source tar archive
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # ratchet:actions/upload-artifact@v6.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: otp_git_archive
           path: otp_archive.tar.gz
@@ -175,7 +175,7 @@ jobs:
             "`pwd`/otp_archive.tar.gz"
 
       - name: Upload restored cache
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # ratchet:actions/upload-artifact@v6.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: runner.debug == 1
         with:
           name: restored-cache
@@ -206,7 +206,7 @@ jobs:
           gzip otp_cache.tar
 
       - name: Upload pre-built tar archives
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # ratchet:actions/upload-artifact@v6.0.0
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: otp_prebuilt
           path: |
