@@ -21,7 +21,9 @@
 %%
 %%
 -module(mod_log).
--moduledoc false.
+-moduledoc """
+Inets httpd logging module.
+""".
 
 %% Application internal API
 -export([error_log/2, security_log/2, report_error/2]).
@@ -29,15 +31,42 @@
 %% Callback API
 -export([do/1, load/2, store/2, remove/1]).
 
+-behaviour(httpd).
+
 -include("httpd.hrl").
 -include("httpd_internal.hrl").
 -define(VMODULE,"LOG").
+
+%%%=========================================================================
+%%%  TYPES
+%%%=========================================================================
+
+-export_type([log_option/0]).
+
+-doc """
+- [](){: #prop_elog } **`{error_log, path()}`**  
+  Defines the filename of the error log file to be used to log server errors. If
+  the filename does not begin with a slash (/), it is assumed to be relative to
+  the `server_root`.
+
+- [](){: #prop_slog } **`{security_log, path()}`**  
+  Defines the filename of the access log file to be used to log security events.
+  If the filename does not begin with a slash (/), it is assumed to be relative
+  to the `server_root`.
+
+- [](){: #prop_tlog } **`{transfer_log, path()}`**  
+  Defines the filename of the access log file to be used to log incoming
+  requests. If the filename does not begin with a slash (/), it is assumed to be
+  relative to the `server_root`.
+""".
+-type log_option() :: {transfer_log, string()} | {error_log, string()} | {security_log, string()}.
 
 %%%=========================================================================
 %%%  API 
 %%%=========================================================================
 
 %% security log
+-doc false.
 security_log(Info, ReasonStr) ->
     Date = httpd_util:custom_date(),
     case httpd_log:security_entry(security_log, no_security_log, Info,
@@ -49,6 +78,7 @@ security_log(Info, ReasonStr) ->
     end.
 
 %% error_log
+-doc false.
 error_log(Info, Reason) ->
     Date = httpd_util:custom_date(),
     error_log(Info, Date, Reason).
@@ -62,6 +92,7 @@ error_log(Info, Date, Reason) ->
 	    io:format(Log, "~s", [Entry])
     end.
 
+-doc false.
 report_error(ConfigDB, Error) ->
     Date = httpd_util:custom_date(),
     case httpd_log:error_report_entry(error_log, no_error_log, ConfigDB,
@@ -82,6 +113,7 @@ report_error(ConfigDB, Error) ->
 %%
 %% Description:  See httpd(3) ESWAPI CALLBACK FUNCTIONS
 %%-------------------------------------------------------------------------
+-doc false.
 do(Info) ->
     AuthUser = auth_user(Info#mod.data),
     Date     = httpd_util:custom_date(),
@@ -130,6 +162,7 @@ do(Info) ->
 %%
 %% Description: See httpd(3) ESWAPI CALLBACK FUNCTIONS
 %%-------------------------------------------------------------------------
+-doc false.
 load("TransferLog " ++ TransferLog, []) ->
     {ok,[],{transfer_log,string:strip(TransferLog)}};
 load("ErrorLog " ++ ErrorLog, []) ->
@@ -147,6 +180,7 @@ load("SecurityLog " ++ SecurityLog, []) ->
 %%
 %% Description: See httpd(3) ESWAPI CALLBACK FUNCTIONS
 %%-------------------------------------------------------------------------
+-doc false.
 store({transfer_log,TransferLog}, ConfigList) when is_list(TransferLog)->
     case create_log(TransferLog,ConfigList) of
 	{ok,TransferLogStream} ->
@@ -180,6 +214,7 @@ store({security_log, SecurityLog}, _) ->
 %%
 %% Description: See httpd(3) ESWAPI CALLBACK FUNCTIONS
 %%-------------------------------------------------------------------------
+-doc false.
 remove(ConfigDB) ->
     lists:foreach(fun([Stream]) -> file:close(Stream) end,
 		  ets:match(ConfigDB,{transfer_log,'$1'})),

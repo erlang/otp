@@ -29,7 +29,7 @@ databases, or Mnesia databases.
 
 ### See also
 
-`m:httpd`, `m:mod_alias`
+`m:httpd`, `m:mod_alias`, [mod_auth - User Authentication](http_server.md#mod_auth).
 """.
 
 %% The functions that the webbserver call on startup stop
@@ -58,6 +58,114 @@ databases, or Mnesia databases.
 
 -type httpd_user() :: #httpd_user{}.
 -type httpd_group() :: #httpd_group{}.
+
+%%====================================================================
+%% TYPES
+%%====================================================================
+-export_type([auth_option/0]).
+
+-doc """
+`m:mod_auth` is configured by having a list of `{directory, {Path, DirProps}}` tuples in the configuration database.
+
+The properties for directories are as follows:
+
+- [](){: #prop_allow_from } **`{allow_from, all | [RegxpHostString]}`**  
+  Defines a set of hosts to be granted access to a given directory, for example:
+
+  ```erlang
+  {allow_from, ["123.34.56.11", "150.100.23"]}
+  ```
+
+  The host `123.34.56.11` and all machines on the `150.100.23` subnet are
+  allowed access.
+
+- [](){: #prop_deny_from } **`{deny_from, all | [RegxpHostString]}`**  
+  Defines a set of hosts to be denied access to a given directory, for example:
+
+  ```text
+  {deny_from, ["123.34.56.11", "150.100.23"]}
+  ```
+
+  The host `123.34.56.11` and all machines on the `150.100.23` subnet are not
+  allowed access.
+
+- [](){: #prop_auth_type } **`{auth_type, plain | dets | mnesia}`**  
+  Sets the type of authentication database that is used for the directory. The
+  key difference between the different methods is that dynamic data can be saved
+  when Mnesia and Dets are used.
+
+- [](){: #prop_auth_user_file } **`{auth_user_file, path()}`**  
+  Sets the name of a file containing the list of users and passwords for user
+  authentication. The filename can be either absolute or relative to the
+  `server_root`. If using the plain storage method, this file is a plain text
+  file where each line contains a username followed by a colon, followed by the
+  non-encrypted password. If usernames are duplicated, the behavior is
+  undefined.
+
+  Example:
+
+  ```text
+  ragnar:s7Xxv7
+  edward:wwjau8
+  ```
+
+  If the Dets storage method is used, the user database is maintained by Dets
+  and must not be edited by hand. Use the API functions in module `mod_auth` to
+  create/edit the user database. This directive is ignored if the Mnesia storage
+  method is used. For security reasons, ensure that `auth_user_file` is stored
+  outside the document tree of the web server. If it is placed in the directory
+  that it protects, clients can download it.
+
+- [](){: #prop_auth_group_file } **`{auth_group_file, path()}`**  
+  Sets the name of a file containing the list of user groups for user
+  authentication. The filename can be either absolute or relative to the
+  `server_root`. If the plain storage method is used, the group file is a plain
+  text file, where each line contains a group name followed by a colon, followed
+  by the members usernames separated by spaces.
+
+  Example:
+
+  ```text
+  group1: bob joe ante
+  ```
+
+  If the Dets storage method is used, the group database is maintained by Dets
+  and must not be edited by hand. Use the API for module `mod_auth` to
+  create/edit the group database. This directive is ignored if the Mnesia
+  storage method is used. For security reasons, ensure that the
+  `auth_group_file` is stored outside the document tree of the web server. If it
+  is placed in the directory that it protects, clients can download it.
+
+- [](){: #prop_auth_name } **`{auth_name, string()}`**  
+  Sets the name of the authorization realm (auth-domain) for a directory. This
+  string informs the client about which username and password to use.
+
+- [](){: #prop_auth_access_passwd } **`{auth_access_password, string()}`**  
+  If set to other than `"NoPassword"`, the password is required for all API calls.
+  If the password is set to `"DummyPassword"`, the password must be changed before
+  any other API calls. To secure the authenticating data, the password must be
+  changed after the web server is started. Otherwise it is written in clear text
+  in the configuration file.
+
+- [](){: #prop_req_user } **`{require_user, [string()]}`**  
+  Defines users to grant access to a given directory using a secret password.
+
+- [](){: #prop_req_grp } **`{require_group, [string()]}`**  
+  Defines users to grant access to a given directory using a secret password.
+""".
+-type auth_option() ::
+    {directory, {Path :: file:name_all(),
+        [DirProps ::
+              {allow_from, all | [RexExp :: string()]} |
+              {deny_from, all | [RexExp :: string()]} |
+              {auth_type, plain | dets | mnesia} |
+              {auth_user_file, file:name_all()} |
+              {auth_group_file, file:name_all()} |
+              {auth_name, string()} |
+              {auth_access_password, string()} |
+              {require_user, [string()]} |
+              {require_group, [string()]}]}}.
+
 
 %%====================================================================
 %% Internal application API
