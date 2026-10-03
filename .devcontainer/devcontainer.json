@@ -26,7 +26,7 @@
 	    "dockerfile": "../.github/dockerfiles/Dockerfile.ubuntu-base",
             "context": "../.github",
             "args": {
-                "BASE": "mcr.microsoft.com/vscode/devcontainers/base:focal",
+                "BASE": "mcr.microsoft.com/devcontainers/base:noble",
                 "USER": "vscode",
                 "GROUP": "vscode"
             }

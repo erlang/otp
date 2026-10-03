@@ -1618,7 +1618,7 @@ static void collect_timem_info(BpTimemTrace* bdt,
     }
 }
 
-void erts_timem_info_consolidate()
+void erts_timem_info_consolidate(void)
 {
     FinishTimemInfo *fin = &finish_timem_info;
     GenericBpData *staging = &fin->g->data[erts_staging_bp_ix()];

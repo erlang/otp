@@ -38,7 +38,7 @@ bool ycf_track_memory = false;
 size_t ycf_memory_usage = 0;
 size_t ycf_max_memory_usage = 0;
 
-void ycf_enable_memory_tracking(){
+void ycf_enable_memory_tracking(void){
   ycf_track_memory = true;
 }
 
