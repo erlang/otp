@@ -89,6 +89,16 @@ get_mode() ->
 %% -----------------------------------------------------------
 
 init(Ref, Parent, [Root,Mode]) ->
+    %% The mode must be readable as soon as the name resolves:
+    %% error_handler routes lazy loads through code:ensure_loaded/1
+    %% (which reads this term via get_mode/0) once
+    %% whereis(code_server) succeeds, and processes already running
+    %% during kernel start -- notably the logger kernel process --
+    %% can hit an undefined function while init/3 is still building
+    %% the code path. Publishing the term only after register/2 left
+    %% a window where such a load raised badarg, killing logger and
+    %% the whole boot (GH-11353).
+    persistent_term:put(?MODULE, Mode),
     register(?MODULE, self()),
     process_flag(trap_exit, true),
 
@@ -120,7 +130,6 @@ init(Ref, Parent, [Root,Mode]) ->
 		   moddb = Db,
 		   namedb = create_namedb(Path, Root)},
 
-    persistent_term:put(?MODULE, Mode),
     Parent ! {Ref,{ok,self()}},
     loop(State).
 
