@@ -38,7 +38,8 @@ suite() ->
     [].
 
 all() ->
-    [ doctests, enabled, fwrite, format_color_option, format_no_color_env, scan ].
+    [ doctests, enabled, fwrite, format_color_option,
+      format_no_color_env, scan ].
 
 
 groups() ->
@@ -166,22 +167,17 @@ format_color_option(Config) ->
     %% while keeping non-color style directives.
     Term = shell_test_lib:setup_tty([{env, [{"TERM","xterm-256color"}, {"NO_COLOR",""}]}|Config]),
     try
-        ?assertEqual(<<"x">>,
+        Dir = [{color,4}, {color,10,20,30}, blue, default_color,
+               {underline_color,4}, {underline_color,10,20,30}, blue_underline, default_underline_color,
+               {background,4}, {background,10,20,30}, blue_background, default_background],
+        [ ?assertEqual(<<"x">>,
                      shell_test_lib:rpc(
                        Term,
                        fun() ->
                                group_leader(whereis(user), self()),
-                               io_ansi:format([{color,4}, "x"], [],
+                               io_ansi:format([X, "x"], [],
                                               [{enabled,true}, {color,false}, {reset,false}])
-                       end)),
-        ?assertEqual(<<"x">>,
-                     shell_test_lib:rpc(
-                       Term,
-                       fun() ->
-                               group_leader(whereis(user), self()),
-                               io_ansi:format([{underline_color,4}, "x"], [],
-                                              [{enabled,true}, {color,false}, {reset,false}])
-                       end)),
+                       end)) || X <- Dir ],
         ?assertEqual(<<"\e[4mx">>,
                      shell_test_lib:rpc(
                        Term,
