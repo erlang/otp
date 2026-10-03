@@ -63,9 +63,10 @@ post_end_per_suite(_Suite, _Config, Return, State) ->
     do_until(fun() -> ct:remaining_test_procs() end, {[],SharedGL,[]}),
     AllProcs = processes(),
     Remaining = AllProcs--proplists:get_value(all_procs, State),
-    ct:pal("Final remaining processes = ~p", [Remaining]),
-    %% only the end_per_suite process should remain at this point!
-    Remaining = [self()],
+    ct:pal("Final remaining processes = ~p", [pi(Remaining)]),
+    Me = self(),
+    %% only the end_per_suite process and application_master should remain at this point!
+    [_AppMaster, Me] = Remaining,
     {Return, State}.
 
 pre_init_per_group(_Suite, _Group, Config, State) ->
