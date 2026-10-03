@@ -63,7 +63,7 @@ jobs:
       - name: Use HTTPS instead of SSH for Git cloning
         run: git config --global url.https://github.com/.insteadOf ssh://git@github.com/
 
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6.0.2
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           persist-credentials: false
 
@@ -72,7 +72,7 @@ jobs:
           BASE_BRANCH: ${{ inputs.base_branch }}
 
       - name: Fetch Default ORT Config
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6.0.2
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           repository: oss-review-toolkit/ort-config
           ref: "d2978deb230beae095bb6cfec074b94f1a74fd34"
@@ -95,7 +95,7 @@ jobs:
         run: echo "ort_version=${{ env.ORT_VERSION }}" >> $GITHUB_OUTPUT
 
       - name: Run OSS Review Toolkit (analyzer)
-        uses: oss-review-toolkit/ort-ci-github-action@1805edcf1f4f55f35ae6e4d2d9795ccfb29b6021 # ratchet:oss-review-toolkit/ort-ci-github-action@v1.1.0
+        uses: oss-review-toolkit/ort-ci-github-action@086d928d24ef1653dc0777296b312fda5faaaf52 # v1.2.0
         with:
             image: ghcr.io/oss-review-toolkit/ort-minimal:${{ env.ORT_VERSION }}
             run: >
@@ -212,7 +212,7 @@ jobs:
       id-token: write   # dependency submission OIDC
       actions: read     # actions/download-artifact
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6.0.2
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           persist-credentials: false
 
