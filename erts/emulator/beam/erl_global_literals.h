@@ -36,6 +36,7 @@ extern Eterm ERTS_GLOBAL_LIT_OS_VERSION;
 extern Eterm ERTS_GLOBAL_LIT_DFLAGS_RECORD;
 extern Eterm ERTS_GLOBAL_LIT_ERL_FILE_SUFFIX;
 extern Eterm ERTS_GLOBAL_LIT_EMPTY_TUPLE;
+extern Eterm ERTS_GLOBAL_LIT_EMPTY_MAP;
 
 /* Initializes global literals. Note that the literals terms mentioned in the 
  * examples above may be created elsewhere, and are only kept here for clarity.

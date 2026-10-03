@@ -257,18 +257,24 @@ gen.new_small_map_lit(Dst, Live, Size, Rest) {
     Eterm* thp;
     Eterm keys;
 
+    if (size == 0) {
+        $NewBeamOp(S, op);
+        $BeamOpNameArity(op, move, 2);
+        op->next = NULL;
+        op->a[0].type = TAG_u;
+        op->a[0].val = ERTS_GLOBAL_LIT_EMPTY_MAP;
+        op->a[1] = Dst;
+        return op;
+    }
+
     $NewBeamOp(S, op);
     $BeamOpNameArity(op, i_new_small_map_lit, 4);
     $BeamOpArity(op, 4 + size/2);
     op->next = NULL;
 
-    tmp = thp = erts_alloc(ERTS_ALC_T_LOADER_TMP, ((size == 0 ? 0 : 1) + size/2) * sizeof(*tmp));
-    if (size == 0) {
-        keys = ERTS_GLOBAL_LIT_EMPTY_TUPLE;
-    } else {
-        keys = make_tuple(thp);
-        *thp++ = make_arityval(size/2);
-    }
+    tmp = thp = erts_alloc(ERTS_ALC_T_LOADER_TMP, (1 + size/2) * sizeof(*tmp));
+    keys = make_tuple(thp);
+    *thp++ = make_arityval(size/2);
 
     dst = op->a+4;
 
