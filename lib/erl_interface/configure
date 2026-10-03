@@ -6707,6 +6707,8 @@ printf %s "checking target hardware architecture... " >&6; }
     aarch*)	ARCH=arm;;
     tile)	ARCH=tile;;
     e2k)        ARCH=e2k;;
+    riscv32)	ARCH=riscv32;;
+    riscv64)	ARCH=riscv64;;
     *)	 	ARCH=noarch;;
     esac
     { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $ARCH" >&5
@@ -6749,6 +6751,11 @@ printf "%s\n" "yes: adjusting ARCH=ppc to ARCH=ppc64" >&6; }
 	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes: adjusting ARCH=arm to ARCH=arm64" >&5
 printf "%s\n" "yes: adjusting ARCH=arm to ARCH=arm64" >&6; }
 	ARCH=arm64
+	;;
+    riscv64)
+	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes: adjusting ARCH=riscv32 to ARCH=riscv64" >&5
+printf "%s\n" "yes: adjusting ARCH=riscv32 to ARCH=riscv64" >&6; }
+	ARCH=riscv64
 	;;
     *)
 	{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no: ARCH is $ARCH" >&5
