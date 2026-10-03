@@ -239,6 +239,20 @@ misc(_Config) ->
     B1_2 = ?M:t_bitstr(85, 7),
     R1_R = ?M:t_bitstr(547608330240, 347892352432),
     R1_R = ?M:t_inf(B1_1, B1_2),
+
+    %% Used to loop forever. The nominal set of Anno has a structural part
+    %% that overlaps the opaque a:t() of structure any(), and a:t() sorts
+    %% before erl_anno:anno() in the set.
+    Loc = ?M:t_nominal({erl_anno, location, 0, transparent},
+                       ?M:t_non_neg_integer()),
+    AnnoName = {erl_anno, anno, 0, opaque},
+    Anno = ?M:t_nominal(AnnoName, ?M:t_sup(Loc, ?M:t_nonempty_list())),
+    Set = ?M:t_sup(?M:t_nominal({a, t, 0, opaque}, ?M:t_any()),
+                   ?M:t_nominal(AnnoName, ?M:t_any())),
+    Sup = ?M:t_sup(Anno, Set),
+    Sup = ?M:t_sup(Set, Anno),
+    true = ?M:t_is_subtype(Anno, Sup),
+    true = ?M:t_is_subtype(Set, Sup),
     ok.
 
 %% OTP-17537.
