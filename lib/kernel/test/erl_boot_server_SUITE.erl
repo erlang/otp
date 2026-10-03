@@ -26,7 +26,8 @@
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2]).
 
--export([start/1, start_link/1, stop/1, add/1, delete/1, responses/1]).
+-export([start/1, start_link/1, stop/1, add/1, delete/1, responses/1,
+         unsafe_binary_to_term/1]).
 
 %%-----------------------------------------------------------------
 %% Test suite for erl_boot_server.
@@ -41,8 +42,8 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{minutes,1}}].
 
-all() -> 
-    [start, start_link, stop, add, delete, responses].
+all() ->
+    [start, start_link, stop, add, delete, responses, unsafe_binary_to_term].
 
 groups() -> 
     [].
@@ -387,6 +388,38 @@ responses(Config) when is_list(Config) ->
     end,
 
     Ret.
+
+%% Tests that sending a binary containing a new atom returns {error,bad_command}
+%% and does NOT intern the atom into the atom table. This guards the use of
+%% binary_to_term/2 with the [safe] option as a defence-in-depth measure.
+%% The payload is a pre-built binary for the atom 'boot_server_new_atom'.
+unsafe_binary_to_term(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    {ok, BootPid} = erl_boot_server:start_link(["127.0.0.1"]),
+
+    State = sys:get_state(boot_server),
+    ListenPort = element(7, State),
+
+    %% Binary encodes the atom 'boot_server_new_atom' (never seen by this node).
+    Payload = <<131, 119, 20, 98, 111, 111, 116, 95, 115, 101, 114, 118, 101,
+                114, 95, 110, 101, 119, 95, 97, 116, 111, 109>>,
+
+    AtomsBefore = erlang:system_info(atom_count),
+
+    {ok, Sock} = gen_tcp:connect({127,0,0,1}, ListenPort,
+                                 [binary, {packet, 4}, {active, false}], 5000),
+    ok = gen_tcp:send(Sock, Payload),
+    {ok, RespBin} = gen_tcp:recv(Sock, 0, 5000),
+    gen_tcp:close(Sock),
+
+    AtomsAfter = erlang:system_info(atom_count),
+
+    {error, bad_command} = binary_to_term(RespBin),
+    0 = AtomsAfter - AtomsBefore,
+
+    shutdown(BootPid),
+    process_flag(trap_exit, false),
+    ok.
 
 shutdown(Pid) ->
     exit(Pid, shutdown),
