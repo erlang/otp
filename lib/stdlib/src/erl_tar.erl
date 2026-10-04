@@ -1782,7 +1782,7 @@ parse_string(Bin) when is_binary(Bin) ->
         Str when is_list(Str) ->
             Str;
         {incomplete, _Str, _Rest} ->
-            binary_to_list(Bin);
+            binary_to_list(Prefix);
         {error, _Str, _Rest} ->
             throw({error, {bad_header, invalid_string}})
     end.
