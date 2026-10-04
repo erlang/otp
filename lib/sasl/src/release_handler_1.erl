@@ -25,7 +25,8 @@
 %% External exports
 -export([eval_script/1, eval_script/5,
 	 check_script/2, check_old_processes/2]).
--export([get_current_vsn/1, get_supervised_procs/0]). %% exported because used in a test case
+-export([get_current_vsn/1, get_supervised_procs/0,
+         change_code/5]). %% exported because used in a test case
 
 -record(eval_state, {bins = [], stopped = [], suspended = [], apps = [],
 		     libdirs, unpurged = [], vsns = [], newlibs = [],
@@ -509,14 +510,24 @@ resume(Pids) ->
     lists:foreach(fun(Pid) -> catch sys:resume(Pid) end, Pids).
 
 change_code(Pids, Mod, Vsn, Extra, Timeout) ->
-    Fun = fun(Pid) -> 
-		  case sys_change_code(Pid, Mod, Vsn, Extra, Timeout) of
-		      ok ->
-			  ok;
-		      {error,Reason} ->
-			  throw({code_change_failed,Pid,Mod,Vsn,Reason})
-		  end
-	  end,
+    Fun = fun(Pid) ->
+                  try sys_change_code(Pid, Mod, Vsn, Extra, Timeout) of
+                      ok ->
+                          ok;
+                      {error,Reason} ->
+                          throw({code_change_failed,Pid,Mod,Vsn,Reason})
+                  catch
+                      exit:{Reason,_} ->
+                          case is_process_alive(Pid) of
+                              false ->
+                                  %% A dead process is not running old code.
+                                  ok;
+                              true ->
+                                  throw({code_change_failed,
+                                         Pid,Mod,Vsn,Reason})
+                          end
+                  end
+          end,
     lists:foreach(Fun, Pids).
 
 sys_change_code(Pid, Mod, Vsn, Extra, default) ->

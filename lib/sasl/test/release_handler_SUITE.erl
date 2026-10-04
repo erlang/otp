@@ -64,6 +64,7 @@ win32_cases() ->
 %% Cases that can be run on all platforms
 cases() ->
     [otp_9395_check_old_code,
+     change_code_dead_proc,
      instructions, eval_appup, eval_appup_with_restart,
      install_release_syntax_check,
      otp_10463_upgrade_script_regexp, no_dot_erlang, move_system,
@@ -1265,6 +1266,23 @@ otp_9395_check_old_code(Conf) when is_list(Conf) ->
        true ->
 	    ct:fail({unexpected_values,T1,T2})
     end,
+    ok.
+
+
+%% A process that dies between suspend and code_change must not fail
+%% the upgrade, while a live process that does not answer must.
+change_code_dead_proc(Conf) when is_list(Conf) ->
+    {ok,Pid} = gen_event:start(),
+    ok = sys:suspend(Pid),
+    exit(Pid, kill),
+    false = is_process_alive(Pid),
+    ok = release_handler_1:change_code([Pid], ?MODULE, "1.0", [], default),
+
+    Unresponsive = spawn(fun() -> receive after infinity -> ok end end),
+    {code_change_failed,Unresponsive,?MODULE,"1.0",timeout} =
+        (catch release_handler_1:change_code([Unresponsive], ?MODULE,
+                                             "1.0", [], 100)),
+    exit(Unresponsive, kill),
     ok.
 
 
