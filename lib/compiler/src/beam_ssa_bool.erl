@@ -130,7 +130,8 @@
              count :: beam_ssa:label(),
              dom,
              uses,
-             preds=#{} :: #{beam_ssa:label() => [beam_ssa:label()]},
+             preds=#{} :: #{beam_ssa:label() => [beam_ssa:label()]} |
+                          {'ssa',beam_ssa:block_map()},
              in_or=false :: boolean()}).
 
 -spec module(beam_ssa:b_module(), [compile:option()]) ->
@@ -664,7 +665,7 @@ bool_opt_rewrite(Bool, From, Br, Blocks0, St0) ->
 
     %% Optimize the digraph.
     LDefs = digraph_bool_def(G0),
-    Preds = beam_ssa:predecessors(Blocks1),
+    Preds = {ssa,Blocks1},
     St = St1#st{ldefs=LDefs,preds=Preds},
     G1 = opt_digraph_top(Bool, G0, St),
     G = shortcut_branches(Root, G1, St),
@@ -929,12 +930,12 @@ build_digraph_is_1(I, Is, Last, Vtx, Map, G0, St0) ->
 %%% instructions.
 %%%
 
-opt_digraph_top(Arg, G0, St) ->
-    I = get_def(Arg, G0, St),
+opt_digraph_top(Arg, G0, St0) ->
+    I = get_def(Arg, G0, St0),
     #b_set{op={bif,'=:='},dst=Dst,
            args=[#b_var{}=Bool,#b_literal{val=true}]} = I,
-    {br,Succ,Fail} = get_targets(Dst, G0, St),
-    G1 = ensure_single_use(Dst, G0, St),
+    {br,Succ,Fail} = get_targets(Dst, G0, St0),
+    {G1,St} = ensure_single_use(Dst, G0, St0),
     G = convert_to_br_node(I, Succ, G1, St),
     redirect_test(Bool, {fail,Fail}, G, St).
 
@@ -949,11 +950,11 @@ do_opt_digraph([A|As], G0, St) ->
     end;
 do_opt_digraph([], G, _St) -> G.
 
-opt_digraph_instr(#b_set{dst=Dst}=I, G0, St) ->
+opt_digraph_instr(#b_set{dst=Dst}=I, G0, St0) ->
     %% We KNOW that this node has two outgoing edges (one labeled
     %% `succ` and one `fail`).
-    {br,Succ,Fail} = get_targets(Dst, G0, St),
-    G1 = ensure_single_use(Dst, G0, St),
+    {br,Succ,Fail} = get_targets(Dst, G0, St0),
+    {G1,St} = ensure_single_use(Dst, G0, St0),
     case I of
         #b_set{op={bif,'and'},args=Args} ->
             G2 = convert_to_br_node(I, Succ, G1, St),
@@ -1007,14 +1008,14 @@ opt_digraph_instr(#b_set{dst=Dst}=I, G0, St) ->
 ensure_single_use(Bool, G, #st{uses=U}=St) ->
     case map_get(Bool, U) of
         [_] ->
-            G;
+            {G,St};
         Uses ->
             Vtx = get_vertex(Bool, St),
             ensure_single_use_1(Bool, Vtx, Uses, G, St)
     end.
 
-ensure_single_use_1(Bool, Vtx, Uses, G, #st{preds=Preds}) ->
-    Fail = case get_targets(Vtx, G) of
+ensure_single_use_1(Bool, Vtx, Uses, G0, St0) ->
+    Fail = case get_targets(Vtx, G0) of
                {br,_,Fail0} -> Fail0;
                _ -> not_possible()
            end,
@@ -1022,8 +1023,9 @@ ensure_single_use_1(Bool, Vtx, Uses, G, #st{preds=Preds}) ->
                       (_) -> false
                    end, Uses) of
         {[_],[_]} ->
-            case {beam_digraph:vertex(G, Fail),
-                  beam_digraph:in_edges(G, Fail),
+            {Preds,St} = predecessors(St0),
+            case {beam_digraph:vertex(G0, Fail),
+                  beam_digraph:in_edges(G0, Fail),
                   Preds} of
                 {{external,Bs0}, [_], #{Fail := [_]}} ->
                     %% The only other use of the variable Bool
@@ -1033,13 +1035,21 @@ ensure_single_use_1(Bool, Vtx, Uses, G, #st{preds=Preds}) ->
                     %% in the function CFG), so we can replace
                     %% it with the literal `false` in that block.
                     Bs = Bs0#{Bool => #b_literal{val=false}},
-                    beam_digraph:add_vertex(G, Fail, {external,Bs});
+                    G = beam_digraph:add_vertex(G0, Fail,
+                                                {external,Bs}),
+                    {G,St};
                 _ ->
                     not_possible()
             end;
         {_,_} ->
             not_possible()
     end.
+
+predecessors(#st{preds=Preds}=St) when is_map(Preds) ->
+    {Preds,St};
+predecessors(#st{preds={ssa,Blocks}}=St) ->
+    Preds = beam_ssa:predecessors(Blocks),
+    {Preds,St#st{preds=Preds}}.
 
 convert_to_br_node(I, Target, G0, St) ->
     Vtx = get_vertex(I, St),
@@ -1127,16 +1137,16 @@ order_args(_Args, _G, _St) ->
     %% passes have been turned off.
     not_possible().
 
-redirect_test(Bool, SuccFail, G0, St) ->
-    V = get_vertex(Bool, St),
-    I = get_def(Bool, G0, St),
+redirect_test(Bool, SuccFail, G0, St0) ->
+    V = get_vertex(Bool, St0),
+    I = get_def(Bool, G0, St0),
     case I of
         #b_set{op=phi,args=Args} ->
-            G = ensure_single_use(Bool, G0, St),
+            {G,St} = ensure_single_use(Bool, G0, St0),
             redirect_phi(Bool, Args, SuccFail, G, St);
         #b_set{} ->
             G1 = redirect_test_1(V, SuccFail, G0),
-            G = ensure_single_use(Bool, G1, St),
+            {G,St} = ensure_single_use(Bool, G1, St0),
             do_opt_digraph([Bool], G, St)
     end.
 

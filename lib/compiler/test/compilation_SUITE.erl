@@ -62,6 +62,7 @@
          vsn_3/1,
          infinite_loop/0,infinite_loop/1,
          gh_11534/0,gh_11534/1,
+         gh_11735/1,
          use_nifs/1]).
 
 -include_lib("common_test/include/ct.hrl").
@@ -92,6 +93,7 @@ groups() ->
        string_table,otp_8949_a,split_cases,
        infinite_loop,
        gh_11534,
+       gh_11735,
        use_nifs]}].
 
 init_per_suite(Config) ->
@@ -151,6 +153,33 @@ infinite_loop() -> [{timetrap,{minutes,1}}].
 
 gh_11534() -> [{timetrap,{minutes,1}}].
 ?comp(gh_11534).
+
+%% Test fix for very slow `beam_ssa_bool` pass.
+gh_11735(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    Mod = ?FUNCTION_NAME,
+    ModStr = atom_to_list(Mod),
+    FileName = filename:join(PrivDir, ModStr ++ ".erl"),
+    N = 1000,
+    Cs = [io_lib:format("f(~w, [C|T]) when ~w =< C, C =< ~w -> f(~w, T);~n",
+                        [S, 100 + R * 10, 100 + R * 10 + 5,
+                         (S + R + 1) rem N]) ||
+             S <- lists:seq(0, N - 1),
+             R <- lists:seq(0, 9)],
+    Src = ["-module(", ModStr, ").\n"
+           "-export([",ModStr,"/0, f/2]).\n",
+           ModStr,"() -> ok.\n",
+           Cs,
+           "f(S, _) -> S.\n"],
+    ok = file:write_file(FileName, Src),
+
+    Timetrap = {minutes,1},
+    ct:timetrap(Timetrap),
+    {ok,Mod} = compile:file(FileName, [{outdir,PrivDir},report]),
+
+    load_and_call(PrivDir, Mod),
+
+    ok.
 
 %% Code snippet submitted from Ulf Wiger which fails in R3 Beam.
 beam_compiler_7(Config) when is_list(Config) ->
