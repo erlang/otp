@@ -61,7 +61,7 @@
 %%--------------------------------------------------------------------
 
 suite() ->
-    [{timetrap,{seconds,90}}].
+    [{ct_hooks,[cth_fips]}, {timetrap,{seconds,90}}].
 
 all() ->
 %%    [check_docker_present] ++
