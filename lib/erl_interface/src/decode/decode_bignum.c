@@ -20,7 +20,7 @@
  * %CopyrightEnd%
  */
 
-#include "eidef.h"
+#include "config.h"
 
 #if defined(HAVE_GMP_H) && defined(HAVE_LIBGMP)
 

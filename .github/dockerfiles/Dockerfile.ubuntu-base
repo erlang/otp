@@ -24,7 +24,7 @@
 ARG BASE=gitpod/workspace-full
 FROM $BASE
 
-ENV INSTALL_LIBS="zlib1g-dev libncurses5-dev libssl-dev unixodbc-dev libsctp-dev lksctp-tools libgmp3-dev libwxbase3.0-dev libwxgtk3.0-gtk3-dev libwxgtk-webview3.0-gtk3-dev"
+ENV INSTALL_LIBS="zlib1g-dev libncurses5-dev libssl-dev unixodbc-dev libsctp-dev lksctp-tools libgmp3-dev libwxbase3.0-dev libwxgtk3.0-gtk3-dev libwxgtk-webview3.0-gtk3-dev libgmp-dev"
 
 USER root
 
