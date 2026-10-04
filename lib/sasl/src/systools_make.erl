@@ -1560,7 +1560,7 @@ mandatory_modules() ->
      filename,
      file_server,
      file_io_server,
-     gen,
+     gen_gen,
      gen_event,
      gen_server,
      heart,

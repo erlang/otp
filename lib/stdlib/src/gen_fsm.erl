@@ -373,14 +373,20 @@ that implements the state machine.
 	 start_timer/2,send_event_after/2,cancel_timer/1,
 	 enter_loop/4, enter_loop/5, enter_loop/6, wake_hib/7]).
 
-%% Internal exports
--export([init_it/6,
-	 system_continue/3,
+%% sys callbacks
+-export([system_continue/3,
 	 system_terminate/4,
 	 system_code_change/4,
 	 system_get_state/1,
 	 system_replace_state/2,
 	 format_status/2]).
+
+-behaviour(sys).
+
+%% gen_gen callbacks
+-export([init_it/6]).
+
+%-behaviour(gen_gen).
 
 %% logger callback
 -export([format_log/1, format_log/2]).
@@ -769,7 +775,7 @@ that large state terms are printed in log files.
 
 To be used when starting a `gen_fsm`. See `start_link/4`.
 """.
--type fsm_name() :: % Duplicate of gen:emgr_name()
+-type fsm_name() :: % Duplicate of gen_gen:emgr_name()
         {'local', LocalName :: atom()}
       | {'global', GlobalName :: term()}
       | {'via', RegMod :: module(), ViaName :: term()}.
@@ -779,7 +785,7 @@ To be used when starting a `gen_fsm`. See `start_link/4`.
 
 To be used in for example `send_event/2` to specify the server.
 """.
--type fsm_ref() :: % What gen:call/3,4 and gen:stop/1,3 accepts
+-type fsm_ref() :: % What gen_gen:call/3,4 and gen_gen:stop/1,3 accepts
         pid()
       | (LocalName :: atom())
       | {Name :: atom(), Node :: atom()}
@@ -793,7 +799,7 @@ and [`start_link/3,4`](`start_link/3`) functions.
 
 See `start_link/4`.
 """.
--type start_opt() :: % Duplicate of gen:option()
+-type start_opt() :: % Duplicate of gen_gen:option()
         {'timeout', Time :: timeout()}
       | {'spawn_opt', [proc_lib:start_spawn_option()]}
       | enter_loop_opt().
@@ -806,7 +812,7 @@ and [`start_link/3,4`](`start_link/3`) functions.
 
 See `start_link/4`.
 """.
--type enter_loop_opt() :: % Some gen:option()s works for enter_loop/*
+-type enter_loop_opt() :: % Some gen_gen:option()s works for enter_loop/*
       {'debug', Dbgs :: [sys:debug_option()]}.
 
 
@@ -844,7 +850,7 @@ see [`start_link/3,4`](`start_link/3`).
       Pid     :: pid(),
       Reason  :: term().
 start(Mod, Args, Options) ->
-    gen:start(?MODULE, nolink, Mod, Args, Options).
+    gen_gen:start(?MODULE, nolink, Mod, Args, Options).
 
 -doc """
 Create a standalone `gen_fsm` process.
@@ -864,7 +870,7 @@ see [`start_link/3,4`](`start_link/4`).
       Pid     :: pid(),
       Reason  :: {'already_started', Pid} | term().
 start(Name, Mod, Args, Options) ->
-    gen:start(?MODULE, nolink, Name, Mod, Args, Options).
+    gen_gen:start(?MODULE, nolink, Name, Mod, Args, Options).
 
 -doc """
 Create a `gen_fsm` process in a supervision tree, not registered.
@@ -880,7 +886,7 @@ without registering a `Name`.
       Pid     :: pid(),
       Reason  :: term().
 start_link(Mod, Args, Options) ->
-    gen:start(?MODULE, link, Mod, Args, Options).
+    gen_gen:start(?MODULE, link, Mod, Args, Options).
 
 -doc """
 Create a `gen_fsm` process in a supervision tree.
@@ -952,13 +958,13 @@ or `ignore`, the process is terminated and the function returns
       Pid     :: pid(),
       Reason  :: {'already_started', Pid} | term().
 start_link(Name, Mod, Args, Options) ->
-    gen:start(?MODULE, link, Name, Mod, Args, Options).
+    gen_gen:start(?MODULE, link, Name, Mod, Args, Options).
 
 -doc #{ equiv => stop(FsmRef, normal, infinity) }.
 -spec stop(FsmRef) -> ok when
       FsmRef :: fsm_ref().
 stop(Name) ->
-    gen:stop(Name).
+    gen_gen:stop(Name).
 
 -doc """
 Synchronously stop a generic FSM.
@@ -985,7 +991,7 @@ If the process does not exist, a `noproc` exception is raised.
       Reason :: term(),
       Timeout :: timeout().
 stop(Name, Reason, Timeout) ->
-    gen:stop(Name, Reason, Timeout).
+    gen_gen:stop(Name, Reason, Timeout).
 
 -doc """
 Send an event asynchronously to a generic FSM.
@@ -1029,7 +1035,7 @@ send_event(Name, Event) ->
       Event  :: term(),
       Reply  :: term().
 sync_send_event(Name, Event) ->
-    case catch gen:call(Name, '$gen_sync_event', Event) of
+    case catch gen_gen:call(Name, '$gen_sync_event', Event) of
 	{ok,Res} ->
 	    Res;
 	{'EXIT',Reason} ->
@@ -1066,7 +1072,7 @@ Return value `Reply` is defined in the return value of
       Timeout :: timeout(),
       Reply   :: term().
 sync_send_event(Name, Event, Timeout) ->
-    case catch gen:call(Name, '$gen_sync_event', Event, Timeout) of
+    case catch gen_gen:call(Name, '$gen_sync_event', Event, Timeout) of
 	{ok,Res} ->
 	    Res;
 	{'EXIT',Reason} ->
@@ -1108,7 +1114,7 @@ send_all_state_event(Name, Event) ->
       Event  :: term(),
       Reply  :: term().
 sync_send_all_state_event(Name, Event) ->
-    case catch gen:call(Name, '$gen_sync_all_state_event', Event) of
+    case catch gen_gen:call(Name, '$gen_sync_all_state_event', Event) of
 	{ok,Res} ->
 	    Res;
 	{'EXIT',Reason} ->
@@ -1135,7 +1141,7 @@ and `sync_send_all_state_event`, see `send_all_state_event/2`.
       Timeout :: timeout(),
       Reply   :: term().
 sync_send_all_state_event(Name, Event, Timeout) ->
-    case catch gen:call(Name, '$gen_sync_all_state_event', Event, Timeout) of
+    case catch gen_gen:call(Name, '$gen_sync_all_state_event', Event, Timeout) of
 	{ok,Res} ->
 	    Res;
 	{'EXIT',Reason} ->
@@ -1320,10 +1326,10 @@ according to `FsmName`.
       FsmName   :: fsm_name() | pid(),
       Timeout   :: timeout().
 enter_loop(Mod, Options, StateName, StateData, ServerName, Timeout) ->
-    Name = gen:get_proc_name(ServerName),
-    Parent = gen:get_parent(),
-    Debug = gen:debug_options(Name, Options),
-	HibernateAfterTimeout = gen:hibernate_after(Options),
+    Name = gen_gen:get_proc_name(ServerName),
+    Parent = gen_gen:get_parent(),
+    Debug = gen_gen:debug_options(Name, Options),
+    HibernateAfterTimeout = gen_gen:hibernate_after(Options),
     loop(Parent, Name, StateName, StateData, Mod, Timeout, HibernateAfterTimeout, Debug).
 
 %%% ---------------------------------------------------
@@ -1337,9 +1343,9 @@ enter_loop(Mod, Options, StateName, StateData, ServerName, Timeout) ->
 init_it(Starter, self, Name, Mod, Args, Options) ->
     init_it(Starter, self(), Name, Mod, Args, Options);
 init_it(Starter, Parent, Name0, Mod, Args, Options) ->
-    Name = gen:name(Name0),
-    Debug = gen:debug_options(Name, Options),
-    HibernateAfterTimeout = gen:hibernate_after(Options),
+    Name = gen_gen:name(Name0),
+    Debug = gen_gen:debug_options(Name, Options),
+    HibernateAfterTimeout = gen_gen:hibernate_after(Options),
     case catch Mod:init(Args) of
 	{ok, StateName, StateData} ->
 	    proc_lib:init_ack(Starter, {ok, self()}),
@@ -1348,13 +1354,13 @@ init_it(Starter, Parent, Name0, Mod, Args, Options) ->
 	    proc_lib:init_ack(Starter, {ok, self()}),
 	    loop(Parent, Name, StateName, StateData, Mod, Timeout, HibernateAfterTimeout, Debug);
 	{stop, Reason} ->
-            gen:unregister_name(Name0),
+            gen_gen:unregister_name(Name0),
             exit(Reason);
 	ignore ->
-	    gen:unregister_name(Name0),
+            gen_gen:unregister_name(Name0),
 	    proc_lib:init_fail(Starter, ignore, {exit, normal});
 	{'EXIT', Reason} ->
-	    gen:unregister_name(Name0),
+            gen_gen:unregister_name(Name0),
             exit(Reason);
 	Else ->
 	    Reason = {bad_return_value, Else},
@@ -1599,7 +1605,7 @@ Return value `Result` is not further defined, and is always to be ignored.
       Reply  :: term(),
       Result :: term().
 reply(From, Reply) ->
-    gen:reply(From, Reply).
+    gen_gen:reply(From, Reply).
 
 reply(Name, From, Reply, Debug, StateName) ->
     reply(From, Reply),
@@ -1955,7 +1961,7 @@ mod(_) -> "t".
 format_status(Opt, StatusData) ->
     [PDict, SysState, Parent, Debug, [Name, StateName, StateData, Mod, _Time, _HibernateAfterTimeout]] =
 	StatusData,
-    Header = gen:format_status_header("Status for state machine",
+    Header = gen_gen:format_status_header("Status for state machine",
                                       Name),
     Log = sys:get_log(Debug),
     Specific =
