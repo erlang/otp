@@ -217,7 +217,6 @@
          openssl_ecdsa_suites/0,
          openssl_dsa_suites/0,
          enough_openssl_crl_support/1,
-         openssl_ocsp_support/1,
          openssl_allows_client_renegotiate/1,
          version_flag/1,
          portable_cmd/2,
@@ -420,16 +419,6 @@ end_per_group(GroupName, Config) ->
       false ->
           Config
   end.
-
-openssl_ocsp_support(Config) ->
-    case proplists:get_value(openssl_version, Config) of
-        "OpenSSL 1.1.1" ++ _Rest ->
-            true;
-        "OpenSSL 3" ++ _Rest ->
-            true;
-        _ ->
-            false
-    end.
 
 openssl_ciphers() ->
     Str = portable_cmd("openssl", ["ciphers"]),
