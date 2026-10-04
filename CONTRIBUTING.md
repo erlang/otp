@@ -101,6 +101,12 @@ two years later why a particular feature can easily find out. It does no harm to
 the same information in the pull request (if the pull request consists of a single commit,
 the commit message will be added to the pull request automatically).
 
+* If your pull requests introduce new modules and/or public functions, make sure to follow the rules
+about representation of "options":
+    1. Never use a record for public APIs, because records require an include file, and if elements are added to a record, all code using it must be recompiled.
+    2. Use a map for options unless a map will not work for some reason (e.g. order is important) or unless the modified module already uses lists (for consistency).
+    3. If a map doesn't work, use a list.
+
 * With few exceptions, it is mandatory to write a new test case that tests the feature.
 The test case is needed to ensure that the features does not stop working in the future.
 
