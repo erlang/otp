@@ -723,6 +723,16 @@ test_decode_numbers(_Config) ->
     ?assertEqual(-99.99e-99, decode(<<"-99.99e-99">>)),
     ?assertEqual(123456789.123456789e123, decode(<<"123456789.123456789e123">>)),
 
+    %% fractions around and beyond the 7 digits checked at once
+    ?assertEqual(0.1234567, decode(<<"0.1234567">>)),
+    ?assertEqual(0.12345678, decode(<<"0.12345678">>)),
+    ?assertEqual(-65.613616999999977, decode(<<"-65.613616999999977">>)),
+    ?assertEqual(0.30000000000000004, decode(<<"0.30000000000000004">>)),
+    ?assertEqual(1.2345678901234567e-10, decode(<<"1.2345678901234567e-10">>)),
+    ?assertEqual([0.12345678901234567, 1], decode(<<"[0.12345678901234567,1]">>)),
+    ?assertError(unexpected_end, decode(<<"0.12345678901234e">>)),
+    ?assertError({invalid_byte, $a}, json:decode(<<"0.12345678a">>)),
+
     %% integers around the length accumulated while scanning, and around
     %% the 64-bit boundaries
     ?assertEqual(12345678901234567, decode(<<"12345678901234567">>)),

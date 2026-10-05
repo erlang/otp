@@ -1134,9 +1134,19 @@ zero_value(#decode{integer = undefined}) -> 0;
 zero_value(#decode{integer = Fun}) -> Fun(<<"0">>).
 
 number_frac(<<Byte, Rest/bits>>, Original, Skip, Acc, Stack, Decode, Len) when ?is_0_to_9(Byte) ->
-    number_frac_cont(Rest, Original, Skip, Acc, Stack, Decode, Len + 1);
+    number_frac_digits(Rest, Original, Skip, Acc, Stack, Decode, Len + 1);
 number_frac(_, Original, Skip, Acc, Stack, Decode, Len) ->
     unexpected(Original, Skip, Acc, Stack, Decode, Len, 0, value).
+
+%% Fractions are often long (15-17 significant digits for computed floats),
+%% so runs of 7 digits are skipped at once; the byte loop handles the rest.
+number_frac_digits(Binary, Original, Skip, Acc, Stack, Decode, Len) ->
+    case Binary of
+        <<W:56, Rest/binary>> when ?are_all_digits_swar(W) ->
+            number_frac_digits(Rest, Original, Skip, Acc, Stack, Decode, Len + 7);
+        _ ->
+            number_frac_cont(Binary, Original, Skip, Acc, Stack, Decode, Len)
+    end.
 
 number_frac_cont(<<Byte, Rest/bits>>, Original, Skip, Acc, Stack, Decode, Len) when ?is_0_to_9(Byte) ->
     number_frac_cont(Rest, Original, Skip, Acc, Stack, Decode, Len + 1);
