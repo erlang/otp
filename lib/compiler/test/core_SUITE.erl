@@ -33,7 +33,8 @@
 	 cover_v3_kernel_4/1,cover_v3_kernel_5/1,
          non_variable_apply/1,name_capture/1,fun_letrec_effect/1,
          get_map_element/1,receive_tests/1,
-         core_lint/1,nif/1,no_nif/1,no_load_nif/1]).
+         core_lint/1,nif/1,no_nif/1,no_load_nif/1,
+         unused_phi/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -63,7 +64,7 @@ groups() ->
        cover_v3_kernel_4,cover_v3_kernel_5,
        non_variable_apply,name_capture,fun_letrec_effect,
        get_map_element,receive_tests,
-       core_lint,nif,no_nif,no_load_nif
+       core_lint,nif,no_nif,no_load_nif,unused_phi
       ]}].
 
 
@@ -103,12 +104,14 @@ end_per_group(_GroupName, Config) ->
 ?comp(fun_letrec_effect).
 ?comp(get_map_element).
 ?comp(receive_tests).
+?comp(unused_phi).
 
 try_it(Mod, Conf) ->
     Src = filename:join(proplists:get_value(data_dir, Conf),
 			atom_to_list(Mod)),
     compile_and_load(Src, []),
-    compile_and_load(Src, [no_copt]).
+    compile_and_load(Src, [no_copt]),
+    compile_and_load(Src, [no_ssa_opt]).
 
 compile_and_load(Src, Opts) ->
     {ok,Mod,Bin} = compile:file(Src, [from_core,report,time,binary|Opts]),

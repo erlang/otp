@@ -2939,41 +2939,54 @@ reserve_arg_regs([#b_var{}=Arg|Is], N, Acc) ->
 reserve_arg_regs([], _, Acc) -> Acc.
 
 reserve_zregs(RPO, Blocks, Intervals, Res) ->
-    ShortLived0 = [V || {V,[{Start,End}]} <- Intervals, Start+2 =:= End],
-    ShortLived = sets:from_list(ShortLived0),
+    LifeTime = #{V => if
+                          Start =:= End -> unused;
+                          true -> short
+                      end || {V,[{Start,End}]} <- Intervals,
+                             End =< Start+2},
     F = fun(_, #b_blk{is=Is,last=Last}, A) ->
-                reserve_zreg(Is, Last, ShortLived, A)
+                reserve_zreg(Is, Last, LifeTime, A)
         end,
     beam_ssa:fold_blocks(F, RPO, Res, Blocks).
 
 reserve_zreg([#b_set{op={bif,tuple_size},dst=Dst},
               #b_set{op={bif,'=:='},args=[Dst,Val],dst=Bool}],
-             Last, ShortLived, A0) ->
+             Last, LifeTime, A0) ->
     case {Val,Last} of
         {#b_literal{val=Arity},#b_br{bool=Bool}} when Arity bsr 32 =:= 0 ->
             %% These two instructions can be combined to a test_arity
             %% instruction provided that the arity variable is short-lived.
-            A1 = reserve_test_zreg(Dst, ShortLived, A0),
-            reserve_test_zreg(Bool, ShortLived, A1);
+            A1 = reserve_test_zreg(Dst, LifeTime, A0),
+            reserve_test_zreg(Bool, LifeTime, A1);
         {_,_} ->
             %% Either the arity is too big, or the boolean value is not
             %% used in a conditional branch.
             A0
     end;
 reserve_zreg([#b_set{op={bif,tuple_size},dst=Dst}],
-             #b_switch{arg=Dst}, ShortLived, A) ->
-    reserve_test_zreg(Dst, ShortLived, A);
+             #b_switch{arg=Dst}, LifeTime, A) ->
+    reserve_test_zreg(Dst, LifeTime, A);
+reserve_zreg([#b_set{op=phi,dst=Dst}|Is], Last, LifeTime, A0) ->
+    A = case LifeTime of
+            #{Dst := unused} ->
+                %% This value is never used (only happens with
+                %% unoptimized code). Ensure that the value is always
+                %% ignored by assigning it to a z register.
+                [{Dst,z}|A0];
+            #{} -> A0
+        end,
+    reserve_zreg(Is, Last, LifeTime, A);
 reserve_zreg([#b_set{op=Op,dst=Dst,args=Args}],
-             #b_br{bool=Dst}, ShortLived, A) ->
+             #b_br{bool=Dst}, LifeTime, A) ->
     case use_zreg(Op, Args) of
         yes -> [{Dst,z} | A];
         no -> A;
-        'maybe' -> reserve_test_zreg(Dst, ShortLived, A)
+        'maybe' -> reserve_test_zreg(Dst, LifeTime, A)
     end;
-reserve_zreg([#b_set{op=Op,dst=Dst,args=Args} | Is], Last, ShortLived, A) ->
+reserve_zreg([#b_set{op=Op,dst=Dst,args=Args} | Is], Last, LifeTime, A) ->
     case use_zreg(Op, Args) of
-        yes -> reserve_zreg(Is, Last, ShortLived, [{Dst,z} | A]);
-        _Other -> reserve_zreg(Is, Last, ShortLived, A)
+        yes -> reserve_zreg(Is, Last, LifeTime, [{Dst,z} | A]);
+        _Other -> reserve_zreg(Is, Last, LifeTime, A)
     end;
 reserve_zreg([], _, _, A) -> A.
 
@@ -3023,10 +3036,10 @@ use_zreg(_) -> 'maybe'.
 
 %% If V is defined just before a branch, we may be able to combine it into a
 %% test instruction.
-reserve_test_zreg(#b_var{}=V, ShortLived, A) ->
-    case sets:is_element(V, ShortLived) of
-        true -> [{V,z}|A];
-        false -> A
+reserve_test_zreg(#b_var{}=V, LifeTime, A) ->
+    case LifeTime of
+        #{V := short} -> [{V,z}|A];
+        #{} -> A
     end.
 
 reserve_fregs(RPO, Blocks, Res) ->
