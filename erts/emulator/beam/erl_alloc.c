@@ -159,9 +159,9 @@ Uint ERTS_WRITE_UNLIKELY(erts_no_dirty_alloc_instances);
 struct au_init {
     int enable;
     int thr_spec;
-    int disable_allowed;
-    int thr_spec_allowed;
-    int carrier_migration_allowed;
+    bool disable_allowed;
+    bool thr_spec_allowed;
+    bool carrier_migration_allowed;
     ErtsAlcStrat_t	astrat;
     struct {
 	AllctrInit_t	util;
@@ -171,10 +171,10 @@ struct au_init {
 	AOFFAllctrInit_t aoff;
     } init;
     struct {
-	int mmbcs;
-	int lmbcs;
-	int smbcs;
-	int mmmbc;
+        bool mmbcs;
+        bool lmbcs;
+        bool smbcs;
+        bool mmmbc;
     } default_;
 };
 
@@ -207,9 +207,19 @@ typedef struct {
     struct au_init test_alloc;
 } erts_alc_hndl_args_init_t;
 
-#define ERTS_AU_INIT__ {0, 0, 1, 1, 1, \
-                        ERTS_ALC_S_GOODFIT, DEFAULT_ALLCTR_INIT, \
-                        {1,1,1,1}}
+#define ERTS_AU_INIT__ {\
+    .enable = 0,\
+    .thr_spec = 0,\
+    .disable_allowed = true,\
+    .thr_spec_allowed = true,\
+    .carrier_migration_allowed = true,\
+    .astrat = ERTS_ALC_S_GOODFIT,\
+    .init = DEFAULT_ALLCTR_INIT,\
+    .default_.mmbcs = true,\
+    .default_.lmbcs = true,\
+    .default_.smbcs = true,\
+    .default_.mmmbc = true\
+}
 
 #define SET_DEFAULT_ALLOC_OPTS(IP)					\
 do {									\
@@ -264,7 +274,7 @@ set_default_ll_alloc_opts(struct au_init *ip)
     ip->thr_spec		= 0;
     ip->astrat			= ERTS_ALC_S_BESTFIT;
     ip->init.bf.ao		= 1;
-    ip->init.util.ramv		= 0;
+    ip->init.util.ramv		= false;
     ip->init.util.mmsbc		= 0;
     ip->init.util.sbct		= ~((UWord) 0);
     ip->init.util.name_prefix	= "ll_";
@@ -293,12 +303,12 @@ set_default_literal_alloc_opts(struct au_init *ip)
     ip->enable			= 1;
 #endif
     ip->thr_spec		= 0;
-    ip->disable_allowed         = 0;
-    ip->thr_spec_allowed        = 0;
-    ip->carrier_migration_allowed = 0;
+    ip->disable_allowed         = false;
+    ip->thr_spec_allowed        = false;
+    ip->carrier_migration_allowed = false;
     ip->astrat			= ERTS_ALC_S_BESTFIT;
     ip->init.bf.ao		= 1;
-    ip->init.util.ramv		= 0;
+    ip->init.util.ramv		= false;
     ip->init.util.mmsbc		= 0;
     ip->init.util.sbct		= ~((UWord) 0);
     ip->init.util.name_prefix	= "literal_";
@@ -343,8 +353,8 @@ set_default_temp_alloc_opts(struct au_init *ip)
     SET_DEFAULT_ALLOC_OPTS(ip);
     ip->enable			= AU_ALLOC_DEFAULT_ENABLE(1);
     ip->thr_spec		= 1;
-    ip->disable_allowed         = 0;
-    ip->carrier_migration_allowed = 0;
+    ip->disable_allowed         = false;
+    ip->carrier_migration_allowed = false;
     ip->astrat			= ERTS_ALC_S_AFIT;
     ip->init.util.name_prefix	= "temp_";
     ip->init.util.alloc_no	= ERTS_ALC_A_TEMPORARY;
@@ -408,7 +418,7 @@ set_default_ets_alloc_opts(struct au_init *ip)
     ip->init.util.name_prefix	= "ets_";
     ip->init.util.alloc_no	= ERTS_ALC_A_ETS;
     ip->init.util.cp            = ERTS_ALC_A_ETS;
-    ip->init.util.mmbc0         = 0;
+    ip->init.util.mmbc0         = false;
 #ifndef SMALL_MEMORY
     ip->init.util.mmbcs 	= 128*1024; /* Main carrier size */
 #else
@@ -1462,7 +1472,7 @@ handle_au_arg(struct au_init *auip,
     }
     case 'l':
 	if (has_prefix("lmbcs", sub_param)) {
-	    auip->default_.lmbcs = 0;
+            auip->default_.lmbcs = false;
 	    auip->init.util.lmbcs = get_kb_value(sub_param + 5, argv, ip);
 	}
 	else
@@ -1479,11 +1489,11 @@ handle_au_arg(struct au_init *auip,
 		auip->init.gf.mbsd = 1;
 	}
 	else if (has_prefix("mmbcs", sub_param)) {
-	    auip->default_.mmbcs = 0;
+            auip->default_.mmbcs = false;
 	    auip->init.util.mmbcs = get_kb_value(sub_param + 5, argv, ip);
 	}
 	else if (has_prefix("mmmbc", sub_param)) {
-	    auip->default_.mmmbc = 0;
+            auip->default_.mmmbc = false;
 	    auip->init.util.mmmbc = get_amount_value(sub_param + 5, argv, ip);
 	}
 	else if (has_prefix("mmsbc", sub_param)) {
@@ -1519,7 +1529,7 @@ handle_au_arg(struct au_init *auip,
 	    auip->init.util.sbct = get_kb_value(sub_param + 4, argv, ip);
 	}
 	else if (has_prefix("smbcs", sub_param)) {
-	    auip->default_.smbcs = 0;
+            auip->default_.smbcs = false;
 	    auip->init.util.smbcs = get_kb_value(sub_param + 5, argv, ip);
 	}
 	else
@@ -1768,7 +1778,7 @@ handle_args(int *argc, char **argv, erts_alc_hndl_args_init_t *init)
 				aui[a]->thr_spec = 0;
 				aui[a]->init.util.acul = 0;
 				aui[a]->init.util.acful = 0;
-				aui[a]->init.util.ramv = 0;
+                                aui[a]->init.util.ramv = false;
 				aui[a]->init.util.lmbcs = 5*1024*1024;
 			    }
 			}

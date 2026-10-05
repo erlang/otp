@@ -49,15 +49,15 @@ typedef struct {
     char *name_prefix;
     ErtsAlcType_t alloc_no;
     ErtsAlcStrat_t alloc_strat;
-    int force;
+    bool force;
+    bool ramv;
+    bool mmbc0;     /* create main mbc for instance 0 */
     int ix;
     int ts;
     int tspec;
     int tpref;
-    int ramv;
     int atags;
     int cp;
-    int mmbc0;     /* create main mbc for instance 0 */
     UWord sbct;
     UWord asbcst;
     UWord rsbcst;
@@ -108,36 +108,36 @@ typedef struct {
 }
 
 #define ERTS_DEFAULT_ALLCTR_INIT {                                         \
-    NULL,                                                                  \
-    ERTS_ALC_A_INVALID,	/* (number) alloc_no: allocator number           */\
-    ERTS_ALC_S_INVALID,	/* (number) alloc_strat: allocator strategy      */\
-    0,			/* (bool)   force:  force enabled                */\
-    0,			/* (number) ix: instance index                   */\
-    1,			/* (bool)   ts:     thread safe                  */\
-    0,			/* (bool)   tspec:  thread specific              */\
-    0,			/* (bool)   tpref:  thread preferred             */\
-    0,			/* (bool)   ramv:   realloc always moves         */\
-    0,			/* (bool)   atags:  tagged allocations           */\
-    -1,		        /* (ix)     cp:     carrier pool                 */\
-    1,                  /* (bool)   mmbc0:  main mbc in instance 0       */\
-    512*1024,		/* (bytes)  sbct:   sbc threshold                */\
-    2*1024*2024,	/* (amount) asbcst: abs sbc shrink threshold     */\
-    20,			/* (%)      rsbcst: rel sbc shrink threshold     */\
-    80,			/* (%)      rsbcmt: rel sbc move threshold       */\
-    50,			/* (%)      rmbcmt: rel mbc move threshold       */\
-    1024*1024,		/* (bytes)  mmbcs:  main multiblock carrier size */\
-    256,		/* (amount) mmsbc:  max mseg sbcs                */\
-    ~((UWord) 0),	/* (amount) mmmbc:  max mseg mbcs                */ \
-    10*1024*1024,	/* (bytes)  lmbcs:  largest mbc size             */\
-    1024*1024,		/* (bytes)  smbcs:  smallest mbc size            */\
-    10,			/* (amount) mbcgs:  mbc growth stages            */\
-    0,			/* (%)      acul:  abandon carrier utilization limit */\
-    0,			/* (%)      acful:  carrier free utilization limit */\
-    1000,		/* (amount) acnl:  abandoned carriers number limit */\
-    0,			/* (bytes)  acfml: abandoned carrier fblk min limit */\
+    .name_prefix = NULL,                                                   \
+    .alloc_no = ERTS_ALC_A_INVALID,	/* allocator number */             \
+    .alloc_strat = ERTS_ALC_S_INVALID,	/* allocator strategy */           \
+    .force = false,		        /* force enabled */                \
+    .ramv = false,       	        /* (bool) realloc always moves */  \
+    .mmbc0 = true,                      /* (bool) main mbc in instance 0 */\
+    .ix = 0,			        /* instance index */               \
+    .ts = 1,			        /* (bool) thread safe */           \
+    .tspec = 0, 			/* (bool) thread specific */       \
+    .tpref = 0,			        /* (bool) thread preferred */      \
+    .atags = 0,			        /* tagged allocations */           \
+    .cp = -1,		                /* carrier pool index */           \
+    .sbct = 512*1024,		        /* (bytes) sbc threshold */        \
+    .asbcst = 4*1024*1024,	        /* (amount) abs sbc shrink threshold */\
+    .rsbcst = 20,			/* (%) rel sbc shrink threshold */ \
+    .rsbcmt = 80,			/* (%) rel sbc move threshold */   \
+    .rmbcmt = 50,			/* (%) rel mbc move thresho */     \
+    .mmbcs = 1024*1024,		        /* (bytes) main mbc size */        \
+    .mmsbc = 256,		        /* (amount) max mseg sbcs */       \
+    .mmmbc = ~((UWord) 0),	        /* (amount) max mseg mbcs */       \
+    .lmbcs = 10*1024*1024,	        /* (bytes) largest mbc size */     \
+    .smbcs = 1024*1024,		        /* (bytes) smallest mbc size */    \
+    .mbcgs = 10,			/* (amount) mbc growth stages */   \
+    .acul = 0,			        /* (%) abandon carrier utilization limit */\
+    .acful = 0,			        /* (%) carrier free utilization limit */\
+    .acnl = 1000,		        /* (amount) abandoned carriers number limit */\
+    .acfml = 0,			        /* (bytes) abandoned carrier fblk min limit */\
     /* --- Data not options -------------------------------------------- */\
-    NULL,		/* (ptr)    fix                                  */\
-    NULL		/* (ptr)    fix_type_size                        */\
+    .fix = NULL, \
+    .fix_type_size = NULL \
 }
 
 #else /* if SMALL_MEMORY */
@@ -150,36 +150,36 @@ typedef struct {
 }
 
 #define ERTS_DEFAULT_ALLCTR_INIT {                                         \
-    NULL,                                                                  \
-    ERTS_ALC_A_INVALID,	/* (number) alloc_no: allocator number           */\
-    ERTS_ALC_S_INVALID,	/* (number) alloc_strat: allocator strategy      */\
-    0,			/* (bool)   force:  force enabled                */\
-    0,			/* (number) ix: instance index                   */\
-    1,			/* (bool)   ts:     thread safe                  */\
-    0,			/* (bool)   tspec:  thread specific              */\
-    0,			/* (bool)   tpref:  thread preferred             */\
-    0,			/* (bool)   ramv:   realloc always moves         */\
-    0,			/* (bool)   atags:  tagged allocations           */\
-    -1,		        /* (ix)     cp:     carrier pool                 */\
-    1,                  /* (bool)   mmbc0:  main mbc in instance 0       */\
-    64*1024,		/* (bytes)  sbct:   sbc threshold                */\
-    2*1024*2024,	/* (amount) asbcst: abs sbc shrink threshold     */\
-    20,			/* (%)      rsbcst: rel sbc shrink threshold     */\
-    80,			/* (%)      rsbcmt: rel sbc move threshold       */\
-    50,			/* (%)      rmbcmt: rel mbc move threshold       */\
-    128*1024,		/* (bytes)  mmbcs:  main multiblock carrier size */\
-    256,		/* (amount) mmsbc:  max mseg sbcs                */\
-    ~((UWord) 0),	/* (amount) mmmbc:  max mseg mbcs                */ \
-    1024*1024,		/* (bytes)  lmbcs:  largest mbc size             */\
-    128*1024,		/* (bytes)  smbcs:  smallest mbc size            */\
-    10,			/* (amount) mbcgs:  mbc growth stages            */\
-    0,			/* (%)      acul:  abandon carrier utilization limit */\
-    0,			/* (%)      acful:  carrier free utilization limit */\
-    1000,		/* (amount) acnl:  abandoned carriers number limit */\
-    0,			/* (bytes)  acfml: abandoned carrier fblk min limit */\
+    .name_prefix = NULL,                                                   \
+    .alloc_no = ERTS_ALC_A_INVALID,	/* allocator number */             \
+    .alloc_strat = ERTS_ALC_S_INVALID,	/* allocator strategy */           \
+    .force = false,			/* force enabled */                \
+    .ramv = false,		        /* (bool) realloc always moves */  \
+    .mmbc0 = true,                      /* (bool) main mbc in instance 0 */\
+    .ix = 0,			        /* instance index */               \
+    .ts = 1,			        /* (bool) thread safe */           \
+    .tspec = 0, 			/* (bool) thread specific */       \
+    .tpref = 0,			        /* (bool) thread preferred */      \
+    .atags = 0,			        /* tagged allocations */           \
+    .cp = -1,		                /* carrier pool index */           \
+    .sbct = 64*1024,		        /* (bytes) sbc threshold */        \
+    .asbcst = 4*1024*1024,	        /* (amount) abs sbc shrink threshold */\
+    .rsbcst = 20,			/* (%) rel sbc shrink threshold */ \
+    .rsbcmt = 80,			/* (%) rel sbc move threshold */   \
+    .rmbcmt = 50,			/* (%) rel mbc move thresho */     \
+    .mmbcs = 128*1024,		        /* (bytes) main mbc size */        \
+    .mmsbc = 256,		        /* (amount) max mseg sbcs */       \
+    .mmmbc = ~((UWord) 0),	        /* (amount) max mseg mbcs */       \
+    .lmbcs = 1024*1024,	                /* (bytes) largest mbc size */     \
+    .smbcs = 128*1024,		        /* (bytes) smallest mbc size */    \
+    .mbcgs = 10,			/* (amount) mbc growth stages */   \
+    .acul = 0,			        /* (%) abandon carrier utilization limit */\
+    .acful = 0,			        /* (%) carrier free utilization limit */\
+    .acnl = 1000,		        /* (amount) abandoned carriers number limit */\
+    .acfml = 0,			        /* (bytes) abandoned carrier fblk min limit */\
     /* --- Data not options -------------------------------------------- */\
-    NULL,		/* (ptr)    fix                                  */\
-    NULL		/* (ptr)    fix_type_size                        */\
+    .fix = NULL, \
+    .fix_type_size = NULL \
 }
 
 #endif
