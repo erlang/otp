@@ -1254,6 +1254,9 @@ string_ascii(Binary, Original, Skip, Acc, Stack, Decode, Start, Len, SAcc) ->
 -spec string(binary(), binary(), integer(), acc(), stack(), decode(), integer(), integer(), binary()) -> dynamic().
 string(<<Byte, Rest/bits>>, Orig, Skip, Acc, Stack, Decode, Start, Len, SAcc) when ?is_ascii_plain(Byte) ->
     string(Rest, Orig, Skip, Acc, Stack, Decode, Start, Len + 1, SAcc);
+%% A backslash right after the previous escape: nothing to flush.
+string(<<$\\, Rest/bits>>, Orig, Skip, Acc, Stack, Decode, Start, 0, SAcc) ->
+    unescape(Rest, Orig, Skip, Acc, Stack, Decode, Start, 0, SAcc);
 string(<<$\\, Rest/bits>>, Orig, Skip, Acc, Stack, Decode, Start, Len, SAcc) ->
     Part = binary_part(Orig, Skip, Len),
     unescape(Rest, Orig, Skip, Acc, Stack, Decode, Start, Len, <<SAcc/binary, Part/binary>>);

@@ -769,6 +769,14 @@ test_decode_strings(_Config) ->
     ?assertEqual(<<"힙힙"/utf8>>, decode(<<"\"\\uD799\\uD799\"">>)),
     ?assertEqual(<<"✔"/utf8>>, decode(<<"\"✔\""/utf8>>)),
 
+    %% escapes directly following each other, and errors right after one
+    ?assertEqual(<<"\n\n\t\\\"">>, decode(<<"\"\\n\\n\\t\\\\\\\"\"">>)),
+    ?assertEqual(<<"éé\n"/utf8>>, decode(<<"\"\\u00e9\\u00e9\\n\"">>)),
+    ?assertEqual(<<"a\n𝄞☃b"/utf8>>, decode(<<"\"a\\n\\ud834\\udd1e\\u2603b\"">>)),
+    ?assertError({invalid_byte, $k}, decode(<<"\"\\n\\k\"">>)),
+    ?assertError({unexpected_sequence, <<"\\uxxxx">>}, decode(<<"\"\\n\\uxxxx\"">>)),
+    ?assertError(unexpected_end, decode(<<"\"\\n\\">>)),
+
     %% test-case with & without \n to test copying & non-copying implementation
 
     %% invalid 1st byte
