@@ -721,7 +721,31 @@ test_decode_numbers(_Config) ->
     ?assertEqual(0.1e-1, decode(<<"0.1e-1">>)),
     ?assertEqual(99.99e99, decode(<<"99.99e99">>)),
     ?assertEqual(-99.99e-99, decode(<<"-99.99e-99">>)),
-    ?assertEqual(123456789.123456789e123, decode(<<"123456789.123456789e123">>)).
+    ?assertEqual(123456789.123456789e123, decode(<<"123456789.123456789e123">>)),
+
+    %% integers around the length accumulated while scanning, and around
+    %% the 64-bit boundaries
+    ?assertEqual(12345678901234567, decode(<<"12345678901234567">>)),
+    ?assertEqual(123456789012345678, decode(<<"123456789012345678">>)),
+    ?assertEqual(-123456789012345678, decode(<<"-123456789012345678">>)),
+    ?assertEqual(1234567890123456789, decode(<<"1234567890123456789">>)),
+    ?assertEqual(-1234567890123456789, decode(<<"-1234567890123456789">>)),
+    ?assertEqual(9223372036854775807, decode(<<"9223372036854775807">>)),
+    ?assertEqual(-9223372036854775808, decode(<<"-9223372036854775808">>)),
+    ?assertEqual(18446744073709551615, decode(<<"18446744073709551615">>)),
+    ?assertEqual(123456789012345678901, decode(<<"123456789012345678901">>)),
+    ?assertEqual(-123456789012345678901, decode(<<"-123456789012345678901">>)),
+    LongInteger = binary:copy(<<"9">>, 500),
+    ?assertEqual(binary_to_integer(LongInteger), decode(LongInteger)),
+    ?assertEqual([1, -22, 333, 1234567890123456789012],
+                 decode(<<"[1,-22,333,1234567890123456789012]">>)),
+
+    %% custom integer decoders still receive the integer as a binary
+    Integer = fun(Bin) -> {integer, Bin} end,
+    ?assertEqual({[{integer, <<"7">>}, {integer, <<"-1234567890123456789">>},
+                   {integer, <<"123456789012345678901">>}, {integer, <<"0">>}], ok, <<>>},
+                 json:decode(<<"[7,-1234567890123456789,123456789012345678901,0]">>, ok,
+                             #{integer => Integer})).
 
 test_decode_strings(_Config) ->
     ?assertError(unexpected_end, decode(<<"\"">>)),
