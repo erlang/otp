@@ -26,7 +26,7 @@
 	 init_per_group/2,end_per_group/2,
          local_basic/1,local_updates/1,non_atomic_names/1,
          external_records/1,any_record/1,
-         matching/1,is_record_bif/1,type_opts/1]).
+         matching/1,is_record_bif/1,type_opts/1,sys_core_nomatch/1]).
 
 %% Unexported records.
 -record #empty{}.
@@ -68,7 +68,8 @@ groups() ->
        external_records,
        matching,
        is_record_bif,
-       type_opts
+       type_opts,
+       sys_core_nomatch
       ]}].
 
 init_per_suite(Config) ->
@@ -797,6 +798,16 @@ type_opt_ccc(A, B) ->
         #b_set{} ->
             ok
     end.
+
+%% gh-11724: Crash in sys_core_fold. A nomatch warning should be
+%% emitted for `sys_core_nomatch_1/1`.
+sys_core_nomatch(_Config) ->
+    ?assertError({badmatch,#{true:=0}}, sys_core_nomatch_1(id(0))),
+    ok.
+
+sys_core_nomatch_1(X) ->
+    #d{f = X} = #{true => X},
+    ok.
 
 %%% Common utilities.
 
