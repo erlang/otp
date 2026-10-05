@@ -5074,6 +5074,7 @@ Returns a binary constructed from the text representation of `Pid`.
 ```
 """.
 -doc #{ category => terms }.
+-doc #{since => ~"OTP @OTP-20432@"}.
 -spec pid_to_binary(Pid) -> binary() when
       Pid :: pid().
 pid_to_binary(_Pid) ->
@@ -5108,6 +5109,7 @@ Returns a binary constructed from the text representation of the port identifier
 ```
 """.
 -doc #{ category => terms }.
+-doc #{since => ~"OTP @OTP-20432@"}.
 -spec port_to_binary(Port) -> binary() when
       Port :: port().
 port_to_binary(_Port) ->
@@ -5930,6 +5932,7 @@ Returns a binary constructed from the text representation of `Ref`.
 ```
 """.
 -doc #{ category => terms }.
+-doc #{since => ~"OTP @OTP-20432@"}.
 -spec ref_to_binary(Ref) -> binary() when
       Ref :: reference().
 ref_to_binary(_Ref) ->
