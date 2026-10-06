@@ -29,7 +29,7 @@
 	 extract_from_binary_compressed/1, extract_filtered/1,
 	 extract_from_open_file/1, symlinks/1, open_add_close/1, cooked_compressed/1,
 	 memory/1,unicode/1,read_other_implementations/1,bsdtgz/1,
-         sparse/1, init/1, leading_slash/1, dotdot/1,
+         sparse/1, init/1, leading_slash/1, dotdot/1, incomplete_utf8_name/1,
          roundtrip_metadata/1, apply_file_info_opts/1,
          incompatible_options/1, table_absolute_names/1,
          streamed_extract/1, symlink_parent_dir/1,
@@ -47,7 +47,7 @@ all() ->
      extract_from_binary_compressed, extract_from_open_file,
      extract_filtered,
      symlinks, open_add_close, cooked_compressed, memory, unicode,
-     read_other_implementations, bsdtgz,
+     read_other_implementations, bsdtgz, incomplete_utf8_name,
      sparse,init,leading_slash,dotdot,roundtrip_metadata,
      apply_file_info_opts,incompatible_options, table_absolute_names,
      streamed_extract, symlink_parent_dir,
@@ -963,6 +963,39 @@ bsdtgz(Config) when is_list(Config) ->
     {ok, Bin} = file:read_file(Full),
     {ok, Table} = erl_tar:table({binary, Bin}, [compressed]),
     verify_ports(Config).
+
+%% Test that a name that ends with an incomplete UTF-8 sequence is read
+%% as its bytes, without the zero padding of the header field.
+incomplete_utf8_name(Config) when is_list(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    Dir = filename:join(PrivDir, ?FUNCTION_NAME),
+    ok = file:make_dir(Dir),
+    Tar = filename:join(Dir, "incomplete_utf8_name.tar"),
+
+    %% 16#E9 starts a three byte UTF-8 sequence. "caf" followed by it is
+    %% "café" in ISO Latin-1.
+    ok = erl_tar:create(Tar, [{"cafx", <<"contents">>}]),
+    {ok, Bin} = file:read_file(Tar),
+    ok = file:write_file(Tar, set_first_name(Bin, <<"caf", 16#E9>>)),
+
+    Name = "caf" ++ [16#E9],
+    {ok, [Name]} = erl_tar:table(Tar),
+    {ok, [{Name, <<"contents">>}]} = erl_tar:extract(Tar, [memory]),
+
+    ok = delete_files([Dir]),
+    verify_ports(Config).
+
+%% Replaces the name in the first header of a tar archive and updates the
+%% checksum of the header.
+set_first_name(<<_:100/binary, Fields:48/binary, _Chksum:8/binary,
+                 Tail:356/binary, Rest/binary>>, Name) ->
+    Padding = 100 - byte_size(Name),
+    NameField = <<Name/binary, 0:Padding/unit:8>>,
+    Sum = lists:sum(binary_to_list(<<NameField/binary, Fields/binary,
+                                     "        ", Tail/binary>>)),
+    Chksum = iolist_to_binary(io_lib:format("~6.8.0B", [Sum])),
+    <<NameField/binary, Fields/binary, Chksum/binary, 0, $\s,
+      Tail/binary, Rest/binary>>.
 
 %% Test handling of sparse files
 sparse(Config) when is_list(Config) ->
