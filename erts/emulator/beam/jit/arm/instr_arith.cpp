@@ -955,7 +955,9 @@ void BeamModuleAssembler::emit_div_rem_literal(Sint divisor,
             if (shift != 0) {
                 a.asr(quotient, quotient, imm(shift));
             }
-            a.add(quotient, quotient, TMP1, a64::lsr(63));
+            if (std::get<0>(getClampedRange(Dividend)) < 0) {
+                a.add(quotient, quotient, TMP1, a64::lsr(63));
+            }
         } else {
             mov_imm(TMP2, divisor);
             a.sdiv(quotient, TMP1, TMP2);
