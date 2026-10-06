@@ -101,6 +101,9 @@ standards. The decoder is tested using [JSONTestSuite](https://github.com/nst/JS
 %% Integers up to this many bytes long (sign included) are accumulated while
 %% their digits are scanned, which covers every 64-bit integer.
 -define(MAX_ACC_INT_LEN, 20).
+%% Longer integers reuse that accumulated prefix when the rest is at most
+%% this many digits, which binary_to_integer/1 converts on its fast path.
+-define(MAX_TAIL_INT_LEN, 17).
 
 %%
 %% Encoding implementation
@@ -1125,10 +1128,19 @@ number(Rest, Original, Skip, Acc, Stack, Decode, Len, Int, Sign) ->
 integer_value(#decode{integer = undefined}, _Original, _Skip, Len, Int, Sign)
   when Len =< ?MAX_ACC_INT_LEN ->
     Sign * Int;
+integer_value(#decode{integer = undefined}, Original, Skip, Len, Int, Sign)
+  when Len - ?MAX_ACC_INT_LEN =< ?MAX_TAIL_INT_LEN ->
+    TailLen = Len - ?MAX_ACC_INT_LEN,
+    Tail = binary_to_integer(binary_part(Original, Skip + ?MAX_ACC_INT_LEN, TailLen)),
+    Sign * (Int * pow10(TailLen) + Tail);
 integer_value(#decode{integer = undefined}, Original, Skip, Len, _Int, _Sign) ->
     binary_to_integer(binary_part(Original, Skip, Len));
 integer_value(#decode{integer = Fun}, Original, Skip, Len, _Int, _Sign) ->
     Fun(binary_part(Original, Skip, Len)).
+
+pow10(0) -> 1;
+pow10(N) when N band 1 =:= 0 -> P = pow10(N bsr 1), P * P;
+pow10(N) -> 10 * pow10(N - 1).
 
 zero_value(#decode{integer = undefined}) -> 0;
 zero_value(#decode{integer = Fun}) -> Fun(<<"0">>).
