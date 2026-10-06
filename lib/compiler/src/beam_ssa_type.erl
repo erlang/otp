@@ -36,7 +36,7 @@
 -include("beam_types.hrl").
 
 -import(lists, [duplicate/2,foldl/3,member/2,
-                keyfind/3,reverse/1,split/2,zip/2]).
+                keyfind/3,reverse/1,sort/1,split/2,zip/2]).
 
 -type type() :: beam_types:type().
 -type normal_type() :: beam_types:normal_type().
@@ -112,8 +112,9 @@ opt_start(StMap, FuncDb) ->
 
 opt_init_wl(FuncDb) ->
     %% Initialize the worklist with the exported functions, since they
-    %% can always be called.
-    Roots = [Id || Id := FI <- FuncDb, FI#func_info.exported],
+    %% can always be called. Always process them in the same order
+    %% regardless of atom-creation order.
+    Roots = sort([Id || Id := FI <- FuncDb, FI#func_info.exported]),
     wl_defer_list(Roots, wl_new()).
 
 opt_start_1(Wl0, ArgDb, StMap0, FuncDb0, MetaCache, Seen0) ->
@@ -473,7 +474,9 @@ init_sig_st(StMap, FuncDb) ->
              wl=wl_defer_list(Roots, wl_new()) }.
 
 init_sig_roots(FuncDb) ->
-    [Id || Id := #func_info{exported=true} <- FuncDb].
+    %% Always traverse the exported functions in the same order
+    %% regardless of atom-creation order.
+    sort([Id || Id := #func_info{exported=true} <- FuncDb]).
 
 init_sig_args([Root | Roots], StMap, Acc) ->
     #opt_st{args=Args0} = map_get(Root, StMap),
