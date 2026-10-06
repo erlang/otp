@@ -789,9 +789,13 @@ void BeamModuleAssembler::emit_div_rem(const ArgLabel &Fail,
                 if (shift != 0) {
                     a.sar(x86::rdx, imm(shift));
                 }
-                a.mov(x86::rax, ARG1);
-                a.shr(x86::rax, imm(63));
-                a.add(x86::rax, x86::rdx);
+                if (std::get<0>(getClampedRange(LHS)) >= 0) {
+                    a.mov(x86::rax, x86::rdx);
+                } else {
+                    a.mov(x86::rax, ARG1);
+                    a.shr(x86::rax, imm(63));
+                    a.add(x86::rax, x86::rdx);
+                }
 
                 if (need_rem) {
                     if (Support::is_int_n<32>(divisor)) {
