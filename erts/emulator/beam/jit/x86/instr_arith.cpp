@@ -776,11 +776,40 @@ void BeamModuleAssembler::emit_div_rem(const ArgLabel &Fail,
                 a.or_(x86::rax, imm(_TAG_IMMED1_SMALL));
             }
         } else {
-            comment("divide with inlined code");
-            a.mov(ARG6, imm(divisor));
             a.sar(x86::rax, imm(_TAG_IMMED1_SIZE));
-            a.cqo();
-            a.idiv(ARG6);
+
+            if (divisor > 0) {
+                unsigned shift;
+                Uint reciprocal = beam_jit_div_reciprocal(divisor, &shift);
+
+                comment("divide by multiplying with the reciprocal");
+                a.mov(ARG1, x86::rax);
+                mov_imm(ARG6, reciprocal);
+                a.imul(x86::rdx, x86::rax, ARG6);
+                if (shift != 0) {
+                    a.sar(x86::rdx, imm(shift));
+                }
+                a.mov(x86::rax, ARG1);
+                a.shr(x86::rax, imm(63));
+                a.add(x86::rax, x86::rdx);
+
+                if (need_rem) {
+                    if (Support::is_int_n<32>(divisor)) {
+                        a.imul(x86::rdx, x86::rax, imm(divisor));
+                    } else {
+                        mov_imm(ARG6, divisor);
+                        a.mov(x86::rdx, x86::rax);
+                        a.imul(x86::rdx, ARG6);
+                    }
+                    a.sub(ARG1, x86::rdx);
+                    a.mov(x86::rdx, ARG1);
+                }
+            } else {
+                comment("divide with inlined code");
+                a.mov(ARG6, imm(divisor));
+                a.cqo();
+                a.idiv(ARG6);
+            }
 
             if (need_div) {
                 a.sal(x86::rax, imm(_TAG_IMMED1_SIZE));

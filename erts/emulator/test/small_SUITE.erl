@@ -765,8 +765,15 @@ div_gen_pairs() ->
     {_, MaxSmall} = determine_small_limits(0),
     NumBitsMaxSmall = num_bits(MaxSmall),
 
-    Divisors = [-8,-2,-1,1,2,3,4,5,8,16,17,64,22222333] ++
+    Divisors = [-8,-2,-1,1,2,3,4,5,7,8,10,16,17,31,64,101,1000,22222333] ++
         [1 bsl P || P <- lists:seq(8, 12) ++ lists:seq(26, 36)],
+
+    LiteralDivisors = [3,7,10,101,1000,(1 bsl (NumBitsMaxSmall-1))+1,MaxSmall],
+    BoundaryPairs = [{A,D} || D <- LiteralDivisors,
+                            A <- lists:usort([0,1,D-1,D,D+1,
+                                              (MaxSmall div D)*D-1,
+                                              (MaxSmall div D)*D,
+                                              MaxSmall,MaxSmall+1])],
 
     %% Generate random pairs of smalls.
     Pairs0 = [{rand:uniform(MaxSmall),
@@ -779,7 +786,8 @@ div_gen_pairs() ->
 
     %% Generate pairs of numbers whose product are bignums.
     [{rand:uniform(MaxSmall),1 bsl Pow} ||
-        Pow <- lists:seq(NumBitsMaxSmall - 4, NumBitsMaxSmall - 1)] ++ Pairs3.
+        Pow <- lists:seq(NumBitsMaxSmall - 4, NumBitsMaxSmall - 1)] ++
+        BoundaryPairs ++ Pairs3.
 
 rand_sign() ->
     case rand:uniform() < 0.2 of
