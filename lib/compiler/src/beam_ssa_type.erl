@@ -30,7 +30,7 @@
 
 -module(beam_ssa_type).
 -moduledoc false.
--export([opt_start/2, opt_continue/4, opt_finish/3, opt_ranges/1]).
+-export([opt_start/3, opt_continue/4, opt_finish/3, opt_ranges/1]).
 
 -include("beam_ssa_opt.hrl").
 -include("beam_types.hrl").
@@ -78,12 +78,12 @@
 
 %%
 
--spec opt_start(term(), term()) -> term().
-opt_start(StMap, FuncDb0) when FuncDb0 =/= #{} ->
-    {ArgDb, MetaCache, FuncDb} = signatures(StMap, FuncDb0),
+-spec opt_start(term(), term(), boolean()) -> term().
+opt_start(StMap, FuncDb0, Deterministic) when FuncDb0 =/= #{} ->
+    {ArgDb, MetaCache, FuncDb} = signatures(StMap, FuncDb0, Deterministic),
 
     opt_start_1(maps:keys(StMap), ArgDb, StMap, FuncDb, MetaCache);
-opt_start(StMap, FuncDb) ->
+opt_start(StMap, FuncDb, _Deterministic) ->
     %% Module-level analysis is disabled, likely because of a call to
     %% load_nif/2 or similar. opt_continue/4 will assume that all arguments and
     %% return types are 'any'.
@@ -139,8 +139,8 @@ opt_start_1([], _CommittedArgs, StMap, FuncDb, _MetaCache) ->
           updates = #{} :: #{ func_id() => [type()] },
           meta_cache = #{} :: meta_cache()}).
 
-signatures(StMap, FuncDb0) ->
-    State0 = init_sig_st(StMap, FuncDb0),
+signatures(StMap, FuncDb0, Deterministic) ->
+    State0 = init_sig_st(StMap, FuncDb0, Deterministic),
     {State, FuncDb} = signatures_1(StMap, FuncDb0, State0),
     {State#sig_st.committed, State#sig_st.meta_cache, FuncDb}.
 
@@ -385,16 +385,22 @@ sig_local_return(I, Callee, ArgTypes, Fdb) ->
         Type -> beam_ssa:add_anno(result_type, Type, I)
     end.
 
-init_sig_st(StMap, FuncDb) ->
+init_sig_st(StMap, FuncDb, Deterministic) ->
     %% Start out as if all the roots have been called with 'any' for all
     %% arguments.
-    Roots = init_sig_roots(FuncDb),
+    Roots = init_sig_roots(FuncDb, Deterministic),
     #sig_st{ committed=#{},
              updates=init_sig_args(Roots, StMap, #{}),
              wl=wl_defer_list(Roots, wl_new()) }.
 
-init_sig_roots(FuncDb) ->
-    [Id || Id := #func_info{exported=true} <- FuncDb].
+init_sig_roots(FuncDb, Deterministic) ->
+    Iter =
+        if Deterministic ->
+            maps:iterator(FuncDb, ordered);
+        not Deterministic ->
+            FuncDb
+        end,
+    [Id || Id := #func_info{exported=true} <- Iter].
 
 init_sig_args([Root | Roots], StMap, Acc) ->
     #opt_st{args=Args0} = map_get(Root, StMap),

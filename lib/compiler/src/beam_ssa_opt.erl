@@ -264,7 +264,7 @@ module_passes(Opts) ->
             end},
            {ssa_opt_type_start,
             fun({StMap, FuncDb}) ->
-                    beam_ssa_type:opt_start(StMap, FuncDb)
+                    beam_ssa_type:opt_start(StMap, FuncDb, lists:member(deterministic, Opts))
             end}],
     passes_1(Ps0, Opts).
 
