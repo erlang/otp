@@ -41,6 +41,7 @@
 -export([run_drv_case/2]).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -240,8 +241,8 @@ set_dyn_param(_Config) ->
     lists:foreach(fun(AT) ->
                           Tpl = {AT, Param, 12345},
                           io:format("~p\n", [Tpl]),
-                          {'EXIT',{badarg,_}} =
-                              (catch erlang:system_flag(erts_alloc, Tpl))
+                          ?assertError(badarg,
+                              erlang:system_flag(erts_alloc, Tpl))
                   end,
                   Others),
     ok.

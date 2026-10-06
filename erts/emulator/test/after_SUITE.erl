@@ -25,6 +25,7 @@
 %% Tests receive after.
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 -export([all/0, suite/0,
 	 t_after/1, receive_after/1, receive_after_big/1,
@@ -119,8 +120,8 @@ receive_after_big2() ->
 	 end.
 
 -define(TryAfter(Timeout), 
-	{'EXIT',{timeout_value,_}} = (catch receive mission -> exit(impossible) after Timeout -> ok end),
-	{'EXIT',{timeout_value,_}} = (catch receive after Timeout -> ok end),
+        ?assertError(timeout_value, receive mission -> exit(impossible) after Timeout -> ok end),
+        ?assertError(timeout_value, receive after Timeout -> ok end),
 	try_after(Timeout)).
 
 %% Test error cases for 'receive after'.
@@ -138,7 +139,7 @@ receive_after_errors(Config) when is_list(Config) ->
     ok.
 
 try_after(Timeout) ->
-    {'EXIT',{timeout_value,_}} = (catch receive after Timeout -> ok end).
+    ?assertError(timeout_value, receive after Timeout -> ok end).
 
 %% Test 'after Z', when Z == 0.
 receive_var_zero(Config) when is_list(Config) ->

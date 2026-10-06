@@ -33,6 +33,7 @@
          decode_pos_neg_zero/1]).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -314,7 +315,7 @@ decode_too_small(Config) when is_list(Config) ->
 
 decode_badarg(Bin) ->
     io:format("Trying ~w\n",[Bin]),
-    {'EXIT',{badarg,_}} = (catch binary_to_term(Bin)).
+    ?assertError(badarg, binary_to_term(Bin)).
 
 enc_dec(_Size, Term) ->
     Bin = term_to_binary(Term),
