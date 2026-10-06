@@ -63,6 +63,7 @@ void beamasm_codegen(void *ba,
                      const BeamCodeHeader *in_hdr,
                      const BeamCodeHeader **out_exec_hdr,
                      BeamCodeHeader **out_rw_hdr);
+void beamasm_prepare_metadata(void *ba, const BeamCodeHeader *header);
 void *beamasm_register_metadata(void *ba, const BeamCodeHeader *header);
 void beamasm_unregister_metadata(void *handle);
 void beamasm_purge_module(const void *executable_region,

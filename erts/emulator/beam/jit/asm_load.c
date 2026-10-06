@@ -1121,6 +1121,10 @@ int beam_load_finish_emit(LoaderState *stp) {
         beamasm_patch_strings(stp->ba, stp->writable_region, string_table);
     }
 
+    /* Build private metadata before taking code loading permission.
+     * Publication stays in finalization, after the last code patches. */
+    beamasm_prepare_metadata(stp->ba, stp->code_hdr);
+
     ret = 1;
 load_error:
 
