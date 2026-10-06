@@ -62,6 +62,7 @@ BeamGlobalAssembler::BeamGlobalAssembler(JitAllocator *allocator)
         VirtMem::protect_jit_memory(VirtMem::ProtectJitAccess::kReadExecute);
     }
 
+#ifdef HAVE_BEAMASM_METADATA_SUPPORT
     AsmMetadata metadata;
 
     metadata.ranges.reserve(emitPtrs.size());
@@ -87,6 +88,8 @@ BeamGlobalAssembler::BeamGlobalAssembler(JitAllocator *allocator)
                                   (ErtsCodePtr)getBaseAddress(),
                                   code.code_size(),
                                   metadata);
+
+#endif
 
     /* `this->get_xxx` are populated last to ensure that we crash if we use
      * them instead of labels in global code. */

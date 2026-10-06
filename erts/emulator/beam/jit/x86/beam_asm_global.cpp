@@ -62,7 +62,7 @@ BeamGlobalAssembler::BeamGlobalAssembler(JitAllocator *allocator)
         VirtMem::protect_jit_memory(VirtMem::ProtectJitAccess::kReadExecute);
     }
 
-#ifndef WIN32
+#ifdef HAVE_BEAMASM_METADATA_SUPPORT
     AsmMetadata metadata;
 
     metadata.ranges.reserve(emitPtrs.size());

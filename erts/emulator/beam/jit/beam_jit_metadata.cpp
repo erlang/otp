@@ -27,11 +27,6 @@ extern "C"
 #include "beam_common.h"
 }
 
-#if !(defined(WIN32) || defined(__APPLE__) || defined(__MACH__) ||             \
-      defined(__DARWIN__))
-#    define HAVE_GDB_SUPPORT
-#endif
-
 #ifdef HAVE_GDB_SUPPORT
 
 enum jit_actions : uint32_t {

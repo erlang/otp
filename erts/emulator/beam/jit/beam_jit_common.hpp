@@ -53,6 +53,16 @@ extern "C"
 #include "beam_types.h"
 }
 
+/* JIT metadata consumers and producers must use the same platform guards. */
+#if !(defined(WIN32) || defined(__APPLE__) || defined(__MACH__) ||             \
+      defined(__DARWIN__))
+#    define HAVE_GDB_SUPPORT
+#endif
+
+#if defined(HAVE_GDB_SUPPORT) || defined(HAVE_LINUX_PERF_SUPPORT)
+#    define HAVE_BEAMASM_METADATA_SUPPORT
+#endif
+
 /* On Windows, the min and max macros may be defined. */
 #undef min
 #undef max

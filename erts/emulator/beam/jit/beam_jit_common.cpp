@@ -368,7 +368,7 @@ BeamModuleAssembler::BeamModuleAssembler(BeamGlobalAssembler *_ga,
 }
 
 void BeamModuleAssembler::prepare_metadata(const BeamCodeHeader *header) {
-#ifndef WIN32
+#ifdef HAVE_BEAMASM_METADATA_SUPPORT
     const BeamCodeLineTab *line_table = header->line_table;
 
     char name_buffer[MAX_ATOM_SZ_LIMIT];
@@ -500,7 +500,7 @@ void BeamModuleAssembler::prepare_metadata(const BeamCodeHeader *header) {
 }
 
 void *BeamModuleAssembler::register_metadata(const BeamCodeHeader *header) {
-#ifndef WIN32
+#ifdef HAVE_BEAMASM_METADATA_SUPPORT
     /* Runtime-generated helper modules bypass the BEAM loader. */
     if (!metadata_prepared) {
         prepare_metadata(header);
