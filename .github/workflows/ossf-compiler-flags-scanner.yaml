@@ -28,13 +28,12 @@ on:
   schedule:
     - cron: 0 1 * * *
 
-permissions:
-  contents: read
+permissions: {}
 
 jobs:
   schedule-scan:
     runs-on: ubuntu-latest
-    if: github.repository == 'erlang/otp'
+    if: github.repository == 'erlang/otp' || github.event_name == 'workflow_dispatch'
     permissions:
       # Required to upload SARIF file to CodeQL.
       # See: https://github.com/github/codeql-action/issues/2117
@@ -47,12 +46,44 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6.0.2
         with:
           persist-credentials: false
+
       - name: Create initial pre-release tar
         run: .github/scripts/init-pre-release.sh otp_src.tar.gz
+
       - uses: ./.github/actions/build-base-image
         with:
           BASE_BRANCH: master
 
-      - uses: ./.github/actions/ossf-compiler-flags-scanner
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6.0.2
         with:
-            upload: true
+            repository: ossf/wg-best-practices-os-developers
+            sparse-checkout: docs/Compiler-Hardening-Guides/compiler-options-scraper
+            path: ossf
+            persist-credentials: false
+    
+      - name: Setup compiler options scraper
+        shell: bash -eo pipefail {0}
+        run: |
+          pip3 install -r ossf/docs/Compiler-Hardening-Guides/compiler-options-scraper/requirements.txt
+          python3 ossf/docs/Compiler-Hardening-Guides/compiler-options-scraper/main.py
+          cat compiler-options.json
+
+      - name: Run compiler flag comparison
+        shell: bash -eo pipefail {0}
+        run: |
+          docker run -v `pwd`/.github/scripts:/github --entrypoint "" otp \
+            bash -c "/github/ossf-sarif-generator.es '$(cat compiler-options.json)'" > results.sarif
+
+      - name: "Upload artifact"
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        with:
+            name: SARIF file
+            path: results.sarif
+
+      # Upload the results to GitHub's code scanning dashboard.
+      - name: "Upload to code-scanning"
+        if: ${{ !cancelled() }}
+        uses: github/codeql-action/upload-sarif@2d6b98c7cf7260afd6954ee7de478b21127b40f4 # ratchet:github/codeql-action/upload-sarif@v3.29.7
+        with:
+            sarif_file: results.sarif
