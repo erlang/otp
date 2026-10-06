@@ -1225,7 +1225,7 @@ gc_bif2 Fail1 _Live1 u$bif:erlang:stimes/2 S1 S2 Dst1 |
     i_mul_add Fail1 S1 S2 S4 S3 Dst1
 
 gc_bif2 Fail _Live u$bif:erlang:stimes/2 S1 S2 Dst =>
-    i_mul_add Fail S1 S2 Dst i Dst
+    i_mul_add Fail S1 S2 Dst u Dst
 
 gc_bif2 Fail Live u$bif:erlang:splus/2 Src1 Src2 Dst =>
     i_plus Fail Live Src1 Src2 Dst
@@ -1301,6 +1301,7 @@ gc_bif2 Fail Live u$bif:erlang:bsl/2 S1 S2 Dst =>
     i_bsl Fail Live S1 S2 Dst
 
 i_mul_add j s s s s d
+i_mul_add j s s s t d
 
 i_plus j I s s d
 i_unary_minus j I s d
