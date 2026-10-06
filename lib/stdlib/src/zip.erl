@@ -495,10 +495,10 @@ _Example:_
       FileInArchive :: file:name(),
       GetInfo :: fun(() -> file:file_info()),
       GetBin :: fun(() -> binary()),
-      Acc0 :: term(),
-      Acc1 :: term(),
-      AccIn :: term(),
-      AccOut :: term(),
+      Acc0 :: Acc,
+      Acc1 :: Acc,
+      AccIn :: Acc,
+      AccOut :: Acc,
       Archive :: file:name() | {file:name(), binary()},
       Reason :: term()).
 
