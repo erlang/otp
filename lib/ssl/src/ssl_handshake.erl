@@ -1499,14 +1499,16 @@ get_identities_binders(TicketData) ->
 %%
 get_identities_binders([], {Identities, Binders}, _) ->
     {lists:reverse(Identities), lists:reverse(Binders)};
-get_identities_binders([#ticket_data{key = Key,
-                                     identity = Identity,
+get_identities_binders([#ticket_data{identity = Identity,
                                      cipher_suite = {_, HKDF}}|T], {I0, B0}, N) ->
     %% Use dummy binder for proper calculation of packet size when creating
     %% the real binder value.
     Binder = dummy_binder(HKDF),
-    %% Store ticket position in identities
-    tls_client_ticket_store:update_ticket(Key, N),
+    %% Ticket position (N) in the offered identities is carried on the
+    %% #ticket_data{} record itself (pos): manual mode sets it in
+    %% process_user_tickets/3, auto mode sets it when the ticket is taken from
+    %% the store. The server's selected_identity is matched against that pos in
+    %% choose_psk/2, so no shared-store write-back is needed here.
     get_identities_binders(T, {[Identity|I0], [Binder|B0]}, N + 1).
 
 
