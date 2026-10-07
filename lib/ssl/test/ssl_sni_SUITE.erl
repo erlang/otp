@@ -90,11 +90,11 @@ groups() ->
     ].
 
 sni_tests() ->
-    [no_sni_ext, 
-     sni_match, 
+    [no_sni_ext,
+     sni_match,
      sni_no_match,
-     no_sni_ext_fun, 
-     sni_match_fun, 
+     no_sni_ext_fun,
+     sni_match_fun,
      sni_no_match_fun,
      sni_fail_fun,
      sni_crash_fun,
@@ -146,7 +146,7 @@ init_per_testcase(_TestCase, Config) ->
     ct:timetrap(?TIMEOUT),
     Config.
 
-end_per_testcase(_TestCase, Config) ->     
+end_per_testcase(_TestCase, Config) ->
     Config.
 
 %%--------------------------------------------------------------------
