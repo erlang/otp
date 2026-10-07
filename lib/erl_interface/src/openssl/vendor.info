@@ -14,7 +14,7 @@
     "homepage": "https://www.openssl.org/",
     "licenseDeclared": "Apache-2.0",
     "name": "openssl",
-    "versionInfo": "3.6.1",
+    "versionInfo": "4.0.3",
     "sha": "c9a9e5b10105ad850b6e4d1122c645c67767c341",
     "path": "./lib/erl_interface/src/openssl",
     "exclude": [
