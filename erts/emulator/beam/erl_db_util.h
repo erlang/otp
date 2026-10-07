@@ -153,6 +153,12 @@ typedef struct db_table_method
 			  Eterm key, 
 			  int index, 
 			  Eterm* ret);
+    int (*db_get_elements)(Process* p, 
+                          DbTable* tb, /* [in out] */ 
+                          Eterm key,
+                          Eterm *indexes,
+                          int index_cnt, 
+                          Eterm* ret);
     int (*db_member)(DbTable* tb, /* [in out] */ 
 		     Eterm key, 
 		     Eterm* ret);
@@ -476,6 +482,9 @@ void* db_store_term_comp(DbTableCommon *tb, /*May be NULL*/
                          Uint offset,Eterm obj);
 Eterm db_copy_element_from_ets(DbTableCommon* tb, Process* p, DbTerm* obj,
 			       Uint pos, Eterm** hpp, Uint extra);
+Eterm db_copy_elements_from_ets(DbTableCommon* tb, Process* p, DbTerm* obj,
+                                Eterm* indexes, Uint index_cnt, Eterm** hpp,
+                                Uint extra);
 int db_has_map(Eterm obj);
 bool db_is_fully_bound(Eterm obj);
 int db_is_variable(Eterm obj);
