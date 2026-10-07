@@ -113,7 +113,6 @@ validate_properties2(Properties0) ->
         false ->
             KeepaliveTimeout = proplists:get_value(keep_alive_timeout, Properties0),
             case KeepaliveTimeout of
-                infinity -> ok; %%% timeout disabled
                 undefined -> ok;
                 _ ->
                     throw({error, invalid_keep_alive_timeout})
@@ -205,8 +204,7 @@ validate_config_params([{max_body_size, Value} | _]) ->
     throw({max_body_size, Value});
 
 validate_config_params([{request_timeout, Value} | Rest])
-  when (is_integer(Value) andalso (Value > 0));
-       Value =:= infinity ->
+  when (is_integer(Value) andalso (Value > 0)) ->
     validate_config_params(Rest);
 validate_config_params([{request_timeout, Value} | _]) ->
     throw({request_timeout, Value});
@@ -216,6 +214,12 @@ validate_config_params([{max_content_length, Value} | Rest])
     validate_config_params(Rest);
 validate_config_params([{max_content_length, Value} | _]) -> 
     throw({max_content_length, Value});
+
+validate_config_params([{max_uri_size, Value} | Rest]) 
+  when is_integer(Value) andalso (Value > 0) ->
+    validate_config_params(Rest);
+validate_config_params([{max_uri_size, Value} | _]) -> 
+    throw({max_uri_size, Value});
 
 validate_config_params([{server_name, Value} | Rest])  
   when is_list(Value) ->
@@ -284,8 +288,7 @@ validate_config_params([{max_keep_alive_request, Value} | _]) ->
     throw({max_keep_alive_request, Value});
 
 validate_config_params([{keep_alive_timeout, Value} | Rest]) 
-  when (is_integer(Value) andalso (Value >= 0));
-       Value =:= infinity ->
+  when (is_integer(Value) andalso (Value >= 0)) ->
     validate_config_params(Rest);
 validate_config_params([{keep_alive_timeout, Value} | _]) ->
     throw({keep_alive_timeout, Value});
