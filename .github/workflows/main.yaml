@@ -152,7 +152,7 @@ jobs:
       - name: Create initial pre-release tar
         run: .github/scripts/init-pre-release.sh otp_archive.tar.gz otp_src.tar.gz
       - name: Upload source tar archive
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: otp_git_archive
           path: otp_archive.tar.gz
@@ -184,7 +184,7 @@ jobs:
               "`pwd`/.github/otp.tar.gz" \
               "`pwd`/otp_archive.tar.gz"
       - name: Upload restored cache
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: runner.debug == 1
         with:
           name: restored-cache
@@ -211,7 +211,7 @@ jobs:
             bash -c 'set -x; C_APPS=$(ls -d ./lib/*/c_src); find Makefile ./make ./erts ./bin/`erts/autoconf/config.guess` ./lib/erl_interface ./lib/jinterface ${C_APPS} `echo "${C_APPS}" | sed -e 's:c_src$:priv:'` -type f -newer README.md \! -name "*.beam" \! -path "*/doc/*" \! -path "./erts/preloaded/*" | xargs tar --transform "s:^./:otp/:" -uvf /github/otp_cache.tar'
           gzip otp_cache.tar
       - name: Upload pre-built tar archives
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: otp_prebuilt
           path: |
@@ -230,7 +230,7 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Download source archive
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: otp_prebuilt
 
@@ -272,7 +272,7 @@ jobs:
           ./bin/erl -noshell -eval '{wx_ref,_,_,_} = wx:new(), io:format("wx ok~n"), halt().'
 
       - name: Upload tarball
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: otp_prebuilt_macos_x86-64
           path: otp/otp_macos_*_x86-64.tar.gz
@@ -288,7 +288,7 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
       - name: Download source archive
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: otp_prebuilt
 
@@ -307,7 +307,7 @@ jobs:
           xcodebuild -create-xcframework -output ./liberlang.xcframework -library liberlang.a
 
       - name: Upload framework
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ios_framework_${{ env.TARGET_ARCH }}
           path: otp/liberlang.xcframework
@@ -394,7 +394,7 @@ jobs:
           nmake TARGET_CPU=amd64 BUILD=release SHARED=0 DIR_SUFFIX_CPU= -f makefile.vc
 
       - name: Download source archive
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: otp_prebuilt
 
@@ -424,7 +424,7 @@ jobs:
           ./otp_build installer_win32
 
       - name: Upload installer
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: otp_win32_installer
           path: otp/release/win32/otp*.exe
@@ -572,7 +572,7 @@ jobs:
     if: needs.pack.outputs.build-c-code == 'true'
     steps:
       - name: Download source archive
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: otp_prebuilt
       - name: Build on FreeBSD
@@ -631,12 +631,12 @@ jobs:
             rm -rf man
             tar czf ../otp_doc_html.tar.gz *
       - name: Upload html documentation archive
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: otp_doc_html
           path: otp_doc_html.tar.gz
       - name: Upload man documentation archive
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: otp_doc_man
           path: otp_doc_man.tar.gz
@@ -722,7 +722,7 @@ jobs:
           sudo bash -c "chown -R `whoami` make_test_dir && chmod -R +r make_test_dir"
           tar czf ${{ matrix.type }}_test_results.tar.gz make_test_dir
       - name: Upload test results
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ !cancelled() }}
         with:
           name: ${{ matrix.type }}_test_results
@@ -739,7 +739,7 @@ jobs:
         with:
             BASE_BRANCH: ${{ env.BASE_BRANCH }}
       - name: Download test results
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
       - name: Merge test results
         run: |
           shopt -s nullglob
@@ -774,14 +774,14 @@ jobs:
               -e 's:\(file="erts/\)make_test_dir/[^/]*:\1test:g' \
               make_test_dir/*_junit.xml
       - name: Upload test results
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: ${{ !cancelled() }}
         with:
           name: test_results
           path: test_results.tar.gz
       - name: Upload Test Results
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: Unit Test Results
           path: |
@@ -902,7 +902,7 @@ jobs:
                -o $HOME/.ort/ort-results/scan-result.reuse.json /github"
 
       - name: Upload scan results
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: ort-scan-results
           path: |
@@ -945,7 +945,7 @@ jobs:
               --sbom-file $HOME/.ort/ort-results/bom.spdx.json"
 
       - name: Upload SPDX SBOM result
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: spdx-sbom-result
           path: /home/runner/.ort/ort-results/bom.spdx.json
@@ -990,7 +990,7 @@ jobs:
             BASE_BRANCH: ${{ env.BASE_BRANCH }}
 
       - name: Download SBoM
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
             name: ort-results-otp-${{ env.OTP_SBOM_VERSION }}
 
@@ -1039,15 +1039,15 @@ jobs:
 
       ## Publish the pre-built archive and docs
       - name: Download source archive
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: otp_prebuilt
       - name: Download html docs
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: otp_doc_html
       - name: Download man docs
-        uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: otp_doc_man
 
@@ -1066,12 +1066,12 @@ jobs:
           sha256sum $FILES > SHA256.txt
 
       - name: Download SBoM
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
             name: ort-results-otp-${{ env.OTP_SBOM_VERSION }}
 
       - name: Download ORT Scan Results
-        uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7.0.0
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
             name: ort-results-otp-${{ env.OTP_SBOM_VERSION }}-scan-result.json.zip
 
@@ -1098,7 +1098,7 @@ jobs:
         env:
           ATTESTATION: "${{ steps.attest-sbom.outputs.bundle-path }}"
       - name: "Assemble Distribution Attestations"
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
         with:
 
           name: "Attestations"
@@ -1127,7 +1127,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Upload
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # v6.0.0
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: Event File
           path: ${{ github.event_path }}
