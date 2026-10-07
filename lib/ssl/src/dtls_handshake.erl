@@ -197,7 +197,7 @@ handle_client_hello(Version,
 	    {Type, #session{cipher_suite = CipherSuite,
                             own_certificates = [OwnCert |_]} = Session1}
 		= ssl_handshake:select_session(SugesstedId, CipherSuites,
-                                               AvailableHashSigns,
+                                               AvailableHashSigns, HelloExt,
 					       SessIdTracker, Session0#session{ecc = ECCCurve},
                                                TLSVersion, SslOpts, CertKeyPairs),
 	    case CipherSuite of
@@ -352,17 +352,27 @@ decode_handshake(Version, <<?BYTE(Type), Bin/binary>>) ->
 decode_handshake(_, ?HELLO_REQUEST, <<>>) ->
     #hello_request{};
 decode_handshake(Version, ?CLIENT_HELLO, <<?UINT24(_), ?UINT16(_),
-					    ?UINT24(_),  ?UINT24(_), 
+                                           ?UINT24(_),  ?UINT24(_),
 					    ?BYTE(Major), ?BYTE(Minor), Random:32/binary,
 					    ?BYTE(SID_length), Session_ID:SID_length/binary,
 					    ?BYTE(CookieLength), Cookie:CookieLength/binary,
 					    ?UINT16(Cs_length), CipherSuites:Cs_length/binary,
                                             ?BYTE(Cm_length), _CompMethods:Cm_length/binary,
 					    Extensions/binary>>) ->
-    TLSVersion = dtls_v1:corresponding_tls_version(Version),
-    LegacyVersion = dtls_v1:corresponding_tls_version({Major, Minor}),
+    TLSHelloVersion = dtls_v1:corresponding_tls_version({Major, Minor}),
+    TLSVersion = case TLSHelloVersion of
+                     ?TLS_1_2 ->
+                         %% Decode as TLS-1.2 so that signature_algorithms
+                         %% schemes are handled correctly. DTLS-1.3 is not
+                         %% supported yet, but also DTLS-1.2 can support
+                         %% rsa_pss_rsae schemes.
+                         TLSHelloVersion;
+                     _ ->
+                        dtls_v1:corresponding_tls_version(Version) %% Legacy way
+                 end,
     Exts = ssl_handshake:decode_vector(Extensions),
-    DecodedExtensions = ssl_handshake:decode_hello_extensions(Exts, TLSVersion, LegacyVersion, client),
+    DecodedExtensions = ssl_handshake:decode_hello_extensions(Exts, TLSHelloVersion,
+                                                              TLSVersion, client_hello),
 
     #client_hello{
        client_version = {Major,Minor},
