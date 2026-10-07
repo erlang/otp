@@ -81,12 +81,12 @@ jobs:
             rm -rf man
             tar czf ../otp_doc_html.tar.gz *
       - name: Upload html documentation archive
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # ratchet:actions/upload-artifact@v6.0.0
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: otp_doc_html
           path: otp_doc_html.tar.gz
       - name: Upload man documentation archive
-        uses: actions/upload-artifact@b7c566a772e6b6bfb58ed0dc250532a479d7789f # ratchet:actions/upload-artifact@v6.0.0
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: otp_doc_man
           path: otp_doc_man.tar.gz
