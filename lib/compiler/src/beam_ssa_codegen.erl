@@ -211,7 +211,7 @@ add_parameter_annos([{label, _}=Entry | Body], Anno) ->
     [Entry | sort(Annos)] ++ Body.
 
 cg_fun(Blocks, Args, NoBsMatch, St0) ->
-    Linear0 = linearize(Blocks),
+    Linear0 = linearize(Blocks, St0),
     St1 = collect_catch_labels(Linear0, St0),
     Linear1 = need_heap(Linear0),
     {Linear2,St2} = prefer_xregs(Linear1, St1),
@@ -2604,30 +2604,30 @@ successors(#cg_switch{fail=Fail,list=List}) ->
     ordsets:from_list([Fail|[Lbl || {_,Lbl} <:- List]]);
 successors(#cg_ret{}) -> [].
 
-%% linearize(Blocks) -> [{BlockLabel,#cg_blk{}}].
+%% linearize(Blocks, St) -> [{BlockLabel,#cg_blk{}}].
 %%  Linearize the intermediate representation of the code. Also
 %%  translate blocks from the SSA records to internal record types
 %%  used only in this module.
 
-linearize(Blocks) ->
+linearize(Blocks, St) ->
     Linear = beam_ssa:linearize_only(Blocks),
-    linearize_1(Linear, Blocks).
+    linearize_1(Linear, Blocks, St).
 
-linearize_1([{?EXCEPTION_BLOCK,_}|Ls], Blocks) ->
-    linearize_1(Ls, Blocks);
-linearize_1([{L,Block0}|Ls], Blocks) ->
-    Block = translate_block(L, Block0, Blocks),
-    [{L,Block}|linearize_1(Ls, Blocks)];
-linearize_1([], _Blocks) -> [].
+linearize_1([{?EXCEPTION_BLOCK,_}|Ls], Blocks, St) ->
+    linearize_1(Ls, Blocks, St);
+linearize_1([{L,Block0}|Ls], Blocks, St) ->
+    Block = translate_block(L, Block0, Blocks, St),
+    [{L,Block}|linearize_1(Ls, Blocks, St)];
+linearize_1([], _Blocks, _St) -> [].
 
-%% translate_block(BlockLabel, #b_blk{}, Blocks) -> #cg_blk{}.
+%% translate_block(BlockLabel, #b_blk{}, Blocks, St) -> #cg_blk{}.
 %%  Translate a block to the internal records used in this module.
 %%  Also eliminate phi nodes, replacing them with 'copy' instructions
 %%  in the predecessor blocks.
 
-translate_block(L, #b_blk{anno=Anno,is=Is0,last=Last0}, Blocks) ->
+translate_block(L, #b_blk{anno=Anno,is=Is0,last=Last0}, Blocks, St) ->
     Last = translate_terminator(Last0),
-    PhiCopies = translate_phis(L, Last, Blocks),
+    PhiCopies = translate_phis(L, Last, Blocks, St),
     Is1 = translate_is(Is0, PhiCopies),
     Is = case Anno of
              #{frame_size:=Size} ->
@@ -2677,7 +2677,7 @@ translate_terminator(#b_br{bool=Bool,succ=Succ,fail=Fail}) ->
 translate_terminator(#b_switch{anno=Anno,arg=Bool,fail=Fail,list=List}) ->
     #cg_switch{anno=Anno,arg=Bool,fail=Fail,list=List}.
 
-translate_phis(L, #cg_br{succ=Target,fail=Target}, Blocks) ->
+translate_phis(L, #cg_br{succ=Target,fail=Target}, Blocks, St) ->
     #b_blk{is=Is} = maps:get(Target, Blocks),
     Phis = takewhile(fun(#b_set{op=phi}) -> true;
                         (#b_set{}) -> false
@@ -2702,15 +2702,23 @@ translate_phis(L, #cg_br{succ=Target,fail=Target}, Blocks) ->
             %%     x0/xreg_1 = copy y0/yreg_0
             %%
             Nop = #cg_set{op=nop,dst=NopDst,args=[]},
-            [Nop|phi_copies(Phis, L)]
+            [Nop|phi_copies(Phis, L, St)]
     end;
-translate_phis(_, _, _) -> [].
+translate_phis(_, _, _, _) -> [].
 
-phi_copies([#b_set{anno=Anno0,dst=Dst,args=PhiArgs}|Sets], L) ->
-    CopyArgs = [V || {V,Target} <- PhiArgs, Target =:= L],
-    Anno = Anno0#{was_phi => true},
-    [#cg_set{anno=Anno,op=copy,dst=Dst,args=CopyArgs}|phi_copies(Sets, L)];
-phi_copies([], _) -> [].
+phi_copies([#b_set{anno=Anno0,dst=Dst,args=PhiArgs}|Sets], L, St) ->
+    case beam_arg(Dst, St) of
+        {z,_} ->
+            %% This value is never used. (Only happens with
+            %% unoptimized code.)
+            phi_copies(Sets, L, St);
+        _ ->
+            CopyArgs = [V || {V,Target} <- PhiArgs, Target =:= L],
+            Anno = Anno0#{was_phi => true},
+            [#cg_set{anno=Anno,op=copy,dst=Dst,args=CopyArgs} |
+             phi_copies(Sets, L, St)]
+    end;
+phi_copies([], _, _) -> [].
 
 %% opt_move_to_x0([Instruction]) -> [Instruction].
 %%  Simple peep-hole optimization to move a {move,Any,{x,0}} past
