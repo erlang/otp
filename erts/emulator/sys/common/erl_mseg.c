@@ -58,8 +58,8 @@
 #define MAP_IS_ALIGNED(X)   (((UWord)(X) & (MSEG_ALIGNED_SIZE - 1)) == 0)
 
 #define IS_2POW(X)          ((X) && !((X) & ((X) - 1)))
-static ERTS_INLINE Uint ceil_2pow(Uint x) {
-    int i = 1 << (4 + (sizeof(Uint) != 4 ? 1 : 0));
+static ERTS_INLINE UWord ceil_2pow(UWord x) {
+    int i = 1 << (4 + (sizeof(UWord) != 4 ? 1 : 0));
     x--;
     do { x |= x >> i; } while(i >>= 1);
     return x + 1;
@@ -160,7 +160,7 @@ struct ErtsMsegAllctr_t_ {
     } segments;
 
     Uint max_cache_size;
-    Uint abs_max_cache_bad_fit;
+    size_t abs_max_cache_bad_fit;
     Uint rel_max_cache_bad_fit;
 
     ErtsMsegCalls calls;
@@ -257,7 +257,7 @@ schedule_cache_check(ErtsMsegAllctr_t *ma) {
 /* #define ERTS_PRINT_ERTS_MMAP */
 
 static ERTS_INLINE void *
-mseg_create(ErtsMsegAllctr_t *ma, Uint flags, UWord *sizep)
+mseg_create(ErtsMsegAllctr_t *ma, Uint flags, size_t *sizep)
 {
 #ifdef ERTS_PRINT_ERTS_MMAP
     UWord req_size = *sizep;
@@ -298,10 +298,10 @@ mseg_destroy(ErtsMsegAllctr_t *ma, Uint flags, void *seg_p, UWord size) {
 }
 
 static ERTS_INLINE void *
-mseg_recreate(ErtsMsegAllctr_t *ma, Uint flags, void *old_seg, UWord old_size, UWord *sizep)
+mseg_recreate(ErtsMsegAllctr_t *ma, Uint flags, void *old_seg, size_t old_size, size_t *sizep)
 {
 #ifdef ERTS_PRINT_ERTS_MMAP
-    UWord req_size = *sizep;	
+    size_t req_size = *sizep;
 #endif
     void *new_seg;
     Uint32 mmap_flags = 0;
@@ -434,9 +434,9 @@ static ERTS_INLINE int cache_bless_segment(ErtsMsegAllctr_t *ma, void *seg, UWor
     return 0;
 }
 
-static ERTS_INLINE void *cache_get_segment(ErtsMsegAllctr_t *ma, UWord *size_p, Uint flags) {
+static ERTS_INLINE void *cache_get_segment(ErtsMsegAllctr_t *ma, size_t *size_p, Uint flags) {
 
-    UWord size = *size_p;
+    size_t size = *size_p;
 
     ERTS_DBG_MA_CHK_THR_ACCESS(ma);
 
@@ -684,10 +684,10 @@ void erts_mseg_clear_cache(void) {
 }
 
 static void *
-mseg_alloc(ErtsMsegAllctr_t *ma, ErtsAlcType_t atype, UWord *size_p,
+mseg_alloc(ErtsMsegAllctr_t *ma, ErtsAlcType_t atype, size_t *size_p,
 	   Uint flags, const ErtsMsegOpt_t *opt)
 {
-    UWord size;
+    size_t size;
     void *seg;
 
     INC_CC(ma, alloc);
@@ -739,10 +739,10 @@ done:
 
 static void *
 mseg_realloc(ErtsMsegAllctr_t *ma, ErtsAlcType_t atype, void *seg,
-	     UWord old_size, UWord *new_size_p, Uint flags, const ErtsMsegOpt_t *opt)
+             size_t old_size, size_t *new_size_p, Uint flags, const ErtsMsegOpt_t *opt)
 {
     void *new_seg;
-    UWord new_size;
+    size_t new_size;
 
     /* Just allocate a new segment if we didn't have one before */
     if (!seg || !old_size) {
@@ -967,7 +967,7 @@ info_options(ErtsMsegAllctr_t *ma,
     if (print_to_p) {
 	fmtfn_t to = *print_to_p;
 	void *arg = print_to_arg;
-	erts_print(to, arg, "%samcbf: %beu\n", prefix, ma->abs_max_cache_bad_fit);
+        erts_print(to, arg, "%samcbf: %bpu\n", prefix, ma->abs_max_cache_bad_fit);
 	erts_print(to, arg, "%srmcbf: %beu\n", prefix, ma->rel_max_cache_bad_fit);
 	erts_print(to, arg, "%smcs: %beu\n", prefix, ma->max_cache_size);
     }
@@ -985,7 +985,7 @@ info_options(ErtsMsegAllctr_t *ma,
 		 bld_uint(hpp, szp, ma->rel_max_cache_bad_fit));
 	add_2tup(hpp, szp, &res,
 		 am.amcbf,
-		 bld_uint(hpp, szp, ma->abs_max_cache_bad_fit));
+                 erts_bld_uword(hpp, szp, ma->abs_max_cache_bad_fit));
 
     }
 
@@ -1241,7 +1241,7 @@ erts_mseg_info(int ix,
 }
 
 void *
-erts_mseg_alloc_opt(ErtsAlcType_t atype, UWord *size_p, Uint flags, const ErtsMsegOpt_t *opt)
+erts_mseg_alloc_opt(ErtsAlcType_t atype, size_t *size_p, Uint flags, const ErtsMsegOpt_t *opt)
 {
     ErtsMsegAllctr_t *ma = ERTS_MSEG_ALLCTR_OPT(opt);
     void *seg;
@@ -1254,14 +1254,14 @@ erts_mseg_alloc_opt(ErtsAlcType_t atype, UWord *size_p, Uint flags, const ErtsMs
 }
 
 void *
-erts_mseg_alloc(ErtsAlcType_t atype, UWord *size_p, Uint flags)
+erts_mseg_alloc(ErtsAlcType_t atype, size_t *size_p, Uint flags)
 {
     return erts_mseg_alloc_opt(atype, size_p, flags, &erts_mseg_default_opt);
 }
 
 void
 erts_mseg_dealloc_opt(ErtsAlcType_t atype, void *seg,
-		      UWord size, Uint flags, const ErtsMsegOpt_t *opt)
+                      size_t size, Uint flags, const ErtsMsegOpt_t *opt)
 {
     ErtsMsegAllctr_t *ma = ERTS_MSEG_ALLCTR_OPT(opt);
 
@@ -1273,14 +1273,14 @@ erts_mseg_dealloc_opt(ErtsAlcType_t atype, void *seg,
 }
 
 void
-erts_mseg_dealloc(ErtsAlcType_t atype, void *seg, UWord size, Uint flags)
+erts_mseg_dealloc(ErtsAlcType_t atype, void *seg, size_t size, Uint flags)
 {
     erts_mseg_dealloc_opt(atype, seg, size, flags, &erts_mseg_default_opt);
 }
 
 void *
 erts_mseg_realloc_opt(ErtsAlcType_t atype, void *seg,
-		      UWord old_size, UWord *new_size_p,
+                      size_t old_size, size_t *new_size_p,
 		      Uint flags,
 		      const ErtsMsegOpt_t *opt)
 {
@@ -1298,7 +1298,7 @@ erts_mseg_realloc_opt(ErtsAlcType_t atype, void *seg,
 
 void *
 erts_mseg_realloc(ErtsAlcType_t atype, void *seg,
-		  UWord old_size, UWord *new_size_p, Uint flags)
+                  size_t old_size, size_t *new_size_p, Uint flags)
 {
     return erts_mseg_realloc_opt(atype, seg, old_size, new_size_p,
 				 flags, &erts_mseg_default_opt);
@@ -1455,15 +1455,15 @@ erts_mseg_test(UWord op, UWord a1, UWord a2, UWord a3)
     case 0x400: /* Have erts_mseg */
 	return (UWord) 1;
     case 0x401:
-	return (UWord) erts_mseg_alloc(ERTS_ALC_A_INVALID, (UWord *) a1, (Uint) 0);
+        return (UWord) erts_mseg_alloc(ERTS_ALC_A_INVALID, (size_t*) a1, (Uint) 0);
     case 0x402:
-	erts_mseg_dealloc(ERTS_ALC_A_INVALID, (void *) a1, (Uint) a2, (Uint) 0);
+        erts_mseg_dealloc(ERTS_ALC_A_INVALID, (void *) a1, (size_t) a2, (Uint) 0);
 	return (UWord) 0;
     case 0x403:
 	return (UWord) erts_mseg_realloc(ERTS_ALC_A_INVALID,
 						 (void *) a1,
-						 (Uint) a2,
-						 (UWord *) a3,
+                                                 (size_t) a2,
+                                                 (size_t*) a3,
 						 (Uint) 0);
     case 0x404:
 	erts_mseg_clear_cache();

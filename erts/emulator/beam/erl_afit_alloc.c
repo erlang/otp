@@ -50,7 +50,7 @@ struct AFFreeBlock_t_ {
 #define MIN_MBC_SZ		(16*1024)
 
 /* Prototypes of callback functions */
-static Block_t *	get_free_block		(Allctr_t *, Uint, Block_t *, Uint);
+static Block_t *	get_free_block		(Allctr_t *, size_t, Block_t *, size_t);
 static void		link_free_block		(Allctr_t *, Block_t *);
 static void		unlink_free_block	(Allctr_t *, Block_t *);
 
@@ -120,7 +120,7 @@ erts_afalc_start(AFAllctr_t *afallctr,
 }
 
 static Block_t *
-get_free_block(Allctr_t *allctr, Uint size, Block_t *cand_blk, Uint cand_size)
+get_free_block(Allctr_t *allctr, size_t size, Block_t *cand_blk, size_t cand_size)
 {
     AFAllctr_t *afallctr = (AFAllctr_t *) allctr;
 

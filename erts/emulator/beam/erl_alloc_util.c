@@ -102,7 +102,7 @@ static int initialized = 0;
 #endif
 
 /* alloc_util global parameters */
-static Uint sys_alloc_carrier_size;
+static size_t sys_alloc_carrier_size;
 
 #if HAVE_ERTS_MSEG
 static Uint max_mseg_carriers;
@@ -791,7 +791,7 @@ do {									\
 
 static void make_name_atoms(Allctr_t *allctr);
 
-static Block_t *create_carrier(Allctr_t *, Uint, UWord);
+static Block_t *create_carrier(Allctr_t *, size_t, UWord);
 static void destroy_carrier(Allctr_t *, Block_t *, Carrier_t **);
 static void mbc_free(Allctr_t *allctr, ErtsAlcType_t type, void *p, Carrier_t **busy_pcrr_pp);
 static void dealloc_block(Allctr_t *, ErtsAlcType_t, Uint32, void *, ErtsAlcFixList_t *);
@@ -920,7 +920,7 @@ static ERTS_INLINE int is_bit_set(UWord* map, Uint ix)
 
 UWord erts_literal_vspace_map[VSPACE_MAP_SZ];
 
-static void set_literal_range(void* start, Uint size)
+static void set_literal_range(void* start, size_t size)
 {
     Uint ix = (UWord)start >> ERTS_MMAP_SUPERALIGNED_BITS;
     Uint n = size >> ERTS_MMAP_SUPERALIGNED_BITS;
@@ -935,7 +935,7 @@ static void set_literal_range(void* start, Uint size)
     }
 }
 
-static void clear_literal_range(void* start, Uint size)
+static void clear_literal_range(void* start, size_t size)
 {
     Uint ix = (UWord)start >> ERTS_MMAP_SUPERALIGNED_BITS;
     Uint n = size >> ERTS_MMAP_SUPERALIGNED_BITS;
@@ -957,31 +957,29 @@ static void clear_literal_range(void* start, Uint size)
 #if HAVE_ERTS_MSEG
 
 static void*
-erts_alcu_mseg_alloc(Allctr_t *allctr, Uint *size_p, Uint flags)
+erts_alcu_mseg_alloc(Allctr_t *allctr, size_t *size_p, Uint flags)
 {
     void *res;
-    UWord size = (UWord) *size_p;
+    size_t size = *size_p;
     res = erts_mseg_alloc_opt(allctr->alloc_no, &size, flags, &allctr->mseg_opt);
-    *size_p = (Uint) size;
+    *size_p = size;
     INC_CC(allctr->calls.mseg_alloc);
     return res;
 }
 
 static void*
 erts_alcu_mseg_realloc(Allctr_t *allctr, void *seg,
-                       Uint old_size, Uint *new_size_p)
+                       size_t old_size, size_t *new_size_p)
 {
     void *res;
-    UWord new_size = (UWord) *new_size_p;
-    res = erts_mseg_realloc_opt(allctr->alloc_no, seg, (UWord) old_size, &new_size,
+    res = erts_mseg_realloc_opt(allctr->alloc_no, seg, old_size, new_size_p,
 				ERTS_MSEG_FLG_NONE, &allctr->mseg_opt);
-    *new_size_p = (Uint) new_size;
     INC_CC(allctr->calls.mseg_realloc);
     return res;
 }
 
 static void
-erts_alcu_mseg_dealloc(Allctr_t *allctr, void *seg, Uint size, Uint flags)
+erts_alcu_mseg_dealloc(Allctr_t *allctr, void *seg, size_t size, Uint flags)
 {
     erts_mseg_dealloc_opt(allctr->alloc_no, seg, (UWord) size, flags, &allctr->mseg_opt);
     INC_CC(allctr->calls.mseg_dealloc);
@@ -991,10 +989,10 @@ erts_alcu_mseg_dealloc(Allctr_t *allctr, void *seg, Uint size, Uint flags)
 #if defined(ARCH_32)
 
 void*
-erts_alcu_literal_32_mseg_alloc(Allctr_t *allctr, Uint *size_p, Uint flags)
+erts_alcu_literal_32_mseg_alloc(Allctr_t *allctr, size_t *size_p, Uint flags)
 {
     void* res;
-    Uint sz = ERTS_SUPERALIGNED_CEILING(*size_p);
+    size_t sz = ERTS_SUPERALIGNED_CEILING(*size_p);
     ERTS_LC_ASSERT(allctr->alloc_no == ERTS_ALC_A_LITERAL &&
                    allctr->t == 0);
     ERTS_LC_ASSERT(allctr->thread_safe);
@@ -1009,10 +1007,10 @@ erts_alcu_literal_32_mseg_alloc(Allctr_t *allctr, Uint *size_p, Uint flags)
 
 void*
 erts_alcu_literal_32_mseg_realloc(Allctr_t *allctr, void *seg,
-                                  Uint old_size, Uint *new_size_p)
+                                  size_t old_size, size_t *new_size_p)
 {
     void* res;
-    Uint new_sz = ERTS_SUPERALIGNED_CEILING(*new_size_p);
+    size_t new_sz = ERTS_SUPERALIGNED_CEILING(*new_size_p);
     ERTS_LC_ASSERT(allctr->alloc_no == ERTS_ALC_A_LITERAL &&
                    allctr->t == 0);
     ERTS_LC_ASSERT(allctr->thread_safe);
@@ -1028,7 +1026,7 @@ erts_alcu_literal_32_mseg_realloc(Allctr_t *allctr, void *seg,
 }
 
 void
-erts_alcu_literal_32_mseg_dealloc(Allctr_t *allctr, void *seg, Uint size,
+erts_alcu_literal_32_mseg_dealloc(Allctr_t *allctr, void *seg, size_t size,
                                Uint flags)
 {
     ERTS_LC_ASSERT(allctr->alloc_no == ERTS_ALC_A_LITERAL &&
@@ -1046,34 +1044,30 @@ erts_alcu_literal_32_mseg_dealloc(Allctr_t *allctr, void *seg, Uint size,
  * like literal_alloc.
  */
 void*
-erts_alcu_mmapper_mseg_alloc(Allctr_t *allctr, Uint *size_p, Uint flags)
+erts_alcu_mmapper_mseg_alloc(Allctr_t *allctr, size_t *size_p, Uint flags)
 {
     void* res;
-    UWord size = (UWord) *size_p;
     Uint32 mmap_flags = ERTS_MMAPFLG_SUPERCARRIER_ONLY;
     if (flags & ERTS_MSEG_FLG_2POW)
         mmap_flags |= ERTS_MMAPFLG_SUPERALIGNED;
 
-    res = erts_mmap(allctr->mseg_mmapper, mmap_flags, &size);
-    *size_p = (Uint)size;
+    res = erts_mmap(allctr->mseg_mmapper, mmap_flags, size_p);
     INC_CC(allctr->calls.mseg_alloc);
     return res;
 }
 
 void*
 erts_alcu_mmapper_mseg_realloc(Allctr_t *allctr, void *seg,
-                               Uint old_size, Uint *new_size_p)
+                               size_t old_size, size_t *new_size_p)
 {
     void *res;
-    UWord new_size = (UWord) *new_size_p;
-    res = erts_mremap(allctr->mseg_mmapper, ERTS_MSEG_FLG_NONE, seg, old_size, &new_size);
-    *new_size_p = (Uint) new_size;
+    res = erts_mremap(allctr->mseg_mmapper, ERTS_MSEG_FLG_NONE, seg, old_size, new_size_p);
     INC_CC(allctr->calls.mseg_realloc);
     return res;
 }
 
 void
-erts_alcu_mmapper_mseg_dealloc(Allctr_t *allctr, void *seg, Uint size,
+erts_alcu_mmapper_mseg_dealloc(Allctr_t *allctr, void *seg, size_t size,
                                Uint flags)
 {
     Uint32 mmap_flags = ERTS_MMAPFLG_SUPERCARRIER_ONLY;
@@ -1088,10 +1082,10 @@ erts_alcu_mmapper_mseg_dealloc(Allctr_t *allctr, void *seg, Uint size,
 #endif /* HAVE_ERTS_MSEG */
 
 static void*
-erts_alcu_sys_alloc(Allctr_t *allctr, Uint* size_p, int superalign)
+erts_alcu_sys_alloc(Allctr_t *allctr, size_t* size_p, int superalign)
 {
     void *res;
-    const Uint size = *size_p;
+    const size_t size = *size_p;
 #if ERTS_SA_MB_CARRIERS && ERTS_HAVE_ERTS_SYS_ALIGNED_ALLOC
     if (superalign)
 	res = erts_sys_aligned_alloc(ERTS_SACRR_UNIT_SZ, size);
@@ -1103,10 +1097,10 @@ erts_alcu_sys_alloc(Allctr_t *allctr, Uint* size_p, int superalign)
 }
 
 static void*
-erts_alcu_sys_realloc(Allctr_t *allctr, void *ptr, Uint *size_p, Uint old_size, int superalign)
+erts_alcu_sys_realloc(Allctr_t *allctr, void *ptr, size_t *size_p, size_t old_size, int superalign)
 {
     void *res;
-    const Uint size = *size_p;
+    const size_t size = *size_p;
 
 #if ERTS_SA_MB_CARRIERS && ERTS_HAVE_ERTS_SYS_ALIGNED_ALLOC
     if (superalign)
@@ -1119,7 +1113,7 @@ erts_alcu_sys_realloc(Allctr_t *allctr, void *ptr, Uint *size_p, Uint old_size, 
 }
 
 static void
-erts_alcu_sys_dealloc(Allctr_t *allctr, void *ptr, Uint size, int superalign)
+erts_alcu_sys_dealloc(Allctr_t *allctr, void *ptr, size_t size, int superalign)
 {
 #if ERTS_SA_MB_CARRIERS && ERTS_HAVE_ERTS_SYS_ALIGNED_ALLOC
     if (superalign)
@@ -1133,10 +1127,10 @@ erts_alcu_sys_dealloc(Allctr_t *allctr, void *ptr, Uint size, int superalign)
 #ifdef ARCH_32
 
 void*
-erts_alcu_literal_32_sys_alloc(Allctr_t *allctr, Uint* size_p, int superalign)
+erts_alcu_literal_32_sys_alloc(Allctr_t *allctr, size_t* size_p, int superalign)
 {
     void* res;
-    Uint size = ERTS_SUPERALIGNED_CEILING(*size_p);
+    size_t size = ERTS_SUPERALIGNED_CEILING(*size_p);
     ERTS_LC_ASSERT(allctr->alloc_no == ERTS_ALC_A_LITERAL &&
                    allctr->t == 0);
     ERTS_LC_ASSERT(allctr->thread_safe);
@@ -1150,10 +1144,10 @@ erts_alcu_literal_32_sys_alloc(Allctr_t *allctr, Uint* size_p, int superalign)
 }
 
 void*
-erts_alcu_literal_32_sys_realloc(Allctr_t *allctr, void *ptr, Uint* size_p, Uint old_size, int superalign)
+erts_alcu_literal_32_sys_realloc(Allctr_t *allctr, void *ptr, size_t* size_p, size_t old_size, int superalign)
 {
     void* res;
-    Uint size = ERTS_SUPERALIGNED_CEILING(*size_p);
+    size_t size = ERTS_SUPERALIGNED_CEILING(*size_p);
 
     ERTS_LC_ASSERT(allctr->alloc_no == ERTS_ALC_A_LITERAL &&
                    allctr->t == 0);
@@ -1170,7 +1164,7 @@ erts_alcu_literal_32_sys_realloc(Allctr_t *allctr, void *ptr, Uint* size_p, Uint
 }
 
 void
-erts_alcu_literal_32_sys_dealloc(Allctr_t *allctr, void *ptr, Uint size, int superalign)
+erts_alcu_literal_32_sys_dealloc(Allctr_t *allctr, void *ptr, size_t size, int superalign)
 {
     ERTS_LC_ASSERT(allctr->alloc_no == ERTS_ALC_A_LITERAL &&
                    allctr->t == 0);
@@ -1183,10 +1177,10 @@ erts_alcu_literal_32_sys_dealloc(Allctr_t *allctr, void *ptr, Uint size, int sup
 
 #endif /* ARCH_32 */
 
-static Uint
+static size_t
 get_next_mbc_size(Allctr_t *allctr)
 {
-    Uint size;
+    size_t size;
     int cs;
     int i;
 
@@ -1337,7 +1331,7 @@ chk_fix_list(Allctr_t *allctr, ErtsAlcFixList_t *fix, int ix, int before)
 #endif
 
 static ERTS_INLINE Allctr_t *get_pref_allctr(void *extra);
-static void *mbc_alloc(Allctr_t *allctr, Uint size);
+static void *mbc_alloc(Allctr_t *allctr, size_t size);
 
 static ERTS_INLINE void
 sched_fix_shrink(Allctr_t *allctr, int on)
@@ -1386,7 +1380,7 @@ fix_cpool_check_shrink(Allctr_t *allctr,
 }
 
 static ERTS_INLINE void *
-fix_cpool_alloc(Allctr_t *allctr, ErtsAlcType_t type, Uint size)
+fix_cpool_alloc(Allctr_t *allctr, ErtsAlcType_t type, size_t size)
 {
     void *res;
     ErtsAlcFixList_t *fix;
@@ -1529,7 +1523,7 @@ fix_cpool_alloc_shrink(Allctr_t *allctr, erts_aint32_t flgs)
 }
 
 static ERTS_INLINE void *
-fix_nocpool_alloc(Allctr_t *allctr, ErtsAlcType_t type, Uint size)
+fix_nocpool_alloc(Allctr_t *allctr, ErtsAlcType_t type, size_t size)
 {
     ErtsAlcFixList_t *fix;
     void *res;
@@ -1733,7 +1727,7 @@ get_pref_allctr(void *extra)
  * the "PREV_FREE" flag bit. 
  */
 static ERTS_INLINE Allctr_t*
-get_used_allctr(Allctr_t *pref_allctr, int pref_lock, void *p, UWord *sizep,
+get_used_allctr(Allctr_t *pref_allctr, int pref_lock, void *p, size_t *sizep,
 		Carrier_t **busy_pcrr_pp)
 {
     Block_t* blk = UMEM2BLK(p);
@@ -2237,7 +2231,7 @@ enqueue_dealloc_other_instance(ErtsAlcType_t type,
 }
 
 static ERTS_INLINE void
-update_pooled_tree(Allctr_t *allctr, Carrier_t *crr, Uint blk_sz)
+update_pooled_tree(Allctr_t *allctr, Carrier_t *crr, size_t blk_sz)
 {
     if (allctr == crr->cpool.orig_allctr && crr->cpool.state == ERTS_MBC_WAS_POOLED) {
 	/*
@@ -2383,10 +2377,10 @@ dealloc_block(Allctr_t *allctr, ErtsAlcType_t type, Uint32 flags, void *ptr,
  * block in a sbc.
  */
 static ERTS_INLINE void *
-mbc_alloc_block(Allctr_t *allctr, Uint size, Uint *blk_szp)
+mbc_alloc_block(Allctr_t *allctr, size_t size, size_t *blk_szp)
 {
     Block_t *blk;
-    Uint get_blk_sz;
+    size_t get_blk_sz;
 
     ASSERT(size);
     ASSERT(size < allctr->sbc_threshold);
@@ -2424,14 +2418,14 @@ mbc_alloc_block(Allctr_t *allctr, Uint size, Uint *blk_szp)
 static ERTS_INLINE void
 mbc_alloc_finalize(Allctr_t *allctr,
 		   Block_t *blk,
-		   Uint org_blk_sz,
+                   size_t org_blk_sz,
 		   UWord flags,
 		   Carrier_t *crr,
-		   Uint want_blk_sz,
+                   size_t want_blk_sz,
 		   int valid_blk_info)
 {
-    Uint blk_sz;
-    Uint nxt_blk_sz;
+    size_t blk_sz;
+    size_t nxt_blk_sz;
     Block_t *nxt_blk;
     UWord prev_free_flg = flags & PREV_FREE_BLK_HDR_FLG;
 
@@ -2518,10 +2512,10 @@ mbc_alloc_finalize(Allctr_t *allctr,
 }
 
 static void *
-mbc_alloc(Allctr_t *allctr, Uint size)
+mbc_alloc(Allctr_t *allctr, size_t size)
 {
     Block_t *blk;
-    Uint blk_sz;
+    size_t blk_sz;
     blk = mbc_alloc_block(allctr, size, &blk_sz);
     if (!blk)
 	return NULL;
@@ -2688,9 +2682,9 @@ mbc_free(Allctr_t *allctr, ErtsAlcType_t type, void *p, Carrier_t **busy_pcrr_pp
 {
     ErtsMemDiscardRegion discard_region = {0};
     int discard;
-    Uint is_first_blk;
-    Uint is_last_blk;
-    Uint blk_sz;
+    bool is_first_blk;
+    bool is_last_blk;
+    size_t blk_sz;
     Block_t *blk;
     Block_t *nxt_blk;
     Carrier_t *crr;
@@ -2808,19 +2802,19 @@ mbc_free(Allctr_t *allctr, ErtsAlcType_t type, void *p, Carrier_t **busy_pcrr_pp
 }
 
 static void *
-mbc_realloc(Allctr_t *allctr, ErtsAlcType_t type, void *p, Uint size,
+mbc_realloc(Allctr_t *allctr, ErtsAlcType_t type, void *p, size_t size,
             Uint32 alcu_flgs, Carrier_t **busy_pcrr_pp)
 {
     void *new_p;
-    Uint old_blk_sz;
+    size_t old_blk_sz;
     Block_t *blk;
 #ifndef MBC_REALLOC_ALWAYS_MOVES
     Block_t *new_blk, *cand_blk;
-    Uint cand_blk_sz;
-    Uint blk_sz, get_blk_sz;
+    size_t cand_blk_sz;
+    size_t blk_sz, get_blk_sz;
     Block_t *nxt_blk;
-    Uint nxt_blk_sz;
-    Uint is_last_blk;
+    size_t nxt_blk_sz;
+    bool is_last_blk;
 #endif /* #ifndef MBC_REALLOC_ALWAYS_MOVES */
 
     ASSERT(p);
@@ -2864,13 +2858,13 @@ mbc_realloc(Allctr_t *allctr, ErtsAlcType_t type, void *p, Uint size,
 	/* Shrink block... */
 	Carrier_t* crr;
 	Block_t *nxt_nxt_blk;
-	Uint diff_sz_val = old_blk_sz - blk_sz;
-	Uint old_blk_sz_val = old_blk_sz;
+        size_t diff_sz_val = old_blk_sz - blk_sz;
+        size_t old_blk_sz_val = old_blk_sz;
 
 	if (get_blk_sz >= old_blk_sz)
 	    return p;
 
-	if (diff_sz_val >= (~((Uint) 0) / 100)) {
+        if (diff_sz_val >= (~((size_t) 0) / 100)) {
 	    /* div both by 128 */
 	    old_blk_sz_val >>= 7;
 	    diff_sz_val >>= 7;
@@ -3124,10 +3118,10 @@ mbc_realloc(Allctr_t *allctr, ErtsAlcType_t type, void *p, Uint size,
 	}
 	else {
 	    Carrier_t* crr;
-	    Uint new_blk_sz;
+            size_t new_blk_sz;
 	    UWord new_blk_flgs;
-	    Uint prev_blk_sz;
-	    Uint blk_cpy_sz;
+            size_t prev_blk_sz;
+            size_t blk_cpy_sz;
 
 	    ASSERT(IS_PREV_BLK_FREE(blk));
 	    ASSERT(cand_blk == PREV_BLK(blk));
@@ -4123,11 +4117,11 @@ static void CHECK_1BLK_CARRIER(Allctr_t* A, int SBC, int MSEGED, Carrier_t* C,
 #endif
 
 static Block_t *
-create_carrier(Allctr_t *allctr, Uint umem_sz, UWord flags)
+create_carrier(Allctr_t *allctr, size_t umem_sz, UWord flags)
 {
     Block_t *blk;
     Carrier_t *crr;
-    Uint blk_sz, bcrr_sz, crr_sz;
+    size_t blk_sz, bcrr_sz, crr_sz;
 #if HAVE_ERTS_MSEG
     int have_tried_sys_alloc = 0, have_tried_mseg = 0;
     Uint mseg_flags;
@@ -4353,13 +4347,13 @@ create_carrier(Allctr_t *allctr, Uint umem_sz, UWord flags)
 }
 
 static Block_t *
-resize_carrier(Allctr_t *allctr, Block_t *old_blk, Uint umem_sz, UWord flags)
+resize_carrier(Allctr_t *allctr, Block_t *old_blk, size_t umem_sz, UWord flags)
 {
     Block_t *new_blk;
     Carrier_t *new_crr, *old_crr;
     UWord create_flags;
-    Uint old_crr_sz, old_blk_sz, new_blk_sz, new_crr_sz;
-    Uint new_bcrr_sz;
+    size_t old_crr_sz, old_blk_sz, new_blk_sz, new_crr_sz;
+    size_t new_bcrr_sz;
 
     if (flags & CFLG_MBC) {
 	ASSERT(0);
@@ -4502,11 +4496,11 @@ dealloc_carrier(Allctr_t *allctr, Carrier_t *crr, int superaligned)
 static void
 destroy_carrier(Allctr_t *allctr, Block_t *blk, Carrier_t **busy_pcrr_pp)
 {
-    Uint crr_sz;
+    size_t crr_sz;
     Carrier_t *crr;
 
     if (IS_SBC_BLK(blk)) {
-	Uint blk_sz = SBC_BLK_SZ(blk);
+        size_t blk_sz = SBC_BLK_SZ(blk);
 	crr = BLK_TO_SBC(blk);
 	crr_sz = CARRIER_SZ(crr);
 
@@ -5983,7 +5977,7 @@ erts_alcu_current_size(Allctr_t *allctr, AllctrSize_t *size, ErtsAlcUFixInfo_t *
 /* ----------------------------------------------------------------------- */
 
 static ERTS_INLINE void *
-do_erts_alcu_alloc(ErtsAlcType_t type, Allctr_t *allctr, Uint size)
+do_erts_alcu_alloc(ErtsAlcType_t type, Allctr_t *allctr, size_t size)
 {
     void *res;
 
@@ -6026,7 +6020,7 @@ do_erts_alcu_alloc(ErtsAlcType_t type, Allctr_t *allctr, Uint size)
     return res;
 }
 
-void *erts_alcu_alloc(ErtsAlcType_t type, void *extra, Uint size)
+void *erts_alcu_alloc(ErtsAlcType_t type, void *extra, size_t size)
 {
     Allctr_t *allctr = (Allctr_t *) extra;
     void *res;
@@ -6047,7 +6041,7 @@ void *erts_alcu_alloc(ErtsAlcType_t type, void *extra, Uint size)
 
 
 void *
-erts_alcu_alloc_ts(ErtsAlcType_t type, void *extra, Uint size)
+erts_alcu_alloc_ts(ErtsAlcType_t type, void *extra, size_t size)
 {
     Allctr_t *allctr = (Allctr_t *) extra;
     void *res;
@@ -6069,7 +6063,7 @@ erts_alcu_alloc_ts(ErtsAlcType_t type, void *extra, Uint size)
 
 
 void *
-erts_alcu_alloc_thr_spec(ErtsAlcType_t type, void *extra, Uint size)
+erts_alcu_alloc_thr_spec(ErtsAlcType_t type, void *extra, size_t size)
 {
     ErtsAllocatorThrSpec_t *tspec = (ErtsAllocatorThrSpec_t *) extra;
     int ix;
@@ -6102,7 +6096,7 @@ erts_alcu_alloc_thr_spec(ErtsAlcType_t type, void *extra, Uint size)
 }
 
 void *
-erts_alcu_alloc_thr_pref(ErtsAlcType_t type, void *extra, Uint size)
+erts_alcu_alloc_thr_pref(ErtsAlcType_t type, void *extra, size_t size)
 {
     Allctr_t *pref_allctr;
     void *res;
@@ -6247,7 +6241,7 @@ static ERTS_INLINE void *
 do_erts_alcu_realloc(ErtsAlcType_t type,
 		     Allctr_t *allctr,
 		     void *p,
-		     Uint size,
+                     size_t size,
 		     Uint32 alcu_flgs,
 		     Carrier_t **busy_pcrr_pp)
 {
@@ -6293,10 +6287,10 @@ do_erts_alcu_realloc(ErtsAlcType_t type,
 	if (IS_MBC_BLK(blk))
 	    res = mbc_realloc(allctr, type, p, size, alcu_flgs, busy_pcrr_pp);
 	else {
-	    Uint used_sz = SBC_HEADER_SIZE + ABLK_HDR_SZ + size;
-	    Uint crr_sz;
-	    Uint diff_sz_val;
-	    Uint crr_sz_val;
+            size_t used_sz = SBC_HEADER_SIZE + ABLK_HDR_SZ + size;
+            size_t crr_sz;
+            size_t diff_sz_val;
+            size_t crr_sz_val;
 
 #if HAVE_ERTS_MSEG
 	    if (IS_SYS_ALLOC_CARRIER(BLK_TO_SBC(blk)))
@@ -6307,7 +6301,7 @@ do_erts_alcu_realloc(ErtsAlcType_t type,
 		crr_sz = ERTS_SACRR_UNIT_CEILING(used_sz);
 #endif
 	    diff_sz_val = crr_sz - used_sz;
-	    if (diff_sz_val < (~((Uint) 0) / 100))
+            if (diff_sz_val < (~((size_t) 0) / 100))
 		crr_sz_val = crr_sz;
 	    else {
 		/* div both by 128 */
@@ -6361,7 +6355,7 @@ do_erts_alcu_realloc(ErtsAlcType_t type,
 }
 
 void *
-erts_alcu_realloc(ErtsAlcType_t type, void *extra, void *p, Uint size)
+erts_alcu_realloc(ErtsAlcType_t type, void *extra, void *p, size_t size)
 {
     Allctr_t *allctr = (Allctr_t *)extra;
     void *res;
@@ -6378,7 +6372,7 @@ erts_alcu_realloc(ErtsAlcType_t type, void *extra, void *p, Uint size)
 }
 
 void *
-erts_alcu_realloc_mv(ErtsAlcType_t type, void *extra, void *p, Uint size)
+erts_alcu_realloc_mv(ErtsAlcType_t type, void *extra, void *p, size_t size)
 {
     Allctr_t *allctr = (Allctr_t *)extra;
     void *res;
@@ -6409,7 +6403,7 @@ erts_alcu_realloc_mv(ErtsAlcType_t type, void *extra, void *p, Uint size)
 
 
 void *
-erts_alcu_realloc_ts(ErtsAlcType_t type, void *extra, void *ptr, Uint size)
+erts_alcu_realloc_ts(ErtsAlcType_t type, void *extra, void *ptr, size_t size)
 {
     Allctr_t *allctr = (Allctr_t *) extra;
     void *res;
@@ -6430,7 +6424,7 @@ erts_alcu_realloc_ts(ErtsAlcType_t type, void *extra, void *ptr, Uint size)
 }
 
 void *
-erts_alcu_realloc_mv_ts(ErtsAlcType_t type, void *extra, void *p, Uint size)
+erts_alcu_realloc_mv_ts(ErtsAlcType_t type, void *extra, void *p, size_t size)
 {
     Allctr_t *allctr = (Allctr_t *) extra;
     void *res;
@@ -6465,7 +6459,7 @@ erts_alcu_realloc_mv_ts(ErtsAlcType_t type, void *extra, void *p, Uint size)
 
 void *
 erts_alcu_realloc_thr_spec(ErtsAlcType_t type, void *extra,
-                           void *ptr, Uint size)
+                           void *ptr, size_t size)
 {
     ErtsAllocatorThrSpec_t *tspec = (ErtsAllocatorThrSpec_t *) extra;
     int ix;
@@ -6499,7 +6493,7 @@ erts_alcu_realloc_thr_spec(ErtsAlcType_t type, void *extra,
 
 void *
 erts_alcu_realloc_mv_thr_spec(ErtsAlcType_t type, void *extra,
-                              void *ptr, Uint size)
+                              void *ptr, size_t size)
 {
     ErtsAllocatorThrSpec_t *tspec = (ErtsAllocatorThrSpec_t *) extra;
     int ix;
@@ -6545,12 +6539,12 @@ erts_alcu_realloc_mv_thr_spec(ErtsAlcType_t type, void *extra,
 }
 
 static ERTS_INLINE void *
-realloc_thr_pref(ErtsAlcType_t type, Allctr_t *pref_allctr, void *p, Uint size,
+realloc_thr_pref(ErtsAlcType_t type, Allctr_t *pref_allctr, void *p, size_t size,
                  int force_move)
 {
     void *res;
     Allctr_t *used_allctr;
-    UWord old_user_size;
+    size_t old_user_size;
     Carrier_t *busy_pcrr_p;
     int retried;
 
@@ -6639,7 +6633,7 @@ restart:
 }
 
 void *
-erts_alcu_realloc_thr_pref(ErtsAlcType_t type, void *extra, void *p, Uint size)
+erts_alcu_realloc_thr_pref(ErtsAlcType_t type, void *extra, void *p, size_t size)
 {
     if (p) {
         Allctr_t *pref_allctr = get_pref_allctr(extra);
@@ -6652,7 +6646,7 @@ erts_alcu_realloc_thr_pref(ErtsAlcType_t type, void *extra, void *p, Uint size)
 
 void *
 erts_alcu_realloc_mv_thr_pref(ErtsAlcType_t type, void *extra,
-                              void *p, Uint size)
+                              void *p, size_t size)
 {
     if (p) {
         Allctr_t *pref_allctr = get_pref_allctr(extra);
@@ -6665,11 +6659,11 @@ erts_alcu_realloc_mv_thr_pref(ErtsAlcType_t type, void *extra,
 
 
 
-static Uint adjust_sbct(Allctr_t* allctr, Uint sbct)
+static size_t adjust_sbct(Allctr_t* allctr, size_t sbct)
 {
 #ifndef ARCH_64
     if (sbct > 0) {
-	Uint max_mbc_block_sz = UNIT_CEILING(sbct - 1 + ABLK_HDR_SZ);
+        size_t max_mbc_block_sz = UNIT_CEILING(sbct - 1 + ABLK_HDR_SZ);
 	if (max_mbc_block_sz + UNIT_FLOOR(allctr->min_block_size - 1) > MBC_ABLK_SZ_MASK
 	    || max_mbc_block_sz < sbct) { /* wrap around */
 	    /*
@@ -6685,9 +6679,9 @@ static Uint adjust_sbct(Allctr_t* allctr, Uint sbct)
     return sbct;
 }
 
-int erts_alcu_try_set_dyn_param(Allctr_t* allctr, Eterm param, Uint value)
+int erts_alcu_try_set_dyn_param(Allctr_t* allctr, Eterm param, size_t value)
 {
-    const Uint MIN_DYN_SBCT = 4000;  /* a lame catastrophe prevention */
+    const size_t MIN_DYN_SBCT = 4000;  /* a lame catastrophe prevention */
 
     if (param == am_sbct && value >= MIN_DYN_SBCT) {
         allctr->sbc_threshold = adjust_sbct(allctr, value);
@@ -6770,7 +6764,7 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
 #if HAVE_ERTS_MSEG
     allctr->max_mseg_sbcs		= init->mmsbc;
 # if ERTS_SUPER_ALIGNED_MSEG_ONLY
-    allctr->max_mseg_mbcs		= ~(Uint)0;
+    allctr->max_mseg_mbcs		= ~(size_t)0;
 # else
     allctr->max_mseg_mbcs		= init->mmmbc;
 # endif
@@ -6790,7 +6784,7 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
     allctr->min_block_size		= UNIT_CEILING(allctr->min_block_size
 						       + sizeof(FreeBlkFtr_t));
     if (init->tpref) {
-	Uint sz = ABLK_HDR_SZ;
+        size_t sz = ABLK_HDR_SZ;
 	sz += sizeof(ErtsAllctrDDBlock_t);
 	sz = UNIT_CEILING(sz);
 	if (sz > allctr->min_block_size)
@@ -7906,7 +7900,7 @@ static int gather_ahist_finish(void *arg)
 
     if (!state->building_result) {
         ErtsMessage *message;
-        Uint minimum_size;
+        size_t minimum_size;
         Eterm *hp;
 
         /* {Ref, unscanned size, [{Tag, {Histogram}} | Rest]} */
@@ -8484,9 +8478,9 @@ check_blk_carrier(Allctr_t *allctr, Block_t *iblk)
 	Block_t *prev_blk = NULL;
 	Block_t *blk;
 	char *carrier_end;
-	Uint is_free_blk;
-	Uint tot_blk_sz;
-	Uint blk_sz;
+        bool is_free_blk;
+        size_t tot_blk_sz;
+        size_t blk_sz;
 	int has_wrapped_around = 0;
 
 	blk = iblk;

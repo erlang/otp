@@ -865,7 +865,7 @@ erts_alloc_late_init(void)
 }
 
 static void *
-erts_realloc_fixed_size(ErtsAlcType_t type, void *extra, void *p, Uint size)
+erts_realloc_fixed_size(ErtsAlcType_t type, void *extra, void *p, size_t size)
 {
     erts_exit(ERTS_ABORT_EXIT,
 	     "Attempt to reallocate a block of the fixed size type %s\n",
@@ -1164,24 +1164,24 @@ get_bool_value(char *param_end, char** argv, int* ip)
     return -1;
 }
 
-static Uint kb_to_bytes(Sint kb, Uint *bytes)
+static size_t kb_to_bytes(Sint kb, size_t *bytes)
 {
-    const Uint max = ((~((Uint) 0))/1024) + 1;
+    const size_t max = ((~((size_t) 0))/1024) + 1;
 
-    if (kb < 0 || (Uint)kb > max)
+    if (kb < 0 || (size_t)kb > max)
         return 0;
-    if ((Uint)kb == max)
-        *bytes = ~((Uint) 0);
+    if ((size_t)kb == max)
+        *bytes = ~((size_t) 0);
     else
-        *bytes = ((Uint) kb)*1024;
+        *bytes = ((size_t) kb)*1024;
     return 1;
 }
 
-static Uint
+static size_t
 get_kb_value(char *param_end, char** argv, int* ip)
 {
     Sint tmp;
-    Uint bytes = 0;
+    size_t bytes = 0;
     char *rest;
     char *param = argv[*ip]+1;
     char *value = get_value(param_end, argv, ip);
@@ -1212,7 +1212,7 @@ get_mb_value(char *param_end, char** argv, int* ip)
 
 
 #if 0
-static Uint
+static size_t
 get_byte_value(char *param_end, char** argv, int* ip)
 {
     Sint tmp;
@@ -1223,7 +1223,7 @@ get_byte_value(char *param_end, char** argv, int* ip)
     tmp = (Sint) ErtsStrToSint(value, &rest, 10);
     if (errno != 0 || rest == value || tmp < 0)
 	bad_value(param, param_end, value);
-    return (Uint) tmp;
+    return (size_t) tmp;
 }
 #endif
 
@@ -2082,13 +2082,13 @@ erts_alc_fatal_error(int error, int func, ErtsAlcType_t n, ...)
 	break;
     }
     case ERTS_ALC_E_NOMEM: {
-	Uint size;
+        size_t size;
 	va_list argp;
 	char *op = func == ERTS_ALC_O_REALLOC ? "reallocate" : "allocate";
 	
 
 	va_start(argp, n);
-	size = va_arg(argp, Uint);
+        size = va_arg(argp, size_t);
 	va_end(argp);
 	erts_exit(ERTS_DUMP_EXIT,
 		 "%s: Cannot %s %lu bytes of memory (of type \"%s\").\n",
@@ -2107,25 +2107,25 @@ erts_alc_fatal_error(int error, int func, ErtsAlcType_t n, ...)
 }
 
 __decl_noreturn void
-erts_alloc_enomem(ErtsAlcType_t type, Uint size)
+erts_alloc_enomem(ErtsAlcType_t type, size_t size)
 {
     erts_alloc_n_enomem(ERTS_ALC_T2N(type), size);
 }
 
 __decl_noreturn void
-erts_alloc_n_enomem(ErtsAlcType_t n, Uint size)
+erts_alloc_n_enomem(ErtsAlcType_t n, size_t size)
 {
     erts_alc_fatal_error(ERTS_ALC_E_NOMEM, ERTS_ALC_O_ALLOC, n, size);
 }
 
 __decl_noreturn void
-erts_realloc_enomem(ErtsAlcType_t type, void *ptr, Uint size)
+erts_realloc_enomem(ErtsAlcType_t type, void *ptr, size_t size)
 {
     erts_realloc_n_enomem(ERTS_ALC_T2N(type), ptr, size);
 }
 
 __decl_noreturn void
-erts_realloc_n_enomem(ErtsAlcType_t n, void *ptr, Uint size)
+erts_realloc_n_enomem(ErtsAlcType_t n, void *ptr, size_t size)
 {
     erts_alc_fatal_error(ERTS_ALC_E_NOMEM, ERTS_ALC_O_REALLOC, n, size);
 }
@@ -3081,8 +3081,8 @@ erts_allocator_options(void *proc)
 }
 
 void *erts_alloc_permanent_aligned(ErtsAlcType_t type,
-                                   Uint size,
-                                   Uint alignment)
+                                   size_t size,
+                                   size_t alignment)
 {
     const UWord m = (alignment - 1);
     UWord v = (UWord) erts_alloc(type,
@@ -3534,22 +3534,22 @@ UWord erts_alc_test(UWord op, UWord a1, UWord a2, UWord a3)
 	    if (((Allctr_t *) a1)->thread_safe)
 		return (UWord) erts_alcu_alloc_ts(ERTS_ALC_T_TEST,
 							  (void *) a1,
-							  (Uint) a2);
+                                                          (size_t) a2);
 	    else
 		return (UWord) erts_alcu_alloc(ERTS_ALC_T_TEST,
 						       (void *) a1,
-						       (Uint) a2);
+                                                       (size_t) a2);
 	case 0xf01:
 	    if (((Allctr_t *) a1)->thread_safe)
 		return (UWord) erts_alcu_realloc_ts(ERTS_ALC_T_TEST,
 							    (void *) a1,
 							    (void *) a2,
-							    (Uint) a3);
+                                                            (size_t) a3);
 	    else
 		return (UWord) erts_alcu_realloc(ERTS_ALC_T_TEST,
 							 (void *) a1,
 							 (void *) a2,
-							 (Uint) a3);
+                                                         (size_t) a3);
 	case 0xf02:
 	    if (((Allctr_t *) a1)->thread_safe)
 		erts_alcu_free_ts(ERTS_ALC_T_TEST, (void *) a1, (void *) a2);
@@ -3691,11 +3691,11 @@ UWord erts_alc_test(UWord op, UWord a1, UWord a2, UWord a3)
 	    ERTS_ALC_TEST_ABORT;
 	    break;
 	case 0xf13: return (UWord) 1;
-	case 0xf14: return (UWord) erts_alloc(ERTS_ALC_T_TEST, (Uint)a1);
+        case 0xf14: return (UWord) erts_alloc(ERTS_ALC_T_TEST, (size_t)a1);
 
 	case 0xf15: erts_free(ERTS_ALC_T_TEST, (void*)a1); return 0;
 
-        case 0xf16: return (UWord) erts_realloc(ERTS_ALC_T_TEST, (void*)a1, (Uint)a2);
+        case 0xf16: return (UWord) erts_realloc(ERTS_ALC_T_TEST, (void*)a1, (size_t)a2);
 
 	case 0xf17: {
             Uint extra_hdr_sz = UNIT_CEILING((Uint)a1);
@@ -3811,7 +3811,7 @@ hdbg_init(void)
 }
 
 static void *check_memory_fence(void *ptr,
-				Uint *size,
+                                size_t *size,
 				ErtsAlcType_t n,
 				int func);
 void erts_hdbg_chk_blks(void);
@@ -3823,7 +3823,7 @@ erts_hdbg_chk_blks(void)
 
     erts_mtx_lock(&hdbg_mblk_mtx);
     for (mblk = used_hdbg_mblks; mblk; mblk = mblk->next) {
-	Uint sz;
+        size_t sz;
 	check_memory_fence(mblk->p, &sz, mblk->n, ERTS_ALC_O_CHECK);
 	ASSERT(sz == mblk->s);
     }
@@ -3831,7 +3831,7 @@ erts_hdbg_chk_blks(void)
 }
 
 static hdbg_mblk *
-hdbg_alloc(void *p, Uint s, ErtsAlcType_t n)
+hdbg_alloc(void *p, size_t s, ErtsAlcType_t n)
 {
     hdbg_mblk *mblk;
 
@@ -3878,11 +3878,11 @@ hdbg_free(hdbg_mblk *mblk)
 #endif
 
 #ifdef  ERTS_ALLOC_UTIL_HARD_DEBUG
-static void *check_memory_fence(void *ptr, Uint *size, ErtsAlcType_t n, int func);
+static void *check_memory_fence(void *ptr, size_t *size, ErtsAlcType_t n, int func);
 
 void check_allocated_block( Uint type, void *blk)
 {
-    Uint dummy;
+    size_t dummy;
     check_memory_fence(blk, &dummy, ERTS_ALC_T2N(type), ERTS_ALC_O_FREE);
 }
 
@@ -3913,7 +3913,7 @@ void check_allocators(void)
 #endif
 
 static void *
-set_memory_fence(void *ptr, Uint sz, ErtsAlcType_t n)
+set_memory_fence(void *ptr, size_t sz, ErtsAlcType_t n)
 {
     UWord *ui_ptr;
     UWord pattern;
@@ -3943,9 +3943,9 @@ set_memory_fence(void *ptr, Uint sz, ErtsAlcType_t n)
 }
 
 static void *
-check_memory_fence(void *ptr, Uint *size, ErtsAlcType_t n, int func)
+check_memory_fence(void *ptr, size_t *size, ErtsAlcType_t n, int func)
 {
-    Uint sz;
+    size_t sz;
     Uint found_type;
     UWord pre_pattern, expected_pattern;
     UWord post_pattern;
@@ -4042,11 +4042,11 @@ check_memory_fence(void *ptr, Uint *size, ErtsAlcType_t n, int func)
 static ErtsAllocatorFunctions_t real_allctrs[ERTS_ALC_A_MAX+1];
 
 static void *
-debug_alloc(ErtsAlcType_t type, void *extra, Uint size)
+debug_alloc(ErtsAlcType_t type, void *extra, size_t size)
 {
     ErtsAllocatorFunctions_t *real_af = (ErtsAllocatorFunctions_t *) extra;
     ErtsAlcType_t n;
-    Uint dsize;
+    size_t dsize;
     void *res;
 
 #ifdef HARD_DEBUG
@@ -4062,8 +4062,8 @@ debug_alloc(ErtsAlcType_t type, void *extra, Uint size)
     res = set_memory_fence(res, size, n);
 
 #ifdef PRINT_OPS
-    fprintf(stderr, "0x%lx = alloc(%s, %lu)\r\n",
-	    (Uint) res, ERTS_ALC_N2TD(n), size);
+    fprintf(stderr, "0x%p = alloc(%s, %lu)\r\n",
+            res, ERTS_ALC_N2TD(n), size);
 #endif
 
     return res;
@@ -4071,12 +4071,12 @@ debug_alloc(ErtsAlcType_t type, void *extra, Uint size)
 
 
 static void *
-debug_realloc(ErtsAlcType_t type, void *extra, void *ptr, Uint size)
+debug_realloc(ErtsAlcType_t type, void *extra, void *ptr, size_t size)
 {
     ErtsAllocatorFunctions_t *real_af = (ErtsAllocatorFunctions_t *) extra;
     ErtsAlcType_t n;
-    Uint dsize;
-    Uint old_size;
+    size_t dsize;
+    size_t old_size;
     void *dptr;
     void *res;
 
@@ -4094,15 +4094,15 @@ debug_realloc(ErtsAlcType_t type, void *extra, void *ptr, Uint size)
     if (ptr && old_size > size)
 	sys_memset((void *) (((char *) ptr) + size),
 		   0xf,
-		   sizeof(Uint) + old_size - size);
+                   sizeof(size_t) + old_size - size);
 
     res = (*real_af->realloc)(type, real_af->extra, dptr, dsize);
 
     res = set_memory_fence(res, size, n);
 
 #ifdef PRINT_OPS
-    fprintf(stderr, "0x%lx = realloc(%s, 0x%lx, %lu)\r\n",
-	    (Uint) res, ERTS_ALC_N2TD(n), (Uint) ptr, size);
+    fprintf(stderr, "0x%p = realloc(%s, 0x%p, %zu)\r\n",
+            res, ERTS_ALC_N2TD(n), ptr, size);
 #endif
 
     return res;
@@ -4114,7 +4114,7 @@ debug_free(ErtsAlcType_t type, void *extra, void *ptr)
     ErtsAllocatorFunctions_t *real_af = (ErtsAllocatorFunctions_t *) extra;
     ErtsAlcType_t n;
     void *dptr;
-    Uint size;
+    size_t size;
     int free_pattern;
 
     n = ERTS_ALC_T2N(type);
@@ -4132,7 +4132,7 @@ debug_free(ErtsAlcType_t type, void *extra, void *ptr)
     (*real_af->free)(type, real_af->extra, dptr);
 
 #ifdef PRINT_OPS
-    fprintf(stderr, "free(%s, 0x%lx)\r\n", ERTS_ALC_N2TD(n), (Uint) ptr);
+    fprintf(stderr, "free(%s, 0x%p)\r\n", ERTS_ALC_N2TD(n), ptr);
 #endif
 
 #ifdef HARD_DEBUG
