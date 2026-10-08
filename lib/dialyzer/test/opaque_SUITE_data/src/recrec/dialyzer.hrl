@@ -48,7 +48,7 @@
 -define(WARN_CONTRACT_SUPERTYPE, warn_contract_supertype).
 -define(WARN_CONTRACT_RANGE, warn_contract_range).
 -define(WARN_CALLGRAPH, warn_callgraph).
--define(WARN_UNMATCHED_RETURN, warn_umatched_return).
+-define(WARN_UNMATCHED_RETURN, warn_unmatched_return).
 -define(WARN_RACE_CONDITION, warn_race_condition).
 -define(WARN_BEHAVIOUR, warn_behaviour).
 -define(WARN_UNDEFINED_CALLBACK, warn_undefined_callbacks).
