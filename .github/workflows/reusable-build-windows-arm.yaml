@@ -55,7 +55,8 @@ jobs:
     steps:
       - uses: Vampire/setup-wsl@6a8db447be7ed35f2f499c02c6e60ff77ef11278 # ratchet:Vampire/setup-wsl@v6.0.0
         with:
-          distribution: Ubuntu-18.04
+          wsl-version: 1
+          distribution: Ubuntu-24.04
 
       - name: Install WSL dependencies
         run: apt update && apt install -y make autoconf unzip
