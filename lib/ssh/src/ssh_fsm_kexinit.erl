@@ -327,7 +327,9 @@ get_alg_group(Kex) when Kex == 'curve25519-sha256';
                         Kex == 'ecdh-sha2-nistp384';
                         Kex == 'ecdh-sha2-nistp256' ->
     ecdh_alg;
-get_alg_group(Kex) when Kex == 'mlkem768x25519-sha256' ->
+get_alg_group(Kex) when Kex == 'mlkem768x25519-sha256';
+                        Kex == 'mlkem768nistp256-sha256';
+                        Kex == 'mlkem1024nistp384-sha384' ->
     mlkem_alg.
 
 check_msg_group(_Msg, _AlgGroup, false) -> ok;

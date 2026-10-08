@@ -648,6 +648,10 @@ set_prefix_if_trouble(Msg = <<?BYTE(Op),_/binary>>, #s{alg=#alg{kex=Kex}})
             <<"dh",Msg/binary>>;
         "mlkem768x25519" ++ _ ->
             <<"mlkem",Msg/binary>>;
+        "mlkem768nistp256" ++ _ ->
+            <<"mlkem768nistp256",Msg/binary>>;
+        "mlkem1024nistp384" ++ _ ->
+            <<"mlkem1024nistp384",Msg/binary>>;
         _ ->
             Msg
     end;
@@ -878,7 +882,7 @@ handle_first_kex_msg_to_send(MsgType, PeerMsg, OwnMsg, S0) ->
                             {"Send (reconstructed)~n~s~n",[format_msg(Msg)]};
                         Hybrid when Hybrid == ssh_msg_kex_hybrid_init;
                                     Hybrid == ssh_msg_kex_hybrid_init_guess ->
-                            #ssh{keyex_key = {{mlkem768, {C_publickey2, _C_privkey2}},
+                            #ssh{keyex_key = {{_Kem, {C_publickey2, _C_privkey2}},
                                               {_Curve, {C_publickey1, _C_privkey1}}}} = C,
                             Msg = #ssh_msg_kex_hybrid_init{c_init = {C_publickey2, C_publickey1}},
                             {"Send (reconstructed)~n~s~n",[format_msg(Msg)]}
