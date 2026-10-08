@@ -45,7 +45,7 @@ jobs:
       contents: read   # actions/cache (restore/save wxWidgets cache)
       actions:  write  # actions/download-artifact + actions/upload-artifact
     steps:
-      - uses: Vampire/setup-wsl@6a8db447be7ed35f2f499c02c6e60ff77ef11278 # ratchet:Vampire/setup-wsl@v6.0.0
+      - uses: Vampire/setup-wsl@d1da7f2c0322a5ee4f24975344f67fc0f5baf364 # v7.0.0
         with:
           distribution: Ubuntu-18.04
 
@@ -70,7 +70,7 @@ jobs:
         run: echo "os=${ImageOS:-unknown}" >> "$GITHUB_OUTPUT"
 
       - name: Cache wxWidgets
-        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # ratchet:actions/cache@v5.0.3
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: wxWidgets
           key: wxWidgets-${{ env.WXWIDGETS_VERSION }}-${{ steps.image.outputs.os }}
