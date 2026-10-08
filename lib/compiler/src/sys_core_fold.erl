@@ -1795,7 +1795,9 @@ case_opt_arg(E0, Sub, Cs, LitExpr) ->
 case_opt_arg_1(E0, Cs0, LitExpr) ->
     case cerl:is_data(E0) of
 	false ->
-            {error,Cs0};
+            %% Still remove clauses that are impossible because
+            %% of type mismatch
+            {error,case_opt_nomatch(E0, Cs0, LitExpr)};
 	true ->
 	    E = case_opt_compiler_generated(E0),
 	    Cs = case_opt_nomatch(E, Cs0, LitExpr),
