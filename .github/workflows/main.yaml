@@ -112,6 +112,17 @@ jobs:
     with:
       base_branch: ${{ needs.pack.outputs.base_branch }}
 
+  build-windows-arm:
+    name: Build Erlang/OTP (Windows ARM64)
+    needs: pack
+    if: needs.pack.outputs.build-c-code == 'true' || (github.event_name == 'push' && github.repository == 'erlang/otp')
+    permissions:
+      contents: read
+      actions:  write
+    uses: ./.github/workflows/reusable-build-windows-arm.yaml
+    with:
+      base_branch: ${{ needs.pack.outputs.base_branch }}
+
   build-flavors:
     name: Build Erlang/OTP (Types and Flavors)
     needs: pack
@@ -331,6 +342,7 @@ jobs:
       - build-macos
       - build-ios
       - build-windows
+      - build-windows-arm
       - build-flavors
       - build
       - freebsd
