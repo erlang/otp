@@ -215,11 +215,11 @@ ERTS_GLB_INLINE Binary *erts_bin_realloc(Binary *bp, Uint size);
 ERTS_GLB_INLINE void erts_magic_binary_free(Binary *bp);
 ERTS_GLB_INLINE void erts_bin_free(Binary *bp);
 ERTS_GLB_INLINE void erts_bin_release(Binary *bp);
-ERTS_GLB_INLINE Binary *erts_create_magic_binary_x(Uint size,
+ERTS_GLB_INLINE Binary *erts_create_magic_binary_x(size_t size,
                                                   int (*destructor)(Binary *),
                                                    ErtsAlcType_t alloc_type,
                                                   int unaligned);
-ERTS_GLB_INLINE Binary *erts_create_magic_binary(Uint size,
+ERTS_GLB_INLINE Binary *erts_create_magic_binary(size_t size,
 						 int (*destructor)(Binary *));
 ERTS_GLB_INLINE Binary *erts_create_magic_indirection(int (*destructor)(Binary *));
 ERTS_GLB_INLINE erts_atomic_t *erts_binary_to_magic_indirection(Binary *bp);
@@ -395,11 +395,11 @@ erts_bin_release(Binary *bp)
 }
 
 ERTS_GLB_INLINE Binary *
-erts_create_magic_binary_x(Uint size, int (*destructor)(Binary *),
+erts_create_magic_binary_x(size_t size, int (*destructor)(Binary *),
                            ErtsAlcType_t alloc_type,
                            int unaligned)
 {
-    Uint bsize = unaligned ? ERTS_MAGIC_BIN_UNALIGNED_SIZE(size)
+    size_t bsize = unaligned ? ERTS_MAGIC_BIN_UNALIGNED_SIZE(size)
                            : ERTS_MAGIC_BIN_SIZE(size);
     Binary* bptr = (Binary *)erts_alloc_fnf(alloc_type, bsize);
     ASSERT(bsize > size);
@@ -418,7 +418,7 @@ erts_create_magic_binary_x(Uint size, int (*destructor)(Binary *),
 }
 
 ERTS_GLB_INLINE Binary *
-erts_create_magic_binary(Uint size, int (*destructor)(Binary *))
+erts_create_magic_binary(size_t size, int (*destructor)(Binary *))
 {
     return erts_create_magic_binary_x(size, destructor,
                                       ERTS_ALC_T_BINARY, 0);
