@@ -83,7 +83,7 @@ prop_ipv6mapped_ipv4_address() ->
 prop_ntoa() ->
     ?FORALL(
        {Addr, _},
-       oneof([gen_ipv4_relaxed_address(),
+       oneof([gen_ipv4_strict_address(),
               gen_ipv6_strict_address(),
               gen_ipv6mapped_ipv4_address()]),
        {ok, Addr} =:= inet_parse:address(inet_parse:ntoa(Addr))
