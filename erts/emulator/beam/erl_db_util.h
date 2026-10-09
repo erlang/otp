@@ -220,6 +220,7 @@ typedef struct db_table_method
             Eterm* ret,
             enum DbIterSafety*);
     int (*db_take)(Process *, DbTable *, Eterm, Eterm *);
+    int (*db_take_one)(Process *, DbTable *, Eterm, Eterm *);
 
     SWord (*db_delete_all_objects)(Process* p,
                                    DbTable* db,

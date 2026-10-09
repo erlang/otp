@@ -300,7 +300,7 @@ Semi-opaque continuation used by [`select/1,3`](`select/1`),
          rename/2, safe_fixtable/2, select/1, select/2, select/3,
          select_count/2, select_delete/2, select_replace/2, select_reverse/1,
          select_reverse/2, select_reverse/3, setopts/2, slot/2,
-         take/2,
+         take/2, take_one/2,
          update_counter/3, update_counter/4, update_element/3, update_element/4,
          whereis/1]).
 
@@ -2089,6 +2089,37 @@ tables (for details on the difference, see `lookup/2` and `new/2`).
       Object :: tuple().
 
 take(_, _) ->
+    erlang:nif_error(undef).
+
+-doc """
+Returns one object with key `Key` from table `Table`, then removes it. The
+object is returned in a list. If no object has that key, returns `[]`.
+
+For a table of type `set` or `ordered_set`, this function behaves like
+`take/2`, because the table has at most one object with a given key.
+
+For a table of type `bag` or `duplicate_bag`, this function returns and removes
+one of the objects with key `Key`. Other objects with key `Key` remain in the
+table. Which object is returned and removed is undefined.
+
+The specified `Key` is used to identify the object by either _comparing equal_
+the key of an object in an `ordered_set` table, or _matching_ in other types of
+tables (for details on the difference, see `lookup/2` and `new/2`).
+
+## Examples
+
+```erlang
+1> T = ets:new(t, [bag]), true = ets:insert(T, [{k,1},{k,2},{k,3}]), [{k,One}] = ets:take_one(T, k), [{k,Other1},{k,Other2}] = ets:lookup(T, k), lists:sort([One,Other1,Other2]).
+[1,2,3]
+```
+""".
+-doc(#{since => <<"OTP 30.0">>}).
+-spec take_one(Table, Key) -> [Object] when
+      Table :: table(),
+      Key :: term(),
+      Object :: tuple().
+
+take_one(_, _) ->
     erlang:nif_error(undef).
 
 -doc(#{equiv => update_counter/4}).

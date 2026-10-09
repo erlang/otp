@@ -458,6 +458,7 @@ static int db_select_replace_continue_tree(Process *p, DbTable *tbl,
                                            Eterm continuation, Eterm *ret,
                                            enum DbIterSafety*);
 static int db_take_tree(Process *, DbTable *, Eterm, Eterm *);
+static int db_take_one_tree(Process *, DbTable *, Eterm, Eterm *);
 static void db_print_tree(fmtfn_t to, void *to_arg,
 			  bool show, DbTable *tbl);
 static int db_free_empty_table_tree(DbTable *tbl);
@@ -521,6 +522,7 @@ DbTableMethod db_tree =
     db_select_replace_tree,
     db_select_replace_continue_tree,
     db_take_tree,
+    db_take_one_tree,
     db_delete_all_objects_tree,
     db_delete_all_objects_get_nitems_from_holder_tree,
     db_free_empty_table_tree,
@@ -2487,6 +2489,12 @@ static int db_take_tree(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
     DbTableTree *tb = &tbl->tree;
     return db_take_tree_common(p, tbl, &tb->root,
                                key, ret, &tb->static_stack);
+}
+
+// Ordered-set tables hold at most one object per key, so behave like take.
+static int db_take_one_tree(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
+{
+    return db_take_tree(p, tbl, key, ret);
 }
 
 /*
