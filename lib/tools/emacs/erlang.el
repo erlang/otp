@@ -1606,6 +1606,12 @@ Other commands:
    ;; `$"' and `$'' are character literals in code, but a plain
    ;; dollar sign inside a string or a quoted atom.
    ("\\$[\"']" (0 (ignore (erlang-syntax-propertize-dollar nil))))
+   ;; Any other dollar sign.  In code the character-quote syntax of
+   ;; `$' is correct and left untouched, but inside an ordinary string
+   ;; or quoted atom the dollar sign must not quote the following
+   ;; character (e.g. the backslash in `"$\\"'), or it would consume
+   ;; the escape and expose the closing quote.
+   ("\\$" (0 (ignore (erlang-syntax-propertize-dollar nil))))
    ;; Runs of three or more double quotes delimit a verbatim string.
    ("\"\"\"+" (0 (ignore (erlang-syntax-propertize-quote-run)))))
   "Value for `syntax-propertize-function' in Erlang mode.")
@@ -2813,6 +2819,18 @@ Return nil if line starts inside string, t if in a comment."
 Value is list (stack token-start token-type in-what)."
   (goto-char from)                      ; Start at the beginning
   (erlang-skip-blank to)
+  ;; The contents of a verbatim (triple-quoted) string are not code,
+  ;; so skip over the whole string to avoid counting parentheses in
+  ;; the string on the stack.  This parser dispatches on `char-syntax',
+  ;; which ignores the `syntax-table' text properties that
+  ;; `erlang-syntax-propertize-function' applies to delimit verbatim
+  ;; strings; `syntax-ppss' honours those properties, so use it to
+  ;; detect and step past such a string.
+  (let ((ppss (syntax-ppss)))
+    (when (eq t (nth 3 ppss))
+      (goto-char (nth 8 ppss))
+      (condition-case nil (forward-sexp 1) (error (goto-char to)))
+      (erlang-skip-blank to)))
   (let ((cs (char-syntax (following-char)))
          (stack (car state))
          (token (point))
@@ -2914,6 +2932,25 @@ Value is list (stack token-start token-type in-what)."
       (forward-sexp 1))
      ;; String: Try to skip over it. (Catch error if not complete.)
      ((= cs ?\")
+      ;; A run of three or more double quotes delimits a verbatim
+      ;; (triple-quoted) string.  `char-syntax' does not see the
+      ;; `syntax-table' text properties that
+      ;; `erlang-syntax-propertize-function' uses to mark such a run,
+      ;; so a plain `forward-sexp' would mistake the first two quotes
+      ;; for an empty string and parse the verbatim contents as code.
+      ;; Detect the opening fence and skip the whole verbatim string
+      ;; using the property-aware `syntax-ppss'.
+      (if (eq t (nth 3 (save-excursion (syntax-ppss (1+ (point))))))
+          (condition-case nil
+              (progn
+                (goto-char (nth 8 (save-excursion (syntax-ppss (1+ (point))))))
+                (forward-sexp 1)
+                (when (> (point) to)
+                  (setq in-what 'string)
+                  (goto-char to)))
+            (error
+             (setq in-what 'string)
+             (goto-char to)))
        (condition-case nil
          (progn
            (forward-sexp 1)
@@ -2925,7 +2962,7 @@ Value is list (stack token-start token-type in-what)."
              ))
          (error
            (setq in-what 'string)
-           (goto-char to))))
+           (goto-char to)))))
 
      ;; Expression prefix e.i. $ or ^ (Note ^ can be in the character
      ;; literal $^ or part of string and $ outside of a string denotes
@@ -3004,15 +3041,32 @@ Value is list (stack token-start token-type in-what)."
         )
 
        ;; Type spec's
-       ((looking-at "-type\\s \\|-opaque\\s ")
+       ((looking-at "-\\(type\\|opaque\\)\\(\\s \\|(\\)")
         (if stack
             (forward-char 1)
           (erlang-push (list 'type token (current-column)) stack)
-          (forward-char 6)))
-       ((looking-at "-spec\\s ")
+          ;; Skip past the attribute keyword.  The parenthesized
+          ;; forms "-type(...)" / "-opaque(...)" are followed directly
+          ;; by "(", so stop on it; the whitespace forms keep the
+          ;; previous behaviour of skipping six characters.
+          (if (eq (char-after (match-end 1)) ?\()
+              (goto-char (match-end 1))
+            (forward-char 6))))
+       ((looking-at "-spec\\(\\s \\|(\\)")
         (if stack
             (forward-char 1)
-          (forward-char 6)
+          ;; Skip "-spec".  The modern form "-spec f(...)" is followed
+          ;; by whitespace, which is skipped along with the "-spec"
+          ;; (6 characters) as before.  The parenthesized form
+          ;; "-spec(...)" is followed directly by an opening
+          ;; parenthesis, so skip only the "-spec" (5 characters) and
+          ;; leave point on the "(".  In both cases push the spec and
+          ;; its argument context, so that a `fun' type inside the
+          ;; spec balances its parentheses against the enclosing
+          ;; `spec'.
+          (if (eq (char-after (+ (point) 5)) ?\()
+              (forward-char 5)
+            (forward-char 6))
           (erlang-push (list 'spec (point) (current-column)) stack)
           (skip-chars-forward "^(\n")
           (erlang-push (list 'spec_arg (point) (current-column)) stack)
@@ -3050,7 +3104,15 @@ Value is list (stack token-start token-type in-what)."
              (erlang-pop stack)
              (if (and (eq (car (car stack)) 'fun)
                       (or (eq (car (car (last stack))) 'spec)
-                          (eq (car (car (last stack))) 'type))) ;; -type()
+                          (eq (car (car (last stack))) 'type) ;; -type()
+                          ;; A `fun' type used as a type annotation,
+                          ;; e.g. a record or map field `F :: fun(...)'
+                          ;; or a nested `fun' type.  Here the stack
+                          ;; bottom is not `spec'/`type' (it may be a
+                          ;; `-record(' paren), so detect the type
+                          ;; context from the `::' directly below the
+                          ;; `fun'.
+                          (eq (car (car (cdr stack))) '::)))
                  ;; Inside fun type def ') closes fun definition
                  (erlang-pop stack)))
             ((eq (car (car stack)) 'icr)
@@ -3072,7 +3134,17 @@ Value is list (stack token-start token-type in-what)."
 
      ;; Character quote: Skip it and the quoted char.
      ((= cs ?/)
-      (forward-char 2))
+      ;; A dollar sign quotes the following character literal.  When
+      ;; that character is a backslash escape (e.g. `$\"' or `$\\'),
+      ;; the escaped character belongs to the literal too, so skip the
+      ;; dollar sign, the backslash and the escaped character.
+      ;; Otherwise skip the dollar sign and the single quoted
+      ;; character.  Skipping too few characters here would, for
+      ;; `$\"', leave the double quote to be mistaken for the start of
+      ;; a string.
+      (if (eq (char-after (1+ (point))) ?\\)
+          (forward-char 3)
+        (forward-char 2)))
 
      ;; Character escape: Skip it and the escape sequence.
      ((= cs ?\\)
@@ -3521,6 +3593,14 @@ Return t unless search stops due to end of buffer."
          nil 'move (- arg))
        (let ((beg (match-beginning 2)))
          (and beg (goto-char beg))
+         ;; The regexp cannot tell code from the contents of a
+         ;; multi-line string.  A line inside such a string may begin
+         ;; with a lowercase character and be mistaken for a clause
+         ;; head.  When searching backward, skip any match that falls
+         ;; inside a string and keep looking for a real clause head.
+         (when (and (> arg 0) beg (nth 3 (syntax-ppss beg)))
+           (goto-char beg)
+           (erlang-beginning-of-clause arg))
          t)))
 
 (defun erlang-end-of-clause (&optional arg)
