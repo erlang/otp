@@ -444,8 +444,7 @@ void BeamGlobalAssembler::emit_mul_add_body_shared() {
     /* Save original arguments. */
     a.stp(ARG2, ARG3, TMP_MEM1q);
     a.mov(ARG1, c_p);
-    a.cmp(ARG4, imm(make_small(0)));
-    a.b_eq(mul_only);
+    emit_branch_if_not_value(ARG4, mul_only);
     a.str(ARG4, TMP_MEM4q);
 
     lea(ARG5, TMP_MEM3q);
@@ -495,7 +494,7 @@ void BeamGlobalAssembler::emit_mul_add_body_shared() {
  * the call failed).
  */
 void BeamGlobalAssembler::emit_mul_add_guard_shared() {
-    Label mul_failed = a.new_label();
+    Label done = a.new_label();
 
     a.str(ARG4, TMP_MEM1q);
 
@@ -504,14 +503,15 @@ void BeamGlobalAssembler::emit_mul_add_guard_shared() {
 
     a.mov(ARG1, c_p);
     runtime_call<Eterm (*)(Process *, Eterm, Eterm), erts_mixed_times>();
-    emit_branch_if_not_value(ARG1, mul_failed);
+    emit_branch_if_not_value(ARG1, done); /* Multiplication failed */
 
     a.ldr(ARG3, TMP_MEM1q);
+    emit_branch_if_not_value(ARG3, done); /* Nothing to add */
     a.mov(ARG2, ARG1);
     a.mov(ARG1, c_p);
     runtime_call<Eterm (*)(Process *, Eterm, Eterm), erts_mixed_plus>();
 
-    a.bind(mul_failed);
+    a.bind(done);
     emit_leave_runtime<Update::eReductions>();
     emit_leave_runtime_frame();
 
@@ -524,7 +524,7 @@ void BeamGlobalAssembler::emit_mul_add_guard_shared() {
  * The result is returned in ARG1.
  */
 void BeamGlobalAssembler::emit_mul_body_shared() {
-    mov_imm(ARG4, make_small(0));
+    mov_imm(ARG4, THE_NON_VALUE);
     a.b(labels[mul_add_body_shared]);
 }
 
@@ -535,7 +535,7 @@ void BeamGlobalAssembler::emit_mul_body_shared() {
  * the call failed).
  */
 void BeamGlobalAssembler::emit_mul_guard_shared() {
-    mov_imm(ARG4, make_small(0));
+    mov_imm(ARG4, THE_NON_VALUE);
     a.b(labels[mul_add_guard_shared]);
 }
 
@@ -543,18 +543,19 @@ void BeamModuleAssembler::emit_i_mul_add(const ArgLabel &Fail,
                                          const ArgSource &Src1,
                                          const ArgSource &Src2,
                                          const ArgSource &Src3,
-                                         const ArgSource &Src4,
+                                         const ArgVal &Src4Arg,
                                          const ArgRegister &Dst) {
+    bool has_increment = !Src4Arg.isWord();
+    ArgVal src4 = has_increment ? Src4Arg : ArgImmed(make_small(0));
+    const ArgSource Src4(src4);
     bool is_product_small = is_product_small_if_args_are_small(Src1, Src2);
     bool is_sum_small = is_sum_small_if_args_are_small(Src3, Src4);
     bool sometimes_small = !(Src2.isLiteral() || Src4.isLiteral());
-    bool is_increment_zero =
-            Src4.isSmall() && Src4.as<ArgSmall>().getSigned() == 0;
     Sint factor = 0;
     int left_shift = -1;
 
-    if (is_increment_zero) {
-        comment("(adding zero)");
+    if (!has_increment) {
+        comment("(no increment)");
     }
 
     if (Src2.isSmall()) {
@@ -586,7 +587,7 @@ void BeamModuleAssembler::emit_i_mul_add(const ArgLabel &Fail,
         auto [src1, src2] = load_sources(Src1, ARG2, Src2, ARG3);
         auto src4 = load_source(ArgXRegister(0), XREG0);
 
-        if (!is_increment_zero) {
+        if (has_increment) {
             src4 = load_source(Src4, ARG4);
         }
 
@@ -599,7 +600,7 @@ void BeamModuleAssembler::emit_i_mul_add(const ArgLabel &Fail,
             } else if (always_small(Src2)) {
                 emit_are_both_small(Src1, src1.reg, Src4, src4.reg, small);
             } else if (sometimes_small) {
-                ASSERT(!is_increment_zero);
+                ASSERT(has_increment);
                 ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
                 a.and_(TMP1, src1.reg, src2.reg);
                 a.and_(TMP1, TMP1, src4.reg);
@@ -624,7 +625,7 @@ void BeamModuleAssembler::emit_i_mul_add(const ArgLabel &Fail,
             mov_var(ARG3, src2);
 
             if (Fail.get() != 0) {
-                if (is_increment_zero) {
+                if (!has_increment) {
                     fragment_call(ga->get_mul_guard_shared());
                 } else {
                     mov_var(ARG4, src4);
@@ -633,7 +634,7 @@ void BeamModuleAssembler::emit_i_mul_add(const ArgLabel &Fail,
                 emit_branch_if_not_value(ARG1,
                                          resolve_beam_label(Fail, dispUnknown));
             } else {
-                if (is_increment_zero) {
+                if (!has_increment) {
                     fragment_call(ga->get_mul_body_shared());
                 } else {
                     mov_var(ARG4, src4);
@@ -648,7 +649,7 @@ void BeamModuleAssembler::emit_i_mul_add(const ArgLabel &Fail,
 
         a.bind(small);
         if (sometimes_small) {
-            if (is_increment_zero) {
+            if (!has_increment) {
                 comment("multiply smalls");
             } else {
                 comment("multiply and add smalls");
@@ -660,7 +661,7 @@ void BeamModuleAssembler::emit_i_mul_add(const ArgLabel &Fail,
 
             a.and_(TMP3, src1.reg, imm(~_TAG_IMMED1_MASK));
 
-            if (is_increment_zero) {
+            if (!has_increment) {
                 mov_imm(TMP1, make_small(0));
                 increment_reg = TMP1;
             } else {
@@ -697,7 +698,7 @@ void BeamModuleAssembler::emit_i_mul_add(const ArgLabel &Fail,
                 a.smulh(TMP2, TMP3, TMP4);
             }
 
-            if (is_increment_zero) {
+            if (!has_increment) {
                 a.add(ARG1, ARG1, imm(_TAG_IMMED1_SMALL));
             } else {
                 a64::Gp sign_reg;
