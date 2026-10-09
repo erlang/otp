@@ -860,23 +860,34 @@ ipv6_addr_field(Cs, Ar, Br, Compr, N, X) ->
 %% After %
 ipv6_addr_scope([], _Ar, _Br, _Compr, _N, _X) ->  throw(error); % Null string
 ipv6_addr_scope(Cs, Ar, Br, Compr, N, X) ->
-    ipv6_addr_scope_dec(Cs, [X | Ar], Br, Compr, N+1, 0).
+    ipv6_addr_scope_dec(Cs, [X | Ar], Br, Compr, N + 1, 0).
 
 ipv6_addr_scope_dec([], Ar, Br, Compr, N, ScopeId) ->
     ipv6_addr_scope_done(ScopeId, Ar, Br, Compr, N);
-ipv6_addr_scope_dec([C|Cs], Ar, Br, Compr, N, ScopeId) ->
+ipv6_addr_scope_dec([C|Cs], Ar, Br, Compr, N, ScopeId)
+  when is_integer(C, $0, $9) ->
+    ScopeId1 = ScopeId * 10 + C - $0,
     if
-        is_integer(C, $0, $9) ->
-            ScopeId_1 = ScopeId*10 + C - $0,
-            if  is_integer(ScopeId_1, 0, 16#ffff) ->
-                    ipv6_addr_scope_dec(
-                      Cs, Ar, Br, Compr, N, ScopeId_1);
-                true ->                           throw(error) % 16-bit overflow
-            end;
-       ?is_char(C) ->
-            %% Non-numerical <zone_id> - ignore it
-            ipv6_addr_scope_str(Cs, Ar, Br, Compr, N)
-    end.
+        is_integer(ScopeId1, 0, 16#ffff) ->
+            ipv6_addr_scope_dec(Cs, Ar, Br, Compr, N, ScopeId1);
+        true ->
+            ipv6_addr_scope_dec_check(Cs, Ar, Br, Compr, N)
+    end;
+ipv6_addr_scope_dec([C|Cs], Ar, Br, Compr, N, _)
+  when ?is_char(C)->
+    ipv6_addr_scope_str(Cs, Ar, Br, Compr, N).
+
+%% We had a decimal integer overflow earlier,
+%% so we check if it is actually a valid textual
+%% scope id; otherwise it is invalid.
+ipv6_addr_scope_dec_check([C|Cs], Ar, Br, Compr, N)
+  when is_integer(C, $0, $9) ->
+    ipv6_addr_scope_dec_check(Cs, Ar, Br, Compr, N);
+ipv6_addr_scope_dec_check([C|Cs], Ar, Br, Compr, N)
+  when ?is_char(C) ->
+    ipv6_addr_scope_str(Cs, Ar, Br, Compr, N);
+ipv6_addr_scope_dec_check([], _, _, _, _) ->
+    throw(error). % Decimal integer overflow
 
 %% Check that scope_id is a string.
 %% XXX There should maybe be a max length check here
@@ -886,15 +897,15 @@ ipv6_addr_scope_str([C|Cs], Ar, Br, Compr, N)
   when ?is_char(C) ->
     ipv6_addr_scope_str(Cs, Ar, Br, Compr, N).
 
-ipv6_addr_scope_done(ScopeId, Ar, Br, Compr, N) when is_integer(ScopeId) ->
+ipv6_addr_scope_done(ScopeId, Ar, Br, Compr, N) when is_integer(ScopeId, 0, 16#ffff) ->
     %% FreeBSD kernel style piggy-back the Scope ID into the second word
     %% of the address for link-local and site-local addresses
     %% which is always 0.
     case ipv6_addr_fill_zeros(N, Ar, Br, Compr) of
         [X1, 0 | Xs] when
               X1 =:= 16#fe80;
-              X1 =:= 16#ff02 ->           list_to_tuple([X1, ScopeId | Xs]);
-        Xs when length(Xs) == 8 ->                throw(error) % Bad address
+              X1 =:= 16#ff02 ->    list_to_tuple([X1, ScopeId | Xs]);
+        Xs when length(Xs) == 8 -> throw(error) % Bad address
 %%% XXX We should maybe ignore this instead
     end.
 
