@@ -336,6 +336,7 @@ server(Addr, Port) ->
               eei/0,
 
               socket_counters/0,
+              socket_rbuf/0,
               socket_info/0,
 
               domain/0,
@@ -489,12 +490,25 @@ and the `t:otp_socket_option/0` with the same name.
                              acc_tries        := non_neg_integer(),
                              acc_waits        := non_neg_integer()}.
 
+-doc """
+Receive buffer sizes for a socket, in bytes.
+
+`configured` is the `rcvbuf` value of the `t:otp_socket_option/0`,
+`adapted` is the size the socket currently reads with, which for a
+stream socket follows the traffic up to an internal limit, and `held`
+is the size of the buffer the socket keeps allocated between reads.
+""".
+-type socket_rbuf() :: #{configured := non_neg_integer(),
+                         adapted    := non_neg_integer(),
+                         held       := non_neg_integer()}.
+
 -type socket_info() :: #{domain        := domain() | integer(),
                          type          := type() | integer(),
                          protocol      := protocol() | integer(),
                          owner         := pid(),
                          ctype         := normal | fromfd | {fromfd, integer()},
                          counters      := socket_counters(),
+                         rbuf          := socket_rbuf(),
                          num_readers   := non_neg_integer(),
                          num_writers   := non_neg_integer(),
                          num_acceptors := non_neg_integer(),
@@ -1080,10 +1094,10 @@ hence above all OS protocol levels.
   controlling process can set this option.
 
 - **`rcvbuf`** -
-  `BufSize :: (default | integer()>0) | {N :: integer()>0, BufSize :: (default | integer()>0)} `\-
+  `BufSize :: (auto | default | integer()>0) | {N :: integer()>0, BufSize :: (default | integer()>0)} `\-
   Receive buffer size.
 
-  The value `default` is only valid to _set_.
+  The values `auto` and `default` are only valid to _set_.
 
   `N` specifies the number of read attempts to do in a tight loop before
   assuming no more data is pending.
@@ -1093,6 +1107,15 @@ hence above all OS protocol levels.
   When the receive function returns the receive buffer is reallocated to the
   actually received size. If the data is copied or shrunk in place is up to
   the allocator, and can to some extent be configured in the Erlang VM.
+
+  The initial value is `auto`: the default size, which on a
+  [`stream`](`t:type/0`) socket is then adapted to the traffic. The buffer
+  grows when it is filled and shrinks back towards the default size when the
+  received amounts fall, so the sizes of the returned chunks vary. Setting a
+  size, or `default`, pins the buffer at that size and turns the adaptation
+  off, and `auto` turns it on again. `getopt` reports the configured size;
+  the adapted size is reported by `info/1` as the `rbuf` value.
+  Adaptation is not done on Windows.
 
   The similar socket option; `{socket,rcvbuf}` is a related option for the OS'
   protocol stack that on Unix corresponds to `SOL_SOCKET,SO_RCVBUF`.
