@@ -37,7 +37,21 @@
          ticket_age_add,
          lifetime,
          timestamp,
-         certificate
+         certificate,
+         sni = undefined,       %% SNI hostname the ticket was issued for.
+                                %% Used to decline cross-SNI resumption
+                                %% when the ticket was issued on an
+                                %% SNI-guided connection (defense-in-depth,
+                                %% see tls_server_session_ticket). Older
+                                %% tickets without this field decode as
+                                %% undefined and are treated permissively.
+         sni_guided = false     %% Whether SNI selected the server
+                                %% cert/config for the issuing connection
+                                %% (handshake_env.sni_guided_cert_selection).
+                                %% Only tickets issued on an SNI-guided
+                                %% connection are gated on SNI; others keep
+                                %% RFC 8446 4.6.1 cross-SNI reuse. Legacy
+                                %% tickets decode as false (permissive).
         }).
 
 %%% SSL cipher protocol  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
