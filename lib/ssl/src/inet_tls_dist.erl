@@ -1086,7 +1086,7 @@ ktls_opt_cipher(
         <<TLS_1_3_VERSION:16/native,
           TLS_CIPHER_AES_GCM_256:16/native,
           IV/bytes, Key/bytes,
-          Salt/bytes, CipherSeq:64/native>>,
+          Salt/bytes, CipherSeq:64/big>>,
     %%
     SOL_TLS = 282,
     TLS_TX = 1,
