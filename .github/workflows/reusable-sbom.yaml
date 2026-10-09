@@ -201,6 +201,43 @@ jobs:
             fail-on: ${{ github.ref_type == 'tag' && '' || 'violations,issues' }}
             sw-version: ${{ env.OTP_SBOM_VERSION }}
 
+  modified-vendor-files:
+    name: Check if vendor files changed
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read   # actions/checkout (ref: inputs.version or default branch)
+
+    # this condition is necessary because github.base_ref only exists for pull_requests
+    if: ${{ github.event_name == 'pull_request' }}
+    outputs:
+      vendor-files: ${{ steps.vendor-files.outputs.MODIFIED_FILES != '0' }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6.0.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Get modified vendor files
+        id: vendor-files
+        env:
+          GH_BASE_REF: ${{ github.base_ref }}
+        run: |
+          echo "MODIFIED_FILES=$(git diff --name-only origin/${GH_BASE_REF} HEAD | grep 'vendor\.info$' | wc -l || 1)" >> $GITHUB_OUTPUT
+
+  scanoss-code-scan:
+    name: Snippet Scanning (SCANOSS)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # ratchet:actions/checkout@v6.0.2
+
+      - name: Run SCANOSS Code Scan
+        id: scanoss-code-scan-step
+        uses: scanoss/gha-code-scan@d3c8f659544885761c8e3b96743ea14b830474aa
+        with:
+          scanMode: 'delta'
+          policies: copyleft
+
   vendor-dependency-upload:
     name: Vendor Dependency Upload
     runs-on: ubuntu-latest

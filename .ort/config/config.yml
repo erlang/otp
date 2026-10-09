@@ -36,6 +36,14 @@ ort:
         options:
           commandLine: "--copyright,--license,--compat-mode,scancode,--strip-root,--timeout,300"
 
+      SCANOSS:
+        options:
+          apiUrl: "https://api.osskb.org"
+          chosenSnippetModel: SNIPPET_FINDING
+          minSnippetHits: 3
+          minSnippetLines: 3
+          skipHeaders: true
+
   analyzer:
     allowDynamicVersions: true
     enabledPackageManagers: [Unmanaged]
