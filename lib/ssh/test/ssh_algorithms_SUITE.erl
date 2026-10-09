@@ -560,6 +560,9 @@ key_filenames(Alg) ->
         'rsa-sha2-256'        -> ["id_rsa"];
         'rsa-sha2-512'        -> ["id_rsa"];
         'ssh-dss'             -> ["id_dsa"];
+        'ssh-mldsa-44'        -> ["id_mldsa44"];
+        'ssh-mldsa-65'        -> ["id_mldsa65"];
+        'ssh-mldsa-87'        -> ["id_mldsa87"];
         'ssh-ed25519'         -> ["id_ed25519"];
         'ssh-ed448'           -> ["id_ed448"];
         'ecdsa-sha2-nistp256' -> ["id_ecdsa", "id_ecdsa_sk"];
@@ -609,13 +612,22 @@ setup_all_keys(Config) ->
     %% Load all host private keys into a map for the in-memory key_cb
     HostKeys = lists:foldl(
       fun(Alg, Acc) ->
-              try
-                  File = filename:join(DataDir, ssh_test_lib:file_base_name(system_src, Alg)),
-                  {ok, KeyBin0} = file:read_file(File),
-                  KeyBin = ssh_test_lib:remove_comment(KeyBin0),
-                  {ok, [{Key,_}|_]} = ssh_file:decode_ssh_file(private, Alg, KeyBin, ignore),
-                  Acc#{Alg => Key}
-              catch _:_ -> Acc
+              case mldsa_key_algorithm(Alg) of
+                  undefined ->
+                      try
+                          File = filename:join(
+                                   DataDir,
+                                   ssh_test_lib:file_base_name(system_src, Alg)),
+                          {ok, KeyBin0} = file:read_file(File),
+                          KeyBin = ssh_test_lib:remove_comment(KeyBin0),
+                          {ok, [{Key,_}|_]} =
+                              ssh_file:decode_ssh_file(private, Alg, KeyBin, ignore),
+                          Acc#{Alg => Key}
+                      catch _:_ -> Acc
+                      end;
+                  MLDSA ->
+                      {_, Key} = public_key:generate_key(MLDSA),
+                      Acc#{Alg => Key}
               end
       end, #{}, AllPKAlgs),
     ?CT_LOG("setup_all_keys: loaded host keys for ~p", [maps:keys(HostKeys)]),
@@ -640,6 +652,11 @@ start_shared_daemon(Config) ->
     ?CT_LOG("Shared daemon started at ~p:~p (pid ~p)~n"
            "Host keys: ~p", [Host, Port, Pid, maps:keys(HostKeys)]),
     [{srvr_pid, Pid}, {srvr_addr, {Host, Port}} | Config].
+
+mldsa_key_algorithm('ssh-mldsa-44') -> mldsa44;
+mldsa_key_algorithm('ssh-mldsa-65') -> mldsa65;
+mldsa_key_algorithm('ssh-mldsa-87') -> mldsa87;
+mldsa_key_algorithm(_) -> undefined.
 
 %%%----------------------------------------------------------------
 %%%

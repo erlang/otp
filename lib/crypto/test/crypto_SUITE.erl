@@ -134,6 +134,7 @@
          hash_equals/1,
          sign_verify/0,
          sign_verify/1,
+         mldsa_key_derivation/1,
          sign_verify_oqs/1,
          ec_key_padding/1,
          use_all_ec_sign_verify/1,
@@ -263,6 +264,7 @@ all() ->
      node_supports_cache,
      mod_pow,
      encapsulate,
+     mldsa_key_derivation,
      sign_verify_oqs,
      exor,
      rand_uniform,
@@ -1525,6 +1527,55 @@ encap_decap(Alg) ->
     {Secret, Encap} = crypto:encapsulate_key(Alg, Pub),
     Secret2 = crypto:decapsulate_key(Alg, Priv, Encap),
     {Secret2,Secret} = {Secret,Secret2},
+    ok.
+
+%%--------------------------------------------------------------------
+mldsa_key_derivation(_Config) ->
+    %% NIST ACVP ML-DSA keyGen FIPS204 vectors, tcIds 1, 26, and 51:
+    %% https://github.com/usnistgov/ACVP-Server/blob/975de31eb83d87039ec88934fdc47d8c312b892d/gen-val/json-files/ML-DSA-keyGen-FIPS204/internalProjection.json
+    %% Hashing the public keys keeps the test compact while checking
+    %% their complete contents.
+    Vectors =
+        [{mldsa44, 1312,
+          "7194B13C95231010AFD2C909992BD2003BA6F437C3886BDBE3F6B867A14BA161",
+          "838B88B6AC41E2C60698173E08CA173D0B0D2839205806E56A8A3D53195F3A03"},
+         {mldsa65, 1952,
+          "A991FD42B071D49C48AE3E75C647459E0DAAD1E1BA356A04801912D3294BCFF8",
+          "B1A7D0D2F0D7A04B9D5FFCCD9BD578864DAB4A01CDD7F70A05CD1F4F0672E43A"},
+         {mldsa87, 2592,
+          "A16F5B0796703E2D1A0140A35CBF36EFABE70E752BA59B6A9A0E9C4B05302F73",
+          "33F49649F05EC2FC3B050007B18ADE043BBC8D1C0DED03A269D540486DAAA5F4"}],
+    Supported = crypto:supports(public_keys),
+    Available = [Vector || {Alg, _, _, _} = Vector <- Vectors,
+                           lists:member(Alg, Supported)],
+    case Available of
+        [_ | _] ->
+            [mldsa_key_derivation_do(Alg, PublicSize,
+                                     hexstr2bin(SeedHex),
+                                     hexstr2bin(PublicHashHex))
+             || {Alg, PublicSize, SeedHex, PublicHashHex} <- Available],
+            ok;
+        [] ->
+            {skip, mldsa_not_supported_by_crypto}
+    end.
+
+mldsa_key_derivation_do(Alg, PublicSize, Seed, PublicHash) ->
+    Msg = <<"ML-DSA private key representation test">>,
+
+    {SeedPublic, {seed, Seed}} =
+        crypto:generate_key(Alg, [], {seed, Seed}),
+    PublicSize = byte_size(SeedPublic),
+    PublicHash = crypto:hash(sha256, SeedPublic),
+    SeedSignature = crypto:sign(Alg, none, Msg, {seed, Seed}),
+    true = crypto:verify(Alg, none, Msg, SeedSignature, SeedPublic),
+
+    {ExpandedPublic, ExpandedKey} = crypto:generate_key(Alg, []),
+    {ExpandedPublic, ExpandedKey} =
+        crypto:generate_key(Alg, [], ExpandedKey),
+    ExpandedSignature = crypto:sign(Alg, none, Msg,
+                                    {expandedkey, ExpandedKey}),
+    true = crypto:verify(Alg, none, Msg, ExpandedSignature,
+                         ExpandedPublic),
     ok.
 
 %%--------------------------------------------------------------------
