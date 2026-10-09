@@ -96,7 +96,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("stdlib/include/assert.hrl").
--include_lib("erts_test_utils.hrl").
+-include("erts_test_utils.hrl").
 
 % First byte in communication with the timer driver
 -define(START_TIMER, 0).

@@ -34,7 +34,7 @@
 %-define(line_trace, 1).
 
 -include_lib("common_test/include/ct.hrl").
--include_lib("erts_test_utils.hrl").
+-include("erts_test_utils.hrl").
 
 %% Slot count per page of a loader index table (see erts/emulator/beam/index.h).
 %% The table only enforces its limit when a new page must be allocated, so a
