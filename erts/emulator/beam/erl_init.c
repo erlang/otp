@@ -147,6 +147,8 @@ int erts_no_crash_dump = 0;	/* Use -d to suppress crash dump. */
 
 int erts_no_line_info = 0;	/* -L: Don't load line information */
 
+int erts_deterministic_atom_order = 0;	/* +zdao: hash and order atom keys by name, not by table index */
+
 #ifdef BEAMASM
 Uint erts_coverage_mode = ERTS_COV_NONE; /* -JPcover: Enable coverage */
 int erts_jit_asm_dump = 0;	/* -JDdump: Dump assembly code */
@@ -712,6 +714,8 @@ __decl_noreturn void __noreturn  erts_usage(void)
     erts_fprintf(stderr, "               see error_logger documentation for details\n");
     erts_fprintf(stderr, "\n");
 
+    erts_fprintf(stderr, "-zdao bool     hash and order atom map keys by name instead of by atom table\n");
+    erts_fprintf(stderr, "               index, so map order does not depend on atom creation order\n");
     erts_fprintf(stderr, "-zdbbl size    set the distribution buffer busy limit in kilobytes;\n");
     erts_fprintf(stderr, "               valid range is [1-%d]\n", INT_MAX/1024);
     erts_fprintf(stderr, "-zdntgc time   set delayed node table gc in seconds;\n");
@@ -2374,7 +2378,18 @@ erl_start(int argc, char **argv)
 	case 'z': {
 	    char *sub_param = argv[i]+2;
 
-	    if (has_prefix("dbbl", sub_param)) {
+	    if (has_prefix("dao", sub_param)) {
+		arg = get_arg(sub_param+3, argv[i+1], &i);
+		if (sys_strcmp(arg, "true") == 0)
+		    erts_deterministic_atom_order = 1;
+		else if (sys_strcmp(arg, "false") == 0)
+		    erts_deterministic_atom_order = 0;
+		else {
+		    erts_fprintf(stderr, "bad deterministic atom order value %s\n", arg);
+		    erts_usage();
+		}
+	    }
+	    else if (has_prefix("dbbl", sub_param)) {
 		int new_limit;
 		arg = get_arg(sub_param+4, argv[i+1], &i);
 		new_limit = atoi(arg);

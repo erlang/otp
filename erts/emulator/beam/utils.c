@@ -1547,6 +1547,23 @@ Sint compare_flatmap_atom_keys(const Eterm* a_keys,
     ASSERT(is_atom(a_keys[0]) && is_atom(b_keys[0]));
     ASSERT(is_atom(a_keys[n_atoms-1]) || is_atom(b_keys[n_atoms-1]));
 
+    if (erts_deterministic_atom_order) {
+        /* Both arrays are sorted in term order, so the first difference
+         * decides: a key the other array lacks is the smaller unique one. */
+        for (ai = 0; ai < n_atoms; ai++) {
+            a = a_keys[ai];
+            b = b_keys[ai];
+            if (a == b)
+                continue;
+            if (!is_atom(a))
+                return +1;
+            if (!is_atom(b))
+                return -1;
+            return erts_cmp_atoms(a, b);
+        }
+        return 0;
+    }
+
     ai = n_atoms;
     while (*a_keys == *b_keys) {
         ASSERT(is_atom(*a_keys));

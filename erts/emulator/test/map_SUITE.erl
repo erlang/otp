@@ -95,6 +95,7 @@
 
 %% Benchmarks
 -export([benchmarks/1]).
+-export([t_deterministic_atom_order/1, build_atom_keyed_maps/1]).
 
 %% Helper for generating new colliding keys after the internal hashing
 %% algorithm changes.
@@ -133,6 +134,7 @@ groups() ->
        t_update_deep,
        t_map_equal, t_map_compare,
        t_map_sort_literals,
+       t_deterministic_atom_order,
 
        %% Specific Map BIFs
        t_bif_map_get,t_bif_map_find,t_bif_map_is_key,
@@ -3540,6 +3542,66 @@ t_gc_rare_map_overflow(Config) when is_list(Config) ->
 	erts_debug:set_internal_state(available_internal_state, false),
 	peer:stop(Peer)
     end.
+
+%% With +zdao, the layout of an atom-keyed map depends on the atoms' names
+%% alone, so two nodes that created the atoms in different orders agree on
+%% the order of every map operation, and the maps still behave as maps.
+t_deterministic_atom_order(Config) when is_list(Config) ->
+    Pa = filename:dirname(code:which(?MODULE)),
+    Run = fun(Order) ->
+                  {ok, Peer, _Node} = peer:start(#{connection => 0,
+                                                  args => ["-pa", Pa, "+zdao", "true"]}),
+                  try
+                      peer:call(Peer, ?MODULE, build_atom_keyed_maps, [Order])
+                  after
+                      peer:stop(Peer)
+                  end
+          end,
+    Forward = Run(forward),
+    Reverse = Run(reverse),
+    Forward = Reverse,
+    {SmallKeys, _} = Forward,
+    SmallKeys = lists:sort(SmallKeys),
+    ok.
+
+%% Creates the atoms in the given order, then builds and checks maps keyed by
+%% them. Run on a peer node so the atoms are new to it.
+build_atom_keyed_maps(Order) ->
+    Names = ["zdao_" ++ integer_to_list(I) || I <- lists:seq(1, 100)],
+    Created = case Order of
+                  forward -> Names;
+                  reverse -> lists:reverse(Names)
+              end,
+    _ = [list_to_atom(N) || N <- Created],
+    Keys = [list_to_atom(N) || N <- Names],
+    Pairs = lists:zip(Keys, lists:seq(1, length(Keys))),
+    Large = maps:from_list(Pairs),
+    Small = maps:from_list(lists:sublist(Pairs, 20)),
+    Nested = maps:from_list([{{K, [K]}, V} || {K, V} <- Pairs]),
+    ListKeys = maps:from_list([{[K], V} || {K, V} <- Pairs]),
+    Maps = [Small, Large, Nested, ListKeys],
+    lists:foreach(
+      fun(Map) ->
+              %% Exercise both BIF and JIT map lookups with distinct values.
+              lists:foreach(
+                fun({K, V}) ->
+                        V = maps:get(K, Map),
+                        #{K := V} = Map,
+                        Updated = Map#{K := -V},
+                        NegV = -V,
+                        #{K := NegV} = Updated,
+                        false = maps:is_key(K, maps:remove(K, Map))
+                end, maps:to_list(Map)),
+              Map = binary_to_term(term_to_binary(Map))
+      end, Maps),
+    Large = maps:merge(Small, Large),
+    %% Cover both directions of the flatmap/hashmap representation change.
+    Large = lists:foldl(fun({K, V}, M) -> M#{K => V} end,
+                        Small, lists:nthtail(20, Pairs)),
+    Small = lists:foldl(fun maps:remove/2, Large, lists:nthtail(20, Keys)),
+    {maps:keys(Small),
+     [{maps:keys(M), term_to_binary(M), lists:sort(maps:to_list(M))}
+      || M <- Maps]}.
 
 t_gc_rare_map_overflow_do(Echo, FatMap, GcFun) ->
     Master = self(),

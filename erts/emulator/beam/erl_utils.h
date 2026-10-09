@@ -264,8 +264,13 @@ ERTS_GLB_INLINE Sint erts_cmp(Eterm a, Eterm b, int exact, int eq_only) {
 /*
  * Only to be used for the *internal* sort order of flatmap keys.
  */
+extern int erts_deterministic_atom_order;
+
 ERTS_GLB_INLINE Sint erts_cmp_flatmap_keys(Eterm key_a, Eterm key_b) {
     if (is_atom(key_a) && is_atom(key_b)) {
+        if (erts_deterministic_atom_order) {
+            return erts_cmp_atoms(key_a, key_b);
+        }
         return key_a - key_b;
     }
     return erts_cmp(key_a, key_b, 1, 0);

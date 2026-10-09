@@ -41,6 +41,27 @@ extern "C"
 void BeamGlobalAssembler::emit_internal_hash_helper() {
     x86::Gp key = ARG2, key_hash = ARG3;
 
+    if (erts_deterministic_atom_order) {
+        /* +zdao hashes atoms by name; leave that to the runtime system's
+         * implementation. The flag is fixed once the node has started, so
+         * nodes without it keep the expansion below. */
+        a.mov(TMP_MEM1q, ARG1);
+        a.mov(TMP_MEM2q, ARG2);
+        a.mov(TMP_MEM3q, RET);
+
+        a.mov(ARG1, ARG2);
+        emit_enter_runtime();
+        runtime_call<erts_ihash_t (*)(Eterm), erts_internal_hash>();
+        emit_leave_runtime();
+
+        a.mov(key_hash, RET);
+
+        a.mov(ARG1, TMP_MEM1q);
+        a.mov(ARG2, TMP_MEM2q);
+        a.mov(RET, TMP_MEM3q);
+        return;
+    }
+
     /* Unsigned multiplication instructions on x86 either use RDX as an
      * implicit source or clobber it. Sigh. */
     if (key == x86::rdx) {

@@ -1697,15 +1697,27 @@ static const Uint64 IHASH_C2 = 0x4CF5AD432745937Full;
 #define IHASH_MIX_BETA_2F32(Expr1, Expr2)                                     \
     IHASH_MIX_BETA((Uint64)(Expr1) | ((Uint64)(Expr2) << 32))
 
+/* Under +zdao an atom hashes by its name rather than by its table index, so
+ * that a map's layout does not depend on the order atoms were created in. The
+ * name hash is placed where the index would be, keeping the atom tag. */
+static ERTS_INLINE Eterm ihash_immediate_word(Eterm term)
+{
+    if (erts_deterministic_atom_order && is_atom(term)) {
+        return ((Eterm)atom_tab(atom_val(term))->slot.bucket.hvalue
+                << _TAG_IMMED2_SIZE) | _TAG_IMMED2_ATOM;
+    }
+    return term;
+}
+
 #ifdef ARCH_64
 #   define IHASH_MIX_IMMEDIATE(term)                                          \
         do {                                                                  \
             IHASH_MIX_ALPHA(IHASH_TYPE_IMMEDIATE);                            \
-            IHASH_MIX_BETA(term);                                             \
+            IHASH_MIX_BETA(ihash_immediate_word(term));                       \
         } while(0)
 #else
 #   define IHASH_MIX_IMMEDIATE(term)                                          \
-    IHASH_MIX_ALPHA_2F32(IHASH_TYPE_IMMEDIATE, term);
+    IHASH_MIX_ALPHA_2F32(IHASH_TYPE_IMMEDIATE, ihash_immediate_word(term));
 #endif
 
 /* Pushes a term to the stack, optionally handling it up-front if it's an
@@ -1798,7 +1810,7 @@ make_internal_hash(Eterm term, erts_ihash_t salt)
 
                 if (is_immed(head)) {
                     IHASH_MIX_ALPHA_2F32(IHASH_TYPE_IMMEDIATE, IHASH_TYPE_CAR);
-                    IHASH_MIX_BETA(head);
+                    IHASH_MIX_BETA(ihash_immediate_word(head));
 
                     if (is_not_list(tail)) {
                         IHASH_MIX_ALPHA(IHASH_TYPE_CDR);
@@ -2270,7 +2282,7 @@ erts_ihash_t erts_dbg_hashmap_collision_bonanza(erts_ihash_t hash, Eterm key)
 erts_ihash_t erts_internal_salted_hash(Eterm term, erts_ihash_t salt) {
     if (ERTS_LIKELY(is_immed(term))) {
         /* Fast path for immediates. The vast majority of calls land here. */
-        return erts_ihash_mix64(term + salt);
+        return erts_ihash_mix64(ihash_immediate_word(term) + salt);
     }
 
     return make_internal_hash(term, salt);
@@ -2278,7 +2290,7 @@ erts_ihash_t erts_internal_salted_hash(Eterm term, erts_ihash_t salt) {
 
 erts_ihash_t erts_internal_hash(Eterm term) {
     if (ERTS_LIKELY(is_immed(term))) {
-        return erts_ihash_mix64(term);
+        return erts_ihash_mix64(ihash_immediate_word(term));
     }
 
     return make_internal_hash(term, 0);

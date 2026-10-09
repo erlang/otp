@@ -170,6 +170,7 @@ static char *plusr_val_switches[] = {
 
 /* +z arguments with values */
 static char *plusz_val_switches[] = {
+    "dao",
     "dbbl",
     "dntgc",
     "ebwt",

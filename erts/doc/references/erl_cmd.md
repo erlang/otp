@@ -1412,6 +1412,21 @@ behavior of earlier flags.
 
 - **`+zFlag Value`** - Miscellaneous flags:
 
+  - **`+zdao true|false`{: #+zdao }** - Orders the atom keys of maps by the
+    atoms' names instead of by their position in the atom table. Defaults to
+    `false`.
+
+    The runtime normally hashes an atom by its index in the atom table and
+    sorts the atom keys of small maps by that index, which is fast but makes
+    the iteration order of a map depend on the order in which its atoms were
+    created in the running node. Code that iterates such a map while
+    generating code, such as a parse transform or a macro, then produces
+    different output in every node that compiles it. With `+zdao true` the
+    order depends on the atom names alone, so the output is the same in every
+    node, at the cost of slower hashing and comparison of atom keys. Intended
+    for nodes that compile code which must be reproducible. The setting has no
+    effect on the external term format or on `erlang:phash2/1`.
+
   - **`+zdbbl size`{: #+zdbbl }** - Sets the distribution buffer busy limit
     ([`dist_buf_busy_limit`](`m:erlang#system_info_dist_buf_busy_limit`)) in
     kilobytes. Valid range is 1-2097151. Defaults to 1024.
