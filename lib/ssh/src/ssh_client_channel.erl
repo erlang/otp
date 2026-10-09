@@ -457,8 +457,14 @@ handle_call(Request, From, #state{channel_cb = Module,
        Result ->
 	   handle_cb_result(Result, State)
    catch
-       error:{undef, _} -> 
-	   {noreply, State}
+       error:undef = Reason:Stacktrace ->
+           case erlang:function_exported(Module, handle_call, 3) of
+               false ->
+                   {noreply, State};      % optional callback not implemented
+               true ->
+                   %% undef from deeper in the callback — don't mask it
+                   erlang:raise(error, Reason, Stacktrace)
+           end
    end.
 
 
@@ -476,8 +482,14 @@ handle_cast(Msg, #state{channel_cb = Module,
 	Result ->
 	    handle_cb_result(Result, State)
     catch
-       error:{undef, _} -> 
-	    {noreply, State}
+       error:undef = Reason:Stacktrace ->
+           case erlang:function_exported(Module, handle_cast, 2) of
+               false ->
+                   {noreply, State};      % optional callback not implemented
+               true ->
+                   %% undef from deeper in the callback — don't mask it
+                   erlang:raise(error, Reason, Stacktrace)
+           end
    end.
 
 %%--------------------------------------------------------------------
