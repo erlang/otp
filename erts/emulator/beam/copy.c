@@ -1950,17 +1950,6 @@ Eterm* copy_shallow_x(Eterm *ERTS_RESTRICT ptr, Uint sz, Eterm **hpp,
 	Eterm val = *tp++;
 
 	switch (primary_tag(val)) {
-	case TAG_PRIMARY_IMMED1:
-	    *hp++ = val;
-	    break;
-	case TAG_PRIMARY_LIST:
-	case TAG_PRIMARY_BOXED:
-            if (val == empty_tuple_literal) {
-                *hp++ = empty_tuple_literal;
-            } else {
-                *hp++ = byte_offset_ptr(val, offs);
-            }
-	    break;
 	case TAG_PRIMARY_HEADER:
 	    *hp++ = val;
             switch (val & _TAG_HEADER_MASK) {
@@ -2035,6 +2024,11 @@ Eterm* copy_shallow_x(Eterm *ERTS_RESTRICT ptr, Uint sz, Eterm **hpp,
 		break;
 	    }
 	    break;
+        default:
+            *hp++ = (is_immed(val) || val == empty_tuple_literal)
+                    ? val
+                    : byte_offset_ptr(val, offs);
+            break;
 	}
     }
     *hpp = hp;
