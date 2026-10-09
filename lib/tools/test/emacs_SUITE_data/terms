@@ -1,5 +1,25 @@
 %% -*- Mode: erlang; indent-tabs-mode: nil -*-
-%% Copyright Ericsson AB 2017. All Rights Reserved.
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2005-2025. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+%%
 
 %%% indentation of terms contain builtin types
 
@@ -172,3 +192,68 @@ some_function_name_xyz(xyzzy, #some_record{
 foo() ->
     [#foo{
         foo = foo}].
+
+%% Dollar sign ($) in its various roles.  As a character literal in
+%% code it quotes exactly one character (or a backslash escape); inside
+%% a string or quoted atom it is an ordinary character and quotes
+%% nothing.
+chars() ->
+    A = $a,
+    Nl = $\n,
+    Bs = $\\,
+    Dq = $",
+    Sq = $',
+    Sp = $\s,
+    Open = $(,
+    Close = $),
+    Brace = ${,
+    [A, Nl, Bs, Dq, Sq, Sp, Open, Close, Brace].
+
+is_digit(C) when C >= $0, C =< $9 -> true;
+is_digit(_) -> false.
+
+classify(C) when (C =:= $\s) or (C =:= $() or (C =:= $)) ->
+    space_or_paren;
+classify(_) ->
+    other.
+
+dollar_strings() ->
+    S1 = "a$b",
+    S2 = "$\\",
+    S3 = "ends with $",
+    S4 = "price: $5 and $10",
+    S5 = "escaped quote \" and $ sign",
+    [S1, S2, S3, S4, S5].
+
+dollar_atoms() ->
+    A1 = '$end',
+    A2 = 'a$b$c',
+    [A1, A2].
+
+dollar_scan_like() ->
+    [begin
+         L = "$\\" ++ [C],
+         test(L, C)
+     end || C <- lists:seq(0, 255)].
+
+%% Multi-line string literals whose content looks like Erlang code.
+%% A line inside such a string may begin with a lowercase character
+%% (e.g. "v}") and must not be mistaken for a clause head when
+%% indentation searches backward for the start of a clause.  The
+%% braces inside the string must not be counted as code.  The trailing
+%% comment block below is significant: indenting it is what triggers
+%% the backward clause search that used to land inside the string.
+flex_compact_msg() ->
+    "!/1 [124.124.124.222]:55555
+P=10003{C=2000{A=a4444,A=a4445{M{ST=1{L{
+v}
+}}}}}".
+
+
+%% ==============================================================
+%%
+%% After the multi-line string
+%%
+
+after_strings() ->
+    ok.
