@@ -1827,7 +1827,8 @@ handle_pre_shared_key(_, undefined, _) ->
 handle_pre_shared_key(#state{ssl_options = #{session_tickets := disabled}}, _, _) ->
     {ok, undefined};
 handle_pre_shared_key(#state{ssl_options = #{session_tickets := Tickets},
-                             handshake_env = #handshake_env{tls_handshake_history =  {HHistory, _}},
+                             handshake_env = #handshake_env{tls_handshake_history =  {HHistory, _},
+                                                            sni_hostname = SNIHostname},
                              static_env = #static_env{trackers = Trackers}},
                       #pre_shared_key_client_hello{offered_psks =
                                                        OfferedPreSharedKeys}, Cipher) when Tickets =/= disabled ->
@@ -1839,7 +1840,7 @@ handle_pre_shared_key(#state{ssl_options = #{session_tickets := Tickets},
       } = OfferedPreSharedKeys,
     case length(Identities) == length(Binders) of
         true ->
-            tls_server_session_ticket:use(Tracker, OfferedPreSharedKeys, CipherHash, HHistory);
+            tls_server_session_ticket:use(Tracker, OfferedPreSharedKeys, CipherHash, HHistory, SNIHostname);
         false ->
             {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER, illegal_pre_shared_key)}
     end.
