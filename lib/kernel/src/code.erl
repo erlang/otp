@@ -1681,7 +1681,8 @@ start_link() ->
 
 do_start() ->
     maybe_warn_for_cache(),
-    load_code_server_prerequisites(),
+    check_code_server_prerequisites(),
+    _ = erl_features:enabled(),
 
     {ok,[[Root0]]} = init:get_argument(root),
     Mode = start_get_mode(),
@@ -1695,20 +1696,19 @@ do_start() ->
 %% Make sure that all modules that the code_server process calls
 %% (directly or indirectly) are loaded. Otherwise the code_server
 %% process will deadlock.
+%% The modules are loaded by kernel:preload(minimal), but we have a
+%% check here to make extra sure that the modules are loaded.
 
-load_code_server_prerequisites() ->
+check_code_server_prerequisites() ->
     %% Please keep the alphabetical order.
     Needed = [beam_lib,
               binary,
 	      ets,
 	      filename,
-	      gb_sets,
-	      gb_trees,
 	      lists,
 	      os,
 	      unicode],
-    _ = [M = M:module_info(module) || M <- Needed],
-    _ = erl_features:enabled(),
+    _ = [true = erlang:module_loaded(M) || M <- Needed],
     ok.
 
 maybe_stick_dirs(interactive) ->

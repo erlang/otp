@@ -156,10 +156,10 @@ start_crash(_Config) ->
     ErrorOutput = re:replace(unicode:characters_to_binary(Output),"\r\n","\n",[global]),
     ct:log("~ts",[ErrorOutput]),
     {match,[_]} = re:run(ErrorOutput,"(^=SUPERVISOR REPORT====| supervisor_report *\n)",[global,multiline]),
-    {match,[_, _]} = re:run(ErrorOutput," crash_report *\n",[global]),
-    {match,[_]} = re:run(ErrorOutput," std_info *\n",[global]),
-    {match,[[CD]]} = re:run(ErrorOutput,"\nCrash dump is being written to: (.*)\\.\\.\\.done",
-                            [{capture, all_but_first, binary}, global]),
+    {match,[_, _]} = re:run(ErrorOutput,"^=CRASH REPORT====",[global,multiline]),
+    {match,[_]} = re:run(ErrorOutput,"^=INFO REPORT====",[global,multiline]),
+    {match,[[CD]]} = re:run(ErrorOutput,"^Crash dump is being written to: (.*)\\.\\.\\.done",
+                            [{capture, all_but_first, binary}, global,multiline]),
     ok = file:delete(CD),
     ok.
 

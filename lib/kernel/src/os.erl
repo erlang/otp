@@ -681,11 +681,14 @@ internal_init_cmd_shell(_) ->
     %% Check if the default shell is located in /bin/sh as expected usually
     %% or in /system/bin/sh as implemented on Android. The raw option is
     %% used to bypass the file server.
-    case file:read_file_info("/bin/sh",[raw]) of
+    %% 
+    %% We use prim_file instead of file because we cannot use the file server here,
+    %% since it is too early in the boot sequence.
+    case prim_file:read_file_info("/bin/sh") of
         {ok,#file_info{type=regular}} ->
             "/bin/sh";
         _ ->
-            case file:read_file_info("/system/bin/sh",[raw]) of
+            case prim_file:read_file_info("/system/bin/sh") of
                 {ok,#file_info{type=regular}} ->
                     "/system/bin/sh";
                 _ ->
