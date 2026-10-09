@@ -32,7 +32,7 @@
          zip_api/1, open_leak/1, unzip_jar/1,
 	 unzip_traversal_exploit/1,
          compress_control/1,
-	 foldl/1,fd_leak/1,unicode/1,test_zip_dir/1,
+         foldl/1,foldl_many_files/1,fd_leak/1,unicode/1,test_zip_dir/1,
          explicit_file_info/1, mode/1,
          zip64_central_headers/0, unzip64_central_headers/0,
          zip64_central_headers/1, unzip64_central_headers/1,
@@ -56,7 +56,7 @@ all() ->
      unzip_to_binary, zip_to_binary, unzip_options,
      zip_options, list_dir_options, aliases,
      zip_api, open_leak, unzip_jar, compress_control, foldl,
-     unzip_traversal_exploit, fd_leak, unicode, test_zip_dir,
+     foldl_many_files, unzip_traversal_exploit, fd_leak, unicode, test_zip_dir,
      explicit_file_info, zip_get_2_to_cwd,
      {group, zip_group}, {group, zip64_group}].
 
@@ -1093,6 +1093,22 @@ foldl(Config) ->
     ok = file:delete(File),
     {error, enoent} = zip:foldl(ZipFun, [], File),
 
+    ok.
+
+foldl_many_files(Config) ->
+    PrivDir = get_value(priv_dir, Config),
+    File = filename:join([PrivDir, "foldl_many_files.zip"]),
+
+    Files = [{integer_to_list(N), integer_to_binary(N)} || N <- lists:seq(1, 10000)],
+    {ok, {File, Bin}} = zip:create(File, Files, [memory]),
+    ZipFun = fun(N, _I, B, Acc) -> [{N, B()} | Acc] end,
+    {ok, Folded} = zip:foldl(ZipFun, [], {File, Bin}),
+    Files = lists:reverse(Folded),
+
+    ok = file:write_file(File, Bin),
+    {ok, Folded} = zip:foldl(ZipFun, [], File),
+
+    ok = file:delete(File),
     ok.
 
 fd_leak(Config) ->
