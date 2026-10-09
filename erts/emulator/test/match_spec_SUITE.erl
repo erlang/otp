@@ -47,6 +47,8 @@
 % the match spec functionality.
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
+-include("erts_test_utils.hrl").
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -289,18 +291,14 @@ test_5b(Config) when is_list(Config) ->
 %% Test current_stacktrace/[0,1]
 test_6(Config) when is_list(Config) ->
     %% Test non small argument
-    case catch erlang_trace_pattern({?MODULE, f2_test6, '_'},
-                                    [{'_', [], [{message, {current_stacktrace, a}}]}]) of
-        {'EXIT', {badarg, _}} -> ok;
-        Other1 -> ct:fail({noerror, Other1})
-    end,
+    ?assertError(badarg,
+                 erlang_trace_pattern({?MODULE, f2_test6, '_'},
+                                      [{'_', [], [{message, {current_stacktrace, a}}]}])),
 
     %% Test negative
-    case catch erlang_trace_pattern({?MODULE, f2_test6, '_'},
-                                    [{'_', [], [{message, {current_stacktrace, -1}}]}]) of
-        {'EXIT', {badarg, _}} -> ok;
-        Other2 -> ct:fail({noerror, Other2})
-    end,
+    ?assertError(badarg,
+                 erlang_trace_pattern({?MODULE, f2_test6, '_'},
+                                      [{'_', [], [{message, {current_stacktrace, -1}}]}])),
 
     Fun = fun() -> f5_test6() end,
     Pat = [{'_', [], [{message, {current_stacktrace}}]}],
@@ -448,10 +446,10 @@ otp_9422_trace_changer() ->
 
 
 bad_match_spec_bin(Config) when is_list(Config) ->
-    {'EXIT',{badarg,_}} = (catch ets:match_spec_run([1], <<>>)),
+    ?assertError(badarg, ets:match_spec_run([1], <<>>)),
     B0 = <<1,2>>,
     {B,_} = split_binary(B0, 0),
-    {'EXIT',{badarg,_}} = (catch ets:match_spec_run([1], B)),
+    ?assertError(badarg, ets:match_spec_run([1], B)),
     ok.
 
 
@@ -514,13 +512,14 @@ tcw_bits() ->
 
 tcw_bits(Save, Prev, Bits) ->
     Curr = 1 bsl Bits,
-    case catch erlang:system_flag(trace_control_word, Curr) of
-        {'EXIT' , {badarg, _}} ->
-            Prev = erlang:system_flag(trace_control_word, Save),
-            Bits;
+    try erlang:system_flag(trace_control_word, Curr) of
         Prev ->
             Curr = erlang:system_info(trace_control_word),
             tcw_bits(Save, Curr, Bits+1)
+    catch
+        error:badarg ->
+            Prev = erlang:system_flag(trace_control_word, Save),
+            Bits
     end.
 
 
@@ -901,12 +900,7 @@ do_faulty_seq_trace() ->
     ok.
 
 errchk(Pat) ->
-    case catch erlang_trace_pattern({?MODULE, f2, 2}, Pat) of
-	{'EXIT', {badarg, _}} ->
-	    ok;
-	Other ->
-	    ct:fail({noerror, Other})
-    end.
+    ?assertError(badarg, erlang_trace_pattern({?MODULE, f2, 2}, Pat)).
 
 %% Checks that unary minus works
 unary_minus(Config) when is_list(Config) ->
@@ -1078,10 +1072,11 @@ guard_exceptions(Config) when is_list(Config) ->
 %% Checks floating point exceptions in match-specs
 fpe(Config) when is_list(Config) ->
     MS = [{{'$1'},[],[{'/','$1',0}]}],
-    case catch (['EXIT','EXIT'] = 
-		ets:match_spec_run([{1},{2}],ets:match_spec_compile(MS))) of 
-	{'EXIT',_} -> ct:fail({error, "Floating point exceptions faulty"});
-	_ -> ok 
+    try ['EXIT','EXIT'] =
+                ets:match_spec_run([{1},{2}],ets:match_spec_compile(MS)) of
+        _ -> ok
+    catch
+        _:_ -> ct:fail({error, "Floating point exceptions faulty"})
     end.
 
 %% Test maps in match-specs
@@ -1320,7 +1315,7 @@ collect([TM | TMs]) ->
 		end,
 	    case is_function(TM,1) of
 		true ->
-		    case (catch TM(M)) of
+                    case ?Catch(TM(M)) of
 			true ->
 			    io:format("Got:            ~p~n", [M]),
 			    collect(TMs);
