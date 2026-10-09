@@ -1260,11 +1260,11 @@ characters in accordance with `Format`.
 
     ```erlang
     1> io:fread("Prompt> ","~s").
-    Prompt> <Characters beyond latin1 range not printable in this medium>
+    Prompt> こんにちは
     {error,{fread,string}}
     2> io:fread("Prompt> ","~ts").
-    Prompt> <Characters beyond latin1 range not printable in this medium>
-    {ok,[[1091,1085,1080,1094,1086,1076,1077]]}
+    Prompt> こんにちは
+    {ok,[[12371,12435,12395,12385,12399]]}
     ```
 
   - **`a`** - Similar to `s`, but the resulting string is converted into an
@@ -1279,11 +1279,11 @@ characters in accordance with `Format`.
 
     ```erlang
     1> io:fread("Prompt> ","~c").
-    Prompt> <Character beyond latin1 range not printable in this medium>
-    {error,{fread,string}}
+    Prompt> こ
+    {error,{fread,character}}
     2> io:fread("Prompt> ","~tc").
-    Prompt> <Character beyond latin1 range not printable in this medium>
-    {ok,[[1091]]}
+    Prompt> こ
+    {ok,[[12371]]}
     ```
 
   - **`l`** - Returns the number of characters that have been scanned up to that
