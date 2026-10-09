@@ -1116,7 +1116,7 @@ cd(Config)  when is_list(Config) ->
     Cmd = Program ++ " -pz " ++ DataDir ++
     " -noshell -s port_test pwd -s erlang halt",
     _ = open_port({spawn, Cmd},
-                  [{cd, TestDir}, {line, 256}]),
+                  [{cd, TestDir}, {line, 512}]),
     receive
         {_, {data, {eol, String}}} ->
             case filename_equal(String, TestDir) of
@@ -1130,7 +1130,7 @@ cd(Config)  when is_list(Config) ->
     end,
     _ = open_port({spawn, Cmd},
                   [{cd, unicode:characters_to_binary(TestDir)},
-                   {line, 256}]),
+                   {line, 512}]),
     receive
         {_, {data, {eol, String2}}} ->
             case filename_equal(String2, TestDir) of
@@ -1179,7 +1179,7 @@ cd_relative(Config) ->
     Cmd = Program ++ " -pz " ++ filename:dirname(code:where_is_file("port_SUITE.beam")) ++
     " -noshell -s port_SUITE relative_cd -s erlang halt",
 
-    _ = open_port({spawn, Cmd}, [{line, 256}, {cd, TestDir}]),
+    _ = open_port({spawn, Cmd}, [{line, 512}, {cd, TestDir}]),
 
     receive
         {_, {data, {eol, String}}} ->
@@ -1202,7 +1202,7 @@ relative_cd() ->
     Cmd = Program ++ " -pz " ++ Cwd ++
     " -noshell -s port_test pwd -s erlang halt",
 
-    _ = open_port({spawn, Cmd}, [{line, 256}, {cd, "./dir"}, exit_status]),
+    _ = open_port({spawn, Cmd}, [{line, 512}, {cd, "./dir"}, exit_status]),
 
     receive
         {_, {data, {eol, String}}} ->
