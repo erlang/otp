@@ -946,9 +946,26 @@ void BeamModuleAssembler::emit_div_rem_literal(Sint divisor,
         }
     } else {
         a.asr(TMP1, dividend, imm(_TAG_IMMED1_SIZE));
-        mov_imm(TMP2, divisor);
-        a.sdiv(quotient, TMP1, TMP2);
+        if (divisor > 0) {
+            unsigned shift;
+            Uint reciprocal = beam_jit_div_reciprocal(divisor, &shift);
+
+            mov_imm(TMP3, reciprocal);
+            a.smulh(quotient, TMP1, TMP3);
+            if (shift != 0) {
+                a.asr(quotient, quotient, imm(shift));
+            }
+            if (std::get<0>(getClampedRange(Dividend)) < 0) {
+                a.add(quotient, quotient, TMP1, a64::lsr(63));
+            }
+        } else {
+            mov_imm(TMP2, divisor);
+            a.sdiv(quotient, TMP1, TMP2);
+        }
         if (need_rem) {
+            if (divisor > 0) {
+                mov_imm(TMP2, divisor);
+            }
             a.msub(remainder, quotient, TMP2, TMP1);
         }
 
