@@ -982,7 +982,7 @@ set_affinity_mask(Port, Status) ->
     end.
 
 set_affinity_mask(Mask) ->
-    Cmd = lists:flatten(["taskset -p ",
+    Cmd = lists:flatten(["taskset -ap ",
 			 io_lib:format("~.16b", [Mask]),
 			 " ",
 			 os:getpid()]),
