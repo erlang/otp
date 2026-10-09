@@ -708,14 +708,33 @@ maybe_send_session_ticket(#state{connection_states = ConnectionStates,
 
 new_session_ticket(Tracker, HKDF, RMS,
                    #state{ssl_options = #{session_tickets := stateful_with_cert},
+                          handshake_env =
+                              #handshake_env{sni_hostname = SNIHostname,
+                                             sni_guided_cert_selection =
+                                                 SNIGuided},
                           session = #session{peer_certificate = PeerCert}}) ->
-    tls_server_session_ticket:new(Tracker, HKDF, RMS, PeerCert);
+    tls_server_session_ticket:new(Tracker, HKDF, RMS, PeerCert, SNIHostname,
+                                  SNIGuided);
 new_session_ticket(Tracker, HKDF, RMS,
                    #state{ssl_options = #{session_tickets := stateless_with_cert},
+                          handshake_env =
+                              #handshake_env{sni_hostname = SNIHostname,
+                                             sni_guided_cert_selection =
+                                                 SNIGuided},
                           session = #session{peer_certificate = PeerCert}}) ->
-    tls_server_session_ticket:new(Tracker, HKDF, RMS, PeerCert);
-new_session_ticket(Tracker, HKDF, RMS, _) ->
-    tls_server_session_ticket:new(Tracker, HKDF, RMS, undefined).
+    tls_server_session_ticket:new(Tracker, HKDF, RMS, PeerCert, SNIHostname,
+                                  SNIGuided);
+new_session_ticket(Tracker, HKDF, RMS,
+                   #state{handshake_env =
+                              #handshake_env{sni_hostname = SNIHostname,
+                                             sni_guided_cert_selection =
+                                                 SNIGuided}}) ->
+    %% Plain stateful/stateless: no peer certificate is stored, but the
+    %% establishing SNI and sni_guided flag are still bound so an
+    %% SNI-guided connection's ticket is gated on SNI (the trust
+    %% boundary is the per-host config, not the stored client cert).
+    tls_server_session_ticket:new(Tracker, HKDF, RMS, undefined, SNIHostname,
+                                  SNIGuided).
 
 select_server_cert_key_pair(_,[], _,_,_,_, #session{}=Session) ->
     %% Conformant Cert-Key pair with advertised signature algorithm is
