@@ -35,8 +35,8 @@
 
 %% API
 -export([start_link/7,
-         new/4,
-         use/4
+         new/6,
+         use/5
         ]).
 
 %% gen_server callbacks
@@ -74,8 +74,9 @@ start_link(Listener, Mode1, Lifetime, TicketStoreSize, MaxEarlyDataSize, AntiRep
     gen_server:start_link(?MODULE, [Listener, Mode, Lifetime, TicketStoreSize,
                                     MaxEarlyDataSize, AntiReplay, Seed], []).
 
-new(Pid, Prf, MasterSecret, PeerCert) ->
-    Request = {new_session_ticket, Prf, MasterSecret, PeerCert},
+new(Pid, Prf, MasterSecret, PeerCert, SNIHostname, SNIGuided) ->
+    Request = {new_session_ticket, Prf, MasterSecret, PeerCert, SNIHostname,
+               SNIGuided},
     case call(Pid, Request) of
         {error, closed} ->
             no_ticket;
@@ -83,8 +84,8 @@ new(Pid, Prf, MasterSecret, PeerCert) ->
             Result
     end.
 
-use(Pid, Identifiers, Prf, HandshakeHist) ->
-    case call(Pid, {use_ticket, Identifiers, Prf, HandshakeHist}) of
+use(Pid, Identifiers, Prf, HandshakeHist, SNIHostname) ->
+    case call(Pid, {use_ticket, Identifiers, Prf, HandshakeHist, SNIHostname}) of
         {error, closed} ->
             %% Server died, old tickets can not be used (state is lost)
             %% new accept call will start new ticket handler
@@ -105,7 +106,8 @@ init([Listener | Args]) ->
 
 -spec handle_call(Request :: term(), From :: {pid(), term()}, State :: term()) ->
                          {reply, Reply :: term(), NewState :: term()} .
-handle_call({new_session_ticket, Prf, MasterSecret, PeerCert}, _From,
+handle_call({new_session_ticket, Prf, MasterSecret, PeerCert, SNIHostname,
+             SNIGuided}, _From,
             #state{nonce = Nonce,
                    lifetime = LifeTime,
                    max_early_data_size = MaxEarlyDataSize,
@@ -113,24 +115,27 @@ handle_call({new_session_ticket, Prf, MasterSecret, PeerCert}, _From,
     Id = stateful_psk_ticket_id(IdGen),
     PSK = tls_v1:pre_shared_key(MasterSecret, ticket_nonce(Nonce), Prf),
     SessionTicket = new_session_ticket(Id, Nonce, LifeTime, MaxEarlyDataSize),
-    State = stateful_ticket_store(Id, SessionTicket, Prf, PSK, PeerCert, State0),
+    State = stateful_ticket_store(Id, SessionTicket, Prf, PSK, PeerCert,
+                                  SNIHostname, SNIGuided, State0),
     {reply, SessionTicket, State};
-handle_call({new_session_ticket, Prf, MasterSecret, PeerCert}, _From,
+handle_call({new_session_ticket, Prf, MasterSecret, PeerCert, SNIHostname,
+             SNIGuided}, _From,
             #state{nonce = Nonce,
                    stateless = #{}} = State) ->
     BaseSessionTicket = new_session_ticket_base(State),
     SessionTicket = generate_stateless_ticket(BaseSessionTicket, Prf,
-                                              MasterSecret, PeerCert, State),
+                                              MasterSecret, PeerCert,
+                                              SNIHostname, SNIGuided, State),
     {reply, SessionTicket, State#state{nonce = Nonce+1}};
-handle_call({use_ticket, Identifiers, Prf, HandshakeHist}, _From,
+handle_call({use_ticket, Identifiers, Prf, HandshakeHist, SNIHostname}, _From,
             #state{stateful = #{}} = State0) ->
     {Result, State} = stateful_use(Identifiers, Prf,
-                                        HandshakeHist, State0),
+                                        HandshakeHist, SNIHostname, State0),
     {reply, Result, State};
-handle_call({use_ticket, Identifiers, Prf, HandshakeHist}, _From,
+handle_call({use_ticket, Identifiers, Prf, HandshakeHist, SNIHostname}, _From,
             #state{stateless = #{}} = State0) ->
     {Result, State} = stateless_use(Identifiers, Prf,
-                                         HandshakeHist, State0),
+                                         HandshakeHist, SNIHostname, State0),
     {reply, Result, State}.
 
 -spec handle_cast(Request :: term(), State :: term()) ->
@@ -267,6 +272,47 @@ validate_binder(Binder, HandshakeHist, PSK, Prf, AlertDetail) ->
               {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER, AlertDetail)}
       end.
 
+%% Defense-in-depth for SNI-guided TLS-1.3 ticket resumption (OTP-20445
+%% analogue). When an sni_fun selects the server certificate / per-host
+%% configuration on the basis of SNI, several SNI names represent
+%% different trust domains. Resuming a ticket issued for one name under
+%% a different name would resume under the wrong host's configuration
+%% (and, in *_with_cert deployments, skip the client-cert exchange that
+%% re-establishes that host's client-auth boundary). RFC 8446 4.6.1
+%% places the SNI obligation on the client, so this is beyond
+%% conformance; the server MUST therefore only DECLINE the ticket (fall
+%% through to a full handshake) and never send a fatal alert.
+%%
+%% The gate keys on whether SNI drove cert/config selection
+%% (sni_guided_cert_selection), NOT on whether the ticket stored a peer
+%% certificate. Keying on *_with_cert would both miss SNI-guided
+%% deployments with optional client auth (no cert stored) and needlessly
+%% decline single-config *_with_cert deployments (no sni_fun).
+%%
+%% Rules:
+%%   - Tickets issued on a non-SNI-guided connection are not gated;
+%%     RFC-permitted cross-SNI reuse stands.
+%%   - A request without SNI (undefined) may use any ticket, mirroring
+%%     the client's verify_ticket_sni(undefined, _) -> match.
+%%   - Legacy tickets decode with sni_guided = false / sni = undefined
+%%     and are treated permissively.
+usable_sni(false, _TicketSNI, _RequestSNI) ->
+    %% Ticket not issued on an SNI-guided connection -> no per-host
+    %% trust boundary.
+    true;
+usable_sni(_SNIGuided, _TicketSNI, undefined) ->
+    %% Request carries no SNI -> permissive, as on the client side.
+    true;
+usable_sni(_SNIGuided, undefined, _RequestSNI) ->
+    %% Ticket predates SNI binding (or was issued without SNI) -> permissive.
+    true;
+usable_sni(true, SNI, SNI) ->
+    %% SNI-guided ticket, request SNI matches establishing SNI.
+    true;
+usable_sni(true, _TicketSNI, _RequestSNI) ->
+    %% SNI-guided ticket, SNI differs -> decline (full handshake).
+    false.
+
 %%%===================================================================
 %%% Stateful store
 %%%===================================================================
@@ -274,18 +320,20 @@ validate_binder(Binder, HandshakeHist, PSK, Prf, AlertDetail) ->
 stateful_store() ->
     gb_trees:empty().
 
-stateful_ticket_store(Ref, NewSessionTicket, Hash, Psk, PeerCert,
+stateful_ticket_store(Ref, NewSessionTicket, Hash, Psk, PeerCert, SNIHostname,
+                      SNIGuided,
                       #state{nonce = Nonce,
                              stateful = #{db := Tree0,
                                           max := Max,
                                           ref_index := Index0} = Stateful}
                       = State0) ->
     Id = {erlang:monotonic_time(), erlang:unique_integer([monotonic])},
-    StatefulTicket = {NewSessionTicket, Hash, Psk, PeerCert},
+    StatefulTicket = {NewSessionTicket, Hash, Psk, PeerCert, SNIHostname,
+                      SNIGuided},
     case gb_trees:size(Tree0) of
         Max ->
             %% Trow away oldest ticket
-            {_, {#new_session_ticket{ticket = OldRef},_,_,_}, Tree1}
+            {_, {#new_session_ticket{ticket = OldRef},_,_,_,_,_}, Tree1}
                 = gb_trees:take_smallest(Tree0),
             Tree = gb_trees:insert(Id, StatefulTicket, Tree1),
             Index = maps:without([OldRef], Index0),
@@ -302,42 +350,46 @@ stateful_ticket_store(Ref, NewSessionTicket, Hash, Psk, PeerCert,
 stateful_use(#offered_psks{
                 identities = Identities,
                 binders = Binders
-               }, Prf, HandshakeHist, State) ->
-    stateful_use(Identities, Binders, Prf, HandshakeHist, 0, State).
+               }, Prf, HandshakeHist, SNIHostname, State) ->
+    stateful_use(Identities, Binders, Prf, HandshakeHist, SNIHostname, 0, State).
 
-stateful_use([], [], _, _, _, State) ->
+stateful_use([], [], _, _, _, _, State) ->
     {{ok, undefined}, State};
 stateful_use([#psk_identity{identity = Ref} | Refs], [Binder | Binders],
-             Prf, HandshakeHist, Index,
+             Prf, HandshakeHist, SNIHostname, Index,
              #state{stateful = #{db := Tree0,
                                  ref_index := RefIndex0} = Stateful} = State) ->
     try maps:get(Ref, RefIndex0) of
         Key ->
             case stateful_usable_ticket(Key, Prf, Binder,
-                                        HandshakeHist, Tree0) of
+                                        HandshakeHist, SNIHostname, Tree0) of
                 true ->
                     RefIndex = maps:without([Ref], RefIndex0),
-                    {{_,_, PSK, PeerCert}, Tree} = gb_trees:take(Key, Tree0),
+                    {{_,_, PSK, PeerCert, _SNI, _SNIGuided}, Tree} =
+                        gb_trees:take(Key, Tree0),
                     {{ok, {Index, PSK, PeerCert}},
                      State#state{stateful = Stateful#{db => Tree,
                                                       ref_index => RefIndex}}};
                 false ->
                     stateful_use(Refs, Binders, Prf,
-                                 HandshakeHist, Index + 1, State);
+                                 HandshakeHist, SNIHostname, Index + 1, State);
                 {error, _} = Error ->
                     {Error, State}
             end
     catch
         _:{badkey, Ref} ->
-            stateful_use(Refs, Binders, Prf, HandshakeHist, Index + 1, State)
+            stateful_use(Refs, Binders, Prf, HandshakeHist, SNIHostname,
+                         Index + 1, State)
     end.
 
-stateful_usable_ticket(Key, Prf, Binder, HandshakeHist, Tree) ->
+stateful_usable_ticket(Key, Prf, Binder, HandshakeHist, SNIHostname, Tree) ->
     case gb_trees:lookup(Key, Tree) of
         none ->
             false;
-        {value, {NewSessionTicket, Prf, PSK, _PeerCert}} ->
-            case stateful_living_ticket(Key, NewSessionTicket) of
+        {value, {NewSessionTicket, Prf, PSK, _PeerCert, TicketSNI,
+                 SNIGuided}} ->
+            case stateful_living_ticket(Key, NewSessionTicket)
+                andalso usable_sni(SNIGuided, TicketSNI, SNIHostname) of
                 true ->
                     validate_binder(Binder, HandshakeHist, PSK, Prf, stateful);
                 _ ->
@@ -368,7 +420,8 @@ stateful_psk_ticket_id(Key) ->
 generate_stateless_ticket(#new_session_ticket{ticket_nonce = Nonce,
                                               ticket_age_add = TicketAgeAdd,
                                               ticket_lifetime = Lifetime}
-                         = Ticket, Prf, MasterSecret, PeerCert,
+                         = Ticket, Prf, MasterSecret, PeerCert, SNIHostname,
+                         SNIGuided,
                          #state{stateless = #{seed := {IV, Shard}}}) ->
     PSK = tls_v1:pre_shared_key(MasterSecret, Nonce, Prf),
     Timestamp = erlang:system_time(second),
@@ -378,39 +431,54 @@ generate_stateless_ticket(#new_session_ticket{ticket_nonce = Nonce,
                                              ticket_age_add = TicketAgeAdd,
                                              lifetime = Lifetime,
                                              timestamp = Timestamp,
-                                             certificate = PeerCert
+                                             certificate = PeerCert,
+                                             sni = SNIHostname,
+                                             sni_guided = SNIGuided
                                             }, Shard, IV),
     Ticket#new_session_ticket{ticket = Encrypted}.
 
 stateless_use(#offered_psks{
                  identities = Identities,
                  binders = Binders
-                }, Prf, HandshakeHist, State) ->
-    stateless_use(Identities, Binders, Prf, HandshakeHist, 0, State).
+                }, Prf, HandshakeHist, SNIHostname, State) ->
+    stateless_use(Identities, Binders, Prf, HandshakeHist, SNIHostname, 0, State).
 
-stateless_use([], [], _, _, _, State) ->
+stateless_use([], [], _, _, _, _, State) ->
     {{ok, undefined}, State};
 stateless_use([#psk_identity{identity = Encrypted,
                              obfuscated_ticket_age = ObfAge} |  Ids],
-              [Binder | Binders], Prf, HandshakeHist, Index,
+              [Binder | Binders], Prf, HandshakeHist, SNIHostname, Index,
               #state{stateless = #{seed := {IV, Shard},
                                    window := Window}} = State) ->
     case ssl_cipher:decrypt_ticket(Encrypted, Shard, IV) of
         #stateless_ticket{hash = Prf,
                           pre_shared_key = PSK,
-                          certificate = PeerCert} = Ticket ->
+                          certificate = PeerCert,
+                          sni = TicketSNI,
+                          sni_guided = SNIGuided} = Ticket ->
             case stateless_usable_ticket(Ticket, ObfAge, Binder,
                                         HandshakeHist, Window) of
                 true ->
-                    stateless_anti_replay(Index, PSK, Binder, PeerCert, State);
+                    case usable_sni(SNIGuided, TicketSNI, SNIHostname) of
+                        true ->
+                            stateless_anti_replay(Index, PSK, Binder,
+                                                  PeerCert, State);
+                        false ->
+                            %% Ticket issued on an SNI-guided connection
+                            %% offered across a different SNI -> decline,
+                            %% fall back to a full handshake.
+                            stateless_use(Ids, Binders, Prf, HandshakeHist,
+                                          SNIHostname, Index+1, State)
+                    end;
                 false ->
                     stateless_use(Ids, Binders, Prf, HandshakeHist,
-                                  Index+1, State);
+                                  SNIHostname, Index+1, State);
                 {error, _} = Error ->
                     {Error, State}
             end;
         _  ->
-            stateless_use(Ids, Binders, Prf, HandshakeHist, Index+1, State)
+            stateless_use(Ids, Binders, Prf, HandshakeHist, SNIHostname,
+                          Index+1, State)
     end.
 
 stateless_usable_ticket(#stateless_ticket{hash = Prf,
@@ -538,7 +606,7 @@ handle_trace(ssn,
                         [{psk_identity, PskIdentity, _ObfAge}],
                         [Binder]},
                        _Prf,
-                       _HandshakeHist}, _From, _State]}}, Stack) ->
+                       _HandshakeHist, _SNIHostname}, _From, _State]}}, Stack) ->
     {io_lib:format("(Call = ~w PskIdentity = ~W Binder = ~W)",
                   [Call, PskIdentity, 5, Binder, 5]), Stack};
 handle_trace(ssn,
@@ -552,13 +620,14 @@ handle_trace(ssn,
     {io_lib:format("(Mode = ~w Window = ~w Seed = ~W)", [Mode, Window, Seed, 5]), Stack};
 handle_trace(ssn,
              {call, {?MODULE, generate_stateless_ticket,
-                     [_BaseTicket, _Prf, MasterSecret, _State]}}, Stack) ->
+                     [_BaseTicket, _Prf, MasterSecret, _PeerCert,
+                      _SNIHostname, _SNIGuided, _State]}}, Stack) ->
     {io_lib:format("(MasterSecret = ~W)", [MasterSecret, 5]), Stack};
 handle_trace(ssn,
              {call, {?MODULE, stateless_use,
                      [[{psk_identity, Encrypted, _ObfAge} | _],
                       [Binder | _],
-                      _Prf, _HandshakeHist, _Index, _State]}}, Stack) ->
+                      _Prf, _HandshakeHist, _SNIHostname, _Index, _State]}}, Stack) ->
     {io_lib:format("(Encrypted = ~W Binder = ~W)", [Encrypted, 5, Binder, 5]), Stack};
 handle_trace(ssn,
              {call, {?MODULE, in_window, [RealAge, Window]}}, Stack) ->
@@ -566,22 +635,20 @@ handle_trace(ssn,
                    [RealAge, Window]), Stack};
 handle_trace(ssn,
              {call, {?MODULE, stateless_usable_ticket,
-                     [{stateless_ticket, _Prf, _PreSharedKey, _TicketAgeAdd,
-                       _Lifetime, _Timestamp}, _ObfAge, Binder,
+                     [#stateless_ticket{}, _ObfAge, Binder,
                       _HandshakeHist, Window]}}, Stack) ->
     {io_lib:format("(Binder = ~W Window = ~w)", [Binder, 5, Window]), Stack};
 handle_trace(ssn,
              {call, {?MODULE, stateless_anti_replay,
-                     [_Index, PSK, _Binder, _State]}}, Stack) ->
+                     [_Index, PSK, _Binder, _PeerCert, _State]}}, Stack) ->
     {io_lib:format("(PSK = ~W)", [PSK, 5]), Stack};
 handle_trace(ssn,
-             {return_from, {?MODULE, stateless_use, 6},
-              {{ok, {_Index, PSK}}, _State}}, Stack) ->
+             {return_from, {?MODULE, stateless_use, 7},
+              {{ok, {_Index, PSK, _PeerCert}}, _State}}, Stack) ->
     {io_lib:format("PSK = ~W", [PSK, 5]), Stack};
 handle_trace(ssn,
-             {return_from, {?MODULE, generate_stateless_ticket, 4},
-              {new_session_ticket, _LifeTime, _AgeAdd, _Nonce, Ticket,
-               _Extensions}}, Stack) ->
+             {return_from, {?MODULE, generate_stateless_ticket, 7},
+              #new_session_ticket{ticket = Ticket}}, Stack) ->
     {io_lib:format("Ticket = ~W", [Ticket, 5]), Stack};
 handle_trace(ssn,
              {return_from, {?MODULE, initial_state, 1},
@@ -591,10 +658,10 @@ handle_trace(ssn,
     {io_lib:format("IV = ~W Shard = ~W Window = ~w ListenMonitor = ~w",
                    [IV, 5, Shard, 5, Window, ListenMonitor]), Stack};
 handle_trace(ssn,
-             {return_from, {?MODULE, stateless_anti_replay, 4},
-              {{ok, {_Index, PSK}}, _State}}, Stack) ->
+             {return_from, {?MODULE, stateless_anti_replay, 5},
+              {{ok, {_Index, PSK, _PeerCert}}, _State}}, Stack) ->
     {io_lib:format("ticket OK ~W", [PSK, 5]), Stack};
 handle_trace(ssn,
-             {return_from, {?MODULE, stateless_anti_replay, 4},
+             {return_from, {?MODULE, stateless_anti_replay, 5},
               Return}, Stack) ->
     {io_lib:format("ticket REJECTED ~W", [Return, 5]), Stack}.
