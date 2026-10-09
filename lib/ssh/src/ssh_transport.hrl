@@ -244,6 +244,18 @@
          h_sig              % string (the signature on the exchange hash)
 	}).
 
+%% Pure ML-KEM key exchange (draft-harrison-sshm-mlkem)
+-define(SSH_MSG_KEX_KEM_INIT,                  30).
+-define(SSH_MSG_KEX_KEM_REPLY,                 31).
+
+-record(ssh_msg_kex_kem_init,
+        {c_init}).          % string (ephemeral ML-KEM public key)
+
+-record(ssh_msg_kex_kem_reply,
+        {public_host_key, % string (server's public host key)
+         s_reply,        % string (ML-KEM ciphertext)
+         h_sig}).        % string (signature on the exchange hash)
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
 %% error codes

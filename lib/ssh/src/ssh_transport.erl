@@ -51,6 +51,8 @@
 	 handle_kex_ecdh_reply/2,
 	 handle_kex_hybrid_init/2,
 	 handle_kex_hybrid_reply/2,
+         handle_kex_kem_init/2,
+         handle_kex_kem_reply/2,
          parallell_gen_key/1,
 	 ssh_packet/2, pack/2,
          valid_key_sha_alg/3,
@@ -177,7 +179,11 @@ default_algorithms1(kex) ->
                                'diffie-hellman-group1-sha1',
                                %%  Gone in OpenSSH 8.2
                                'diffie-hellman-group14-sha1',
-                               'diffie-hellman-group-exchange-sha1'
+                               'diffie-hellman-group-exchange-sha1',
+                               %% Experimental individual draft; available via preferred_algorithms.
+                               'mlkem512-sha256',
+                               'mlkem768-sha256',
+                               'mlkem1024-sha384'
                               ]);
 
 default_algorithms1(cipher) ->
@@ -214,6 +220,9 @@ supported_algorithms(kex) ->
     select_crypto_supported(
       [
        {'mlkem768x25519-sha256',                [{kems, mlkem768}, {public_keys,ecdh}, {curves,x25519}, {hashs,sha256}]},
+       {'mlkem512-sha256',                     [{kems,mlkem512}, {hashs,sha256}]},
+       {'mlkem768-sha256',                     [{kems,mlkem768}, {hashs,sha256}]},
+       {'mlkem1024-sha384',                    [{kems,mlkem1024}, {hashs,sha384}]},
        {'curve25519-sha256',                    [{public_keys,ecdh}, {curves,x25519}, {hashs,sha256}]},
        {'curve25519-sha256@libssh.org',         [{public_keys,ecdh}, {curves,x25519}, {hashs,sha256}]},
        {'curve448-sha512',                      [{public_keys,ecdh}, {curves,x448},   {hashs,sha512}]},
@@ -608,7 +617,14 @@ key_exchange_first_msg(Kex, Ssh0) when Kex == 'mlkem768x25519-sha256' ->
                           #ssh_msg_kex_hybrid_init{c_init = {C_publickey2, C_publickey1}},  Ssh0),
     {ok, SshPacket,
      Ssh1#ssh{keyex_key = {{mlkem768, {C_publickey2, C_privkey2}},
-                           {Curve, {C_publickey1, C_privkey1}}}}}.
+                           {Curve, {C_publickey1, C_privkey1}}}}};
+key_exchange_first_msg(Kex, Ssh0) when Kex == 'mlkem512-sha256';
+                                       Kex == 'mlkem768-sha256';
+                                       Kex == 'mlkem1024-sha384' ->
+    Kem = kem(Kex),
+    {C_init, C_private} = generate_key(Kem, []),
+    {SshPacket, Ssh1} = ssh_packet(#ssh_msg_kex_kem_init{c_init = C_init}, Ssh0),
+    {ok, SshPacket, Ssh1#ssh{keyex_key = {Kem, C_init, C_private}}}.
 
 %%%----------------------------------------------------------------
 %%%
@@ -1042,6 +1058,76 @@ handle_kex_hybrid_reply(#ssh_msg_kex_hybrid_reply{public_host_key = PeerPubHostK
             ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
                         io_lib:format("Peer Hybrid public key seem invalid: ~p:~p",
                                       [Class,Error], [{chars_limit, ssh_lib:max_log_len(Ssh0)}]))
+    end.
+
+%%%---- Pure ML-KEM Key Exchange Method (draft-harrison-sshm-mlkem)
+handle_kex_kem_init(#ssh_msg_kex_kem_init{c_init = C_init},
+                    Ssh0 = #ssh{algorithms = #alg{kex = Kex, hkey = SignAlg},
+                                opts = Opts}) ->
+    Kem = kem(Kex),
+    try
+        true = byte_size(C_init) =:= kem_public_key_size(Kem),
+        {K_pq_secret, S_reply} = crypto:encapsulate_key(Kem, C_init),
+        true = byte_size(K_pq_secret) =:= 32,
+        true = byte_size(S_reply) =:= kem_ciphertext_size(Kem),
+        K_enc = <<?Ebinary(K_pq_secret)>>,
+        MyPrivHostKey = get_host_key(SignAlg, Opts),
+        MyPubHostKey = ssh_file:extract_public_key(MyPrivHostKey),
+        H = kex_hash(Ssh0, MyPubHostKey, sha(Kex),
+                     {kem, C_init, S_reply, K_enc}),
+        case sign(H, SignAlg, MyPrivHostKey, Ssh0) of
+            {ok, H_SIG} ->
+                {SshPacket, Ssh1} =
+                    ssh_packet(#ssh_msg_kex_kem_reply{
+                                  public_host_key = {MyPubHostKey, SignAlg},
+                                  s_reply = S_reply,
+                                  h_sig = H_SIG}, Ssh0),
+                {ok, SshPacket, Ssh1#ssh{shared_secret = K_enc,
+                                         exchanged_hash = H,
+                                         session_id = sid(Ssh1, H)}};
+            {error, unsupported_sign_alg} ->
+                ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+                            io_lib:format("Unsupported algorithm ~p", [SignAlg],
+                                          [{chars_limit, ssh_lib:max_log_len(Ssh0)}]))
+        end
+    catch
+        Class:Reason0:_Stacktrace ->
+            Reason = ssh_lib:trim_reason(Reason0),
+            ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+                        io_lib:format("ML-KEM encapsulation failed: ~p:~p", [Class, Reason],
+                                      [{chars_limit, ssh_lib:max_log_len(Ssh0)}]))
+    end.
+
+handle_kex_kem_reply(#ssh_msg_kex_kem_reply{public_host_key = PeerPubHostKey,
+                                            s_reply = S_reply,
+                                            h_sig = H_SIG},
+                     Ssh0 = #ssh{keyex_key = {Kem, C_init, C_private},
+                                 algorithms = #alg{kex = Kex}}) ->
+    try
+        true = Kem =:= kem(Kex),
+        true = byte_size(S_reply) =:= kem_ciphertext_size(Kem),
+        K_pq_secret = crypto:decapsulate_key(Kem, C_private, S_reply),
+        true = byte_size(K_pq_secret) =:= 32,
+        K_enc = <<?Ebinary(K_pq_secret)>>,
+        H = kex_hash(Ssh0, PeerPubHostKey, sha(Kex),
+                     {kem, C_init, S_reply, K_enc}),
+        case verify_host_key(Ssh0, PeerPubHostKey, H, H_SIG) of
+            ok ->
+                {SshPacket, Ssh1} = ssh_packet(#ssh_msg_newkeys{}, Ssh0),
+                {ok, SshPacket, install_alg(snd, Ssh1#ssh{shared_secret = K_enc,
+                                                           exchanged_hash = H,
+                                                           session_id = sid(Ssh1, H)})};
+            Error ->
+                ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+                            io_lib:format("ML-KEM reply failed. Verify host key: ~p", [Error],
+                                          [{chars_limit, ssh_lib:max_log_len(Ssh0)}]))
+        end
+    catch
+        Class:Reason0:_Stacktrace ->
+            Reason = ssh_lib:trim_reason(Reason0),
+            ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+                        io_lib:format("ML-KEM decapsulation failed: ~p:~p", [Class, Reason],
+                                      [{chars_limit, ssh_lib:max_log_len(Ssh0)}]))
     end.
 
 %%%----------------------------------------------------------------
@@ -2329,6 +2415,9 @@ kex_alg_dependent({mlkem, {C_publickey2, C_publickey1}, S_reply, K_enc}) ->
 kex_alg_dependent({mlkem, C_init, S_reply, K_enc}) ->
     %% mlkem common
     <<?Ebinary(C_init), ?Ebinary(S_reply), K_enc/binary>>;
+kex_alg_dependent({kem, C_init, S_reply, K_enc}) ->
+    %% OQS OpenSSH encodes K_PQ as an SSH string in both H and key derivation.
+    <<?Ebinary(C_init), ?Ebinary(S_reply), K_enc/binary>>;
 kex_alg_dependent({Q_c, Q_s, K}) when is_binary(Q_c), is_binary(Q_s) ->
     %% ecdh
     <<?Ebinary(Q_c), ?Ebinary(Q_s), ?Empint(K)>>;
@@ -2413,6 +2502,9 @@ sha('curve25519-sha256@libssh.org' ) -> sha256;
 sha('curve448-sha512') -> sha512;
 sha(x25519) -> sha256;
 sha('mlkem768x25519-sha256') -> sha256;
+sha('mlkem512-sha256') -> sha256;
+sha('mlkem768-sha256') -> sha256;
+sha('mlkem1024-sha384') -> sha384;
 sha(x448) -> sha512;
 sha(Str) when is_list(Str), length(Str)<50 -> sha(list_to_existing_atom(Str)).
 
@@ -2462,13 +2554,25 @@ parallell_gen_key(Ssh = #ssh{keyex_key = {x, {G, P}},
     {Public, Private} = generate_key(dh, [P,G,2*Sz]),
     Ssh#ssh{keyex_key = {{Private, Public}, {G, P}}}.
 
-generate_key(mlkem768, Args) ->
-    crypto:generate_key(mlkem768, Args);
+generate_key(Kem, Args) when Kem == mlkem512; Kem == mlkem768; Kem == mlkem1024 ->
+    crypto:generate_key(Kem, Args);
 generate_key(ecdh, Args) ->
     crypto:generate_key(ecdh, Args);
 generate_key(dh, [P,G,Sz2]) ->
     {Public,Private} = crypto:generate_key(dh, [P, G, max(Sz2,?MIN_DH_KEY_SIZE)] ),
     {crypto:bytes_to_integer(Public), crypto:bytes_to_integer(Private)}.
+
+kem('mlkem512-sha256') -> mlkem512;
+kem('mlkem768-sha256') -> mlkem768;
+kem('mlkem1024-sha384') -> mlkem1024.
+
+kem_public_key_size(mlkem512) -> ?MLKEM512_PUBLICKEY_SIZE;
+kem_public_key_size(mlkem768) -> ?MLKEM768_PUBLICKEY_SIZE;
+kem_public_key_size(mlkem1024) -> ?MLKEM1024_PUBLICKEY_SIZE.
+
+kem_ciphertext_size(mlkem512) -> ?MLKEM512_CIPHERTEXT_SIZE;
+kem_ciphertext_size(mlkem768) -> ?MLKEM768_CIPHERTEXT_SIZE;
+kem_ciphertext_size(mlkem1024) -> ?MLKEM1024_CIPHERTEXT_SIZE.
 
 compute_key(hybrid_server, C_init, S_privkey1, Curve) ->
     <<C_publickey2:?MLKEM768_PUBLICKEY_SIZE/binary,

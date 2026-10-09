@@ -1447,6 +1447,24 @@ handle_event(Type, Ev, StateName, D0) ->
     {stop, Shutdown, D}.
 
 %% Handle reason returned from handle_packet_part, or {start_packet_discard, ...}
+%% A wrong first_kex_packet_follows guess is discarded before decoding: its
+%% format can differ from the negotiated key exchange method.
+handle_packet_part_result({packet_decrypted, <<Op, _/binary>>, EncryptedDataRest, Ssh},
+                          StateName = {key_exchange,server,_},
+                          D0 = #data{ssh_params = Ssh0 =
+                                         #ssh{ignore_initial_kex_message = true}})
+  when Op >= 30, Op =< 49 ->
+    D = D0#data{ssh_params =
+                    Ssh#ssh{recv_sequence =
+                                ssh_transport:next_seqnum(StateName,
+                                                          Ssh#ssh.recv_sequence,
+                                                          Ssh0),
+                            ignore_initial_kex_message = false},
+                decrypted_data_buffer = <<>>,
+                undecrypted_packet_length = undefined,
+                aead_data = <<>>,
+                encrypted_data_buffer = EncryptedDataRest},
+    {keep_state, D, [{next_event, internal, prepare_next_packet}]};
 handle_packet_part_result({packet_decrypted, DecryptedBytes, EncryptedDataRest, Ssh},
                           StateName,
                           D0 = #data{ssh_params = Ssh0}) ->
@@ -1510,6 +1528,13 @@ handle_packet_part_result({packet_decrypted, DecryptedBytes, EncryptedDataRest, 
                               {next_event, internal, Msg}
                              ]}
     catch
+        throw:{error, {kem_reply_invalid_size, Actual, Expected}} ->
+            {Shutdown, D} =
+                ?send_disconnect(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+                                 io_lib:format("Invalid ML-KEM ciphertext size ~B (expected ~B)",
+                                               [Actual, Expected]),
+                                 StateName, D1),
+            {stop, Shutdown, D};
         Class:Reason0:Stacktrace  ->
             Reason = ssh_lib:trim_reason(Reason0),
             MsgFun =
@@ -1799,7 +1824,13 @@ set_kex_overload_prefix(Msg = <<?BYTE(Op),_/binary>>, #data{ssh_params=SshParams
 	"diffie-hellman-group" ++ _ ->
 	    <<"dh",Msg/binary>>;
         "mlkem768x25519" ++ _ ->
-	    <<"mlkem",Msg/binary>>;
+            <<"mlkem",Msg/binary>>;
+        "mlkem512-sha256" ->
+            <<"kem512",Msg/binary>>;
+        "mlkem768-sha256" ->
+            <<"kem768",Msg/binary>>;
+        "mlkem1024-sha384" ->
+            <<"kem1024",Msg/binary>>;
 	_ ->
 	    Msg
     end;

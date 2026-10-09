@@ -339,6 +339,21 @@ dbg_ssh_messages(Config) ->
     ?DBG_RECEIVE("Received SSH_MSG_KEXINIT:",      Ref, C, Pid),
 
     case atom_to_list( (ssh_connection_handler:alg(C))#alg.kex ) of
+        "mlkem512-sha256" ->
+            ?DBG_RECEIVE("Going to send SSH_MSG_KEX_KEM_INIT:",  Ref, C, Pid),
+            ?DBG_RECEIVE("Received SSH_MSG_KEX_KEM_INIT:",       Ref, D, Pid),
+            ?DBG_RECEIVE("Going to send SSH_MSG_KEX_KEM_REPLY:", Ref, D, Pid),
+            ?DBG_RECEIVE("Received SSH_MSG_KEX_KEM_REPLY:",      Ref, C, Pid);
+        "mlkem768-sha256" ->
+            ?DBG_RECEIVE("Going to send SSH_MSG_KEX_KEM_INIT:",  Ref, C, Pid),
+            ?DBG_RECEIVE("Received SSH_MSG_KEX_KEM_INIT:",       Ref, D, Pid),
+            ?DBG_RECEIVE("Going to send SSH_MSG_KEX_KEM_REPLY:", Ref, D, Pid),
+            ?DBG_RECEIVE("Received SSH_MSG_KEX_KEM_REPLY:",      Ref, C, Pid);
+        "mlkem1024-sha384" ->
+            ?DBG_RECEIVE("Going to send SSH_MSG_KEX_KEM_INIT:",  Ref, C, Pid),
+            ?DBG_RECEIVE("Received SSH_MSG_KEX_KEM_INIT:",       Ref, D, Pid),
+            ?DBG_RECEIVE("Going to send SSH_MSG_KEX_KEM_REPLY:", Ref, D, Pid),
+            ?DBG_RECEIVE("Received SSH_MSG_KEX_KEM_REPLY:",      Ref, C, Pid);
         "mlkem"++_ ->
             ?DBG_RECEIVE("Going to send SSH_MSG_KEX_HYBRID_INIT:",  Ref, C, Pid),
             ?DBG_RECEIVE("Received SSH_MSG_KEX_HYBRID_INIT:",       Ref, D, Pid),
@@ -638,4 +653,3 @@ dbg_SKIP(Ref, Prefixes, UnexpectedAcc) ->
 w2l(Config, P) ->
     W2L = proplists:get_value(w2l, Config, fun(X) -> X end),
     W2L(P).
-
