@@ -223,8 +223,12 @@ void BeamModuleAssembler::emit_allocate(const ArgWord &NeedStack,
 void BeamModuleAssembler::emit_deallocate(const ArgWord &Deallocate) {
     ASSERT(Deallocate.get() <= 1023);
 
-    if (Deallocate.get() > 0) {
-        add(E, E, Deallocate.get() * sizeof(Eterm));
+    if (ERTS_LIKELY(erts_frame_layout == ERTS_FRAME_LAYOUT_RA)) {
+        if (Deallocate.get() > 0) {
+            add(E, E, Deallocate.get() * sizeof(Eterm));
+        }
+    } else {
+        ASSERT(erts_frame_layout == ERTS_FRAME_LAYOUT_FP_RA);
     }
 }
 

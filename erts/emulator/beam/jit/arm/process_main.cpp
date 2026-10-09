@@ -121,6 +121,13 @@ void BeamGlobalAssembler::emit_process_main() {
     {
         Label not_exiting = a.new_label();
 
+#ifdef ERLANG_FRAME_POINTERS
+        if (erts_frame_layout == ERTS_FRAME_LAYOUT_FP_RA) {
+            /* Do not attribute scheduler work to the process that just ran. */
+            a.mov(frame_pointer, ZERO);
+        }
+#endif
+
 #ifdef DEBUG
         Label check_i = a.new_label();
         /* Check that ARG3 is set to a valid CP. */
@@ -188,6 +195,12 @@ void BeamGlobalAssembler::emit_process_main() {
         }
 
         a.bind(schedule);
+#ifdef ERLANG_FRAME_POINTERS
+        if (erts_frame_layout == ERTS_FRAME_LAYOUT_FP_RA) {
+            /* Do not attribute scheduler work to the process that just ran. */
+            a.mov(frame_pointer, ZERO);
+        }
+#endif
         mov_imm(ARG1, 0);
         a.mov(ARG2, c_p);
 #if defined(DEBUG) || defined(ERTS_ENABLE_LOCK_CHECK)
