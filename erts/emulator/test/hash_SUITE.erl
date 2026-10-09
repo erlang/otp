@@ -173,7 +173,7 @@ end_per_suite(Config) ->
     Config.
 
 init_per_group(phash2_benchmark_tests, Config) ->
-    [phash2_benchmark_tests |Config];
+    [{phash2_benchmark_tests, true} | Config];
 init_per_group(_, Config) ->
     Config.
 
@@ -1111,7 +1111,7 @@ print_comment(FunctionName) ->
     io:format("~s~n", [element(2, erlang:apply(?MODULE, FunctionName, [[]]))]).
 
 nr_of_iters(BenchmarkNumberOfIterations, Config) ->
-    case lists:member(phash2_benchmark_tests, Config) of
+    case proplists:get_value(phash2_benchmark_tests, Config, false) of
         true -> 1;
         false -> BenchmarkNumberOfIterations
     end.
