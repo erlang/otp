@@ -3821,9 +3821,14 @@ is_viable_match(#b_set{op=bs_match,args=Args}) ->
         [#b_literal{val=binary},Ctx,_,#b_literal{val=Size},#b_literal{val=U}]
           when is_integer(Size) ->
             {yes,{Ctx,Size*U,1}};
-        [#b_literal{val=integer},Ctx,_,#b_literal{val=Size},#b_literal{val=U}]
+        [#b_literal{val=integer},Ctx,#b_literal{val=Flags},#b_literal{val=Size},#b_literal{val=U}]
           when is_integer(Size) ->
-            {yes,{Ctx,Size*U,1}};
+            case member(native, Flags) of
+                true ->
+                    no;
+                false ->
+                    {yes,{Ctx,Size*U,1}}
+            end;
         [#b_literal{val=skip},Ctx,_,_,#b_literal{val=all},#b_literal{val=U}] ->
             {yes,{Ctx,0,U}};
         [#b_literal{val=skip},Ctx,_,_,#b_literal{val=Size},#b_literal{val=U}]
