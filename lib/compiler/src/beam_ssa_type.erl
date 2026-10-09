@@ -2037,12 +2037,12 @@ eval_bif(#b_set{op={bif,Bif},args=Args}=I, Ts, Ds) ->
 
 eval_bif_1(#b_set{args=Args}=I, Op, Ts, Ds) ->
     case concrete_types(Args, Ts) of
-        [#t_integer{},#t_integer{elements={0,0}}] when Op =:= 'bor'; Op =:= 'bxor' ->
+        [#t_integer{},#t_integer{elements={0,0}}] when Op =:= 'bor'; Op =:= 'bxor'; Op =:= '+' ->
             #b_set{args=[Result,_]} = I,
             Result;
         [#t_integer{},#t_integer{elements={0,0}}] when Op =:= '*'; Op =:= 'band' ->
             #b_literal{val=0};
-        [T,#t_integer{elements={0,0}}] when Op =:= '+'; Op =:= '-' ->
+        [T,#t_integer{elements={0,0}}] when Op =:= '-' ->
             case beam_types:is_numerical_type(T) of
                 true ->
                     #b_set{args=[Result,_]} = I,

@@ -432,6 +432,8 @@ void BeamGlobalAssembler::emit_int128_to_big_shared() {
  * ARG3 = Src2
  * ARG4 = Src4
  *
+ * If ARG4 is THE_NON_VALUE, we should not do the addition.
+ *
  * The result is returned in ARG1.
  */
 void BeamGlobalAssembler::emit_mul_add_body_shared() {
@@ -444,7 +446,7 @@ void BeamGlobalAssembler::emit_mul_add_body_shared() {
     /* Save original arguments. */
     a.stp(ARG2, ARG3, TMP_MEM1q);
     a.mov(ARG1, c_p);
-    a.cmp(ARG4, imm(make_small(0)));
+    a.cmp(ARG4, imm(THE_NON_VALUE));
     a.b_eq(mul_only);
     a.str(ARG4, TMP_MEM4q);
 
@@ -503,6 +505,7 @@ void BeamGlobalAssembler::emit_mul_add_guard_shared() {
     emit_enter_runtime<Update::eReductions>();
 
     a.mov(ARG1, c_p);
+
     runtime_call<Eterm (*)(Process *, Eterm, Eterm), erts_mixed_times>();
     emit_branch_if_not_value(ARG1, mul_failed);
 
@@ -521,40 +524,54 @@ void BeamGlobalAssembler::emit_mul_add_guard_shared() {
 /* ARG2 = Src1
  * ARG3 = Src2
  *
- * The result is returned in ARG1.
- */
-void BeamGlobalAssembler::emit_mul_body_shared() {
-    mov_imm(ARG4, make_small(0));
-    a.b(labels[mul_add_body_shared]);
-}
-
-/* ARG2 = Src1
- * ARG3 = Src2
- *
  * The result is returned in ARG1 (set to THE_NON_VALUE if
  * the call failed).
  */
 void BeamGlobalAssembler::emit_mul_guard_shared() {
-    mov_imm(ARG4, make_small(0));
-    a.b(labels[mul_add_guard_shared]);
+    emit_enter_runtime_frame();
+    emit_enter_runtime<Update::eReductions>();
+
+    a.mov(ARG1, c_p);
+
+    runtime_call<Eterm (*)(Process *, Eterm, Eterm), erts_mixed_times>();
+
+    emit_leave_runtime<Update::eReductions>();
+    emit_leave_runtime_frame();
+
+    a.ret(a64::x30);
 }
 
+/*
+ * Src1 * Src2 = Src3
+ * Src3 + Src4 = Dst
+ *
+ * Src3 is only included to carry type information about Src1 * Src2 that the
+ * compiler has produced. It is not used in the actual instruction.
+ *
+ * Src4 is optional. If it is not present, the instruction will perform a
+ * multiplication only. We signal that it is not to be used by setting it to
+ * a Word in ops.tab
+ */
 void BeamModuleAssembler::emit_i_mul_add(const ArgLabel &Fail,
                                          const ArgSource &Src1,
                                          const ArgSource &Src2,
                                          const ArgSource &Src3,
-                                         const ArgSource &Src4,
+                                         const ArgVal &Src4,
                                          const ArgRegister &Dst) {
+    bool has_increment = !Src4.isWord();
     bool is_product_small = is_product_small_if_args_are_small(Src1, Src2);
-    bool is_sum_small = is_sum_small_if_args_are_small(Src3, Src4);
+    bool is_sum_small =
+            !has_increment || is_sum_small_if_args_are_small(Src3, Src4);
     bool sometimes_small = !(Src2.isLiteral() || Src4.isLiteral());
     bool is_increment_zero =
             Src4.isSmall() && Src4.as<ArgSmall>().getSigned() == 0;
     Sint factor = 0;
     int left_shift = -1;
 
-    if (is_increment_zero) {
-        comment("(adding zero)");
+    if (!has_increment) {
+        comment("(no increment)");
+    } else {
+        comment("(with increment)");
     }
 
     if (Src2.isSmall()) {
@@ -564,8 +581,41 @@ void BeamModuleAssembler::emit_i_mul_add(const ArgLabel &Fail,
         }
     }
 
-    if (always_small(Src1) && Src2.isSmall() && always_small(Src4) &&
-        is_product_small && is_sum_small) {
+    if (always_small(Src1) && Src2.isSmall() && !has_increment &&
+        is_product_small) {
+        /* if Src2 is a small literal and we have no increment, just do the
+         * simplest possible */
+        auto dst = init_destination(Dst, ARG1);
+        auto src1 = load_source(Src1, ARG2);
+
+        comment("multiplication without overflow check");
+        if (left_shift > 0 &&
+            Support::is_uint_n<12>(_TAG_IMMED1_SMALL * (factor - 1))) {
+            comment("optimized multiplication by replacing with left "
+                    "shift and sub");
+            /* Only a 12-bit immediate can be used by sub,
+               so only then can we use this trick. */
+            a.lsl(dst.reg, src1.reg, imm(left_shift));
+            a.sub(dst.reg, dst.reg, imm(_TAG_IMMED1_SMALL * (factor - 1)));
+        } else {
+            a.and_(TMP1, src1.reg, imm(~_TAG_IMMED1_MASK));
+            if (left_shift > 0) {
+                comment("optimized multiplication by replacing with left "
+                        "shift");
+                a.lsl(dst.reg, TMP1, imm(left_shift));
+            } else {
+                a.mov(TMP2, imm(factor));
+                a.mul(dst.reg, TMP1, TMP2);
+            }
+            a.orr(dst.reg, dst.reg, imm(_TAG_IMMED1_SMALL));
+        }
+        flush_var(dst);
+        return;
+    }
+
+    if (always_small(Src1) && Src2.isSmall() && has_increment &&
+        always_small(Src4) && is_product_small && is_sum_small) {
+        /* if Src2 is a small literal and we have an increment */
         auto dst = init_destination(Dst, ARG1);
         auto [src1, src4] = load_sources(Src1, ARG2, Src4, ARG3);
 
@@ -580,154 +630,171 @@ void BeamModuleAssembler::emit_i_mul_add(const ArgLabel &Fail,
             a.madd(dst.reg, TMP1, TMP2, src4.reg);
         }
         flush_var(dst);
+        return;
+    }
+
+    Label small = a.new_label();
+    Label store_result = a.new_label();
+    auto [src1, src2] = load_sources(Src1, ARG2, Src2, ARG3);
+    Variable<a64::Gp> src4(ARG4);
+
+    if (has_increment) {
+        src4 = load_source(Src4, ARG4);
+    }
+
+    if (always_small(Src1) && always_small(Src2) &&
+        (!has_increment || always_small(Src4))) {
+        comment("skipped test for small operands since they are always "
+                "small");
     } else {
-        Label small = a.new_label();
-        Label store_result = a.new_label();
-        auto [src1, src2] = load_sources(Src1, ARG2, Src2, ARG3);
-        auto src4 = load_source(ArgXRegister(0), XREG0);
-
-        if (!is_increment_zero) {
-            src4 = load_source(Src4, ARG4);
-        }
-
-        if (always_small(Src1) && always_small(Src2) && always_small(Src4)) {
-            comment("skipped test for small operands since they are always "
-                    "small");
-        } else {
-            if (always_small(Src4)) {
-                emit_are_both_small(Src1, src1.reg, Src2, src2.reg, small);
-            } else if (always_small(Src2)) {
-                emit_are_both_small(Src1, src1.reg, Src4, src4.reg, small);
-            } else if (sometimes_small) {
-                ASSERT(!is_increment_zero);
-                ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
-                a.and_(TMP1, src1.reg, src2.reg);
+        comment("test for small operands");
+        if (has_increment && always_small(Src4)) {
+            emit_are_both_small(Src1, src1.reg, Src2, src2.reg, small);
+        } else if (always_small(Src2) && has_increment) {
+            emit_are_both_small(Src1, src1.reg, Src4, src4.reg, small);
+        } else if (sometimes_small) {
+            /* if neither of Src2 nor Src4 are literals, the above
+                always_small branches are not taken because we don't know
+                enough about the arguments. So we emit a test to see if Src1,
+                Src2 and Src4 are all small. If they are, we branch to
+                `small` and do the multiplication in JIT.
+                */
+            ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == _TAG_IMMED1_MASK);
+            a.and_(TMP1, src1.reg, src2.reg);
+            if (has_increment) {
                 a.and_(TMP1, TMP1, src4.reg);
-                if (always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(
-                            Src1) &&
-                    always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(
-                            Src2) &&
-                    always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(
-                            Src4)) {
-                    emit_is_boxed(small, TMP1);
-                } else {
-                    a.and_(TMP1, TMP1, imm(_TAG_IMMED1_MASK));
-                    a.cmp(TMP1, imm(_TAG_IMMED1_SMALL));
-                    a.b_eq(small);
-                }
+            }
+            if (always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(
+                        Src1) &&
+                always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(
+                        Src2) &&
+                (!has_increment ||
+                 always_one_of<BeamTypeId::Integer, BeamTypeId::AlwaysBoxed>(
+                         Src4))) {
+                emit_is_boxed(small, TMP1);
             } else {
-                comment("skipped test for small because one operand is never "
-                        "small");
+                a.and_(TMP1, TMP1, imm(_TAG_IMMED1_MASK));
+                a.cmp(TMP1, imm(_TAG_IMMED1_SMALL));
+                a.b_eq(small);
             }
-
-            mov_var(ARG2, src1);
-            mov_var(ARG3, src2);
-
-            if (Fail.get() != 0) {
-                if (is_increment_zero) {
-                    fragment_call(ga->get_mul_guard_shared());
-                } else {
-                    mov_var(ARG4, src4);
-                    fragment_call(ga->get_mul_add_guard_shared());
-                }
-                emit_branch_if_not_value(ARG1,
-                                         resolve_beam_label(Fail, dispUnknown));
-            } else {
-                if (is_increment_zero) {
-                    fragment_call(ga->get_mul_body_shared());
-                } else {
-                    mov_var(ARG4, src4);
-                    fragment_call(ga->get_mul_add_body_shared());
-                }
-            }
-
-            if (sometimes_small) {
-                a.b(store_result);
-            }
+        } else {
+            comment("skipped test for small because one operand is never "
+                    "small");
         }
 
-        a.bind(small);
+        comment("overflow or non-small operands, call runtime");
+        mov_var(ARG2, src1);
+        mov_var(ARG3, src2);
+
+        if (Fail.get() != 0) {
+            if (!has_increment) {
+                fragment_call(ga->get_mul_guard_shared());
+            } else {
+                mov_var(ARG4, src4);
+                fragment_call(ga->get_mul_add_guard_shared());
+            }
+            emit_branch_if_not_value(ARG1,
+                                     resolve_beam_label(Fail, dispUnknown));
+        } else {
+            if (!has_increment) {
+                mov_imm(ARG4, THE_NON_VALUE);
+            } else {
+                mov_var(ARG4, src4);
+            }
+            fragment_call(ga->get_mul_add_body_shared());
+        }
+
         if (sometimes_small) {
-            if (is_increment_zero) {
-                comment("multiply smalls");
-            } else {
-                comment("multiply and add smalls");
-            }
+            /* Skip the small path after returning from the runtime path. */
+            a.b(store_result);
         }
+    }
 
-        if (is_product_small && is_sum_small) {
-            a64::Gp increment_reg;
+    a.bind(small);
 
-            a.and_(TMP3, src1.reg, imm(~_TAG_IMMED1_MASK));
+    if (is_product_small && is_sum_small) {
+        ASSERT(sometimes_small);
 
-            if (is_increment_zero) {
-                mov_imm(TMP1, make_small(0));
-                increment_reg = TMP1;
-            } else {
-                increment_reg = src4.reg;
-            }
+        comment("optimized multiplication and addition without overflow check");
 
+        a.and_(TMP3, src1.reg, imm(~_TAG_IMMED1_MASK));
+
+        if (!has_increment) {
             if (left_shift > 0) {
                 comment("optimized multiplication by replacing with left "
                         "shift");
-                a.add(ARG1, increment_reg, TMP3, a64::lsl(left_shift));
-            } else {
-                a.asr(TMP4, src2.reg, imm(_TAG_IMMED1_SIZE));
-                a.madd(ARG1, TMP3, TMP4, increment_reg);
-            }
-
-            comment("skipped test for small result");
-        } else if (sometimes_small) {
-            auto min_increment = std::get<0>(getClampedRange(Src4));
-
-            a.and_(TMP3, src1.reg, imm(~_TAG_IMMED1_MASK));
-            if (left_shift == 0) {
-                comment("optimized multiplication by one");
-                a.mov(ARG1, TMP3);
-                a.asr(TMP2, TMP3, imm(63));
-            } else if (left_shift > 0) {
-                comment("optimized multiplication by replacing with left "
-                        "shift");
                 a.lsl(ARG1, TMP3, imm(left_shift));
-                a.asr(TMP2, TMP3, imm(64 - left_shift));
             } else {
-                ASSERT(left_shift == -1);
                 a.asr(TMP4, src2.reg, imm(_TAG_IMMED1_SIZE));
                 a.mul(ARG1, TMP3, TMP4);
-                a.smulh(TMP2, TMP3, TMP4);
             }
-
-            if (is_increment_zero) {
-                a.add(ARG1, ARG1, imm(_TAG_IMMED1_SMALL));
+            a.orr(ARG1, ARG1, imm(_TAG_IMMED1_SMALL));
+        } else {
+            if (left_shift > 0) {
+                comment("optimized multiplication by replacing with left "
+                        "shift");
+                a.add(ARG1, src4.reg, TMP3, a64::lsl(left_shift));
             } else {
-                a64::Gp sign_reg;
-
-                if (min_increment > 0) {
-                    sign_reg = ZERO;
-                } else {
-                    sign_reg = TMP3;
-                    a.asr(sign_reg, src4.reg, imm(63));
-                }
-
-                a.adds(ARG1, ARG1, src4.reg);
-                a.adc(TMP2, TMP2, sign_reg);
+                a.asr(TMP4, src2.reg, imm(_TAG_IMMED1_SIZE));
+                a.madd(ARG1, TMP3, TMP4, src4.reg);
             }
-
-            comment("test whether the result fits in a small");
-            /* The high 65 bits of result will all be the same if no
-             * overflow occurred. Another way to say that is that the
-             * sign bit of the low 64 bits repeated 64 times must be
-             * equal to the high 64 bits of the result. */
-            a.asr(TMP3, ARG1, imm(SMALL_BITS + _TAG_IMMED1_SIZE - 1));
-            a.cmp(TMP2, TMP3);
-            a.b_eq(store_result);
-
-            fragment_call(ga->get_int128_to_big_shared());
         }
 
-        a.bind(store_result);
-        mov_arg(Dst, ARG1);
+        comment("skipped test for small result");
+    } else if (sometimes_small) {
+        auto min_increment =
+                has_increment ? std::get<0>(getClampedRange(Src4)) : 0;
+
+        comment("optimized multiplication and addition with overflow check");
+
+        a.and_(TMP3, src1.reg, imm(~_TAG_IMMED1_MASK));
+        if (left_shift == 0) {
+            comment("optimized multiplication by one");
+            a.mov(ARG1, TMP3);
+            a.asr(TMP2, TMP3, imm(63));
+        } else if (left_shift > 0) {
+            comment("optimized multiplication by replacing with left "
+                    "shift");
+            a.lsl(ARG1, TMP3, imm(left_shift));
+            a.asr(TMP2, TMP3, imm(64 - left_shift));
+        } else {
+            ASSERT(left_shift == -1);
+            a.asr(TMP4, src2.reg, imm(_TAG_IMMED1_SIZE));
+            a.mul(ARG1, TMP3, TMP4);
+            a.smulh(TMP2, TMP3, TMP4);
+        }
+
+        if (is_increment_zero || !has_increment) {
+            a.orr(ARG1, ARG1, imm(_TAG_IMMED1_SMALL));
+        } else {
+            a64::Gp sign_reg;
+
+            if (min_increment > 0) {
+                sign_reg = ZERO;
+            } else {
+                sign_reg = TMP3;
+                a.asr(sign_reg, src4.reg, imm(63));
+            }
+
+            a.adds(ARG1, ARG1, src4.reg);
+            a.adc(TMP2, TMP2, sign_reg);
+        }
+
+        comment("test whether the result fits in a small");
+        /* The high 65 bits of result will all be the same if no
+         * overflow occurred. Another way to say that is that the
+         * sign bit of the low 64 bits repeated 64 times must be
+         * equal to the high 64 bits of the result. */
+        a.asr(TMP3, ARG1, imm(SMALL_BITS + _TAG_IMMED1_SIZE - 1));
+        a.cmp(TMP2, TMP3);
+        a.b_eq(store_result);
+
+        fragment_call(ga->get_int128_to_big_shared());
     }
+
+    a.bind(store_result);
+
+    mov_arg(Dst, ARG1);
 }
 
 /*
