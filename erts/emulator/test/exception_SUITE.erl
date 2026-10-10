@@ -404,42 +404,46 @@ nested_stacktrace_1({X1,C1,V1}, {X2,C2,V2}) ->
 
 
 raise(Conf) when is_list(Conf) ->
-    erase(raise),
-    A =
-        try
-            try foo({'div',{1,0}})
-            catch
-                error:badarith:A0 ->
-                    put(raise, A0),
-                    erlang:raise(error, badarith, A0)
-            end
-        catch
-            error:badarith:A1 ->
-                A1 = get(raise)
-        end,
-    A = get(raise),
-    [{erlang,'div',[1, 0], _},{?MODULE,my_div,2,_}|_] = A,
-    %%
     N = 8, % Must be even
-    N = erlang:system_flag(backtrace_depth, N),
+    OldDepth = erlang:system_flag(backtrace_depth, N),
     try
-        even(N)
-    catch
-        error:function_clause -> ok
-    end,
-    %%
-    C = odd_even(N+1, []),
-    try
-        odd(N+1)
-    catch
-        error:function_clause -> ok
-    end,
-    try
-        erlang:raise(error, function_clause, C)
-    catch
-        error:function_clause -> ok
-    end,
-    ok.
+        erase(raise),
+        A =
+            try
+                try foo({'div',{1,0}})
+                catch
+                    error:badarith:A0 ->
+                        put(raise, A0),
+                        erlang:raise(error, badarith, A0)
+                end
+            catch
+                error:badarith:A1 ->
+                    A1 = get(raise)
+            end,
+        A = get(raise),
+        [{erlang,'div',[1, 0], _},{?MODULE,my_div,2,_}|_] = A,
+        %%
+        try
+            even(N)
+        catch
+            error:function_clause -> ok
+        end,
+        %%
+        C = odd_even(N+1, []),
+        try
+            odd(N+1)
+        catch
+            error:function_clause -> ok
+        end,
+        try
+            erlang:raise(error, function_clause, C)
+        catch
+            error:function_clause -> ok
+        end,
+        ok
+    after
+        erlang:system_flag(backtrace_depth, OldDepth)
+    end.
 
 odd_even(N, R) when is_integer(N), N > 1 ->
     odd_even(N-1, 
