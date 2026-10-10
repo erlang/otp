@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2018-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -160,8 +160,9 @@ create_sample(Stats, List) ->
 -doc """
 A list of tuples containing results for individual schedulers as well as
 aggregated averages. `Util` is the scheduler utilization as a floating point
-value between 0.0 and 1.0. `Percent` is the same utilization as a more human
-readable string expressed in percent.
+value. For individual schedulers and `total`, it is between 0.0 and 1.0.
+`Percent` is the same utilization as a more human readable string expressed in
+percent.
 
 - **`{normal, SchedulerId, Util, Percent}`** - Scheduler utilization of a normal
   scheduler with number `SchedulerId`. Schedulers that are not online will also
@@ -179,7 +180,19 @@ readable string expressed in percent.
   schedulers.
 
 - **`{weighted, Util, Percent}`** - Total utilization of all normal and
-  dirty-cpu schedulers, weighted against maximum amount of available CPU time.
+  dirty-cpu schedulers, weighted against the detected CPU capacity.
+  The CPU capacity is the minimum of
+  [`logical_processors_available`](`m:erlang#system_info_logical_processors_available`)
+  and [`cpu_quota`](`m:erlang#system_info_cpu_quota`) when the quota is known,
+  otherwise it is `logical_processors_available`. This tuple is omitted when
+  `logical_processors_available` is `unknown`. The CPU quota is reported as an
+  integer and does not represent fractional CPU quotas exactly.
+
+  Scheduler utilization measures active wall time, including time when an
+  active scheduler thread is not scheduled by the operating system. It is not
+  a measurement of CPU execution time. `Util` can be greater than 1.0 when
+  scheduler active wall time exceeds the time represented by the detected CPU
+  capacity.
 """.
 -type sched_util_result() ::
         [{sched_type(), sched_id(), float(), string()} |
@@ -261,7 +274,12 @@ utilization({Stats, Ts0}, {Stats, Ts1}) ->
     Lst2 = case erlang:system_info(logical_processors_available) of
                unknown -> Lst1;
                LPA ->
-                   Weighted = Total * (N / LPA),
+                   Capacity = case erlang:system_info(cpu_quota) of
+                                  Quota when is_integer(Quota), Quota > 0 ->
+                                      min(LPA, Quota);
+                                  _ -> LPA
+                              end,
+                   Weighted = Total * (N / Capacity),
                    [{weighted, Weighted, percent(Weighted)} | Lst1]
            end,
     [{total, Total, percent(Total)} | Lst2];
