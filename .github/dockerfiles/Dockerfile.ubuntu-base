@@ -2,7 +2,7 @@
 ##
 ## SPDX-License-Identifier: Apache-2.0
 ##
-## Copyright Ericsson AB 2024-2025. All Rights Reserved.
+## Copyright Ericsson AB 2024-2026. All Rights Reserved.
 ##
 ## Licensed under the Apache License, Version 2.0 (the "License");
 ## you may not use this file except in compliance with the License.
@@ -129,7 +129,9 @@ USER ${USER}
 ## Need to set USER and create a keygen file for ssh tests to pass
 ENV USER=${USER}
 RUN ssh-keygen -q -t rsa -N '' -f $HOME/.ssh/id_rsa && \
-    cp $HOME/.ssh/id_rsa.pub $HOME/.ssh/authorized_keys
+    ssh-keygen -q -t ed25519 -N '' -f $HOME/.ssh/id_ed25519 && \
+    ssh-keygen -q -t ecdsa -b 256 -N '' -f $HOME/.ssh/id_ecdsa && \
+    cat $HOME/.ssh/id_rsa.pub $HOME/.ssh/id_ed25519.pub $HOME/.ssh/id_ecdsa.pub > $HOME/.ssh/authorized_keys
 
 COPY --chown=${USER}:${GROUP} dockerfiles/.profile /home/otptest/.profile
 

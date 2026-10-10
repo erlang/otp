@@ -30,6 +30,7 @@
          bad_bs_match/1]).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -80,12 +81,12 @@ t_float(Config) when is_list(Config) ->
     fcmp(F, match_float(<<1:13,F:32/float,127:3>>, 32, 13)),
     fcmp(F, match_float(<<1:13,F:64/float,127:3>>, 64, 13)),
 
-    {'EXIT',{{badmatch,_},_}} = (catch match_float(<<0,0>>, 8, 0)),
-    {'EXIT',{{badmatch,_},_}} = (catch match_float(<<0,0>>, 16#7fffffff, 0)),
+    ?assertError({badmatch,_}, match_float(<<0,0>>, 8, 0)),
+    ?assertError({badmatch,_}, match_float(<<0,0>>, 16#7fffffff, 0)),
     NaN = <<0:1,31:5,42:10>>,
-    {'EXIT',{{badmatch,_},_}} = (catch match_float(NaN, 16, 0)),
+    ?assertError({badmatch,_}, match_float(NaN, 16, 0)),
     Inf = <<0:1,31:5,0:10>>,
-    {'EXIT',{{badmatch,_},_}} = (catch match_float(Inf, 16, 0)),
+    ?assertError({badmatch,_}, match_float(Inf, 16, 0)),
 
     ok.
 
@@ -156,7 +157,7 @@ sean(Config) when is_list(Config) ->
     small = sean1(<<4>>),
     small = sean1(<<4,5>>),
     small = sean1(<<4,5,6>>),
-    {'EXIT',{function_clause,_}} = (catch sean1(<<4,5,6,7>>)),
+    ?assertError(function_clause, sean1(<<4,5,6,7>>)),
     ok.
 
 sean1(<<B/binary>>) when byte_size(B) < 4 -> small;
@@ -341,7 +342,7 @@ size_var(Config) when is_list(Config) ->
     {<<45,46,47>>,<<48>>} = split_2(<<16:8,3:16,45,46,47,48>>),
     
     {<<45,46>>,<<47>>} = split(2, <<2:16,45,46,47>>),
-    {'EXIT',{function_clause,_}} = (catch split(42, <<2:16,45,46,47>>)),
+    ?assertError(function_clause, split(42, <<2:16,45,46,47>>)),
 
     <<"cdef">> = skip(<<2:8,"abcdef">>),
     

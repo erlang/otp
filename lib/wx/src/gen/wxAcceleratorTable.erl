@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -97,7 +97,7 @@ new() ->
 
 -doc "Initializes the accelerator table from an array of `m:wxAcceleratorEntry`.".
 -spec new(N, Entries) -> wxAcceleratorTable() when
-	N::integer(), Entries::[wxAcceleratorEntry:wxAcceleratorEntry()].
+        N::integer(), Entries::[wxAcceleratorEntry:wxAcceleratorEntry()].
 new(N,Entries)
  when is_integer(N),is_list(Entries) ->
  _ = [?CLASS(EntriesT,wxAcceleratorEntry) || #wx_ref{type=EntriesT} <- Entries],
@@ -106,7 +106,7 @@ new(N,Entries)
 
 -doc "Equivalent to: `isOk/1`".
 -spec ok(This) -> boolean() when
-	This::wxAcceleratorTable().
+        This::wxAcceleratorTable().
 
 ok(This)
  when is_record(This, wx_ref) ->
@@ -114,7 +114,7 @@ ok(This)
 
 -doc "Returns true if the accelerator table is valid.".
 -spec isOk(This) -> boolean() when
-	This::wxAcceleratorTable().
+        This::wxAcceleratorTable().
 isOk(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAcceleratorTable),
   wxe_util:queue_cmd(This,?get_env(),?wxAcceleratorTable_IsOk),

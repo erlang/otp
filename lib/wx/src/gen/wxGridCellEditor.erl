@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -99,7 +99,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -doc "Creates the actual edit control.".
 -spec create(This, Parent, Id, EvtHandler) -> 'ok' when
-	This::wxGridCellEditor(), Parent::wxWindow:wxWindow(), Id::integer(), EvtHandler::wxEvtHandler:wxEvtHandler().
+        This::wxGridCellEditor(), Parent::wxWindow:wxWindow(), Id::integer(), EvtHandler::wxEvtHandler:wxEvtHandler().
 create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,Id,#wx_ref{type=EvtHandlerT}=EvtHandler)
  when is_integer(Id) ->
   ?CLASS(ThisT,wxGridCellEditor),
@@ -109,7 +109,7 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,Id,#wx_ref{type=Evt
 
 -doc "Returns true if the edit control has been created.".
 -spec isCreated(This) -> boolean() when
-	This::wxGridCellEditor().
+        This::wxGridCellEditor().
 isCreated(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGridCellEditor),
   wxe_util:queue_cmd(This,?get_env(),?wxGridCellEditor_IsCreated),
@@ -117,7 +117,7 @@ isCreated(#wx_ref{type=ThisT}=This) ->
 
 -doc "Size and position the edit control.".
 -spec setSize(This, Rect) -> 'ok' when
-	This::wxGridCellEditor(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}.
+        This::wxGridCellEditor(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}.
 setSize(#wx_ref{type=ThisT}=This,{RectX,RectY,RectW,RectH} = Rect)
  when is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH) ->
   ?CLASS(ThisT,wxGridCellEditor),
@@ -125,7 +125,7 @@ setSize(#wx_ref{type=ThisT}=This,{RectX,RectY,RectW,RectH} = Rect)
 
 -doc(#{equiv => show(This,Show, [])}).
 -spec show(This, Show) -> 'ok' when
-	This::wxGridCellEditor(), Show::boolean().
+        This::wxGridCellEditor(), Show::boolean().
 
 show(This,Show)
  when is_record(This, wx_ref),is_boolean(Show) ->
@@ -145,7 +145,7 @@ show(#wx_ref{type=ThisT}=This,Show, Options)
 
 -doc "Reset the value in the control back to its starting value.".
 -spec reset(This) -> 'ok' when
-	This::wxGridCellEditor().
+        This::wxGridCellEditor().
 reset(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGridCellEditor),
   wxe_util:queue_cmd(This,?get_env(),?wxGridCellEditor_Reset).
@@ -155,7 +155,7 @@ If the editor is enabled by pressing keys on the grid, this will be called to le
 editor do something about that first key if desired.
 """.
 -spec startingKey(This, Event) -> 'ok' when
-	This::wxGridCellEditor(), Event::wxKeyEvent:wxKeyEvent().
+        This::wxGridCellEditor(), Event::wxKeyEvent:wxKeyEvent().
 startingKey(#wx_ref{type=ThisT}=This,#wx_ref{type=EventT}=Event) ->
   ?CLASS(ThisT,wxGridCellEditor),
   ?CLASS(EventT,wxKeyEvent),
@@ -163,14 +163,14 @@ startingKey(#wx_ref{type=ThisT}=This,#wx_ref{type=EventT}=Event) ->
 
 -doc "If the editor is enabled by clicking on the cell, this method will be called.".
 -spec startingClick(This) -> 'ok' when
-	This::wxGridCellEditor().
+        This::wxGridCellEditor().
 startingClick(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGridCellEditor),
   wxe_util:queue_cmd(This,?get_env(),?wxGridCellEditor_StartingClick).
 
 -doc "Some types of controls on some platforms may need some help with the Return key.".
 -spec handleReturn(This, Event) -> 'ok' when
-	This::wxGridCellEditor(), Event::wxKeyEvent:wxKeyEvent().
+        This::wxGridCellEditor(), Event::wxKeyEvent:wxKeyEvent().
 handleReturn(#wx_ref{type=ThisT}=This,#wx_ref{type=EventT}=Event) ->
   ?CLASS(ThisT,wxGridCellEditor),
   ?CLASS(EventT,wxKeyEvent),

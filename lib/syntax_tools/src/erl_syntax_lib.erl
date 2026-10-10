@@ -1006,7 +1006,7 @@ is_fail_expr(E) ->
 
 
 -type key() :: 'attributes' | 'errors' | 'exports' | 'functions' | 'imports'
-             | 'module' | 'records' | 'warnings'.
+             | 'module' | 'module_imports' | 'records' | 'warnings'.
 -type info_pair() :: {key(), term()}.
 
 -doc """
@@ -1085,6 +1085,17 @@ information about the program forms:
   module name is defined in `Forms`, the result will contain no entry for the
   `module` key. If multiple module name declarations should occur, all but the
   first will be ignored.
+
+- **`{module_imports, ModuleImports}`**
+
+  - `ModuleImports = [atom()]`
+
+  `ModuleImports` is a list of the atoms, representing those modules that
+  are listed by import declaration attributes in `Forms` that specify
+  only a module name and no function names (see
+  [`analyze_import_attribute/1`](`analyze_import_attribute/1`)). We do
+  not guarantee that each module name occurs at most once in the list.
+  The order of listing is not defined.
 
 - **`{records, Records}`**
 

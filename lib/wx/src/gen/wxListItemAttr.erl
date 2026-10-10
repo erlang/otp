@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -82,7 +82,7 @@ new() ->
 
 -doc "".
 -spec new(ColText, ColBack, Font) -> wxListItemAttr() when
-	ColText::wx:wx_colour(), ColBack::wx:wx_colour(), Font::wxFont:wxFont().
+        ColText::wx:wx_colour(), ColBack::wx:wx_colour(), Font::wxFont:wxFont().
 new(ColText,ColBack,#wx_ref{type=FontT}=Font)
  when ?is_colordata(ColText),?is_colordata(ColBack) ->
   ?CLASS(FontT,wxFont),
@@ -91,7 +91,7 @@ new(ColText,ColBack,#wx_ref{type=FontT}=Font)
 
 -doc "".
 -spec getBackgroundColour(This) -> wx:wx_colour4() when
-	This::wxListItemAttr().
+        This::wxListItemAttr().
 getBackgroundColour(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxListItemAttr),
   wxe_util:queue_cmd(This,?get_env(),?wxListItemAttr_GetBackgroundColour),
@@ -99,7 +99,7 @@ getBackgroundColour(#wx_ref{type=ThisT}=This) ->
 
 -doc "".
 -spec getFont(This) -> wxFont:wxFont() when
-	This::wxListItemAttr().
+        This::wxListItemAttr().
 getFont(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxListItemAttr),
   wxe_util:queue_cmd(This,?get_env(),?wxListItemAttr_GetFont),
@@ -107,7 +107,7 @@ getFont(#wx_ref{type=ThisT}=This) ->
 
 -doc "".
 -spec getTextColour(This) -> wx:wx_colour4() when
-	This::wxListItemAttr().
+        This::wxListItemAttr().
 getTextColour(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxListItemAttr),
   wxe_util:queue_cmd(This,?get_env(),?wxListItemAttr_GetTextColour),
@@ -115,7 +115,7 @@ getTextColour(#wx_ref{type=ThisT}=This) ->
 
 -doc "".
 -spec hasBackgroundColour(This) -> boolean() when
-	This::wxListItemAttr().
+        This::wxListItemAttr().
 hasBackgroundColour(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxListItemAttr),
   wxe_util:queue_cmd(This,?get_env(),?wxListItemAttr_HasBackgroundColour),
@@ -123,7 +123,7 @@ hasBackgroundColour(#wx_ref{type=ThisT}=This) ->
 
 -doc "".
 -spec hasFont(This) -> boolean() when
-	This::wxListItemAttr().
+        This::wxListItemAttr().
 hasFont(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxListItemAttr),
   wxe_util:queue_cmd(This,?get_env(),?wxListItemAttr_HasFont),
@@ -131,7 +131,7 @@ hasFont(#wx_ref{type=ThisT}=This) ->
 
 -doc "".
 -spec hasTextColour(This) -> boolean() when
-	This::wxListItemAttr().
+        This::wxListItemAttr().
 hasTextColour(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxListItemAttr),
   wxe_util:queue_cmd(This,?get_env(),?wxListItemAttr_HasTextColour),
@@ -139,7 +139,7 @@ hasTextColour(#wx_ref{type=ThisT}=This) ->
 
 -doc "".
 -spec setBackgroundColour(This, ColBack) -> 'ok' when
-	This::wxListItemAttr(), ColBack::wx:wx_colour().
+        This::wxListItemAttr(), ColBack::wx:wx_colour().
 setBackgroundColour(#wx_ref{type=ThisT}=This,ColBack)
  when ?is_colordata(ColBack) ->
   ?CLASS(ThisT,wxListItemAttr),
@@ -147,7 +147,7 @@ setBackgroundColour(#wx_ref{type=ThisT}=This,ColBack)
 
 -doc "".
 -spec setFont(This, Font) -> 'ok' when
-	This::wxListItemAttr(), Font::wxFont:wxFont().
+        This::wxListItemAttr(), Font::wxFont:wxFont().
 setFont(#wx_ref{type=ThisT}=This,#wx_ref{type=FontT}=Font) ->
   ?CLASS(ThisT,wxListItemAttr),
   ?CLASS(FontT,wxFont),
@@ -155,7 +155,7 @@ setFont(#wx_ref{type=ThisT}=This,#wx_ref{type=FontT}=Font) ->
 
 -doc "".
 -spec setTextColour(This, ColText) -> 'ok' when
-	This::wxListItemAttr(), ColText::wx:wx_colour().
+        This::wxListItemAttr(), ColText::wx:wx_colour().
 setTextColour(#wx_ref{type=ThisT}=This,ColText)
  when ?is_colordata(ColText) ->
   ?CLASS(ThisT,wxListItemAttr),

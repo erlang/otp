@@ -31,6 +31,9 @@
 
 -define(SSH_DEFAULT_PORT, 22).
 -define(SSH_MAX_PACKET_SIZE, (256*1024)).
+%% Same limit as in openssh
+%% See: https://github.com/openssh/openssh-portable/blob/f433c09931665b1139dc9ef0951d3540242e4a38/sftp-server.c#L55
+-define(SFTP_MAX_READ_SIZE, (?SSH_MAX_PACKET_SIZE - 1024)).
 -define(REKEY_DATA_TIMOUT, 60000).
 -define(DEFAULT_PROFILE, default).
 
@@ -1251,13 +1254,30 @@ in the User's Guide chapter.
   Notice that if `parallel_login` is `false`, only one client at a time can be
   in the authentication phase.
 
-  By default, this option is not set. This means that the number is not limited.
+  By default 1024 sessions are accepted. The value `infinity` means there is no limit.
+
+  > #### Info {: .info }
+  >
+  > This limits all TCP connections (both authenticated and unauthenticated) to
+  > the daemon, not SSH session channels. Compare with OpenSSH `MaxStartups`
+  > which limits only unauthenticated connections. See the
+  > [Terminology](terminology.md#connection-channel-and-session) guide for
+  > details on connection vs channel vs session.
 
 - **`max_channels`{: #hardening_daemon_options-max_channels }** - The maximum
-  number of channels with active remote subsystem that are accepted for each
-  connection to this daemon
+  number of channels that are accepted for each connection to this daemon. This
+  includes channels that are automatically opened when a port forwarding request
+  is serviced by the server.
 
-  By default, this option is not set. This means that the number is not limited.
+  By default 256 channels are accepted. The value `infinity` means there is no limit.
+
+  > #### Info {: .info }
+  >
+  > This limits all channel types (session, direct-tcpip, forwarded-tcpip) per
+  > connection. Compare with OpenSSH `MaxSessions`, which limits only session
+  > channels. See the
+  > [Terminology](terminology.md#connection-channel-and-session) guide for
+  > details on connection vs channel vs session.
 
 - **`parallel_login`{: #hardening_daemon_options-parallel_login }** - If set to
   false (the default value), only one login is handled at a time. If set to
@@ -1271,20 +1291,36 @@ in the User's Guide chapter.
   > #### Warning {: .warning }
   >
   > Do not enable `parallel_logins` without protecting the server by other
-  > means, for example, by the `max_sessions` option or a firewall
-  > configuration. If set to `true`, there is no protection against DOS attacks.
+  > means, for example, by adjusting `max_sessions` option to your needs or a
+  > firewall configuration. If set to `true` when `max_sessions` is set to
+  > `infinity` there is no protection against DOS attacks.
 
 - **`minimal_remote_max_packet_size`{:
   #hardening_daemon_options-minimal_remote_max_packet_size }** - The least
   maximum packet size that the daemon will accept in channel open requests from
   the client. The default value is 0.
+
+- **`max_auth_request_size`{:
+  #hardening_daemon_options-max_auth_request_size }** - The maximum size allowed
+  in bytes for the SSH_MSG_USERAUTH_REQUEST messages. The default value
+  is the maximum allowed packet size, 262144 bytes,
+  which is the same as no check being made,
+  since maximum allowed packet size check is performed earlier.
+
+- **`max_auth_tries`{: #hardening_daemon_options-max_auth_tries }** - The
+  maximum number of authentication attempts permitted per connection. When a
+  client exceeds this number of failed attempts, the daemon disconnects it.
+  Accepted values are a positive integer or the atom `infinity` to disable the
+  limit. The default value is `6`.
 """.
 -doc(#{group => <<"Daemon Options">>}).
 -type hardening_daemon_options() ::
-        {max_sessions, pos_integer()}
-      | {max_channels, pos_integer()}
+        {max_sessions, pos_integer() | infinity}
+      | {max_channels, pos_integer() | infinity}
       | {parallel_login, boolean()}
-      | {minimal_remote_max_packet_size, pos_integer()}.
+      | {minimal_remote_max_packet_size, pos_integer()}
+      | {max_auth_request_size, pos_integer()}
+      | {max_auth_tries, pos_integer() | infinity}.
 
 -doc """
 - **`connectfun`** - Provides a fun to implement your own logging when a user
@@ -1395,7 +1431,8 @@ Experimental options that should not to be used in products.
 	  userauth_methods,                 %  list( string() )  eg ["keyboard-interactive", "password"]
 	  userauth_supported_methods,       %  string() eg "keyboard-interactive,password"
           userauth_pubkeys,
-	  kb_tries_left = 0,                %  integer(), num tries left for "keyboard-interactive"
+          auth_tries_left = 0,              %  integer()|infinity, auth tries left (max_auth_tries)
+          auth_attempts = 0,                %  non_neg_integer(), userauth requests seen (OpenSSH "attempt")
 	  userauth_preference,
 	  available_host_keys,
 	  pwdfun_user_state,

@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -149,7 +149,7 @@ See:
 * `setMode/1`
 """.
 -spec canUpdate(Window) -> boolean() when
-	Window::wxWindow:wxWindow().
+        Window::wxWindow:wxWindow().
 canUpdate(#wx_ref{type=WindowT}=Window) ->
   ?CLASS(WindowT,wxWindow),
   wxe_util:queue_cmd(Window,?get_env(),?wxUpdateUIEvent_CanUpdate),
@@ -157,7 +157,7 @@ canUpdate(#wx_ref{type=WindowT}=Window) ->
 
 -doc "Check or uncheck the UI element.".
 -spec check(This, Check) -> 'ok' when
-	This::wxUpdateUIEvent(), Check::boolean().
+        This::wxUpdateUIEvent(), Check::boolean().
 check(#wx_ref{type=ThisT}=This,Check)
  when is_boolean(Check) ->
   ?CLASS(ThisT,wxUpdateUIEvent),
@@ -165,7 +165,7 @@ check(#wx_ref{type=ThisT}=This,Check)
 
 -doc "Enable or disable the UI element.".
 -spec enable(This, Enable) -> 'ok' when
-	This::wxUpdateUIEvent(), Enable::boolean().
+        This::wxUpdateUIEvent(), Enable::boolean().
 enable(#wx_ref{type=ThisT}=This,Enable)
  when is_boolean(Enable) ->
   ?CLASS(ThisT,wxUpdateUIEvent),
@@ -173,7 +173,7 @@ enable(#wx_ref{type=ThisT}=This,Enable)
 
 -doc "Show or hide the UI element.".
 -spec show(This, Show) -> 'ok' when
-	This::wxUpdateUIEvent(), Show::boolean().
+        This::wxUpdateUIEvent(), Show::boolean().
 show(#wx_ref{type=ThisT}=This,Show)
  when is_boolean(Show) ->
   ?CLASS(ThisT,wxUpdateUIEvent),
@@ -181,7 +181,7 @@ show(#wx_ref{type=ThisT}=This,Show)
 
 -doc "Returns true if the UI element should be checked.".
 -spec getChecked(This) -> boolean() when
-	This::wxUpdateUIEvent().
+        This::wxUpdateUIEvent().
 getChecked(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxUpdateUIEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxUpdateUIEvent_GetChecked),
@@ -189,7 +189,7 @@ getChecked(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns true if the UI element should be enabled.".
 -spec getEnabled(This) -> boolean() when
-	This::wxUpdateUIEvent().
+        This::wxUpdateUIEvent().
 getEnabled(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxUpdateUIEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxUpdateUIEvent_GetEnabled),
@@ -197,7 +197,7 @@ getEnabled(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns true if the UI element should be shown.".
 -spec getShown(This) -> boolean() when
-	This::wxUpdateUIEvent().
+        This::wxUpdateUIEvent().
 getShown(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxUpdateUIEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxUpdateUIEvent_GetShown),
@@ -209,7 +209,7 @@ Returns true if the application has called `check/2`.
 For wxWidgets internal use only.
 """.
 -spec getSetChecked(This) -> boolean() when
-	This::wxUpdateUIEvent().
+        This::wxUpdateUIEvent().
 getSetChecked(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxUpdateUIEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxUpdateUIEvent_GetSetChecked),
@@ -221,7 +221,7 @@ Returns true if the application has called `enable/2`.
 For wxWidgets internal use only.
 """.
 -spec getSetEnabled(This) -> boolean() when
-	This::wxUpdateUIEvent().
+        This::wxUpdateUIEvent().
 getSetEnabled(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxUpdateUIEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxUpdateUIEvent_GetSetEnabled),
@@ -233,7 +233,7 @@ Returns true if the application has called `show/2`.
 For wxWidgets internal use only.
 """.
 -spec getSetShown(This) -> boolean() when
-	This::wxUpdateUIEvent().
+        This::wxUpdateUIEvent().
 getSetShown(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxUpdateUIEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxUpdateUIEvent_GetSetShown),
@@ -245,7 +245,7 @@ Returns true if the application has called `setText/2`.
 For wxWidgets internal use only.
 """.
 -spec getSetText(This) -> boolean() when
-	This::wxUpdateUIEvent().
+        This::wxUpdateUIEvent().
 getSetText(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxUpdateUIEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxUpdateUIEvent_GetSetText),
@@ -253,7 +253,7 @@ getSetText(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the text that should be set for the UI element.".
 -spec getText(This) -> unicode:charlist() when
-	This::wxUpdateUIEvent().
+        This::wxUpdateUIEvent().
 getText(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxUpdateUIEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxUpdateUIEvent_GetText),
@@ -306,14 +306,14 @@ specify that they will process the events.
 """.
 %%  Mode = ?wxUPDATE_UI_PROCESS_ALL | ?wxUPDATE_UI_PROCESS_SPECIFIED
 -spec setMode(Mode) -> 'ok' when
-	Mode::wx:wx_enum().
+        Mode::wx:wx_enum().
 setMode(Mode)
  when is_integer(Mode) ->
   wxe_util:queue_cmd(Mode,?get_env(),?wxUpdateUIEvent_SetMode).
 
 -doc "Sets the text for this UI element.".
 -spec setText(This, Text) -> 'ok' when
-	This::wxUpdateUIEvent(), Text::unicode:chardata().
+        This::wxUpdateUIEvent(), Text::unicode:chardata().
 setText(#wx_ref{type=ThisT}=This,Text)
  when ?is_chardata(Text) ->
   ?CLASS(ThisT,wxUpdateUIEvent),
@@ -330,7 +330,7 @@ windows. If you set the value to -1 or greater than 0, you may also need to call
 appropriate points in your application, such as when a dialog is about to be shown.
 """.
 -spec setUpdateInterval(UpdateInterval) -> 'ok' when
-	UpdateInterval::integer().
+        UpdateInterval::integer().
 setUpdateInterval(UpdateInterval)
  when is_integer(UpdateInterval) ->
   wxe_util:queue_cmd(UpdateInterval,?get_env(),?wxUpdateUIEvent_SetUpdateInterval).

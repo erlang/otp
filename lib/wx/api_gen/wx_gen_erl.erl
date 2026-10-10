@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -753,7 +753,7 @@ write_spec([], [], {simple, Res}, _Eol) ->
 write_spec([], [], {complex, Res}, Eol) ->
     w("() -> Resultwhen~s\tResult ::~s", [Eol,Res]);
 write_spec(Args, [], {simple, Res}, Eol) ->
-    w("(~s) -> ~s when~s\t~s",
+    w("(~s) -> ~s when~s        ~s",
       [erl_arg_names(Args), Res, Eol, doc_arg_types(Args)]);
 write_spec(Args, [], {complex, Res}, Eol) ->
     w("(~s) -> Result when~s\tResult ::~s,~s\t~s",

@@ -859,3 +859,10 @@ bif records:is_exported/1
 bif records:create/4
 bif records:update/4
 bif records:get_definition/2
+
+#
+# New in 30.
+#
+bif erlang:pid_to_binary/1
+bif erlang:port_to_binary/1
+bif erlang:ref_to_binary/1

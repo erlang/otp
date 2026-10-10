@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -103,7 +103,7 @@ new() ->
 
 -doc "Copy constructor.".
 -spec new(Data) -> wxPrintData() when
-	Data::wxPrintData().
+        Data::wxPrintData().
 new(#wx_ref{type=DataT}=Data) ->
   ?CLASS(DataT,wxPrintData),
   wxe_util:queue_cmd(Data,?get_env(),?wxPrintData_new_1),
@@ -111,7 +111,7 @@ new(#wx_ref{type=DataT}=Data) ->
 
 -doc "Returns true if collation is on.".
 -spec getCollate(This) -> boolean() when
-	This::wxPrintData().
+        This::wxPrintData().
 getCollate(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPrintData),
   wxe_util:queue_cmd(This,?get_env(),?wxPrintData_GetCollate),
@@ -126,7 +126,7 @@ See `setBin/2` for the full list of bin values.
 """.
 %%  Res = ?wxPRINTBIN_DEFAULT | ?wxPRINTBIN_ONLYONE | ?wxPRINTBIN_LOWER | ?wxPRINTBIN_MIDDLE | ?wxPRINTBIN_MANUAL | ?wxPRINTBIN_ENVELOPE | ?wxPRINTBIN_ENVMANUAL | ?wxPRINTBIN_AUTO | ?wxPRINTBIN_TRACTOR | ?wxPRINTBIN_SMALLFMT | ?wxPRINTBIN_LARGEFMT | ?wxPRINTBIN_LARGECAPACITY | ?wxPRINTBIN_CASSETTE | ?wxPRINTBIN_FORMSOURCE | ?wxPRINTBIN_USER
 -spec getBin(This) -> wx:wx_enum() when
-	This::wxPrintData().
+        This::wxPrintData().
 getBin(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPrintData),
   wxe_util:queue_cmd(This,?get_env(),?wxPrintData_GetBin),
@@ -134,7 +134,7 @@ getBin(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns true if colour printing is on.".
 -spec getColour(This) -> boolean() when
-	This::wxPrintData().
+        This::wxPrintData().
 getColour(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPrintData),
   wxe_util:queue_cmd(This,?get_env(),?wxPrintData_GetColour),
@@ -147,7 +147,7 @@ One of wxDUPLEX_SIMPLEX, wxDUPLEX_HORIZONTAL, wxDUPLEX_VERTICAL.
 """.
 %%  Res = ?wxDUPLEX_SIMPLEX | ?wxDUPLEX_HORIZONTAL | ?wxDUPLEX_VERTICAL
 -spec getDuplex(This) -> wx:wx_enum() when
-	This::wxPrintData().
+        This::wxPrintData().
 getDuplex(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPrintData),
   wxe_util:queue_cmd(This,?get_env(),?wxPrintData_GetDuplex),
@@ -155,7 +155,7 @@ getDuplex(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the number of copies requested by the user.".
 -spec getNoCopies(This) -> integer() when
-	This::wxPrintData().
+        This::wxPrintData().
 getNoCopies(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPrintData),
   wxe_util:queue_cmd(This,?get_env(),?wxPrintData_GetNoCopies),
@@ -168,7 +168,7 @@ This can be wxLANDSCAPE or wxPORTRAIT.
 """.
 %%  Res = ?wxPORTRAIT | ?wxLANDSCAPE
 -spec getOrientation(This) -> wx:wx_enum() when
-	This::wxPrintData().
+        This::wxPrintData().
 getOrientation(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPrintData),
   wxe_util:queue_cmd(This,?get_env(),?wxPrintData_GetOrientation),
@@ -181,7 +181,7 @@ See: `setPaperId/2`
 """.
 %%  Res = ?wxPAPER_NONE | ?wxPAPER_LETTER | ?wxPAPER_LEGAL | ?wxPAPER_A4 | ?wxPAPER_CSHEET | ?wxPAPER_DSHEET | ?wxPAPER_ESHEET | ?wxPAPER_LETTERSMALL | ?wxPAPER_TABLOID | ?wxPAPER_LEDGER | ?wxPAPER_STATEMENT | ?wxPAPER_EXECUTIVE | ?wxPAPER_A3 | ?wxPAPER_A4SMALL | ?wxPAPER_A5 | ?wxPAPER_B4 | ?wxPAPER_B5 | ?wxPAPER_FOLIO | ?wxPAPER_QUARTO | ?wxPAPER_10X14 | ?wxPAPER_11X17 | ?wxPAPER_NOTE | ?wxPAPER_ENV_9 | ?wxPAPER_ENV_10 | ?wxPAPER_ENV_11 | ?wxPAPER_ENV_12 | ?wxPAPER_ENV_14 | ?wxPAPER_ENV_DL | ?wxPAPER_ENV_C5 | ?wxPAPER_ENV_C3 | ?wxPAPER_ENV_C4 | ?wxPAPER_ENV_C6 | ?wxPAPER_ENV_C65 | ?wxPAPER_ENV_B4 | ?wxPAPER_ENV_B5 | ?wxPAPER_ENV_B6 | ?wxPAPER_ENV_ITALY | ?wxPAPER_ENV_MONARCH | ?wxPAPER_ENV_PERSONAL | ?wxPAPER_FANFOLD_US | ?wxPAPER_FANFOLD_STD_GERMAN | ?wxPAPER_FANFOLD_LGL_GERMAN | ?wxPAPER_ISO_B4 | ?wxPAPER_JAPANESE_POSTCARD | ?wxPAPER_9X11 | ?wxPAPER_10X11 | ?wxPAPER_15X11 | ?wxPAPER_ENV_INVITE | ?wxPAPER_LETTER_EXTRA | ?wxPAPER_LEGAL_EXTRA | ?wxPAPER_TABLOID_EXTRA | ?wxPAPER_A4_EXTRA | ?wxPAPER_LETTER_TRANSVERSE | ?wxPAPER_A4_TRANSVERSE | ?wxPAPER_LETTER_EXTRA_TRANSVERSE | ?wxPAPER_A_PLUS | ?wxPAPER_B_PLUS | ?wxPAPER_LETTER_PLUS | ?wxPAPER_A4_PLUS | ?wxPAPER_A5_TRANSVERSE | ?wxPAPER_B5_TRANSVERSE | ?wxPAPER_A3_EXTRA | ?wxPAPER_A5_EXTRA | ?wxPAPER_B5_EXTRA | ?wxPAPER_A2 | ?wxPAPER_A3_TRANSVERSE | ?wxPAPER_A3_EXTRA_TRANSVERSE | ?wxPAPER_DBL_JAPANESE_POSTCARD | ?wxPAPER_A6 | ?wxPAPER_JENV_KAKU2 | ?wxPAPER_JENV_KAKU3 | ?wxPAPER_JENV_CHOU3 | ?wxPAPER_JENV_CHOU4 | ?wxPAPER_LETTER_ROTATED | ?wxPAPER_A3_ROTATED | ?wxPAPER_A4_ROTATED | ?wxPAPER_A5_ROTATED | ?wxPAPER_B4_JIS_ROTATED | ?wxPAPER_B5_JIS_ROTATED | ?wxPAPER_JAPANESE_POSTCARD_ROTATED | ?wxPAPER_DBL_JAPANESE_POSTCARD_ROTATED | ?wxPAPER_A6_ROTATED | ?wxPAPER_JENV_KAKU2_ROTATED | ?wxPAPER_JENV_KAKU3_ROTATED | ?wxPAPER_JENV_CHOU3_ROTATED | ?wxPAPER_JENV_CHOU4_ROTATED | ?wxPAPER_B6_JIS | ?wxPAPER_B6_JIS_ROTATED | ?wxPAPER_12X11 | ?wxPAPER_JENV_YOU4 | ?wxPAPER_JENV_YOU4_ROTATED | ?wxPAPER_P16K | ?wxPAPER_P32K | ?wxPAPER_P32KBIG | ?wxPAPER_PENV_1 | ?wxPAPER_PENV_2 | ?wxPAPER_PENV_3 | ?wxPAPER_PENV_4 | ?wxPAPER_PENV_5 | ?wxPAPER_PENV_6 | ?wxPAPER_PENV_7 | ?wxPAPER_PENV_8 | ?wxPAPER_PENV_9 | ?wxPAPER_PENV_10 | ?wxPAPER_P16K_ROTATED | ?wxPAPER_P32K_ROTATED | ?wxPAPER_P32KBIG_ROTATED | ?wxPAPER_PENV_1_ROTATED | ?wxPAPER_PENV_2_ROTATED | ?wxPAPER_PENV_3_ROTATED | ?wxPAPER_PENV_4_ROTATED | ?wxPAPER_PENV_5_ROTATED | ?wxPAPER_PENV_6_ROTATED | ?wxPAPER_PENV_7_ROTATED | ?wxPAPER_PENV_8_ROTATED | ?wxPAPER_PENV_9_ROTATED | ?wxPAPER_PENV_10_ROTATED | ?wxPAPER_A0 | ?wxPAPER_A1
 -spec getPaperId(This) -> wx:wx_enum() when
-	This::wxPrintData().
+        This::wxPrintData().
 getPaperId(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPrintData),
   wxe_util:queue_cmd(This,?get_env(),?wxPrintData_GetPaperId),
@@ -194,7 +194,7 @@ If the printer name is the empty string, it indicates that the default printer s
 used.
 """.
 -spec getPrinterName(This) -> unicode:charlist() when
-	This::wxPrintData().
+        This::wxPrintData().
 getPrinterName(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPrintData),
   wxe_util:queue_cmd(This,?get_env(),?wxPrintData_GetPrinterName),
@@ -218,7 +218,7 @@ On input you should pass one of these identifiers, but on return you may get bac
 positive integer indicating the current resolution setting.
 """.
 -spec getQuality(This) -> integer() when
-	This::wxPrintData().
+        This::wxPrintData().
 getQuality(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPrintData),
   wxe_util:queue_cmd(This,?get_env(),?wxPrintData_GetQuality),
@@ -231,7 +231,7 @@ This can return false on Windows if the current printer is not set, for example.
 other platforms, it returns true.
 """.
 -spec isOk(This) -> boolean() when
-	This::wxPrintData().
+        This::wxPrintData().
 isOk(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPrintData),
   wxe_util:queue_cmd(This,?get_env(),?wxPrintData_IsOk),
@@ -240,7 +240,7 @@ isOk(#wx_ref{type=ThisT}=This) ->
 -doc "Sets the current bin.".
 %%  Flag = ?wxPRINTBIN_DEFAULT | ?wxPRINTBIN_ONLYONE | ?wxPRINTBIN_LOWER | ?wxPRINTBIN_MIDDLE | ?wxPRINTBIN_MANUAL | ?wxPRINTBIN_ENVELOPE | ?wxPRINTBIN_ENVMANUAL | ?wxPRINTBIN_AUTO | ?wxPRINTBIN_TRACTOR | ?wxPRINTBIN_SMALLFMT | ?wxPRINTBIN_LARGEFMT | ?wxPRINTBIN_LARGECAPACITY | ?wxPRINTBIN_CASSETTE | ?wxPRINTBIN_FORMSOURCE | ?wxPRINTBIN_USER
 -spec setBin(This, Flag) -> 'ok' when
-	This::wxPrintData(), Flag::wx:wx_enum().
+        This::wxPrintData(), Flag::wx:wx_enum().
 setBin(#wx_ref{type=ThisT}=This,Flag)
  when is_integer(Flag) ->
   ?CLASS(ThisT,wxPrintData),
@@ -248,7 +248,7 @@ setBin(#wx_ref{type=ThisT}=This,Flag)
 
 -doc "Sets collation to on or off.".
 -spec setCollate(This, Flag) -> 'ok' when
-	This::wxPrintData(), Flag::boolean().
+        This::wxPrintData(), Flag::boolean().
 setCollate(#wx_ref{type=ThisT}=This,Flag)
  when is_boolean(Flag) ->
   ?CLASS(ThisT,wxPrintData),
@@ -256,7 +256,7 @@ setCollate(#wx_ref{type=ThisT}=This,Flag)
 
 -doc "Sets colour printing on or off.".
 -spec setColour(This, Flag) -> 'ok' when
-	This::wxPrintData(), Flag::boolean().
+        This::wxPrintData(), Flag::boolean().
 setColour(#wx_ref{type=ThisT}=This,Flag)
  when is_boolean(Flag) ->
   ?CLASS(ThisT,wxPrintData),
@@ -269,7 +269,7 @@ One of wxDUPLEX_SIMPLEX, wxDUPLEX_HORIZONTAL, wxDUPLEX_VERTICAL.
 """.
 %%  Mode = ?wxDUPLEX_SIMPLEX | ?wxDUPLEX_HORIZONTAL | ?wxDUPLEX_VERTICAL
 -spec setDuplex(This, Mode) -> 'ok' when
-	This::wxPrintData(), Mode::wx:wx_enum().
+        This::wxPrintData(), Mode::wx:wx_enum().
 setDuplex(#wx_ref{type=ThisT}=This,Mode)
  when is_integer(Mode) ->
   ?CLASS(ThisT,wxPrintData),
@@ -277,7 +277,7 @@ setDuplex(#wx_ref{type=ThisT}=This,Mode)
 
 -doc "Sets the default number of copies to be printed out.".
 -spec setNoCopies(This, N) -> 'ok' when
-	This::wxPrintData(), N::integer().
+        This::wxPrintData(), N::integer().
 setNoCopies(#wx_ref{type=ThisT}=This,N)
  when is_integer(N) ->
   ?CLASS(ThisT,wxPrintData),
@@ -290,7 +290,7 @@ This can be wxLANDSCAPE or wxPORTRAIT.
 """.
 %%  Orientation = ?wxPORTRAIT | ?wxLANDSCAPE
 -spec setOrientation(This, Orientation) -> 'ok' when
-	This::wxPrintData(), Orientation::wx:wx_enum().
+        This::wxPrintData(), Orientation::wx:wx_enum().
 setOrientation(#wx_ref{type=ThisT}=This,Orientation)
  when is_integer(Orientation) ->
   ?CLASS(ThisT,wxPrintData),
@@ -304,7 +304,7 @@ and string name, see wxPrintPaperDatabase in `"paper.h"` (not yet documented).
 """.
 %%  PaperId = ?wxPAPER_NONE | ?wxPAPER_LETTER | ?wxPAPER_LEGAL | ?wxPAPER_A4 | ?wxPAPER_CSHEET | ?wxPAPER_DSHEET | ?wxPAPER_ESHEET | ?wxPAPER_LETTERSMALL | ?wxPAPER_TABLOID | ?wxPAPER_LEDGER | ?wxPAPER_STATEMENT | ?wxPAPER_EXECUTIVE | ?wxPAPER_A3 | ?wxPAPER_A4SMALL | ?wxPAPER_A5 | ?wxPAPER_B4 | ?wxPAPER_B5 | ?wxPAPER_FOLIO | ?wxPAPER_QUARTO | ?wxPAPER_10X14 | ?wxPAPER_11X17 | ?wxPAPER_NOTE | ?wxPAPER_ENV_9 | ?wxPAPER_ENV_10 | ?wxPAPER_ENV_11 | ?wxPAPER_ENV_12 | ?wxPAPER_ENV_14 | ?wxPAPER_ENV_DL | ?wxPAPER_ENV_C5 | ?wxPAPER_ENV_C3 | ?wxPAPER_ENV_C4 | ?wxPAPER_ENV_C6 | ?wxPAPER_ENV_C65 | ?wxPAPER_ENV_B4 | ?wxPAPER_ENV_B5 | ?wxPAPER_ENV_B6 | ?wxPAPER_ENV_ITALY | ?wxPAPER_ENV_MONARCH | ?wxPAPER_ENV_PERSONAL | ?wxPAPER_FANFOLD_US | ?wxPAPER_FANFOLD_STD_GERMAN | ?wxPAPER_FANFOLD_LGL_GERMAN | ?wxPAPER_ISO_B4 | ?wxPAPER_JAPANESE_POSTCARD | ?wxPAPER_9X11 | ?wxPAPER_10X11 | ?wxPAPER_15X11 | ?wxPAPER_ENV_INVITE | ?wxPAPER_LETTER_EXTRA | ?wxPAPER_LEGAL_EXTRA | ?wxPAPER_TABLOID_EXTRA | ?wxPAPER_A4_EXTRA | ?wxPAPER_LETTER_TRANSVERSE | ?wxPAPER_A4_TRANSVERSE | ?wxPAPER_LETTER_EXTRA_TRANSVERSE | ?wxPAPER_A_PLUS | ?wxPAPER_B_PLUS | ?wxPAPER_LETTER_PLUS | ?wxPAPER_A4_PLUS | ?wxPAPER_A5_TRANSVERSE | ?wxPAPER_B5_TRANSVERSE | ?wxPAPER_A3_EXTRA | ?wxPAPER_A5_EXTRA | ?wxPAPER_B5_EXTRA | ?wxPAPER_A2 | ?wxPAPER_A3_TRANSVERSE | ?wxPAPER_A3_EXTRA_TRANSVERSE | ?wxPAPER_DBL_JAPANESE_POSTCARD | ?wxPAPER_A6 | ?wxPAPER_JENV_KAKU2 | ?wxPAPER_JENV_KAKU3 | ?wxPAPER_JENV_CHOU3 | ?wxPAPER_JENV_CHOU4 | ?wxPAPER_LETTER_ROTATED | ?wxPAPER_A3_ROTATED | ?wxPAPER_A4_ROTATED | ?wxPAPER_A5_ROTATED | ?wxPAPER_B4_JIS_ROTATED | ?wxPAPER_B5_JIS_ROTATED | ?wxPAPER_JAPANESE_POSTCARD_ROTATED | ?wxPAPER_DBL_JAPANESE_POSTCARD_ROTATED | ?wxPAPER_A6_ROTATED | ?wxPAPER_JENV_KAKU2_ROTATED | ?wxPAPER_JENV_KAKU3_ROTATED | ?wxPAPER_JENV_CHOU3_ROTATED | ?wxPAPER_JENV_CHOU4_ROTATED | ?wxPAPER_B6_JIS | ?wxPAPER_B6_JIS_ROTATED | ?wxPAPER_12X11 | ?wxPAPER_JENV_YOU4 | ?wxPAPER_JENV_YOU4_ROTATED | ?wxPAPER_P16K | ?wxPAPER_P32K | ?wxPAPER_P32KBIG | ?wxPAPER_PENV_1 | ?wxPAPER_PENV_2 | ?wxPAPER_PENV_3 | ?wxPAPER_PENV_4 | ?wxPAPER_PENV_5 | ?wxPAPER_PENV_6 | ?wxPAPER_PENV_7 | ?wxPAPER_PENV_8 | ?wxPAPER_PENV_9 | ?wxPAPER_PENV_10 | ?wxPAPER_P16K_ROTATED | ?wxPAPER_P32K_ROTATED | ?wxPAPER_P32KBIG_ROTATED | ?wxPAPER_PENV_1_ROTATED | ?wxPAPER_PENV_2_ROTATED | ?wxPAPER_PENV_3_ROTATED | ?wxPAPER_PENV_4_ROTATED | ?wxPAPER_PENV_5_ROTATED | ?wxPAPER_PENV_6_ROTATED | ?wxPAPER_PENV_7_ROTATED | ?wxPAPER_PENV_8_ROTATED | ?wxPAPER_PENV_9_ROTATED | ?wxPAPER_PENV_10_ROTATED | ?wxPAPER_A0 | ?wxPAPER_A1
 -spec setPaperId(This, PaperId) -> 'ok' when
-	This::wxPrintData(), PaperId::wx:wx_enum().
+        This::wxPrintData(), PaperId::wx:wx_enum().
 setPaperId(#wx_ref{type=ThisT}=This,PaperId)
  when is_integer(PaperId) ->
   ?CLASS(ThisT,wxPrintData),
@@ -316,7 +316,7 @@ Sets the printer name.
 This can be the empty string to indicate that the default printer should be used.
 """.
 -spec setPrinterName(This, PrinterName) -> 'ok' when
-	This::wxPrintData(), PrinterName::unicode:chardata().
+        This::wxPrintData(), PrinterName::unicode:chardata().
 setPrinterName(#wx_ref{type=ThisT}=This,PrinterName)
  when ?is_chardata(PrinterName) ->
   ?CLASS(ThisT,wxPrintData),
@@ -341,7 +341,7 @@ On input you should pass one of these identifiers, but on return you may get bac
 positive integer indicating the current resolution setting.
 """.
 -spec setQuality(This, Quality) -> 'ok' when
-	This::wxPrintData(), Quality::integer().
+        This::wxPrintData(), Quality::integer().
 setQuality(#wx_ref{type=ThisT}=This,Quality)
  when is_integer(Quality) ->
   ?CLASS(ThisT,wxPrintData),

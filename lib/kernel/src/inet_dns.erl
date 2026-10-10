@@ -173,6 +173,7 @@ decode_reply(Buffer, #dns_rec{} = Q, Mdns)
             {error, Reason}
     end.
 
+-define(MSG_HDR_SIZE, 12). % Must align with the following pattern
 do_decode(
   <<Id:16,
     QR:1,Opcode:4,AA:1,TC:1,RD:1,
@@ -196,14 +197,19 @@ do_decode(
            pr     = decode_boolean(PR),
            rcode  = Rcode},
     do_decode(
-      Buffer, DnsHdr, QdList, AnBuf, AnCount, NsCount, ArCount, {Opcode,Mdns}).
+      Buffer, DnsHdr, QdList, AnBuf, AnCount, NsCount, ArCount, {Opcode,Mdns});
+do_decode(<<_/binary>>, _Mdns) ->
+    throw(?DECODE_ERROR).
+
 
 do_decode_reply(
   <<Id:16, _/binary>> = Buffer,
   #dns_rec{ header = Q_H, qdlist = [Q_RR] },
   Mdns) ->
     Id =:= Q_H#dns_header.id orelse throw(badid),
-    do_decode_reply(Buffer, Q_H, Q_RR, Id, Mdns).
+    do_decode_reply(Buffer, Q_H, Q_RR, Id, Mdns);
+do_decode_reply(<<_/binary>>, _Q, _Mdns) ->
+    throw(?DECODE_ERROR).
 
 do_decode_reply(
   <<_:16,
@@ -223,27 +229,33 @@ do_decode_reply(
     %%
     QdCount == 1
         orelse throw(noquery),
-    {AnBuf, [RR], QdTC} = decode_query_section(QdBuf, QdCount, Buffer, Mdns),
-    RR#dns_query.class    =:= Q_RR#dns_query.class andalso
-        RR#dns_query.type =:= Q_RR#dns_query.type  andalso
-        inet_db:eq_domains(RR#dns_query.domain, Q_RR#dns_query.domain)
-        orelse throw(noquery),
-    H_TC = decode_boolean(TC),
-    QdTC andalso not H_TC
-        andalso throw(?DECODE_ERROR),
-    DnsHdr =
-        #dns_header{
-           id     = Id,
-           qr     = H_QR,
-           opcode = H_Opcode,
-           aa     = decode_boolean(AA),
-           tc     = H_TC,
-           rd     = H_RD,
-           ra     = decode_boolean(RA),
-           pr     = decode_boolean(PR),
-           rcode  = Rcode},
-    do_decode(
-      Buffer, DnsHdr, [RR], AnBuf, AnCount, NsCount, ArCount, {Opcode,Mdns});
+    {AnBuf, RRs, QdTC} = decode_query_section(QdBuf, QdCount, Buffer, Mdns),
+    case RRs of
+        [RR] ->
+            RR#dns_query.class    =:= Q_RR#dns_query.class andalso
+                RR#dns_query.type =:= Q_RR#dns_query.type  andalso
+                inet_db:eq_domains(RR#dns_query.domain, Q_RR#dns_query.domain)
+                orelse throw(noquery),
+            H_TC = decode_boolean(TC),
+            QdTC andalso not H_TC
+                andalso throw(?DECODE_ERROR),
+            DnsHdr =
+                #dns_header{
+                   id     = Id,
+                   qr     = H_QR,
+                   opcode = H_Opcode,
+                   aa     = decode_boolean(AA),
+                   tc     = H_TC,
+                   rd     = H_RD,
+                   ra     = decode_boolean(RA),
+                   pr     = decode_boolean(PR),
+                   rcode  = Rcode},
+            do_decode(
+              Buffer, DnsHdr, [RR], AnBuf, AnCount, NsCount, ArCount,
+              {Opcode,Mdns});
+        _ ->
+            throw(?DECODE_ERROR)
+    end;
 do_decode_reply(<<_/binary>>, _Q_H, _Q_RR, _Id, _Mdns) ->
     throw(unknown).
 
@@ -256,8 +268,8 @@ do_decode(Buffer, DnsHdr, QdList, AnBuf, AnCount, NsCount, ArCount, Opts) ->
         decode_rr_section(ArBuf, ArCount, Buffer, Opts),
     Rest =:= <<>>
         orelse throw(?DECODE_ERROR),
-    ((AnTC orelse NsTC orelse ArTC) =:= DnsHdr#dns_header.tc)
-        orelse throw(?DECODE_ERROR),
+    ((AnTC orelse NsTC orelse ArTC) andalso not DnsHdr#dns_header.tc)
+        andalso throw(?DECODE_ERROR),
     #dns_rec{
        header = DnsHdr,
        qdlist = QdList,
@@ -776,7 +788,11 @@ decode_characters(Data, Encoding) ->
     ?MATCH_ELSE_DECODE_ERROR(
        Data,
        <<Len,Bin:Len/binary,Rest/binary>>,
-       {Rest,unicode:characters_to_list(Bin, Encoding)}).
+       ?MATCH_ELSE_DECODE_ERROR(
+          unicode:characters_to_list(Bin, Encoding),
+          String,
+          is_list(String),
+          {Rest,String})).
 
 %% One domain name only, there must be nothing after
 %%
@@ -786,32 +802,55 @@ decode_domain(Bin, Buffer) ->
 %% Domain name -> {RestBin,Name}
 %%
 decode_name(Bin, Buffer) ->
-    decode_name(Bin, Buffer, [], Bin, 0).
+    decode_name(Bin, Buffer, [], Bin, 0, 0).
 
-%% Tail advances with Rest until the first indirection is followed
-%% then it stays put at that Rest.
-decode_name(_, Buffer, _Labels, _Tail, Cnt) when Cnt > byte_size(Buffer) ->
-    throw(?DECODE_ERROR); %% Insanity bailout - this must be a decode loop
-decode_name(<<0,Rest/binary>>, _Buffer, Labels, Tail, Cnt) ->
-    %% Root domain, we have all labels for the domain name
-    {if Cnt =/= 0 -> Tail; true -> Rest end,
+decode_name(_Bin, _Buffer, _Labels, _Cont, NameLen, _PtrCnt)
+  when NameLen >= 255 ->
+    %% There must also be room for the root label in 255 octets
+    %%
+    %% One might also cap PtrCnt heuristicly at 20..50 but there is no
+    %% support for that in RFC 1035, although almost certainly not a problem,
+    %% and not an uncommon defensive practice.
+    %%
+    %% Now it is possible to craft a message that will have long
+    %% backwards pointer chains causing high, but not catastrophically high,
+    %% decode work.
+    throw(?DECODE_ERROR);
+decode_name(<<0,Rest/binary>>, _Buffer, Labels, Cont, _NameLen, PtrCnt) ->
+    %% Root domain; we have all labels for the domain name
+    {decode_name_rest(Rest, Cont, PtrCnt),
      decode_name_labels(Labels)};
-decode_name(<<0:2,Len:6,Label:Len/binary,Rest/binary>>,
-	     Buffer, Labels, Tail, Cnt) ->
+decode_name(
+  <<0:2,Len:6,Label:Len/binary,Rest/binary>>,
+  Buffer, Labels, Cont, NameLen, PtrCnt) ->
     %% One plain label here
-    decode_name(Rest, Buffer, [Label|Labels],
-		if Cnt =/= 0 -> Tail; true -> Rest end,
-		Cnt);
-decode_name(<<3:2,Ptr:14,Rest/binary>>, Buffer, Labels, Tail, Cnt) ->
-    %% Indirection - reposition in buffer and recurse
+    decode_name(
+      Rest, Buffer, [Label|Labels], decode_name_rest(Rest, Cont, PtrCnt),
+      NameLen + 1 + Len, PtrCnt);
+decode_name(
+  <<3:2,Ptr:14,Rest/binary>>, Buffer, Labels, Cont, NameLen, PtrCnt)
+  when
+      %% Indirection *should* point to lower offset
+      %% (stricter than RFC1035, but commonly used common sense),
+      %% and *must* not point into the header.
+      %%
+      %% This forces a pointer loop to either end when clashing
+      %% into the header, or get content and end on max NameLen.
+      Ptr < byte_size(Buffer) - (byte_size(Rest) + 2),
+      Ptr >= ?MSG_HDR_SIZE ->
+    %% Indirection - reposition in buffer
     ?MATCH_ELSE_DECODE_ERROR(
        Buffer,
        <<_:Ptr/binary,Bin/binary>>,
        decode_name(
-         Bin, Buffer, Labels,
-         if Cnt =/= 0 -> Tail; true -> Rest end,
-         Cnt+2)); % size of indirection pointer
-decode_name(_, _, _, _, _) -> throw(?DECODE_ERROR).
+         Bin, Buffer, Labels, decode_name_rest(Rest, Cont, PtrCnt),
+         NameLen, PtrCnt + 1));
+decode_name(_Bin, _Buffer, _Labels, _Cont, _NameLen, _PtrCnt) ->
+    throw(?DECODE_ERROR).
+
+decode_name_rest(Rest, _Cont, 0)        -> Rest;
+decode_name_rest(_Rest, Cont, _PtrCnt)  -> Cont.
+
 
 %% Reverse list of labels (binaries) -> domain name (string)
 decode_name_labels([]) -> ".";
@@ -940,11 +979,15 @@ encode_data(Comp, Pos, ?S_NAPTR, Data) ->
     B0 = <<Order:16,Preference:16>>,
     B1 = encode_string(B0, iolist_to_binary(Flags)),
     B2 = encode_string(B1, iolist_to_binary(Services)),
-    B3 = encode_string(B2, unicode:characters_to_binary(Regexp,
-							unicode, utf8)),
-    %% Bypass name compression (RFC 2915: section 2)
-    {B,_} = encode_name(B3, gb_trees:empty(), Pos+byte_size(B3), Replacement),
-    {B,Comp};
+    case unicode:characters_to_binary(Regexp, unicode, utf8) of
+        EncRegexp when is_binary(EncRegexp) ->
+            B3 = encode_string(B2, EncRegexp),
+            %% Bypass name compression (RFC 2915: section 2)
+            {B,_} =
+                encode_name(
+                  B3, gb_trees:empty(), Pos+byte_size(B3), Replacement),
+            {B,Comp}
+    end;
 encode_data(Comp, _, ?S_TXT, Data) -> {encode_txt(Data),Comp};
 encode_data(Comp, _, ?S_SPF, Data) -> {encode_txt(Data),Comp};
 encode_data(Comp, _, ?S_URI, Data) ->

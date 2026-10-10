@@ -730,7 +730,8 @@ void BeamModuleAssembler::emit_put_list_deallocate(const ArgSource &Hd,
 
     ASSERT(dealloc < MAX_REG * sizeof(Eterm));
 
-    if (Hd.isYRegister() && !Tl.isYRegister() && dealloc > 0) {
+    if (Hd.isYRegister() && !Tl.isYRegister() && dealloc > 0 &&
+        Support::is_int_n<9>(dealloc)) {
         auto hd_index = Hd.as<ArgYRegister>().get();
 
         if (hd_index == 0) {
@@ -741,7 +742,8 @@ void BeamModuleAssembler::emit_put_list_deallocate(const ArgSource &Hd,
             tl_reg = load_source(Tl, TMP2).reg;
             dealloc = 0;
         }
-    } else if (!Hd.isYRegister() && Tl.isYRegister() && dealloc > 0) {
+    } else if (!Hd.isYRegister() && Tl.isYRegister() && dealloc > 0 &&
+               Support::is_int_n<9>(dealloc)) {
         auto tl_index = Tl.as<ArgYRegister>().get();
 
         if (tl_index == 0) {
@@ -800,37 +802,55 @@ void BeamModuleAssembler::emit_put_tuple2(const ArgRegister &Dst,
     data.insert(data.end(), std::begin(args), std::end(args));
 
     size_t size = data.size();
-    unsigned i;
-    ArgVal value = ArgWord(0);
-    for (i = 0; i < size - 1; i += 2) {
+    ImmedRegCache<12> values(*this,
+                             ARG3,
+                             ARG4,
+                             ARG5,
+                             ARG6,
+                             ARG7,
+                             ARG8,
+                             TMP1,
+                             TMP2,
+                             TMP3,
+                             TMP4,
+                             TMP5,
+                             TMP6);
+    Variable<a64::Gp> regs[2] = {a64::xzr, a64::xzr};
+
+    for (int i = 0; i < size; i++) {
         if ((i % 128) == 0) {
             check_pending_stubs();
         }
 
-        if (!data[i].isRegister() && data[i] == data[i + 1]) {
-            if (data[i] != value) {
-                value = data[i];
-                mov_arg(TMP1, value);
-            }
-            a.stp(TMP1, TMP1, a64::Mem(HTOP).post(sizeof(Eterm[2])));
-        } else if (data[i] == value) {
-            auto second = load_source(data[i + 1], TMP3);
-            a.stp(TMP1, second.reg, a64::Mem(HTOP).post(sizeof(Eterm[2])));
-        } else if (data[i + 1] == value) {
-            auto first = load_source(data[i], TMP2);
-            a.stp(first.reg, TMP1, a64::Mem(HTOP).post(sizeof(Eterm[2])));
-        } else {
-            auto [first, second] =
-                    load_sources(data[i], TMP2, data[i + 1], TMP3);
-            a.stp(first.reg, second.reg, a64::Mem(HTOP).post(sizeof(Eterm[2])));
-        }
-    }
+        regs[0] = a64::xzr;
+        regs[1] = a64::xzr;
 
-    if (i < size) {
-        if (data[i] == value) {
-            a.str(TMP1, a64::Mem(HTOP).post(sizeof(Eterm)));
+        if (i + 1 < size && data[i].isRegister() && data[i + 1].isRegister()) {
+            auto [r0, r1] = load_sources(data[i], ARG1, data[i + 1], ARG2);
+            regs[0] = r0;
+            regs[1] = r1;
+            i++;
         } else {
-            mov_arg(a64::Mem(HTOP).post(sizeof(Eterm)), data[i]);
+            int limit = i + 1 < size ? 2 : 1;
+            for (int j = 0; j < limit; j++) {
+                static const a64::Gp def_regs[] = {ARG1, ARG2};
+                if (data[i + j].isImmed()) {
+                    Eterm value = data[i + j].as<ArgImmed>().get();
+                    regs[j] = values.load_value(value);
+                } else {
+                    auto default_reg = def_regs[j];
+                    regs[j] = load_source(data[i + j], default_reg);
+                }
+            }
+            i++;
+        }
+
+        if (regs[1].reg != a64::xzr) {
+            a.stp(regs[0].reg,
+                  regs[1].reg,
+                  a64::Mem(HTOP).post(sizeof(Eterm[2])));
+        } else {
+            a.str(regs[0].reg, a64::Mem(HTOP).post(sizeof(Eterm)));
         }
     }
 
@@ -896,6 +916,17 @@ void BeamModuleAssembler::emit_update_record(
         const ArgWord &UpdateCount,
         const Span<const ArgVal> &updates) {
     const size_t size_on_heap = TupleSize.get() + 1;
+    emit_update_any_record(Hint, size_on_heap, Src, Dst, UpdateCount, updates);
+}
+
+/* Update a tuple, a tuple record, or a native record. */
+void BeamModuleAssembler::emit_update_any_record(
+        const ArgAtom &Hint,
+        const size_t size_on_heap,
+        const ArgSource &Src,
+        const ArgRegister &Dst,
+        const ArgWord &UpdateCount,
+        const Span<const ArgVal> &updates) {
     Label next = a.new_label();
 
     ASSERT(UpdateCount.get() == updates.size());
@@ -2209,7 +2240,7 @@ void BeamModuleAssembler::emit_is_lt(const ArgLabel &Fail,
         Label next = a.new_label();
         comment("simplified test because it always succeeds when LHS is a "
                 "bignum");
-        emit_is_not_boxed(next, rhs.reg);
+        emit_is_not_boxed(next, lhs.reg);
         a.cmp(lhs.reg, rhs.reg);
         a.b_ge(resolve_beam_label(Fail, disp1MB));
         a.bind(next);

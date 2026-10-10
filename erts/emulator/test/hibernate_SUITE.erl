@@ -23,6 +23,7 @@
 -module(hibernate_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 -export([all/0, suite/0,
 	 basic/1,dynamic_call/1,min_heap_size/1,bad_args/1,
@@ -53,6 +54,37 @@ basic(Config) when is_list(Config) ->
     Child = spawn_link(fun() -> basic_hibernator(Info) end),
     hibernate_wake_up(100, MaxHeapSz, Child),
     Child ! please_quit_now,
+
+    %% Test that we get a system limit at 256
+    {_, LimitRef} = spawn_monitor(fun() -> erlang:hibernate(erlang, display, lists:seq(1,256)) end),
+
+    receive
+        {'DOWN', LimitRef, _, _, {system_limit, _}} -> ok;
+        Other ->
+            io:format("~p\n", [Other]),
+            ct:fail(unexpected_message)
+        after 1000 ->
+            ct:fail(no_system_limit)
+    end,
+
+    %% Test that we get an undef at 255
+    {UndefPid, UndefRef} = spawn_monitor(fun() -> erlang:hibernate(erlang, display, lists:seq(1,255)) end),
+
+    receive
+        {'DOWN', UndefRef, _, _, {system_limit, _}} -> ct:fail(system_limit);
+        UndefOther ->
+            io:format("~p\n", [UndefOther]),
+            ct:fail(unexpected_message)
+        after 1000 ->
+            UndefPid ! {go_ahead, undef_ref},
+            receive
+                {'DOWN', UndefRef, _, _, {undef, _}} -> ok;
+                UndefOther2 ->
+                    io:format("~p\n", [UndefOther2]),
+                    ct:fail(unexpected_message)
+            end
+    end,
+
     ok.
 
 maximum_hibernate_heap_size(Term) ->
@@ -112,7 +144,7 @@ basic_hibernator(Info) ->
     end.
 
 basic_hibernator_msg({hibernate,_}, Info) ->
-    catch erlang:hibernate(?MODULE, basic_hibernator, [Info]),
+    try erlang:hibernate(?MODULE, basic_hibernator, [Info]) catch _:_ -> ok end,
     exit(hibernate_returned);
 basic_hibernator_msg({acquire_old_heap,Parent}, _) ->
     acquire_old_heap(),
@@ -167,7 +199,8 @@ dynamic_call_hibernator(Info, Function) ->
     end.
 
 dynamic_call_hibernator_msg({hibernate,_}, Function, Info) ->
-    catch apply(erlang, Function, [?MODULE, basic_hibernator, [Info]]),
+    try apply(erlang, Function, [?MODULE, basic_hibernator, [Info]])
+    catch _:_ -> ok end,
     exit(hibernate_returned);
 dynamic_call_hibernator_msg(Msg, _Function, Info) ->
     basic_hibernator_msg(Msg, Info).
@@ -220,8 +253,7 @@ min_hibernator_recv(Parent) ->
 
 bad_args(Config) when is_list(Config) ->
     bad_args(?MODULE, {name,glurf}, [0]),
-    {'EXIT',{system_limit,_}} = 
-	(catch erlang:hibernate(x, y, lists:duplicate(5122, xxx))),
+    ?assertError(system_limit, erlang:hibernate(x, y, lists:duplicate(5122, xxx))),
     bad_args(42, name, [0]),
     bad_args(xx, 42, [1]),
     bad_args(xx, 42, glurf),
@@ -239,15 +271,8 @@ bad_args(Config) when is_list(Config) ->
     ok.
 
 bad_args(Mod, Name, Args) ->
-    Res = (catch erlang:hibernate(Mod, Name, Args)),
-    erlang:garbage_collect(),
-    case Res of
-	{'EXIT',{badarg,_Where}} ->
-	    io:format("erlang:hibernate(~p, ~p, ~p) -> ~p\n", [Mod,Name,Args,Res]);
-	Other ->
-	    io:format("erlang:hibernate(~p, ~p, ~p) -> ~p\n", [Mod,Name,Args,Res]),
-	    ct:fail({bad_result,Other})
-    end.
+    ?assertError(badarg, erlang:hibernate(Mod, Name, Args)),
+    erlang:garbage_collect().
 
 
 %%%
@@ -531,7 +556,9 @@ flush() ->
 	   
 
 wait_until(Fun) ->
-    case catch Fun() of
+    try Fun() of
 	true -> ok;
 	_ -> receive after 10 -> wait_until(Fun) end
+    catch
+        _:_ -> receive after 10 -> wait_until(Fun) end
     end.

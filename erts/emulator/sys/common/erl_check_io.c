@@ -2,9 +2,9 @@
  * %CopyrightBegin%
  *
  * SPDX-License-Identifier: Apache-2.0
- * 
- * Copyright Ericsson AB 2006-2025. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2006-2026. All Rights Reserved.
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -16,7 +16,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -95,7 +95,7 @@ typedef enum {
     ERTS_EV_FLAG_IN_SCHEDULER  = ERTS_EV_FLAG_CLEAR,
     ERTS_EV_FLAG_NIF_SELECT    = ERTS_EV_FLAG_CLEAR,
 #endif
-#ifdef ERTS_POLL_USE_FALLBACK
+#ifdef ERTS_POLL_USE_FALLBACK /* This has to be an ifdef */
     ERTS_EV_FLAG_FALLBACK      = 0x10,  /* Set when kernel poll rejected fd
                                            and it was put in the nkp version */
 #else
@@ -653,7 +653,7 @@ static ERTS_INLINE void
 abort_task(Eterm id, ErtsPortTaskHandle *pthp, EventStateType type)
 {
     if (is_not_nil(id) && erts_port_task_is_scheduled(pthp)) {
-	erts_port_task_abort(pthp);
+        erts_port_task_abort(NULL, pthp);
 	ASSERT(erts_is_port_alive(id));
     }
 }
@@ -1930,10 +1930,13 @@ erts_create_pollset_thread(int id, ErtsThrPrgrData *tpd) {
 }
 
 void
-erts_check_io(ErtsPollThread *psi, ErtsMonotonicTime timeout_time, int poll_only_thread)
+erts_check_io(ErtsPollThread *psi, ErtsMonotonicTime timeout_time, bool needs_thread_progress)
 {
     int pollres_len;
     int poll_ret, i;
+#if ERTS_POLL_USE_SCHEDULER_POLLING
+    bool is_scheduler_poll = psi->ps == get_scheduler_pollset();
+#endif
     ERTS_MSACC_PUSH_AND_SET_STATE(ERTS_MSACC_STATE_CHECK_IO);
 
  restart:
@@ -1944,7 +1947,7 @@ erts_check_io(ErtsPollThread *psi, ErtsMonotonicTime timeout_time, int poll_only
 
     pollres_len = psi->pollres_len;
 
-    if (poll_only_thread)
+    if (needs_thread_progress)
         erts_thr_progress_active(psi->tpd, 0);
 
 #if ERTS_POLL_USE_FALLBACK
@@ -1958,7 +1961,7 @@ erts_check_io(ErtsPollThread *psi, ErtsMonotonicTime timeout_time, int poll_only
         poll_ret = erts_poll_wait(psi->ps, psi->pollres, &pollres_len, psi->tpd, timeout_time);
     }
 
-    if (poll_only_thread)
+    if (needs_thread_progress)
         erts_thr_progress_active(psi->tpd, 1);
 
 #ifdef ERTS_ENABLE_LOCK_CHECK
@@ -1982,9 +1985,6 @@ erts_check_io(ErtsPollThread *psi, ErtsMonotonicTime timeout_time, int poll_only
 			  erl_errno_id(poll_ret), poll_ret);
 	    erts_send_error_to_logger_nogl(dsbufp);
 	}
-        // if (is_normal_sched) {
-        //     erts_fprintf(stderr, "%d: woke up\r\n", esdp->no);
-        // }
         ERTS_MSACC_POP_STATE();
 	return;
     }
@@ -2028,13 +2028,18 @@ erts_check_io(ErtsPollThread *psi, ErtsMonotonicTime timeout_time, int poll_only
 
 #if ERTS_POLL_USE_SCHEDULER_POLLING
             if (state->flags & ERTS_EV_FLAG_SCHEDULER) {
-                /* In the poll thread, this fd would have been disabled due to ONESHOT,
-                   but in the scheduler pollset it needs to be disabled manually. */
-                int wake_poller = 0;
-                erts_poll_control(get_scheduler_pollset(), fd, ERTS_POLL_OP_DEL, 0, &wake_poller);
-                state->flags &= ~(ERTS_EV_FLAG_SCHEDULER|ERTS_EV_FLAG_IN_SCHEDULER);
-                state->count = 0;
-                state->last_select_pid = NIL;
+                if (is_scheduler_poll) {
+                    /* If we triggered in a scheduler pollset,
+                       then we should just remove it from the
+                       scheduler pollset. */
+                    int wake_poller = 0;
+                    erts_poll_control(psi->ps, fd, ERTS_POLL_OP_DEL, 0, &wake_poller);
+                    state->flags &= ~(ERTS_EV_FLAG_SCHEDULER|ERTS_EV_FLAG_IN_SCHEDULER);
+                    state->count = 0;
+                    state->last_select_pid = NIL;
+                } else {
+                    state->active_events = revents & ERTS_POLL_EV_IN;
+                }
             }
 #endif
         } else {
@@ -2045,7 +2050,7 @@ erts_check_io(ErtsPollThread *psi, ErtsMonotonicTime timeout_time, int poll_only
             revents &= state->active_events | ERTS_POLL_EV_NVAL;
 
 #if ERTS_POLL_USE_SCHEDULER_POLLING
-            if (psi->ps == get_scheduler_pollset()) {
+            if (is_scheduler_poll) {
                 if (!(state->events & ERTS_POLL_EV_IN) && state->flags & ERTS_EV_FLAG_SCHEDULER) {
                     /* If we triggered in a scheduler pollset and EV_IN is not set,
                        then we should just remove it from the scheduler pollset.
@@ -2176,7 +2181,7 @@ erts_check_io(ErtsPollThread *psi, ErtsMonotonicTime timeout_time, int poll_only
 
         case ERTS_EV_TYPE_STOP_NIF: {
 #if ERTS_POLL_USE_SCHEDULER_POLLING
-            if (psi->ps == get_scheduler_pollset())
+            if (is_scheduler_poll)
                 break;
 #endif
 #if ERTS_POLL_USE_FALLBACK
@@ -2189,7 +2194,7 @@ erts_check_io(ErtsPollThread *psi, ErtsMonotonicTime timeout_time, int poll_only
 
         case ERTS_EV_TYPE_STOP_USE: {
 #if ERTS_POLL_USE_SCHEDULER_POLLING
-            if (psi->ps == get_scheduler_pollset())
+            if (is_scheduler_poll)
                 break;
 #endif
 #if ERTS_POLL_USE_FALLBACK
@@ -2847,7 +2852,7 @@ print_events(erts_dsprintf_buf_t *dsbufp, ErtsPollEvents ev)
 static ERTS_INLINE void
 print_flags(erts_dsprintf_buf_t *dsbufp, EventStateFlags f)
 {
-    const char buff[64];
+    const char buff[64] = {0};
     if (f & ERTS_EV_FLAG_WANT_ERROR) {
         erts_dsprintf(dsbufp, "WANTERR|");
         f &= ~ERTS_EV_FLAG_WANT_ERROR;

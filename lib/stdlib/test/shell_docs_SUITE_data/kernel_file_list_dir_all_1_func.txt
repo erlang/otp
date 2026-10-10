@@ -2,23 +2,23 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  list_dir_all(Dir)[0m
+[1m  list_dir_all(Dir)[0m
 
-[;;4mSince[0m:
+[4mSince[0m:
   OTP R16B
 
   Lists all the files in a directory, including files with raw
-  filenames. Returns [;;4m{ok, Filenames}[0m if successful, otherwise [;;4m[0m
-  [;;4m{error, Reason}[0m. [;;4mFilenames[0m is a list of the names of all the
+  filenames. Returns [4m{ok, Filenames}[0m if successful, otherwise [4m[0m
+  [4m{error, Reason}[0m. [4mFilenames[0m is a list of the names of all the
   files in the directory. The names are not sorted.
 
   Typical error reasons:
 
-   • [;;4meacces[0m - Missing search or write permissions for [;;4mDir[0m or
+   • [4meacces[0m - Missing search or write permissions for [4mDir[0m or
      one of its parent directories.
 
-   • [;;4menoent[0m - The directory does not exist.
+   • [4menoent[0m - The directory does not exist.

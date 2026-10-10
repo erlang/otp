@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -123,7 +123,7 @@ new(Filemask, Options)
 
 -doc(#{equiv => attachUnknownControl(This,Name,Control, [])}).
 -spec attachUnknownControl(This, Name, Control) -> boolean() when
-	This::wxXmlResource(), Name::unicode:chardata(), Control::wxWindow:wxWindow().
+        This::wxXmlResource(), Name::unicode:chardata(), Control::wxWindow:wxWindow().
 
 attachUnknownControl(This,Name,Control)
  when is_record(This, wx_ref),?is_chardata(Name),is_record(Control, wx_ref) ->
@@ -153,7 +153,7 @@ Removes all handlers and deletes them (this means that any handlers added using 
 (not implemented in wx) must be allocated on the heap).
 """.
 -spec clearHandlers(This) -> 'ok' when
-	This::wxXmlResource().
+        This::wxXmlResource().
 clearHandlers(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxXmlResource),
   wxe_util:queue_cmd(This,?get_env(),?wxXmlResource_ClearHandlers).
@@ -165,7 +165,7 @@ Returns -1 if the XRC version is less than the argument, +1 if greater, and 0 if
 equal.
 """.
 -spec compareVersion(This, Major, Minor, Release, Revision) -> integer() when
-	This::wxXmlResource(), Major::integer(), Minor::integer(), Release::integer(), Revision::integer().
+        This::wxXmlResource(), Major::integer(), Minor::integer(), Release::integer(), Revision::integer().
 compareVersion(#wx_ref{type=ThisT}=This,Major,Minor,Release,Revision)
  when is_integer(Major),is_integer(Minor),is_integer(Release),is_integer(Revision) ->
   ?CLASS(ThisT,wxXmlResource),
@@ -180,7 +180,7 @@ get() ->
 
 -doc "Returns flags, which may be a bitlist of ?wxXmlResourceFlags enumeration values.".
 -spec getFlags(This) -> integer() when
-	This::wxXmlResource().
+        This::wxXmlResource().
 getFlags(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxXmlResource),
   wxe_util:queue_cmd(This,?get_env(),?wxXmlResource_GetFlags),
@@ -188,7 +188,7 @@ getFlags(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns version information (a.b.c.d = d + 256\*c + 2562\*b + 2563\*a).".
 -spec getVersion(This) -> integer() when
-	This::wxXmlResource().
+        This::wxXmlResource().
 getVersion(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxXmlResource),
   wxe_util:queue_cmd(This,?get_env(),?wxXmlResource_GetVersion),
@@ -196,7 +196,7 @@ getVersion(#wx_ref{type=ThisT}=This) ->
 
 -doc(#{equiv => getXRCID(Str_id, [])}).
 -spec getXRCID(Str_id) -> integer() when
-	Str_id::unicode:chardata().
+        Str_id::unicode:chardata().
 
 getXRCID(Str_id)
  when ?is_chardata(Str_id) ->
@@ -235,7 +235,7 @@ This will make the executable quite big because it forces linking against most o
 wxWidgets library.
 """.
 -spec initAllHandlers(This) -> 'ok' when
-	This::wxXmlResource().
+        This::wxXmlResource().
 initAllHandlers(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxXmlResource),
   wxe_util:queue_cmd(This,?get_env(),?wxXmlResource_InitAllHandlers).
@@ -252,7 +252,7 @@ Note: If you are sure that the argument is name of single XRC file (rather than 
 a wildcard), use `LoadFile()` (not implemented in wx) instead.
 """.
 -spec load(This, Filemask) -> boolean() when
-	This::wxXmlResource(), Filemask::unicode:chardata().
+        This::wxXmlResource(), Filemask::unicode:chardata().
 load(#wx_ref{type=ThisT}=This,Filemask)
  when ?is_chardata(Filemask) ->
   ?CLASS(ThisT,wxXmlResource),
@@ -262,7 +262,7 @@ load(#wx_ref{type=ThisT}=This,Filemask)
 
 -doc "Loads a bitmap resource from a file.".
 -spec loadBitmap(This, Name) -> wxBitmap:wxBitmap() when
-	This::wxXmlResource(), Name::unicode:chardata().
+        This::wxXmlResource(), Name::unicode:chardata().
 loadBitmap(#wx_ref{type=ThisT}=This,Name)
  when ?is_chardata(Name) ->
   ?CLASS(ThisT,wxXmlResource),
@@ -276,7 +276,7 @@ Loads a dialog.
 `parent` points to parent window (if any).
 """.
 -spec loadDialog(This, Parent, Name) -> wxDialog:wxDialog() when
-	This::wxXmlResource(), Parent::wxWindow:wxWindow(), Name::unicode:chardata().
+        This::wxXmlResource(), Parent::wxWindow:wxWindow(), Name::unicode:chardata().
 loadDialog(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,Name)
  when ?is_chardata(Name) ->
   ?CLASS(ThisT,wxXmlResource),
@@ -294,7 +294,7 @@ This form is used to finish creation of an already existing instance (the main r
 this is that you may want to use derived class with a new event table). Example:
 """.
 -spec loadDialog(This, Dlg, Parent, Name) -> boolean() when
-	This::wxXmlResource(), Dlg::wxDialog:wxDialog(), Parent::wxWindow:wxWindow(), Name::unicode:chardata().
+        This::wxXmlResource(), Dlg::wxDialog:wxDialog(), Parent::wxWindow:wxWindow(), Name::unicode:chardata().
 loadDialog(#wx_ref{type=ThisT}=This,#wx_ref{type=DlgT}=Dlg,#wx_ref{type=ParentT}=Parent,Name)
  when ?is_chardata(Name) ->
   ?CLASS(ThisT,wxXmlResource),
@@ -310,7 +310,7 @@ Loads a frame from the resource.
 `parent` points to parent window (if any).
 """.
 -spec loadFrame(This, Parent, Name) -> wxFrame:wxFrame() when
-	This::wxXmlResource(), Parent::wxWindow:wxWindow(), Name::unicode:chardata().
+        This::wxXmlResource(), Parent::wxWindow:wxWindow(), Name::unicode:chardata().
 loadFrame(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,Name)
  when ?is_chardata(Name) ->
   ?CLASS(ThisT,wxXmlResource),
@@ -326,7 +326,7 @@ This form is used to finish creation of an already existing instance (the main r
 this is that you may want to use derived class with a new event table).
 """.
 -spec loadFrame(This, Frame, Parent, Name) -> boolean() when
-	This::wxXmlResource(), Frame::wxFrame:wxFrame(), Parent::wxWindow:wxWindow(), Name::unicode:chardata().
+        This::wxXmlResource(), Frame::wxFrame:wxFrame(), Parent::wxWindow:wxWindow(), Name::unicode:chardata().
 loadFrame(#wx_ref{type=ThisT}=This,#wx_ref{type=FrameT}=Frame,#wx_ref{type=ParentT}=Parent,Name)
  when ?is_chardata(Name) ->
   ?CLASS(ThisT,wxXmlResource),
@@ -338,7 +338,7 @@ loadFrame(#wx_ref{type=ThisT}=This,#wx_ref{type=FrameT}=Frame,#wx_ref{type=Paren
 
 -doc "Loads an icon resource from a file.".
 -spec loadIcon(This, Name) -> wxIcon:wxIcon() when
-	This::wxXmlResource(), Name::unicode:chardata().
+        This::wxXmlResource(), Name::unicode:chardata().
 loadIcon(#wx_ref{type=ThisT}=This,Name)
  when ?is_chardata(Name) ->
   ?CLASS(ThisT,wxXmlResource),
@@ -352,7 +352,7 @@ Loads menu from resource.
 Returns NULL on failure.
 """.
 -spec loadMenu(This, Name) -> wxMenu:wxMenu() when
-	This::wxXmlResource(), Name::unicode:chardata().
+        This::wxXmlResource(), Name::unicode:chardata().
 loadMenu(#wx_ref{type=ThisT}=This,Name)
  when ?is_chardata(Name) ->
   ?CLASS(ThisT,wxXmlResource),
@@ -362,7 +362,7 @@ loadMenu(#wx_ref{type=ThisT}=This,Name)
 
 -doc "".
 -spec loadMenuBar(This, Name) -> wxMenuBar:wxMenuBar() when
-	This::wxXmlResource(), Name::unicode:chardata().
+        This::wxXmlResource(), Name::unicode:chardata().
 loadMenuBar(#wx_ref{type=ThisT}=This,Name)
  when ?is_chardata(Name) ->
   ?CLASS(ThisT,wxXmlResource),
@@ -376,7 +376,7 @@ Loads a menubar from resource.
 Returns NULL on failure.
 """.
 -spec loadMenuBar(This, Parent, Name) -> wxMenuBar:wxMenuBar() when
-	This::wxXmlResource(), Parent::wxWindow:wxWindow(), Name::unicode:chardata().
+        This::wxXmlResource(), Parent::wxWindow:wxWindow(), Name::unicode:chardata().
 loadMenuBar(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,Name)
  when ?is_chardata(Name) ->
   ?CLASS(ThisT,wxXmlResource),
@@ -391,7 +391,7 @@ Loads a panel.
 `parent` points to the parent window.
 """.
 -spec loadPanel(This, Parent, Name) -> wxPanel:wxPanel() when
-	This::wxXmlResource(), Parent::wxWindow:wxWindow(), Name::unicode:chardata().
+        This::wxXmlResource(), Parent::wxWindow:wxWindow(), Name::unicode:chardata().
 loadPanel(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,Name)
  when ?is_chardata(Name) ->
   ?CLASS(ThisT,wxXmlResource),
@@ -407,7 +407,7 @@ Loads a panel.
 existing instance.
 """.
 -spec loadPanel(This, Panel, Parent, Name) -> boolean() when
-	This::wxXmlResource(), Panel::wxPanel:wxPanel(), Parent::wxWindow:wxWindow(), Name::unicode:chardata().
+        This::wxXmlResource(), Panel::wxPanel:wxPanel(), Parent::wxWindow:wxWindow(), Name::unicode:chardata().
 loadPanel(#wx_ref{type=ThisT}=This,#wx_ref{type=PanelT}=Panel,#wx_ref{type=ParentT}=Parent,Name)
  when ?is_chardata(Name) ->
   ?CLASS(ThisT,wxXmlResource),
@@ -419,7 +419,7 @@ loadPanel(#wx_ref{type=ThisT}=This,#wx_ref{type=PanelT}=Panel,#wx_ref{type=Paren
 
 -doc "Loads a toolbar.".
 -spec loadToolBar(This, Parent, Name) -> wxToolBar:wxToolBar() when
-	This::wxXmlResource(), Parent::wxWindow:wxWindow(), Name::unicode:chardata().
+        This::wxXmlResource(), Parent::wxWindow:wxWindow(), Name::unicode:chardata().
 loadToolBar(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,Name)
  when ?is_chardata(Name) ->
   ?CLASS(ThisT,wxXmlResource),
@@ -430,7 +430,7 @@ loadToolBar(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,Name)
 
 -doc "Sets the global resources object and returns a pointer to the previous one (may be NULL).".
 -spec set(Res) -> wxXmlResource() when
-	Res::wxXmlResource().
+        Res::wxXmlResource().
 set(#wx_ref{type=ResT}=Res) ->
   ?CLASS(ResT,wxXmlResource),
   wxe_util:queue_cmd(Res,?get_env(),?wxXmlResource_Set),
@@ -438,7 +438,7 @@ set(#wx_ref{type=ResT}=Res) ->
 
 -doc "Sets flags (bitlist of ?wxXmlResourceFlags enumeration values).".
 -spec setFlags(This, Flags) -> 'ok' when
-	This::wxXmlResource(), Flags::integer().
+        This::wxXmlResource(), Flags::integer().
 setFlags(#wx_ref{type=ThisT}=This,Flags)
  when is_integer(Flags) ->
   ?CLASS(ThisT,wxXmlResource),
@@ -451,7 +451,7 @@ Returns true if the resource was successfully unloaded and false if it hasn't be
 in the list of loaded resources.
 """.
 -spec unload(This, Filename) -> boolean() when
-	This::wxXmlResource(), Filename::unicode:chardata().
+        This::wxXmlResource(), Filename::unicode:chardata().
 unload(#wx_ref{type=ThisT}=This,Filename)
  when ?is_chardata(Filename) ->
   ?CLASS(ThisT,wxXmlResource),

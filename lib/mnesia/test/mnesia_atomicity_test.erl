@@ -26,7 +26,8 @@
 -author('rossi@erix.ericsson.se').
 -include("mnesia_test_lib.hrl").
 
--compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}}]).
+-compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}},
+          {nowarn_deprecated_function,{erlang,exit,2}}]).
 
 -export([init_per_testcase/2, end_per_testcase/2,
          init_per_group/2, end_per_group/2,
@@ -35,6 +36,7 @@
          runtime_error_in_middle_of_trans/1,
          mnesia_down_during_infinite_trans/1,
          kill_self_in_middle_of_trans/1, throw_in_middle_of_trans/1,
+         fixtable_released_when_coordinator_dies/1,
          lock_waiter_sw_r/1, lock_waiter_sw_rt/1, lock_waiter_sw_wt/1,
          lock_waiter_wr_r/1, lock_waiter_srw_r/1, lock_waiter_sw_sw/1,
          lock_waiter_sw_w/1, lock_waiter_sw_wr/1, lock_waiter_sw_srw/1,
@@ -68,6 +70,7 @@ all() ->
     [explicit_abort_in_middle_of_trans,
      runtime_error_in_middle_of_trans,
      kill_self_in_middle_of_trans, throw_in_middle_of_trans,
+     fixtable_released_when_coordinator_dies,
      {group, mnesia_down_in_middle_of_trans}].
 
 groups() ->
@@ -234,7 +237,7 @@ kill_self_in_middle_of_trans(Config) when is_list(Config) ->
     A ! fun() ->
 		mnesia:write(Rec1B),
                 exit(self(), kill), % that should kill the process himself
-		                        %   - poor guy !
+                                                %   - poor guy !
 		mnesia:write(Rec1C)
 	 end,
     %%
@@ -257,6 +260,25 @@ kill_self_in_middle_of_trans(Config) when is_list(Config) ->
     ?match_receive({B, ok}),
     B ! end_trans,
     ?match_receive({B, {atomic, end_trans}}),
+
+    ?verify_mnesia(Nodes, []).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+fixtable_released_when_coordinator_dies(doc) ->
+    ["A table fixed by a transaction is unfixed when the coordinator dies"];
+fixtable_released_when_coordinator_dies(suite) -> [];
+fixtable_released_when_coordinator_dies(Config) when is_list(Config) ->
+    [Node1] = Nodes = ?acquire_nodes(1, Config),
+    Ram = fixtable_released_ram,
+    Disc = fixtable_released_disc,
+
+    ?match({atomic, ok}, mnesia:create_table([{name, Ram}, {type, set},
+                                              {ram_copies, [Node1]}])),
+    ?match({atomic, ok}, mnesia:create_table([{name, Disc}, {type, set},
+                                              {disc_only_copies, [Node1]}])),
+
+    check_fixtable_release(Ram),
+    check_fixtable_release(Disc),
 
     ?verify_mnesia(Nodes, []).
 
@@ -348,7 +370,7 @@ mnesia_down_during_infinite_trans(Config) when is_list(Config) ->
 
     %% Second transaction gets the read lock
     ?match_receive({A2, [{Tab, 1, test_ok}]}),
-    exit(A1, kill), % Needed since we trap exit
+    erlang:exit_signal(A1, kill), % Needed since we trap exit
 
     ?verify_mnesia([Node2], [Node1]).
 
@@ -825,3 +847,42 @@ sync_tid_release() ->
     sys:get_status(whereis(mnesia_locker)),
     ok.
 
+check_fixtable_release(Tab) ->
+    ?match(ok, mnesia:dirty_write({Tab, 1, a})),
+
+    %% a transaction that ends by itself releases its fixes
+    ?match({atomic, ok},
+           mnesia:transaction(fun() -> mnesia:first(Tab), ok end)),
+    ?match({Tab, false}, {Tab, wait_until_fixed(Tab, false)}),
+
+    %% and so must a coordinator that is killed while holding one
+    Coord = spawn(fun() ->
+                          mnesia:transaction(
+                            fun() ->
+                                    mnesia:first(Tab),
+                                    timer:sleep(infinity)
+                            end)
+                  end),
+    ?match({Tab, true}, {Tab, wait_until_fixed(Tab, true)}),
+    erlang:exit_signal(Coord, kill),
+    ?match({Tab, false}, {Tab, wait_until_fixed(Tab, false)}).
+
+%% The fix is released asynchronously
+wait_until_fixed(Tab, Expected) ->
+    wait_until_fixed(Tab, Expected, 100).
+
+wait_until_fixed(Tab, _Expected, 0) ->
+    is_fixed(Tab, mnesia:table_info(Tab, storage_type));
+wait_until_fixed(Tab, Expected, N) ->
+    case is_fixed(Tab, mnesia:table_info(Tab, storage_type)) of
+        Expected ->
+            Expected;
+        _ ->
+            timer:sleep(50),
+            wait_until_fixed(Tab, Expected, N - 1)
+    end.
+
+is_fixed(Tab, disc_only_copies) ->
+    dets:info(Tab, safe_fixed_monotonic_time) =/= false;
+is_fixed(Tab, _Storage) ->
+    ets:info(Tab, safe_fixed_monotonic_time) =/= false.

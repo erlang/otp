@@ -65,7 +65,7 @@ get_port_data(Port, Last0, Complete0) ->
 	{Port, eof} ->
 	    Result = update_last(eof, Last0, Complete0),
 	    unlink(Port),
-	    exit(Port, die),
+            erlang:exit_signal(Port, die),
 	    Result
     end.
 

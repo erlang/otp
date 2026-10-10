@@ -39,6 +39,11 @@
     -define(CT_SAFE_TERM(), ct_quickcheck_ext:safe_term()).
     -define(CT_SAFE_TUPLE(), ct_quickcheck_ext:safe_tuple()).
     -define(CT_EXISTING_ATOM(), ct_quickcheck_ext:existing_atom()).
+    -define(CT_FUNCTION0(RetGen), function0(RetGen)).
+    -define(CT_FUNCTION1(RetGen), function1(RetGen)).
+    -define(CT_FUNCTION2(RetGen), ct_quickcheck_ext:function2(RetGen)).
+    -define(CT_FUNCTION3(RetGen), ct_quickcheck_ext:function3(RetGen)).
+    -define(CT_FUNCTION4(RetGen), ct_quickcheck_ext:function4(RetGen)).
   -else.
     -ifdef(PROPER).
       -define(MOD_eqc, proper).
@@ -50,6 +55,11 @@
       -define(CT_SAFE_TERM(), ct_proper_ext:safe_term()).
       -define(CT_SAFE_TUPLE(), ct_proper_ext:safe_tuple()).
       -define(CT_EXISTING_ATOM(), ct_proper_ext:existing_atom()).
+      -define(CT_FUNCTION0(RetGen), function0(RetGen)).
+      -define(CT_FUNCTION1(RetGen), function1(RetGen)).
+      -define(CT_FUNCTION2(RetGen), function2(RetGen)).
+      -define(CT_FUNCTION3(RetGen), function3(RetGen)).
+      -define(CT_FUNCTION4(RetGen), function4(RetGen)).
     -else.
       -ifdef(TRIQ).
         -define(MOD_eqc, triq).

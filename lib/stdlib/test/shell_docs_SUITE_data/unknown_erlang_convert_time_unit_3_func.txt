@@ -2,21 +2,21 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  convert_time_unit(Time, FromUnit, ToUnit)[0m
+[1m  convert_time_unit(Time, FromUnit, ToUnit)[0m
 
-[;;4mSince[0m:
+[4mSince[0m:
   OTP 18.0
 
-  Converts the [;;4mTime[0m value of time unit [;;4mFromUnit[0m to the
-  corresponding [;;4mConvertedTime[0m value of time unit [;;4mToUnit[0m. The
-  result is rounded using the [;;4mfloor/1[0m function.
+  Converts the [4mTime[0m value of time unit [4mFromUnit[0m to the
+  corresponding [4mConvertedTime[0m value of time unit [4mToUnit[0m. The
+  result is rounded using the [4mfloor/1[0m function.
 
-  [;;4mWarning[0m
+  [4mWarning[0m
 
     You can lose accuracy and precision when converting between
-    time units. To minimize such loss, collect all data at [;;4mnative[0m
+    time units. To minimize such loss, collect all data at [4mnative[0m
     time unit and do the conversion on the end result.

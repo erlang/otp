@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -147,7 +147,7 @@ getMode() ->
 
 -doc(#{equiv => requestMore(This, [])}).
 -spec requestMore(This) -> 'ok' when
-	This::wxIdleEvent().
+        This::wxIdleEvent().
 
 requestMore(This)
  when is_record(This, wx_ref) ->
@@ -182,7 +182,7 @@ Returns true if the OnIdle function processing this event requested more process
 See: `requestMore/2`
 """.
 -spec moreRequested(This) -> boolean() when
-	This::wxIdleEvent().
+        This::wxIdleEvent().
 moreRequested(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxIdleEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxIdleEvent_MoreRequested),
@@ -194,7 +194,7 @@ only to those which specify that they will process the events.
 """.
 %%  Mode = ?wxIDLE_PROCESS_ALL | ?wxIDLE_PROCESS_SPECIFIED
 -spec setMode(Mode) -> 'ok' when
-	Mode::wx:wx_enum().
+        Mode::wx:wx_enum().
 setMode(Mode)
  when is_integer(Mode) ->
   wxe_util:queue_cmd(Mode,?get_env(),?wxIdleEvent_SetMode).

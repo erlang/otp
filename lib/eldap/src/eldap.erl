@@ -3,8 +3,8 @@
 %%
 %% SPDX-License-Identifier: MIT
 %%
+%% Copyright Ericsson AB 2012-2026. All Rights Reserved.
 %% Copyright (c) 2010, Torbjörn Törnkvist
-%% Copyright Ericsson AB 2012-2025. All Rights Reserved.
 %%
 %% Permission is hereby granted, free of charge, to any person obtaining a copy
 %% of this software and associated documentation files (the "Software"), to deal
@@ -1910,10 +1910,12 @@ parse_hostport(Str) ->
 		   parse_port(Rest,Sport)}}
     end.
 
-parse_port(Rest,Sport) ->
+parse_port(Rest,Sport) when length(Sport) =< 5 ->
     try	list_to_integer(Sport)
     catch _:_ -> parse_error(parsing_port,Rest)
-    end.
+    end;
+parse_port(Rest, _) ->
+    parse_error(parsing_port, Rest).
 
 parse_host(Rest,Shost) ->
     case catch validate_host(Shost) of

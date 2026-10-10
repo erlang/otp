@@ -252,8 +252,6 @@ computed from the `debug_info` chunk.
 -doc "[EEP-48 documentation format](`e:kernel:eep48_chapter.md#the-docs-format`)".
 -type docs() :: #docs_v1{}.
 
--type literals() :: {index(), term()}.
-
 -doc """
 The list of attributes is sorted on `Attribute` (in `t:attrib_entry/0`) and each
 attribute name occurs once in the list. The attribute values occur in the same
@@ -272,7 +270,7 @@ order as in the file. The lists of functions are also sorted.
                    | {'labeled_locals', [labeled_entry()]}
                    | {'atoms', [{integer(), atom()}]}
                    | {'documentation', docs()}
-                   | {'literals', literals()}.
+                   | {'literals', [{index(), term()}]}.
 
 %% Error reasons
 -type info_rsn()  :: {'chunk_too_big', beam(),
@@ -680,7 +678,7 @@ crypto_key_fun(F) ->
 Unregisters the crypto key fun and terminates the process holding it, started by
 `crypto_key_fun/1`.
 
-Returns either `{ok, undefined}` if no crypto key fun is registered, or
+Returns either `undefined` if no crypto key fun is registered, or
 `{ok, Term}`, where `Term` is the return value from `CryptoKeyFun(clear)`, see
 [`crypto_key_fun/1`](`crypto_key_fun/1`).
 """.

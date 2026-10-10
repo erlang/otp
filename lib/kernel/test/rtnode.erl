@@ -53,7 +53,13 @@ run(Commands, Nodename, ErlPrefix) ->
 run(Commands, Nodename, ErlPrefix, Args) ->
     case start(Nodename, ErlPrefix, Args) of
         {ok, _SPid, CPid, Node, RTState} ->
-            Res = catch send_commands(Node, CPid, Commands, 1),
+            Res = try
+                      send_commands(Node, CPid, Commands, 1)
+                  catch
+                      throw:X -> X;
+                      exit:X -> {'EXIT', X};
+                      error:X:ST -> {'EXIT', {X, ST}}
+                  end,
             Logs = stop(RTState),
             case Res of
                 ok ->
@@ -100,7 +106,7 @@ stop({CPid, SPid, ToErl, Tempdir}) ->
     unlink(SPid),
     case stop_runerl_node(CPid) of
         {error,_} ->
-            catch stop_try_harder(ToErl, Tempdir, SPid);
+            try stop_try_harder(ToErl, Tempdir, SPid) catch _:_ -> ok end;
         _ ->
             ok
     end,
@@ -408,7 +414,7 @@ toerl_loop(#{port := Port} = State0) ->
     end.
 
 kill_emulator(#{spid := SPid, port := Port}) when is_pid(SPid) ->
-    catch peer:stop(SPid),
+    try peer:stop(SPid) catch _:_ -> ok end,
     wait_for_eof(Port);
 kill_emulator(#{port := Port}) ->
     %% If the line happens to end in a ".", issuing "init:stop()."

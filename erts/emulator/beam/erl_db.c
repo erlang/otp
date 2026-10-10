@@ -251,7 +251,7 @@ static void table_dec_refc(DbTable *tb, erts_aint_t min_val)
 static ERTS_INLINE DbTable* btid2tab(Binary* btid)
 {
     erts_atomic_t *tbref = erts_binary_to_magic_indirection(btid);
-    return (DbTable *) erts_atomic_read_nob(tbref);
+    return (DbTable *) erts_atomic_read_acqb(tbref);
 }
 
 static int
@@ -334,7 +334,7 @@ tid_clear(Process *c_p, DbTable *tb)
     DbTable *rtb;
     Binary *btid = tb->common.btid;
     erts_atomic_t *tbref = erts_binary_to_magic_indirection(btid);
-    rtb = (DbTable *) erts_atomic_xchg_nob(tbref, (erts_aint_t) NULL);
+    rtb = (DbTable *) erts_atomic_xchg_relb(tbref, (erts_aint_t) NULL);
     ASSERT(!rtb || tb == rtb);
     if (rtb) {
         table_dec_refc(tb, 1);
@@ -1508,6 +1508,7 @@ do_update_counter(Process *p, DbTable* tb,
     Eterm* htop;          /* actual heap usage */
     Eterm* hstart;
     Eterm* hend;
+    Uint largest_big_arity = 0;
     ERTS_UNDEF(ret, THE_NON_VALUE);
 
     UseTmpHeap(5, p);
@@ -1573,10 +1574,10 @@ do_update_counter(Process *p, DbTable* tb,
 		goto finalize;
 	    }
 	    incr = tpl[2];
-	    if (is_big(incr)) {
-		halloc_size += BIG_NEED_SIZE(big_arity(incr));
+            if (is_big(incr) && largest_big_arity < big_arity(incr)) {
+                largest_big_arity = big_arity(incr);
 	    }
-	    else if (is_not_small(incr)) {
+            else if (is_not_integer(incr)) {
 		goto finalize;
 	    }
 	    position = signed_val(tpl[1]);
@@ -1591,12 +1592,16 @@ do_update_counter(Process *p, DbTable* tb,
 		goto finalize;
 	    }
 	    oldcnt = db_do_read_element(&handle, position);
-	    if (is_big(oldcnt)) {
-		halloc_size += BIG_NEED_SIZE(big_arity(oldcnt));
+            if (is_big(oldcnt) && largest_big_arity < big_arity(oldcnt)) {
+                largest_big_arity = big_arity(oldcnt);
 	    }
-	    else if (is_not_small(oldcnt)) {
+            else if (is_not_integer(oldcnt)) {
 		goto finalize;
 	    }
+            if (largest_big_arity > 0) {
+                halloc_size += BIG_NEED_SIZE(largest_big_arity);
+            }
+            
 	    break;
 	default:
 	    goto finalize;
@@ -5150,6 +5155,8 @@ static void fix_table_locked(Process* p, DbTable* tb)
     DbFixation *fix;
     int use_locks = !DB_LOCK_FREE(tb);
 
+    ERTS_LC_ASSERT(DB_LOCK_FREE(tb) || erts_lc_rwmtx_is_rlocked(&tb->common.rwlock));
+
     if (use_locks)
         erts_mtx_lock(&tb->common.fixlock);
 
@@ -5194,6 +5201,8 @@ static void unfix_table_locked(Process* p,  DbTable* tb,
 {
     DbFixation* fix;
     int use_locks = !DB_LOCK_FREE(tb);
+
+    ERTS_LC_ASSERT(DB_LOCK_FREE(tb) || erts_lc_rwmtx_is_rlocked(&tb->common.rwlock));
 
     if (use_locks)
         erts_mtx_lock(&tb->common.fixlock);

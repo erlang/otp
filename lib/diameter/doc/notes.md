@@ -3,7 +3,7 @@
 
 SPDX-License-Identifier: Apache-2.0
 
-Copyright Ericsson AB 2023-2025. All Rights Reserved.
+Copyright Ericsson AB 2023-2026. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,6 +22,21 @@ limitations under the License.
 # Release Notes
 
 Releases are listed in reverse chronological order, most recent first.
+
+## diameter 2.7.2
+
+### Fixed Bugs and Malfunctions
+
+- Fix infinite loop in `diameter_dist:route_session/2` when avp other than `Session-Id` has zero length.
+
+  Own Id: OTP-20242 Aux Id: [PR-11331]
+
+- Fix crash in `diameter_dist:route_session/2` when `Session-Id` (code: 263) avp has zero length.
+
+  Own Id: OTP-20243 Aux Id: [PR-11333]
+
+[PR-11331]: https://github.com/erlang/otp/pull/11331
+[PR-11333]: https://github.com/erlang/otp/pull/11333
 
 ## diameter 2.7.1
 
@@ -61,6 +76,21 @@ Releases are listed in reverse chronological order, most recent first.
 [PR-10580]: https://github.com/erlang/otp/pull/10580
 [PR-10730]: https://github.com/erlang/otp/pull/10730
 [PR-10839]: https://github.com/erlang/otp/pull/10839
+
+## diameter 2.6.1.2
+
+### Fixed Bugs and Malfunctions
+
+- Fix infinite loop in `diameter_dist:route_session/2` when avp other than `Session-Id` has zero length.
+
+  Own Id: OTP-20242 Aux Id: [PR-11331]
+
+- Fix crash in `diameter_dist:route_session/2` when `Session-Id` (code: 263) avp has zero length.
+
+  Own Id: OTP-20243 Aux Id: [PR-11333]
+
+[PR-11331]: https://github.com/erlang/otp/pull/11331
+[PR-11333]: https://github.com/erlang/otp/pull/11333
 
 ## diameter 2.6.1.1
 
@@ -176,6 +206,21 @@ Releases are listed in reverse chronological order, most recent first.
 [PR-9079]: https://github.com/erlang/otp/pull/9079
 [PR-9670]: https://github.com/erlang/otp/pull/9670
 [PR-9786]: https://github.com/erlang/otp/pull/9786
+
+## diameter 2.4.1.3
+
+### Fixed Bugs and Malfunctions
+
+- Fix infinite loop in `diameter_dist:route_session/2` when avp other than `Session-Id` has zero length.
+
+  Own Id: OTP-20242 Aux Id: [PR-11331]
+
+- Fix crash in `diameter_dist:route_session/2` when `Session-Id` (code: 263) avp has zero length.
+
+  Own Id: OTP-20243 Aux Id: [PR-11333]
+
+[PR-11331]: https://github.com/erlang/otp/pull/11331
+[PR-11333]: https://github.com/erlang/otp/pull/11333
 
 ## diameter 2.4.1.2
 

@@ -373,7 +373,7 @@ get_rc([K | Ks], Ls) ->
                                          ?DNS_UDP_PAYLOAD_SIZE,
                                          Ks, Ls);
 	dnssec_ok              -> get_rc(dnssec_ok,
-                                         res_res_dnssec_ok,
+                                         res_dnssec_ok,
                                          false,
                                          Ks, Ls);
 	resolv_conf            -> get_rc(resolv_conf,

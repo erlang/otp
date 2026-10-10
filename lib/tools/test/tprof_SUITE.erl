@@ -46,7 +46,8 @@
     server_all/0, server_all/1,
     hierarchy/0, hierarchy/1,
     code_reload/0, code_reload/1,
-    code_load/0, code_load/1
+    code_load/0, code_load/1,
+    disable_trace/0, disable_trace/1
 ]).
 
 -include_lib("stdlib/include/assert.hrl").
@@ -59,6 +60,7 @@ suite() ->
 
 all() ->
     [call_count_ad_hoc, %% Cannot be run in parallel
+     disable_trace,     %% Cannot be run in parallel
      {group, all}].
 
 groups() ->
@@ -219,6 +221,48 @@ lists_seq_loop(N) ->
 int_to_bin_twice(M) ->
     B = integer_to_binary(M),
     <<B/binary, B/binary>>.
+
+disable_trace() ->
+    [{doc, "Test `disable_trace` does not continue tracing"}].
+
+disable_trace(_Config) when is_list(_Config) ->
+    ok = disable_trace(new),
+    ok = disable_trace(existing),
+    true;
+disable_trace(new=Trace) ->
+    {ok, TracePid} = tprof:start(#{type => call_memory, session => Trace}),
+    tprof:set_pattern(TracePid, lists, '_', '_'),
+    tprof:enable_trace(TracePid, Trace, #{set_on_spawn => true}),
+
+    Pid = spawn(fun () -> lists:sum(lists:seq(1, 5000)) end),
+    timer:sleep(100),
+
+    tprof:disable_trace(TracePid, Trace, #{set_on_spawn => true}),
+    _ = spawn(fun () -> lists:sum(lists:seq(1, 5000)) end),
+    timer:sleep(100),
+
+    Result = tprof:collect(TracePid),
+    tprof:stop(TracePid),
+
+    Expected = tprof:inspect(Result, process, percent),
+    ?assertMatch([Pid], maps:keys(Expected));
+disable_trace(existing=Trace) ->
+    {ok, TracePid} = tprof:start(#{type => call_memory, session => Trace}),
+    tprof:set_pattern(TracePid, lists, '_', '_'),
+    tprof:enable_trace(TracePid, Trace, #{set_on_spawn => false}),
+
+    Pid = spawn(fun () -> lists:sum(lists:seq(1, 5000)) end),
+    timer:sleep(100),
+
+    tprof:disable_trace(TracePid, Trace, #{set_on_spawn => false}),
+
+    {call_memory, Result} = tprof:collect(TracePid),
+    tprof:stop(TracePid),
+
+    MatchingPids = lists:flatmap(fun ({_, _, _, L}) -> [P || {P, _, _} <- L, P == Pid] end, Result),
+    ?assertMatch(0, length(Result)),
+    ?assertMatch([], MatchingPids).
+
 
 %% Ensure total is not truncated,
 %% as per https://github.com/erlang/otp/issues/8139

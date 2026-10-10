@@ -3,7 +3,7 @@
 
 SPDX-License-Identifier: Apache-2.0
 
-Copyright Ericsson AB 2023-2025. All Rights Reserved.
+Copyright Ericsson AB 2023-2026. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -148,11 +148,11 @@ The environment parameters can be set on the command line, for example:
   early_data_indication extension. Defaults to 16384. Size limit is enforced by
   both client and server.
 
-- **`client_session_ticket_lifetime = integer() <optional>`** - Lifetime of
+- **`client_session_ticket_lifetime = pos_integer() <optional>`** - Lifetime of
   session tickets in the client ticket store. Expired tickets are automatically
   removed. Defaults to 7200 seconds (2 hours).
 
-- **`client_session_ticket_store_size = integer() <optional>`** - Sets the
+- **`client_session_ticket_store_size = pos_integer() <optional>`** - Sets the
   maximum size of the client session ticket store. Defaults to 1000. Size limit
   is enforced by dropping old tickets.
 

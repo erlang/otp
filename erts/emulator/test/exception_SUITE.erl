@@ -1069,6 +1069,7 @@ error_info(_Config) ->
          {phash, [any, not_integer]},
          {phash2, [any], [no_fail]},
          {phash2, [any, not_integer]},
+         {pid_to_binary, [abc]},
          {pid_to_list, [abc]},
 
          {open_port, [{bad,name}, []]},
@@ -1111,6 +1112,7 @@ error_info(_Config) ->
          {port_get_data, 1},
          {port_set_data, 2},
 
+         {port_to_binary, [abc]},
          {port_to_list, [abc]},
          {posixtime_to_universaltime, [abc]},
 
@@ -1153,6 +1155,7 @@ error_info(_Config) ->
          {raise, 3},
          {read_timer, [bad_timer]},
          {read_timer, [bad_time, bad_options]},
+         {ref_to_binary, [abc]},
          {ref_to_list, [abc]},
 
          {register, [<<"name">>, abc]},

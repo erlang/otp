@@ -73,15 +73,16 @@ used for flattening deep lists.
 
 -export([fwrite/2,fwrite/3,fread/2,fread/3,format/2,format/3]).
 -export([bfwrite/2, bfwrite/3, bformat/2, bformat/3]).
--export([scan_format/2,unscan_format/1,build_text/1,build_text/2]).
--export([print/1,print/4,indentation/2]).
+-export([scan_format/2,unscan_format/1]).
+-export([build_text/1,build_text/2,build_binary/1,build_binary/2]).
+-export([print/1,print/4,bprint/1,bprint/2,indentation/2]).
 
 -export([write/1,write/2,write/3,write/5,bwrite/2]).
 -export([nl/0,format_prompt/1,format_prompt/2]).
 -export([write_binary/3]).
 -export([write_atom/1,write_string/1,write_string/2,write_latin1_string/1,
          write_latin1_string/2, write_char/1, write_latin1_char/1,
-         bwrite_string/3
+         bwrite_atom/2,bwrite_string/3
         ]).
 
 -export([write_atom_as_latin1/1, write_string_as_latin1/1,
@@ -89,6 +90,8 @@ used for flattening deep lists.
 
 -export([quote_atom/2, char_list/1, latin1_char_list/1,
 	 deep_char_list/1, deep_latin1_char_list/1,
+         printable_binary/1, printable_binary/2, printable_binary/3,
+         printable_character/1, printable_character/2,
 	 printable_list/1, printable_latin1_list/1, printable_unicode_list/1]).
 
 %% Utilities for collecting characters mostly used by group
@@ -104,7 +107,8 @@ used for flattening deep lists.
 
 -export([chars_length/1]).
 
--export([write_bin/5, write_string_bin/3, write_binary_bin/4]).
+%% Internal io_lib functions
+-export([write_bin/5, write_string_bin/3, write_binary_bin/3, write_atom_bin/2]).
 
 -export_type([chars/0, latin1_string/0, continuation/0,
               fread_error/0, fread_item/0, format_spec/0,
@@ -115,12 +119,21 @@ used for flattening deep lists.
              string_bin_escape_latin1/6]},
            no_improper_lists]).
 
+%% Inlining printable character speeds it up by about 10-50% depending on the data.
+-compile({inline, [printable_character/2]}).
+
 %%----------------------------------------------------------------------
 
 -doc "An possibly deep list containing only `t:char/0`s.".
 -type chars() :: [char() | chars()].
 -type latin1_string() :: [unicode:latin1_char()].
 -type depth() :: -1 | non_neg_integer().
+
+-doc "Options accepted by `bprint/2`, corresponding to the arguments of `print/4`.".
+-type print_options() ::
+        #{'column' => non_neg_integer(),
+          'line_length' => non_neg_integer(),
+          'depth' => depth()}.
 
 -doc "A continuation as returned by `fread/3`.".
 -opaque continuation() :: {Format :: string(),
@@ -150,7 +163,7 @@ A map describing the contents of a format string.
 - `adjust` is the adjustment.
 - `precision` is the precision of the printed argument.
 - `pad_char` is the padding character.
-- `encoding` is set to `true` if translation modifier `t` is present.
+- `encoding` is set to `unicode` if translation modifier `t` is present.
 - `strings` is set to `false` if modifier `l` is present.
 - `maps_order` is set to `undefined` by default, `ordered` if modifier `k` is
   present, or `reversed` or `CmpFun` if modifier `K` is present.
@@ -396,7 +409,7 @@ Returns a list corresponding to the specified format string, where control
 sequences have been replaced with corresponding tuples. This list can be passed
 to:
 
-- `build_text/1` to have the same effect as [`format(Format, Args)`](`format/2`)
+- `build_text/1`/`build_binary/1` to have the same effect as [`format(Format, Args)`](`format/2`)/[`bformat(Format, Args)`](`bformat/2`)
 - `unscan_format/1` to get the corresponding pair of `Format` and `Args` (with
   every `*` and corresponding argument expanded to numeric values)
 
@@ -456,6 +469,30 @@ build_text(FormatList, Options) ->
             erlang:error(badarg, [FormatList, Options])
     end.
 
+-doc "For details, see `scan_format/2`.".
+-doc #{ since => <<"OTP 30.0">> }.
+-spec build_binary(FormatList) -> unicode:unicode_binary() when
+      FormatList :: [char() | format_spec()].
+build_binary(FormatList) ->
+    try io_lib_format:build_bin(FormatList)
+    catch
+        C:R:S ->
+            test_modules_loaded(C, R, S),
+            erlang:error(badarg, [FormatList])
+    end.
+
+-doc false.
+-spec build_binary(FormatList, Options) -> unicode:unicode_binary() when
+      FormatList :: [char() | format_spec()],
+      Options :: format_options().
+build_binary(FormatList, Options) ->
+    try io_lib_format:build_bin(FormatList, Options)
+    catch
+        C:R:S ->
+            test_modules_loaded(C, R, S),
+            erlang:error(badarg, [FormatList, Options])
+    end.
+
 %% Failure to load a module must not be labeled as badarg.
 %% C, R, and S are included so that the original error, which could be
 %% a bug in io_lib_format, can be found by tracing on
@@ -493,6 +530,28 @@ Also tries to detect and output lists of printable characters as strings.
 
 print(Term, Column, LineLength, Depth) ->
     io_lib_pretty:print(Term, Column, LineLength, Depth).
+
+-doc(#{equiv => bprint(Term, #{})}).
+-doc(#{since => ~"OTP 30.0"}).
+-spec bprint(Term) -> unicode:unicode_binary() when
+      Term :: term().
+
+bprint(Term) ->
+    bprint(Term, #{}).
+
+-doc """
+Returns a UTF-8 encoded binary that represents `Term`, formatted in the
+same way as `print/4` (breaking representations longer than one line
+into indented lines and detecting printable character lists as strings).
+""".
+-doc(#{since => ~"OTP 30.0"}).
+-spec bprint(Term, Options) -> unicode:unicode_binary() when
+      Term :: term(),
+      Options :: print_options().
+
+bprint(Term, Options) ->
+    {Bin, _Sz, _Col} = io_lib_pretty:print_bin(Term, Options),
+    Bin.
 
 -doc "Returns the indentation if `String` has been printed, starting at `StartIndent`.".
 -spec indentation(String, StartIndent) -> integer() when
@@ -674,20 +733,17 @@ write_bin1(Term, _D, _Enc, _O, Sz, Acc) when is_integer(Term) ->
 write_bin1(Term, _D, _Enc, _O, Sz, Acc) when is_float(Term) ->
     Float = float_to_binary(Term, [short]),
     {<<Acc/binary, Float/binary>>, byte_size(Float)+Sz};
-write_bin1(Atom, _D, latin1, _O, Sz, Acc) when is_atom(Atom) ->
-    Str = unicode:characters_to_binary(write_atom_as_latin1(Atom)),
-    {<<Acc/binary, Str/binary>>, byte_size(Str)+Sz};
-write_bin1(Atom, _D, _Enc, _O, Sz, Acc) when is_atom(Atom) ->
-    Str = write_atom(Atom),
-    {<<Acc/binary, (unicode:characters_to_binary(Str))/binary>>, length(Str)+Sz};
+write_bin1(Atom, _D, Enc, _O, Sz, Acc) when is_atom(Atom) ->
+    {Str, StrSz} = write_atom_bin(Atom, Enc),
+    {<<Acc/binary, Str/binary>>, StrSz+Sz};
 write_bin1(Term, _D, _Enc, _O, Sz, Acc) when is_port(Term) ->
-    Str = (list_to_binary(erlang:port_to_list(Term))),
+    Str = erlang:port_to_binary(Term),
     {<<Acc/binary, Str/binary>>, byte_size(Str)+Sz};
 write_bin1(Term, _D, _Enc, _O, Sz, Acc) when is_pid(Term) ->
-    Str = (list_to_binary(pid_to_list(Term))),
+    Str = erlang:pid_to_binary(Term),
     {<<Acc/binary, Str/binary>>, byte_size(Str)+Sz};
 write_bin1(Term, _D, _Enc, _O, Sz, Acc) when is_reference(Term) ->
-    Str = (list_to_binary(erlang:ref_to_list(Term))),
+    Str = erlang:ref_to_binary(Term),
     {<<Acc/binary, Str/binary>>, byte_size(Str)+Sz};
 write_bin1(<<_/bitstring>>=Term, D, _Enc, _O, Sz, Acc) ->
     write_binary_bin0(Term, D, Sz, Acc);
@@ -781,36 +837,68 @@ write_map_assoc_bin(K, V, D, Enc, O, Sz, Acc) ->
     write_bin1(V, D, Enc, O, Sz1 + 4, <<KBin/binary, " => ">>).
 
 write_binary_bin0(B, D, Sz, Acc) ->
-    {S, _} = write_binary_bin(B, D, -1, Acc),
-    {S, byte_size(S) - byte_size(Acc) + Sz}.
+    {S, _} = write_binary_body_bin(B, D, -1, <<>>),
+    {<<Acc/binary, S/binary>>, byte_size(S) + Sz}.
 
 -doc false.
--spec write_binary_bin(Bin, Depth, T, Acc) -> {unicode:unicode_binary(), binary()} when
+-spec write_binary_bin(Bin, Depth, T) -> {unicode:unicode_binary(), binary()} when
       Bin :: binary(),
       Depth :: integer(),
-      T :: integer(),
-      Acc :: unicode:unicode_binary().
+      T :: integer().
 
-write_binary_bin(B, D, T, Acc) when is_integer(T) ->
-    write_binary_body_bin(B, D, tsub(T, 4), <<Acc/binary, "<<" >>).
+write_binary_bin(B, D, T) when is_integer(T) ->
+    write_binary_body_bin(B, D, tsub(T, 4), <<>>).
 
-write_binary_body_bin(<<>> = B, _D, _T, Acc) ->
+write_binary_body_bin(B, D, T, Acc) ->
+    write_binary_body_bin1(B, D, T, <<Acc/binary, "<<">>).
+
+write_binary_body_bin1(<<>> = B, _D, _T, Acc) ->
     {<<Acc/binary, ">>" >>, B};
-write_binary_body_bin(<<_/bitstring>>=B, D, T, Acc) when D =:= 1; T =:= 0->
+write_binary_body_bin1(<<_/bitstring>>=B, D, T, Acc) when D =:= 1; T =:= 0->
     {<<Acc/binary, "...>>">>, B};
-write_binary_body_bin(<<X:8>>, _D, _T, Acc) ->
-    {<<Acc/binary, (integer_to_binary(X))/binary, ">>">>, <<>>};
-write_binary_body_bin(<<X:8,Rest/bitstring>>, D, T, Acc) ->
-    IntBin = integer_to_binary(X),
-    write_binary_body_bin(Rest, D-1, tsub(T, byte_size(IntBin) + 1),
+write_binary_body_bin1(<<X:8>>, _D, _T, Acc) ->
+    IntBin = byte_to_bin(X),
+    {<<Acc/binary, IntBin/binary, ">>">>, <<>>};
+write_binary_body_bin1(<<X:8,Rest/bitstring>>, D, T, Acc) ->
+    IntBin = byte_to_bin(X),
+    write_binary_body_bin1(Rest, D-1, tsub(T, byte_size(IntBin) + 1),
                           <<Acc/binary, IntBin/binary, $,>>);
-write_binary_body_bin(B, _D, _T, Acc) ->
+write_binary_body_bin1(B, _D, _T, Acc) ->
     L = bit_size(B),
     <<X:L>> = B,
-    {<<Acc/binary, (integer_to_binary(X))/binary, $:,
-       (integer_to_binary(L))/binary,">>">>,
-     <<>>}.
+    XBin = byte_to_bin(X),
+    LBin = byte_to_bin(L),
+    {<<Acc/binary, XBin/binary, $:, LBin/binary, ">>">>, <<>>}.
 
+byte_to_bin(B) ->
+    Tab = {~"0", ~"1", ~"2", ~"3", ~"4", ~"5", ~"6", ~"7", ~"8", ~"9",
+           ~"10", ~"11", ~"12", ~"13", ~"14", ~"15", ~"16", ~"17", ~"18", ~"19",
+           ~"20", ~"21", ~"22", ~"23", ~"24", ~"25", ~"26", ~"27", ~"28", ~"29",
+           ~"30", ~"31", ~"32", ~"33", ~"34", ~"35", ~"36", ~"37", ~"38", ~"39",
+           ~"40", ~"41", ~"42", ~"43", ~"44", ~"45", ~"46", ~"47", ~"48", ~"49",
+           ~"50", ~"51", ~"52", ~"53", ~"54", ~"55", ~"56", ~"57", ~"58", ~"59",
+           ~"60", ~"61", ~"62", ~"63", ~"64", ~"65", ~"66", ~"67", ~"68", ~"69",
+           ~"70", ~"71", ~"72", ~"73", ~"74", ~"75", ~"76", ~"77", ~"78", ~"79",
+           ~"80", ~"81", ~"82", ~"83", ~"84", ~"85", ~"86", ~"87", ~"88", ~"89",
+           ~"90", ~"91", ~"92", ~"93", ~"94", ~"95", ~"96", ~"97", ~"98", ~"99",
+           ~"100", ~"101", ~"102", ~"103", ~"104", ~"105", ~"106", ~"107", ~"108", ~"109",
+           ~"110", ~"111", ~"112", ~"113", ~"114", ~"115", ~"116", ~"117", ~"118", ~"119",
+           ~"120", ~"121", ~"122", ~"123", ~"124", ~"125", ~"126", ~"127", ~"128", ~"129",
+           ~"130", ~"131", ~"132", ~"133", ~"134", ~"135", ~"136", ~"137", ~"138", ~"139",
+           ~"140", ~"141", ~"142", ~"143", ~"144", ~"145", ~"146", ~"147", ~"148", ~"149",
+           ~"150", ~"151", ~"152", ~"153", ~"154", ~"155", ~"156", ~"157", ~"158", ~"159",
+           ~"160", ~"161", ~"162", ~"163", ~"164", ~"165", ~"166", ~"167", ~"168", ~"169",
+           ~"170", ~"171", ~"172", ~"173", ~"174", ~"175", ~"176", ~"177", ~"178", ~"179",
+           ~"180", ~"181", ~"182", ~"183", ~"184", ~"185", ~"186", ~"187", ~"188", ~"189",
+           ~"190", ~"191", ~"192", ~"193", ~"194", ~"195", ~"196", ~"197", ~"198", ~"199",
+           ~"200", ~"201", ~"202", ~"203", ~"204", ~"205", ~"206", ~"207", ~"208", ~"209",
+           ~"210", ~"211", ~"212", ~"213", ~"214", ~"215", ~"216", ~"217", ~"218", ~"219",
+           ~"220", ~"221", ~"222", ~"223", ~"224", ~"225", ~"226", ~"227", ~"228", ~"229",
+           ~"230", ~"231", ~"232", ~"233", ~"234", ~"235", ~"236", ~"237", ~"238", ~"239",
+           ~"240", ~"241", ~"242", ~"243", ~"244", ~"245", ~"246", ~"247", ~"248", ~"249",
+           ~"250", ~"251", ~"252", ~"253", ~"254", ~"255"
+          },
+    element(B+1, Tab).
 
 write1(_Term, 0, _E, _O) -> "...";
 write1(Term, _D, _E, _O) when is_integer(Term) -> integer_to_list(Term);
@@ -969,6 +1057,45 @@ write_possibly_quoted_atom(Atom, PFun) ->
 	    Chars
     end.
 
+-doc """
+Returns the unicode binary of characters needed to print atom `Atom`.
+
+Behaves as `write_atom_as_latin1/1` when encoding is latin1, otherwise
+as `write_atom/1`.
+""".
+
+-doc(#{since => ~"OTP 30"}).
+-spec bwrite_atom(Atom, InEncoding) -> unicode:unicode_binary() when
+      Atom :: atom(),
+      InEncoding :: 'latin1' | 'utf8' | 'unicode'.
+bwrite_atom(Atom, InEncoding) ->
+    {S, _Sz} = write_atom_bin(Atom, InEncoding),
+    S.
+
+
+-doc false.
+-spec write_atom_bin(Atom, InEncoding) -> {unicode:unicode_binary(), Sz::integer()} when
+      Atom :: atom(),
+      InEncoding :: 'latin1' | 'utf8' | 'unicode'.
+write_atom_bin(Atom, latin1) ->
+    %% latin1: code points > 255 are escaped as \x{...}, which the
+    %% binary escaping path does not handle.
+    Str = write_atom_as_latin1(Atom),
+    {unicode:characters_to_binary(Str, latin1), chars_length(Str)};
+write_atom_bin(Atom, InEncoding) ->
+    AtomBin = atom_to_binary(Atom, InEncoding),
+    case erl_scan:reserved_word(Atom) of
+        true ->
+            write_string_bin(AtomBin, $', InEncoding);
+        false ->
+            case name_chars_bin(AtomBin) of
+                {true, Len} ->
+                    {AtomBin, Len};
+                false ->
+                    write_string_bin(AtomBin, $', InEncoding)
+            end
+    end.
+
 %% quote_atom(Atom, CharList)
 %%  Return 'true' if atom with chars in CharList needs to be quoted, else
 %%  return 'false'. Notice that characters >= 160 are always quoted.
@@ -1006,6 +1133,39 @@ name_char($_) -> true;
 name_char($@) -> true;
 name_char(_) -> false.
 
+
+%% Return true if there is no need to quote the atom
+%%
+%% The first character must be a lowercase letter (a..z or latin1
+%% lowercase ß..ÿ except ÷); otherwise the atom must be quoted.
+%% Returns {true, Len} for an unquoted atom, where Len is the number of
+%% characters. This equals the grapheme-cluster count (string:length/1)
+%% because none of the accepted characters is a combining mark or can
+%% otherwise be part of a multi-codepoint grapheme cluster; any such
+%% character fails here and forces the quoted path (write_string_bin),
+%% which counts graphemes. Preserve this invariant if the accepted
+%% ranges are ever widened.
+name_chars_bin(<<C/utf8, Rest/binary>>)
+  when C >= $a, C =< $z;
+       C >= $ß, C =< $ÿ, C =/= $÷ ->
+    name_chars_bin_rest(Rest, 1);
+name_chars_bin(_) ->
+    false.
+
+name_chars_bin_rest(<<C/utf8, Rest/binary>>, N) ->
+    if
+        C >= $a, C =< $z -> name_chars_bin_rest(Rest, N+1);
+        C >= $ß, C =< $ÿ, C =/= $÷ -> name_chars_bin_rest(Rest, N+1);
+        C >= $A, C =< $Z -> name_chars_bin_rest(Rest, N+1);
+        C >= $À, C =< $Þ, C =/= $× -> name_chars_bin_rest(Rest, N+1);
+        C >= $0, C =< $9 -> name_chars_bin_rest(Rest, N+1);
+        C =:= $_ -> name_chars_bin_rest(Rest, N+1);
+        C =:= $@ -> name_chars_bin_rest(Rest, N+1);
+        true -> false
+    end;
+name_chars_bin_rest(<<>>, N) ->
+    {true, N}.
+
 %%% There are two functions to write Unicode strings:
 %%% - they both escape control characters < 160;
 %%% - write_string() never escapes characters >= 160;
@@ -1032,7 +1192,7 @@ write_string(S, Q) ->
 -spec bwrite_string(String, Qoute, InEnc) -> unicode:unicode_binary() when
       String :: string() | binary(),
       Qoute  :: integer() | [],
-      InEnc  :: 'unicode' | 'latin1'.  %% In case of binary input
+      InEnc  :: 'unicode' | 'utf8' | 'latin1'.  %% In case of binary input
 
 bwrite_string(S, Q, InEnc) ->
     {Bin, _Sz} = write_string_bin(S, Q, InEnc),
@@ -1042,10 +1202,10 @@ bwrite_string(S, Q, InEnc) ->
 -spec write_string_bin(String, Qoute, InEnc) -> {unicode:unicode_binary(), Sz::integer()} when
       String :: string() | binary(),
       Qoute  :: integer() | [],
-      InEnc  :: 'unicode' | 'latin1'.  %% In case of binary input
+      InEnc  :: 'unicode' | 'utf8' | 'latin1'.  %% In case of binary input
 
 write_string_bin(S, Q, _InEnc) when is_list(S) ->
-    Escaped = write_string(S,Q),
+    Escaped = write_string(S, Q),
     Sz = chars_length(Escaped),
     Bin = unicode:characters_to_binary(Escaped),
     true = is_binary(Bin),
@@ -1056,7 +1216,7 @@ write_string_bin(S, Q, latin1) when is_binary(S) ->
     Bin = unicode:characters_to_binary([Q,Escaped,Q], latin1, utf8),
     true = is_binary(Bin),
     {Bin, Sz};
-write_string_bin(S, Q, unicode) when is_binary(S) ->
+write_string_bin(S, Q, _) when is_binary(S) ->
     Escaped = string_bin_escape_unicode(S, S, Q, [], 0, 0),
     Bin = case Q of
               [] when is_binary(Escaped) -> Escaped;
@@ -1084,6 +1244,22 @@ string_bin_escape_latin1(_, Orig, _, Acc, Skip, Len) ->
         false -> [Acc | binary_part(Orig, Skip, Len)]
     end.
 
+string_bin_escape_unicode(<<16#C2, Byte, Rest/binary>>, Orig, Q, Acc, Skip0, Len)
+  when Byte >= 16#80, Byte =< 16#9F ->
+    %% C1 control characters (U+0080-U+009F) - octal escape to match list path.
+    C1 = (Byte bsr 6) + $0,
+    C2 = ((Byte bsr 3) band 7) + $0,
+    C3 = (Byte band 7) + $0,
+    Escape = [$\\,C1,C2,C3],
+    case Len =:= 0 of
+        true ->
+            Skip = Skip0 + 2,
+            string_bin_escape_unicode(Rest, Orig, Q, [Acc | Escape], Skip, 0);
+        false ->
+            Skip = Skip0 + Len + 2,
+            Part = binary_part(Orig, Skip0, Len),
+            string_bin_escape_unicode(Rest, Orig, Q, [Acc, Part | Escape], Skip, 0)
+    end;
 string_bin_escape_unicode(<<Byte, Rest/binary>>, Orig, Q, Acc, Skip0, Len) when Byte > 127 ->
     string_bin_escape_unicode(Rest, Orig, Q, Acc, Skip0, Len+1);
 string_bin_escape_unicode(<<Byte, Rest/binary>>, Orig, Q, Acc, Skip0, Len) ->
@@ -1320,6 +1496,70 @@ deep_char_list(_, _More) ->		%Everything else is false
 deep_unicode_char_list(Term) ->
     deep_char_list(Term).
 
+-doc #{ equiv => printable_character(Char, io:printable_range()) }.
+-doc #{ since => <<"OTP 30.0">> }.
+-spec printable_character(Char :: non_neg_integer()) -> boolean().
+printable_character(Char) when is_integer(Char) ->
+    printable_character(Char, io:printable_range()).
+
+-doc """
+Returns `true` if `Char` is a printable character, otherwise `false`.
+
+The `PrintableRange` is the characters range that is considered to be printable.
+By default it is determined by the Erlang VM startup flag `+pc`, which can be either
+`latin1` or `unicode`. See `io:printable_range/0` and [`erl(1)`](`e:erts:erl_cmd.md`) for more information.
+""".
+-doc #{ since => <<"OTP 30.0">> }.
+-spec printable_character(Char :: non_neg_integer(), PrintableRange :: 'latin1' | 'unicode') -> boolean().
+printable_character(Char, latin1) when is_integer(Char) ->
+    (Char >= 16#20 andalso Char =< 16#7E) orelse
+      (Char >= 16#A0 andalso Char =< 16#FF) orelse
+      (Char =:= $\t) orelse
+      (Char =:= $\n) orelse
+      (Char =:= $\r) orelse
+      (Char =:= $\v) orelse
+      (Char =:= $\b) orelse
+      (Char =:= $\f) orelse
+      (Char =:= $\e);
+printable_character(Char, unicode) when is_integer(Char) ->
+    printable_character(Char, latin1) orelse
+       (Char >= 16#100 andalso Char =< 16#D7FF) orelse
+       (Char >= 16#E000 andalso Char =< 16#FFFD) orelse
+       (Char >= 16#10000 andalso Char =< 16#10FFFF).
+
+-doc #{ equiv => printable_binary(Term, unicode, io:printable_range()) }.
+-doc #{ since => <<"OTP 30.0">> }.
+-spec printable_binary(Term :: term()) -> boolean().
+printable_binary(S) ->
+    printable_binary(S, unicode).
+
+-doc #{ equiv => printable_binary(Term, BinaryEncoding, io:printable_range()) }.
+-doc #{ since => <<"OTP 30.0">> }.
+-spec printable_binary(Term :: term(), BinaryEncoding :: 'latin1' | 'unicode') -> boolean().
+printable_binary(S, BinaryEncoding) ->
+    printable_binary(S, BinaryEncoding, io:printable_range()).
+
+
+-doc """
+Returns `true` if `Term` is a binary of printable characters, otherwise `false`.
+
+`BinaryEncoding` is the character encoding of the binary, either `latin1` or `unicode`.
+
+The `PrintableRange` is the characters range that is considered to be printable.
+By default it is determined by the Erlang VM startup flag `+pc`, which can be either
+`latin1` or `unicode`. See `io:printable_range/0` and [`erl(1)`](`e:erts:erl_cmd.md`) for more information.
+""".
+-doc #{ since => <<"OTP 30.0">> }.
+-spec printable_binary(Term :: term(), BinaryEncoding :: 'latin1' | 'unicode', PrintableRange :: 'latin1' | 'unicode') -> boolean().
+printable_binary(<<C, Bin/binary>>, latin1, Encoding) ->
+    printable_character(C, Encoding) andalso printable_binary(Bin, latin1, Encoding);
+printable_binary(<<C/utf8, Bin/binary>>, unicode, Encoding) ->
+    printable_character(C, Encoding) andalso printable_binary(Bin, unicode, Encoding);
+printable_binary(<<>>, _, _) ->
+    true;
+printable_binary(_, _, _) ->
+    false.
+
 %% printable_latin1_list([Char]) -> boolean()
 %%  Return true if CharList is a list of printable Latin1 characters, else
 %%  false.
@@ -1332,17 +1572,8 @@ otherwise `false`.
 -spec printable_latin1_list(Term) -> boolean() when
       Term :: term().
 
-printable_latin1_list([C|Cs]) when is_integer(C), C >= $\040, C =< $\176 ->
-    printable_latin1_list(Cs);
-printable_latin1_list([C|Cs]) when is_integer(C), C >= $\240, C =< $\377 ->
-    printable_latin1_list(Cs);
-printable_latin1_list([$\n|Cs]) -> printable_latin1_list(Cs);
-printable_latin1_list([$\r|Cs]) -> printable_latin1_list(Cs);
-printable_latin1_list([$\t|Cs]) -> printable_latin1_list(Cs);
-printable_latin1_list([$\v|Cs]) -> printable_latin1_list(Cs);
-printable_latin1_list([$\b|Cs]) -> printable_latin1_list(Cs);
-printable_latin1_list([$\f|Cs]) -> printable_latin1_list(Cs);
-printable_latin1_list([$\e|Cs]) -> printable_latin1_list(Cs);
+printable_latin1_list([C|Cs]) when is_integer(C) ->
+    printable_character(C, latin1) andalso printable_latin1_list(Cs);
 printable_latin1_list([]) -> true;
 printable_latin1_list(_) -> false.			%Everything else is false
 
@@ -1386,20 +1617,8 @@ otherwise `false`.
 -spec printable_unicode_list(Term) -> boolean() when
       Term :: term().
 
-printable_unicode_list([C|Cs]) when is_integer(C), C >= $\040, C =< $\176 ->
-    printable_unicode_list(Cs);
-printable_unicode_list([C|Cs])
-  when is_integer(C), C >= 16#A0, C < 16#D800;
-       is_integer(C), C > 16#DFFF, C < 16#FFFE;
-       is_integer(C), C > 16#FFFF, C =< 16#10FFFF ->
-    printable_unicode_list(Cs);
-printable_unicode_list([$\n|Cs]) -> printable_unicode_list(Cs);
-printable_unicode_list([$\r|Cs]) -> printable_unicode_list(Cs);
-printable_unicode_list([$\t|Cs]) -> printable_unicode_list(Cs);
-printable_unicode_list([$\v|Cs]) -> printable_unicode_list(Cs);
-printable_unicode_list([$\b|Cs]) -> printable_unicode_list(Cs);
-printable_unicode_list([$\f|Cs]) -> printable_unicode_list(Cs);
-printable_unicode_list([$\e|Cs]) -> printable_unicode_list(Cs);
+printable_unicode_list([C|Cs]) when is_integer(C) ->
+    printable_character(C, unicode) andalso printable_unicode_list(Cs);
 printable_unicode_list([]) -> true;
 printable_unicode_list(_) -> false.		%Everything else is false
 

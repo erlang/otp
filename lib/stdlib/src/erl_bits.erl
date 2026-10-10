@@ -56,7 +56,9 @@ as_list(Bt) ->
 -spec set_bit_type('default' | size(), 'default' | [type()]) ->
         {'ok', 'undefined' | size(), #bittype{}} |
         {'error', {'undefined_bittype', term()}} |
-        {'error', {'bittype_mismatch', term(), term(), string()}}.
+        {'error', {'bittype_mismatch', term(), term(), string()}} |
+        {'error', 'utf_bittype_size_or_unit'} |
+        {'error', 'bittype_unit'}.
 
 set_bit_type(Size, default) ->
     set_bit_type(Size, []);

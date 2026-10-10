@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -107,7 +107,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -doc(#{equiv => new(Cols, [])}).
 -spec new(Cols) -> wxFlexGridSizer() when
-	Cols::integer().
+        Cols::integer().
 
 new(Cols)
  when is_integer(Cols) ->
@@ -127,9 +127,9 @@ new(Cols, Options)
 
 -doc "".
 -spec new(Cols, Vgap, Hgap) -> wxFlexGridSizer() when
-	Cols::integer(), Vgap::integer(), Hgap::integer();
+        Cols::integer(), Vgap::integer(), Hgap::integer();
       (Rows, Cols, Gap) -> wxFlexGridSizer() when
-	Rows::integer(), Cols::integer(), Gap::{W::integer(), H::integer()}.
+        Rows::integer(), Cols::integer(), Gap::{W::integer(), H::integer()}.
 new(Cols,Vgap,Hgap)
  when is_integer(Cols),is_integer(Vgap),is_integer(Hgap) ->
   wxe_util:queue_cmd(Cols,Vgap,Hgap,?get_env(),?wxFlexGridSizer_new_3_0),
@@ -141,7 +141,7 @@ new(Rows,Cols,{GapW,GapH} = Gap)
 
 -doc "".
 -spec new(Rows, Cols, Vgap, Hgap) -> wxFlexGridSizer() when
-	Rows::integer(), Cols::integer(), Vgap::integer(), Hgap::integer().
+        Rows::integer(), Cols::integer(), Vgap::integer(), Hgap::integer().
 new(Rows,Cols,Vgap,Hgap)
  when is_integer(Rows),is_integer(Cols),is_integer(Vgap),is_integer(Hgap) ->
   wxe_util:queue_cmd(Rows,Cols,Vgap,Hgap,?get_env(),?wxFlexGridSizer_new_4),
@@ -149,7 +149,7 @@ new(Rows,Cols,Vgap,Hgap)
 
 -doc(#{equiv => addGrowableCol(This,Idx, [])}).
 -spec addGrowableCol(This, Idx) -> 'ok' when
-	This::wxFlexGridSizer(), Idx::integer().
+        This::wxFlexGridSizer(), Idx::integer().
 
 addGrowableCol(This,Idx)
  when is_record(This, wx_ref),is_integer(Idx) ->
@@ -181,7 +181,7 @@ addGrowableCol(#wx_ref{type=ThisT}=This,Idx, Options)
 
 -doc(#{equiv => addGrowableRow(This,Idx, [])}).
 -spec addGrowableRow(This, Idx) -> 'ok' when
-	This::wxFlexGridSizer(), Idx::integer().
+        This::wxFlexGridSizer(), Idx::integer().
 
 addGrowableRow(This,Idx)
  when is_record(This, wx_ref),is_integer(Idx) ->
@@ -219,7 +219,7 @@ Return: One of the following values:
 See: `setFlexibleDirection/2`
 """.
 -spec getFlexibleDirection(This) -> integer() when
-	This::wxFlexGridSizer().
+        This::wxFlexGridSizer().
 getFlexibleDirection(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxFlexGridSizer),
   wxe_util:queue_cmd(This,?get_env(),?wxFlexGridSizer_GetFlexibleDirection),
@@ -252,7 +252,7 @@ See:
 """.
 %%  Res = ?wxFLEX_GROWMODE_NONE | ?wxFLEX_GROWMODE_SPECIFIED | ?wxFLEX_GROWMODE_ALL
 -spec getNonFlexibleGrowMode(This) -> wx:wx_enum() when
-	This::wxFlexGridSizer().
+        This::wxFlexGridSizer().
 getNonFlexibleGrowMode(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxFlexGridSizer),
   wxe_util:queue_cmd(This,?get_env(),?wxFlexGridSizer_GetNonFlexibleGrowMode),
@@ -260,7 +260,7 @@ getNonFlexibleGrowMode(#wx_ref{type=ThisT}=This) ->
 
 -doc "Specifies that the `idx` column index is no longer growable.".
 -spec removeGrowableCol(This, Idx) -> 'ok' when
-	This::wxFlexGridSizer(), Idx::integer().
+        This::wxFlexGridSizer(), Idx::integer().
 removeGrowableCol(#wx_ref{type=ThisT}=This,Idx)
  when is_integer(Idx) ->
   ?CLASS(ThisT,wxFlexGridSizer),
@@ -268,7 +268,7 @@ removeGrowableCol(#wx_ref{type=ThisT}=This,Idx)
 
 -doc "Specifies that the `idx` row index is no longer growable.".
 -spec removeGrowableRow(This, Idx) -> 'ok' when
-	This::wxFlexGridSizer(), Idx::integer().
+        This::wxFlexGridSizer(), Idx::integer().
 removeGrowableRow(#wx_ref{type=ThisT}=This,Idx)
  when is_integer(Idx) ->
   ?CLASS(ThisT,wxFlexGridSizer),
@@ -284,7 +284,7 @@ See `getFlexibleDirection/1` for the explanation of these values. Note that this
 relayout.
 """.
 -spec setFlexibleDirection(This, Direction) -> 'ok' when
-	This::wxFlexGridSizer(), Direction::integer().
+        This::wxFlexGridSizer(), Direction::integer().
 setFlexibleDirection(#wx_ref{type=ThisT}=This,Direction)
  when is_integer(Direction) ->
   ?CLASS(ThisT,wxFlexGridSizer),
@@ -299,7 +299,7 @@ explanation. Note that this method does not trigger relayout.
 """.
 %%  Mode = ?wxFLEX_GROWMODE_NONE | ?wxFLEX_GROWMODE_SPECIFIED | ?wxFLEX_GROWMODE_ALL
 -spec setNonFlexibleGrowMode(This, Mode) -> 'ok' when
-	This::wxFlexGridSizer(), Mode::wx:wx_enum().
+        This::wxFlexGridSizer(), Mode::wx:wx_enum().
 setNonFlexibleGrowMode(#wx_ref{type=ThisT}=This,Mode)
  when is_integer(Mode) ->
   ?CLASS(ThisT,wxFlexGridSizer),

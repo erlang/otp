@@ -97,7 +97,8 @@
          terminate/3]).
 
 %% Log handling
--export([format_status/2]).
+-export([format_status/1,
+         format_options/1]).
 
 %% Tracing
 -export([handle_trace/3]).
@@ -728,6 +729,11 @@ downgrade(Type, Event, State) ->
 %%====================================================================
 %%  Event/Msg handling
 %%====================================================================
+handle_common_event(internal, {handshake, {#hello_request{}, _Raw}}, StateName,
+                    #state{static_env = #static_env{role = client}})
+  when StateName =/= connection ->
+    %%  %% RFC 5246 §7.4.1.1: Ignore this message client is already in negotiation
+    keep_state_and_data;
 handle_common_event(internal, {handshake, {Handshake, Raw}}, StateName,
 		    #state{handshake_env = #handshake_env{tls_handshake_history = Hist0} = HsEnv,
                            connection_env = #connection_env{negotiated_version = _Version}} = State0) ->
@@ -1016,8 +1022,12 @@ send_alert(Alert, _, #state{static_env = #static_env{protocol_cb = Connection}} 
 
 handle_own_alert(Alert0, StateName,
 		 #state{static_env = #static_env{role = Role,
+                                                 host = Host,
+                                                 port = Port,
                                                  protocol_cb = Connection},
-                        ssl_options = #{log_level := LogLevel}} = State) ->
+                        ssl_options = #{log_level := LogLevel},
+                        session = Session} = State) ->
+    invalidate_session(Role, Host, Port, Session),
     Alert = Alert0#alert{role = Role},
     try %% Try to tell the other side
         send_alert(Alert, StateName, State)
@@ -1264,24 +1274,29 @@ terminate(Reason, _StateName, #state{static_env = #static_env{transport_cb = Tra
 %%====================================================================
 %% Log handling
 %%====================================================================
-format_status(normal, [_, StateName, State]) ->
-    [{data, [{"State", {StateName, State}}]}];
-format_status(terminate, [_, StateName, State]) ->
-    SslOptions = (State#state.ssl_options),
-    NewOptions = SslOptions#{
-                             certs_keys => ?SECRET_PRINTOUT,
-                             cacerts => ?SECRET_PRINTOUT,
-                             dh => ?SECRET_PRINTOUT,
-                             psk_identity => ?SECRET_PRINTOUT,
-                             srp_identity => ?SECRET_PRINTOUT},
-    [{data, [{"State", {StateName, State#state{connection_states = ?SECRET_PRINTOUT,
-					       protocol_buffers =  ?SECRET_PRINTOUT,
-					       user_data_buffer = ?SECRET_PRINTOUT,
-					       handshake_env =  ?SECRET_PRINTOUT,
-                                               connection_env = ?SECRET_PRINTOUT,
-					       session =  ?SECRET_PRINTOUT,
-					       ssl_options = NewOptions}
-		       }}]}].
+-spec format_status(map()) -> map().
+format_status(Status) ->
+    maps:map(
+      fun(data, State) ->
+              TLSOptions = (State#state.ssl_options),
+              NewOptions = format_options(TLSOptions),
+              State#state{connection_states = ?SECRET_PRINTOUT,
+                          protocol_buffers =  ?SECRET_PRINTOUT,
+                          user_data_buffer = ?SECRET_PRINTOUT,
+                          handshake_env =  ?SECRET_PRINTOUT,
+                          connection_env = ?SECRET_PRINTOUT,
+                          session =  ?SECRET_PRINTOUT,
+                          ssl_options = NewOptions};
+         (_,Value) ->
+              Value
+      end, Status).
+
+format_options(TLSOptions) ->
+    TLSOptions#{certs_keys => ?SECRET_PRINTOUT,
+                cacerts => ?SECRET_PRINTOUT,
+                dh => ?SECRET_PRINTOUT,
+                psk_identity => ?SECRET_PRINTOUT,
+                srp_identity => ?SECRET_PRINTOUT}.
 
 %%--------------------------------------------------------------------
 %%% Internal functions
@@ -1927,13 +1942,22 @@ connection_info(#state{handshake_env = #handshake_env{sni_hostname = SNIHostname
                   _ ->
                       []
               end,
+    GroupInfo = case Version of
+                    ?TLS_1_3 when is_atom(ECCCurve), ECCCurve =/= undefined ->
+                        %% For TLS-1.3 the named group of the key exchange is
+                        %% negotiated via the supported_groups and key_share
+                        %% extensions and is kept in session.ecc
+                        [{selected_group, ECCCurve}];
+                    _ ->
+                        []
+                end,
     [{protocol, RecordCB:protocol_version(Version)},
      {session_id, SessionId},
      {session_data, term_to_binary(Session)},
      {session_resumption, Resumption},
      {selected_cipher_suite, CipherSuiteDef},
      {sni_hostname, SNIHostname},
-     {srp_username, SrpUsername} | CurveInfo] ++ MFLInfo ++ ssl_options_list(Opts).
+     {srp_username, SrpUsername} | CurveInfo] ++ GroupInfo ++ MFLInfo ++ ssl_options_list(Opts).
 
 security_info(#state{connection_states = #{current_read := Read,
                                            current_write := Write},
@@ -2274,7 +2298,7 @@ keylog_hs_alert(negotiated, #state{static_env = #static_env{role = server},
                                                   prf_algorithm = Prf
                                                  }
      } = Read,
-    {keylog_hs_1_3(ClientRandomBin, Prf, EarlySecret, ServerHSSecret, ClientHSSecret),
+    {keylog_hs_1_3(ClientRandomBin, Prf, EarlySecret, ClientHSSecret, ServerHSSecret),
      ClientRandomBin};
 keylog_hs_alert(wait_eoed, #state{static_env = #static_env{role = server},
                                   connection_env =
@@ -2301,12 +2325,11 @@ keylog_hs_alert(connection, #state{static_env = #static_env{role = client},
   when ?TLS_GTE(TlsVersion, ?TLS_1_3) ->
     #{server_handshake_traffic_secret := ServerHSSecret,
       security_parameters :=
-          #security_parameters{master_secret = {master_secret, STrafficSecret}
-                              }}
+          #security_parameters{application_traffic_secret = STrafficSecret}}
         = Read,
     #{client_handshake_traffic_secret := ClientHSSecret,
        security_parameters :=
-          #security_parameters{master_secret = {master_secret, CTrafficSecret},
+          #security_parameters{application_traffic_secret = CTrafficSecret,
                                client_random = ClientRandomBin,
                                client_early_data_secret = EarlySecret,
                                prf_algorithm = Prf
@@ -2350,14 +2373,14 @@ keylog_1_3_client_finished(Read, Write) ->
     #{server_handshake_traffic_secret := ServerHSSecret,
       security_parameters := #security_parameters{client_random = ClientRandomBin,
                                                   prf_algorithm = Prf,
-                                                  master_secret = {master_secret, TrafficSecret}
+                                                  application_traffic_secret = TrafficSecret
                                                  }}
         = Write,
     #{client_handshake_traffic_secret := ClientHSSecret,
       security_parameters :=
           #security_parameters{client_early_data_secret = EarlySecret}
      } = Read,
-    {keylog_hs_1_3(ClientRandomBin, Prf, EarlySecret, ServerHSSecret, ClientHSSecret) ++
+    {keylog_hs_1_3(ClientRandomBin, Prf, EarlySecret, ClientHSSecret, ServerHSSecret) ++
          ssl_logger:keylog_traffic_1_3(server, ClientRandomBin, Prf, TrafficSecret, 0),
      ClientRandomBin}.
 

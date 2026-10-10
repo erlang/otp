@@ -241,7 +241,7 @@ open_close(_Config) ->
     [{trace, Prt2, 'receive', {S, close}},
      {trace, Prt2, send, closed, S}] = flush(),
 
-    catch erlang:port_close(Prt2),
+    try erlang:port_close(Prt2) catch _:_ -> ok end,
     [] = flush(),
 
     ok.

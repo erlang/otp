@@ -240,6 +240,14 @@
 # define HAVE_BLAKE2
 #endif
 
+#ifdef HAS_3_0_API
+# define HAVE_KDF
+#endif
+
+#if OPENSSL_VERSION_NUMBER >= PACKED_OPENSSL_VERSION_PLAIN(3,2,0)
+# define HAVE_ARGON2
+#endif
+
 #ifndef OPENSSL_NO_BF
 # define HAVE_BF
 #endif
@@ -348,6 +356,19 @@
 # ifndef HAS_LIBRESSL
 #  if !defined(OPENSSL_NO_POLY1305)
 #    define HAVE_POLY1305
+#  endif
+# endif
+#endif
+
+// SipHash via the EVP_MAC "SIPHASH" interface (OpenSSL 3.0+). The pre-3.0
+// EVP_PKEY_SIPHASH path is intentionally not used: selecting the 64-bit output
+// there requires setting the digest size before key init, with version-specific
+// ordering semantics that are easy to get silently wrong. The EVP_MAC "size"
+// parameter handles both the 64- and 128-bit variants cleanly.
+#if defined(HAS_3_0_API)
+# ifndef HAS_LIBRESSL
+#  if !defined(OPENSSL_NO_SIPHASH)
+#    define HAVE_SIPHASH
 #  endif
 # endif
 #endif

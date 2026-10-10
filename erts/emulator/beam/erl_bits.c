@@ -48,7 +48,7 @@ typedef _Float16 erlfp16;
 #define FP16_TO_FP64(x) ((double) x)
 #else
 typedef Uint16 erlfp16;
-#define FP16_FROM_FP64(x) (f32_to_f16((float) x))
+#define FP16_FROM_FP64(x) (f64_to_f16(x))
 #define FP16_TO_FP64(x) ((double) f16_to_f32(x))
 #endif
 
@@ -423,72 +423,86 @@ erts_bs_get_binary_2(Process *p, Uint num_bits, ErlSubBits *sb)
     return result;
 }
 
-static ERTS_INLINE Uint16 f32_to_f16(float fp)
+/* Software fallback for FP16_FROM_FP64: convert a double directly to a
+ * binary16 with a single round-to-nearest-even step, mirroring the
+ * semantics of the native (_Float16) cast used when _Float16 is
+ * available. Converting through float first would round twice and could
+ * give results that differ from the native path. */
+static ERTS_INLINE Uint16 f64_to_f16(double fp)
 {
     union {
-        float f32;
-        Uint32 u32;
+        double f64;
+        Uint64 u64;
     } u;
-    Uint32 u32;
-    Uint32 sign, exp, mantissa;
-    int signed_exp;
-    Uint16 res;
+    Uint64 man, keep, low;
+    Uint16 sign;
+    int exp, e, shift, guard, sticky;
 
-    u.f32 = fp;
-    u32 = u.u32;
+    u.f64 = fp;
 
-    sign = (u32 >> 31) & 0x1;
-    exp = (u32 >> 23) & 0xff;
-    mantissa = (u32 >> (23 - 10)) & 0x3ff;
+    sign = (Uint16) ((u.u64 >> 48) & 0x8000);
+    exp = (int) ((u.u64 >> 52) & 0x7ff);
+    man = u.u64 & ((((Uint64) 1) << 52) - 1);
+
+    /* Erlang floats are always finite, small integers always fit in a
+     * finite double, and oversized bignums are rejected by
+     * big_to_double() before we are called, so exp == 0x7ff (Inf/NaN)
+     * cannot occur here. If it ever did, it would fall through to the
+     * overflow branch below and yield infinity. */
+    ASSERT(exp != 0x7ff);
 
     if (exp == 0) {
-        /* Convert zero to f16. */
-        res = sign << 15;
-        return res;
+        /* Subnormal doubles are far below the binary16 subnormal range;
+         * they round to zero. */
+        return sign;
     }
 
-    signed_exp = exp - (127 - 15);
-    exp -= (127 - 15); /* Convert exponent from f32 bias to f16 bias. */
-    if (signed_exp <= 0) {
-        Uint32 shift;
-        mantissa |= 1 << 23;
-        shift = -signed_exp;
-        if (shift <= 24 ) {
-            /* Subnormal value in f16. */
-            Uint32 round = 1 << shift;
-            mantissa = (mantissa + round + ((mantissa >> shift) & 1)) >> shift;
-            res = sign << 15 | (mantissa & 0x3ff);
-        } else {
-            /* Underflow to 0. */
-            res = sign << 15;
+    e = exp - 1023;
+    man |= ((Uint64) 1) << 52;  /* Full 53-bit significand. */
+
+    if (e >= -14) {
+        /* Normal value in binary16: keep 11 significand bits and round
+         * the 42 bits below them. */
+        Uint64 k;
+        if (e > 15) {
+            /* Overflow becomes infinity. */
+            return (Uint16) (sign | 0x7C00);
         }
-    } else if (exp > 0x1f) {
-        /* Overflow becomes infinity. */
-        res = (sign << 15) | (0x1f << 10);
-        return res;
-    } else {
-        /* Normal value in f16. Apply rounding. */
-        Uint32 bit_11 = u32 & (0x1 << 10);
-        Uint32 bit_12 = u32 & (0x1 << 11);
-        Uint32 bit_13 = u32 & (0x1 << 12);
-        Uint32 bit_14 = u32 & (0x1 << 13);
-        if (bit_13 && (bit_11 || bit_12 || bit_14)) {
+        k = man >> 42;  /* 11 bits: 1024..2047 */
+        guard = (int) ((man >> 41) & 1);
+        sticky = (man & ((((Uint64) 1) << 41) - 1)) != 0;
+        if (guard && (sticky || (k & 1))) {
             /* Round to nearest, ties to even. */
-            mantissa += 1;
-            if (mantissa == 1 << 10) {
-                /* Mantissa overflow: carry into exponent. */
-                exp += 1;
-                mantissa = 0;
-                if (exp > 0x1f) {
-                    /* Overflow becomes infinity. */
-                    res = (sign << 15) | (0x1f << 10);
-                    return res;
+            k++;
+            if (k == 2048) {
+                /* Significand overflow: carry into the exponent. */
+                k = 1024;
+                e++;
+                if (e > 15) {
+                    return (Uint16) (sign | 0x7C00);
                 }
             }
         }
-        res = sign << 15 | exp << 10 | (mantissa & 0x3ff);
+        return (Uint16) (sign | ((Uint16) (e + 15) << 10) | (Uint16) (k & 0x3ff));
     }
-    return res;
+
+    /* Subnormal value in binary16: the stored significand is
+     * RNE(|fp| * 2^24). A rounded result of 1024 naturally lands on
+     * 0x0400, the smallest normal number. */
+    shift = 28 - e;  /* e <= -15, so shift >= 43. */
+    if (shift > 63) {
+        /* Underflow to zero. */
+        return sign;
+    }
+    keep = man >> shift;
+    guard = (int) ((man >> (shift - 1)) & 1);
+    low = man & ((((Uint64) 1) << (shift - 1)) - 1);
+    sticky = low != 0;
+    if (guard && (sticky || (keep & 1))) {
+        /* Round to nearest, ties to even. */
+        keep++;
+    }
+    return (Uint16) (sign | (Uint16) keep);
 }
 
 static ERTS_INLINE float f16_to_f32(Uint16 fp)

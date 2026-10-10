@@ -3070,7 +3070,7 @@ erts_cancel_port_timer(Port *c_prt)
     if (tval == ERTS_PTMR_TIMEDOUT) {
 	while (!erts_port_task_is_scheduled(&c_prt->timeout_task))
 	    erts_thr_yield();
-	erts_port_task_abort(&c_prt->timeout_task);
+        erts_port_task_abort(c_prt, &c_prt->timeout_task);
 	erts_atomic_set_nob(&c_prt->common.timer, ERTS_PTMR_NONE);
 	return;
     }

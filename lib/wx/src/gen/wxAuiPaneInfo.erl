@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -109,7 +109,7 @@ new() ->
 
 -doc "Copy constructor.".
 -spec new(C) -> wxAuiPaneInfo() when
-	C::wxAuiPaneInfo().
+        C::wxAuiPaneInfo().
 new(#wx_ref{type=CT}=C) ->
   ?CLASS(CT,wxAuiPaneInfo),
   wxe_util:queue_cmd(C,?get_env(),?wxAuiPaneInfo_new_1),
@@ -122,7 +122,7 @@ The docking manager will attempt to use this size as much as possible when docki
 floating the pane.
 """.
 -spec bestSize(This, Size) -> wxAuiPaneInfo() when
-	This::wxAuiPaneInfo(), Size::{W::integer(), H::integer()}.
+        This::wxAuiPaneInfo(), Size::{W::integer(), H::integer()}.
 bestSize(#wx_ref{type=ThisT}=This,{SizeW,SizeH} = Size)
  when is_integer(SizeW),is_integer(SizeH) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
@@ -131,7 +131,7 @@ bestSize(#wx_ref{type=ThisT}=This,{SizeW,SizeH} = Size)
 
 -doc "".
 -spec bestSize(This, X, Y) -> wxAuiPaneInfo() when
-	This::wxAuiPaneInfo(), X::integer(), Y::integer().
+        This::wxAuiPaneInfo(), X::integer(), Y::integer().
 bestSize(#wx_ref{type=ThisT}=This,X,Y)
  when is_integer(X),is_integer(Y) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
@@ -144,7 +144,7 @@ bestSize(#wx_ref{type=ThisT}=This,X,Y)
 This is the same thing as calling Direction(wxAUI_DOCK_BOTTOM).
 """.
 -spec bottom(This) -> wxAuiPaneInfo() when
-	This::wxAuiPaneInfo().
+        This::wxAuiPaneInfo().
 bottom(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiPaneInfo_Bottom),
@@ -152,7 +152,7 @@ bottom(#wx_ref{type=ThisT}=This) ->
 
 -doc(#{equiv => bottomDockable(This, [])}).
 -spec bottomDockable(This) -> wxAuiPaneInfo() when
-	This::wxAuiPaneInfo().
+        This::wxAuiPaneInfo().
 
 bottomDockable(This)
  when is_record(This, wx_ref) ->
@@ -173,7 +173,7 @@ bottomDockable(#wx_ref{type=ThisT}=This, Options)
 
 -doc "`caption/2` sets the caption of the pane.".
 -spec caption(This, C) -> wxAuiPaneInfo() when
-	This::wxAuiPaneInfo(), C::unicode:chardata().
+        This::wxAuiPaneInfo(), C::unicode:chardata().
 caption(#wx_ref{type=ThisT}=This,C)
  when ?is_chardata(C) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
@@ -183,7 +183,7 @@ caption(#wx_ref{type=ThisT}=This,C)
 
 -doc(#{equiv => captionVisible(This, [])}).
 -spec captionVisible(This) -> wxAuiPaneInfo() when
-	This::wxAuiPaneInfo().
+        This::wxAuiPaneInfo().
 
 captionVisible(This)
  when is_record(This, wx_ref) ->
@@ -215,7 +215,7 @@ bottom) are subtracted from the layout. This is the same thing as calling
 Direction(wxAUI_DOCK_CENTRE).
 """.
 -spec centre(This) -> wxAuiPaneInfo() when
-	This::wxAuiPaneInfo().
+        This::wxAuiPaneInfo().
 centre(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiPaneInfo_Centre),
@@ -228,7 +228,7 @@ Centre panes usually do not have caption bars. This function provides an easy wa
 preparing a pane to be displayed in the center dock position.
 """.
 -spec centrePane(This) -> wxAuiPaneInfo() when
-	This::wxAuiPaneInfo().
+        This::wxAuiPaneInfo().
 centrePane(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiPaneInfo_CentrePane),
@@ -236,7 +236,7 @@ centrePane(#wx_ref{type=ThisT}=This) ->
 
 -doc(#{equiv => closeButton(This, [])}).
 -spec closeButton(This) -> wxAuiPaneInfo() when
-	This::wxAuiPaneInfo().
+        This::wxAuiPaneInfo().
 
 closeButton(This)
  when is_record(This, wx_ref) ->
@@ -257,7 +257,7 @@ closeButton(#wx_ref{type=ThisT}=This, Options)
 
 -doc "`defaultPane/1` specifies that the pane should adopt the default pane settings.".
 -spec defaultPane(This) -> wxAuiPaneInfo() when
-	This::wxAuiPaneInfo().
+        This::wxAuiPaneInfo().
 defaultPane(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiPaneInfo_DefaultPane),
@@ -265,7 +265,7 @@ defaultPane(#wx_ref{type=ThisT}=This) ->
 
 -doc(#{equiv => destroyOnClose(This, [])}).
 -spec destroyOnClose(This) -> wxAuiPaneInfo() when
-	This::wxAuiPaneInfo().
+        This::wxAuiPaneInfo().
 
 destroyOnClose(This)
  when is_record(This, wx_ref) ->
@@ -297,7 +297,7 @@ It is functionally the same as calling `left/1`, `right/1`, `top/1` or `bottom/1
 specified programmatically via the parameter.
 """.
 -spec direction(This, Direction) -> wxAuiPaneInfo() when
-	This::wxAuiPaneInfo(), Direction::integer().
+        This::wxAuiPaneInfo(), Direction::integer().
 direction(#wx_ref{type=ThisT}=This,Direction)
  when is_integer(Direction) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
@@ -310,7 +310,7 @@ direction(#wx_ref{type=ThisT}=This,Direction)
 It is the opposite of `float/1`.
 """.
 -spec dock(This) -> wxAuiPaneInfo() when
-	This::wxAuiPaneInfo().
+        This::wxAuiPaneInfo().
 dock(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiPaneInfo_Dock),
@@ -318,7 +318,7 @@ dock(#wx_ref{type=ThisT}=This) ->
 
 -doc(#{equiv => dockable(This, [])}).
 -spec dockable(This) -> wxAuiPaneInfo() when
-	This::wxAuiPaneInfo().
+        This::wxAuiPaneInfo().
 
 dockable(This)
  when is_record(This, wx_ref) ->
@@ -348,7 +348,7 @@ dockable(#wx_ref{type=ThisT}=This, Options)
 After calling `fixed/1`, `isFixed/1` will return true.
 """.
 -spec fixed(This) -> wxAuiPaneInfo() when
-	This::wxAuiPaneInfo().
+        This::wxAuiPaneInfo().
 fixed(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiPaneInfo_Fixed),
@@ -360,7 +360,7 @@ fixed(#wx_ref{type=ThisT}=This) ->
 It is the opposite of `dock/1`.
 """.
 -spec float(This) -> wxAuiPaneInfo() when
-	This::wxAuiPaneInfo().
+        This::wxAuiPaneInfo().
 float(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiPaneInfo_Float),
@@ -368,7 +368,7 @@ float(#wx_ref{type=ThisT}=This) ->
 
 -doc(#{equiv => floatable(This, [])}).
 -spec floatable(This) -> wxAuiPaneInfo() when
-	This::wxAuiPaneInfo().
+        This::wxAuiPaneInfo().
 
 floatable(This)
  when is_record(This, wx_ref) ->
@@ -392,7 +392,7 @@ floatable(#wx_ref{type=ThisT}=This, Options)
 
 -doc "`floatingPosition/3` sets the position of the floating pane.".
 -spec floatingPosition(This, Pos) -> wxAuiPaneInfo() when
-	This::wxAuiPaneInfo(), Pos::{X::integer(), Y::integer()}.
+        This::wxAuiPaneInfo(), Pos::{X::integer(), Y::integer()}.
 floatingPosition(#wx_ref{type=ThisT}=This,{PosX,PosY} = Pos)
  when is_integer(PosX),is_integer(PosY) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
@@ -401,7 +401,7 @@ floatingPosition(#wx_ref{type=ThisT}=This,{PosX,PosY} = Pos)
 
 -doc "".
 -spec floatingPosition(This, X, Y) -> wxAuiPaneInfo() when
-	This::wxAuiPaneInfo(), X::integer(), Y::integer().
+        This::wxAuiPaneInfo(), X::integer(), Y::integer().
 floatingPosition(#wx_ref{type=ThisT}=This,X,Y)
  when is_integer(X),is_integer(Y) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
@@ -410,7 +410,7 @@ floatingPosition(#wx_ref{type=ThisT}=This,X,Y)
 
 -doc "`floatingSize/3` sets the size of the floating pane.".
 -spec floatingSize(This, Size) -> wxAuiPaneInfo() when
-	This::wxAuiPaneInfo(), Size::{W::integer(), H::integer()}.
+        This::wxAuiPaneInfo(), Size::{W::integer(), H::integer()}.
 floatingSize(#wx_ref{type=ThisT}=This,{SizeW,SizeH} = Size)
  when is_integer(SizeW),is_integer(SizeH) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
@@ -419,7 +419,7 @@ floatingSize(#wx_ref{type=ThisT}=This,{SizeW,SizeH} = Size)
 
 -doc "".
 -spec floatingSize(This, X, Y) -> wxAuiPaneInfo() when
-	This::wxAuiPaneInfo(), X::integer(), Y::integer().
+        This::wxAuiPaneInfo(), X::integer(), Y::integer().
 floatingSize(#wx_ref{type=ThisT}=This,X,Y)
  when is_integer(X),is_integer(Y) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
@@ -428,7 +428,7 @@ floatingSize(#wx_ref{type=ThisT}=This,X,Y)
 
 -doc(#{equiv => gripper(This, [])}).
 -spec gripper(This) -> wxAuiPaneInfo() when
-	This::wxAuiPaneInfo().
+        This::wxAuiPaneInfo().
 
 gripper(This)
  when is_record(This, wx_ref) ->
@@ -449,7 +449,7 @@ gripper(#wx_ref{type=ThisT}=This, Options)
 
 -doc(#{equiv => gripperTop(This, [])}).
 -spec gripperTop(This) -> wxAuiPaneInfo() when
-	This::wxAuiPaneInfo().
+        This::wxAuiPaneInfo().
 
 gripperTop(This)
  when is_record(This, wx_ref) ->
@@ -470,7 +470,7 @@ gripperTop(#wx_ref{type=ThisT}=This, Options)
 
 -doc "`hasBorder/1` returns true if the pane displays a border.".
 -spec hasBorder(This) -> boolean() when
-	This::wxAuiPaneInfo().
+        This::wxAuiPaneInfo().
 hasBorder(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiPaneInfo_HasBorder),
@@ -478,7 +478,7 @@ hasBorder(#wx_ref{type=ThisT}=This) ->
 
 -doc "`hasCaption/1` returns true if the pane displays a caption.".
 -spec hasCaption(This) -> boolean() when
-	This::wxAuiPaneInfo().
+        This::wxAuiPaneInfo().
 hasCaption(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiPaneInfo_HasCaption),
@@ -486,7 +486,7 @@ hasCaption(#wx_ref{type=ThisT}=This) ->
 
 -doc "`hasCloseButton/1` returns true if the pane displays a button to close the pane.".
 -spec hasCloseButton(This) -> boolean() when
-	This::wxAuiPaneInfo().
+        This::wxAuiPaneInfo().
 hasCloseButton(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiPaneInfo_HasCloseButton),
@@ -494,7 +494,7 @@ hasCloseButton(#wx_ref{type=ThisT}=This) ->
 
 -doc "`hasFlag/2` returns true if the property specified by flag is active for the pane.".
 -spec hasFlag(This, Flag) -> boolean() when
-	This::wxAuiPaneInfo(), Flag::integer().
+        This::wxAuiPaneInfo(), Flag::integer().
 hasFlag(#wx_ref{type=ThisT}=This,Flag)
  when is_integer(Flag) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
@@ -503,7 +503,7 @@ hasFlag(#wx_ref{type=ThisT}=This,Flag)
 
 -doc "`hasGripper/1` returns true if the pane displays a gripper.".
 -spec hasGripper(This) -> boolean() when
-	This::wxAuiPaneInfo().
+        This::wxAuiPaneInfo().
 hasGripper(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiPaneInfo_HasGripper),
@@ -511,7 +511,7 @@ hasGripper(#wx_ref{type=ThisT}=This) ->
 
 -doc "`hasGripper/1` returns true if the pane displays a gripper at the top.".
 -spec hasGripperTop(This) -> boolean() when
-	This::wxAuiPaneInfo().
+        This::wxAuiPaneInfo().
 hasGripperTop(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiPaneInfo_HasGripperTop),
@@ -519,7 +519,7 @@ hasGripperTop(#wx_ref{type=ThisT}=This) ->
 
 -doc "`hasMaximizeButton/1` returns true if the pane displays a button to maximize the pane.".
 -spec hasMaximizeButton(This) -> boolean() when
-	This::wxAuiPaneInfo().
+        This::wxAuiPaneInfo().
 hasMaximizeButton(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiPaneInfo_HasMaximizeButton),
@@ -527,7 +527,7 @@ hasMaximizeButton(#wx_ref{type=ThisT}=This) ->
 
 -doc "`hasMinimizeButton/1` returns true if the pane displays a button to minimize the pane.".
 -spec hasMinimizeButton(This) -> boolean() when
-	This::wxAuiPaneInfo().
+        This::wxAuiPaneInfo().
 hasMinimizeButton(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiPaneInfo_HasMinimizeButton),
@@ -535,7 +535,7 @@ hasMinimizeButton(#wx_ref{type=ThisT}=This) ->
 
 -doc "`hasPinButton/1` returns true if the pane displays a button to float the pane.".
 -spec hasPinButton(This) -> boolean() when
-	This::wxAuiPaneInfo().
+        This::wxAuiPaneInfo().
 hasPinButton(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiPaneInfo_HasPinButton),
@@ -543,7 +543,7 @@ hasPinButton(#wx_ref{type=ThisT}=This) ->
 
 -doc "`hide/1` indicates that a pane should be hidden.".
 -spec hide(This) -> wxAuiPaneInfo() when
-	This::wxAuiPaneInfo().
+        This::wxAuiPaneInfo().
 hide(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiPaneInfo_Hide),
@@ -554,7 +554,7 @@ hide(#wx_ref{type=ThisT}=This) ->
 frame.
 """.
 -spec isBottomDockable(This) -> boolean() when
-	This::wxAuiPaneInfo().
+        This::wxAuiPaneInfo().
 isBottomDockable(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiPaneInfo_IsBottomDockable),
@@ -562,7 +562,7 @@ isBottomDockable(#wx_ref{type=ThisT}=This) ->
 
 -doc "`isDocked/1` returns true if the pane is currently docked.".
 -spec isDocked(This) -> boolean() when
-	This::wxAuiPaneInfo().
+        This::wxAuiPaneInfo().
 isDocked(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiPaneInfo_IsDocked),
@@ -570,7 +570,7 @@ isDocked(#wx_ref{type=ThisT}=This) ->
 
 -doc "`isFixed/1` returns true if the pane cannot be resized.".
 -spec isFixed(This) -> boolean() when
-	This::wxAuiPaneInfo().
+        This::wxAuiPaneInfo().
 isFixed(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiPaneInfo_IsFixed),
@@ -581,7 +581,7 @@ isFixed(#wx_ref{type=ThisT}=This) ->
 window.
 """.
 -spec isFloatable(This) -> boolean() when
-	This::wxAuiPaneInfo().
+        This::wxAuiPaneInfo().
 isFloatable(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiPaneInfo_IsFloatable),
@@ -589,7 +589,7 @@ isFloatable(#wx_ref{type=ThisT}=This) ->
 
 -doc "`isFloating/1` returns true if the pane is floating.".
 -spec isFloating(This) -> boolean() when
-	This::wxAuiPaneInfo().
+        This::wxAuiPaneInfo().
 isFloating(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiPaneInfo_IsFloating),
@@ -600,7 +600,7 @@ isFloating(#wx_ref{type=ThisT}=This) ->
 frame.
 """.
 -spec isLeftDockable(This) -> boolean() when
-	This::wxAuiPaneInfo().
+        This::wxAuiPaneInfo().
 isLeftDockable(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiPaneInfo_IsLeftDockable),
@@ -611,7 +611,7 @@ IsMoveable() returns true if the docked frame can be undocked or moved to anothe
 position.
 """.
 -spec isMovable(This) -> boolean() when
-	This::wxAuiPaneInfo().
+        This::wxAuiPaneInfo().
 isMovable(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiPaneInfo_IsMovable),
@@ -623,7 +623,7 @@ isMovable(#wx_ref{type=ThisT}=This) ->
 A pane structure is valid if it has an associated window.
 """.
 -spec isOk(This) -> boolean() when
-	This::wxAuiPaneInfo().
+        This::wxAuiPaneInfo().
 isOk(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiPaneInfo_IsOk),
@@ -631,7 +631,7 @@ isOk(#wx_ref{type=ThisT}=This) ->
 
 -doc "`isResizable/1` returns true if the pane can be resized.".
 -spec isResizable(This) -> boolean() when
-	This::wxAuiPaneInfo().
+        This::wxAuiPaneInfo().
 isResizable(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiPaneInfo_IsResizable),
@@ -642,7 +642,7 @@ isResizable(#wx_ref{type=ThisT}=This) ->
 frame.
 """.
 -spec isRightDockable(This) -> boolean() when
-	This::wxAuiPaneInfo().
+        This::wxAuiPaneInfo().
 isRightDockable(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiPaneInfo_IsRightDockable),
@@ -650,7 +650,7 @@ isRightDockable(#wx_ref{type=ThisT}=This) ->
 
 -doc "`isShown/1` returns true if the pane is currently shown.".
 -spec isShown(This) -> boolean() when
-	This::wxAuiPaneInfo().
+        This::wxAuiPaneInfo().
 isShown(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiPaneInfo_IsShown),
@@ -658,7 +658,7 @@ isShown(#wx_ref{type=ThisT}=This) ->
 
 -doc "`isToolbar/1` returns true if the pane contains a toolbar.".
 -spec isToolbar(This) -> boolean() when
-	This::wxAuiPaneInfo().
+        This::wxAuiPaneInfo().
 isToolbar(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiPaneInfo_IsToolbar),
@@ -666,7 +666,7 @@ isToolbar(#wx_ref{type=ThisT}=This) ->
 
 -doc "`isTopDockable/1` returns true if the pane can be docked at the top of the managed frame.".
 -spec isTopDockable(This) -> boolean() when
-	This::wxAuiPaneInfo().
+        This::wxAuiPaneInfo().
 isTopDockable(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiPaneInfo_IsTopDockable),
@@ -680,7 +680,7 @@ moving in the outward direction has a higher layer number. This allows for more 
 docking layout formation.
 """.
 -spec layer(This, Layer) -> wxAuiPaneInfo() when
-	This::wxAuiPaneInfo(), Layer::integer().
+        This::wxAuiPaneInfo(), Layer::integer().
 layer(#wx_ref{type=ThisT}=This,Layer)
  when is_integer(Layer) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
@@ -693,7 +693,7 @@ layer(#wx_ref{type=ThisT}=This,Layer)
 This is the same thing as calling Direction(wxAUI_DOCK_LEFT).
 """.
 -spec left(This) -> wxAuiPaneInfo() when
-	This::wxAuiPaneInfo().
+        This::wxAuiPaneInfo().
 left(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiPaneInfo_Left),
@@ -701,7 +701,7 @@ left(#wx_ref{type=ThisT}=This) ->
 
 -doc(#{equiv => leftDockable(This, [])}).
 -spec leftDockable(This) -> wxAuiPaneInfo() when
-	This::wxAuiPaneInfo().
+        This::wxAuiPaneInfo().
 
 leftDockable(This)
  when is_record(This, wx_ref) ->
@@ -722,7 +722,7 @@ leftDockable(#wx_ref{type=ThisT}=This, Options)
 
 -doc "`maxSize/3` sets the maximum size of the pane.".
 -spec maxSize(This, Size) -> wxAuiPaneInfo() when
-	This::wxAuiPaneInfo(), Size::{W::integer(), H::integer()}.
+        This::wxAuiPaneInfo(), Size::{W::integer(), H::integer()}.
 maxSize(#wx_ref{type=ThisT}=This,{SizeW,SizeH} = Size)
  when is_integer(SizeW),is_integer(SizeH) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
@@ -731,7 +731,7 @@ maxSize(#wx_ref{type=ThisT}=This,{SizeW,SizeH} = Size)
 
 -doc "".
 -spec maxSize(This, X, Y) -> wxAuiPaneInfo() when
-	This::wxAuiPaneInfo(), X::integer(), Y::integer().
+        This::wxAuiPaneInfo(), X::integer(), Y::integer().
 maxSize(#wx_ref{type=ThisT}=This,X,Y)
  when is_integer(X),is_integer(Y) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
@@ -740,7 +740,7 @@ maxSize(#wx_ref{type=ThisT}=This,X,Y)
 
 -doc(#{equiv => maximizeButton(This, [])}).
 -spec maximizeButton(This) -> wxAuiPaneInfo() when
-	This::wxAuiPaneInfo().
+        This::wxAuiPaneInfo().
 
 maximizeButton(This)
  when is_record(This, wx_ref) ->
@@ -765,7 +765,7 @@ maximizeButton(#wx_ref{type=ThisT}=This, Options)
 Please note that this is only partially supported as of this writing.
 """.
 -spec minSize(This, Size) -> wxAuiPaneInfo() when
-	This::wxAuiPaneInfo(), Size::{W::integer(), H::integer()}.
+        This::wxAuiPaneInfo(), Size::{W::integer(), H::integer()}.
 minSize(#wx_ref{type=ThisT}=This,{SizeW,SizeH} = Size)
  when is_integer(SizeW),is_integer(SizeH) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
@@ -774,7 +774,7 @@ minSize(#wx_ref{type=ThisT}=This,{SizeW,SizeH} = Size)
 
 -doc "".
 -spec minSize(This, X, Y) -> wxAuiPaneInfo() when
-	This::wxAuiPaneInfo(), X::integer(), Y::integer().
+        This::wxAuiPaneInfo(), X::integer(), Y::integer().
 minSize(#wx_ref{type=ThisT}=This,X,Y)
  when is_integer(X),is_integer(Y) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
@@ -783,7 +783,7 @@ minSize(#wx_ref{type=ThisT}=This,X,Y)
 
 -doc(#{equiv => minimizeButton(This, [])}).
 -spec minimizeButton(This) -> wxAuiPaneInfo() when
-	This::wxAuiPaneInfo().
+        This::wxAuiPaneInfo().
 
 minimizeButton(This)
  when is_record(This, wx_ref) ->
@@ -804,7 +804,7 @@ minimizeButton(#wx_ref{type=ThisT}=This, Options)
 
 -doc(#{equiv => movable(This, [])}).
 -spec movable(This) -> wxAuiPaneInfo() when
-	This::wxAuiPaneInfo().
+        This::wxAuiPaneInfo().
 
 movable(This)
  when is_record(This, wx_ref) ->
@@ -830,7 +830,7 @@ If a name is not specified by the user, a random name is assigned to the pane wh
 added to the manager.
 """.
 -spec name(This, N) -> wxAuiPaneInfo() when
-	This::wxAuiPaneInfo(), N::unicode:chardata().
+        This::wxAuiPaneInfo(), N::unicode:chardata().
 name(#wx_ref{type=ThisT}=This,N)
  when ?is_chardata(N) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
@@ -840,7 +840,7 @@ name(#wx_ref{type=ThisT}=This,N)
 
 -doc(#{equiv => paneBorder(This, [])}).
 -spec paneBorder(This) -> wxAuiPaneInfo() when
-	This::wxAuiPaneInfo().
+        This::wxAuiPaneInfo().
 
 paneBorder(This)
  when is_record(This, wx_ref) ->
@@ -861,7 +861,7 @@ paneBorder(#wx_ref{type=ThisT}=This, Options)
 
 -doc(#{equiv => pinButton(This, [])}).
 -spec pinButton(This) -> wxAuiPaneInfo() when
-	This::wxAuiPaneInfo().
+        This::wxAuiPaneInfo().
 
 pinButton(This)
  when is_record(This, wx_ref) ->
@@ -882,7 +882,7 @@ pinButton(#wx_ref{type=ThisT}=This, Options)
 
 -doc "`position/2` determines the position of the docked pane.".
 -spec position(This, Pos) -> wxAuiPaneInfo() when
-	This::wxAuiPaneInfo(), Pos::integer().
+        This::wxAuiPaneInfo(), Pos::integer().
 position(#wx_ref{type=ThisT}=This,Pos)
  when is_integer(Pos) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
@@ -891,7 +891,7 @@ position(#wx_ref{type=ThisT}=This,Pos)
 
 -doc(#{equiv => resizable(This, [])}).
 -spec resizable(This) -> wxAuiPaneInfo() when
-	This::wxAuiPaneInfo().
+        This::wxAuiPaneInfo().
 
 resizable(This)
  when is_record(This, wx_ref) ->
@@ -921,7 +921,7 @@ resizable(#wx_ref{type=ThisT}=This, Options)
 This is the same thing as calling Direction(wxAUI_DOCK_RIGHT).
 """.
 -spec right(This) -> wxAuiPaneInfo() when
-	This::wxAuiPaneInfo().
+        This::wxAuiPaneInfo().
 right(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiPaneInfo_Right),
@@ -929,7 +929,7 @@ right(#wx_ref{type=ThisT}=This) ->
 
 -doc(#{equiv => rightDockable(This, [])}).
 -spec rightDockable(This) -> wxAuiPaneInfo() when
-	This::wxAuiPaneInfo().
+        This::wxAuiPaneInfo().
 
 rightDockable(This)
  when is_record(This, wx_ref) ->
@@ -950,7 +950,7 @@ rightDockable(#wx_ref{type=ThisT}=This, Options)
 
 -doc "`row/2` determines the row of the docked pane.".
 -spec row(This, Row) -> wxAuiPaneInfo() when
-	This::wxAuiPaneInfo(), Row::integer().
+        This::wxAuiPaneInfo(), Row::integer().
 row(#wx_ref{type=ThisT}=This,Row)
  when is_integer(Row) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
@@ -967,7 +967,7 @@ modified by this write operation.
 Remark: This method is used when loading perspectives.
 """.
 -spec safeSet(This, Source) -> 'ok' when
-	This::wxAuiPaneInfo(), Source::wxAuiPaneInfo().
+        This::wxAuiPaneInfo(), Source::wxAuiPaneInfo().
 safeSet(#wx_ref{type=ThisT}=This,#wx_ref{type=SourceT}=Source) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   ?CLASS(SourceT,wxAuiPaneInfo),
@@ -975,7 +975,7 @@ safeSet(#wx_ref{type=ThisT}=This,#wx_ref{type=SourceT}=Source) ->
 
 -doc "`setFlag/3` turns the property given by flag on or off with the option\_state parameter.".
 -spec setFlag(This, Flag, Option_state) -> wxAuiPaneInfo() when
-	This::wxAuiPaneInfo(), Flag::integer(), Option_state::boolean().
+        This::wxAuiPaneInfo(), Flag::integer(), Option_state::boolean().
 setFlag(#wx_ref{type=ThisT}=This,Flag,Option_state)
  when is_integer(Flag),is_boolean(Option_state) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
@@ -984,7 +984,7 @@ setFlag(#wx_ref{type=ThisT}=This,Flag,Option_state)
 
 -doc(#{equiv => show(This, [])}).
 -spec show(This) -> wxAuiPaneInfo() when
-	This::wxAuiPaneInfo().
+        This::wxAuiPaneInfo().
 
 show(This)
  when is_record(This, wx_ref) ->
@@ -1005,7 +1005,7 @@ show(#wx_ref{type=ThisT}=This, Options)
 
 -doc "`toolbarPane/1` specifies that the pane should adopt the default toolbar pane settings.".
 -spec toolbarPane(This) -> wxAuiPaneInfo() when
-	This::wxAuiPaneInfo().
+        This::wxAuiPaneInfo().
 toolbarPane(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiPaneInfo_ToolbarPane),
@@ -1017,7 +1017,7 @@ toolbarPane(#wx_ref{type=ThisT}=This) ->
 This is the same thing as calling Direction(wxAUI_DOCK_TOP).
 """.
 -spec top(This) -> wxAuiPaneInfo() when
-	This::wxAuiPaneInfo().
+        This::wxAuiPaneInfo().
 top(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiPaneInfo_Top),
@@ -1025,7 +1025,7 @@ top(#wx_ref{type=ThisT}=This) ->
 
 -doc(#{equiv => topDockable(This, [])}).
 -spec topDockable(This) -> wxAuiPaneInfo() when
-	This::wxAuiPaneInfo().
+        This::wxAuiPaneInfo().
 
 topDockable(This)
  when is_record(This, wx_ref) ->
@@ -1051,7 +1051,7 @@ This normally does not need to be specified, as the window pointer is automatica
 assigned to the `m:wxAuiPaneInfo` structure as soon as it is added to the manager.
 """.
 -spec window(This, W) -> wxAuiPaneInfo() when
-	This::wxAuiPaneInfo(), W::wxWindow:wxWindow().
+        This::wxAuiPaneInfo(), W::wxWindow:wxWindow().
 window(#wx_ref{type=ThisT}=This,#wx_ref{type=WT}=W) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   ?CLASS(WT,wxWindow),
@@ -1060,7 +1060,7 @@ window(#wx_ref{type=ThisT}=This,#wx_ref{type=WT}=W) ->
 
 -doc "".
 -spec getWindow(This) -> wxWindow:wxWindow() when
-	This::wxAuiPaneInfo().
+        This::wxAuiPaneInfo().
 getWindow(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiPaneInfo_GetWindow),
@@ -1068,7 +1068,7 @@ getWindow(#wx_ref{type=ThisT}=This) ->
 
 -doc "".
 -spec getFrame(This) -> wxFrame:wxFrame() when
-	This::wxAuiPaneInfo().
+        This::wxAuiPaneInfo().
 getFrame(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiPaneInfo_GetFrame),
@@ -1076,7 +1076,7 @@ getFrame(#wx_ref{type=ThisT}=This) ->
 
 -doc "".
 -spec getDirection(This) -> integer() when
-	This::wxAuiPaneInfo().
+        This::wxAuiPaneInfo().
 getDirection(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiPaneInfo_GetDirection),
@@ -1084,7 +1084,7 @@ getDirection(#wx_ref{type=ThisT}=This) ->
 
 -doc "".
 -spec getLayer(This) -> integer() when
-	This::wxAuiPaneInfo().
+        This::wxAuiPaneInfo().
 getLayer(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiPaneInfo_GetLayer),
@@ -1092,7 +1092,7 @@ getLayer(#wx_ref{type=ThisT}=This) ->
 
 -doc "".
 -spec getRow(This) -> integer() when
-	This::wxAuiPaneInfo().
+        This::wxAuiPaneInfo().
 getRow(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiPaneInfo_GetRow),
@@ -1100,7 +1100,7 @@ getRow(#wx_ref{type=ThisT}=This) ->
 
 -doc "".
 -spec getPosition(This) -> integer() when
-	This::wxAuiPaneInfo().
+        This::wxAuiPaneInfo().
 getPosition(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiPaneInfo_GetPosition),
@@ -1108,7 +1108,7 @@ getPosition(#wx_ref{type=ThisT}=This) ->
 
 -doc "".
 -spec getFloatingPosition(This) -> {X::integer(), Y::integer()} when
-	This::wxAuiPaneInfo().
+        This::wxAuiPaneInfo().
 getFloatingPosition(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiPaneInfo_GetFloatingPosition),
@@ -1116,7 +1116,7 @@ getFloatingPosition(#wx_ref{type=ThisT}=This) ->
 
 -doc "".
 -spec getFloatingSize(This) -> {W::integer(), H::integer()} when
-	This::wxAuiPaneInfo().
+        This::wxAuiPaneInfo().
 getFloatingSize(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxAuiPaneInfo),
   wxe_util:queue_cmd(This,?get_env(),?wxAuiPaneInfo_GetFloatingSize),

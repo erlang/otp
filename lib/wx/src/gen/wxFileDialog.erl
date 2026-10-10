@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -169,7 +169,7 @@ wxWidgets docs: [wxFileDialog](https://docs.wxwidgets.org/3.2/classwx_file_dialo
   moveBeforeInTabOrder/2,navigate/1,navigate/2,pageDown/1,pageUp/1,parent_class/1,
   popupMenu/2,popupMenu/3,popupMenu/4,raise/1,refresh/1,refresh/2,refreshRect/2,
   refreshRect/3,releaseMouse/1,removeChild/2,reparent/2,requestUserAttention/1,
-  requestUserAttention/2,screenToClient/1,screenToClient/2,scrollLines/2,
+  requestUserAttention/2,screenToClient/2,screenToClient/3,scrollLines/2,
   scrollPages/2,scrollWindow/3,scrollWindow/4,setAcceleratorTable/2,
   setAffirmativeId/2,setAutoLayout/2,setBackgroundColour/2,setBackgroundStyle/2,
   setCaret/2,setClientSize/2,setClientSize/3,setContainingSizer/2,setCursor/2,
@@ -197,7 +197,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -doc(#{equiv => new(Parent, [])}).
 -spec new(Parent) -> wxFileDialog() when
-	Parent::wxWindow:wxWindow().
+        Parent::wxWindow:wxWindow().
 
 new(Parent)
  when is_record(Parent, wx_ref) ->
@@ -234,7 +234,7 @@ new(#wx_ref{type=ParentT}=Parent, Options)
 
 -doc "Returns the default directory.".
 -spec getDirectory(This) -> unicode:charlist() when
-	This::wxFileDialog().
+        This::wxFileDialog().
 getDirectory(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxFileDialog),
   wxe_util:queue_cmd(This,?get_env(),?wxFileDialog_GetDirectory),
@@ -247,7 +247,7 @@ Note: This function can't be used with dialogs which have the `wxFD_MULTIPLE` st
 instead.
 """.
 -spec getFilename(This) -> unicode:charlist() when
-	This::wxFileDialog().
+        This::wxFileDialog().
 getFilename(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxFileDialog),
   wxe_util:queue_cmd(This,?get_env(),?wxFileDialog_GetFilename),
@@ -264,7 +264,7 @@ since the application cannot determine the full path of each referenced file by 
 the directory containing the shortcuts to the filename.
 """.
 -spec getFilenames(This) -> [unicode:charlist()] when
-	This::wxFileDialog().
+        This::wxFileDialog().
 getFilenames(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxFileDialog),
   wxe_util:queue_cmd(This,?get_env(),?wxFileDialog_GetFilenames),
@@ -279,7 +279,7 @@ Before the dialog is shown, this is the index which will be used when the dialog
 After the dialog is shown, this is the index selected by the user.
 """.
 -spec getFilterIndex(This) -> integer() when
-	This::wxFileDialog().
+        This::wxFileDialog().
 getFilterIndex(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxFileDialog),
   wxe_util:queue_cmd(This,?get_env(),?wxFileDialog_GetFilterIndex),
@@ -287,7 +287,7 @@ getFilterIndex(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the message that will be displayed on the dialog.".
 -spec getMessage(This) -> unicode:charlist() when
-	This::wxFileDialog().
+        This::wxFileDialog().
 getMessage(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxFileDialog),
   wxe_util:queue_cmd(This,?get_env(),?wxFileDialog_GetMessage),
@@ -300,7 +300,7 @@ Note: This function can't be used with dialogs which have the `wxFD_MULTIPLE` st
 instead.
 """.
 -spec getPath(This) -> unicode:charlist() when
-	This::wxFileDialog().
+        This::wxFileDialog().
 getPath(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxFileDialog),
   wxe_util:queue_cmd(This,?get_env(),?wxFileDialog_GetPath),
@@ -313,7 +313,7 @@ This function should only be used with the dialogs which have `wxFD_MULTIPLE` st
 for the others.
 """.
 -spec getPaths(This) -> [unicode:charlist()] when
-	This::wxFileDialog().
+        This::wxFileDialog().
 getPaths(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxFileDialog),
   wxe_util:queue_cmd(This,?get_env(),?wxFileDialog_GetPaths),
@@ -321,7 +321,7 @@ getPaths(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the file dialog wildcard.".
 -spec getWildcard(This) -> unicode:charlist() when
-	This::wxFileDialog().
+        This::wxFileDialog().
 getWildcard(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxFileDialog),
   wxe_util:queue_cmd(This,?get_env(),?wxFileDialog_GetWildcard),
@@ -329,7 +329,7 @@ getWildcard(#wx_ref{type=ThisT}=This) ->
 
 -doc "Sets the default directory.".
 -spec setDirectory(This, Directory) -> 'ok' when
-	This::wxFileDialog(), Directory::unicode:chardata().
+        This::wxFileDialog(), Directory::unicode:chardata().
 setDirectory(#wx_ref{type=ThisT}=This,Directory)
  when ?is_chardata(Directory) ->
   ?CLASS(ThisT,wxFileDialog),
@@ -342,7 +342,7 @@ Sets the default filename.
 In wxGTK this will have little effect unless a default directory has previously been set.
 """.
 -spec setFilename(This, Setfilename) -> 'ok' when
-	This::wxFileDialog(), Setfilename::unicode:chardata().
+        This::wxFileDialog(), Setfilename::unicode:chardata().
 setFilename(#wx_ref{type=ThisT}=This,Setfilename)
  when ?is_chardata(Setfilename) ->
   ?CLASS(ThisT,wxFileDialog),
@@ -351,7 +351,7 @@ setFilename(#wx_ref{type=ThisT}=This,Setfilename)
 
 -doc "Sets the default filter index, starting from zero.".
 -spec setFilterIndex(This, FilterIndex) -> 'ok' when
-	This::wxFileDialog(), FilterIndex::integer().
+        This::wxFileDialog(), FilterIndex::integer().
 setFilterIndex(#wx_ref{type=ThisT}=This,FilterIndex)
  when is_integer(FilterIndex) ->
   ?CLASS(ThisT,wxFileDialog),
@@ -359,7 +359,7 @@ setFilterIndex(#wx_ref{type=ThisT}=This,FilterIndex)
 
 -doc "Sets the message that will be displayed on the dialog.".
 -spec setMessage(This, Message) -> 'ok' when
-	This::wxFileDialog(), Message::unicode:chardata().
+        This::wxFileDialog(), Message::unicode:chardata().
 setMessage(#wx_ref{type=ThisT}=This,Message)
  when ?is_chardata(Message) ->
   ?CLASS(ThisT,wxFileDialog),
@@ -371,7 +371,7 @@ Sets the path (the combined directory and filename that will be returned when th
 is dismissed).
 """.
 -spec setPath(This, Path) -> 'ok' when
-	This::wxFileDialog(), Path::unicode:chardata().
+        This::wxFileDialog(), Path::unicode:chardata().
 setPath(#wx_ref{type=ThisT}=This,Path)
  when ?is_chardata(Path) ->
   ?CLASS(ThisT,wxFileDialog),
@@ -386,7 +386,7 @@ Note that the native Motif dialog has some limitations with respect to wildcards
 Remarks section above.
 """.
 -spec setWildcard(This, WildCard) -> 'ok' when
-	This::wxFileDialog(), WildCard::unicode:chardata().
+        This::wxFileDialog(), WildCard::unicode:chardata().
 setWildcard(#wx_ref{type=ThisT}=This,WildCard)
  when ?is_chardata(WildCard) ->
   ?CLASS(ThisT,wxFileDialog),
@@ -603,9 +603,9 @@ scrollPages(This,Pages) -> wxWindow:scrollPages(This,Pages).
 -doc false.
 scrollLines(This,Lines) -> wxWindow:scrollLines(This,Lines).
 -doc false.
-screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
+screenToClient(This,X,Y) -> wxWindow:screenToClient(This,X,Y).
 -doc false.
-screenToClient(This) -> wxWindow:screenToClient(This).
+screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
 -doc false.
 reparent(This,NewParent) -> wxWindow:reparent(This,NewParent).
 -doc false.

@@ -27,6 +27,9 @@
 
 -module(diameter_watchdog).
 -moduledoc false.
+
+-compile([{nowarn_deprecated_function, [{erlang,exit,2}]}]).
+
 -behaviour(gen_server).
 
 %% towards diameter_service

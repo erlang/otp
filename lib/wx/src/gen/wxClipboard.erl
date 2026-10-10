@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -109,7 +109,7 @@ Call this function to add the data object to the clipboard.
 This is an obsolete synonym for `setData/2`.
 """.
 -spec addData(This, Data) -> boolean() when
-	This::wxClipboard(), Data::wxDataObject:wxDataObject().
+        This::wxClipboard(), Data::wxDataObject:wxDataObject().
 addData(#wx_ref{type=ThisT}=This,#wx_ref{type=DataT}=Data) ->
   ?CLASS(ThisT,wxClipboard),
   ?CLASS(DataT,wxDataObject),
@@ -118,14 +118,14 @@ addData(#wx_ref{type=ThisT}=This,#wx_ref{type=DataT}=Data) ->
 
 -doc "Clears the global clipboard object and the system's clipboard if possible.".
 -spec clear(This) -> 'ok' when
-	This::wxClipboard().
+        This::wxClipboard().
 clear(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxClipboard),
   wxe_util:queue_cmd(This,?get_env(),?wxClipboard_Clear).
 
 -doc "Call this function to close the clipboard, having opened it with `open/1`.".
 -spec close(This) -> 'ok' when
-	This::wxClipboard().
+        This::wxClipboard().
 close(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxClipboard),
   wxe_util:queue_cmd(This,?get_env(),?wxClipboard_Close).
@@ -144,7 +144,7 @@ available after the program exits.
 Return: false if the operation is unsuccessful for any reason.
 """.
 -spec flush(This) -> boolean() when
-	This::wxClipboard().
+        This::wxClipboard().
 flush(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxClipboard),
   wxe_util:queue_cmd(This,?get_env(),?wxClipboard_Flush),
@@ -157,7 +157,7 @@ required format.
 Returns true on success.
 """.
 -spec getData(This, Data) -> boolean() when
-	This::wxClipboard(), Data::wxDataObject:wxDataObject().
+        This::wxClipboard(), Data::wxDataObject:wxDataObject().
 getData(#wx_ref{type=ThisT}=This,#wx_ref{type=DataT}=Data) ->
   ?CLASS(ThisT,wxClipboard),
   ?CLASS(DataT,wxDataObject),
@@ -166,7 +166,7 @@ getData(#wx_ref{type=ThisT}=This,#wx_ref{type=DataT}=Data) ->
 
 -doc "Returns true if the clipboard has been opened.".
 -spec isOpened(This) -> boolean() when
-	This::wxClipboard().
+        This::wxClipboard().
 isOpened(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxClipboard),
   wxe_util:queue_cmd(This,?get_env(),?wxClipboard_IsOpened),
@@ -181,7 +181,7 @@ only a very short time.
 Return: true on success. This should be tested (as in the sample shown above).
 """.
 -spec open(This) -> boolean() when
-	This::wxClipboard().
+        This::wxClipboard().
 open(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxClipboard),
   wxe_util:queue_cmd(This,?get_env(),?wxClipboard_Open),
@@ -199,7 +199,7 @@ After this function has been called, the clipboard owns the data, so do not dele
 data explicitly.
 """.
 -spec setData(This, Data) -> boolean() when
-	This::wxClipboard(), Data::wxDataObject:wxDataObject().
+        This::wxClipboard(), Data::wxDataObject:wxDataObject().
 setData(#wx_ref{type=ThisT}=This,#wx_ref{type=DataT}=Data) ->
   ?CLASS(ThisT,wxClipboard),
   ?CLASS(DataT,wxDataObject),
@@ -208,7 +208,7 @@ setData(#wx_ref{type=ThisT}=This,#wx_ref{type=DataT}=Data) ->
 
 -doc(#{equiv => usePrimarySelection(This, [])}).
 -spec usePrimarySelection(This) -> 'ok' when
-	This::wxClipboard().
+        This::wxClipboard().
 
 usePrimarySelection(This)
  when is_record(This, wx_ref) ->
@@ -245,7 +245,7 @@ currently `available` on the clipboard.
 """.
 %%  Format = ?wxDF_INVALID | ?wxDF_TEXT | ?wxDF_BITMAP | ?wxDF_METAFILE | ?wxDF_SYLK | ?wxDF_DIF | ?wxDF_TIFF | ?wxDF_OEMTEXT | ?wxDF_DIB | ?wxDF_PALETTE | ?wxDF_PENDATA | ?wxDF_RIFF | ?wxDF_WAVE | ?wxDF_UNICODETEXT | ?wxDF_ENHMETAFILE | ?wxDF_FILENAME | ?wxDF_LOCALE | ?wxDF_PRIVATE | ?wxDF_HTML | ?wxDF_MAX
 -spec isSupported(This, Format) -> boolean() when
-	This::wxClipboard(), Format::wx:wx_enum().
+        This::wxClipboard(), Format::wx:wx_enum().
 isSupported(#wx_ref{type=ThisT}=This,Format)
  when is_integer(Format) ->
   ?CLASS(ThisT,wxClipboard),

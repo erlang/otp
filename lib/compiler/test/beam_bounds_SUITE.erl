@@ -40,6 +40,11 @@
          erl_md5/1
         ]).
 
+%% Define the limits used in beam_bounds.
+-define(NUM_BITS, 128).
+-define(MIN_UNCAPPED, ((-1 bsl ?NUM_BITS) + 1)).
+-define(MAX_UNCAPPED, ((1 bsl ?NUM_BITS) - 1)).
+
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
@@ -200,11 +205,14 @@ rem_bounds(_Config) ->
 
     {-7,7} = beam_bounds:bounds('rem', {'-inf',10}, {1,8}),
     {0,7} = beam_bounds:bounds('rem', {10,'+inf'}, {1,8}),
+    {0,9} = beam_bounds:bounds('rem', {10,'+inf'}, {-10,7}),
     {0,'+inf'} = beam_bounds:bounds('rem', {17,'+inf'}, any),
+    {-5,9} = beam_bounds:bounds('rem', {-5,'+inf'}, {-10,7}),
 
     {0,10} = beam_bounds:bounds('rem', {1,10}, {'-inf',10}),
     {0,'+inf'} = beam_bounds:bounds('rem', {20,'+inf'}, {10,'+inf'}),
     {'-inf',10} = beam_bounds:bounds('rem', {'-inf',10}, any),
+    {-16,10} = beam_bounds:bounds('rem', {'-inf',10}, {-17,5}),
 
     {-11,10} = beam_bounds:bounds('rem', {-11,10}, {'-inf',89}),
     {-11,10} = beam_bounds:bounds('rem', {-11,10}, {7,'+inf'}),
@@ -225,6 +233,13 @@ rem_bounds(_Config) ->
     {0,'+inf'} = beam_bounds:bounds('rem', {7,'+inf'}, any),
     {'-inf',0} = beam_bounds:bounds('rem', {'-inf',-5}, any),
     {'-inf',11} = beam_bounds:bounds('rem', {'-inf',11}, any),
+
+    {0,1} = beam_bounds:bounds('rem', {1,1}, any),
+    {0,1} = beam_bounds:bounds('rem', {1,1}, {-10,7}),
+    {-1,1} = beam_bounds:bounds('rem', {-1,1}, any),
+    {-1,1} = beam_bounds:bounds('rem', {-1,1}, {-7,10}),
+    {-2,0} = beam_bounds:bounds('rem', {-2,-1}, any),
+    {-2,0} = beam_bounds:bounds('rem', {-2,-1}, {-7,10}),
 
     any = beam_bounds:bounds('rem', any, {'-inf',-7}),
     any = beam_bounds:bounds('rem', any, {'-inf',0}),
@@ -557,8 +572,9 @@ bsl_bounds(_Config) ->
     {-7,10} = do_bsl({-7,10}, {'-inf',0}),
     {-28,40} = do_bsl({-7,10}, {'-inf',2}),
 
-    {'-inf',-1} = do_bsl({-10,-1}, {500,1024}),
-    {0,'+inf'} = do_bsl({1,10}, {500,1024}),
+    {'-inf',?MIN_UNCAPPED} = do_bsl({-10,-1}, {500,1024}),
+
+    {?MAX_UNCAPPED,'+inf'} = do_bsl({1,10}, {500,1024}),
 
     {'-inf',-40} = do_bsl({'-inf',-10}, {2,64}),
     {'-inf',224} = do_bsl({'-inf',7}, {3,5}),

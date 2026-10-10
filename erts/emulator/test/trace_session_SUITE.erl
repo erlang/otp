@@ -43,11 +43,13 @@
          error_info/1,
          timem_basic/1,
          is_bif_traced/1,
-
+         gc_multi_session/1,
          end_of_list/1]).
 
--include_lib("common_test/include/ct.hrl").
+-compile([nowarn_deprecated_catch]).
 
+-include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 -undef(line).
 -ifdef(debug).
@@ -56,7 +58,7 @@
 -define(line,void).
 -endif.
 
--export([foo/0, exported/1, middle/1, bottom/1]).
+-export([foo/0, exported/1, middle/1, bottom/1, gc_multi_session_do/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -83,7 +85,7 @@ all() ->
      error_info,
      timem_basic,
      is_bif_traced,
-
+     gc_multi_session,
      end_of_list].
 
 init_per_suite(Config) ->
@@ -1706,15 +1708,15 @@ destroy_do(SName, Destroyer) ->
     [] = trace:session_info(self()),
     [] = trace:session_info(Port),
 
-    {'EXIT',{badarg,_}} = (catch trace:info(SName, Exp, traced)),
-    {'EXIT',{badarg,_}} = (catch trace:info(SName, Loc, traced)),
-    {'EXIT',{badarg,_}} = (catch trace:info(SName, on_load, traced)),
-    {'EXIT',{badarg,_}} = (catch trace:info(SName, send, match_spec)),
-    {'EXIT',{badarg,_}} = (catch trace:info(SName, 'receive', match_spec)),
-    {'EXIT',{badarg,_}} = (catch trace:info(SName, new_processes, flags)),
-    {'EXIT',{badarg,_}} = (catch trace:info(SName, new_ports, flags)),
-    {'EXIT',{badarg,_}} = (catch trace:info(SName, self(), flags)),
-    {'EXIT',{badarg,_}} = (catch trace:info(SName, Port, flags)),
+    ?assertError(badarg, trace:info(SName, Exp, traced)),
+    ?assertError(badarg, trace:info(SName, Loc, traced)),
+    ?assertError(badarg, trace:info(SName, on_load, traced)),
+    ?assertError(badarg, trace:info(SName, send, match_spec)),
+    ?assertError(badarg, trace:info(SName, 'receive', match_spec)),
+    ?assertError(badarg, trace:info(SName, new_processes, flags)),
+    ?assertError(badarg, trace:info(SName, new_ports, flags)),
+    ?assertError(badarg, trace:info(SName, self(), flags)),
+    ?assertError(badarg, trace:info(SName, Port, flags)),
     true.
 
 negative(_Config) ->
@@ -1725,13 +1727,13 @@ negative(_Config) ->
     S = trace:session_create(?MODULE, SessionTracer, []),
 
     %% Specified tracer not allowed
-    {'EXIT',{badarg,_}} = (catch trace:process(S, Tracee, true, [call, {tracer,OtherTracer}])),
+    ?assertError(badarg, trace:process(S, Tracee, true, [call, {tracer,OtherTracer}])),
     1 = catch trace:process(S, Tracee, true, [call]),
     1 = catch trace:process(S, Tracee, false, [call]),
 
     %% Specified meta tracer not allowed
-    {'EXIT',{badarg,_}} = (catch trace:function(S, MFA, true, [{meta,OtherTracer}])),
-    {'EXIT',{badarg,_}} = (catch trace:function(S, MFA, true, [{meta,erl_tracer,OtherTracer}])),
+    ?assertError(badarg, trace:function(S, MFA, true, [{meta,OtherTracer}])),
+    ?assertError(badarg, trace:function(S, MFA, true, [{meta,erl_tracer,OtherTracer}])),
     1 = trace:function(S, MFA, true, [meta]),
     1 = trace:function(S, MFA, false, [meta]),
 
@@ -1981,6 +1983,36 @@ is_bif_traced_do(CT1, CT2, CT3) ->
     receive_nothing(),
 
     trace:session_destroy(S3),
+    ok.
+
+%% Verify that 'garbage_collection' tracing works for multiple sessions.
+gc_multi_session(_Config) ->
+    %% regression kills the emulator so trace on a peer node.
+    {ok, Peer, Node} = ?CT_PEER(),
+    try
+        ok = erpc:call(Node, ?MODULE, gc_multi_session_do, [1]),
+        ok = erpc:call(Node, ?MODULE, gc_multi_session_do, [2])
+    after
+        try peer:stop(Peer) catch _:_ -> ok end
+    end.
+
+%% Trace from N sessions.
+gc_multi_session_do(N) ->
+    Tester = self(),
+    Tracers = [spawn_link(fun() -> tracer(I, Tester) end)
+               || I <- lists:seq(1, N)],
+    Sessions = [trace:session_create(?MODULE, Tracer, []) || Tracer <- Tracers],
+
+    Tracee = spawn(fun() -> receive go -> erlang:garbage_collect() end end),
+    [1 = trace:process(S, Tracee, true, [garbage_collection]) || S <- Sessions],
+    Tracee ! go,
+
+    receive_parallel_list(
+      [[{Tracer, {trace, Tracee, gc_major_start, '_'}},
+        {Tracer, {trace, Tracee, gc_major_end, '_'}}] || Tracer <- Tracers]),
+
+    [true = trace:session_destroy(S) || S <- Sessions],
+    [begin unlink(Tracer), exit(Tracer, die) end || Tracer <- Tracers],
     ok.
 
 

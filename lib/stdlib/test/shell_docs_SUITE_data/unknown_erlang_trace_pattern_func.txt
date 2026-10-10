@@ -2,35 +2,35 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  trace_pattern(MFA, MatchSpec)[0m
+[1m  trace_pattern(MFA, MatchSpec)[0m
 
-  Equivalent to [;;4merlang:trace_pattern(Event, MatchSpec, [])[0m,
+  Equivalent to [4merlang:trace_pattern(Event, MatchSpec, [])[0m,
   retained for backward compatibility.
 
-[;1m  trace_pattern(MFA, MatchSpec, FlagList)[0m
+[1m  trace_pattern(MFA, MatchSpec, FlagList)[0m
 
   Set trace pattern for call, send and receive tracing on the static
   legacy trace session.
 
-  [;;4mChange[0m
+  [4mChange[0m
 
-    This function is superseded by [;;4mtrace:function/4[0m, [;;4m[0m
-    [;;4mtrace:send/3[0m and
+    This function is superseded by [4mtrace:function/4[0m, [4m[0m
+    [4mtrace:send/3[0m and
 
-    [;;4mtrace:recv/3[0m that operate on dynamic trace sessions.
+    [4mtrace:recv/3[0m that operate on dynamic trace sessions.
 
-  Argument [;;4mFlagList[0m can contain two additional options for call
+  Argument [4mFlagList[0m can contain two additional options for call
   tracing:
 
-   • [;;4m{meta, Pid} | {meta, TracerModule, TracerState}[0m - Turns on
+   • [4m{meta, Pid} | {meta, TracerModule, TracerState}[0m - Turns on
      or off meta-tracing for all types of function calls. Trace
      messages are sent to the tracer whenever any of the
-     specified functions are called. If no tracer is specified, [;;4m[0m
-     [;;4mself/0[0m is used as a default tracer process.
+     specified functions are called. If no tracer is specified, [4m[0m
+     [4mself/0[0m is used as a default tracer process.
 
-  For further documentation see [;;4mtrace:function/4[0m , [;;4mtrace:send/3[0m
-  and [;;4mtrace:recv/3[0m.
+  For further documentation see [4mtrace:function/4[0m , [4mtrace:send/3[0m
+  and [4mtrace:recv/3[0m.

@@ -2,9 +2,9 @@
  * %CopyrightBegin%
  *
  * SPDX-License-Identifier: Apache-2.0
- * 
- * Copyright Ericsson AB 2008-2025. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2008-2026. All Rights Reserved.
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -16,7 +16,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -484,14 +484,14 @@ more:
     return 0;
 
 remain:
-    {
-        int tlen = hlen + plen;
-	if ((max_plen != 0 && plen > max_plen)
-	    || tlen < (int)hlen) { /* wrap-around protection */
-	    return -1;
-	}
-	return tlen;
-    }		
+    ASSERT(INT_MAX >= hlen);
+    if (max_plen == 0) {
+        max_plen = INT_MAX - hlen;
+    }
+    if (plen > max_plen) {
+        return -1;
+    }
+    return hlen + plen;
 
 done:
     return plen;

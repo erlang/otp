@@ -2,16 +2,16 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  setnode(P1, P2)[0m
+[1m  setnode(P1, P2)[0m
 
   The documentation for setnode/2 is hidden. This probably means
   that it is internal and not to be used by other applications.
 
-[;1m  setnode(Node, DistCtrlr, Opts)[0m
+[1m  setnode(Node, DistCtrlr, Opts)[0m
 
   The documentation for setnode/3 is hidden. This probably means
   that it is internal and not to be used by other applications.

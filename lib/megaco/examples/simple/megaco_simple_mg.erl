@@ -295,7 +295,7 @@ stop(Mid) ->
 		    Pid = megaco:conn_info(CH, control_pid),
 		    megaco:disconnect(CH, Reason),
 		    megaco:cancel(CH, Reason),
-		    exit(Pid, Reason)
+                    erlang:exit_signal(Pid, Reason)
 	    end,
     lists:map(Disco, megaco:user_info(Mid, connections)),
     megaco:stop_user(Mid).

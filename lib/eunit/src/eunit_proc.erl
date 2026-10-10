@@ -309,7 +309,7 @@ insulator_wait(Child, Parent, Buf, St) ->
 -spec kill_task(pid(), #procstate{}) -> no_return().
 
 kill_task(Child, St) ->
-    exit(Child, kill),
+    erlang:exit_signal(Child, kill),
     terminate_insulator(St).
 
 %% Unlinking before exit avoids polluting the parent process with exit

@@ -21,6 +21,8 @@
 %%
 
 -module(ct_master).
+-compile([{nowarn_deprecated_function, [{erlang,exit,2}]}]).
+
 -moduledoc """
 Distributed test execution control for `Common Test`.
 

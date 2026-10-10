@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2007-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2007-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -457,9 +457,9 @@ connect(Control, Host, Port) ->
 plain_options() ->
     [{doc,"Test specifying tls options not related to certificate verification"}].
 plain_options(Config) when is_list(Config) ->
-    TLSOpts = "-ssl_dist_opt server_secure_renegotiate true "
-	"client_secure_renegotiate true "
-	"server_hibernate_after 500 client_hibernate_after 500",
+    TLSOpts = "-ssl_dist_opt "
+        "server_hibernate_after 500 "
+        "client_hibernate_after 500",
     gen_dist_test(plain_options_test, [{tls_only_basic_opts, TLSOpts} | Config]).
 
 
@@ -468,12 +468,8 @@ plain_verify_options() ->
     [{doc,"Test specifying tls options including certificate verification options"}].
 plain_verify_options(Config) when is_list(Config) ->
     TLSOpts = "-ssl_dist_opt "
-        "server_secure_renegotiate true "
-        "client_secure_renegotiate true "
         "server_hibernate_after 500 "
         "client_hibernate_after 500 "
-        "server_reuse_sessions true "
-        "client_reuse_sessions true "
         "server_depth 1 "
         "client_depth 1 ",
     gen_dist_test(plain_verify_options_test, [{tls_verify_opts, TLSOpts} | Config]).

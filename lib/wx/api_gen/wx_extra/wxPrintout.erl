@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -45,7 +45,7 @@ Notice: The callbacks may not call other processes.
                {onEndPrinting,     fun((wxPrintout()) -> ok)} |
                {onBeginDocument,   fun((wxPrintout(), StartPage::integer(), EndPage::integer()) -> boolean())} |
                {onEndDocument,     fun((wxPrintout()) -> ok)} |
-               {hasPage,           fun((wxPrintout(), Page::integer()) -> ok)} |
+               {hasPage,           fun((wxPrintout(), Page::integer()) -> boolean())} |
                {getPageInfo,       fun((wxPrintout()) ->
                                               {MinPage::integer(), MaxPage::integer(),
                                                PageFrom::integer(), PageTo::integer()})}.

@@ -25,6 +25,9 @@
 %%% Description: SFTP protocol front-end
 
 -module(ssh_sftp).
+
+-compile([{nowarn_deprecated_function, [{erlang,exit,2}]}]).
+
 -moduledoc """
 SFTP client.
 

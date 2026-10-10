@@ -29,6 +29,14 @@
 #include <vector>
 #include <unordered_map>
 #include <map>
+#include <utility>
+#include <functional>
+
+#ifdef __GNUC__
+#    pragma GCC diagnostic push
+/* Suppress alignment warnings for `Eterm` in templates. */
+#    pragma GCC diagnostic ignored "-Wignored-attributes"
+#endif
 
 extern "C"
 {
@@ -45,6 +53,16 @@ extern "C"
 #include "beam_types.h"
 }
 
+/* JIT metadata consumers and producers must use the same platform guards. */
+#if !(defined(WIN32) || defined(__APPLE__) || defined(__MACH__) ||             \
+      defined(__DARWIN__))
+#    define HAVE_GDB_SUPPORT
+#endif
+
+#if defined(HAVE_GDB_SUPPORT) || defined(HAVE_LINUX_PERF_SUPPORT)
+#    define HAVE_BEAMASM_METADATA_SUPPORT
+#endif
+
 /* On Windows, the min and max macros may be defined. */
 #undef min
 #undef max
@@ -58,15 +76,20 @@ using namespace asmjit;
 struct AsmRange {
     ErtsCodePtr start;
     ErtsCodePtr stop;
-    const std::string name;
+    std::string name;
 
     struct LineData {
         ErtsCodePtr start;
-        const std::string file;
+        Uint32 file;
         unsigned line;
     };
 
-    const std::vector<LineData> lines;
+    std::vector<LineData> lines;
+};
+
+struct AsmMetadata {
+    std::vector<std::string> files;
+    std::vector<AsmRange> ranges;
 };
 
 /* This is a partial class for `BeamAssembler`, containing various fields and
@@ -135,7 +158,11 @@ struct BeamModuleAssemblerCommon {
     Eterm mod;
 
     /* Map of label number to asmjit Label */
-    typedef std::unordered_map<BeamLabel, const Label> LabelMap;
+    /* BEAM labels are dense (1..num_labels), so they map to asmjit labels
+     * through a plain vector indexed by label number; slot 0 is unused.
+     * Label resolution happens for nearly every emitted instruction, which
+     * is too hot for a hash map. */
+    typedef std::vector<Label> LabelMap;
     LabelMap rawLabels;
 
     struct patch {
@@ -168,6 +195,8 @@ struct BeamModuleAssemblerCommon {
 
     /* Map of literals to patch labels */
     struct patch_literal {
+        std::vector<std::pair<struct patch, std::function<Eterm(Eterm)>>>
+                deferred;
         std::vector<struct patch> patches;
     };
     typedef std::unordered_map<unsigned, struct patch_literal> LiteralMap;
@@ -599,4 +628,8 @@ bool beam_jit_is_shallow_boxed(Eterm term);
 void beam_jit_invalid_heap_ptr(Process *p, Eterm term);
 #endif
 
+#ifdef __GNUC__
+#    pragma GCC diagnostic pop
 #endif
+
+#endif /* __BEAM_JIT_COMMON_HPP__ */

@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -119,7 +119,7 @@ wxWidgets docs: [wxSashLayoutWindow](https://docs.wxwidgets.org/3.2/classwx_sash
   move/2,move/3,move/4,moveAfterInTabOrder/2,moveBeforeInTabOrder/2,
   navigate/1,navigate/2,pageDown/1,pageUp/1,parent_class/1,popupMenu/2,
   popupMenu/3,popupMenu/4,raise/1,refresh/1,refresh/2,refreshRect/2,refreshRect/3,
-  releaseMouse/1,removeChild/2,reparent/2,screenToClient/1,screenToClient/2,
+  releaseMouse/1,removeChild/2,reparent/2,screenToClient/2,screenToClient/3,
   scrollLines/2,scrollPages/2,scrollWindow/3,scrollWindow/4,setAcceleratorTable/2,
   setAutoLayout/2,setBackgroundColour/2,setBackgroundStyle/2,setCaret/2,
   setClientSize/2,setClientSize/3,setContainingSizer/2,setCursor/2,
@@ -152,7 +152,7 @@ new() ->
 
 -doc(#{equiv => new(Parent, [])}).
 -spec new(Parent) -> wxSashLayoutWindow() when
-	Parent::wxWindow:wxWindow().
+        Parent::wxWindow:wxWindow().
 
 new(Parent)
  when is_record(Parent, wx_ref) ->
@@ -182,7 +182,7 @@ new(#wx_ref{type=ParentT}=Parent, Options)
 
 -doc(#{equiv => create(This,Parent, [])}).
 -spec create(This, Parent) -> boolean() when
-	This::wxSashLayoutWindow(), Parent::wxWindow:wxWindow().
+        This::wxSashLayoutWindow(), Parent::wxWindow:wxWindow().
 
 create(This,Parent)
  when is_record(This, wx_ref),is_record(Parent, wx_ref) ->
@@ -217,7 +217,7 @@ wxLAYOUT\_RIGHT, wxLAYOUT\_BOTTOM.
 """.
 %%  Res = ?wxLAYOUT_NONE | ?wxLAYOUT_TOP | ?wxLAYOUT_LEFT | ?wxLAYOUT_RIGHT | ?wxLAYOUT_BOTTOM
 -spec getAlignment(This) -> wx:wx_enum() when
-	This::wxSashLayoutWindow().
+        This::wxSashLayoutWindow().
 getAlignment(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSashLayoutWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxSashLayoutWindow_GetAlignment),
@@ -226,7 +226,7 @@ getAlignment(#wx_ref{type=ThisT}=This) ->
 -doc "Returns the orientation of the window: one of wxLAYOUT\_HORIZONTAL, wxLAYOUT\_VERTICAL.".
 %%  Res = ?wxLAYOUT_HORIZONTAL | ?wxLAYOUT_VERTICAL
 -spec getOrientation(This) -> wx:wx_enum() when
-	This::wxSashLayoutWindow().
+        This::wxSashLayoutWindow().
 getOrientation(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSashLayoutWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxSashLayoutWindow_GetOrientation),
@@ -240,7 +240,7 @@ window is attached to).
 """.
 %%  Alignment = ?wxLAYOUT_NONE | ?wxLAYOUT_TOP | ?wxLAYOUT_LEFT | ?wxLAYOUT_RIGHT | ?wxLAYOUT_BOTTOM
 -spec setAlignment(This, Alignment) -> 'ok' when
-	This::wxSashLayoutWindow(), Alignment::wx:wx_enum().
+        This::wxSashLayoutWindow(), Alignment::wx:wx_enum().
 setAlignment(#wx_ref{type=ThisT}=This,Alignment)
  when is_integer(Alignment) ->
   ?CLASS(ThisT,wxSashLayoutWindow),
@@ -253,7 +253,7 @@ The dimension other than the orientation will be fixed to this value, and the or
 dimension will be ignored and the window stretched to fit the available space.
 """.
 -spec setDefaultSize(This, Size) -> 'ok' when
-	This::wxSashLayoutWindow(), Size::{W::integer(), H::integer()}.
+        This::wxSashLayoutWindow(), Size::{W::integer(), H::integer()}.
 setDefaultSize(#wx_ref{type=ThisT}=This,{SizeW,SizeH} = Size)
  when is_integer(SizeW),is_integer(SizeH) ->
   ?CLASS(ThisT,wxSashLayoutWindow),
@@ -267,7 +267,7 @@ available parent client area).
 """.
 %%  Orientation = ?wxLAYOUT_HORIZONTAL | ?wxLAYOUT_VERTICAL
 -spec setOrientation(This, Orientation) -> 'ok' when
-	This::wxSashLayoutWindow(), Orientation::wx:wx_enum().
+        This::wxSashLayoutWindow(), Orientation::wx:wx_enum().
 setOrientation(#wx_ref{type=ThisT}=This,Orientation)
  when is_integer(Orientation) ->
   ?CLASS(ThisT,wxSashLayoutWindow),
@@ -438,9 +438,9 @@ scrollPages(This,Pages) -> wxWindow:scrollPages(This,Pages).
 -doc false.
 scrollLines(This,Lines) -> wxWindow:scrollLines(This,Lines).
 -doc false.
-screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
+screenToClient(This,X,Y) -> wxWindow:screenToClient(This,X,Y).
 -doc false.
-screenToClient(This) -> wxWindow:screenToClient(This).
+screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
 -doc false.
 reparent(This,NewParent) -> wxWindow:reparent(This,NewParent).
 -doc false.

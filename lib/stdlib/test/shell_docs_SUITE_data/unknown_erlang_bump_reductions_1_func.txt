@@ -2,11 +2,11 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  bump_reductions(Reductions)[0m
+[1m  bump_reductions(Reductions)[0m
 
   This implementation-dependent function increments the reduction
   counter for the calling process.
@@ -17,7 +17,7 @@
   reductions for a process (4000 reductions in Erlang/OTP 19.2 and
   later).
 
-  [;;4mWarning[0m
+  [4mWarning[0m
 
     This BIF can be removed in a future version of the Beam
     machine without prior warning. It is unlikely to be

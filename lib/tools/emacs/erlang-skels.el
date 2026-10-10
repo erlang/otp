@@ -553,9 +553,8 @@ Please see the function `tempo-define-template'.")
     "%% of gen_server status when it is returned from sys:get_status/1,2" n
     "%% or when it appears in termination error logs." n
     (erlang-skel-separator-end 2)
-    "-spec format_status(Opt :: normal | terminate," n>
-    "Status :: list()) -> Status :: term()." n
-    "format_status(_Opt, Status) ->" n>
+    "-spec format_status(Status :: format_status()) -> NewStatus :: format_status()." n>
+    "format_status(Status) ->" n>
     "Status." n
     n
     (erlang-skel-double-separator-start 3)

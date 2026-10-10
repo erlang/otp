@@ -23,6 +23,151 @@ limitations under the License.
 
 This document describes the changes made to the STDLIB application.
 
+## STDLIB 8.1
+
+### Fixed Bugs and Malfunctions
+
+- When `beam_lib` returns an error tuple, the filename in the information tuple is now a list of characters instead of an atom.
+  
+  Example:
+  
+  ```
+  1> beam_lib:chunks(code:which(lists), ["nope"]).
+  {error,beam_lib,
+         {missing_chunk,".../git/otp/lib/stdlib/ebin/lists.beam",
+                        "nope"}}
+  ```
+  
+  The reason for this change is that a long file name is not guaranteed to fit in an atom. Applications or tools that do deep inspection of the `beam_lib` errors (not recommended) will need to be updated.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-20118 Aux Id: [PR-11167]
+
+- The default seed in the `rand` module has been improved to spread out its entropy over all three seed words.
+  
+  This avoids identical first random numbers from two successive seeds on machines with low system time resolution.
+
+  Own Id: OTP-20158 Aux Id: [PR-11165]
+
+- Fixed `unicode:characters_to_binary/2` to handle incomplete utf-32 sequences without crashing.
+  
+  Also fixed a performance regression in `unicode:characters_to_nfkd_list/1`.
+
+  Own Id: OTP-20169 Aux Id: [PR-11130]
+
+- The `array` module has been improved. `array:slice/3` now raises
+  `badarg` for negative lengths.
+  
+  The performance of `array:mapfoldl/3` and `array:sparse_mapfoldl/3` has been improved.
+  
+  The documentation has been clarified regarding array growth/shrink behavior and how `concat/1,2` handles mixed arrays.
+
+  Own Id: OTP-20177 Aux Id: [PR-11159]
+
+- Added more checks in the linter for badly formed `{Name,Arity}` attributes
+
+  Own Id: OTP-20277 Aux Id: [GH-11397], [PR-11422]
+
+- Fixed return value of `zip:zip_get/2`. When a file was extracted to a directory, the function returned a map instead of a file name.
+
+  Own Id: OTP-20298 Aux Id: [PR-11313]
+
+- When `compr_assign` is enabled, the linter will correctly check for unbounded variables after block expressions in comprehensions.
+
+  Own Id: OTP-20309 Aux Id: [GH-11406], [PR-11567]
+
+- When compiling a module with a triple-quoted string with escape sequences and a chunk boundary happened to fall just after an escape character, that character was not passed to the reentrancy continuation, so the scanner interpreted the following characters as not an escape sequence.
+  
+  This bug has now been fixed.
+
+  Own Id: OTP-20320 Aux Id: [GH-11423], [PR-11505]
+
+- Fixed some errors in examples in the documentation for the `m:string` and `m:uri_string` modules.
+
+  Own Id: OTP-20322 Aux Id: [PR-11446]
+
+- Linter will emit better error messages when a behaviour attribute has a bad module name.
+
+  Own Id: OTP-20354 Aux Id: [GH-11401], [PR-11552]
+
+[PR-11167]: https://github.com/erlang/otp/pull/11167
+[PR-11165]: https://github.com/erlang/otp/pull/11165
+[PR-11130]: https://github.com/erlang/otp/pull/11130
+[PR-11159]: https://github.com/erlang/otp/pull/11159
+[GH-11397]: https://github.com/erlang/otp/issues/11397
+[PR-11422]: https://github.com/erlang/otp/pull/11422
+[PR-11313]: https://github.com/erlang/otp/pull/11313
+[GH-11406]: https://github.com/erlang/otp/issues/11406
+[PR-11567]: https://github.com/erlang/otp/pull/11567
+[GH-11423]: https://github.com/erlang/otp/issues/11423
+[PR-11505]: https://github.com/erlang/otp/pull/11505
+[PR-11446]: https://github.com/erlang/otp/pull/11446
+[GH-11401]: https://github.com/erlang/otp/issues/11401
+[PR-11552]: https://github.com/erlang/otp/pull/11552
+
+### Improvements and New Features
+
+- `uri_string:parse/1` now reports the actual offending character in error tuples instead of reporting a misleading cascade-failure position.
+  
+  Previously, when parsing a URI containing an invalid character (such as `|` or non-ASCII characters like `ö`), the error tuple would point to the `:` character — the position where the parser's final backtracking attempt failed — rather than the character that actually violated the URI grammar. For example, `uri_string:parse("http://localhost/A|B")` returned `{error,invalid_uri,":"}` instead of the more helpful `{error,invalid_uri,"|"}`
+
+  Own Id: OTP-20235 Aux Id: [PR-11129], [GH-7862]
+
+- Fixed a guard precedence bug in `uri_string:compose_query/2` that caused inconsistent error handling depending on the encoding option.
+  
+  When `compose_query/2` was called with invalid input (e.g. an atom instead of a string) and `{encoding, unicode}`, it would crash with `** exception error: bad argument` instead of returning the expected `{error, invalid_input, Term}` tuple. The same call with `{encoding, utf8}` correctly returned the error tuple. Both encoding options now consistently return `{error, invalid_input, Term}` for invalid input.
+
+  Own Id: OTP-20236 Aux Id: [PR-11128]
+
+[PR-11129]: https://github.com/erlang/otp/pull/11129
+[GH-7862]: https://github.com/erlang/otp/issues/7862
+[PR-11128]: https://github.com/erlang/otp/pull/11128
+
+## STDLIB 8.0.4
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a bug in `unicode_util:gc/1` where the grapheme cluster   segmentation of `$\r` (not followed by `$\n`) would decompose binary continuations into mixed chardata. This caused `string:trim/3` (and `string:chomp/1`) to return incorrect results or crash when trimming strings containing binaries followed by another list element.
+
+  Own Id: OTP-20296 Aux Id: [GH-11380], [PR-11464]
+
+- `record_info/2` will now mark tuple records as used.
+
+  Own Id: OTP-20301 Aux Id: ERIERL-1345, [PR-11470]
+
+- `uri_string:parse/1` now rejects URIs with an unreasonably long port component (more than 5 digits) instead of attempting to convert an arbitrarily large digit string to an integer.
+
+  Own Id: OTP-20344 Aux Id: [PR-11538]
+
+[GH-11380]: https://github.com/erlang/otp/issues/11380
+[PR-11464]: https://github.com/erlang/otp/pull/11464
+[PR-11470]: https://github.com/erlang/otp/pull/11470
+[PR-11538]: https://github.com/erlang/otp/pull/11538
+
+## STDLIB 8.0.3
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a bug where zip:unzip/1,2 and zip:extract/1,2 were vulnerable to a relative path traversal attack. A crafted zip archive containing entry names such as ../x/y could have caused files to be written outside the intended extraction directory.
+  
+  Thanks to Jonatan Männchen and Zhang Delong for finding and responsibly disclosing this vulnerability to the Erlang/OTP project.
+
+  Own Id: OTP-20143 Aux Id: [CVE-2026-47078], [PR-11386]
+
+[CVE-2026-47078]: https://nvd.nist.gov/vuln/detail/2026-47078
+[PR-11386]: https://github.com/erlang/otp/pull/11386
+
+## STDLIB 8.0.2
+
+### Fixed Bugs and Malfunctions
+
+- Several compiler bugs that could crash the compiler or generate incorrect code in rare circumstances have been fixed.
+
+  Own Id: OTP-20222 Aux Id: [PR-11219]
+
+[PR-11219]: https://github.com/erlang/otp/pull/11219
+
 ## STDLIB 8.0.1
 
 ### Fixed Bugs and Malfunctions
@@ -378,6 +523,66 @@ This document describes the changes made to the STDLIB application.
 [PR-10839]: https://github.com/erlang/otp/pull/10839
 [PR-10938]: https://github.com/erlang/otp/pull/10938
 [PR-10948]: https://github.com/erlang/otp/pull/10948
+
+## STDLIB 7.3.0.3
+
+### Fixed Bugs and Malfunctions
+
+- When `beam_lib` returns an error tuple, the filename in the information tuple is now a list of characters instead of an atom.
+  
+  Example:
+  
+  ```
+  1> beam_lib:chunks(code:which(lists), ["nope"]).
+  {error,beam_lib,
+         {missing_chunk,".../git/otp/lib/stdlib/ebin/lists.beam",
+                        "nope"}}
+  ```
+  
+  The reason for this change is that a long file name is not guaranteed to fit in an atom. Applications or tools that do deep inspection of the `beam_lib` errors (not recommended) will need to be updated.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-20118 Aux Id: [PR-11167], ERIERL-1361
+
+[PR-11167]: https://github.com/erlang/otp/pull/11167
+
+## STDLIB 7.3.0.2
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a bug in `unicode_util:gc/1` where the grapheme cluster   segmentation of `$\r` (not followed by `$\n`) would decompose binary continuations into mixed chardata. This caused `string:trim/3` (and `string:chomp/1`) to return incorrect results or crash when trimming strings containing binaries followed by another list element.
+
+  Own Id: OTP-20296 Aux Id: [GH-11380], [PR-11464]
+
+- When compiling a module with a triple-quoted string with escape sequences and a chunk boundary happened to fall just after an escape character, that character was not passed to the reentrancy continuation, so the scanner interpreted the following characters as not an escape sequence.
+  
+  This bug has now been fixed.
+
+  Own Id: OTP-20320 Aux Id: [GH-11423], [PR-11505]
+
+- `uri_string:parse/1` now rejects URIs with an unreasonably long port component (more than 5 digits) instead of attempting to convert an arbitrarily large digit string to an integer.
+
+  Own Id: OTP-20344 Aux Id: [PR-11538]
+
+[GH-11380]: https://github.com/erlang/otp/issues/11380
+[PR-11464]: https://github.com/erlang/otp/pull/11464
+[GH-11423]: https://github.com/erlang/otp/issues/11423
+[PR-11505]: https://github.com/erlang/otp/pull/11505
+[PR-11538]: https://github.com/erlang/otp/pull/11538
+
+## STDLIB 7.3.0.1
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a bug where zip:unzip/1,2 and zip:extract/1,2 were vulnerable to a relative path traversal attack. A crafted zip archive containing entry names such as ../x/y could have caused files to be written outside the intended extraction directory.
+  
+  Thanks to Jonatan Männchen and Zhang Delong for finding and responsibly disclosing this vulnerability to the Erlang/OTP project.
+
+  Own Id: OTP-20143 Aux Id: [CVE-2026-47078], [PR-11386]
+
+[CVE-2026-47078]: https://nvd.nist.gov/vuln/detail/2026-47078
+[PR-11386]: https://github.com/erlang/otp/pull/11386
 
 ## STDLIB 7.3
 
@@ -1135,6 +1340,43 @@ This document describes the changes made to the STDLIB application.
 [PR-9670]: https://github.com/erlang/otp/pull/9670
 [PR-9705]: https://github.com/erlang/otp/pull/9705
 [PR-9680]: https://github.com/erlang/otp/pull/9680
+
+## STDLIB 6.2.2.5
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a bug in `unicode_util:gc/1` where the grapheme cluster   segmentation of `$\r` (not followed by `$\n`) would decompose binary continuations into mixed chardata. This caused `string:trim/3` (and `string:chomp/1`) to return incorrect results or crash when trimming strings containing binaries followed by another list element.
+
+  Own Id: OTP-20296 Aux Id: [GH-11380], [PR-11464]
+
+- When compiling a module with a triple-quoted string with escape sequences and a chunk boundary happened to fall just after an escape character, that character was not passed to the reentrancy continuation, so the scanner interpreted the following characters as not an escape sequence.
+  
+  This bug has now been fixed.
+
+  Own Id: OTP-20320 Aux Id: [GH-11423], [PR-11505]
+
+- `uri_string:parse/1` now rejects URIs with an unreasonably long port component (more than 5 digits) instead of attempting to convert an arbitrarily large digit string to an integer.
+
+  Own Id: OTP-20344 Aux Id: [PR-11538]
+
+[GH-11380]: https://github.com/erlang/otp/issues/11380
+[PR-11464]: https://github.com/erlang/otp/pull/11464
+[GH-11423]: https://github.com/erlang/otp/issues/11423
+[PR-11505]: https://github.com/erlang/otp/pull/11505
+[PR-11538]: https://github.com/erlang/otp/pull/11538
+
+## STDLIB 6.2.2.4
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a bug where zip:unzip/1,2 and zip:extract/1,2 were vulnerable to a relative path traversal attack. A crafted zip archive containing entry names such as ../x/y could have caused files to be written outside the intended extraction directory.
+  
+  Thanks to Jonatan Männchen and Zhang Delong for finding and responsibly disclosing this vulnerability to the Erlang/OTP project.
+
+  Own Id: OTP-20143 Aux Id: [CVE-2026-47078], [PR-11386]
+
+[CVE-2026-47078]: https://nvd.nist.gov/vuln/detail/2026-47078
+[PR-11386]: https://github.com/erlang/otp/pull/11386
 
 ## STDLIB 6.2.2.3
 

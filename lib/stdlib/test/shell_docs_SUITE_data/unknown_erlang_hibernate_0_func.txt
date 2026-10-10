@@ -2,13 +2,13 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  hibernate()[0m
+[1m  hibernate()[0m
 
-[;;4mSince[0m:
+[4mSince[0m:
   OTP @OTP-19503@
 
   Puts the calling process into a wait state where its memory
@@ -16,5 +16,5 @@
   the process does not expect to receive any messages soon.
 
   The process is awakened when a message is sent to it, and control
-  resumes normally to the caller. Unlike [;;4merlang:hibernate/3[0m, it
+  resumes normally to the caller. Unlike [4merlang:hibernate/3[0m, it
   does not discard the call stack.

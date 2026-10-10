@@ -2,14 +2,14 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  make_tuple(Arity, InitialValue)[0m
+[1m  make_tuple(Arity, InitialValue)[0m
 
-  Creates a new tuple of the specified [;;4mArity[0m, where all elements
-  are [;;4mInitialValue[0m.
+  Creates a new tuple of the specified [4mArity[0m, where all elements
+  are [4mInitialValue[0m.
 
   For example:
 

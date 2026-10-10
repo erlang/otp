@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -163,8 +163,8 @@ Event types emitted from this class:
   lineDown/1,lineUp/1,lower/1,move/2,move/3,move/4,moveAfterInTabOrder/2,
   moveBeforeInTabOrder/2,navigate/1,navigate/2,pageDown/1,pageUp/1,parent_class/1,
   popupMenu/2,popupMenu/3,popupMenu/4,raise/1,refresh/1,refresh/2,refreshRect/2,
-  refreshRect/3,releaseMouse/1,removeChild/2,reparent/2,screenToClient/1,
-  screenToClient/2,scrollLines/2,scrollPages/2,scrollWindow/3,scrollWindow/4,
+  refreshRect/3,releaseMouse/1,removeChild/2,reparent/2,screenToClient/2,
+  screenToClient/3,scrollLines/2,scrollPages/2,scrollWindow/3,scrollWindow/4,
   select/2,setAcceleratorTable/2,setAutoLayout/2,setBackgroundColour/2,
   setBackgroundStyle/2,setCaret/2,setClientData/3,setClientSize/2,setClientSize/3,
   setContainingSizer/2,setCursor/2,setDoubleBuffered/2,setDropTarget/2,
@@ -197,7 +197,7 @@ new() ->
 
 -doc(#{equiv => new(Parent,Id, [])}).
 -spec new(Parent, Id) -> wxComboBox() when
-	Parent::wxWindow:wxWindow(), Id::integer().
+        Parent::wxWindow:wxWindow(), Id::integer().
 
 new(Parent,Id)
  when is_record(Parent, wx_ref),is_integer(Id) ->
@@ -232,7 +232,7 @@ new(#wx_ref{type=ParentT}=Parent,Id, Options)
 
 -doc(#{equiv => create(This,Parent,Id,Value,Pos,Size,Choices, [])}).
 -spec create(This, Parent, Id, Value, Pos, Size, Choices) -> boolean() when
-	This::wxComboBox(), Parent::wxWindow:wxWindow(), Id::integer(), Value::unicode:chardata(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[unicode:chardata()].
+        This::wxComboBox(), Parent::wxWindow:wxWindow(), Id::integer(), Value::unicode:chardata(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}, Choices::[unicode:chardata()].
 
 create(This,Parent,Id,Value,{PosX,PosY} = Pos,{SizeW,SizeH} = Size,Choices)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id),?is_chardata(Value),is_integer(PosX),is_integer(PosY),is_integer(SizeW),is_integer(SizeH),is_list(Choices) ->
@@ -259,7 +259,7 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,Id,Value,{PosX,PosY
 
 -doc "Returns true if the selection can be copied to the clipboard.".
 -spec canCopy(This) -> boolean() when
-	This::wxComboBox().
+        This::wxComboBox().
 canCopy(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxComboBox),
   wxe_util:queue_cmd(This,?get_env(),?wxComboBox_CanCopy),
@@ -267,7 +267,7 @@ canCopy(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns true if the selection can be cut to the clipboard.".
 -spec canCut(This) -> boolean() when
-	This::wxComboBox().
+        This::wxComboBox().
 canCut(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxComboBox),
   wxe_util:queue_cmd(This,?get_env(),?wxComboBox_CanCut),
@@ -280,7 +280,7 @@ On some platforms (Motif, GTK) this is an approximation and returns true if the 
 is editable, false otherwise.
 """.
 -spec canPaste(This) -> boolean() when
-	This::wxComboBox().
+        This::wxComboBox().
 canPaste(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxComboBox),
   wxe_util:queue_cmd(This,?get_env(),?wxComboBox_CanPaste),
@@ -288,7 +288,7 @@ canPaste(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns true if there is a redo facility available and the last operation can be redone.".
 -spec canRedo(This) -> boolean() when
-	This::wxComboBox().
+        This::wxComboBox().
 canRedo(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxComboBox),
   wxe_util:queue_cmd(This,?get_env(),?wxComboBox_CanRedo),
@@ -296,7 +296,7 @@ canRedo(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns true if there is an undo facility available and the last operation can be undone.".
 -spec canUndo(This) -> boolean() when
-	This::wxComboBox().
+        This::wxComboBox().
 canUndo(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxComboBox),
   wxe_util:queue_cmd(This,?get_env(),?wxComboBox_CanUndo),
@@ -304,14 +304,14 @@ canUndo(#wx_ref{type=ThisT}=This) ->
 
 -doc "Copies the selected text to the clipboard.".
 -spec copy(This) -> 'ok' when
-	This::wxComboBox().
+        This::wxComboBox().
 copy(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxComboBox),
   wxe_util:queue_cmd(This,?get_env(),?wxComboBox_Copy).
 
 -doc "Copies the selected text to the clipboard and removes it from the control.".
 -spec cut(This) -> 'ok' when
-	This::wxComboBox().
+        This::wxComboBox().
 cut(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxComboBox),
   wxe_util:queue_cmd(This,?get_env(),?wxComboBox_Cut).
@@ -322,7 +322,7 @@ Same as `wxTextCtrl:getInsertionPoint/1`.
 Note: Under wxMSW, this function always returns 0 if the combobox doesn't have the focus.
 """.
 -spec getInsertionPoint(This) -> integer() when
-	This::wxComboBox().
+        This::wxComboBox().
 getInsertionPoint(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxComboBox),
   wxe_util:queue_cmd(This,?get_env(),?wxComboBox_GetInsertionPoint),
@@ -333,7 +333,7 @@ Returns the zero based index of the last position in the text control, which is 
 the number of characters in the control.
 """.
 -spec getLastPosition(This) -> integer() when
-	This::wxComboBox().
+        This::wxComboBox().
 getLastPosition(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxComboBox),
   wxe_util:queue_cmd(This,?get_env(),?wxComboBox_GetLastPosition),
@@ -347,7 +347,7 @@ characters, even under Windows where they are separated by a `\r\n` sequence in 
 native control.
 """.
 -spec getValue(This) -> unicode:charlist() when
-	This::wxComboBox().
+        This::wxComboBox().
 getValue(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxComboBox),
   wxe_util:queue_cmd(This,?get_env(),?wxComboBox_GetValue),
@@ -355,7 +355,7 @@ getValue(#wx_ref{type=ThisT}=This) ->
 
 -doc "Pastes text from the clipboard to the text item.".
 -spec paste(This) -> 'ok' when
-	This::wxComboBox().
+        This::wxComboBox().
 paste(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxComboBox),
   wxe_util:queue_cmd(This,?get_env(),?wxComboBox_Paste).
@@ -367,7 +367,7 @@ operation.
 Does nothing if there is no redo facility.
 """.
 -spec redo(This) -> 'ok' when
-	This::wxComboBox().
+        This::wxComboBox().
 redo(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxComboBox),
   wxe_util:queue_cmd(This,?get_env(),?wxComboBox_Redo).
@@ -379,7 +379,7 @@ at the last position with the given text.
 This function puts the current insertion point position at `to` as a side effect.
 """.
 -spec replace(This, From, To, Value) -> 'ok' when
-	This::wxComboBox(), From::integer(), To::integer(), Value::unicode:chardata().
+        This::wxComboBox(), From::integer(), To::integer(), Value::unicode:chardata().
 replace(#wx_ref{type=ThisT}=This,From,To,Value)
  when is_integer(From),is_integer(To),?is_chardata(Value) ->
   ?CLASS(ThisT,wxComboBox),
@@ -393,7 +393,7 @@ character at the last position.
 This function puts the current insertion point position at `to` as a side effect.
 """.
 -spec remove(This, From, To) -> 'ok' when
-	This::wxComboBox(), From::integer(), To::integer().
+        This::wxComboBox(), From::integer(), To::integer().
 remove(#wx_ref{type=ThisT}=This,From,To)
  when is_integer(From),is_integer(To) ->
   ?CLASS(ThisT,wxComboBox),
@@ -401,7 +401,7 @@ remove(#wx_ref{type=ThisT}=This,From,To)
 
 -doc "Sets the insertion point at the given position.".
 -spec setInsertionPoint(This, Pos) -> 'ok' when
-	This::wxComboBox(), Pos::integer().
+        This::wxComboBox(), Pos::integer().
 setInsertionPoint(#wx_ref{type=ThisT}=This,Pos)
  when is_integer(Pos) ->
   ?CLASS(ThisT,wxComboBox),
@@ -413,7 +413,7 @@ Sets the insertion point at the end of the text control.
 This is equivalent to calling `setInsertionPoint/2` with `getLastPosition/1` argument.
 """.
 -spec setInsertionPointEnd(This) -> 'ok' when
-	This::wxComboBox().
+        This::wxComboBox().
 setInsertionPointEnd(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxComboBox),
   wxe_util:queue_cmd(This,?get_env(),?wxComboBox_SetInsertionPointEnd).
@@ -430,7 +430,7 @@ See:
 * `wxControlWithItems:setStringSelection/2`
 """.
 -spec setSelection(This, N) -> 'ok' when
-	This::wxComboBox(), N::integer().
+        This::wxComboBox(), N::integer().
 setSelection(#wx_ref{type=ThisT}=This,N)
  when is_integer(N) ->
   ?CLASS(ThisT,wxComboBox),
@@ -438,7 +438,7 @@ setSelection(#wx_ref{type=ThisT}=This,N)
 
 -doc "Same as `wxTextCtrl:setSelection/3`.".
 -spec setSelection(This, From, To) -> 'ok' when
-	This::wxComboBox(), From::integer(), To::integer().
+        This::wxComboBox(), From::integer(), To::integer().
 setSelection(#wx_ref{type=ThisT}=This,From,To)
  when is_integer(From),is_integer(To) ->
   ?CLASS(ThisT,wxComboBox),
@@ -455,7 +455,7 @@ string must be in the combobox choices list (the check for this is case-insensit
 is `not` generated in this case.
 """.
 -spec setValue(This, Text) -> 'ok' when
-	This::wxComboBox(), Text::unicode:chardata().
+        This::wxComboBox(), Text::unicode:chardata().
 setValue(#wx_ref{type=ThisT}=This,Text)
  when ?is_chardata(Text) ->
   ?CLASS(ThisT,wxComboBox),
@@ -469,7 +469,7 @@ operation.
 Does nothing if there is no undo facility.
 """.
 -spec undo(This) -> 'ok' when
-	This::wxComboBox().
+        This::wxComboBox().
 undo(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxComboBox),
   wxe_util:queue_cmd(This,?get_env(),?wxComboBox_Undo).
@@ -666,9 +666,9 @@ scrollPages(This,Pages) -> wxWindow:scrollPages(This,Pages).
 -doc false.
 scrollLines(This,Lines) -> wxWindow:scrollLines(This,Lines).
 -doc false.
-screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
+screenToClient(This,X,Y) -> wxWindow:screenToClient(This,X,Y).
 -doc false.
-screenToClient(This) -> wxWindow:screenToClient(This).
+screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
 -doc false.
 reparent(This,NewParent) -> wxWindow:reparent(This,NewParent).
 -doc false.

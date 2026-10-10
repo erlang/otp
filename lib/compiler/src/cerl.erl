@@ -317,8 +317,8 @@ _See also: _`set_ann/2`.
 """.
 -spec get_ann(Node :: cerl()) -> [term()].
 
-get_ann(Node) ->
-    element(2, Node).
+get_ann(#_{anno=Anno}) ->
+    Anno.
 
 
 -doc """
@@ -328,8 +328,8 @@ _See also: _`add_ann/2`, `copy_ann/2`, `get_ann/1`.
 """.
 -spec set_ann(Node :: cerl(), Annotations :: [term()]) -> cerl().
 
-set_ann(Node, List) ->
-    setelement(2, Node, List).
+set_ann(Node, List) when is_record(Node) ->
+    Node#_{anno=List}.
 
 
 -doc """
@@ -1406,7 +1406,7 @@ _See also: _`ann_c_map/2`, `is_c_map/1`, `is_c_map_empty/1`, `is_c_map_pattern/1
 -spec c_map_pattern(Pairs :: [c_map_pair()]) -> c_map().
 
 c_map_pattern(Pairs) ->
-    #c_map{es=Pairs, is_pat=true}.
+    #c_map{es=Pairs, arg=#c_literal{val=#{}}, is_pat=true}.
 
 
 -type map_op() :: #c_literal{val::'assoc'} | #c_literal{val::'exact'}.
@@ -1519,7 +1519,7 @@ ann_c_map(As, M, Es) ->
 -spec ann_c_map_pattern(Annotations :: [term()], Pairs :: [c_map_pair()]) -> c_map().
 
 ann_c_map_pattern(As, Pairs) ->
-    #c_map{anno=As, es=Pairs, is_pat=true}.
+    #c_map{anno=As, arg=#c_literal{val=#{}}, es=Pairs, is_pat=true}.
 
 update_map_literal([#c_map_pair{op=#c_literal{val=assoc},key=Ck,val=Cv}|Es], M) ->
     %% M#{K => V}
@@ -1660,7 +1660,7 @@ _See also: _`ann_c_record/3`, `is_c_record/1`, `record_id/1`, `record_es/1`,
                Pairs :: [c_record_pair()]) -> #c_record{}.
 
 c_record(Id, Es) ->
-    #c_record{id=Id, es=Es}.
+    #c_record{id=Id, arg=#c_literal{val=ok}, es=Es}.
 
 -doc "_See also: _`c_record/2`.".
 -doc(#{since => <<"OTP 29.0">>}).
@@ -3894,11 +3894,11 @@ subtrees(T) ->
 		tuple ->
 		    [tuple_es(T)];
                 record ->
-                    [record_es(T)];
+                    [[record_arg(T)], [record_id(T)], record_es(T)];
                 record_pair ->
                     [[record_pair_key(T)], [record_pair_val(T)]];
 		map ->
-		    [map_es(T)];
+                    [[map_arg(T)], map_es(T)];
 		map_pair ->
 		    [[map_pair_op(T)],[map_pair_key(T)],[map_pair_val(T)]];
 		'let' ->
@@ -4030,6 +4030,10 @@ ann_make_tree(As, alias, [[V], [P]]) -> ann_c_alias(As, V, P);
 ann_make_tree(As, 'fun', [Vs, [B]]) -> ann_c_fun(As, Vs, B);
 ann_make_tree(As, 'receive', [Cs, [T], [A]]) ->
     ann_c_receive(As, Cs, T, A);
+ann_make_tree(As, record, [[A], [Id], Es]) ->
+    ann_c_record(As, A, Id, Es);
+ann_make_tree(As, record_pair, [[K],[V]]) ->
+    ann_c_record_pair(As, K, V);
 ann_make_tree(As, 'try', [[E], Vs, [B], Evs, [H]]) ->
     ann_c_try(As, E, Vs, B, Evs, H);
 ann_make_tree(As, 'catch', [[B]]) -> ann_c_catch(As, B);
@@ -4260,21 +4264,9 @@ make_lit_list([]) ->
 is_char_value(V) when V >= $\000, V =< $\377 -> true;
 is_char_value(_) -> false.
 
-is_print_char_value(V) when V >= $\040, V =< $\176 -> true;
-is_print_char_value(V) when V >= $\240, V =< $\377 -> true;
-is_print_char_value(V) when V =:= $\b -> true;
-is_print_char_value(V) when V =:= $\d -> true;
-is_print_char_value(V) when V =:= $\e -> true;
-is_print_char_value(V) when V =:= $\f -> true;
-is_print_char_value(V) when V =:= $\n -> true;
-is_print_char_value(V) when V =:= $\r -> true;
-is_print_char_value(V) when V =:= $\s -> true;
-is_print_char_value(V) when V =:= $\t -> true;
-is_print_char_value(V) when V =:= $\v -> true;
-is_print_char_value(V) when V =:= $\" -> true;
-is_print_char_value(V) when V =:= $\' -> true;
-is_print_char_value(V) when V =:= $\\ -> true;
-is_print_char_value(_) -> false.
+is_print_char_value($\d) -> true;
+is_print_char_value(V) when is_integer(V) ->
+    io_lib:printable_character(V, latin1).
 
 is_char_list([V | Vs]) when is_integer(V) ->
     is_char_value(V) andalso is_char_list(Vs);

@@ -26,6 +26,7 @@
 
 -export([
 analyze_events/2,
+alive_interval/0,
 connect/2,
 connect/3,
 daemon/1,
@@ -117,6 +118,7 @@ mk_dir_path/1,
 setup_all_user_host_keys/1,
 setup_all_user_host_keys/2,
 setup_all_user_host_keys/3,
+clean_all_user_host_keys/1,
 setup_all_host_keys/1,
 setup_all_host_keys/2,
 setup_all_user_keys/2,
@@ -136,8 +138,12 @@ system_dir/1,
 user_dir/1,
 get_public_key_algorithms_with_valid_host_key/1,
 get_public_key_algorithms_with_valid_host_key/2,
-remove_comment/1
+remove_comment/1,
+timetrap_scale/0,
+connect_with_retry/2,
+with_retry/2, with_retry/3
         ]).
+
 %% logger callbacks and related helpers
 -export([log/2,
          get_log_level/0, set_log_level/1,
@@ -193,6 +199,48 @@ do_connect(Host, Port, Options) ->
     ct:log("~p:~p ssh:connect(~p, ~p, ~p)~n -> ~p",[?MODULE,?LINE,Host, Port, Options, R]),
     {ok, ConnectionRef} = R,
     ConnectionRef.
+
+%% Connect to the system sshd with retry.
+%% Handles transient failures from OpenSSH MaxStartups drops under load.
+connect_with_retry(Port, Options) ->
+    connect_with_retry(hostname(), Port, Options).
+
+connect_with_retry(Host, Port, Options0) ->
+    Options =
+        set_opts_if_not_set([{silently_accept_hosts, true},
+                             {save_accepted_host, false},
+                             {user_interaction, false}
+                            ], Options0),
+    with_retry(fun() -> ssh:connect(Host, Port, Options, 10000) end, 3, 1000).
+
+%% Retry a transient-failing action with exponential backoff.
+%% Fun returns {ok, R} | {error, Reason}. Retries on {error,_} and on an
+%% exit/timeout raised by the action (e.g. a bounded gen_statem:call that
+%% timed out), sleeping Delay ms and doubling it between attempts. The
+%% final attempt is unguarded so a genuine, repeatable failure surfaces
+%% with its real reason instead of being masked. Returns R on success.
+with_retry(Fun, Attempts) ->
+    with_retry(Fun, Attempts, 1000).
+
+with_retry(Fun, 1, _Delay) ->
+    {ok, R} = Fun(),
+    R;
+with_retry(Fun, Attempts, Delay) when Attempts > 1 ->
+    try Fun() of
+        {ok, R} ->
+            R;
+        {error, Reason} ->
+            ?CT_LOG("with_retry: {error,~p}, ~p attempt(s) left",
+                    [Reason, Attempts - 1]),
+            timer:sleep(Delay),
+            with_retry(Fun, Attempts - 1, Delay * 2)
+    catch
+        exit:{timeout, _} = Reason ->
+            ?CT_LOG("with_retry: exit ~p, ~p attempt(s) left",
+                    [Reason, Attempts - 1]),
+            timer:sleep(Delay),
+            with_retry(Fun, Attempts - 1, Delay * 2)
+    end.
 
 set_opts_if_not_set(OptsToSet, Options0) ->
     lists:foldl(fun({K,V}, Opts) ->
@@ -352,7 +400,7 @@ start_shell(Port, IOServer, ExtraOptions) ->
 	      Options = [{user_interaction, false},
 			 {silently_accept_hosts,true},
                          {save_accepted_host,false},
-                         {alive, #{count_max => 3, interval => 100}}
+                         {alive, #{count_max => 3, interval => alive_interval()}}
                          | ExtraOptions],
               try
                   group_leader(IOServer, self()),
@@ -390,6 +438,14 @@ start_shell(Port, IOServer, ExtraOptions) ->
               end
       end).
 
+
+%%%----------------------------------------------------------------
+alive_interval() ->
+    case {os:type(), erlang:system_info(system_architecture)} of
+        {{win32, _}, _} -> 500;
+        {_, "x86_64-unknown-netbsd9.0"} -> 500; %% saradas is slow
+        _ -> 100
+    end.
 
 %%%----------------------------------------------------------------
 start_io_server() ->
@@ -1195,6 +1251,19 @@ setup_all_user_host_keys(DataDir, UserDir, SysDir) ->
                         end
                 end, [], ssh_transport:supported_algorithms(public_key)).
 
+clean_all_user_host_keys(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    clean_all_user_host_keys(PrivDir, filename:join(PrivDir, "system")).
+
+clean_all_user_host_keys(UserDir, SysDir) ->
+    lists:foreach(
+      fun(Alg) ->
+              file:delete(filename:join(UserDir, file_base_name(user, Alg))),
+              file:delete(filename:join(SysDir, file_base_name(system, Alg)))
+      end, ssh_transport:supported_algorithms(public_key)),
+    file:delete(filename:join(UserDir, "authorized_keys")),
+    file:del_dir(SysDir),
+    ok.
 
 setup_all_host_keys(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
@@ -1526,10 +1595,21 @@ print_interesting_events([], Cnt) ->
     {ok, Cnt};
 print_interesting_events([#{level := Level} = Event | Tail], Cnt)
   when Level /= info, Level /= notice, Level /= debug ->
-    ct:log("------------~nInteresting event found:~n~p~n==========~n", [Event]),
-    print_interesting_events(Tail, Cnt + 1);
+    case is_benign_event(Event) of
+        true ->
+            print_interesting_events(Tail, Cnt);
+        false ->
+            ct:log("------------~nInteresting event found:~n~p~n==========~n", [Event]),
+            print_interesting_events(Tail, Cnt + 1)
+    end;
 print_interesting_events([_|Tail], Cnt) ->
     print_interesting_events(Tail, Cnt).
+
+%% Known-benign event: driver_select race during fd handoff between ports
+is_benign_event(#{msg := {_Fmt, [Msg]}}) when is_list(Msg) ->
+    string:find(Msg, "ignored repeated call") =/= nomatch;
+is_benign_event(_) ->
+    false.
 
 %% logger callbacks
 log(LogEvent = #{level:=_Level,msg:=_Msg,meta:=_Meta},
@@ -1626,4 +1706,21 @@ assert_timing_symmetry(MeasureFun, ValidInput, InvalidInput) ->
             ct:fail("Timing ratio ~.2f exceeds 3.0 — possible timing oracle", [Ratio]);
         false ->
             ok
+    end.
+
+%%%----------------------------------------------------------------
+%%% Scale timetrap for slow platforms (32-bit, Solaris, Cover).
+%%% Returns an integer multiplier (1, 2, 4, or higher).
+timetrap_scale() ->
+    S0 = case erlang:system_info(wordsize) of
+             4 -> 2;
+             _ -> 1
+         end,
+    S1 = case os:type() of
+             {unix, sunos} -> S0 * 2;
+             _ -> S0
+         end,
+    case test_server:is_cover() of
+        true -> S1 * 3;
+        false -> S1
     end.

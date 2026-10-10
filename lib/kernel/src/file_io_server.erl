@@ -28,6 +28,7 @@
 
 -export([format_error/1]).
 -export([start/3, start_link/3]).
+-export([start_handle/3, start_link_handle/3]).
 
 -export([count_and_find/3]).
 
@@ -60,27 +61,36 @@ start_link(Owner, FileName, ModeList)
   when is_pid(Owner), (is_list(FileName) orelse is_binary(FileName)), is_list(ModeList) ->
     do_start(spawn_link, Owner, FileName, ModeList).
 
+start_handle(Owner, OpenFun, ModeList)
+  when is_pid(Owner), is_function(OpenFun, 2), is_list(ModeList) ->
+    do_start_handle(spawn, Owner, OpenFun, ModeList).
+
+start_link_handle(Owner, OpenFun, ModeList)
+  when is_pid(Owner), is_function(OpenFun, 2), is_list(ModeList) ->
+    do_start_handle(spawn_link, Owner, OpenFun, ModeList).
+
 %%%-----------------------------------------------------------------
 %%% Server starter, dispatcher and helpers
 
 do_start(Spawn, Owner, FileName, ModeList) ->
+    OpenFun = fun(ReadMode, Opts0) ->
+                      Opts = maybe_add_read_ahead(ReadMode, Opts0),
+                      raw_file_io:open(FileName, [raw | Opts])
+              end,
+    do_start_handle(Spawn, Owner, OpenFun, ModeList).
+
+do_start_handle(Spawn, Owner, OpenFun, ModeList) ->
     Self = self(),
     Ref = make_ref(),
     Utag = erlang:dt_spread_tag(true),
-    Pid = 
+    Pid =
 	erlang:Spawn(
 	  fun() ->
 		  erlang:dt_restore_tag(Utag),
-		  %% process_flag(trap_exit, true),
 		  case parse_options(ModeList) of
-                      {ReadMode, UnicodeMode, Opts0} ->
-                          Opts = maybe_add_read_ahead(ReadMode, Opts0),
-			  case raw_file_io:open(FileName, [raw | Opts]) of
-			      {error, Reason} = Error ->
-				  Self ! {Ref, Error},
-				  exit(Reason);
+                      {ReadMode, UnicodeMode, Opts} ->
+                          case OpenFun(ReadMode, Opts) of
 			      {ok, Handle} ->
-				  %% XXX must I handle R6 nodes here?
 				  M = erlang:monitor(process, Owner),
 				  Self ! {Ref, ok},
 				  server_loop(
@@ -89,7 +99,10 @@ do_start(Spawn, Owner, FileName, ModeList) ->
 					   mref      = M,
 					   buf       = <<>>,
 					   read_mode = ReadMode,
-					   unic = UnicodeMode})
+                                           unic = UnicodeMode});
+                              {error, Reason} = Error ->
+                                  Self ! {Ref, Error},
+                                  exit(Reason)
 			  end;
 		      {error,Reason1} = Error1 ->
 			  Self ! {Ref, Error1},

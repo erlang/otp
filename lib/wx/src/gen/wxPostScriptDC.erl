@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -112,7 +112,7 @@ new() ->
 
 -doc "Constructs a PostScript printer device context from a `m:wxPrintData` object.".
 -spec new(PrintData) -> wxPostScriptDC() when
-	PrintData::wxPrintData:wxPrintData().
+        PrintData::wxPrintData:wxPrintData().
 new(#wx_ref{type=PrintDataT}=PrintData) ->
   ?CLASS(PrintDataT,wxPrintData),
   wxe_util:queue_cmd(PrintData,?get_env(),?wxPostScriptDC_new_1),

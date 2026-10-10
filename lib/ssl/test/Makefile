@@ -3,7 +3,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 #
-# Copyright Ericsson AB 1999-2025. All Rights Reserved.
+# Copyright Ericsson AB 1999-2026. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -68,6 +68,7 @@ MODULES = \
 	openssl_server_cert_SUITE\
 	openssl_client_cert_SUITE\
 	ssl_crl_SUITE\
+	ssl_crl_white_box_SUITE\
 	ssl_dist_SUITE \
 	ssl_dist_bench_SUITE \
 	ssl_engine_SUITE\

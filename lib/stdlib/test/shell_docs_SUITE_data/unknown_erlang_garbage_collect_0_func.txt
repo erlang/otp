@@ -2,11 +2,11 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  garbage_collect()[0m
+[1m  garbage_collect()[0m
 
   Forces an immediate garbage collection of the executing process.
 
@@ -14,6 +14,6 @@
   there are good reasons to suspect) that the spontaneous garbage
   collection will occur too late or not at all.
 
-  [;;4mWarning[0m
+  [4mWarning[0m
 
     Improper use can seriously degrade system performance.

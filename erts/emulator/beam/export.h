@@ -122,8 +122,9 @@ typedef struct export_
 #define DBG_CHECK_EXPORT(EP, CX)
 #endif
 
-void init_export_table(void);
+void init_export_table(int limit);
 void export_info(fmtfn_t, void *);
+int erts_export_table_limit(void);
 
 ERTS_GLB_INLINE void erts_activate_export_trampoline(Export *ep, int code_ix);
 ERTS_GLB_INLINE int erts_is_export_trampoline_active(const Export * const ep, int code_ix);

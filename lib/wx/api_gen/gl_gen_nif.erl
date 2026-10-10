@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -225,7 +225,9 @@ declare_var(P=#arg{name=Name, in=false, type=#type{base=binary}}, Argc) ->
     {P,Argc+1};
 declare_var(P=#arg{name=Name, in=false, type=#type{name=T, single={Single,Sz}}}, Argc)
   when Single =:= list; Single =:= tuple ->
-    w("  ~s ~s[~w];\n", [T, Name, Sz]),
+    %% Zero-initialise: GL writes a pname-dependent number of values (fewer than
+    %% Sz for most pnames), but the marshalling loop reads all Sz elements.
+    w("  ~s ~s[~w] = {0};\n", [T, Name, Sz]),
     case Sz > 9 of
         false -> ignore;
         true  ->
@@ -297,9 +299,9 @@ decode_var(P=#arg{name=Name, type=#type{base=memory}},Argc) ->
       "    int ~s_a;\n"
       "    const ERL_NIF_TERM *~s_t;\n"
       "    if(enif_get_tuple(env, argv[~w], &~s_a, &~s_t) &&\n"
-      "         enif_is_binary(env, ~s_t[1]))\n"
+      "         ~s_a >= 2 && enif_is_binary(env, ~s_t[1]))\n"
       "       enif_inspect_binary(env, ~s_t[1], &~s);~n",
-      [Argc,Name,Name,Argc,Name,Name,Name,Name,Name]),
+      [Argc,Name,Name,Argc,Name,Name,Name,Name,Name,Name]),
     w("    else Badarg(~w, \"~s\");\n"
       "  } else Badarg(~w, \"~s\");\n", [?OP,Name, ?OP,Name]),
     {P,Argc+1};
@@ -453,6 +455,7 @@ decode_var(P=#arg{in=false, type=#type{single={C,Sz}}}, Argc)
   when C =:= tuple; C =:= list, is_integer(Sz) ->
     {P,Argc};
 decode_var(P=#arg{name=Name, in=false, type=#type{name=T,single={list,Sz,_}}}, Argc) ->
+    w("  if(~s < 0) Badarg(~w,\"~s\");\n", [Sz, ?OP, Sz]),
     w("  std::vector <~s> ~s (~s);\n", [T, Name, Sz]),
     w("  std::vector <ERL_NIF_TERM> ~s_ts (~s);\n", [Name, Sz]),
     {P,Argc};
@@ -461,6 +464,7 @@ decode_var(P=#arg{name=Name, in=false,
     case Base of
         string ->
             {BinSize, _} = Size,
+            w("  if(~s < 0) Badarg(~w,\"~s\");\n", [BinSize, ?OP, BinSize]),
             w("  ~s = (unsigned char *) enif_alloc((int) ~s*sizeof(~s));\n", [Name,BinSize,T]),
             w("  unsigned char *~s_ptr = ~s;\n", [Name,Name]),
             store_free(Name ++ "_ptr");

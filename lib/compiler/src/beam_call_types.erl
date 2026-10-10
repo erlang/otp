@@ -29,6 +29,9 @@
 
 -export([will_succeed/3, types/3, arith_type/2]).
 
+-type type() :: beam_types:type().
+-type normal_type() :: beam_types:normal_type().
+
 %%
 %% Define an upper limit for functions that return sizes of data
 %% structures. The chosen value is about half the maxium size of a
@@ -59,6 +62,8 @@
       ArgTypes :: [type()],
       Result :: 'yes' | 'no' | 'maybe'.
 
+will_succeed(erlang, '-', [Arg]) ->
+    succeeds_if_smallish(Arg);
 will_succeed(erlang, Op, [LHS, RHS]) when Op =:= '+';
                                           Op =:= '-';
                                           Op =:= '*' ->
@@ -165,12 +170,14 @@ will_succeed(erlang, setelement, [Pos, Tuple0, _Value]=Args) ->
         {_, none} ->
             no;
         {#t_integer{elements={Min,Max}}=Pos, Tuple} ->
-            MaxTupleSize = max_tuple_size(Tuple),
+            TupleSizes = tuple_sizes(Tuple),
+            MaxTupleSize = lists:max(TupleSizes),
+            MinTupleSize = lists:min(TupleSizes),
             if
                 MaxTupleSize < Min ->
                     %% Index is always out of range.
                     no;
-                Tuple0 =:= Tuple, Max =< MaxTupleSize ->
+                Tuple0 =:= Tuple, Max =< MinTupleSize ->
                     %% We always have a tuple, and the index is always in
                     %% range.
                     yes;
@@ -209,14 +216,14 @@ will_succeed(Mod, Func, Args) ->
             end
     end.
 
-max_tuple_size(#t_union{tuple_set=[_|_]=Set}=Union) ->
+tuple_sizes(#t_union{tuple_set=[_|_]=Set}=Union) ->
     Union = meet(Union, #t_tuple{}),            %Assertion.
     Arities = [Arity || {{Arity, _Tag}, _Record} <:- Set],
-    lists:max(Arities);
-max_tuple_size(#t_tuple{exact=true,size=Size}) ->
-    Size;
-max_tuple_size(#t_tuple{exact=false}) ->
-    ?MAX_TUPLE_SIZE.
+    Arities;
+tuple_sizes(#t_tuple{exact=true,size=Size}) ->
+    [Size];
+tuple_sizes(#t_tuple{exact=false,size=Size}) ->
+    [Size,?MAX_TUPLE_SIZE].
 
 %% While we can't infer success for functions outside the 'erlang'
 %% module, it's safe to infer failure when we know they return `none` or
@@ -300,6 +307,7 @@ succeeds_if_smallish(LHS, RHS) ->
 %%
 %% Note that these are all from the erlang module; suitable functions in other
 %% modules could fail due to the module not being loaded.
+
 types(erlang, 'map_size', [_]) ->
     sub_safe(#t_integer{elements={0,?SIZE_UPPER_LIMIT}}, [#t_map{}]);
 types(erlang, 'tuple_size', [Src]) ->
@@ -515,27 +523,46 @@ types(erlang, 'rem', Args) ->
     sub_unsafe(beam_bounds_type('rem', #t_integer{}, Args),
                [#t_integer{}, #t_integer{}]);
 
-%% Some mixed-type arithmetic.
+%% Some mixed-type arithmetic. Note that these arithmetic types are
+%% only used during the signatures pass of `beam_ssa_type`. To ensure
+%% convergence, we must assume that the operators are used in a recursive
+%% way.
+%%
+%% For example, if we have the following range expression:
+%%
+%%     0..0 + 1..1
+%%
+%% the resulting range must not be `1..1`, because if it is used in
+%% a recursive way, next time `types/3` will be asked to evaluate:
+%%
+%%     1..1 + 1..1
+%%
+%% then:
+%%
+%%     2..2 + 1..1
+%%
+%% and so on.
+%%
+%% The resulting range that guarantees convergence is:
+%%
+%%     1..+inf
+%%
+%% See `arith_type/3` for determining the type when divergence isn't
+%% an issue.
+%%
+types(erlang, '-', [Type]) ->
+    {RetType, [_|Args], CanSubtract} =
+        types(erlang, '-', [#t_integer{elements={0,0}},Type]),
+    {RetType, Args, CanSubtract};
 types(erlang, Op, [LHS, RHS]) when Op =:= '+'; Op =:= '-' ->
-    case get_range(LHS, RHS, #t_number{}) of
-        {Type, {A,B}, {C,_D}} when is_integer(C), C >= 0 ->
-            R = beam_bounds:bounds(Op, {A,B}, {C,'+inf'}),
-            RetType = case Type of
-                          integer -> #t_integer{elements=R};
-                          number -> #t_number{elements=R}
-                      end,
-            sub_unsafe(RetType, [#t_number{}, #t_number{}]);
-        {Type, {A,_B}, {C,D}} when Op =:= '+', is_integer(A), A >= 0 ->
-            R = beam_bounds:bounds(Op, {A,'+inf'}, {C,D}),
-            RetType = case Type of
-                          integer -> #t_integer{elements=R};
-                          number -> #t_number{elements=R}
-                      end,
-            sub_unsafe(RetType, [#t_number{}, #t_number{}]);
-        _ ->
-            mixed_arith_types([LHS, RHS])
-    end;
-
+    {Type, R1, R2} = get_range(LHS, RHS, #t_number{}),
+    R = arith_range(Op, R1, R2),
+    RetType = case Type of
+                  float -> #t_float{elements=any};
+                  integer -> #t_integer{elements=R};
+                  number -> #t_number{elements=R}
+              end,
+    sub_unsafe(RetType, [#t_number{}, #t_number{}]);
 types(erlang, '*', [LHS, RHS]) ->
     case get_range(LHS, RHS, #t_number{}) of
         {Type, {A,B}, {C,D}} ->
@@ -992,8 +1019,10 @@ types(lists, zipwith, [Fun | [_,_]=Lists]) ->
 types(lists, keyfind, [KeyType,PosType,_]) ->
     %% Doesn't imply that the argument is a proper list; see lists:all/2
     TupleType = case meet(PosType, #t_integer{}) of
-                    #t_integer{elements={Index,Index}} when is_integer(Index),
-                                                            Index >= 1 ->
+                    #t_integer{elements={Index,Index}}
+                      when not is_integer(Index, 0, ?MAX_TUPLE_SIZE - 1) ->
+                        none;
+                    #t_integer{elements={Index,Index}} ->
                         Es = beam_types:set_tuple_element(Index, KeyType, #{}),
                         #t_tuple{size=Index,elements=Es};
                     #t_integer{} ->
@@ -1200,6 +1229,22 @@ types(maps, without, [Keys, Map]) ->
 types(_, _, Args) ->
     sub_unsafe(any, [any || _ <- Args]).
 
+
+%%
+%% Determine the type of an arithmetic expression in situations where
+%% divergence is not an issue, for example in the type analysis done
+%% after the signatures pass of `beam_ssa_type` or for expressions not
+%% involved in recursion.
+%%
+%% For example, the result of this range expression:
+%%
+%%     0..0 + 1..1
+%%
+%% is:
+%%
+%%     1..1
+%%
+
 -spec arith_type(Op, ArgTypes) -> RetType when
       Op :: beam_ssa:op(),
       ArgTypes :: [type()],
@@ -1233,6 +1278,44 @@ arith_type(_Op, _Args) ->
 %%
 %% Function-specific helpers.
 %%
+
+arith_range('-', R1, R2)->
+    R = beam_bounds:bounds('-', {0,0}, R2),
+    case R1 of
+        {S,S} ->
+            %% Always make a constant operand the RHS operand.
+            arith_range('+', R, R1);
+        _ ->
+            arith_range('+', R1, R)
+    end;
+arith_range('+', {A,B}, {C,D}) ->
+    if
+        is_integer(A), A >= 0,
+        is_integer(C), C >= 0 ->
+            %% The ranges have the same sign (positive). Will converge
+            %% to an upper limit of positive infinity.
+            beam_bounds:bounds('+', {A,B}, {C,'+inf'});
+        is_integer(B), B =< 0,
+        is_integer(D), D =< 0 ->
+            %% The ranges have the same sign (negative). Will converge
+            %% to a lower limit of negative infinity.
+            beam_bounds:bounds('+', {A,B}, {'-inf',C});
+        C =:= D ->
+            %% The RHS operand is a constant integer. Depending on the
+            %% sign of the RHS operand, the resulting range will
+            %% converge to either negative infinity or positive
+            %% infinity.
+            if
+                C >= 0 ->
+                    beam_bounds:bounds('+', {A,B}, {C,'+inf'});
+                C < 0 ->
+                    beam_bounds:bounds('+', {A,B}, {'-inf',C})
+            end;
+        true ->
+            any
+    end;
+arith_range('+', _, _) ->
+    any.
 
 mixed_arith_types(Args0) ->
     [FirstType|_] = Args = [meet(A, #t_number{}) || A <- Args0],

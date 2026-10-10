@@ -81,6 +81,8 @@ in the description of each individual BIF.
               "see the \"Time and Time Correction in Erlang\" "
               "chapter of the ERTS User's Guide for more information"}]).
 -deprecated([{phash,2, "use erlang:phash2/2 instead"}]).
+-deprecated([{exit,2,"use erlang:exit_signal/2 instead"}]).
+-deprecated([{exit,3,"use erlang:exit_signal/3 instead"}]).
 -removed([{hash,2,"use erlang:phash2/2 instead"}]).
 -removed([{get_stacktrace,0,
            "use the new try/catch syntax for retrieving the "
@@ -148,7 +150,7 @@ This datatype is used to represent data that is meant to be output using
 any I/O module. For example: `file:write/2` or `gen_tcp:send/2`.
 
 To convert an `t:iodata/0` term to `t:binary/0` you can use
-[iolist_to_binary/2](`iolist_to_binary/1`). To transcode a `t:string/0` or
+[iolist_to_binary/1](`iolist_to_binary/1`). To transcode a `t:string/0` or
 `t:unicode:chardata/0` to `t:iodata/0` you can use `unicode:characters_to_binary/1`.
 """.
 -type iodata() :: iolist() | binary().
@@ -470,6 +472,7 @@ A list of binaries. This datatype is useful to use together with
 -export([pid_to_list/1, port_close/1, port_command/2, port_command/3]).
 -export([port_connect/2, port_control/3, port_get_data/1]).
 -export([port_set_data/2, port_to_list/1, ports/0]).
+-export([pid_to_binary/1, port_to_binary/1, ref_to_binary/1]).
 -export([posixtime_to_universaltime/1, pre_loaded/0, prepare_loading/2]).
 -export([monotonic_time/0, monotonic_time/1]).
 -export([system_time/0, system_time/1]).
@@ -2556,7 +2559,7 @@ exit_signal(_Pid, _Reason) ->
 
 %% exit/2
 -doc """
-Old form of `exit_signal/2`, with a quirk when sender and receiver are the same.
+Deprecated form of `exit_signal/2`, with a quirk when sender and receiver are the same.
 
 > #### Note {: .info }
 >
@@ -5061,6 +5064,23 @@ pid_to_list(_Pid) ->
     erlang:nif_error(undefined).
 
 -doc """
+Returns a binary constructed from the text representation of `Pid`.
+
+## Examples
+
+```erlang
+1> erlang:pid_to_binary(<0.1.0>).
+<<"<0.1.0>">>
+```
+""".
+-doc #{ category => terms }.
+-doc #{since => ~"OTP @OTP-20432@"}.
+-spec pid_to_binary(Pid) -> binary() when
+      Pid :: pid().
+pid_to_binary(_Pid) ->
+    erlang:nif_error(undefined).
+
+-doc """
 Returns a string corresponding to the text representation of the port identifier
 `Port`.
 
@@ -5075,6 +5095,24 @@ Returns a string corresponding to the text representation of the port identifier
 -spec port_to_list(Port) -> string() when
       Port :: port().
 port_to_list(_Port) ->
+    erlang:nif_error(undefined).
+
+-doc """
+Returns a binary constructed from the text representation of the port identifier
+`Port`.
+
+## Examples
+
+```erlang
+1> erlang:port_to_binary(#Port<0.0>).
+<<"#Port<0.0>">>
+```
+""".
+-doc #{ category => terms }.
+-doc #{since => ~"OTP @OTP-20432@"}.
+-spec port_to_binary(Port) -> binary() when
+      Port :: port().
+port_to_binary(_Port) ->
     erlang:nif_error(undefined).
 
 %% ports/0
@@ -5333,10 +5371,15 @@ convert_time_unit(Time, FromUnit, ToUnit) ->
 
 		 _ when ToUnit > 0 -> ToUnit
 	     end,
-	case Time < 0 of
-	    true -> TU*Time - (FU - 1);
-	    false -> TU*Time
-	end div FU
+    case (FU =:= TU) andalso erlang:is_integer(Time) of
+        true ->
+            Time;
+        false ->
+            case Time < 0 of
+                true -> TU*Time - (FU - 1);
+                false -> TU*Time
+            end div FU
+    end
     catch
 	_ : _ ->
 	    error_with_info(badarg, [Time, FromUnit, ToUnit])
@@ -5871,6 +5914,28 @@ Returns a string corresponding to the text representation of `Ref`.
 -spec ref_to_list(Ref) -> string() when
       Ref :: reference().
 ref_to_list(_Ref) ->
+    erlang:nif_error(undefined).
+
+-doc """
+Returns a binary constructed from the text representation of `Ref`.
+
+> #### Warning {: .warning }
+>
+> This BIF is intended for debugging and is not to be used in application
+> programs.
+
+## Examples
+
+```erlang
+1> ref_to_binary(#Ref<0.0.0.0>).
+<<"#Ref<0.0.0.0>">>
+```
+""".
+-doc #{ category => terms }.
+-doc #{since => ~"OTP @OTP-20432@"}.
+-spec ref_to_binary(Ref) -> binary() when
+      Ref :: reference().
+ref_to_binary(_Ref) ->
     erlang:nif_error(undefined).
 
 %% register/2
@@ -10456,6 +10521,8 @@ the `CpuTopology` type to change.
          (end_time) -> non_neg_integer();
          (ets_count) -> pos_integer();
          (ets_limit) -> pos_integer();
+         (export_count) -> pos_integer();
+         (export_limit) -> pos_integer();
          (fullsweep_after) -> {fullsweep_after, non_neg_integer()};
          (garbage_collection) -> garbage_collection_defaults();
          (heap_sizes) -> [non_neg_integer()];
@@ -10473,6 +10540,8 @@ the `CpuTopology` type to change.
          (min_bin_vheap_size) -> {min_bin_vheap_size,
                                   MinBinVHeapSize :: pos_integer()};
          (modified_timing_level) -> integer() | undefined;
+         (module_count) -> pos_integer();
+         (module_limit) -> pos_integer();
          (multi_scheduling) -> disabled | blocked | blocked_normal | enabled;
          (multi_scheduling_blockers) -> [Pid :: pid()];
          (nif_version) -> string();

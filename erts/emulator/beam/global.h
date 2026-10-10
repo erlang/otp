@@ -225,7 +225,9 @@ struct erts_driver_t_ {
     DE_Handle *handle;
     erts_mtx_t *lock;
     ErlDrvEntry *entry;
-    ErlDrvData (*start)(ErlDrvPort port, char *command, SysDriverOpts* opts);
+    ErlDrvData (*start)(ErlDrvPort port, char *command);
+    ErlDrvData (*start_sys_drv)(ErlDrvPort port, char *command,
+                               SysDriverOpts* opts);
     void (*stop)(ErlDrvData drv_data);
     void (*finish)(void);
     void (*flush)(ErlDrvData drv_data);
@@ -1033,6 +1035,11 @@ void erts_print_base64(fmtfn_t to, void *to_arg, const byte* src, Uint size);
 int erts_set_signal(Eterm signal, Eterm type);
 
 /* erl_arith.c */
+
+/* The number of bignum words that we assume can be processed in one
+ * reduction. */
+#define ERTS_ARITH_WORDS_PER_REDUCTION 16
+
 double erts_get_positive_zero_float(void);
 
 /* config.c */
@@ -1286,7 +1293,7 @@ Port *erts_open_driver(erts_driver_t*, Eterm, char*, SysDriverOpts*, int *, int 
 void erts_init_io(int, int, int);
 void erts_raw_port_command(Port*, byte*, Uint);
 void driver_report_exit(ErlDrvPort, int);
-LineBuf* allocate_linebuf(int);
+LineBuf* allocate_linebuf(Sint);
 int async_ready(Port *, void*);
 ErtsPortNames *erts_get_port_names(Eterm, ErlDrvPort);
 void erts_free_port_names(ErtsPortNames *);
@@ -1536,8 +1543,6 @@ Eterm erts_mul_add(Process* p, Eterm arg1, Eterm arg2, Eterm arg3, Eterm* pp);
 Eterm erts_mixed_div(Process* p, Eterm arg1, Eterm arg2);
 
 int erts_int_div_rem(Process* p, Eterm arg1, Eterm arg2, Eterm *q, Eterm *r);
-Eterm erts_int_div(Process* p, Eterm arg1, Eterm arg2);
-Eterm erts_int_rem(Process* p, Eterm arg1, Eterm arg2);
 Eterm erts_bxor(Process* p, Eterm arg1, Eterm arg2);
 Eterm erts_bsr(Process* p, Eterm arg1, Eterm arg2);
 Eterm erts_bsl(Process* p, Eterm arg1, Eterm arg2);

@@ -273,6 +273,8 @@ format_error_1(non_latin1_module_unsupported) ->
     ~"module names with non-latin1 characters are not supported";
 format_error_1(empty_module_name) ->
     ~"the module name must not be empty";
+format_error_1(bad_module_name) ->
+    ~"the module name must be an atom";
 format_error_1(blank_module_name) ->
     ~"the module name must contain at least one visible character";
 format_error_1(ctrl_chars_in_module_name) ->
@@ -319,6 +321,8 @@ format_error_1({invalid_unsafe,D}) ->
 format_error_1({bad_unsafe,{F,A}}) ->
     {~"unsafe function ~tw/~w undefined or not exported",
      [F,A]};
+format_error_1({invalid_fa_attribute,D}) ->
+    {~"badly formed attribute ~tw", [D]};
 format_error_1({bad_nowarn_unused_function,{F,A}}) ->
     {~"function ~tw/~w undefined", [F,A]};
 format_error_1({bad_nowarn_unused_function,{F,A},GuessFA}) ->
@@ -408,28 +412,28 @@ format_error_1({unsafe, MFA, Info, Rel}) ->
 format_error_1({unsafe, MFA, Info}) ->
     {~"~s is unsafe; ~s", [format_mfa(MFA), format_obsolete(Info)]};
 format_error_1({deprecated_type, {M1, F1, A1}, Info, Rel}) ->
-    {~"the type ~p:~p~s is deprecated and will be removed in ~s; ~s",
-                  [M1, F1, gen_type_paren(A1), Rel, format_obsolete(Info)]};
+    {~"the type ~p:~p/~w is deprecated and will be removed in ~s; ~s",
+     [M1, F1, A1, Rel, format_obsolete(Info)]};
 format_error_1({deprecated_type, {M1, F1, A1}, Info}) ->
-    {~"the type ~p:~p~s is deprecated; ~s",
-                  [M1, F1, gen_type_paren(A1), format_obsolete(Info)]};
+    {~"the type ~p:~p/~w is deprecated; ~s",
+     [M1, F1, A1, format_obsolete(Info)]};
 format_error_1({deprecated_callback, {M1, F1, A1}, Info, Rel}) ->
-    {~"the callback ~p:~p~s is deprecated and will be removed in ~s; ~s",
-                  [M1, F1, gen_type_paren(A1), Rel, format_obsolete(Info)]};
+    {~"the callback ~p:~p/~w is deprecated and will be removed in ~s; ~s",
+     [M1, F1, A1, Rel, format_obsolete(Info)]};
 format_error_1({deprecated_callback, {M1, F1, A1}, Info}) ->
-    {~"the callback ~p:~p~s is deprecated; ~s",
-                  [M1, F1, gen_type_paren(A1), format_obsolete(Info)]};
+    {~"the callback ~p:~p/~w is deprecated; ~s",
+     [M1, F1, A1, format_obsolete(Info)]};
 format_error_1({removed, MFA, ReplacementMFA, Rel}) ->
     {~"call to ~s will fail, since it was removed in ~s; use ~s",
      [format_mfa(MFA), Rel, format_mfa(ReplacementMFA)]};
 format_error_1({removed, MFA, Info}) ->
     {~"~s is removed; ~s", [format_mfa(MFA), format_obsolete(Info)]};
-format_error_1({removed_type, MNA, Info}) ->
+format_error_1({removed_type, MFA, Info}) ->
     {~"the type ~s is removed; ~s",
-     [format_mna(MNA), format_obsolete(Info)]};
-format_error_1({removed_callback, MNA, Info}) ->
+     [format_mfa(MFA), format_obsolete(Info)]};
+format_error_1({removed_callback, MFA, Info}) ->
     {~"the callback ~s is removed; ~s",
-     [format_mna(MNA), format_obsolete(Info)]};
+     [format_mfa(MFA), format_obsolete(Info)]};
 format_error_1({too_many_arguments,Arity}) ->
     {~"too many arguments (~w) -- maximum allowed is ~w", [Arity,?MAX_ARGUMENTS]};
 format_error_1(update_literal) ->
@@ -664,18 +668,16 @@ format_error_1({bad_export_type, _ETs}) ->
 format_error_1({duplicated_export_type, {T, A}}) ->
     {~"type ~tw/~w already exported", [T, A]};
 format_error_1({undefined_type, {TypeName, Arity}}) ->
-    {~"type ~tw~s undefined", [TypeName, gen_type_paren(Arity)]};
+    {~"type ~tw/~w undefined", [TypeName, Arity]};
 format_error_1({unused_type, {TypeName, Arity}}) ->
-    {~"type ~tw~s is unused", [TypeName, gen_type_paren(Arity)]};
+    {~"type ~tw/~w is unused", [TypeName, Arity]};
 format_error_1({redefine_builtin_type, {TypeName, Arity}}) ->
-    {~"local redefinition of built-in type: ~w~s",
-		  [TypeName, gen_type_paren(Arity)]};
+    {~"local redefinition of built-in type: ~w/~w", [TypeName, Arity]};
 format_error_1({renamed_type, OldName, NewName}) ->
     {~"type ~w() is now called ~w(); please use the new name instead",
      [OldName, NewName]};
 format_error_1({redefine_type, {TypeName, Arity}}) ->
-    {~"type ~tw~s already defined",
-     [TypeName, gen_type_paren(Arity)]};
+    {~"type ~tw/~w already defined", [TypeName, Arity]};
 format_error_1({type_syntax, Constr}) ->
     {~"bad ~tw type", [Constr]};
 format_error_1(old_abstract_code) ->
@@ -720,9 +722,8 @@ format_error_1(deprecated_catch) ->
      Compile directive 'nowarn_deprecated_catch' can be used to suppress
      warnings in selected modules.
      """;
- format_error_1({not_exported_opaque, {TypeName, Arity}}) ->
-    {~"opaque type ~tw~s is not exported",
-                  [TypeName, gen_type_paren(Arity)]};
+format_error_1({not_exported_opaque, {TypeName, Arity}}) ->
+    {~"opaque type ~tw/~w is not exported", [TypeName, Arity]};
 format_error_1({bad_dialyzer_attribute,Term}) ->
     {~"badly formed dialyzer attribute: ~tw", [Term]};
 format_error_1({bad_dialyzer_option,Term}) ->
@@ -730,13 +731,6 @@ format_error_1({bad_dialyzer_option,Term}) ->
 %% --- obsolete? unused? ---
 format_error_1({format_error, {Fmt, Args}}) ->
     {Fmt, Args}.
-
-gen_type_paren(Arity) when is_integer(Arity), Arity >= 0 ->
-    gen_type_paren_1(Arity, ")").
-
-gen_type_paren_1(0, Acc) -> "(" ++ Acc;
-gen_type_paren_1(1, Acc) -> "(_" ++ Acc;
-gen_type_paren_1(N, Acc) -> gen_type_paren_1(N - 1, ",_" ++ Acc).
 
 format_mfa({M, F, [_|_]=As}) ->
     ","++ArityString = lists:append([[$,|integer_to_list(A)] || A <- As]),
@@ -750,9 +744,6 @@ format_fa({F, [_|_]=As}) ->
 
 format_mf(M, F, ArityString) when is_atom(M), is_atom(F) ->
     atom_to_list(M) ++ ":" ++ atom_to_list(F) ++ "/" ++ ArityString.
-
-format_mna({M, N, A}) when is_integer(A) ->
-    atom_to_list(M) ++ ":" ++ atom_to_list(N) ++ gen_type_paren(A).
 
 format_where(L) when is_integer(L) ->
     io_lib:format("(line ~p)", [L]);
@@ -1417,34 +1408,38 @@ disallowed_compile_flags(Forms, St0) ->
 %% data about calls etc. have been collected.
 
 post_traversal_check(Forms, St0) ->
-    St1 = check_behaviour(St0),
-    St2 = check_deprecated(Forms, St1),
-    St3 = check_imports(Forms, St2),
-    St4 = check_inlines(Forms, St3),
-    St5 = check_undefined_functions(St4),
-    St6 = check_unused_functions(Forms, St5),
-    St7 = check_bif_clashes(Forms, St6),
-    St8 = check_specs_without_function(St7),
-    St9 = check_functions_without_spec(Forms, St8),
-    StA = check_undefined_types(St9),
-    StB = check_unused_types(Forms, StA),
-    StC = check_untyped_records(Forms, StB),
-    StD = check_on_load(StC),
-    StE = check_export_record(Forms, StD),
-    StF = check_unused_records(Forms, StE),
-    StG = check_native_records_header(Forms, StF),
-    StH = check_local_opaque_types(StG),
-    StI = check_dialyzer_attribute(Forms, StH),
-    StJ = check_callback_information(StI),
-    StK = check_nifs(Forms, StJ),
-    StL = check_unexported_functions(StK),
-    StM = check_removed(Forms, StL),
-    check_unsafe(Forms, StM).
+    foldl(fun(F, Acc) -> F(Forms, Acc) end,
+          St0,
+          [fun check_behaviour/2,
+           fun check_deprecated/2,
+           fun check_deprecated_type_callback/2,
+           fun check_imports/2,
+           fun check_inlines/2,
+           fun check_undefined_functions/2,
+           fun check_unused_functions/2,
+           fun check_bif_clashes/2,
+           fun check_specs_without_function/2,
+           fun check_functions_without_spec/2,
+           fun check_undefined_types/2,
+           fun check_unused_types/2,
+           fun check_untyped_records/2,
+           fun check_on_load/2,
+           fun check_export_record/2,
+           fun check_unused_records/2,
+           fun check_native_records_header/2,
+           fun check_local_opaque_types/2,
+           fun check_dialyzer_attribute/2,
+           fun check_callback_information/2,
+           fun check_nifs/2,
+           fun check_unexported_functions/2,
+           fun check_removed/2,
+           fun check_unsafe/2
+          ]).
 
 %% check_behaviour(State0) -> State
 %% Check that the behaviour attribute is valid.
 
-check_behaviour(St) ->
+check_behaviour(_Forms, St) ->
     case is_warn_enabled(behaviours, St) of
         true ->
             behaviour_check(St#lint.behaviour, St);
@@ -1636,6 +1631,28 @@ deprecated_desc([Char | Str]) when is_integer(Char) -> deprecated_desc(Str);
 deprecated_desc([]) -> true;
 deprecated_desc(_) -> false.
 
+%% check_deprecated_type_callback(Forms, State0) -> State
+
+check_deprecated_type_callback(Forms, St0) ->
+    Bad = [{E,Anno} || {attribute, Anno, Attr, Depr} <- Forms,
+                       (Attr =:= deprecated_type orelse
+                        Attr =:= deprecated_callback),
+                       D <- lists:flatten([Depr]),
+                       E <- depr_cat_flag(D)],
+    foldl(fun ({E,Anno}, St1) ->
+                  add_error(Anno, E, St1)
+          end, St0, Bad).
+
+depr_cat_flag({_F, _A, Flg}=D) ->
+    case deprecated_flag(Flg) of
+        false -> [{invalid_deprecated,D}];
+        true -> []
+    end;
+depr_cat_flag({_F, _A}) ->
+    [];
+depr_cat_flag(D) ->
+    [{invalid_deprecated,D}].
+
 %% check_removed(Forms, State0) -> State
 
 check_removed(Forms, St0) ->
@@ -1822,7 +1839,7 @@ reached_functions([], [], _Ref, Reached) -> gb_sets:to_list(Reached).
 
 %% check_undefined_functions(State0) -> State
 
-check_undefined_functions(#lint{called=Called0,defined=Def0}=St0) ->
+check_undefined_functions(_Forms, #lint{called=Called0,defined=Def0}=St0) ->
     Called = sofs:relation(Called0, [{func,location}]),
     Def = sofs:from_external(gb_sets:to_list(Def0), [func]),
     Undef = sofs:to_external(sofs:drestriction(Called, Def)),
@@ -1847,9 +1864,9 @@ most_possible_string(Name, PossibleNames) ->
             end
     end.
 
-%% check_undefined_types(State0) -> State
+%% check_undefined_types(_Forms, State0) -> State
 
-check_undefined_types(#lint{usage=Usage,types=Def}=St0) ->
+check_undefined_types(_Forms, #lint{usage=Usage,types=Def}=St0) ->
     Used = Usage#usage.used_types,
     UTAs = maps:keys(Used),
     Undef = [{TA,map_get(TA, Used)} ||
@@ -1894,9 +1911,9 @@ check_nifs(Forms, St0) ->
     DefFunctions1 = gb_sets:to_list(DefFunctions),
     func_location_error(undefined_nif, Bad, St1, DefFunctions1).
 
-check_unexported_functions(#lint{callbacks=Cs,
-                                 optional_callbacks=OCs,
-                                 exports=Es0}=St) ->
+check_unexported_functions(_Forms, #lint{callbacks=Cs,
+                                         optional_callbacks=OCs,
+                                         exports=Es0}=St) ->
     Es = case Cs =/= #{} orelse OCs =/= #{} of
             true -> gb_sets:add({behaviour_info, 1}, Es0);
             false -> Es0
@@ -1926,8 +1943,7 @@ nowarn_function(Tag, Opts) ->
 func_location_warning(Type, Fs, St) ->
     foldl(fun ({F,Anno}, St0) -> add_warning(Anno, {Type,F}, St0) end, St, Fs).
 
-func_location_error(Type, [{F,Anno}|Fs], St0, FAList) ->
-    {Name, Arity} = F,
+func_location_error(Type, [{{Name, Arity}=F,Anno}|Fs], St0, FAList) ->
     PossibleAs = lists:sort([A || {FName, A} <:- FAList, FName =:= Name]),
     case PossibleAs of
         [] ->
@@ -1944,6 +1960,9 @@ func_location_error(Type, [{F,Anno}|Fs], St0, FAList) ->
             St1 = add_error(Anno, {Type,F,{Name,PossibleAs}}, St0),
             func_location_error(Type, Fs, St1, FAList)
     end;
+func_location_error(Type, [{F,Anno}|Fs], St0, FAList) ->
+    St1 = add_error(Anno, {invalid_fa_attribute,F}, St0),
+    func_location_error(Type, Fs, St1, FAList);
 func_location_error(_, [], St, _) ->
     St.
 
@@ -2013,8 +2032,8 @@ check_native_records_header(Forms, #lint{records = Records}=St0) ->
             St0
     end.
 
-check_callback_information(#lint{callbacks = Callbacks,
-                                 optional_callbacks = OptionalCbs,
+check_callback_information(_Forms, #lint{callbacks = Callbacks,
+                                         optional_callbacks = OptionalCbs,
 				 defined = Defined} = St0) ->
     OptFun = fun(MFA, Anno, St) ->
                      case is_map_key(MFA, Callbacks) of
@@ -2248,8 +2267,8 @@ on_load(Anno, Val, St) ->
     %% Bad syntax.
     add_error(Anno, {bad_on_load,Val}, St).
 
--spec check_on_load(lint_state()) -> lint_state().
-check_on_load(#lint{defined=Defined,on_load=[{_,0}=Fa],
+-spec check_on_load(any(), lint_state()) -> lint_state().
+check_on_load(_Forms, #lint{defined=Defined,on_load=[{_,0}=Fa],
 		    on_load_anno=Anno}=St) ->
     case gb_sets:is_member(Fa, Defined) of
         true -> St;
@@ -2262,7 +2281,7 @@ check_on_load(#lint{defined=Defined,on_load=[{_,0}=Fa],
                 GuessF -> add_error(Anno, {undefined_on_load,Fa,GuessF}, St)
             end
     end;
-check_on_load(St) -> St.
+check_on_load(_Forms, St) -> St.
 
 -spec call_function(anno(), atom(), arity(), lint_state()) -> lint_state().
 %%  Add to both called and calls.
@@ -2848,6 +2867,10 @@ gexpr({call,Anno,{atom,_Ar,is_record},[E0,{atom,_,_Name},{Type,_,_}]},
 gexpr({call,Anno,{atom,_Ar,is_record},[_,_,_]=Asvt0}, Vt, St0) ->
     {Asvt,St1} = gexpr_list(Asvt0, Vt, St0),
     {Asvt,add_error(Anno, illegal_guard_expr, St1)};
+gexpr({call,_Anno,{remote,_,{atom,_,erlang},{atom,_,is_record}},
+       [E0,{atom,_,_},{Type,_,_}]},
+      Vt, St0) when Type =:= integer; Type =:= atom ->
+    gexpr(E0, Vt, St0);
 gexpr({call,Anno,{remote,_,{atom,_,erlang},{atom,_,is_record}=Isr},[_,_,_]=Args},
       Vt, St0) ->
     gexpr({call,Anno,Isr,Args}, Vt, St0);
@@ -3331,7 +3354,7 @@ expr({remote,_Anno,M,_F}, _Vt, St) ->
     {[],add_error(erl_parse:first_anno(M), illegal_expr, St)};
 expr({executable_line,_,_}, _Vt, St) ->
     {[], St};
-expr({ssa_check_when,_Anno,_WantedResult,_Args,_Tag,_Exprs}, _Vt, St) ->
+expr({ssa_check_when,_Anno,_WantedResult,_Args,_AnnoCheck,_Tag,_Exprs}, _Vt, St) ->
     {[], St}.
 
 %% Check a call to function without a module name. This can be a call
@@ -3724,9 +3747,15 @@ check_fields(Fs, Flavor, Name, Fields, Vt0, St0, CheckFun, DiagFlavor) ->
               end, {[],[], St0}, Fs),
     {Uvt,St1}.
 
-check_field({record_field,_Af,_F,Val}, native, _Name, unknown,
+check_field({record_field,Af,{atom,_Aa,F},Val}, native, Name, unknown,
             Vt, St0, Rfs, CheckFun, _DiagFlavor) ->
-    {Rfs, CheckFun(Val, Vt, St0)};
+    %% External native records.
+    case member(F, Rfs) of
+        true ->
+            {Rfs,{[],add_error(Af, {redefine_field,Name,F}, St0)}};
+        false ->
+            {[F|Rfs], CheckFun(Val, Vt, St0)}
+    end;
 check_field({record_field,Af,{atom,Aa,F},Val}, Flavor, Name, Fields,
             Vt, St0, Rfs, CheckFun, DiagFlavor) ->
     case member(F, Rfs) of
@@ -4355,7 +4384,7 @@ is_fa({FuncName, Arity})
   when is_atom(FuncName), is_integer(Arity), Arity >= 0 -> true;
 is_fa(_) -> false.
 
-check_module_name(M, Anno, St0) ->
+check_module_name(M, Anno, St0) when is_atom(M) ->
     AllChars = atom_to_list(M),
     VisibleChars = remove_non_visible(AllChars),
     case {AllChars, VisibleChars} of
@@ -4378,7 +4407,9 @@ check_module_name(M, Anno, St0) ->
                 false ->
                     St1
             end
-    end.
+    end;
+check_module_name(_M, Anno, St) ->
+    add_error(Anno, bad_module_name, St).
 
 remove_non_visible(Cs) ->
     SP = $\s,                                   %Plain space.
@@ -4417,7 +4448,7 @@ nowarn() ->
     A1 = erl_anno:set_generated(true, A0),
     erl_anno:set_file("", A1).
 
-check_specs_without_function(#lint{module=Mod,defined=Funcs,specs=Specs}=St) ->
+check_specs_without_function(_Forms, #lint{module=Mod,defined=Funcs,specs=Specs}=St) ->
     Fun = fun({M, F, A}, Anno, AccSt) when M =:= Mod ->
                   FA = {F, A},
 		  case gb_sets:is_element(FA, Funcs) of
@@ -4517,7 +4548,7 @@ reached_types(#lint{usage = Usage}) ->
 initially_reached_types(Es) ->
     [FromTypeId || {{T, _}=FromTypeId, _} <- Es, T =/= type].
 
-check_local_opaque_types(St) ->
+check_local_opaque_types(_Forms, St) ->
     #lint{types=Ts, exp_types=ExpTs} = St,
     FoldFun =
         fun(_Type, #typeinfo{attr = type}, AccSt) ->
@@ -4797,23 +4828,33 @@ lc_quals([{m_generate,_Anno,P,E} | Qs], Vt0, Uvt0, St0) ->
 lc_quals([{m_generate_strict,_Anno,P,E} | Qs], Vt0, Uvt0, St0) ->
     {Vt,Uvt,St} = handle_generator(P,E,Vt0,Uvt0,St0),
     lc_quals(Qs, Vt, Uvt, St);
+lc_quals([{match,Anno,P0,E0}=F|Qs], Vt0, Uvt0, St0) ->
+    %% A top-level match is never a guard test.
+    case is_feature_enabled(compr_assign, St0) of
+        true ->
+            {P,E} = rewrite_compr_assign(P0, E0),
+            {Vt,Uvt,St} = handle_generator(P, E, Vt0, Uvt0, false, St0),
+            lc_quals(Qs, Vt, Uvt, St);
+        false ->
+            St1 = add_error(Anno, compr_assign, St0),
+            {Fvt,St2} = expr(F, Vt0, St1),
+            lc_quals(Qs, vtupdate(Fvt, Vt0), Uvt0, St2)
+    end;
 lc_quals([F|Qs], Vt, Uvt, St0) ->
     Info = is_guard_test2_info(St0),
     {Fvt,St1} = case is_guard_test2(F, Info) of
 		    true -> guard_test(F, Vt, St0);
-		    false -> expr(F, Vt, check_compr_assign(F, St0))
+                    false -> expr(F, Vt, St0)
 		end,
     lc_quals(Qs, vtupdate(Fvt, Vt), Uvt, St1);
 lc_quals([], Vt, Uvt, St) ->
     {Vt, Uvt, St}.
 
-check_compr_assign({match,Anno,_,_}, St) ->
-    case is_feature_enabled(compr_assign, St) of
-        true -> St;
-        false -> add_error(Anno, compr_assign, St)
-    end;
-check_compr_assign(_, St) ->
-    St.
+%% Same as v3_core:rewrite_compr_assign/2. Expansion here is for scoping.
+rewrite_compr_assign(P1, {match,L2,P2,E}) ->
+    rewrite_compr_assign({match,L2,P1,P2}, E);
+rewrite_compr_assign(P, E) ->
+    {P, E}.
 
 is_feature_enabled(Name, St) ->
     lists:member(Name, St#lint.features).
@@ -4863,10 +4904,19 @@ handle_generators(Gens,Vt,Uvt,St0) ->
     {Vt3,NUvt,St5}.
 
 handle_generator(P,E,Vt,Uvt,St0) ->
+    handle_generator(P,E,Vt,Uvt,true,St0).
+
+handle_generator(P,E,Vt,Uvt,CheckUnusedE,St0) ->
     {Evt,St1} = expr(E, Vt, St0),
     %% Forget variables local to E immediately.
     Vt1 = vtupdate(vtold(Evt, Vt), Vt),
-    {_, St2} = check_unused_vars(Evt, Vt, St1),
+    St2 = case CheckUnusedE of
+              true ->
+                  {_, St} = check_unused_vars(Evt, Vt, St1),
+                  St;
+              false ->
+                  St1
+          end,
     {Pvt,Pnew,St3} = comprehension_pattern(P, Vt1, St2),
     %% Have to keep fresh variables separated from used variables somehow
     %% in order to handle for example X = foo(), [X || <<X:X>> <- bar()].
@@ -5327,7 +5377,7 @@ check_record_info_call(_Anno,_Aa,[{atom,Ai,Info},{atom,_An,Name}], St) ->
         true ->
             case St#lint.records of
                 #{Name := {_,tuple,_}} ->
-                    St;
+                    used_record(Name, St);
                 #{} ->
                     add_error(Ai, native_record_illegal_record_info, St)
             end;

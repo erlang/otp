@@ -311,7 +311,8 @@ all() ->
               {options,                "ESOCK_TEST_API_OPTS",     include},
               {operation_with_timeout, "ESOCK_TEST_API_OPWTO",    include}
              ],
-    [use_group(Group, Env, Default) || {Group, Env, Default} <- Groups].
+    [Spec || {Group, Env, Default} <- Groups,
+             Spec <- use_group(Group, Env, Default)].
 
 use_group(_Group, undefined, exclude) ->
     [];
@@ -1605,12 +1606,12 @@ do_api_b_open_and_maybe_close_raw(InitState) ->
                            end
                    end},
          #{desc => "close socket",
-           cmd  => fun(#{socket := Sock} = State) ->
+           cmd  => fun(#{sock := Sock} = State) ->
                            ?SEV_IPRINT("try socket close"),
                            case socket:close(Sock) of
                                ok ->
                                    ?SEV_IPRINT("socket closed"),
-                                   {ok, maps:remote(sock, State)};
+                                   {ok, maps:remove(sock, State)};
                                {error, Reason} = ERROR ->
                                    ?SEV_EPRINT("close failed:"
                                                "~n   Reason: ~p", [Reason]),
@@ -5353,6 +5354,7 @@ api_ffd_open_connect_and_open_wod_and_send_tcp6(_Config) when is_list(_Config) -
 api_ffd_open_connect_and_open_wd_and_send_tcp4(_Config) when is_list(_Config) ->
     ?TT(?SECS(5)),
     tc_try(api_ffd_open_connect_and_open_wd_and_send_tcp4,
+           fun() -> has_support_ipv4() end,
            fun() ->
                    InitState = #{domain   => inet,
                                  type     => stream,
@@ -27005,6 +27007,9 @@ sock_close(Sock) ->
     try socket:close(Sock) of
         ok ->
             ok;
+        {error, closed} ->
+            i("sock_close -> already closed"),
+            ok;
         {error, Reason} ->
             i("sock_close -> error: ~p", [Reason]),
             ?FAIL({close, Reason})
@@ -27458,8 +27463,8 @@ api_opt_sock_timestampns_udp(InitState) ->
                    end},
          #{desc => "close sockets",
            cmd  => fun(#{sock_src := Src, sock_dst := Dst}) ->
-                           (catch socket:close(Src)),
-                           (catch socket:close(Dst)),
+                           ?CATCH_AND_IGNORE( socket:close(Src) ),
+                           ?CATCH_AND_IGNORE( socket:close(Dst) ),
                            ok
                    end},
          ?SEV_FINISH_NORMAL

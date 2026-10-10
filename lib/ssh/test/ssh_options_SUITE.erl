@@ -29,6 +29,7 @@
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
 -include("ssh_test_lib.hrl").
+-include("ssh_connect.hrl").
 
 %%% Test cases
 -export([
@@ -55,6 +56,8 @@
 	 max_sessions_ssh_connect_sequential/1, 
          max_sessions_drops_tcp_connects/1,
          max_sessions_drops_tcp_connects/0,
+         max_sessions_option/1,
+         max_channels_option/1,
 	 server_password_option/1, 
 	 server_userpassword_option/1, 
 	 server_userpassword_timing/0,
@@ -88,6 +91,7 @@
 	 hostkey_fingerprint_check_list/1,
          save_accepted_host_option/1,
          raw_option/1,
+         config_file/0,
          config_file/1,
          config_file_modify_algorithms_order/1,
          daemon_replace_options_simple/1,
@@ -97,7 +101,11 @@
          daemon_replace_options_not_found/1,
          daemon_loopback_binding/1,
          pk_check_user_option/1,
-         pwdfun_lockout_ets/1
+         pwdfun_lockout_ets/1,
+         max_auth_request_size_large_enough/1,
+         max_auth_request_size_too_small/1,
+         max_auth_request_size_invalid_option/1,
+         max_auth_tries_option/1
 	]).
 
 %%% Common test callbacks
@@ -172,7 +180,9 @@ all() ->
      daemon_replace_options_algs_connect,
      daemon_replace_options_algs_conf_file,
      daemon_replace_options_not_found,
-     {group, hardening_tests}
+     {group, hardening_tests},
+     {group, max_auth_request_size},
+     {group, max_auth_tries}
     ].
 
 groups() ->
@@ -185,13 +195,19 @@ groups() ->
 			    max_sessions_sftp_start_channel_parallel,
 			    max_sessions_sftp_start_channel_sequential,
                             max_sessions_drops_tcp_connects,
+                            max_sessions_option,
+                            max_channels_option,
                             daemon_loopback_binding,
                             pk_check_user_option,
                             pwdfun_lockout_ets
 			   ]},
      {dir_options, [], [user_dir_option,
                         user_dir_fun_option,
-			system_dir_option]}
+                        system_dir_option]},
+     {max_auth_request_size, [], [max_auth_request_size_large_enough,
+                                  max_auth_request_size_too_small,
+                                  max_auth_request_size_invalid_option]},
+     {max_auth_tries, [], [max_auth_tries_option]}
     ].
 
 
@@ -199,7 +215,8 @@ groups() ->
 init_per_suite(Config) ->
     ?CHECK_CRYPTO(Config).
 
-end_per_suite(_Config) ->
+end_per_suite(Config) ->
+    ssh_test_lib:clean_all_user_host_keys(Config),
     ssh:stop().
 
 %%--------------------------------------------------------------------
@@ -255,7 +272,18 @@ init_per_group(_, Config) ->
 end_per_group(_, Config) ->
     Config.
 %%--------------------------------------------------------------------
+init_per_testcase(TestCase, Config) when TestCase =:= max_sessions_drops_tcp_connects ->
+    case erlang:system_info(system_architecture) of
+        "x86_64-unknown-netbsd9.0" ->
+            %% saradas too slow for the testcase
+            {skip, "machine too slow for test"};
+        _ ->
+            init(Config)
+    end;
 init_per_testcase(_TestCase, Config) ->
+    init(Config).
+
+init(Config) ->
     ssh:start(),
     %% Create a clean user_dir
     UserDir = filename:join(proplists:get_value(priv_dir, Config), nopubkey),
@@ -1253,7 +1281,7 @@ ssh_daemon_minimal_remote_max_packet_size_option(Config) ->
 
     %% Try the limits of the minimal_remote_max_packet_size:
     {ok, _ChannelId} = ssh_connection:session_channel(Conn, 100, 14, infinity),
-    {open_error,_,"Maximum packet size below 14 not supported",_} = 
+    {open_error, ?SSH_OPEN_ADMINISTRATIVELY_PROHIBITED, "Maximum packet size below 14 not supported", <<"en">>} =
 	ssh_connection:session_channel(Conn, 100, 13, infinity),
 
     ssh:close(Conn),
@@ -1704,7 +1732,26 @@ try_ssh_connect(_N, _NegTimeOut, _F) ->
 oks(L) -> lists:filter(fun({ok,_}) -> true;
                           (_) -> false
                        end, L).
-    
+
+%%--------------------------------------------------------------------
+max_sessions_option(_Config) ->
+    #{max_sessions := 1024} = ssh_options:handle_options(server, []),
+    #{max_sessions := 1024} = ssh_options:handle_options(server, [{max_sessions, 1024}]),
+    #{max_sessions := 1} = ssh_options:handle_options(server, [{max_sessions, 1}]),
+    #{max_sessions := infinity} = ssh_options:handle_options(server, [{max_sessions, infinity}]),
+    {error, {eoptions, _}} = ssh_options:handle_options(server, [{max_sessions, 0}]),
+    {error, {eoptions, _}} = ssh_options:handle_options(server, [{max_sessions, -1}]),
+    {error, {eoptions, _}} = ssh_options:handle_options(server, [{max_sessions, foo}]).
+
+max_channels_option(_Config) ->
+    #{max_channels := 256} = ssh_options:handle_options(server, []),
+    #{max_channels := 1024} = ssh_options:handle_options(server, [{max_channels, 1024}]),
+    #{max_channels := 1} = ssh_options:handle_options(server, [{max_channels, 1}]),
+    #{max_channels := infinity} = ssh_options:handle_options(server, [{max_channels, infinity}]),
+    {error, {eoptions, _}} = ssh_options:handle_options(server, [{max_channels, 0}]),
+    {error, {eoptions, _}} = ssh_options:handle_options(server, [{max_channels, -1}]),
+    {error, {eoptions, _}} = ssh_options:handle_options(server, [{max_channels, foo}]).
+
 %%--------------------------------------------------------------------
 save_accepted_host_option(Config) ->
     UserDir = proplists:get_value(user_dir, Config),
@@ -1739,6 +1786,7 @@ raw_option(_Config) ->
     #{socket_options := Opts} = ssh_options:handle_options(server, Opts).
 
 %%--------------------------------------------------------------------
+config_file() -> [{timetrap,{seconds,15 * ssh_test_lib:timetrap_scale()}}].
 config_file(Config) ->
     %% First find common algs:
     ServerAlgs = ssh_test_lib:default_algorithms(sshd),
@@ -2101,6 +2149,68 @@ daemon_replace_options_not_found(_Config) ->
     Error = ssh:daemon_info(self()),
     Error = ssh:daemon_replace_options(self(), []).
 
+
+%%--------------------------------------------------------------------
+%%% Test that a normal-sized auth request succeeds with an explicit large limit
+max_auth_request_size_large_enough(Config) when is_list(Config) ->
+    UserDir = proplists:get_value(user_dir, Config),
+    SysDir = proplists:get_value(data_dir, Config),
+    %% Set a large enough limit that normal auth requests pass through
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+                                             {user_dir, UserDir},
+                                             {password, "morot"},
+                                             {max_auth_request_size, 1024},
+                                             {failfun, fun ssh_test_lib:failfun/2}]),
+
+    ConnectionRef =
+        ssh_test_lib:connect(Host, Port, [{silently_accept_hosts, true},
+                                          {user, "foo"},
+                                          {password, "morot"},
+                                          {user_interaction, false},
+                                          {user_dir, UserDir}]),
+    ssh:close(ConnectionRef),
+    ssh:stop_daemon(Pid).
+
+%%--------------------------------------------------------------------
+%%% Test that a normal-sized auth request is rejected when max_auth_request_size
+%%% is set to small value
+max_auth_request_size_too_small(Config) when is_list(Config) ->
+    UserDir = proplists:get_value(user_dir, Config),
+    SysDir = proplists:get_value(data_dir, Config),
+    %% Set a very small limit so that even a normal password auth request
+    %% exceeds the max_auth_request_size and the server disconnects
+    {Pid, Host, Port} = ssh_test_lib:daemon([{system_dir, SysDir},
+                                             {user_dir, UserDir},
+                                             {password, "morot"},
+                                             {max_auth_request_size, 1},
+                                             {failfun, fun ssh_test_lib:failfun/2}]),
+
+    {error, "Auth length exceeded."} =
+        ssh:connect(Host, Port, [{silently_accept_hosts, true},
+                                 {save_accepted_host, false},
+                                 {user, "foo"},
+                                 {password, "morot"},
+                                 {user_interaction, false},
+                                 {user_dir, UserDir}]),
+    ssh:stop_daemon(Pid).
+
+%%--------------------------------------------------------------------
+%%% Test that the option validation rejects invalid max_auth_request_size values
+max_auth_request_size_invalid_option(Config) when is_list(Config) ->
+    SysDir = proplists:get_value(data_dir, Config),
+    %% zero value should be rejected
+    {error, {eoptions, _}} = ssh:daemon(0, [{system_dir, SysDir},
+                                            {max_auth_request_size, 0}]),
+    %% Negative value should be rejected
+    {error, {eoptions, _}} = ssh:daemon(0, [{system_dir, SysDir},
+                                            {max_auth_request_size, -1}]),
+    %% Non-integer value should be rejected
+    {error, {eoptions, _}} = ssh:daemon(0, [{system_dir, SysDir},
+                                            {max_auth_request_size, "not_an_integer"}]),
+    %% Atom value should be rejected
+    {error, {eoptions, _}} = ssh:daemon(0, [{system_dir, SysDir},
+                                            {max_auth_request_size, infinity}]).
+
 %%--------------------------------------------------------------------
 daemon_loopback_binding(Config) ->
     %% Verify that daemon/3 with loopback binds to loopback address
@@ -2219,6 +2329,20 @@ pwdfun_lockout_ets(Config) ->
     ?CT_LOG("Account lockout verified", []),
     ets:delete(Tab),
     ssh:stop_daemon(Pid).
+
+%%--------------------------------------------------------------------
+max_auth_tries_option(_Config) ->
+    %% Valid values accepted
+    #{max_auth_tries := 3} = ssh_options:handle_options(server, [{max_auth_tries, 3}]),
+    #{max_auth_tries := 1} = ssh_options:handle_options(server, [{max_auth_tries, 1}]),
+    %% infinity disables the limit
+    #{max_auth_tries := infinity} = ssh_options:handle_options(server, [{max_auth_tries, infinity}]),
+    %% Default value is 6
+    #{max_auth_tries := 6} = ssh_options:handle_options(server, []),
+    %% Bad values rejected
+    {error, {eoptions, _}} = ssh_options:handle_options(server, [{max_auth_tries, 0}]),
+    {error, {eoptions, _}} = ssh_options:handle_options(server, [{max_auth_tries, -1}]),
+    {error, {eoptions, _}} = ssh_options:handle_options(server, [{max_auth_tries, foo}]).
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------

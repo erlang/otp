@@ -23,6 +23,58 @@ limitations under the License.
 
 This document describes the changes made to the Kernel application.
 
+## Kernel 11.0.4
+
+### Fixed Bugs and Malfunctions
+
+- Fixed incorrect TOS format when using `gen_udp` with the `socket` backend.
+
+  Own Id: OTP-20131 Aux Id: OTP-20102, [GH-10968]
+
+- Decoding of names in `inet_res` has been tightened to not allow names longer than 255 octets, as according to RFC 1035.
+  
+  Decoding has also been made more strict by only allowing compression pointers to lower positions in the message.
+  
+  A few bugs when decoding malformed truncated DNS messages have also been fixed, as well as handling broken UTF-8 content in NAPTR RR:s regular expressions field.
+
+  Own Id: OTP-20228 Aux Id: [PR-11300]
+
+- When using the `socket` backend in `gen_tcp`, the default value for the `read_ahead` option was incorrect and has been corrected, according the documentation, to be `true`.
+
+  Own Id: OTP-20238 Aux Id: [PR-11284]
+
+- A field in `net_kernel`'s internal state was not cleaned up in some cases for failed connections could cause the state to grow indefinitely over time.  This has now been fixed.
+
+  Own Id: OTP-20265 Aux Id: [GH-11308], [PR-11388]
+
+- Fixed `pg:which_groups/1` to not include empty groups where all members have leaved. Bug existed since OTP 29.0.
+
+  Own Id: OTP-20303 Aux Id: [GH-11360], [PR-11361]
+
+[GH-10968]: https://github.com/erlang/otp/issues/10968
+[PR-11300]: https://github.com/erlang/otp/pull/11300
+[PR-11284]: https://github.com/erlang/otp/pull/11284
+[GH-11308]: https://github.com/erlang/otp/issues/11308
+[PR-11388]: https://github.com/erlang/otp/pull/11388
+[GH-11360]: https://github.com/erlang/otp/issues/11360
+[PR-11361]: https://github.com/erlang/otp/pull/11361
+
+## Kernel 11.0.3
+
+### Fixed Bugs and Malfunctions
+
+- inet:info/1 could crash when calling for a closing (port) socket.
+
+  Own Id: OTP-20173
+
+- Handling of the truncation bit in `inet_res` has been fixed so it properly falls back to querying over TCP after a truncated UDP reply.
+  
+  This fixes a bug introduced in OTP-28.4.2 - kernel-10.6.2 making a truncated UDP answer fail to parse and never execute the fallback, instead the name resolve operation fails.
+
+  Own Id: OTP-20199 Aux Id: [PR-11247]
+
+[PR-11247]: https://github.com/erlang/otp/pull/11247
+
 ## Kernel 11.0.2
 
 ### Fixed Bugs and Malfunctions
@@ -190,6 +242,33 @@ This document describes the changes made to the Kernel application.
 [PR-10478]: https://github.com/erlang/otp/pull/10478
 [PR-10929]: https://github.com/erlang/otp/pull/10929
 [PR-11031]: https://github.com/erlang/otp/pull/11031
+
+## Kernel 10.6.3.4
+
+### Fixed Bugs and Malfunctions
+
+- A field in `net_kernel`'s internal state was not cleaned up in some cases for failed connections could cause the state to grow indefinitely over time.  This has now been fixed.
+
+  Own Id: OTP-20265 Aux Id: [GH-11308], [PR-11388]
+
+[GH-11308]: https://github.com/erlang/otp/issues/11308
+[PR-11388]: https://github.com/erlang/otp/pull/11388
+
+## Kernel 10.6.3.3
+
+### Fixed Bugs and Malfunctions
+
+- inet:info/1 could crash when calling for a closing (port) socket.
+
+  Own Id: OTP-20173
+
+- Handling of the truncation bit in `inet_res` has been fixed so it properly falls back to querying over TCP after a truncated UDP reply.
+  
+  This fixes a bug introduced in OTP-28.4.2 - kernel-10.6.2 making a truncated UDP answer fail to parse and never execute the fallback, instead the name resolve operation fails.
+
+  Own Id: OTP-20199 Aux Id: [PR-11247]
+
+[PR-11247]: https://github.com/erlang/otp/pull/11247
 
 ## Kernel 10.6.3.2
 
@@ -612,6 +691,24 @@ This document describes the changes made to the Kernel application.
 [PR-8670]: https://github.com/erlang/otp/pull/8670
 [PR-9334]: https://github.com/erlang/otp/pull/9334
 [PR-9604]: https://github.com/erlang/otp/pull/9604
+
+## Kernel 10.2.7.5
+
+### Fixed Bugs and Malfunctions
+
+- A field in `net_kernel`'s internal state was not cleaned up in some cases for failed connections could cause the state to grow indefinitely over time.  This has now been fixed.
+
+  Own Id: OTP-20265 Aux Id: [GH-11308], [PR-11388]
+
+- Handling of the truncation bit in `inet_res` has been fixed so it properly falls back to querying over TCP after a truncated UDP reply.
+  
+  This fixes a bug introduced in OTP-27.3.4.10, kernel-10.2.7.4 making a truncated UDP answer fail to parse and never execute the fallback, instead the name resolve operation fails.
+
+  Own Id: OTP-20349 Aux Id: ERIERL-1352, [PR-11247], OTP-20199, OTP-20037
+
+[GH-11308]: https://github.com/erlang/otp/issues/11308
+[PR-11388]: https://github.com/erlang/otp/pull/11388
+[PR-11247]: https://github.com/erlang/otp/pull/11247
 
 ## Kernel 10.2.7.4
 

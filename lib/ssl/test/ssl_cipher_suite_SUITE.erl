@@ -101,6 +101,7 @@
          ecdhe_psk_aes_128_ccm_8/1,
          ecdhe_psk_aes_256_cbc/1,
          ecdhe_psk_aes_256_gcm/1,
+         ecdhe_psk_chacha20_poly1305/1,
          srp_anon_3des_ede_cbc/1,
          srp_anon_aes_128_cbc/1,
          srp_anon_aes_256_cbc/1,
@@ -244,7 +245,8 @@ groups() ->
                       ecdhe_psk_aes_128_ccm,
                       ecdhe_psk_aes_128_ccm_8,
                       ecdhe_psk_aes_256_cbc,
-                      ecdhe_psk_aes_256_gcm
+                      ecdhe_psk_aes_256_gcm,
+                      ecdhe_psk_chacha20_poly1305
                ]}
     ].
 
@@ -941,6 +943,9 @@ ecdhe_psk_aes_128_ccm(Config) when is_list(Config) ->
 ecdhe_psk_aes_128_ccm_8(Config) when is_list(Config) ->
     run_ciphers_test(ecdhe_psk, 'aes_128_ccm_8', Config).
 
+ecdhe_psk_chacha20_poly1305(Config) when is_list(Config) ->
+    run_ciphers_test(ecdhe_psk, 'chacha20_poly1305', Config).
+
 psk_rc4_128(Config) when is_list(Config) ->
     run_ciphers_test(psk, 'rc4_128', Config).
 
@@ -1030,5 +1035,4 @@ test_ciphers(Kex, Cipher, Version) ->
                                fun(Cipher0) when Cipher0 == Cipher -> true;
                                   (_) -> false
                                end}]).
-
 

@@ -27,7 +27,8 @@
 -moduledoc false.
 
 -compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}},
-          {nowarn_possibly_unsafe_function, {file, consult, 1}}]).
+          {nowarn_possibly_unsafe_function, {file, consult, 1}},
+          {nowarn_deprecated_function, [{erlang,exit,2}]}]).
 
 -export([timetrap/2, timetrap/3, timetrap/4,
 	 timetrap_cancel/1, capture_get/1, messages_get/1,

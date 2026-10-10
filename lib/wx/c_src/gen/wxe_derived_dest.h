@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright Ericsson AB 2008-2025. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2026. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -402,7 +402,7 @@ class EwxListBox : public wxListBox {
 class EwxListCtrl : public wxListCtrl {
  public: ~EwxListCtrl();
  EwxListCtrl(wxWindow * parent,wxWindowID winid,const wxPoint& pos,const wxSize& size,long style,const wxValidator& validator) : wxListCtrl(parent,winid,pos,size,style,validator) {};
- EwxListCtrl() : wxListCtrl() {};
+ EwxListCtrl() : wxListCtrl() { me_ref = NULL; };
 
  int onGetItemText;
  int onGetItemAttr;
@@ -707,7 +707,7 @@ class EwxGLCanvas : public wxGLCanvas {
 
 #if wxUSE_GLCANVAS
 class EwxGLContext : public wxGLContext {
- public: ~EwxGLContext() {((WxeApp *)wxTheApp)->clearPtr(this);};
+ public: ~EwxGLContext() {deleteActiveGLContext(this);((WxeApp *)wxTheApp)->clearPtr(this);};
  EwxGLContext(wxGLCanvas * win,wxGLContext * other) : wxGLContext(win,other) {};
 };
 #endif // wxUSE_GLCANVAS
@@ -814,8 +814,8 @@ class EwxHtmlWindow : public wxHtmlWindow {
 
 
 class EwxTaskBarIcon : public wxTaskBarIcon {
- public: ~EwxTaskBarIcon() {((WxeApp *)wxTheApp)->clearPtr(this);};
- EwxTaskBarIcon(wxTaskBarIconType iconType) : wxTaskBarIcon(iconType) { createPopupMenu = 0; };
+ public: ~EwxTaskBarIcon() {clear_cb(me_ref, createPopupMenu); ((WxeApp *)wxTheApp)->clearPtr(this);};
+ EwxTaskBarIcon(wxTaskBarIconType iconType) : wxTaskBarIcon(iconType) { createPopupMenu = 0; me_ref = NULL; };
 
  int createPopupMenu;
  wxe_me_ref *me_ref;

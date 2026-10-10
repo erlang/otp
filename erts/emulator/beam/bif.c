@@ -395,6 +395,8 @@ static BIF_RETTYPE link_opt(Process *c_p, Eterm other, Eterm opts)
 
     ERTS_BIF_PREP_ERROR(ret_val, c_p, BADARG);
 
+    return ret_val;
+
 done:
 
     if (prio_change) {
@@ -484,10 +486,13 @@ demonitor(Process *c_p, Eterm ref, Eterm *multip)
    case ERTS_ML_STATE_ALIAS_DEMONITOR:
    default:
        erts_monitor_tree_delete(&ERTS_P_MONITORS(c_p), mon);
-       if (mon->flags & ERTS_ML_FLG_PRIO_ML)
-           erts_proc_sig_prio_item_deleted(c_p, ERTS_PRIO_ITEM_TYPE_MONITOR);
+       if (mon->flags & ERTS_ML_FLG_PRIO_ALIAS)
+           erts_proc_sig_prio_item_deleted(c_p, ERTS_PRIO_ITEM_TYPE_ALIAS);
        break;
    }
+
+   if (mon->flags & ERTS_ML_FLG_PRIO_ML)
+       erts_proc_sig_prio_item_deleted(c_p, ERTS_PRIO_ITEM_TYPE_MONITOR);
 
    switch (ERTS_ML_GET_TYPE(mon)) {
 
@@ -773,7 +778,11 @@ static BIF_RETTYPE monitor(Process *c_p, Eterm type, Eterm target,
 
         local_process:
 
-            if (id != c_p->common.id) {
+            if (id == c_p->common.id) {
+                /* No monitoring of self... */
+                add_oflags = 0;
+            }
+            else {
                 mdp = erts_monitor_create(ERTS_MON_TYPE_PROC,
                                           ref, c_p->common.id,
                                           id, name, tag);
@@ -960,6 +969,7 @@ static BIF_RETTYPE monitor(Process *c_p, Eterm type, Eterm target,
 
 badarg:
 
+    add_oflags = 0;
     ERTS_BIF_PREP_ERROR(ret_val, c_p, BADARG);
     
 done:
@@ -1366,16 +1376,16 @@ BIF_RETTYPE hibernate_3(BIF_ALIST_3)
         BIF_ERROR(BIF_P, BADARG);
     }
 
-    while (is_list(args) && arity <= MAX_ARG) {
-        args = CDR(list_val(args));
-        arity++;
+    while (is_list(args)) {
+        if (arity < MAX_ARG) {
+            args = CDR(list_val(args));
+            arity++;
+        } else {
+            BIF_ERROR(BIF_P, SYSTEM_LIMIT);
+        }
     }
 
     if (is_not_nil(args)) {
-        if (arity > MAX_ARG) {
-            BIF_ERROR(BIF_P, SYSTEM_LIMIT);
-        }
-
         BIF_ERROR(BIF_P, BADARG);
     }
 
@@ -3117,6 +3127,10 @@ BIF_RETTYPE insert_element_3(BIF_ALIST_3)
 	BIF_ERROR(BIF_P, BADARG);
     }
 
+    if (arity + 1 > ERTS_MAX_TUPLE_SIZE) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+
     hp  = HAlloc(BIF_P, arity + 1 + 1);
     res = make_tuple(hp);
     *hp = make_arityval(arity + 1);
@@ -4263,9 +4277,12 @@ BIF_RETTYPE display_string_2(BIF_ALIST_2)
         written = 0;
         do {
             res = write(fd, str+written, len-written);
-            if (res < 0 && errno != ERRNO_BLOCK && errno != EINTR)
-                goto error;
-            written += res;
+            if (res < 0) {
+                if (errno != ERRNO_BLOCK && errno != EINTR)
+                    goto error;
+            } else {
+                written += res;
+            }
         } while (written < len);
 #endif
     }
@@ -4735,7 +4752,8 @@ BIF_RETTYPE list_to_ref_1(BIF_ALIST_1)
         n++;
         if (ints[i] > ~((Uint32) 0)) goto bad;
         if (*cp == '>') break;
-        if (*cp++ != '.') goto bad;
+        /* We don't find a ., or we are on the last position and do find a dot */
+        if (*cp++ != '.' || i == sizeof(ints)/sizeof(Uint) - 1) goto bad;
     }
 
     if (*cp++ != '>') goto bad;
@@ -4836,6 +4854,49 @@ BIF_RETTYPE list_to_ref_1(BIF_ALIST_1)
     BIF_ERROR(BIF_P, BADARG);
 }
 
+/**********************************************************************/
+
+/* Can only be used to produce binary in the human-readable text form,
+ * e.g. <<"<0.1.0>">>.
+ */
+
+static Eterm
+term2binary_dsprintf(Process *p, Eterm term)
+{
+    int pres;
+    Eterm res;
+    erts_dsprintf_buf_t *dsbufp = erts_create_tmp_dsbuf(64);       
+    pres = erts_dsprintf(dsbufp, "%T", term);
+    if (pres < 0)
+        erts_exit(ERTS_ERROR_EXIT, "Failed to convert term to binary: %d (%s)\n",
+                 -pres, erl_errno_id(-pres));
+
+    res = erts_new_binary_from_data(p, (Uint)dsbufp->str_len, (byte*)dsbufp->str);
+    erts_destroy_tmp_dsbuf(dsbufp);
+    return res;
+}
+
+BIF_RETTYPE pid_to_binary_1(BIF_ALIST_1)
+{
+    if (is_not_pid(BIF_ARG_1))
+        BIF_ERROR(BIF_P, BADARG);
+    BIF_RET(term2binary_dsprintf(BIF_P, BIF_ARG_1));
+}
+
+BIF_RETTYPE port_to_binary_1(BIF_ALIST_1)
+{
+    if (is_not_port(BIF_ARG_1))
+        BIF_ERROR(BIF_P, BADARG);
+    BIF_RET(term2binary_dsprintf(BIF_P, BIF_ARG_1));
+}
+
+BIF_RETTYPE ref_to_binary_1(BIF_ALIST_1)
+{
+    if (is_not_ref(BIF_ARG_1))
+        BIF_ERROR(BIF_P, BADARG);
+    erts_magic_ref_save_bin(BIF_ARG_1);
+    BIF_RET(term2binary_dsprintf(BIF_P, BIF_ARG_1));
+}
 
 /**********************************************************************/
 
@@ -6001,13 +6062,10 @@ BIF_RETTYPE dt_append_vm_tag_data_1(BIF_ALIST_1)
     if (p) {
         byte *q;
         Uint i;
-        p = erts_get_aligned_binary_bytes(DT_UTAG(BIF_P),
-                                          &size,
-                                          &temp_alloc);
         b = erts_new_binary(BIF_P, size + 1, &q);
         for(i = 0; i < size; i++) {
             q[i] = p[i];
-        } 
+        }
         erts_free_aligned_binary_bytes(temp_alloc);
         q[size] = '\0';
     } else {

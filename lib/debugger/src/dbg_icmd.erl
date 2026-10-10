@@ -22,6 +22,8 @@
 -module(dbg_icmd).
 -moduledoc false.
 
+-compile([{nowarn_deprecated_function, [{erlang,exit,2}]}]).
+
 %% Internal command receiver/handler
 -export([cmd/3]).
 

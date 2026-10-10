@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -65,12 +65,12 @@ gen_code() ->
     GLDefs  = parse_gl_defs(Opts),
     {GLUDefines,GLUFuncs} = setup(GLUDefs, Opts),
     {GLDefines,GLFuncs}   = setup(GLDefs, Opts),
+    gl_gen_doc:gen(GLFuncs,GLUFuncs),
+    gl_gen_erl:gl_defines(GLDefines),
+    gl_gen_erl:gl_api(GLFuncs, []),
     gl_gen_erl:glu_defines(GLUDefines),
     GluNifs = gl_gen_erl:glu_api(GLUFuncs),
-    gl_gen_erl:gl_defines(GLDefines),
-    gl_gen_erl:gl_api(GLFuncs, GluNifs),
     gl_gen_nif:gen(GLFuncs,GLUFuncs),
-    gl_gen_doc:gen(GLFuncs,GLUFuncs),
     ok.
 
 init_defs(Opts0) ->

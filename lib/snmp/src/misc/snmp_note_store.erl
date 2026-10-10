@@ -23,6 +23,8 @@
 -module(snmp_note_store).
 -moduledoc false.
 
+-compile([{nowarn_deprecated_function, [{erlang,exit,2}]}]).
+
 -behaviour(gen_server).
 
 -include_lib("snmp/src/app/snmp_internal.hrl").

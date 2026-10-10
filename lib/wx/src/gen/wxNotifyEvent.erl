@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -97,7 +97,7 @@ but some are forbidden by default (this will be mentioned in the corresponding e
 description).
 """.
 -spec allow(This) -> 'ok' when
-	This::wxNotifyEvent().
+        This::wxNotifyEvent().
 allow(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxNotifyEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxNotifyEvent_Allow).
@@ -107,7 +107,7 @@ Returns true if the change is allowed (`veto/1` hasn't been called) or false oth
 (if it was).
 """.
 -spec isAllowed(This) -> boolean() when
-	This::wxNotifyEvent().
+        This::wxNotifyEvent().
 isAllowed(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxNotifyEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxNotifyEvent_IsAllowed),
@@ -121,7 +121,7 @@ because otherwise the applications behaviour (which just refuses to do what the 
 wants) might be quite surprising.
 """.
 -spec veto(This) -> 'ok' when
-	This::wxNotifyEvent().
+        This::wxNotifyEvent().
 veto(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxNotifyEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxNotifyEvent_Veto).

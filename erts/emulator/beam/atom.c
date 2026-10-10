@@ -282,6 +282,8 @@ erts_atom_put_index(const byte *name, Sint len, ErtsAtomEncoding enc, int trunc)
 	/* First sanity check; need to verify later */
 	if (tlen > MAX_ATOM_SZ_LIMIT && !trunc)
 	    return ATOM_MAX_CHARS_ERROR;
+        if (tlen > ERTS_SINT16_MAX)
+            return ATOM_MAX_CHARS_ERROR;
 	break;
     }
 

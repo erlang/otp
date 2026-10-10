@@ -24,6 +24,7 @@
 
 -compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}},
           {nowarn_possibly_unsafe_function, {erlang, binary_to_term, 1}},
+          {nowarn_deprecated_function, [{erlang,exit,2}]},
           nowarn_deprecated_catch]).
 
 -export([start/0, start/1, start/2, server/1, server/2, history/1, results/1]).
@@ -89,21 +90,30 @@ or when [`erl`](`e:erts:erl_cmd.md`) is started with the
 [`-noshell`](`e:erts:erl_cmd.md#noshell`) flags. The following options are
 allowed:
 
-- **noshell | {noshell, Mode}**{: #noshell_raw } - Starts the interactive shell
-  as if [`-noshell`](`e:erts:erl_cmd.md#noshell`) was given to
+- **noshell | {noshell, Mode}**{: #noshell_raw } - Starts the interactive
+  shell as if [`-noshell`](`e:erts:erl_cmd.md#noshell`) was given to
   [`erl`](`e:erts:erl_cmd.md`).
 
-  It is possible to give a `Mode` indicating if the input should be set
-  in `cooked` or `raw` mode. `Mode` only has en effect if `t:io:user/0` is a tty.
-  If no `Mode` is given, it defaults is `cooked`.
+  `Mode` is either the atom `cooked` or `raw`, or a map with the
+  following keys:
 
-  When in `raw` mode all key presses are passed to `t:io:user/0` as they are
-  typed when they are typed and the characters are not echoed to the terminal.
-  It is possible to set the `echo` to `true` using `io:setopts/2` to enabling
-  echoing again.
+  - **mode** - `cooked` or `raw`. `mode` only has an effect if
+    `t:io:user/0` is a tty. If no `mode` is given, it defaults to
+    `cooked`.
 
-  When in `cooked` mode the OS will handle the line editing and all data is
-  passed to `t:io:user/0` when a newline is entered.
+    When in `raw` mode all key presses are passed to `t:io:user/0` as
+    they are typed when they are typed and the characters are not echoed
+    to the terminal. It is possible to set the `echo` to `true` using
+    `io:setopts/2` to enabling echoing again.
+
+    When in `cooked` mode the OS will handle the line editing and all
+    data is passed to `t:io:user/0` when a newline is entered.
+
+  - **signals** - Whether the terminal driver should handle signals and
+    flow control. When `false`, control bytes such as `ctrl+c`, `ctrl+o`
+    and `ctrl+s`/`ctrl+q` are passed to `t:io:user/0` as data instead of
+    being intercepted by the terminal driver. Defaults to `true`. Only
+    has an effect in `raw` mode.
 
 - **[mfa()](`t:erlang:mfa/0`)** - Starts the interactive shell using
   [`mfa()`](`t:erlang:mfa/0`) as the default shell. The `t:mfa/0` should
@@ -136,7 +146,9 @@ On error this function will return:
   description of the error reasons.
 """.
 -doc(#{since => <<"OTP 26.0">>}).
--spec start_interactive(noshell | {noshell, raw | cooked} | {module(), atom(), [term()]}) ->
+-spec start_interactive(noshell | {noshell, raw | cooked |
+                                  #{mode => raw | cooked, signals => boolean()}} |
+                        {module(), atom(), [term()]}) ->
           ok | {error, already_started};
                        ({remote, string()}) ->
           ok | {error, already_started | noconnection};
@@ -148,6 +160,16 @@ start_interactive(noshell) ->
     start_interactive({noshell, cooked});
 start_interactive({noshell, Type}) when Type =:= raw; Type =:= cooked ->
     user_drv:start_shell(#{ initial_shell => noshell, input => Type });
+start_interactive({noshell, #{mode := Mode} = Options}) when Mode =:= raw; Mode =:= cooked ->
+    case maps:get(signals, Options, true) of
+        Signals when is_boolean(Signals) ->
+            user_drv:start_shell(#{ initial_shell => noshell, input => Mode,
+                                    signals => Signals });
+        _ ->
+            erlang:error(function_clause, [{noshell, Options}])
+    end;
+start_interactive({noshell, Arg}) ->
+    erlang:error(function_clause, [{noshell, Arg}]);
 start_interactive(InitialShell) ->
     user_drv:start_shell(#{ initial_shell => InitialShell }).
 
@@ -432,15 +454,15 @@ get_command(Prompt, Eval, Bs, RT, FT, Ds) ->
                           case Toks of
                               [{'-', _}, {atom, _, Atom}|_] ->
                                   SpecialCase = fun(LocalFunc) ->
-                                                        FakeLine = begin
-                                                                       case erl_parse:parse_form(Toks) of
-                                                                           {ok, Def} -> lists:flatten(escape_quotes(lists:flatten(erl_pp:form(Def))));
-                                                                           E ->
-                                                                            exit(E)
-                                                                       end
-                                                                   end,
+                                                        FakeLine =
+                                                            case erl_parse:parse_form(Toks) of
+                                                                {ok, Def} ->
+                                                                    lists:flatten(erl_pp:form(Def, enc()));
+                                                                E ->
+                                                                    exit(E)
+                                                            end,
                                                         {done, {ok, FakeResult, _}, _} = erl_scan:tokens(
-                                                                                           [], atom_to_list(LocalFunc) ++ "(\""++FakeLine++"\").\n",
+                                                                                           [], atom_to_list(LocalFunc) ++ "("++ max_consecutive_quotes(FakeLine) ++ ").\n",
                                                                                            {1,1}, [text,{reserved_word_fun,fun erl_scan:reserved_word/1}]),
                                                         erl_eval:extended_parse_exprs(FakeResult)
                                                 end,
@@ -457,11 +479,14 @@ get_command(Prompt, Eval, Bs, RT, FT, Ds) ->
                                           FunName1 = lists:flatten(io_lib:fwrite("~tw",[FunName])),
                                           case {edlin_expand:shell_default_or_bif(FunName1), shell:local_func(FunName1)} of
                                               {"user_defined", false} ->
-                                                FunDef1 = lists:flatten(escape_quotes(lists:flatten(erl_pp:form(FunDef)))),
-                                                FakeLine = reconstruct(FunDef, FunName),
-                                                  {done, {ok, FakeResult, _}, _} = erl_scan:tokens(
-                                                                                     [], "fd("++ FunName1 ++ ", " ++ FakeLine ++ ", \"" ++ FunDef1 ++ "\").\n",
-                                                                                     {1,1}, [text,{reserved_word_fun,fun erl_scan:reserved_word/1}]),
+
+                                                  FunDef1 = lists:flatten(erl_pp:form(FunDef, enc())),
+                                                  FakeLine = reconstruct(FunDef, FunName),
+                                                  FdStr = "fd("++ FunName1 ++ ", " ++ FakeLine ++ ", " ++ max_consecutive_quotes(FunDef1) ++ ").",
+                                                  {done, {ok, FakeResult, _}, _} =
+                                                      erl_scan:tokens(
+                                                        [], FdStr ++ "\n",
+                                                        {1,1}, [text,{reserved_word_fun,fun erl_scan:reserved_word/1}]),
                                                   erl_eval:extended_parse_exprs(FakeResult);
                                               _ -> erl_eval:extended_parse_exprs(Toks)
                                           end;
@@ -488,28 +513,24 @@ get_command(Prompt, Eval, Bs, RT, FT, Ds) ->
         end,
     Pid = spawn_link(Parse),
     get_command1(Pid, Eval, Bs, RT, FT, Ds).
-escape_quotes(String) -> escape_quotes(String, []).
 
-escape_quotes([], Acc) ->
-    % When we've processed all characters, reverse the accumulator
-    % because we've been prepending for efficiency reasons.
-    lists:reverse(Acc);
 
-escape_quotes([$\\, $\" | Rest], Acc) ->
-    % If we find an escaped quote (\"),
-    % we escape the backslash and the quote (\\\") and continue.
-    escape_quotes(Rest, [$\", $\\, $\\, $\\ | Acc]);
+max_consecutive_quotes(String) ->
+    Max = lists:max([2 | max_consecutive_quotes(String, 0)]),
+    Quotes = lists:duplicate(Max + 1, $"),
+    "~S" ++ Quotes ++ "\n" ++ String ++ "\n" ++ Quotes.
 
-escape_quotes([$\" | Rest], Acc) ->
-    % If we find a quote ("),
-    % we escape it (\\") and continue.
-    escape_quotes(Rest, [$\", $\\ | Acc]);
+max_consecutive_quotes([], Max) ->
+    [Max];
+max_consecutive_quotes([$\" | Rest], Max) ->
+    max_consecutive_quotes(Rest, Max + 1);
+max_consecutive_quotes([_Char | Rest], 0 = Max) ->
+    max_consecutive_quotes(Rest, Max);
+max_consecutive_quotes(Rest, Max) ->
+    [Max | max_consecutive_quotes(Rest, 0)].
 
-escape_quotes([Char | Rest], Acc) ->
-    % In case of any other character, we keep it as is.
-    escape_quotes(Rest, [Char | Acc]).
 reconstruct(Fun, Name) ->
-    lists:flatten(erl_pp:expr(reconstruct1(Fun, Name))).
+    lists:flatten(erl_pp:expr(reconstruct1(Fun, Name), enc())).
 reconstruct1({function, Anno, Name, Arity, Clauses}, Name) ->
     {named_fun, Anno, 'RecursiveFuncVar', reconstruct1(Clauses, Name, Arity)}.
 reconstruct1([{call, Anno, {atom, Anno1, Name}, Args}|Body], Name, Arity) when length(Args) =:= Arity ->
@@ -1482,7 +1503,7 @@ local_func(rd, [_], _Bs, _Shell, _RT, _FT, _Lf, _Ef) ->
     erlang:raise(error, function_clause, [{shell, rd, 1}]);
 local_func(rd, [{atom,_,RecName0},RecDef0], Bs, _Shell, RT, FT, _Lf, _Ef) ->
     RecDef = expand_value(RecDef0),
-    RDs = lists:flatten(erl_pp:expr(RecDef)),
+    RDs = lists:flatten(erl_pp:expr(RecDef, enc())),
     RecName = io_lib:write_atom_as_latin1(RecName0),
     Attr = lists:concat(["-record(", RecName, ",", RDs, ")."]),
     {ok, Tokens, _} = erl_scan:string(Attr),
@@ -1594,7 +1615,7 @@ local_types(FT) ->
 local_records(FT) ->
         [list_to_binary(RecDef)||{{record_def, _},RecDef} <- ets:tab2list(FT)].
 all_records(RT) ->
-        [list_to_binary(erl_pp:attribute(RecDef) ++ "\n")||{ _,RecDef} <- ets:tab2list(RT)].
+        [list_to_binary(erl_pp:attribute(RecDef, enc()) ++ "\n")||{ _,RecDef} <- ets:tab2list(RT)].
 write_and_compile_module(PathToFile, Output) ->
     case file:write_file(PathToFile, unicode:characters_to_binary(Output)) of
         ok -> c:c(PathToFile);
@@ -2108,8 +2129,8 @@ function is returned.
 """.
 -doc(#{since => <<"OTP 27.0">>}).
 -spec multiline_prompt_func(PromptFunc) -> PromptFunc2 when
-      PromptFunc :: 'default' | {module(),function()} | string(),
-      PromptFunc2 :: 'default' | {module(),function()} | string().
+      PromptFunc :: 'default' | {module(),atom()} | string(),
+      PromptFunc2 :: 'default' | {module(),atom()} | string().
 
 multiline_prompt_func(PromptFunc) ->
     set_env(stdlib, shell_multiline_prompt, PromptFunc, ?DEF_PROMPT_FUNC).
@@ -2138,8 +2159,8 @@ shell:format_shell_func({shell, erl_pp_format_func}).
 """.
 -doc(#{since => <<"OTP 27.0">>}).
 -spec format_shell_func(ShellFormatFunc) -> ShellFormatFunc2 when
-      ShellFormatFunc :: 'default' | {module(),function()} | string(),
-      ShellFormatFunc2 :: 'default' | {module(),function()} | string().
+      ShellFormatFunc :: 'default' | {module(),atom()} | string(),
+      ShellFormatFunc2 :: 'default' | {module(),atom()} | string().
 format_shell_func(ShellFormatFunc) ->
     set_env(stdlib, format_shell_func, ShellFormatFunc, default).
 
@@ -2166,11 +2187,11 @@ erl_pp_format_func(String) ->
         {done, {ok, Toks, _}, _} ->
             try
                 case erl_parse:parse_form(Toks) of
-                    {ok, Def} -> lists:flatten(erl_pp:form(Def))
+                    {ok, Def} -> lists:flatten(erl_pp:form(Def, enc()))
                 end
             catch
                 _:_ -> case erl_parse:parse_exprs(Toks) of
-                          {ok, Def1} -> lists:flatten(erl_pp:exprs(Def1))++".";
+                          {ok, Def1} -> lists:flatten(erl_pp:exprs(Def1, enc()))++".";
                           _ -> String
                       end
             end;

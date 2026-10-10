@@ -86,7 +86,7 @@ immediate_termination(_Config) ->
     Wrapper2 = fun(F) ->
                        fun() ->
                                process_flag(save_calls, 10),
-                               catch F()
+                               try F() catch _:_ -> ok end
                        end
                end,
     do_more_spawn_opt_max_heap_size(Wrapper2),

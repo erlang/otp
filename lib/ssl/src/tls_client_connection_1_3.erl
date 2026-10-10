@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2022-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2022-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -84,7 +84,7 @@
          callback_mode/0,
          terminate/3,
          code_change/4,
-         format_status/2]).
+         format_status/1]).
 
 %% gen_statem state functions
 -export([config_error/3,
@@ -135,8 +135,8 @@ init([?CLIENT_ROLE, Sender, Tab, Host, Port, Socket, Options,  User, CbInfo]) ->
 terminate(Reason, StateName, State) ->
     ssl_gen_statem:terminate(Reason, StateName, State).
 
-format_status(Type, Data) ->
-    ssl_gen_statem:format_status(Type, Data).
+format_status(Data) ->
+    ssl_gen_statem:format_status(Data).
 
 code_change(_OldVsn, StateName, State, _) ->
     {ok, StateName, State}.
@@ -252,6 +252,9 @@ start(internal, #server_hello{}, State0) ->
     %%so it is a previous version hello.
     ssl_gen_statem:handle_own_alert(
       ?ALERT_REC(?FATAL, ?PROTOCOL_VERSION), ?STATE(start), State0);
+start(internal, {protocol_record, #ssl_tls{type = ?APPLICATION_DATA}}, State) ->
+    Alert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE, application_data_before_initial_handshake),
+    ssl_gen_statem:handle_own_alert(Alert, ?STATE(start), State);
 start(info, Msg, State) ->
     tls_gen_connection:gen_info(Msg, ?STATE(start), State);
 start(Type, Msg, State) ->
@@ -287,8 +290,9 @@ wait_sh(internal, #server_hello{session_id = ?EMPTY_ID} = Hello,
         {State1, wait_ee} ->
              tls_gen_connection:next_event(wait_ee, no_record, State1)
     end;
-wait_sh(internal, #server_hello{} = Hello,
-        #state{protocol_specific = PS,
+wait_sh(internal, #server_hello{session_id = SessionId} = Hello,
+        #state{session = #session{session_id = SessionId},
+               protocol_specific = PS,
                ssl_options = SSLOpts} = State0)
   when not is_map_key(middlebox_comp_mode, SSLOpts) ->
     IsRetry = maps:get(hello_retry, PS, false),
@@ -304,6 +308,15 @@ wait_sh(internal, #server_hello{} = Hello,
             tls_gen_connection:next_event(hello_middlebox_assert,
                                           no_record, State1)
     end;
+wait_sh(internal, #server_hello{},
+        #state{ssl_options = SSLOpts} = State0)
+  when not is_map_key(middlebox_comp_mode, SSLOpts) ->
+    %% RFC 8446 §4.1.3: legacy_session_id_echo does not match — abort.
+    Alert = ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER, session_id_echo_mismatch),
+    ssl_gen_statem:handle_own_alert(Alert, ?STATE(wait_sh), State0);
+wait_sh(internal, {protocol_record, #ssl_tls{type = ?APPLICATION_DATA}}, State) ->
+    Alert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE, application_data_before_initial_handshake),
+    ssl_gen_statem:handle_own_alert(Alert, ?STATE(wait_sh), State);
 wait_sh(info, Msg, State) ->
     tls_gen_connection:gen_info(Msg, ?STATE(wait_sh), State);
 wait_sh(Type, Msg, State) ->
@@ -420,8 +433,10 @@ wait_cv(internal,
           #certificate_verify_1_3{} = CertificateVerify, State0) ->
     {Ref,Maybe} = tls_gen_connection_1_3:do_maybe(),
     try
+        State1 = Maybe(tls_handshake_1_3:verify_signature_algorithm(State0,
+                                                                    CertificateVerify)),
         {State, NextState}
-            = Maybe(tls_handshake_1_3:verify_certificate_verify(State0,
+            = Maybe(tls_handshake_1_3:verify_certificate_verify(State1,
                                                                 CertificateVerify)),
         tls_gen_connection:next_event(NextState, no_record, State)
     catch
@@ -519,7 +534,8 @@ downgrade(Type, Msg, State) ->
 %%--------------------------------------------------------------------
 maybe_send_early_data(#state{
                          handshake_env =
-                             #handshake_env{tls_handshake_history = {Hist, _}},
+                             #handshake_env{tls_handshake_history = {Hist, _},
+                                            auto_ticket_data = AutoTicketData},
                          protocol_specific = #{sender := _Sender},
                          ssl_options = #{versions := [?TLS_1_3|_],
                                          use_ticket := UseTicket,
@@ -531,8 +547,9 @@ maybe_send_early_data(#state{
     State1 = tls_gen_connection_1_3:maybe_queue_change_cipher_spec(State0, last),
     %% Early traffic secret
     EarlyDataSize = tls_handshake_1_3:early_data_size(EarlyData),
+    PreSharedKeyData = select_ticket_data(SessionTickets, UseTicket, AutoTicketData),
     case tls_handshake_1_3:get_pre_shared_key_early_data(SessionTickets,
-                                                         UseTicket) of
+                                                         PreSharedKeyData) of
         {ok, {PSK, Cipher, HKDF, MaxSize}} when EarlyDataSize =< MaxSize ->
             State2 =
                 tls_handshake_1_3:calculate_client_early_traffic_secret(Hist,
@@ -584,22 +601,43 @@ maybe_automatic_session_resumption(#state{ssl_options =
     AvailableCipherSuites = ssl_handshake:available_suites(UserSuites, Version),
     HashAlgos = cipher_hash_algos(AvailableCipherSuites),
     Ciphers = tls_handshake_1_3:ciphers_for_early_data(AvailableCipherSuites),
-    %% Find a pair of tickets KeyPair = {Ticket0, Ticket2} where
-    %% Ticket0 satisfies requirements for early_data and session
-    %% resumption while Ticket2 can only be used for session
-    %% resumption.
     EarlyDataSize = tls_handshake_1_3:early_data_size(EarlyData),
     KeyPair =
-        tls_client_ticket_store:find_ticket(self(), Ciphers, HashAlgos,
-                                            SNI, EarlyDataSize),
+        tls_client_ticket_store:find_ticket_candidates(self(), Ciphers, HashAlgos,
+                                                       SNI, EarlyDataSize),
     UseTicket = tls_handshake_1_3:choose_ticket(KeyPair, EarlyData),
-    tls_client_ticket_store:lock_tickets(self(), [UseTicket]),
-    State = State0#state{ssl_options = SslOpts0#{use_ticket => [UseTicket]}},
+    %% Reflect the chosen ticket in use_ticket so the rest of the handshake
+    %% (early-data send guard, ServerHello PSK validation) sees it, exactly as
+    %% for manual mode. When no suitable ticket was found UseTicket = undefined,
+    %% so use_ticket becomes [undefined] and the early-data path is correctly
+    %% skipped (a full handshake without early data is performed).
+    SslOpts = SslOpts0#{use_ticket => [UseTicket]},
+    HsEnv = State0#state.handshake_env,
+    State = State0#state{ssl_options = SslOpts,
+                         handshake_env =
+                             HsEnv#handshake_env{auto_ticket_data =
+                                                     take_resumption_ticket(UseTicket)}},
     {[UseTicket], State};
 maybe_automatic_session_resumption(#state{
                                       ssl_options = #{use_ticket := UseTicket}
                                      } = State) ->
     {UseTicket, State}.
+
+%% Take the chosen ticket out of the store. undefined (no ticket chosen) or a
+%% key already gone (taken by another connection meanwhile) yields undefined
+%% ticket data -> the connection performs a full handshake.
+take_resumption_ticket(undefined) ->
+    undefined;
+take_resumption_ticket(Key) ->
+    tls_client_ticket_store:take_ticket(self(), Key).
+
+%% Select the ticket data to validate the server's PSK selection against:
+%% for auto mode the data kept in the connection (already taken from the
+%% store), for manual mode the user-supplied use_ticket option.
+select_ticket_data(auto, _UseTicket, AutoTicketData) ->
+    AutoTicketData;
+select_ticket_data(_SessionTickets, UseTicket, _AutoTicketData) ->
+    UseTicket.
 
 maybe_resumption(#state{handshake_env =
                             #handshake_env{resumption = true}} = State) ->
@@ -649,6 +687,7 @@ do_handle_exlusive_1_3_hello_or_hello_retry_request(
                                   transport_cb = Transport,
                                   socket = Socket},
          handshake_env = #handshake_env{renegotiation = {Renegotiation, _},
+                                        auto_ticket_data = AutoTicketData,
                                         stapling_state = StaplingState},
          connection_env = #connection_env{negotiated_version =
                                               NegotiatedVersion},
@@ -680,7 +719,9 @@ do_handle_exlusive_1_3_hello_or_hello_retry_request(
         %% alert.
         case KeyShare of
             #key_share_hello_retry_request{} ->
-                Maybe(validate_selected_group(SelectedGroup, ClientGroups));
+                OfferedKeyShareGroups = maps:get(psk_groups, SslOpts, [hd(ClientGroups)]),
+                Maybe(validate_selected_group(SelectedGroup, ClientGroups,
+                                              OfferedKeyShareGroups));
             _ ->
                 ok
         end,
@@ -692,7 +733,9 @@ do_handle_exlusive_1_3_hello_or_hello_retry_request(
         %% of the triggering HelloRetryRequest.
         ClientKeyShare = generate_client_shares([SelectedGroup]),
         TicketData =
-            tls_handshake_1_3:get_ticket_data(self(), SessionTickets, UseTicket),
+            tls_handshake_1_3:get_ticket_data(
+              self(), SessionTickets,
+              select_ticket_data(SessionTickets, UseTicket, AutoTicketData)),
         OcspNonce = maps:get(ocsp_nonce, StaplingState, undefined),
         Hello0 = tls_handshake:client_hello(Host, Port,
                                             ConnectionStates0, SslOpts,
@@ -764,11 +807,15 @@ handle_server_hello(#server_hello{cipher_suite = SelectedCipherSuite,
                                   random = Random,
                                   session_id = SessionId,
                                   extensions = Extensions} = ServerHello,
-                    #state{handshake_env = #handshake_env{key_share = ClientKeyShare},
+                    #state{handshake_env = #handshake_env{key_share = ClientKeyShare,
+                                                          auto_ticket_data = AutoTicketData},
                            ssl_options = #{ciphers := ClientCiphers,
                                            supported_groups := ClientGroups0,
                                            session_tickets := SessionTickets,
                                            use_ticket := UseTicket}} = State0) ->
+    %% For auto mode the ticket data is kept in the connection; for manual mode
+    %% it comes from the user-supplied use_ticket option.
+    PreSharedKeyData = select_ticket_data(SessionTickets, UseTicket, AutoTicketData),
     {Ref,Maybe} = tls_gen_connection_1_3:do_maybe(),
     try
         ClientGroups =
@@ -776,12 +823,12 @@ handle_server_hello(#server_hello{cipher_suite = SelectedCipherSuite,
         ServerKeyShare = server_share(maps:get(key_share, Extensions)),
         ServerPreSharedKey = maps:get(pre_shared_key, Extensions, undefined),
 
+        %% RFC 8446 §4.1.4: If the version in the second ServerHello
+        %% differs from the HRR, abort with illegal_parameter.
+        Maybe(validate_server_version(Extensions)),
+
         %% Go to state 'start' if server replies with 'HelloRetryRequest'.
         Maybe(tls_handshake_1_3:maybe_hello_retry_request(ServerHello, State0)),
-
-        %% Resumption and PSK
-        State1 = tls_gen_connection_1_3:handle_resumption(State0,
-                                                          ServerPreSharedKey),
 
         Maybe(validate_cipher_suite(SelectedCipherSuite, ClientCiphers)),
         Maybe(validate_server_key_share(ClientGroups, ServerKeyShare)),
@@ -794,7 +841,7 @@ handle_server_hello(#server_hello{cipher_suite = SelectedCipherSuite,
             client_private_key(SelectedGroup,
                                ClientKeyShare#key_share_client_hello.client_shares),
         %% Update state
-        State2 = tls_handshake_1_3:update_start_state(State1,
+        State2 = tls_handshake_1_3:update_start_state(State0,
                                     #{cipher => SelectedCipherSuite,
                                      key_share => ClientKeyShare,
                                      session_id => SessionId,
@@ -808,16 +855,25 @@ handle_server_hello(#server_hello{cipher_suite = SelectedCipherSuite,
         #security_parameters{prf_algorithm = HKDFAlgo} = SecParamsR,
 
         PSK = Maybe(tls_handshake_1_3:get_pre_shared_key(SessionTickets,
-                                                         UseTicket,
+                                                         PreSharedKeyData,
                                                          HKDFAlgo,
                                                          ServerPreSharedKey)),
-        State3 =
+
+        %% Resumption and PSK. Only enter resumption mode once the server's PSK
+        %% selection has been accepted by get_pre_shared_key/4 above; an
+        %% unsolicited pre_shared_key aborts before this point, so the
+        %% resumption flag (which skips the certificate states) can never be
+        %% set for a PSK the client did not offer. Defence in depth on top of
+        %% the get_pre_shared_key/4 check.
+        State3 = tls_gen_connection_1_3:handle_resumption(State2,
+                                                          ServerPreSharedKey),
+        State4 =
             tls_handshake_1_3:calculate_handshake_secrets(ServerPublicKey,
                                                           ClientPrivateKey,
                                                           SelectedGroup,
-                                                          PSK, State2),
-        State4 = ssl_record:step_encryption_state_read(State3),
-        {State4, wait_ee}
+                                                          PSK, State3),
+        State5 = ssl_record:step_encryption_state_read(State4),
+        {State5, wait_ee}
     catch
         {Ref, {State, StateName, ServerHello}} ->
             {State, StateName, ServerHello};
@@ -829,7 +885,7 @@ handle_encrypted_extensions(Extensions, State0) ->
     {Ref, Maybe} = tls_gen_connection_1_3:do_maybe(),
     try
         ALPNProtocol0 = maps:get(alpn, Extensions, undefined),
-        ALPNProtocol = decode_alpn(ALPNProtocol0),
+        ALPNProtocol = Maybe(decode_alpn(ALPNProtocol0)),
         EarlyDataIndication = maps:get(early_data, Extensions, undefined),
 
         %% RFC 6066: handle received/expected maximum fragment length
@@ -1013,10 +1069,14 @@ maybe_queue_cert_verify(_Certificate,
     end.
 
 decode_alpn(undefined) ->
-    undefined;
+    {ok, undefined};
 decode_alpn(Encoded) ->
-    [Decoded] = ssl_handshake:decode_alpn(Encoded),
-    Decoded.
+    case ssl_handshake:decode_alpn(Encoded) of
+        [Decoded] ->
+            {ok, Decoded};
+        _  ->
+            {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER, invalid_alpn)}
+    end.
 
 %% Verify that selected group is offered by the client.
 validate_server_key_share([], _) ->
@@ -1027,14 +1087,38 @@ validate_server_key_share([_|ClientGroups], #key_share_entry{} = ServerKeyShare)
     validate_server_key_share(ClientGroups, ServerKeyShare).
 
 
-validate_selected_group(SelectedGroup, [SelectedGroup|_]) ->
-    {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER,
-                       "Selected group sent by the server shall not correspond to a group"
-                       " which was provided in the key_share extension")};
-validate_selected_group(SelectedGroup, ClientGroups) ->
-    case lists:member(SelectedGroup, ClientGroups) of
-        true ->
+%% RFC 8446 §4.1.4: supported_versions in the ServerHello must be TLS 1.3.
+validate_server_version(Extensions) ->
+    case maps:get(server_hello_selected_version, Extensions, undefined) of
+        #server_hello_selected_version{selected_version = ?TLS_1_3} ->
             ok;
+        undefined ->
+            %% Missing supported_versions — not a valid TLS 1.3 ServerHello
+            {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER,
+                               "ServerHello missing supported_versions extension")};
+        _ ->
+            {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER,
+                               "ServerHello supported_versions changed after HelloRetryRequest")}
+    end.
+
+validate_selected_group(undefined, _, _) ->
+    %% HRR with no key_share and no cookie — RFC 8446 §4.1.4 violation
+    {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER,
+                       "HelloRetryRequest contains neither key_share nor cookie")};
+validate_selected_group(SelectedGroup, SupportedGroups, OfferedKeyShareGroups) ->
+    %% RFC 8446 §4.2.8:
+    %% (1) selected_group MUST be in supported_groups
+    %% (2) selected_group MUST NOT already be in the offered key_share
+    case lists:member(SelectedGroup, SupportedGroups) of
+        true ->
+            case lists:member(SelectedGroup, OfferedKeyShareGroups) of
+                true ->
+                    {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER,
+                                       "Selected group sent by the server shall not correspond to a group"
+                                       " which was provided in the key_share extension")};
+                false ->
+                    ok
+            end;
         false ->
             {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER,
                                "Selected group sent by the server shall correspond to a group"

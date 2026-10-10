@@ -37,15 +37,15 @@ The following four Kernel configuration parameters affect the behavior of all
 
 - `inet_default_connect_options` can contain a list of
   default options used for all sockets created by
-  a `gen_tcp:connect/2,3,4`](`gen_tcp:connect/2`) call.
+  a [`gen_tcp:connect/2,3,4`](`gen_tcp:connect/4`) call.
 - `inet_default_listen_options` can contain a list of default options
-  used for sockets created by a `gen_tcp:listen/2` call.
+  used for sockets created by a [`gen_tcp:listen/2`](`gen_tcp:listen/2`) call.
 - `inet_default_udp_options` can contain a list of
   default options used for all sockets created by
-  a `gen_udp:open/1,2`](`gen_udp:open/2`) call.
+  a [`gen_udp:open/1,2`](`gen_udp:open/2`) call.
 - `inet_default_sctp_options` can contain a list of
   default options used for all sockets created by
-  a `gen_sctp:open/0,1`](`gen_sctp:open/1`) call.
+  a [`gen_sctp:open/0,1`](`gen_sctp:open/1`) call.
 
 For the [`gen_tcp:accept/1,2`](`gen_tcp:accept/1`) call,
 the values of the listening socket options are inherited.
@@ -318,6 +318,7 @@ Function `parse_address/1` can be useful:
 
 -export_type([socket_protocol/0, hostent/0, hostname/0,
               address_family/0, ip4_address/0, ip6_address/0, ip_address/0,
+              address_string/0,
               port_number/0,
 	      family_address/0, local_address/0, socket_address/0,
               returned_non_ip_address/0,
@@ -373,6 +374,23 @@ Add the following directive to the module:
 			0..65535,0..65535,0..65535,0..65535}.
 
 -type ip_address() :: ip4_address() | ip6_address().
+
+-doc """
+An IP address in text form, as accepted by the
+[`parse_`*](`parse_address/1`) functions.
+
+Either a [character list](`t:string/0`) such as `"192.168.0.1"`,
+or a `t:binary/0` such as `~"192.168.0.1"`.
+
+> #### Note {: .info }
+>
+> *Since OTP @OTP-20357@* a binary is accepted; before that only a list.
+>
+> With that change, the `parse_`* functions mostly raise an error exception
+> for an argument that is not according to this type.  Before this,
+> common bad arguments were handled and returned `{error, einval}`.
+""".
+-type address_string() :: string() | binary().
 
 -type port_number() :: 0..65535.
 
@@ -2555,15 +2573,7 @@ gethostbyname(Name) ->
 	    gethostbyname_tm(Name, inet, false)
     end.
 
--doc """
-Resolve a hostname to a [`#hostent{}`](`t:hostent/0`) record,
-in a specific address family.
-
-Returns a [`#hostent{}`](`t:hostent/0`) record for the host
-with the specified `Hostname`, restricted to the specified address `Family`.
-
-See also `gethostbyname/1`.
-""".
+-doc(#{equiv => gethostbyname(Hostname, Family, infinity)}).
 -spec gethostbyname(Hostname, Family) ->
                            {ok, Hostent} | {error, posix()} when
       Hostname :: hostname(),
@@ -2573,7 +2583,17 @@ See also `gethostbyname/1`.
 gethostbyname(Name, Family) ->
     gethostbyname_tm(Name, Family, false).
 
--doc false.
+-doc """
+Resolve a hostname to a [`#hostent{}`](`t:hostent/0`) record,
+in a specific address family.
+
+Returns a [`#hostent{}`](`t:hostent/0`) record for the host
+with the specified `Name`, restricted to the specified address `Family`.
+
+`Timeout` specifies a time-out in milliseconds, or the atom `infinity`.
+
+See also `gethostbyname/1`.
+""".
 -spec gethostbyname(Name :: hostname(),
 	            Family :: address_family(),
 	            Timeout :: non_neg_integer() | 'infinity') ->
@@ -2603,12 +2623,7 @@ gethostbyname_tm(Name, Family, Timer) ->
     gethostbyname_tm(Name, Family, Timer, Opts).
 
 
--doc """
-Resolve (reverse) an address to a [`#hostent{}`](`t:hostent/0`) record.
-
-Returns a [`#hostent{}`](`t:hostent/0`) record for the host
-with the specified address.
-""".
+-doc(#{equiv => gethostbyaddr(Address, infinity)}).
 -spec gethostbyaddr(Address) -> {ok, Hostent} | {error, posix()} when
       Address :: string() | ip_address(),
       Hostent :: hostent().
@@ -2616,7 +2631,14 @@ with the specified address.
 gethostbyaddr(Address) ->
     gethostbyaddr_tm(Address, false).
 
--doc false.
+-doc """
+Resolve (reverse) an address to a [`#hostent{}`](`t:hostent/0`) record.
+
+Returns a [`#hostent{}`](`t:hostent/0`) record for the host
+with the specified address.
+
+`Timeout` specifies a time-out in milliseconds, or the atom `infinity`.
+""".
 -spec gethostbyaddr(Address :: string() | ip_address(),
 	            Timeout :: non_neg_integer() | 'infinity') ->
 	{'ok', #hostent{}} | {'error', posix()}.
@@ -2688,7 +2710,18 @@ port_info(P) when is_port(P) ->
     case erlang:port_info(P) of
 	PI0 when is_list(PI0) ->
 	    PI1 = port_info(PI0, [connected, links, input, output]) ++
-		[erlang:port_info(P, memory), erlang:port_info(P, monitors)],
+                case erlang:port_info(P, memory) of
+                    undefined ->
+                        [];
+                    {memory, _} = MEM ->
+                        [MEM]
+                end ++ 
+                case erlang:port_info(P, monitors) of
+                    undefined ->
+                        [];
+                    {monitors, _} = MONS ->
+                        [MONS]
+                end,
 	    PI2 = pi_replace([{connected, owner}], PI1),
 	    maps:from_list(PI2);
 	_ ->
@@ -2794,13 +2827,7 @@ getfd(Socket) ->
 %% Lookup an ip address
 %%
 
--doc """
-Resolve a host to an address, in a specific addresss family.
-
-Returns the [IP address](`t:ip_address/0`) for `Host` as a tuple of integers.
-`Host` can be an [IP address](`t:ip_address/0`), a single `t:hostname/0`,
-or a fully qualified `t:hostname/0`.
-""".
+-doc(#{equiv => getaddr(Host, Family, infinity)}).
 -spec getaddr(Host, Family) -> {ok, Address} | {error, posix()} when
       Host :: ip_address() | hostname(),
       Family :: address_family(),
@@ -2809,11 +2836,19 @@ or a fully qualified `t:hostname/0`.
 getaddr(Address, Family) ->
     getaddr(Address, Family, infinity).
 
--doc false.
+-doc """
+Resolve a host to an address, in a specific address family.
+
+Returns the [IP address](`t:ip_address/0`) for `Host` as a tuple of integers.
+`Host` can be an [IP address](`t:ip_address/0`), a single `t:hostname/0`,
+or a fully qualified `t:hostname/0`.
+
+`Timeout` specifies a time-out in milliseconds, or the atom `infinity`.
+""".
 -spec getaddr(Host :: ip_address() | hostname(),
-	      Family :: address_family(),
-	      Timeout :: non_neg_integer() | 'infinity') ->
-	{'ok', ip_address()} | {'error', posix()}.
+          Family :: address_family(),
+          Timeout :: non_neg_integer() | 'infinity') ->
+    {'ok', ip_address()} | {'error', posix()}.
 
 getaddr(Address, Family, Timeout) ->
     %% ?DBG([{address, Address}, {family, Family}, {timeout, Timeout}]),
@@ -2835,13 +2870,7 @@ getaddr_tm(Address, Family, Timer) ->
 	    Error
     end.
 
--doc """
-Resolve a host to a list of addresses, in a specific address family.
-
-Returns a list of all IP addresses for `Host`.
-`Host` can be an [IP address](`t:ip_address/0`),
-a single `t:hostname/0`, or a fully qualified `t:hostname/0`.
-""".
+-doc(#{equiv => getaddrs(Host, Family, infinity)}).
 -spec getaddrs(Host, Family) ->
 	{ok, Addresses} | {error, posix()} when
       Host :: ip_address() | hostname(),
@@ -2851,8 +2880,16 @@ a single `t:hostname/0`, or a fully qualified `t:hostname/0`.
 getaddrs(Address, Family) ->
     getaddrs(Address, Family, infinity).
 
--doc false.
--spec getaddrs(Host :: ip_address() | string() | atom(),
+-doc """
+Resolve a host to a list of addresses, in a specific address family.
+
+Returns a list of all IP addresses for `Host`.
+`Host` can be an [IP address](`t:ip_address/0`),
+a single `t:hostname/0`, or a fully qualified `t:hostname/0`.
+
+`Timeout` specifies a time-out in milliseconds, or the atom `infinity`.
+""".
+-spec getaddrs(Host :: ip_address() | hostname(),
 	       Family :: address_family(),
 	       Timeout :: non_neg_integer() | 'infinity') ->
 	{'ok', [ip_address()]} | {'error', posix()}.
@@ -2907,7 +2944,41 @@ net_getservbyname(Name, Protocol) when is_atom(Protocol) ->
     net:getservbyname(Name, Protocol).
 
 
--doc "Parse an `t:ip_address/0` to an IPv4 or IPv6 address string.".
+-doc """
+Convert an `t:ip_address/0` to an IPv4 or IPv6 address string.
+
+The returned string, if parsed with `parse_address/1`
+or `parse_strict_address/1` will return the same `IpAddress`.
+
+An `t:ip4_address/0` returns a string in dot-decimal notation,
+as described for `parse_ipv4strict_address/1`.
+
+An `t:ip6_address/0` returns a string in the format
+described for `parse_ipv6strict_address/1`.
+
+The first of the longest sequence of consecutive zeros
+in the `t:ip6_address/0` is compressed with `"::"`.
+
+IPv4-Mapped and IPv4-Compatible IPv6 addresses are converted
+to an address string with dot-decimal notation suffix.
+
+A link-local unicast or multicast address that has a non-zero
+second word (an embedded interface index), outputs that interface index
+in a scope id suffix (a `"%"` char followed by a decimal integer string).
+
+Examples:
+
+``` text
+{127,0,0,1}                         -> "127.0.0.1"
+{0,0,0,0,0,0,0,0}                   -> "::"
+{8193,3512,0,0,8,2048,8204,16762}   -> "2001:db8::8:800:200c:417a"
+{0,0,0,0,0,65535,32512,1}           -> "::ffff:127.0.0.1"
+{0,0,0,0,0,0,32512,1}               -> "::127.0.0.1"
+{0,0,0,0,0,1,32512,1}               -> "::1:7f00:1"
+{65282,0,0,0,0,0,0,17}              -> "ff02::11"
+{65152,3,0,0,0,0,0,1}               -> "fe80::1%3"
+```
+""".
 -doc(#{since => <<"OTP R16B02">>}).
 -spec ntoa(IpAddress) -> Address | {error, einval} when
       Address :: string(),
@@ -2918,13 +2989,87 @@ ntoa(Addr) ->
 -doc """
 Parse (relaxed) an IPv4 address string to an `t:ip4_address/0`.
 
-Accepts a short form IPv4 address string (less than 4 fields)
-such as `"127.1"` or `"0x7f000001"`.
+The allowed formats are according to the documentation of
+the libc function inet_aton(), the so called numbers-and-dots notation,
+a fairly flexible format.
+
+In short, the string shall have 1..4 dot separated fields.
+
+Each field can be one of:
+* A decimal number with at most ten digits, starting with one digit
+  `"1"`..`"9"`, and followed by decimal digits `"0"`..`"9"`.
+* The decimal number `"0"`, also as according to
+  the following octal number rule:
+* An octal number starting with `"0"`, followed by
+  at most eleven octal digits `"0"`..`"7"`.
+* A hexadecimal number prefixed by `"0x"` or `"0X"`,
+  followed by at most eight hexadecimal digits
+  `"0"`..`"9"`, `"a"`..`"f"` or `"A"`..`"F"`.
+
+Note that decimal numbers cannot be written with leading zeros,
+since that means octal numbers.
+
+If there are 4 fields, **A.B.C.D**, then all are bytes assigned in
+left-to-right order. This corresponds to a legacy Class C
+network address, for example `"192.168.0.17"`.
+
+If there are 3 fields, **A.B.C**, then **A** and **B** are the two
+initial bytes, and **C** is the 16 bit big endian value that follows.
+This corresponds to a legacy Class B network address,
+for example `"172.16.4711"`, which is equivalent to `"172.16.18.103"`.
+
+If there are 2 fields, **A.B**, then **A** is the initial byte,
+and **B** is the 24 bit big endian value that follows.
+This corresponds to a legacy Class A network address,
+for example `"10.174711"`, which is equivalent to `"10.2.170.119"`.
+
+If there is only 1 field it is a 32 bit big endian value.
+
+In this notation all these strings represent the
+`t:ip4_address/0` `{127,0,0,1}`, where the first one is in
+dot-decimal notation as accepted by `parse_ipv4strict_address/1`
+and output by `ntoa/1`, which is a stricter subset of the
+numbers-and-dots notation parsed by this function.
+``` text
+"127.0.0.1"
+"127.0.1"               % Class B 127.0.0.1
+"127.1"                 % Class C 127.0.0.1
+"0x7f000001"            % Hexadecimal 32-bit
+"0X7f.0.0.1"            % Hexadecimal first byte
+"0177.0.0.1"            % Octal first byte
+"0177.0000.0000.0001"   % Leading zeros in octal fields
+"0x7f.0x00.0x00.0x01"   % Leading zeros in hexadecimal fields
+```
+
+The description above implies that leading and trailing characters
+are not allowed, and fields are not allowed to be empty.
+So for example the following strings return `{error, einval}`:
+
+``` text
+" 127.0.0.1"            % Leading whitespace
+"127.0.0.1\n"           % Trailing whitespace
+"127.0.0."              % Empty field
+".0.0.0"                % Empty field
+"127..0.1"              % Empty field
+"x7f.0.0.1"             % Malformed prefix
+"127.0.0.x1"            % Malformed prefix
+"127.0.0.256"           % Byte overflow
+"127.0.65536"           % 16-bit word overflow
+"127.0x01000000"        % 24-bit word overflow
+```
+
+> #### Note {: .info }
+>
+> *Since OTP @OTP-20357@* a binary is accepted; before that only a list.
+>
+> With that change, this function mostly raises an error exception
+> for an argument that is of an invalid type.  Before this,
+> common bad arguments were handled and returned `{error, einval}`.
 """.
 -doc(#{since => <<"OTP R16B">>}).
 -spec parse_ipv4_address(Address) ->
 	{ok, IPv4Address} | {error, einval} when
-      Address :: string(),
+      Address :: address_string(),
       IPv4Address :: ip4_address().
 parse_ipv4_address(Addr) ->
     inet_parse:ipv4_address(Addr).
@@ -2932,13 +3077,30 @@ parse_ipv4_address(Addr) ->
 -doc """
 Parse (relaxed) an IPv6 address string to an `t:ip6_address/0`.
 
-Also accepts a (relaxed) IPv4 address string like `parse_ipv4_address/1`
-and returns an IPv4-mapped IPv6 address.
+"Relaxed" in this case means that if `Address` is
+a "relaxed" IPv4 address string as accepted by `parse_ipv4_address/1`,
+this function returns an IPv4-mapped IPv6 address.
+
+Example: `"127.0.0.1"` gives `{0,0,0,0,0,65535,32512,1}`,
+as does `"::ffff:127.0.0.1"`
+
+Otherwise `Address` has to be an IPv6 address string
+as accepted by `parse_ipv6strict_address/1`.
+
+Example: `"2001::1"` gives `{8193,0,0,0,0,0,0,1}`.
+
+> #### Note {: .info }
+>
+> *Since OTP @OTP-20357@* a binary is accepted; before that only a list.
+>
+> With that change, this function mostly raises an error exception
+> for an argument that is of an invalid type.  Before this,
+> common bad arguments were handled and returned `{error, einval}`.
 """.
 -doc(#{since => <<"OTP R16B">>}).
 -spec parse_ipv6_address(Address) ->
 	{ok, IPv6Address} | {error, einval} when
-      Address :: string(),
+      Address :: address_string(),
       IPv6Address :: ip6_address().
 parse_ipv6_address(Addr) ->
     inet_parse:ipv6_address(Addr).
@@ -2946,13 +3108,46 @@ parse_ipv6_address(Addr) ->
 -doc """
 Parse an IPv4 address string to an `t:ip4_address/0`.
 
-Requires an IPv4 address string containing four fields,
-that is; _not_ a short form address string.
+The allowed format is according to the documentation of
+the libc function inet_pton(), the so called dot-decimal notation,
+without leading zeros.
+
+The string shall have 4 dot separated fields with decimal numbers
+of 1..3 digits in the range 0..255.  Leading zeros are not allowed,
+which rules out the ambiguity whether a leading zero could mean octal notation.
+
+These are some address strings that are successfully parsed:
+
+``` text
+"0.0.0.0"
+"127.0.0.1"
+"255.255.255.255"
+```
+
+As for `parse_ipv4_address/1` leading and trailing characters
+are not allowed.
+
+Here are some examples of strings that return `{error, einval}`:
+
+``` text
+" 0.0.0.0"              % Leading whitespace
+"0.0.0.0\n"             % Trailing whitespace
+"127.000.000.001"       % Leading zeros
+"127.0.0.256"           % Byte overflow
+```
+
+> #### Note {: .info }
+>
+> *Since OTP @OTP-20357@* a binary is accepted; before that only a list.
+>
+> With that change, this function mostly raises an error exception
+> for an argument that is of an invalid type.  Before this,
+> common bad arguments were handled and returned `{error, einval}`.
 """.
 -doc(#{since => <<"OTP R16B">>}).
 -spec parse_ipv4strict_address(Address) ->
 	{ok, IPv4Address} | {error, einval} when
-      Address :: string(),
+      Address :: address_string(),
       IPv4Address :: ip4_address().
 parse_ipv4strict_address(Addr) ->
     inet_parse:ipv4strict_address(Addr).
@@ -2960,14 +3155,56 @@ parse_ipv4strict_address(Addr) ->
 -doc """
 Parse an IPv6 address string to an `t:ip6_address/0`.
 
-_Doesn't_ accept an IPv4 address string.  An IPv6 address string, though,
-allows an IPv4 tail like this: `"::127.0.0.1"`
-(which is the same as `"::7f00:0001"`).
+Accepted address strings are those according to RFC 4291 section 2.2,
+IP Version 6 Addressing Architecture - Text Representation of Addresses.
+
+In short, and address string is 8 colon separated 1..4 hexadecimal
+digits fields where leading zeros are allowed.  One double colon
+can be used to fill out the address with one or more zero fields.
+The double colon is also allowed at the start and the end of the string.
+
+Both the letters `"a"`..`"f"` and `"A"`..`"F"` are allowed
+in the hexadecimal fields.
+
+The last two fields can be expressed with IPv4 dot-decimal notation
+as accepted by `parse_ipv4strict_address/1`.
+
+An address can have a suffix denoting the IPv6 scope id.  It is
+a `"%"` character followed by a non-empty string.  If that string
+is a decimal integer (leading zeros are allowed), the address
+has to be a link-local unicast or multicast IPv6 address,
+and then the decimal integer is embedded into the second field
+of the address, which is supposed to be zero.  This is the
+FreeBSD approach of embedding a link index into a link-local IPv6 address.
+Strings that are not decimal integers are currently ignored.
+
+Examples:
+
+``` text
+"2001:DB8:0:0:8:800:200C:417A"
+"2001:db8::8:800:200c:417a"
+"ff02:0:0:0:0:0:0:1010"
+"ff02::1010"
+"2000::"
+"::"
+"::1"
+"::127.0.0.1"
+"::ffff:192.168.0.53"
+"fe80::1%3"
+```
+
+> #### Note {: .info }
+>
+> *Since OTP @OTP-20357@* a binary is accepted; before that only a list.
+>
+> With that change, this function mostly raises an error exception
+> for an argument that is of an invalid type.  Before this,
+> common bad arguments were handled and returned `{error, einval}`.
 """.
 -doc(#{since => <<"OTP R16B">>}).
 -spec parse_ipv6strict_address(Address) ->
 	{ok, IPv6Address} | {error, einval} when
-      Address :: string(),
+      Address :: address_string(),
       IPv6Address :: ip6_address().
 parse_ipv6strict_address(Addr) ->
     inet_parse:ipv6strict_address(Addr).
@@ -2975,15 +3212,27 @@ parse_ipv6strict_address(Addr) ->
 -doc """
 Parse an IP address string to an `t:ip_address/0`.
 
-Returns an `t:ip4_address/0` or an `t:ip6_address/0` depending
-on which parsing that succeeds.
+First tries to parse the `Address` string with `parse_ipv4_address/1`
+and if that returns `{error, einval}` with `parse_ipv6strict_address/1`.
 
-Accepts a short form IPv4 address string like `parse_ipv4_address/1`.
+Hence this function accepts either an IPv4 address string in
+numbers-and-dots notation, or an IPv6 address string.
+
+Returns an `t:ip4_address/0` or an `t:ip6_address/0`
+depending on which parsing succeeds.
+
+> #### Note {: .info }
+>
+> *Since OTP @OTP-20357@* a binary is accepted; before that only a list.
+>
+> With that change, this function mostly raises an error exception
+> for an argument that is of an invalid type.  Before this,
+> common bad arguments were handled and returned `{error, einval}`.
 """.
 -doc(#{since => <<"OTP R16B">>}).
 -spec parse_address(Address) ->
 	{ok, IPAddress} | {error, einval} when
-      Address :: string(),
+      Address :: address_string(),
       IPAddress :: ip_address().
 parse_address(Addr) ->
     inet_parse:address(Addr).
@@ -2991,11 +3240,11 @@ parse_address(Addr) ->
 -doc false.
 -spec parse_address(Address, inet) ->
           {ok, IPAddress} | {error, einval} when
-      Address :: string(),
+      Address :: address_string(),
       IPAddress :: ip_address();
                    (Address, inet6) ->
           {ok, IPv6Address} | {error, einval} when
-      Address :: string(),
+      Address :: address_string(),
       IPv6Address :: ip6_address().
 parse_address(Addr, inet) ->
     inet_parse:ipv4_address(Addr);
@@ -3005,12 +3254,27 @@ parse_address(Addr, inet6) ->
 -doc """
 Parse an IP address string to an `t:ip_address/0`.
 
-Like `parse_address/1` but _doesn't_ accept a short form IPv4 address string.
+First tries to parse the `Address` string with `parse_ipv4strict_address/1`
+and if that returns `{error, einval}` with `parse_ipv6strict_address/1`.
+
+Hence this function accepts either an IPv4 address string in
+dot-decimal notation, or an IPv6 address string.
+
+Returns an `t:ip4_address/0` or an `t:ip6_address/0`
+depending on which parsing succeeds.
+
+> #### Note {: .info }
+>
+> *Since OTP @OTP-20357@* a binary is accepted; before that only a list.
+>
+> With that change, this function mostly raises an error exception
+> for an argument that is of an invalid type.  Before this,
+> common bad arguments were handled and returned `{error, einval}`.
 """.
 -doc(#{since => <<"OTP R16B">>}).
 -spec parse_strict_address(Address) ->
 	{ok, IPAddress} | {error, einval} when
-      Address :: string(),
+      Address :: address_string(),
       IPAddress :: ip_address().
 parse_strict_address(Addr) ->
     inet_parse:strict_address(Addr).
@@ -3018,11 +3282,11 @@ parse_strict_address(Addr) ->
 -doc false.
 -spec parse_strict_address(Address, inet) ->
           {ok, IPAddress} | {error, einval} when
-      Address :: string(),
+      Address :: address_string(),
       IPAddress :: ip_address();
                    (Address, inet6) ->
           {ok, IPv6Address} | {error, einval} when
-      Address :: string(),
+      Address :: address_string(),
       IPv6Address :: ip6_address().
 parse_strict_address(Addr, inet) ->
     inet_parse:ipv4strict_address(Addr);

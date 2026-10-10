@@ -23,6 +23,27 @@ limitations under the License.
 
 This document describes the changes made to the Runtime_Tools application.
 
+## Runtime_Tools 2.5
+
+### Fixed Bugs and Malfunctions
+
+- Fixed bug if a process that called `dbg:session/2` exits before `dbg:session_destroy/1` is called. An error report was logged and any trace messages lost and not delivered.
+
+  Own Id: OTP-20218 Aux Id: [PR-11260]
+
+[PR-11260]: https://github.com/erlang/otp/pull/11260
+
+### Improvements and New Features
+
+- A new `m:versions` module has been added to the `runtime_tools` application containing functions for, e.g., comparing, versions that adhere to the [OTP Versions Scheme](`e:system:versions.md#version-scheme`).
+  
+  The documentation of the [OTP Versions Scheme](`e:system:versions.md#version-scheme`) has also been improved.
+
+  Own Id: OTP-20352 Aux Id: [PR-11556], [PR-11600]
+
+[PR-11556]: https://github.com/erlang/otp/pull/11556
+[PR-11600]: https://github.com/erlang/otp/pull/11600
+
 ## Runtime_Tools 2.4
 
 ### Improvements and New Features

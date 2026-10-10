@@ -36,6 +36,7 @@
 #include "sys.h"
 #include "erl_vm.h"
 #include "global.h"
+#include "erl_term.h"
 #include "erl_process.h"
 #include "error.h"
 #include "external.h"
@@ -2029,11 +2030,25 @@ static BIF_RETTYPE binary_to_term_int(Process* p, Eterm bin, B2TContext *ctx)
             break;
 
         case B2TDecodeInit:
-            if (is_non_value(ctx->trap_bin) && ctx->b2ts.extsize > ctx->reds) {
-                /* dec_term will maybe trap, allocate space for magic bin
-                   before result term to make it easy to trim with HRelease.
-                 */
-                ctx = b2t_export_context(p, ctx);
+            if (is_non_value(ctx->trap_bin)) {
+                if (ctx->b2ts.extsize > ctx->reds) {
+                    /* dec_term will maybe trap, allocate space for magic bin
+                     * before result term to make it easy to trim with HRelease.
+                     */
+                    ctx = b2t_export_context(p, ctx);
+                }
+                else {
+                    /*
+                     * We will probably not trap. To ensure we don't,
+                     * artificially increase our available reductions.
+                     * This is a workaround for GH-11404. Calling HAlloc()
+                     * in b2t_export_context() after factory has been created
+                     * causes problems.
+                     */
+                    const SWord consumed = initial_reds - ctx->reds;
+                    ctx->reds = (INT_MAX / B2T_MEMCPY_FACTOR);
+                    initial_reds = ctx->reds + consumed;
+                }
             }
             ctx->u.dc.ep = ctx->b2ts.extp;
             ctx->u.dc.res = (Eterm) (UWord) NULL;
@@ -2112,6 +2127,7 @@ static BIF_RETTYPE binary_to_term_int(Process* p, Eterm bin, B2TContext *ctx)
     }while (ctx->reds > 0 || ctx->state >= B2TDone);
 
     if (is_non_value(ctx->trap_bin)) {
+        ASSERT(ctx->state < B2TDecode);
         ctx = b2t_export_context(p, ctx);
         ASSERT(is_value(ctx->trap_bin));
     }
@@ -4539,6 +4555,7 @@ dec_term_atom_common:
                 break;
             }
 	tuple_loop:
+            ASSERT(n > 0 && n <= ERTS_MAX_TUPLE_SIZE);
 	    *objp = make_tuple(hp);
 	    *hp++ = make_arityval(n);
 	    hp += n;
@@ -4890,8 +4907,12 @@ dec_term_atom_common:
                 if (ep[-1] == BIT_BINARY_EXT) {
                     Uint trailing_bits = ep[4];
 
-                    if (((trailing_bits == 0) != (nu == 0)) ||
-                        trailing_bits > 8) {
+                    /* We accept a trailing bit count of 8 for backwards
+                     * compatibility reasons, even though it's not the most
+                     * compact representation. */
+                    if (trailing_bits < 1 ||
+                        trailing_bits > 8 ||
+                        size_in_bits < 8) {
                         goto error;
                     }
 
@@ -5319,6 +5340,13 @@ dec_term_atom_common:
                 } else {
                     qsort(fields, num_fields, sizeof(struct erl_record_field),
                           (int (*)(const void *, const void *)) record_compare);
+
+                    for (Sint i = 1; i < num_fields; i++) {
+                        if (fields[i-1].key == fields[i].key) {
+                            erts_free(ERTS_ALC_T_TMP, fields);
+                            goto error;
+                        }
+                    }
 
                     order_tuple = make_boxed(order);
                     *order++ = make_arityval(num_fields);
@@ -6256,6 +6284,9 @@ init_done:
 	case LARGE_TUPLE_EXT:
 	    CHKSIZE(4);
 	    n = get_uint32(ep);
+            if (n > ERTS_MAX_TUPLE_SIZE) {
+                goto error;
+            }
 	    ep += 4;
             CHKSIZE(n); /* Fail faster if the binary is too short. */
 	    ADDTERMS(n);

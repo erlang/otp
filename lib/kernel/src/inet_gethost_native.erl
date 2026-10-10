@@ -24,6 +24,7 @@
 -behaviour(supervisor_bridge).
 
 -compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}},
+          {nowarn_deprecated_function, [{erlang,exit,2}]},
           nowarn_deprecated_catch]).
 
 %% Supervisor bridge exports

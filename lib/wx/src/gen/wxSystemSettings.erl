@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -88,7 +88,7 @@ Return: The returned colour is always valid.
 """.
 %%  Index = ?wxSYS_COLOUR_SCROLLBAR | ?wxSYS_COLOUR_DESKTOP | ?wxSYS_COLOUR_ACTIVECAPTION | ?wxSYS_COLOUR_INACTIVECAPTION | ?wxSYS_COLOUR_MENU | ?wxSYS_COLOUR_WINDOW | ?wxSYS_COLOUR_WINDOWFRAME | ?wxSYS_COLOUR_MENUTEXT | ?wxSYS_COLOUR_WINDOWTEXT | ?wxSYS_COLOUR_CAPTIONTEXT | ?wxSYS_COLOUR_ACTIVEBORDER | ?wxSYS_COLOUR_INACTIVEBORDER | ?wxSYS_COLOUR_APPWORKSPACE | ?wxSYS_COLOUR_HIGHLIGHT | ?wxSYS_COLOUR_HIGHLIGHTTEXT | ?wxSYS_COLOUR_BTNFACE | ?wxSYS_COLOUR_BTNSHADOW | ?wxSYS_COLOUR_GRAYTEXT | ?wxSYS_COLOUR_BTNTEXT | ?wxSYS_COLOUR_INACTIVECAPTIONTEXT | ?wxSYS_COLOUR_BTNHIGHLIGHT | ?wxSYS_COLOUR_3DDKSHADOW | ?wxSYS_COLOUR_3DLIGHT | ?wxSYS_COLOUR_INFOTEXT | ?wxSYS_COLOUR_INFOBK | ?wxSYS_COLOUR_LISTBOX | ?wxSYS_COLOUR_HOTLIGHT | ?wxSYS_COLOUR_GRADIENTACTIVECAPTION | ?wxSYS_COLOUR_GRADIENTINACTIVECAPTION | ?wxSYS_COLOUR_MENUHILIGHT | ?wxSYS_COLOUR_MENUBAR | ?wxSYS_COLOUR_LISTBOXTEXT | ?wxSYS_COLOUR_LISTBOXHIGHLIGHTTEXT | ?wxSYS_COLOUR_BACKGROUND | ?wxSYS_COLOUR_3DFACE | ?wxSYS_COLOUR_3DSHADOW | ?wxSYS_COLOUR_BTNHILIGHT | ?wxSYS_COLOUR_3DHIGHLIGHT | ?wxSYS_COLOUR_3DHILIGHT | ?wxSYS_COLOUR_FRAMEBK
 -spec getColour(Index) -> wx:wx_colour4() when
-	Index::wx:wx_enum().
+        Index::wx:wx_enum().
 getColour(Index)
  when is_integer(Index) ->
   wxe_util:queue_cmd(Index,?get_env(),?wxSystemSettings_GetColour),
@@ -101,7 +101,7 @@ Return: The returned font is always valid.
 """.
 %%  Index = ?wxSYS_OEM_FIXED_FONT | ?wxSYS_ANSI_FIXED_FONT | ?wxSYS_ANSI_VAR_FONT | ?wxSYS_SYSTEM_FONT | ?wxSYS_DEVICE_DEFAULT_FONT | ?wxSYS_DEFAULT_GUI_FONT
 -spec getFont(Index) -> wxFont:wxFont() when
-	Index::wx:wx_enum().
+        Index::wx:wx_enum().
 getFont(Index)
  when is_integer(Index) ->
   wxe_util:queue_cmd(Index,?get_env(),?wxSystemSettings_GetFont),
@@ -109,7 +109,7 @@ getFont(Index)
 
 -doc(#{equiv => getMetric(Index, [])}).
 -spec getMetric(Index) -> integer() when
-	Index::wx:wx_enum().
+        Index::wx:wx_enum().
 
 getMetric(Index)
  when is_integer(Index) ->

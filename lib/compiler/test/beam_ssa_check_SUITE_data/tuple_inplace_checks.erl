@@ -26,7 +26,7 @@
          update_record0/0, fc/0, track_update_record/1,
          gh8124_a/0, gh8124_b/0, tuple_set_a/1, tuple_set_b/0,
          failure_to_patch_list/0, erierl1208/0, gh_9903/0,
-         gh10367/0]).
+         gh10367/0, cs_min_max/2]).
 -record(r, {a=0,b=0,c=0,tot=0}).
 -record(r1, {a}).
 -record(r2, {b}).
@@ -334,3 +334,10 @@ gh10367() ->
     Expected = P2#r4{a = a},
     timer:sleep(0),
     Expected = gh10367_update([P1, P2]).
+
+cs_min_max(X,Y) ->
+%ssa% (X, Y) when post_ssa_opt ->
+%ssa% _ = update_record(reuse, ...).
+    A = #r{a=X,b=1}, B = #r{a=Y,b=2},
+    Min = min(A,B), Updated = Min#r{a=updated},
+    {A,B,Updated}.

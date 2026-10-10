@@ -1252,29 +1252,6 @@ int beam_load_emit_op(LoaderState *stp, BeamOp *tmp_op) {
                 sp++;
                 packed = 0;
                 break;
-#if defined(ARCH_64) && defined(CODE_MODEL_SMALL)
-            case '#':       /* -1 */
-            case '$':       /* -2 */
-            case '%':       /* -3 */
-            case '&':       /* -4 */
-            case '\'':      /* -5 */
-            case '(':       /* -6 */
-                /* Pack accumulator contents into instruction word. */
-                {
-                    Sint pos = ci - (*prog - '#' + 1);
-                    /* Are the high 32 bits of the instruction word zero? */
-                    ASSERT((code[pos] & ~((1ull << BEAM_WIDE_SHIFT)-1)) == 0);
-                    code[pos] |= packed << BEAM_WIDE_SHIFT;
-                    if (packed_label) {
-                        ASSERT(packed_label->packed == 1);
-                        packed_label->pos = pos;
-                        packed_label->packed = 2;
-                        packed_label = 0;
-                    }
-                    packed >>= BEAM_WIDE_SHIFT;
-                }
-                break;
-#endif
             default:
                 erts_exit(ERTS_ERROR_EXIT, "beam_load: invalid packing op: %c\n", *prog);
             }

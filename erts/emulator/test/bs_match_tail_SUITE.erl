@@ -27,6 +27,7 @@
 	 aligned/1,unaligned/1,zero_tail/1,huge_tail/1]).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -59,10 +60,10 @@ al_get_tail_unused(<<A:16,_/binary>>) -> A.
 
 %% Test that an non-aligned tail cannot be matched out.
 unaligned(Config) when is_list(Config) ->
-    {'EXIT',{function_clause,_}} = (catch get_tail_used(mkbin([42]))),
-    {'EXIT',{{badmatch,_},_}} = (catch get_dyn_tail_used(mkbin([137]), 3)),
-    {'EXIT',{function_clause,_}} = (catch get_tail_unused(mkbin([42,33]))),
-    {'EXIT',{{badmatch,_},_}} = (catch get_dyn_tail_unused(mkbin([44]), 7)),
+    ?assertError(function_clause, get_tail_used(mkbin([42]))),
+    ?assertError({badmatch,_}, get_dyn_tail_used(mkbin([137]), 3)),
+    ?assertError(function_clause, get_tail_unused(mkbin([42,33]))),
+    ?assertError({badmatch,_}, get_dyn_tail_unused(mkbin([44]), 7)),
     ok.
 
 get_tail_used(<<A:1,T/binary>>) -> {A,T}.
@@ -79,9 +80,9 @@ get_dyn_tail_unused(Bin, Sz) ->
 
 %% Test that zero tails are tested correctly.
 zero_tail(Config) when is_list(Config) ->
-    7 = (catch test_zero_tail(mkbin([7]))),
-    {'EXIT',{function_clause,_}} = (catch test_zero_tail(mkbin([1,2]))),
-    {'EXIT',{function_clause,_}} = (catch test_zero_tail2(mkbin([1,2,3]))),
+    7 = test_zero_tail(mkbin([7])),
+    ?assertError(function_clause, test_zero_tail(mkbin([1,2]))),
+    ?assertError(function_clause, test_zero_tail2(mkbin([1,2,3]))),
     ok.
 
 test_zero_tail(<<A:8>>) -> A.
@@ -90,11 +91,11 @@ test_zero_tail2(<<_A:4,_B:4>>) -> ok.
 
 huge_tail(_Config) ->
     42 = huge_tail_1(id(<<42,0:16#1001>>)),
-    {'EXIT',{function_clause,_}} = catch huge_tail_1(id(<<0:8,0:10>>)),
+    ?assertError(function_clause, huge_tail_1(id(<<0:8,0:10>>))),
 
-    {'EXIT',{function_clause,_}} = catch huge_tail_2(id(<<0:8,0:100>>)),
+    ?assertError(function_clause, huge_tail_2(id(<<0:8,0:100>>))),
 
-    {'EXIT',{function_clause,_}} = catch huge_tail_3(id(<<0:8,0:200>>)),
+    ?assertError(function_clause, huge_tail_3(id(<<0:8,0:200>>))),
 
     %% The following code is commented out by default because it
     %% constructs a 2Gb binary.

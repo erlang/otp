@@ -86,7 +86,8 @@ init_per_suite(Config) ->
                       setup_dirs(Config)
                   end).
 
-end_per_suite(_Config) ->
+end_per_suite(Config) ->
+    ssh_test_lib:clean_all_user_host_keys(Config),
     ssh:stop().
 
 %%--------------------------------------------------------------------

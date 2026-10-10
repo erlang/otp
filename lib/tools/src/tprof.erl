@@ -3,8 +3,8 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
+%% Copyright Ericsson AB 2024-2026. All Rights Reserved.
 %% Copyright WhatsApp Inc. and its affiliates. All rights reserved.
-%% Copyright Ericsson AB 2024-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,6 +26,8 @@
 %% Erlang Process Tracing profiler.
 %%
 -module(tprof).
+-compile([{nowarn_deprecated_function, [{erlang,exit,2}]}]).
+
 -moduledoc """
 Process Tracing Profiling Tool
 
@@ -753,8 +755,8 @@ disable_trace(Server, Spec, Options) ->
 disable_session_trace(Session, Procs) ->
     disable_session_trace(Session, Procs, default_trace_options()).
 disable_session_trace(Session, Procs, Options) when Procs =:= all;
-                                                    Procs =:= new_processes;
-                                                    Procs =:= existing_processes ->
+                                                    Procs =:= new;
+                                                    Procs =:= existing ->
     trace:process(Session,  Procs, false, trace_options(Options));
 disable_session_trace(Session, {Children, PidOrName}, Options) when Children =:= children;
                                                                     Children =:= all_children ->

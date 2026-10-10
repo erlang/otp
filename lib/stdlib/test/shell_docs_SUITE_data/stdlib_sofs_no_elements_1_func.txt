@@ -2,16 +2,16 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  no_elements(ASet)[0m
+[1m  no_elements(ASet)[0m
 
-  Returns the number of elements of the ordered or unordered set [;;4m[0m
-  [;;4mASet[0m.
+  Returns the number of elements of the ordered or unordered set [4m[0m
+  [4mASet[0m.
 
-[;1mExamples[0m
+[1mExamples[0m
 
     1> sofs:no_elements(sofs:set([a,b,c])).
     3

@@ -23,6 +23,6 @@
 -ifndef(shell_test_lib).
 -define(shell_test_lib, true).
 
--record(tmux, {peer, node, name, ssh_server_name, orig_location }).
+-record(tmux, {peer, node, name, ssh_server_name, orig_location, socket }).
 
 -endif.

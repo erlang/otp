@@ -59,7 +59,7 @@ suite() ->
 
 all() -> 
     [off_heap, call, call_reqtmo, block_call, multicall,
-     multicall_timeout, call_reqtmo, multicall_dies,
+     multicall_timeout, multicall_reqtmo, multicall_dies,
      multicall_node_dies, called_dies, called_node_dies,
      called_throws, call_benchmark, async_call,
      call_against_old_node,
@@ -614,7 +614,7 @@ multicall_mix(Config) ->
     true = (A == 1) orelse (A == [bling]),
 
     {[], Nodes}
-        = rpc:multicall(Nodes, timer, sleep, [100], 50),
+        = rpc:multicall(Nodes, timer, sleep, [1000], 50),
 
     OtherNodes = Nodes -- [ThisNode],
 

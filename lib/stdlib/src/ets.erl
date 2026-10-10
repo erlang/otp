@@ -58,16 +58,15 @@ are proportional to the logarithm of the number of objects in the table.
 
 > #### Note {: .info }
 >
-> The number of tables stored at one Erlang node _used_ to be limited. This is
-> no longer the case (except by memory usage). The previous default limit was
-> about 1400 tables and could be increased by setting the environment variable
-> `ERL_MAX_ETS_TABLES` or the command line option
-> [`+e`](`e:erts:erl_cmd.md#%2Be`) before starting the Erlang runtime system.
-> This hard limit has been removed, but it is currently useful to set the
-> `ERL_MAX_ETS_TABLES` anyway. It should be set to an approximate of the maximum
-> amount of tables used since an internal table for named tables is sized using
-> this value. If large amounts of named tables are used and `ERL_MAX_ETS_TABLES`
-> hasn't been increased, the performance of named table lookup will degrade.
+> The number of ETS tables at one Erlang node is limited only by available
+> memory. The environment variable `ERL_MAX_ETS_TABLES` and the command line
+> option [`+e`](`e:erts:erl_cmd.md#%2Be`) do not limit this number. They set a
+> sizing hint for an internal index used to look up named ETS tables.
+>
+> Workloads that keep a large number of named tables concurrently can set the
+> hint to approximately the expected peak number of named tables. A value that
+> is too small can increase hash collisions and degrade named table lookup
+> performance, while an unnecessarily large value increases memory usage.
 
 Notice that there is no automatic garbage collection for tables. Even if there
 are no references to a table from any process, it is not automatically destroyed
@@ -255,7 +254,8 @@ A match specifications with excessive nesting will cause a
 -export([i/0, i/1, i/2, i/3]).
 
 -export_type([table/0, table_access/0, table_type/0,
-              tid/0, match_spec/0, compiled_match_spec/0, match_pattern/0]).
+              tid/0, match_spec/0, compiled_match_spec/0, match_pattern/0,
+              continuation/0]).
 
 %%-----------------------------------------------------------------------------
 
@@ -263,9 +263,14 @@ A match specifications with excessive nesting will cause a
 -type table()         :: atom() | tid().
 -type table_type()    :: set | ordered_set | bag | duplicate_bag.
 -doc """
-Opaque continuation used by [`select/1,3`](`select/1`),
+Semi-opaque continuation used by [`select/1,3`](`select/1`),
 [`select_reverse/1,3`](`select_reverse/1`), [`match/1,3`](`match/1`), and
 [`match_object/1,3`](`match_object/1`).
+
+> #### Note {: .info }
+>
+> It is only allowed to match a continuation against `'$end_of_table'`. All other
+> values should be considered as opaque implementation details that might change.
 """.
 -type continuation()  :: '$end_of_table'
                        | {table(),integer(),integer(),compiled_match_spec(),list(),integer()}
@@ -1011,7 +1016,7 @@ to get the next chunk of matching objects. This is a space-efficient way to work
 on objects in a table, which is faster than traversing the table object by
 object using `first/1` and `next/2`.
 
-If the table is empty, `'$end_of_table'` is returned.
+If there is no match or the table is empty, `'$end_of_table'` is returned.
 
 Use `safe_fixtable/2` to guarantee [safe traversal](`m:ets#traversal`) for
 subsequent calls to `match/1`.
@@ -1022,8 +1027,15 @@ subsequent calls to `match/1`.
 1> T = ets:new(t, []).
 2> ets:insert(T, [{a,1},{b,2}]).
 true
-3> ets:match(T, '$1', 1).
+3> {_, Cont1} = ets:match(T, '$1', 1).
 {[[{a,1}]],_}
+4> {_, Cont2} = ets:match(Cont1).
+{[[{b,2}]],_}
+5> ets:match(Cont2).
+'$end_of_table'
+%% No match so returns '$end_of_table'
+6> ets:match(T, {'_',cow,'$1'}, 1).
+'$end_of_table'
 ```
 """.
 -spec match(Table, Pattern, Limit) -> {[Match], Continuation} |
@@ -1526,7 +1538,10 @@ prev_lookup(_, _) ->
 %% Shadowed by erl_bif_types: ets:rename/2
 -doc """
 Renames the named table `Table` to the new name `Name`. Afterwards, the old name
-cannot be used to access the table. Renaming an unnamed table has no effect.
+cannot be used to access the table.
+
+Renaming an unnamed table only changes the name returned by `ets:info/2` with the `name` argument.
+It does not make the table accessible by the new name.
 
 ## Examples
 
@@ -2689,9 +2704,9 @@ table by using `insert/2`.
 When called with argument `read`, the function `InitFun` is assumed to return
 `end_of_input` when there is no more input, or `{Objects, Fun}`, where `Objects`
 is a list of objects and `Fun` is a new input function. Any other value `Value`
-is returned as an error `{error, {init_fun, Value}}`. Each input function is
-called exactly once, and if an error occur, the last function is called with
-argument `close`, the reply of which is ignored.
+will cause an error to be raised with `Value` as the error reason. Each input
+function is called exactly once, and if an error occur, the last function is
+called with argument `close`, the reply of which is ignored.
 
 If the table type is `set` and more than one object exists with a given key, one
 of the objects is chosen. This is not necessarily the last object with the given

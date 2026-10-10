@@ -101,6 +101,8 @@
 -export_type([message/0, request/0]).
 -export([start/0, start/1, start_shell/0, start_shell/1, whereis_group/0, flush/0]).
 
+-compile([{nowarn_deprecated_function, [{erlang,exit,2}]}]).
+
 %% gen_statem state callbacks
 -behaviour(gen_statem).
 -export([init/3,server/3,switch_loop/3]).
@@ -125,7 +127,8 @@
 -type arguments() ::
         #{ initial_shell => noshell | shell() |
            {remote, unicode:charlist()} | {remote, unicode:charlist(), {module(), atom(), [term()]}},
-           input => cooked | raw | disabled }.
+           input => cooked | raw | disabled,
+           signals => boolean() }.
 
 %% Default line editing shell
 -spec start() -> pid().
@@ -197,7 +200,8 @@ init(Args) ->
                  {next_event, internal, TTYState}};
             true ->
                 TTYState = prim_tty:init(
-                             #{ input => maps:get(input, Args), output => raw }),
+                             #{ input => maps:get(input, Args), output => raw,
+                                signals => maps:get(signals, Args, true) }),
                 init_standard_error(TTYState, false),
                 {ok, init, {Args,#state{ terminal_mode = maps:get(input, Args), user = start_user() } },
                  {next_event, internal, TTYState}}
@@ -405,7 +409,8 @@ server({call, From}, {start_shell, Args},
                             State#state{
                               terminal_mode = Input,
                               tty = prim_tty:reinit(TTY, #{ input => Input,
-                                                            output => raw }),
+                                                            output => raw,
+                                                            signals => maps:get(signals, Args, true) }),
                               shell_started = false }
                     end
             end

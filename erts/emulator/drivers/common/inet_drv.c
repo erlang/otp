@@ -10848,8 +10848,8 @@ static void inet_stop(inet_descriptor* desc)
 {
     DDBG(desc,
          ("INET-DRV-DBG[%d][" SOCKET_FSTR "] "
-          "inet_stop -> entry\r\n",
-          __LINE__, desc->s) );
+          "%s -> entry\r\n",
+          __LINE__, desc->s, __FUNCTION__) );
 
     erl_inet_close(desc);
 #ifdef HAVE_SETNS
@@ -11634,7 +11634,12 @@ static int tcp_expand_buffer(tcp_descriptor* desc, int len)
     int offs1;
     int offs2;
     int used = desc->i_ptr_start - desc->i_buf->orig_bytes;
-    int ulen = used + len;
+    int ulen;
+
+    if (len > INT_MAX - used) {
+        return -1;
+    }
+    ulen = used + len;
 
     if (desc->i_bufsz >= ulen) /* packet will fit */
 	return 0;
@@ -11892,8 +11897,8 @@ static void tcp_inet_stop(ErlDrvData e)
     tcp_descriptor* desc = (tcp_descriptor*)e;
 
     DDBG(INETP(desc),
-         ("INET-DRV-DBG[%d][" SOCKET_FSTR "] tcp_inet_stop -> entry\r\n",
-          __LINE__, desc->inet.s) );
+         ("INET-DRV-DBG[%d][" SOCKET_FSTR "] %s -> entry\r\n",
+          __LINE__, desc->inet.s, __FUNCTION__) );
 
     tcp_close_check(desc);
     tcp_clear_input(desc);
@@ -11905,8 +11910,9 @@ static void tcp_inet_stop(ErlDrvData e)
 
         DDBG(INETP(desc),
              ("INET-DRV-DBG[%d][" SOCKET_FSTR "] "
-              "tcp_inet_stop -> SENDFILE dup closed %d\r\n",
-              __LINE__, desc->inet.s, desc->sendfile.dup_file_fd) );
+              "%s -> SENDFILE dup closed %d\r\n",
+              __LINE__, desc->inet.s,
+              __FUNCTION__, desc->sendfile.dup_file_fd) );
 
     }
 #endif
@@ -12451,17 +12457,75 @@ static ErlDrvSSizeT tcp_inet_ctl(ErlDrvData e, unsigned int cmd,
 
 static int tcp_inet_send_timeout(ErlDrvData e, ErlDrvTermData dummy)
 {
-    tcp_descriptor* desc = (tcp_descriptor*)e;
+    tcp_descriptor* desc   = (tcp_descriptor*)e;
+    SOCKET          sock   = desc->inet.s;
+    int             result = 1;
+
     ASSERT(IS_BUSY(INETP(desc)));
     ASSERT(desc->busy_on_send);
+
+    DDBG(INETP(desc),
+         ("INET-DRV-DBG[%d][" SOCKET_FSTR "] "
+          "%s ->"
+          "\r\n   Send Timeout Close: %s"
+          "\r\n   Active:             %s"
+          "\r\n",
+          __LINE__, sock, __FUNCTION__,
+          B2S(desc->send_timeout_close),
+          A2S(desc->inet.active)) );
+
     desc->inet.state &= ~INET_F_BUSY;
     desc->busy_on_send = 0;
     set_busy_port(desc->inet.port, 0);
     inet_reply_error_am(INETP(desc), am_timeout);
+
     if (desc->send_timeout_close) {
-        tcp_desc_close(desc);
+
+        if (desc->inet.active) {
+
+            DDBG(INETP(desc),
+                 ("INET-DRV-DBG[%d][" SOCKET_FSTR "] "
+                  "%s -> send 'closed' message\r\n",
+                  __LINE__, sock, __FUNCTION__) );
+
+            tcp_closed_message(desc);
+
+            if (desc->inet.exitf) {
+
+                DDBG(INETP(desc),
+                     ("INET-DRV-DBG[%d][" SOCKET_FSTR "] "
+                      "%s -> driver exit\r\n",
+                      __LINE__, sock, __FUNCTION__) );
+
+                driver_exit(desc->inet.port, 0);
+
+                result = -1;
+
+            } else {
+
+                DDBG(INETP(desc),
+                     ("INET-DRV-DBG[%d][" SOCKET_FSTR "] "
+                      "%s -> close descriptor\r\n",
+                      __LINE__, sock, __FUNCTION__) );
+
+                tcp_desc_close(desc);
+            }
+
+        } else {
+
+            DDBG(INETP(desc),
+                 ("INET-DRV-DBG[%d][" SOCKET_FSTR "] "
+                  "%s -> close descriptor\r\n",
+                  __LINE__, sock, __FUNCTION__) );
+
+            tcp_desc_close(desc);
+
+        }
+
     }
-    return 1;
+
+    return result;
+
     /* Q: Why not keep port busy as send queue may still be full (ERL-1390)?
      *
      * A: If kept busy, a following send call would hang without a timeout
@@ -12482,21 +12546,37 @@ static int tcp_inet_send_timeout(ErlDrvData e, ErlDrvTermData dummy)
 
 static void tcp_inet_timeout(ErlDrvData e)
 {
-    tcp_descriptor* desc = (tcp_descriptor*)e;
-    int state = desc->inet.state;
+    tcp_descriptor* desc  = (tcp_descriptor*)e;
+    SOCKET          sock  = desc->inet.s;
+    int             state = desc->inet.state;
 
-    DEBUGF(("tcp_inet_timeout(%p) {s=%d\r\n", 
-	    desc->inet.port, desc->inet.s)); 
+    DDBG(INETP(desc),
+         ("INET-DRV-DBG[%d][" SOCKET_FSTR "] "
+          "%s ->"
+          "\r\n   State: 0x%X"
+          "\r\n",
+          __LINE__, sock, __FUNCTION__, state));
+
     if ((state & INET_F_MULTI_CLIENT)) { /* Multi-client always means multi-timers */
 	fire_multi_timers(desc, desc->inet.port, e);
     } else if ((state & INET_STATE_CONNECTED) == INET_STATE_CONNECTED) {
         fire_multi_timers(desc, desc->inet.port, e);
     }
+    /* fire_multi_timers may call tcp_inet_send_timeout
+     * that may free the descriptor, so INETP(desc)
+     * shall not be touched afterwards.
+     */
     else if ((state & INET_STATE_CONNECTING) == INET_STATE_CONNECTING) {
 	/* assume connect timeout */
 	/* close the socket since it's not usable (see man pages) */
 	tcp_desc_close(desc);
 	async_error_am(INETP(desc), am_timeout);
+
+        DDBG(INETP(desc),
+             ("INET-DRV-DBG[%d][" SOCKET_FSTR "] "
+              "%s -> async timeout message when connecting"
+              "\r\n",
+              __LINE__, sock, __FUNCTION__));
     }
     else if ((state & INET_STATE_ACCEPTING) == INET_STATE_ACCEPTING) {
 	inet_async_op *this_op = desc->inet.opt;
@@ -12507,8 +12587,14 @@ static void tcp_inet_timeout(ErlDrvData e)
 	}
 	desc->inet.state = INET_STATE_LISTENING;
 	async_error_am(INETP(desc), am_timeout);
+
+        DDBG(INETP(desc),
+             ("INET-DRV-DBG[%d][" SOCKET_FSTR "] "
+              "%s -> async timeout message when accepting"
+              "\r\n",
+              __LINE__, sock, __FUNCTION__));
     }
-    DEBUGF(("tcp_inet_timeout(%p) }\r\n", desc->inet.port)); 
+
 }
 
 static int tcp_inet_multi_timeout(ErlDrvData e, ErlDrvTermData caller)

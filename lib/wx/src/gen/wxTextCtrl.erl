@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -268,7 +268,7 @@ Event types emitted from this class:
   move/2,move/3,move/4,moveAfterInTabOrder/2,moveBeforeInTabOrder/2,
   navigate/1,navigate/2,pageDown/1,pageUp/1,parent_class/1,popupMenu/2,
   popupMenu/3,popupMenu/4,raise/1,refresh/1,refresh/2,refreshRect/2,refreshRect/3,
-  releaseMouse/1,removeChild/2,reparent/2,screenToClient/1,screenToClient/2,
+  releaseMouse/1,removeChild/2,reparent/2,screenToClient/2,screenToClient/3,
   scrollLines/2,scrollPages/2,scrollWindow/3,scrollWindow/4,setAcceleratorTable/2,
   setAutoLayout/2,setBackgroundColour/2,setBackgroundStyle/2,setCaret/2,
   setClientSize/2,setClientSize/3,setContainingSizer/2,setCursor/2,
@@ -300,7 +300,7 @@ new() ->
 
 -doc(#{equiv => new(Parent,Id, [])}).
 -spec new(Parent, Id) -> wxTextCtrl() when
-	Parent::wxWindow:wxWindow(), Id::integer().
+        Parent::wxWindow:wxWindow(), Id::integer().
 
 new(Parent,Id)
  when is_record(Parent, wx_ref),is_integer(Id) ->
@@ -346,7 +346,7 @@ control. If this behaviour is not desired, the programmer should use `getInserti
 See: `writeText/2`
 """.
 -spec appendText(This, Text) -> 'ok' when
-	This::wxTextCtrl(), Text::unicode:chardata().
+        This::wxTextCtrl(), Text::unicode:chardata().
 appendText(#wx_ref{type=ThisT}=This,Text)
  when ?is_chardata(Text) ->
   ?CLASS(ThisT,wxTextCtrl),
@@ -355,7 +355,7 @@ appendText(#wx_ref{type=ThisT}=This,Text)
 
 -doc "Returns true if the selection can be copied to the clipboard.".
 -spec canCopy(This) -> boolean() when
-	This::wxTextCtrl().
+        This::wxTextCtrl().
 canCopy(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxTextCtrl_CanCopy),
@@ -363,7 +363,7 @@ canCopy(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns true if the selection can be cut to the clipboard.".
 -spec canCut(This) -> boolean() when
-	This::wxTextCtrl().
+        This::wxTextCtrl().
 canCut(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxTextCtrl_CanCut),
@@ -376,7 +376,7 @@ On some platforms (Motif, GTK) this is an approximation and returns true if the 
 is editable, false otherwise.
 """.
 -spec canPaste(This) -> boolean() when
-	This::wxTextCtrl().
+        This::wxTextCtrl().
 canPaste(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxTextCtrl_CanPaste),
@@ -384,7 +384,7 @@ canPaste(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns true if there is a redo facility available and the last operation can be redone.".
 -spec canRedo(This) -> boolean() when
-	This::wxTextCtrl().
+        This::wxTextCtrl().
 canRedo(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxTextCtrl_CanRedo),
@@ -392,7 +392,7 @@ canRedo(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns true if there is an undo facility available and the last operation can be undone.".
 -spec canUndo(This) -> boolean() when
-	This::wxTextCtrl().
+        This::wxTextCtrl().
 canUndo(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxTextCtrl_CanUndo),
@@ -405,21 +405,21 @@ Note that this function will generate a `wxEVT_TEXT` event, i.e. its effect is i
 to calling `SetValue`("").
 """.
 -spec clear(This) -> 'ok' when
-	This::wxTextCtrl().
+        This::wxTextCtrl().
 clear(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxTextCtrl_Clear).
 
 -doc "Copies the selected text to the clipboard.".
 -spec copy(This) -> 'ok' when
-	This::wxTextCtrl().
+        This::wxTextCtrl().
 copy(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxTextCtrl_Copy).
 
 -doc(#{equiv => create(This,Parent,Id, [])}).
 -spec create(This, Parent, Id) -> boolean() when
-	This::wxTextCtrl(), Parent::wxWindow:wxWindow(), Id::integer().
+        This::wxTextCtrl(), Parent::wxWindow:wxWindow(), Id::integer().
 
 create(This,Parent,Id)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id) ->
@@ -454,14 +454,14 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,Id, Options)
 
 -doc "Copies the selected text to the clipboard and removes it from the control.".
 -spec cut(This) -> 'ok' when
-	This::wxTextCtrl().
+        This::wxTextCtrl().
 cut(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxTextCtrl_Cut).
 
 -doc "Resets the internal modified flag as if the current changes had been saved.".
 -spec discardEdits(This) -> 'ok' when
-	This::wxTextCtrl().
+        This::wxTextCtrl().
 discardEdits(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxTextCtrl_DiscardEdits).
@@ -481,7 +481,7 @@ See overview_events_prog for more information.
 Since: 2.7.1
 """.
 -spec changeValue(This, Value) -> 'ok' when
-	This::wxTextCtrl(), Value::unicode:chardata().
+        This::wxTextCtrl(), Value::unicode:chardata().
 changeValue(#wx_ref{type=ThisT}=This,Value)
  when ?is_chardata(Value) ->
   ?CLASS(ThisT,wxTextCtrl),
@@ -499,7 +499,7 @@ for all keys under any platform but MSW.
 Return: true if the event resulted in a change to the control, false otherwise.
 """.
 -spec emulateKeyPress(This, Event) -> boolean() when
-	This::wxTextCtrl(), Event::wxKeyEvent:wxKeyEvent().
+        This::wxTextCtrl(), Event::wxKeyEvent:wxKeyEvent().
 emulateKeyPress(#wx_ref{type=ThisT}=This,#wx_ref{type=EventT}=Event) ->
   ?CLASS(ThisT,wxTextCtrl),
   ?CLASS(EventT,wxKeyEvent),
@@ -512,7 +512,7 @@ Returns the style currently used for the new text.
 See: `setDefaultStyle/2`
 """.
 -spec getDefaultStyle(This) -> wxTextAttr:wxTextAttr() when
-	This::wxTextCtrl().
+        This::wxTextCtrl().
 getDefaultStyle(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxTextCtrl_GetDefaultStyle),
@@ -535,7 +535,7 @@ Hence to correctly get the character at the current cursor position, taking into
 that there can be none if the cursor is at the end of the string, you could do the following:
 """.
 -spec getInsertionPoint(This) -> integer() when
-	This::wxTextCtrl().
+        This::wxTextCtrl().
 getInsertionPoint(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxTextCtrl_GetInsertionPoint),
@@ -546,7 +546,7 @@ Returns the zero based index of the last position in the text control, which is 
 the number of characters in the control.
 """.
 -spec getLastPosition(This) -> integer() when
-	This::wxTextCtrl().
+        This::wxTextCtrl().
 getLastPosition(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxTextCtrl_GetLastPosition),
@@ -558,7 +558,7 @@ Gets the length of the specified line, not including any trailing newline charac
 Return: The length of the line, or -1 if `lineNo` was invalid.
 """.
 -spec getLineLength(This, LineNo) -> integer() when
-	This::wxTextCtrl(), LineNo::integer().
+        This::wxTextCtrl(), LineNo::integer().
 getLineLength(#wx_ref{type=ThisT}=This,LineNo)
  when is_integer(LineNo) ->
   ?CLASS(ThisT,wxTextCtrl),
@@ -572,7 +572,7 @@ newline character(s).
 Return: The contents of the line.
 """.
 -spec getLineText(This, LineNo) -> unicode:charlist() when
-	This::wxTextCtrl(), LineNo::integer().
+        This::wxTextCtrl(), LineNo::integer().
 getLineText(#wx_ref{type=ThisT}=This,LineNo)
  when is_integer(LineNo) ->
   ?CLASS(ThisT,wxTextCtrl),
@@ -591,7 +591,7 @@ Remark: Note that even empty text controls have one line (where the insertion po
 so `getNumberOfLines/1` never returns 0.
 """.
 -spec getNumberOfLines(This) -> integer() when
-	This::wxTextCtrl().
+        This::wxTextCtrl().
 getNumberOfLines(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxTextCtrl_GetNumberOfLines),
@@ -609,7 +609,7 @@ parts of the entire value. It may also be more efficient, especially if the cont
 contains a lot of data.
 """.
 -spec getRange(This, From, To) -> unicode:charlist() when
-	This::wxTextCtrl(), From::integer(), To::integer().
+        This::wxTextCtrl(), From::integer(), To::integer().
 getRange(#wx_ref{type=ThisT}=This,From,To)
  when is_integer(From),is_integer(To) ->
   ?CLASS(ThisT,wxTextCtrl),
@@ -625,7 +625,7 @@ the correct indices into the string returned by `getValue/1` for multiline contr
 least,) you should use `getStringSelection/1` to get the selected text.
 """.
 -spec getSelection(This) -> {From::integer(), To::integer()} when
-	This::wxTextCtrl().
+        This::wxTextCtrl().
 getSelection(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxTextCtrl_GetSelection),
@@ -637,7 +637,7 @@ Gets the text currently selected in the control.
 If there is no selection, the returned string is empty.
 """.
 -spec getStringSelection(This) -> unicode:charlist() when
-	This::wxTextCtrl().
+        This::wxTextCtrl().
 getStringSelection(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxTextCtrl_GetStringSelection),
@@ -657,7 +657,7 @@ See:
 * `m:wxTextAttr`
 """.
 -spec getStyle(This, Position, Style) -> boolean() when
-	This::wxTextCtrl(), Position::integer(), Style::wxTextAttr:wxTextAttr().
+        This::wxTextCtrl(), Position::integer(), Style::wxTextAttr:wxTextAttr().
 getStyle(#wx_ref{type=ThisT}=This,Position,#wx_ref{type=StyleT}=Style)
  when is_integer(Position) ->
   ?CLASS(ThisT,wxTextCtrl),
@@ -673,7 +673,7 @@ characters, even under Windows where they are separated by a `\r\n` sequence in 
 native control.
 """.
 -spec getValue(This) -> unicode:charlist() when
-	This::wxTextCtrl().
+        This::wxTextCtrl().
 getValue(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxTextCtrl_GetValue),
@@ -687,7 +687,7 @@ In other words, this functions returns true if the control hasn't been put in re
 mode by a previous call to `setEditable/2`.
 """.
 -spec isEditable(This) -> boolean() when
-	This::wxTextCtrl().
+        This::wxTextCtrl().
 isEditable(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxTextCtrl_IsEditable),
@@ -701,7 +701,7 @@ Note that calling `setValue/2` doesn't make the control modified.
 See: `markDirty/1`
 """.
 -spec isModified(This) -> boolean() when
-	This::wxTextCtrl().
+        This::wxTextCtrl().
 isModified(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxTextCtrl_IsModified),
@@ -713,7 +713,7 @@ Returns true if this is a multi line edit control and false otherwise.
 See: `isSingleLine/1`
 """.
 -spec isMultiLine(This) -> boolean() when
-	This::wxTextCtrl().
+        This::wxTextCtrl().
 isMultiLine(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxTextCtrl_IsMultiLine),
@@ -728,7 +728,7 @@ See:
 * `isMultiLine/1`
 """.
 -spec isSingleLine(This) -> boolean() when
-	This::wxTextCtrl().
+        This::wxTextCtrl().
 isSingleLine(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxTextCtrl_IsSingleLine),
@@ -736,7 +736,7 @@ isSingleLine(#wx_ref{type=ThisT}=This) ->
 
 -doc(#{equiv => loadFile(This,Filename, [])}).
 -spec loadFile(This, Filename) -> boolean() when
-	This::wxTextCtrl(), Filename::unicode:chardata().
+        This::wxTextCtrl(), Filename::unicode:chardata().
 
 loadFile(This,Filename)
  when is_record(This, wx_ref),?is_chardata(Filename) ->
@@ -766,14 +766,14 @@ Mark text as modified (dirty).
 See: `isModified/1`
 """.
 -spec markDirty(This) -> 'ok' when
-	This::wxTextCtrl().
+        This::wxTextCtrl().
 markDirty(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxTextCtrl_MarkDirty).
 
 -doc "Pastes text from the clipboard to the text item.".
 -spec paste(This) -> 'ok' when
-	This::wxTextCtrl().
+        This::wxTextCtrl().
 paste(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxTextCtrl_Paste).
@@ -801,7 +801,7 @@ operation.
 Does nothing if there is no redo facility.
 """.
 -spec redo(This) -> 'ok' when
-	This::wxTextCtrl().
+        This::wxTextCtrl().
 redo(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxTextCtrl_Redo).
@@ -813,7 +813,7 @@ character at the last position.
 This function puts the current insertion point position at `to` as a side effect.
 """.
 -spec remove(This, From, To) -> 'ok' when
-	This::wxTextCtrl(), From::integer(), To::integer().
+        This::wxTextCtrl(), From::integer(), To::integer().
 remove(#wx_ref{type=ThisT}=This,From,To)
  when is_integer(From),is_integer(To) ->
   ?CLASS(ThisT,wxTextCtrl),
@@ -826,7 +826,7 @@ at the last position with the given text.
 This function puts the current insertion point position at `to` as a side effect.
 """.
 -spec replace(This, From, To, Value) -> 'ok' when
-	This::wxTextCtrl(), From::integer(), To::integer(), Value::unicode:chardata().
+        This::wxTextCtrl(), From::integer(), To::integer(), Value::unicode:chardata().
 replace(#wx_ref{type=ThisT}=This,From,To,Value)
  when is_integer(From),is_integer(To),?is_chardata(Value) ->
   ?CLASS(ThisT,wxTextCtrl),
@@ -835,7 +835,7 @@ replace(#wx_ref{type=ThisT}=This,From,To,Value)
 
 -doc(#{equiv => saveFile(This, [])}).
 -spec saveFile(This) -> boolean() when
-	This::wxTextCtrl().
+        This::wxTextCtrl().
 
 saveFile(This)
  when is_record(This, wx_ref) ->
@@ -880,7 +880,7 @@ are not supported under this platform).
 See: `getDefaultStyle/1`
 """.
 -spec setDefaultStyle(This, Style) -> boolean() when
-	This::wxTextCtrl(), Style::wxTextAttr:wxTextAttr().
+        This::wxTextCtrl(), Style::wxTextAttr:wxTextAttr().
 setDefaultStyle(#wx_ref{type=ThisT}=This,#wx_ref{type=StyleT}=Style) ->
   ?CLASS(ThisT,wxTextCtrl),
   ?CLASS(StyleT,wxTextAttr),
@@ -893,7 +893,7 @@ Makes the text item editable or read-only, overriding the `wxTE\_READONLY` flag.
 See: `isEditable/1`
 """.
 -spec setEditable(This, Editable) -> 'ok' when
-	This::wxTextCtrl(), Editable::boolean().
+        This::wxTextCtrl(), Editable::boolean().
 setEditable(#wx_ref{type=ThisT}=This,Editable)
  when is_boolean(Editable) ->
   ?CLASS(ThisT,wxTextCtrl),
@@ -901,7 +901,7 @@ setEditable(#wx_ref{type=ThisT}=This,Editable)
 
 -doc "Sets the insertion point at the given position.".
 -spec setInsertionPoint(This, Pos) -> 'ok' when
-	This::wxTextCtrl(), Pos::integer().
+        This::wxTextCtrl(), Pos::integer().
 setInsertionPoint(#wx_ref{type=ThisT}=This,Pos)
  when is_integer(Pos) ->
   ?CLASS(ThisT,wxTextCtrl),
@@ -913,7 +913,7 @@ Sets the insertion point at the end of the text control.
 This is equivalent to calling `setInsertionPoint/2` with `getLastPosition/1` argument.
 """.
 -spec setInsertionPointEnd(This) -> 'ok' when
-	This::wxTextCtrl().
+        This::wxTextCtrl().
 setInsertionPointEnd(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxTextCtrl_SetInsertionPointEnd).
@@ -934,7 +934,7 @@ example) and the extra input is discarded.
 Note that in wxGTK this function may only be used with single line text controls.
 """.
 -spec setMaxLength(This, Len) -> 'ok' when
-	This::wxTextCtrl(), Len::integer().
+        This::wxTextCtrl(), Len::integer().
 setMaxLength(#wx_ref{type=ThisT}=This,Len)
  when is_integer(Len) ->
   ?CLASS(ThisT,wxTextCtrl),
@@ -949,7 +949,7 @@ If both parameters are equal to -1 all text in the control is selected.
 Notice that the insertion point will be moved to `from` by this function.
 """.
 -spec setSelection(This, From, To) -> 'ok' when
-	This::wxTextCtrl(), From::integer(), To::integer().
+        This::wxTextCtrl(), From::integer(), To::integer().
 setSelection(#wx_ref{type=ThisT}=This,From,To)
  when is_integer(From),is_integer(To) ->
   ?CLASS(ThisT,wxTextCtrl),
@@ -969,7 +969,7 @@ See:
 * `m:wxTextAttr`
 """.
 -spec setStyle(This, Start, End, Style) -> boolean() when
-	This::wxTextCtrl(), Start::integer(), End::integer(), Style::wxTextAttr:wxTextAttr().
+        This::wxTextCtrl(), Start::integer(), End::integer(), Style::wxTextAttr:wxTextAttr().
 setStyle(#wx_ref{type=ThisT}=This,Start,End,#wx_ref{type=StyleT}=Style)
  when is_integer(Start),is_integer(End) ->
   ?CLASS(ThisT,wxTextCtrl),
@@ -991,7 +991,7 @@ Note that, unlike most other functions changing the controls values, this functi
 generates a `wxEVT_TEXT` event. To avoid this you can use `changeValue/2` instead.
 """.
 -spec setValue(This, Value) -> 'ok' when
-	This::wxTextCtrl(), Value::unicode:chardata().
+        This::wxTextCtrl(), Value::unicode:chardata().
 setValue(#wx_ref{type=ThisT}=This,Value)
  when ?is_chardata(Value) ->
   ?CLASS(ThisT,wxTextCtrl),
@@ -1000,7 +1000,7 @@ setValue(#wx_ref{type=ThisT}=This,Value)
 
 -doc "Makes the line containing the given position visible.".
 -spec showPosition(This, Pos) -> 'ok' when
-	This::wxTextCtrl(), Pos::integer().
+        This::wxTextCtrl(), Pos::integer().
 showPosition(#wx_ref{type=ThisT}=This,Pos)
  when is_integer(Pos) ->
   ?CLASS(ThisT,wxTextCtrl),
@@ -1013,7 +1013,7 @@ operation.
 Does nothing if there is no undo facility.
 """.
 -spec undo(This) -> 'ok' when
-	This::wxTextCtrl().
+        This::wxTextCtrl().
 undo(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxTextCtrl_Undo).
@@ -1028,7 +1028,7 @@ of the inserted text, so subsequent write operations will be appended. To append
 after the user may have interacted with the control, call `setInsertionPointEnd/1` before writing.
 """.
 -spec writeText(This, Text) -> 'ok' when
-	This::wxTextCtrl(), Text::unicode:chardata().
+        This::wxTextCtrl(), Text::unicode:chardata().
 writeText(#wx_ref{type=ThisT}=This,Text)
  when ?is_chardata(Text) ->
   ?CLASS(ThisT,wxTextCtrl),
@@ -1041,7 +1041,7 @@ Converts the given zero based column and line number to a position.
 Return: The position value, or -1 if x or y was invalid.
 """.
 -spec xYToPosition(This, X, Y) -> integer() when
-	This::wxTextCtrl(), X::integer(), Y::integer().
+        This::wxTextCtrl(), X::integer(), Y::integer().
 xYToPosition(#wx_ref{type=ThisT}=This,X,Y)
  when is_integer(X),is_integer(Y) ->
   ?CLASS(ThisT,wxTextCtrl),
@@ -1195,9 +1195,9 @@ scrollPages(This,Pages) -> wxWindow:scrollPages(This,Pages).
 -doc false.
 scrollLines(This,Lines) -> wxWindow:scrollLines(This,Lines).
 -doc false.
-screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
+screenToClient(This,X,Y) -> wxWindow:screenToClient(This,X,Y).
 -doc false.
-screenToClient(This) -> wxWindow:screenToClient(This).
+screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
 -doc false.
 reparent(This,NewParent) -> wxWindow:reparent(This,NewParent).
 -doc false.

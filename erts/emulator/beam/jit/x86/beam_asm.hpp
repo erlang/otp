@@ -47,6 +47,12 @@ extern "C"
 
 #include "beam_jit_common.hpp"
 
+#ifdef __GNUC__
+#    pragma GCC diagnostic push
+/* Suppress alignment warnings for `Eterm` in templates. */
+#    pragma GCC diagnostic ignored "-Wignored-attributes"
+#endif
+
 /* On Windows, the min and max macros may be defined. */
 #undef min
 #undef max
@@ -1275,6 +1281,9 @@ public:
 
     void codegen(char *buff, size_t len);
 
+    AsmMetadata prepared_metadata;
+    bool metadata_prepared = false;
+    void prepare_metadata(const BeamCodeHeader *header);
     void *register_metadata(const BeamCodeHeader *header);
 
     ErtsCodePtr getCode(unsigned label);
@@ -1366,6 +1375,18 @@ protected:
     void emit_get_list(const x86::Gp boxed_ptr,
                        const ArgRegister &Hd,
                        const ArgRegister &Tl);
+
+    void emit_get_pair(const x86::Gp src,
+                       const Uint offset,
+                       const ArgRegister &First,
+                       const ArgRegister &Second);
+
+    void emit_update_any_record(const ArgAtom &Hint,
+                                const size_t size_on_heap,
+                                const ArgSource &Src,
+                                const ArgRegister &Dst,
+                                const ArgWord &UpdateCount,
+                                const Span<const ArgVal> &updates);
 
     void emit_div_rem(const ArgLabel &Fail,
                       const ArgSource &LHS,
@@ -1669,6 +1690,20 @@ protected:
         }
     }
 
+    void extract_from_literal(x86::Gp to,
+                              const ArgLiteral &literal,
+                              const std::function<Eterm(Eterm)> &resolve) {
+        auto &deferred = literals[literal.as<ArgLiteral>().get()].deferred;
+
+        const int MOV_IMM64_PAYLOAD_OFFSET = 2;
+        Label lbl = a.new_label();
+
+        a.bind(lbl);
+        a.long_().mov(to, imm(LLONG_MAX));
+
+        deferred.emplace_back(patch{lbl, MOV_IMM64_PAYLOAD_OFFSET, 0}, resolve);
+    }
+
     /* Note: May clear flags. */
     void mov_arg(x86::Gp to, const ArgVal &from, const x86::Gp &spill) {
         if (from.isBytePtr()) {
@@ -1877,6 +1912,10 @@ protected:
 void *beamasm_metadata_insert(std::string module_name,
                               ErtsCodePtr base_address,
                               size_t code_size,
-                              const std::vector<AsmRange> &ranges);
+                              const AsmMetadata &metadata);
 void beamasm_metadata_early_init();
 void beamasm_metadata_late_init();
+
+#ifdef __GNUC__
+#    pragma GCC diagnostic pop
+#endif

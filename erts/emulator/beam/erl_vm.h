@@ -36,12 +36,6 @@
 #undef ERLANG_FRAME_POINTERS
 #endif
 
-/* Frame pointer support costs an extra word per process even when unused, so
- * it's worth disabling for compact builds. */
-#ifdef CODE_MODEL_SMALL
-#undef ERLANG_FRAME_POINTERS
-#endif
-
 #if defined(DEBUG) && !defined(CHECK_FOR_HOLES) && !defined(__WIN32__)
 # define CHECK_FOR_HOLES
 #endif
@@ -289,14 +283,8 @@ extern void** beam_ops;
 #  define BeamOpCodeAddr(OpCode) ((BeamInstr)beam_ops[(OpCode)])
 #endif
 
-#if defined(ARCH_64) && defined(CODE_MODEL_SMALL) && !defined(BEAMASM)
-#  define BeamCodeAddr(InstrWord) ((BeamInstr)(Uint32)(InstrWord))
-#  define BeamSetCodeAddr(InstrWord, Addr) (((InstrWord) & ~((1ull << 32)-1)) | (Addr))
-#  define BeamExtraData(InstrWord) ((InstrWord) >> 32)
-#else
-#  define BeamCodeAddr(InstrWord) ((BeamInstr)(InstrWord))
-#  define BeamSetCodeAddr(InstrWord, Addr) (Addr)
-#endif
+#define BeamCodeAddr(InstrWord) ((BeamInstr)(InstrWord))
+#define BeamSetCodeAddr(InstrWord, Addr) (Addr)
 
 #define BeamIsOpCode(InstrWord, OpCode) (BeamCodeAddr(InstrWord) == BeamOpCodeAddr(OpCode))
 

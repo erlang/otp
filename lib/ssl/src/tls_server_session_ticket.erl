@@ -41,12 +41,10 @@
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
-         terminate/2, code_change/3, format_status/2]).
+         terminate/2, code_change/3, format_status/1]).
 
 %% Tracing
 -export([handle_trace/3]).
-
--define(SERVER, ?MODULE).
 
 -record(state, {
                 stateless,
@@ -77,16 +75,26 @@ start_link(Listener, Mode1, Lifetime, TicketStoreSize, MaxEarlyDataSize, AntiRep
                                     MaxEarlyDataSize, AntiReplay, Seed], []).
 
 new(Pid, Prf, MasterSecret, PeerCert) ->
-    gen_server:call(Pid, {new_session_ticket, Prf, MasterSecret, PeerCert}, infinity).
+    Request = {new_session_ticket, Prf, MasterSecret, PeerCert},
+    case call(Pid, Request) of
+        {error, closed} ->
+            no_ticket;
+        Result ->
+            Result
+    end.
 
 use(Pid, Identifiers, Prf, HandshakeHist) ->
-    gen_server:call(Pid, {use_ticket, Identifiers, Prf, HandshakeHist},
-                    infinity).
-
+    case call(Pid, {use_ticket, Identifiers, Prf, HandshakeHist}) of
+        {error, closed} ->
+            %% Server died, old tickets can not be used (state is lost)
+            %% new accept call will start new ticket handler
+            {ok, undefined};
+        Result ->
+            Result
+    end.
 %%%===================================================================
 %%% gen_server callbacks
 %%%===================================================================
-
 -spec init(Args :: term()) -> {ok, State :: term()}.
 init([Listener | Args]) ->
     process_flag(trap_exit, true),
@@ -158,15 +166,30 @@ terminate(_Reason, _State) ->
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
-
--spec format_status(Opt :: normal | terminate,
-                    Status :: list()) -> Status :: term().
-format_status(_Opt, Status) ->
-    Status.
+%%====================================================================
+%% Log handling
+%%====================================================================
+-spec format_status(map()) -> map().
+format_status(Status) ->
+    maps:map(
+      fun(state, State) ->
+              State#state{stateful = ?SECRET_PRINTOUT,
+                          stateless = ?SECRET_PRINTOUT,
+                          nonce = ?SECRET_PRINTOUT};
+         (_,Value) ->
+              Value
+      end, Status).
 
 %%%===================================================================
 %%% Internal functions
 %%%===================================================================
+call(Pid, Msg) ->
+    try gen_server:call(Pid, Msg, infinity)
+    catch
+        exit:{noproc, _} ->
+            {error, closed}
+    end.
+
 initial_state([stateless, Lifetime, _, MaxEarlyDataSize, undefined, Seed]) ->
     #state{nonce = 0,
            stateless = #{seed => stateless_seed(Seed),
@@ -404,8 +427,6 @@ stateless_usable_ticket(#stateless_ticket{hash = Prf,
             false
     end.
 
-stateless_living_ticket(0, _, _, _, _) ->
-    true;
 %% If `anti_replay` is not enabled, then a ticket is considered to be living
 %% if it has not exceeded its lifetime.
 %%

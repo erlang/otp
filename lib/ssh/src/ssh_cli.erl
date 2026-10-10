@@ -28,6 +28,8 @@
 -module(ssh_cli).
 -moduledoc false.
 
+-compile([{nowarn_deprecated_function, [{erlang,exit,2}]}]).
+
 -behaviour(ssh_server_channel).
 
 -include("ssh.hrl").
@@ -450,8 +452,13 @@ io_request(delete_after_cursor, TTY, _State) ->
     prim_tty:handle_request(TTY, delete_after_cursor);
 io_request(delete_line, TTY, _State) ->
     prim_tty:handle_request(TTY, delete_line);
+io_request({put_chars, latin1, Chars}, TTY, _State) ->
+    prim_tty:handle_request(TTY, {putc, unicode:characters_to_binary(Chars, latin1)});
 io_request({put_chars, unicode, Chars}, TTY, _State) ->
     prim_tty:handle_request(TTY, {putc, unicode:characters_to_binary(Chars)});
+io_request({put_chars_sync, latin1, Chars, Reply}, TTY, State) ->
+    State#state.group ! {reply, Reply, ok},
+    prim_tty:handle_request(TTY, {putc, unicode:characters_to_binary(Chars, latin1)});
 io_request({put_chars_sync, unicode, Chars, Reply}, TTY, State) ->
     State#state.group ! {reply, Reply, ok},
     prim_tty:handle_request(TTY, {putc, unicode:characters_to_binary(Chars)});

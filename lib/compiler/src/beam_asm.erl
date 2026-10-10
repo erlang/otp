@@ -150,7 +150,7 @@ build_file(Code, Attr, Anno, Dict0, NumLabels, NumFuncs, ExtraChunks0,
     CodeChunk = chunk(<<"Code">>,
 		      <<16:32,
 		       (beam_opcodes:format_number()):32,
-		       (beam_dict:highest_opcode(Dict0)):32,
+                        (beam_dict:highest_opcode(Dict0)):32,
 		       NumLabels:32,
 		       NumFuncs:32>>,
 		      Code),
@@ -837,6 +837,16 @@ encode_alloc_list_1([{floats,Floats}|T], Dict, Acc0) ->
     encode_alloc_list_1(T, Dict, Acc);
 encode_alloc_list_1([{funs,Funs}|T], Dict, Acc0) ->
     Acc = [Acc0,encode(?tag_u, 2),encode(?tag_u, Funs)],
+    encode_alloc_list_1(T, Dict, Acc);
+encode_alloc_list_1([{records,Recs}|T], Dict0, Acc0) ->
+    %% Artificially bump the highest used opcode to ensure Erlang/OTP
+    %% 29 refuses to load this module with a NICE error message. This
+    %% also simplifies the loader. (Keep until loading of modules
+    %% compiled with OTP 29 is no longer supported.)
+    GetRecEls = beam_opcodes:opcode(get_record_elements_id, 4),
+    Dict = beam_dict:opcode(GetRecEls, Dict0),
+
+    Acc = [Acc0,encode(?tag_u, 3),encode(?tag_u, Recs)],
     encode_alloc_list_1(T, Dict, Acc);
 encode_alloc_list_1([], Dict, Acc) ->
     {iolist_to_binary(Acc),Dict}.

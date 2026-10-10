@@ -132,7 +132,7 @@ A supervisor can be configured to automatically shut itself down with exit
 reason `shutdown` when [significant children](`m:supervisor#significant_child`)
 terminate with the `auto_shutdown` key in the above map:
 
-- `never` \- Automic shutdown is disabled. This is the default setting.
+- `never` \- Automatic shutdown is disabled. This is the default setting.
 
   With `auto_shutdown` set to `never`, child specs with the `significant` flag
   set to `true` are considered invalid and will be rejected.
@@ -291,6 +291,8 @@ but the map is preferred.
 
 `m:gen_event`, `m:gen_statem`, `m:gen_server`, `m:sys`
 """.
+
+-compile([{nowarn_deprecated_function, [{erlang,exit,2}]}]).
 
 -behaviour(gen_server).
 
@@ -791,6 +793,9 @@ by the given `Id`.
 See `which_children/1` for an explanation of the information returned.
 
 If no child with the given `Id` exists, returns `{error, not_found}`.
+
+If the supervisor is a `simple_one_for_one` supervisor, the `Id` must be the pid of a child process;
+otherwise, `{error, simple_one_for_one}` is returned.
 """.
 -spec which_child(SupRef, Id) -> Result when
       SupRef :: sup_ref(),
@@ -799,7 +804,7 @@ If no child with the given `Id` exists, returns `{error, not_found}`.
       Child :: child() | 'restarting',
       Type :: worker(),
       Modules :: modules(),
-      Error :: 'not_found'.
+      Error :: 'not_found' | 'simple_one_for_one'.
 which_child(Supervisor, Id) ->
     call(Supervisor, {which_child, Id}).
 

@@ -44,6 +44,9 @@ extern ERL_NIF_TERM atom_undefined;
 extern ERL_NIF_TERM atom_hmac;
 extern ERL_NIF_TERM atom_cmac;
 extern ERL_NIF_TERM atom_poly1305;
+extern ERL_NIF_TERM atom_siphash;
+extern ERL_NIF_TERM atom_c_rounds;
+extern ERL_NIF_TERM atom_d_rounds;
 
 extern ERL_NIF_TERM atom_ok;
 extern ERL_NIF_TERM atom_none;
@@ -156,6 +159,27 @@ extern ERL_NIF_TERM atom_expandedkey;
 extern ERL_NIF_TERM atom_mlkem512;
 extern ERL_NIF_TERM atom_mlkem768;
 extern ERL_NIF_TERM atom_mlkem1024;
+#endif
+
+#ifdef HAVE_KDF
+extern ERL_NIF_TERM atom_salt;
+extern ERL_NIF_TERM atom_info;
+extern ERL_NIF_TERM atom_iterations;
+extern ERL_NIF_TERM atom_n;
+extern ERL_NIF_TERM atom_r;
+extern ERL_NIF_TERM atom_p;
+extern ERL_NIF_TERM atom_maxmem;
+extern ERL_NIF_TERM atom_mac;
+extern ERL_NIF_TERM atom_extract_and_expand;
+extern ERL_NIF_TERM atom_extract_only;
+extern ERL_NIF_TERM atom_expand_only;
+#endif
+
+#ifdef HAVE_ARGON2
+extern ERL_NIF_TERM atom_memory;
+extern ERL_NIF_TERM atom_parallelism;
+extern ERL_NIF_TERM atom_secret;
+extern ERL_NIF_TERM atom_ad;
 #endif
 
 int init_atoms(ErlNifEnv *env);

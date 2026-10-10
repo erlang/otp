@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -85,7 +85,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -doc "".
 -spec new(Window, Size) -> wxCaret() when
-	Window::wxWindow:wxWindow(), Size::{W::integer(), H::integer()}.
+        Window::wxWindow:wxWindow(), Size::{W::integer(), H::integer()}.
 new(#wx_ref{type=WindowT}=Window,{SizeW,SizeH} = Size)
  when is_integer(SizeW),is_integer(SizeH) ->
   ?CLASS(WindowT,wxWindow),
@@ -94,7 +94,7 @@ new(#wx_ref{type=WindowT}=Window,{SizeW,SizeH} = Size)
 
 -doc "Creates a caret with the given size (in pixels) and associates it with the `window`.".
 -spec new(Window, Width, Height) -> wxCaret() when
-	Window::wxWindow:wxWindow(), Width::integer(), Height::integer().
+        Window::wxWindow:wxWindow(), Width::integer(), Height::integer().
 new(#wx_ref{type=WindowT}=Window,Width,Height)
  when is_integer(Width),is_integer(Height) ->
   ?CLASS(WindowT,wxWindow),
@@ -103,7 +103,7 @@ new(#wx_ref{type=WindowT}=Window,Width,Height)
 
 -doc "".
 -spec create(This, Window, Size) -> boolean() when
-	This::wxCaret(), Window::wxWindow:wxWindow(), Size::{W::integer(), H::integer()}.
+        This::wxCaret(), Window::wxWindow:wxWindow(), Size::{W::integer(), H::integer()}.
 create(#wx_ref{type=ThisT}=This,#wx_ref{type=WindowT}=Window,{SizeW,SizeH} = Size)
  when is_integer(SizeW),is_integer(SizeH) ->
   ?CLASS(ThisT,wxCaret),
@@ -116,7 +116,7 @@ Creates a caret with the given size (in pixels) and associates it with the `wind
 as the equivalent constructors).
 """.
 -spec create(This, Window, Width, Height) -> boolean() when
-	This::wxCaret(), Window::wxWindow:wxWindow(), Width::integer(), Height::integer().
+        This::wxCaret(), Window::wxWindow:wxWindow(), Width::integer(), Height::integer().
 create(#wx_ref{type=ThisT}=This,#wx_ref{type=WindowT}=Window,Width,Height)
  when is_integer(Width),is_integer(Height) ->
   ?CLASS(ThisT,wxCaret),
@@ -136,7 +136,7 @@ getBlinkTime() ->
 
 -doc "".
 -spec getPosition(This) -> {X::integer(), Y::integer()} when
-	This::wxCaret().
+        This::wxCaret().
 getPosition(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxCaret),
   wxe_util:queue_cmd(This,?get_env(),?wxCaret_GetPosition),
@@ -144,7 +144,7 @@ getPosition(#wx_ref{type=ThisT}=This) ->
 
 -doc "".
 -spec getSize(This) -> {W::integer(), H::integer()} when
-	This::wxCaret().
+        This::wxCaret().
 getSize(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxCaret),
   wxe_util:queue_cmd(This,?get_env(),?wxCaret_GetSize),
@@ -152,7 +152,7 @@ getSize(#wx_ref{type=ThisT}=This) ->
 
 -doc "Get the window the caret is associated with.".
 -spec getWindow(This) -> wxWindow:wxWindow() when
-	This::wxCaret().
+        This::wxCaret().
 getWindow(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxCaret),
   wxe_util:queue_cmd(This,?get_env(),?wxCaret_GetWindow),
@@ -160,14 +160,14 @@ getWindow(#wx_ref{type=ThisT}=This) ->
 
 -doc "Hides the caret, same as Show(false).".
 -spec hide(This) -> 'ok' when
-	This::wxCaret().
+        This::wxCaret().
 hide(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxCaret),
   wxe_util:queue_cmd(This,?get_env(),?wxCaret_Hide).
 
 -doc "Returns true if the caret was created successfully.".
 -spec isOk(This) -> boolean() when
-	This::wxCaret().
+        This::wxCaret().
 isOk(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxCaret),
   wxe_util:queue_cmd(This,?get_env(),?wxCaret_IsOk),
@@ -179,7 +179,7 @@ blinking and not shown currently but will be after the next blink, this method s
 returns true).
 """.
 -spec isVisible(This) -> boolean() when
-	This::wxCaret().
+        This::wxCaret().
 isVisible(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxCaret),
   wxe_util:queue_cmd(This,?get_env(),?wxCaret_IsVisible),
@@ -187,7 +187,7 @@ isVisible(#wx_ref{type=ThisT}=This) ->
 
 -doc "".
 -spec move(This, Pt) -> 'ok' when
-	This::wxCaret(), Pt::{X::integer(), Y::integer()}.
+        This::wxCaret(), Pt::{X::integer(), Y::integer()}.
 move(#wx_ref{type=ThisT}=This,{PtX,PtY} = Pt)
  when is_integer(PtX),is_integer(PtY) ->
   ?CLASS(ThisT,wxCaret),
@@ -195,7 +195,7 @@ move(#wx_ref{type=ThisT}=This,{PtX,PtY} = Pt)
 
 -doc "Move the caret to given position (in logical coordinates).".
 -spec move(This, X, Y) -> 'ok' when
-	This::wxCaret(), X::integer(), Y::integer().
+        This::wxCaret(), X::integer(), Y::integer().
 move(#wx_ref{type=ThisT}=This,X,Y)
  when is_integer(X),is_integer(Y) ->
   ?CLASS(ThisT,wxCaret),
@@ -212,14 +212,14 @@ the next time it is called), even for carets in other applications.
 See: `getBlinkTime/0`
 """.
 -spec setBlinkTime(Milliseconds) -> 'ok' when
-	Milliseconds::integer().
+        Milliseconds::integer().
 setBlinkTime(Milliseconds)
  when is_integer(Milliseconds) ->
   wxe_util:queue_cmd(Milliseconds,?get_env(),?wxCaret_SetBlinkTime).
 
 -doc "".
 -spec setSize(This, Size) -> 'ok' when
-	This::wxCaret(), Size::{W::integer(), H::integer()}.
+        This::wxCaret(), Size::{W::integer(), H::integer()}.
 setSize(#wx_ref{type=ThisT}=This,{SizeW,SizeH} = Size)
  when is_integer(SizeW),is_integer(SizeH) ->
   ?CLASS(ThisT,wxCaret),
@@ -227,7 +227,7 @@ setSize(#wx_ref{type=ThisT}=This,{SizeW,SizeH} = Size)
 
 -doc "Changes the size of the caret.".
 -spec setSize(This, Width, Height) -> 'ok' when
-	This::wxCaret(), Width::integer(), Height::integer().
+        This::wxCaret(), Width::integer(), Height::integer().
 setSize(#wx_ref{type=ThisT}=This,Width,Height)
  when is_integer(Width),is_integer(Height) ->
   ?CLASS(ThisT,wxCaret),
@@ -235,7 +235,7 @@ setSize(#wx_ref{type=ThisT}=This,Width,Height)
 
 -doc(#{equiv => show(This, [])}).
 -spec show(This) -> 'ok' when
-	This::wxCaret().
+        This::wxCaret().
 
 show(This)
  when is_record(This, wx_ref) ->

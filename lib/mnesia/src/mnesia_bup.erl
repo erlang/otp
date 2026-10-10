@@ -23,6 +23,9 @@
 %%
 -module(mnesia_bup).
 -moduledoc false.
+
+-compile([{nowarn_deprecated_function, [{erlang,exit,2}]}]).
+
 -export([
          %% Public interface
          iterate/4,

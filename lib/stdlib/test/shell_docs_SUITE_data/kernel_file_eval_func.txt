@@ -2,35 +2,35 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  eval(Filename)[0m
+[1m  eval(Filename)[0m
 
-  Reads and evaluates Erlang expressions, separated by [;;4m.[0m (or [;;4m,[0m,
-  a sequence of expressions is also an expression) from [;;4mFilename[0m.
+  Reads and evaluates Erlang expressions, separated by [4m.[0m (or [4m,[0m,
+  a sequence of expressions is also an expression) from [4mFilename[0m.
   The result of the evaluation is not returned; any expression
   sequence in the file must be there for its side effect.
 
   Returns one of the following:
 
-   • [;;4mok[0m - The file was read and evaluated.
+   • [4mok[0m - The file was read and evaluated.
 
-   • [;;4m{error, atom()}[0m - An error occurred when opening the file
-     or reading it. For a list of typical error codes, see [;;4m[0m
-     [;;4mopen/2[0m.
+   • [4m{error, atom()}[0m - An error occurred when opening the file
+     or reading it. For a list of typical error codes, see [4m[0m
+     [4mopen/2[0m.
 
-   • [;;4m{error, {Line, Mod, Term}}[0m - An error occurred when
+   • [4m{error, {Line, Mod, Term}}[0m - An error occurred when
      interpreting the Erlang expressions in the file. To convert
      the three-element tuple to an English description of the
-     error, use [;;4mformat_error/1[0m.
+     error, use [4mformat_error/1[0m.
 
-  The encoding of [;;4mFilename[0m can be set by a comment, as described
-  in [;;4mepp[0m.
+  The encoding of [4mFilename[0m can be set by a comment, as described
+  in [4mepp[0m.
 
-[;1m  eval(Filename, Bindings)[0m
+[1m  eval(Filename, Bindings)[0m
 
-  The same as [;;4meval/1[0m, but the variable bindings [;;4mBindings[0m are
+  The same as [4meval/1[0m, but the variable bindings [4mBindings[0m are
   used in the evaluation. For information about the variable
-  bindings, see [;;4merl_eval[0m.
+  bindings, see [4merl_eval[0m.

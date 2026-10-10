@@ -1456,8 +1456,10 @@ query_ns(S0, {Msg, Buffer}, IP, Port, Timer, Retry, I,
                               query_tcp(
                                 TcpTimeout, Msg, Buffer, IP, Port, Verbose)};
 			{error, econnrefused} = Err ->
-                            ok = udp_close(S),
-	                    {#sock{}, Err};
+                             ok = udp_close(S),
+                             {if  S =:= undefined -> S;
+                                  true            -> #sock{}
+                              end, Err};
 			Reply -> {S, Reply}
 		     end;
 		Error ->
@@ -1565,7 +1567,8 @@ query_tcp(Timeout, Msg, Buffer, IP, Port, Verbose) ->
 decode_reply(Bin, Q_Msg, Verbose) ->
     case inet_dns:decode_reply(Bin, Q_Msg, false) of
 	{ok, #dns_rec{header = H, arlist = ARList} = Msg} ->
-	    ?verbose(Verbose, "Got reply: ~p~n", [dns_msg(Msg)]),
+	    ?verbose(Verbose, "Got reply size ~w: ~p~n",
+                     [byte_size(Bin), dns_msg(Msg)]),
 	    T = case lists:keyfind(dns_rr_tsig, 1, ARList) of
 		    false -> false;
 		    #dns_rr_tsig{error=?NOERROR} -> false;

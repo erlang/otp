@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -141,8 +141,8 @@ Event types emitted from this class:
   move/2,move/3,move/4,moveAfterInTabOrder/2,moveBeforeInTabOrder/2,
   navigate/1,navigate/2,pageDown/1,pageUp/1,parent_class/1,popupMenu/2,
   popupMenu/3,popupMenu/4,prepareDC/2,raise/1,refresh/1,refresh/2,refreshRect/2,
-  refreshRect/3,releaseMouse/1,removeChild/2,reparent/2,screenToClient/1,
-  screenToClient/2,scroll/2,scroll/3,scrollLines/2,scrollPages/2,scrollWindow/3,
+  refreshRect/3,releaseMouse/1,removeChild/2,reparent/2,screenToClient/2,
+  screenToClient/3,scroll/2,scroll/3,scrollLines/2,scrollPages/2,scrollWindow/3,
   scrollWindow/4,setAcceleratorTable/2,setAutoLayout/2,setBackgroundColour/2,
   setBackgroundStyle/2,setCaret/2,setClientSize/2,setClientSize/3,setContainingSizer/2,
   setCursor/2,setDoubleBuffered/2,setDropTarget/2,setExtraStyle/2,setFocus/1,
@@ -175,7 +175,7 @@ new() ->
 
 -doc(#{equiv => new(Parent, [])}).
 -spec new(Parent) -> wxHtmlWindow() when
-	Parent::wxWindow:wxWindow().
+        Parent::wxWindow:wxWindow().
 
 new(Parent)
  when is_record(Parent, wx_ref) ->
@@ -211,7 +211,7 @@ Appends HTML fragment to currently displayed text and refreshes the window.
 Return: false if an error occurred, true otherwise.
 """.
 -spec appendToPage(This, Source) -> boolean() when
-	This::wxHtmlWindow(), Source::unicode:chardata().
+        This::wxHtmlWindow(), Source::unicode:chardata().
 appendToPage(#wx_ref{type=ThisT}=This,Source)
  when ?is_chardata(Source) ->
   ?CLASS(ThisT,wxHtmlWindow),
@@ -226,7 +226,7 @@ If no page is opened or if the displayed page wasn't produced by call to `loadPa
 is returned.
 """.
 -spec getOpenedAnchor(This) -> unicode:charlist() when
-	This::wxHtmlWindow().
+        This::wxHtmlWindow().
 getOpenedAnchor(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxHtmlWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxHtmlWindow_GetOpenedAnchor),
@@ -239,7 +239,7 @@ If no page is opened or if the displayed page wasn't produced by call to `loadPa
 is returned.
 """.
 -spec getOpenedPage(This) -> unicode:charlist() when
-	This::wxHtmlWindow().
+        This::wxHtmlWindow().
 getOpenedPage(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxHtmlWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxHtmlWindow_GetOpenedPage),
@@ -250,7 +250,7 @@ Returns title of the opened page or wxEmptyString if the current page does not c
 *<TITLE>* tag.
 """.
 -spec getOpenedPageTitle(This) -> unicode:charlist() when
-	This::wxHtmlWindow().
+        This::wxHtmlWindow().
 getOpenedPageTitle(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxHtmlWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxHtmlWindow_GetOpenedPageTitle),
@@ -258,7 +258,7 @@ getOpenedPageTitle(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the related frame.".
 -spec getRelatedFrame(This) -> wxFrame:wxFrame() when
-	This::wxHtmlWindow().
+        This::wxHtmlWindow().
 getRelatedFrame(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxHtmlWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxHtmlWindow_GetRelatedFrame),
@@ -270,7 +270,7 @@ Moves back to the previous page.
 Only pages displayed using `loadPage/2` are stored in history list.
 """.
 -spec historyBack(This) -> boolean() when
-	This::wxHtmlWindow().
+        This::wxHtmlWindow().
 historyBack(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxHtmlWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxHtmlWindow_HistoryBack),
@@ -282,7 +282,7 @@ Returns true if it is possible to go back in the history i.e.
 `historyBack/1` won't fail.
 """.
 -spec historyCanBack(This) -> boolean() when
-	This::wxHtmlWindow().
+        This::wxHtmlWindow().
 historyCanBack(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxHtmlWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxHtmlWindow_HistoryCanBack),
@@ -294,7 +294,7 @@ Returns true if it is possible to go forward in the history i.e.
 `historyForward/1` won't fail.
 """.
 -spec historyCanForward(This) -> boolean() when
-	This::wxHtmlWindow().
+        This::wxHtmlWindow().
 historyCanForward(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxHtmlWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxHtmlWindow_HistoryCanForward),
@@ -302,7 +302,7 @@ historyCanForward(#wx_ref{type=ThisT}=This) ->
 
 -doc "Clears history.".
 -spec historyClear(This) -> 'ok' when
-	This::wxHtmlWindow().
+        This::wxHtmlWindow().
 historyClear(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxHtmlWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxHtmlWindow_HistoryClear).
@@ -313,7 +313,7 @@ Moves to next page in history.
 Only pages displayed using `loadPage/2` are stored in history list.
 """.
 -spec historyForward(This) -> boolean() when
-	This::wxHtmlWindow().
+        This::wxHtmlWindow().
 historyForward(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxHtmlWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxHtmlWindow_HistoryForward),
@@ -327,7 +327,7 @@ Return: false if an error occurred, true otherwise
 See: `loadPage/2`
 """.
 -spec loadFile(This, Filename) -> boolean() when
-	This::wxHtmlWindow(), Filename::unicode:chardata().
+        This::wxHtmlWindow(), Filename::unicode:chardata().
 loadFile(#wx_ref{type=ThisT}=This,Filename)
  when ?is_chardata(Filename) ->
   ?CLASS(ThisT,wxHtmlWindow),
@@ -344,7 +344,7 @@ Return: false if an error occurred, true otherwise
 See: `loadFile/2`
 """.
 -spec loadPage(This, Location) -> boolean() when
-	This::wxHtmlWindow(), Location::unicode:chardata().
+        This::wxHtmlWindow(), Location::unicode:chardata().
 loadPage(#wx_ref{type=ThisT}=This,Location)
  when ?is_chardata(Location) ->
   ?CLASS(ThisT,wxHtmlWindow),
@@ -361,7 +361,7 @@ See:
 * `selectWord/2`
 """.
 -spec selectAll(This) -> 'ok' when
-	This::wxHtmlWindow().
+        This::wxHtmlWindow().
 selectAll(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxHtmlWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxHtmlWindow_SelectAll).
@@ -372,7 +372,7 @@ Returns the current selection as plain text.
 Returns an empty string if no text is currently selected.
 """.
 -spec selectionToText(This) -> unicode:charlist() when
-	This::wxHtmlWindow().
+        This::wxHtmlWindow().
 selectionToText(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxHtmlWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxHtmlWindow_SelectionToText),
@@ -390,7 +390,7 @@ See:
 * `selectWord/2`
 """.
 -spec selectLine(This, Pos) -> 'ok' when
-	This::wxHtmlWindow(), Pos::{X::integer(), Y::integer()}.
+        This::wxHtmlWindow(), Pos::{X::integer(), Y::integer()}.
 selectLine(#wx_ref{type=ThisT}=This,{PosX,PosY} = Pos)
  when is_integer(PosX),is_integer(PosY) ->
   ?CLASS(ThisT,wxHtmlWindow),
@@ -408,7 +408,7 @@ See:
 * `selectLine/2`
 """.
 -spec selectWord(This, Pos) -> 'ok' when
-	This::wxHtmlWindow(), Pos::{X::integer(), Y::integer()}.
+        This::wxHtmlWindow(), Pos::{X::integer(), Y::integer()}.
 selectWord(#wx_ref{type=ThisT}=This,{PosX,PosY} = Pos)
  when is_integer(PosX),is_integer(PosY) ->
   ?CLASS(ThisT,wxHtmlWindow),
@@ -420,7 +420,7 @@ This function sets the space between border of window and HTML contents.
 See image:
 """.
 -spec setBorders(This, B) -> 'ok' when
-	This::wxHtmlWindow(), B::integer().
+        This::wxHtmlWindow(), B::integer().
 setBorders(#wx_ref{type=ThisT}=This,B)
  when is_integer(B) ->
   ?CLASS(ThisT,wxHtmlWindow),
@@ -428,7 +428,7 @@ setBorders(#wx_ref{type=ThisT}=This,B)
 
 -doc(#{equiv => setFonts(This,Normal_face,Fixed_face, [])}).
 -spec setFonts(This, Normal_face, Fixed_face) -> 'ok' when
-	This::wxHtmlWindow(), Normal_face::unicode:chardata(), Fixed_face::unicode:chardata().
+        This::wxHtmlWindow(), Normal_face::unicode:chardata(), Fixed_face::unicode:chardata().
 
 setFonts(This,Normal_face,Fixed_face)
  when is_record(This, wx_ref),?is_chardata(Normal_face),?is_chardata(Fixed_face) ->
@@ -460,7 +460,7 @@ If you want to load a document from some location use `loadPage/2` instead.
 Return: false if an error occurred, true otherwise.
 """.
 -spec setPage(This, Source) -> boolean() when
-	This::wxHtmlWindow(), Source::unicode:chardata().
+        This::wxHtmlWindow(), Source::unicode:chardata().
 setPage(#wx_ref{type=ThisT}=This,Source)
  when ?is_chardata(Source) ->
   ?CLASS(ThisT,wxHtmlWindow),
@@ -475,7 +475,7 @@ Sets the frame in which page title will be displayed.
 one s. This s is substituted with HTML page title.
 """.
 -spec setRelatedFrame(This, Frame, Format) -> 'ok' when
-	This::wxHtmlWindow(), Frame::wxFrame:wxFrame(), Format::unicode:chardata().
+        This::wxHtmlWindow(), Frame::wxFrame:wxFrame(), Format::unicode:chardata().
 setRelatedFrame(#wx_ref{type=ThisT}=This,#wx_ref{type=FrameT}=Frame,Format)
  when ?is_chardata(Format) ->
   ?CLASS(ThisT,wxHtmlWindow),
@@ -490,9 +490,9 @@ displayed.
 (Default is -1 = no messages.)
 """.
 -spec setRelatedStatusBar(This, Statusbar) -> 'ok' when
-	This::wxHtmlWindow(), Statusbar::wxStatusBar:wxStatusBar();
+        This::wxHtmlWindow(), Statusbar::wxStatusBar:wxStatusBar();
       (This, Index) -> 'ok' when
-	This::wxHtmlWindow(), Index::integer().
+        This::wxHtmlWindow(), Index::integer().
 
 setRelatedStatusBar(This,Statusbar)
  when is_record(This, wx_ref),is_record(Statusbar, wx_ref) ->
@@ -523,7 +523,7 @@ setRelatedStatusBar(#wx_ref{type=ThisT}=This,#wx_ref{type=StatusbarT}=Statusbar,
 
 -doc "Returns content of currently displayed page as plain text.".
 -spec toText(This) -> unicode:charlist() when
-	This::wxHtmlWindow().
+        This::wxHtmlWindow().
 toText(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxHtmlWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxHtmlWindow_ToText),
@@ -709,9 +709,9 @@ scrollPages(This,Pages) -> wxWindow:scrollPages(This,Pages).
 -doc false.
 scrollLines(This,Lines) -> wxWindow:scrollLines(This,Lines).
 -doc false.
-screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
+screenToClient(This,X,Y) -> wxWindow:screenToClient(This,X,Y).
 -doc false.
-screenToClient(This) -> wxWindow:screenToClient(This).
+screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
 -doc false.
 reparent(This,NewParent) -> wxWindow:reparent(This,NewParent).
 -doc false.

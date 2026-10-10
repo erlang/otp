@@ -4,7 +4,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright Ericsson AB 1998-2025. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2026. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -478,9 +478,13 @@ static void dbg_gen_printf(int onsyslog,int perr,int from_level,
 void dbg_perror(EpmdVars *g,const char *format,...)
 {
   va_list args;
+  int perr = errno;
+
   va_start(args, format);
-  dbg_gen_printf(1,errno,0,g,format,args);
+  dbg_gen_printf(1,perr,0,g,format,args);
   va_end(args);
+
+  errno = perr;
 }
 
 

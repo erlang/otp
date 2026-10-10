@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -31,6 +31,8 @@
 
 -include_lib("stdlib/include/assert.hrl").
 -include_lib("common_test/include/ct.hrl").
+
+-compile([nowarn_deprecated_catch]).
 
 -define(heap_binary_size, 64).
 
@@ -111,6 +113,7 @@
          spawn_monitor_alias/1,
          demonitor_aliasmonitor/1,
          down_aliasmonitor/1,
+         monitor_time_offset_alias/1,
          monitor_tag/1,
          no_pid_wrap/1,
          processes_iter/1]).
@@ -215,6 +218,7 @@ groups() ->
      {alias, [],
       [alias_bif, monitor_alias, spawn_monitor_alias,
        demonitor_aliasmonitor, down_aliasmonitor,
+       monitor_time_offset_alias,
        dist_frag_alias, dist_frag_unaliased]}].
 
 init_per_suite(Config) ->
@@ -231,7 +235,8 @@ init_per_suite(Config) ->
 end_per_suite(Config) ->
     As = proplists:get_value(started_apps, Config),
     lists:foreach(fun (A) -> application:stop(A) end, As),
-    catch erts_debug:set_internal_state(available_internal_state, false),
+    try erts_debug:set_internal_state(available_internal_state, false)
+    catch _:_ -> ok end,
     Config.
 
 init_per_group(_GroupName, Config) ->
@@ -583,7 +588,7 @@ t_process_info(Config) when is_list(Config) ->
 
     Gleader = group_leader(),
     {group_leader, Gleader} = process_info(self(), group_leader),
-    {'EXIT',{badarg,_Info}} = (catch process_info('not_a_pid')),
+    ?assertError(badarg, process_info('not_a_pid')),
     ok.
 
 verify_stacktrace_depth() ->
@@ -2211,7 +2216,7 @@ make_unaligned_sub_binary(Bin) ->
 
 %% Tests erlang:yield/1
 yield(Config) when is_list(Config) ->
-    case catch erlang:system_info(modified_timing_level) of
+    case erlang:system_info(modified_timing_level) of
 	Level when is_integer(Level) ->
 	    {skipped,
 	     "Modified timing (level " ++ integer_to_list(Level)
@@ -2395,7 +2400,7 @@ dist_unlink_ack_exit_leak(Config) when is_list(Config) ->
 bad_register(Config) when is_list(Config) ->
     Name = a_long_and_unused_name,
 
-    {'EXIT',{badarg,_}} = (catch register({bad,name}, self())),
+    ?assertError(badarg, register({bad,name}, self())),
     fail_register(undefined, self()),
     fail_register([bad,name], self()),
 
@@ -2411,8 +2416,8 @@ bad_register(Config) when is_list(Config) ->
     ok.
 
 fail_register(Name, Process) ->
-    {'EXIT',{badarg,_}} = (catch register(Name, Process)),
-    {'EXIT',{badarg,_}} = (catch Name ! anything_goes),
+    ?assertError(badarg, register(Name, Process)),
+    ?assertError(badarg, Name ! anything_goes),
     ok.
 
 garbage_collect(Config) when is_list(Config) ->
@@ -2607,7 +2612,8 @@ otp_6237_whereis_loop() ->
 	  end.
 	     
 otp_6237_select_loop() ->
-    catch ets:select(otp_6237, ets:fun2ms(fun({K, does_not_exist}) -> K end)),
+    try ets:select(otp_6237, ets:fun2ms(fun({K, does_not_exist}) -> K end))
+    catch _:_ -> ok end,
     otp_6237_select_loop().
 
 
@@ -4542,11 +4548,11 @@ processes_term_proc_list(Config) when is_list(Config) ->
 
 processes_iter(Config) when is_list(Config) ->
     ProcessLimit = erlang:system_info(process_limit),
-    {'EXIT',{badarg,_}} = catch erts_internal:processes_next(ProcessLimit + 1),
-    {'EXIT',{badarg,_}} = catch erts_internal:processes_next(-1),
-    {'EXIT',{badarg,_}} = catch erts_internal:processes_next(1 bsl 32),
-    {'EXIT',{badarg,_}} = catch erts_internal:processes_next(1 bsl 64),
-    {'EXIT',{badarg,_}} = catch erts_internal:processes_next(abc),
+    ?assertError(badarg, erts_internal:processes_next(ProcessLimit + 1)),
+    ?assertError(badarg, erts_internal:processes_next(-1)),
+    ?assertError(badarg, erts_internal:processes_next(1 bsl 32)),
+    ?assertError(badarg, erts_internal:processes_next(1 bsl 64)),
+    ?assertError(badarg, erts_internal:processes_next(abc)),
 
     none = erts_internal:processes_next(ProcessLimit),
 
@@ -5530,6 +5536,49 @@ spawn_monitor_alias(Config) when is_list(Config) ->
     spawn_monitor_alias_test(Peer3, Node3, spawn_request, normal),
     {ok, Peer4, Node4} = ?CT_PEER(),
     spawn_monitor_alias_test(Peer4, Node4, spawn_request, make_ref()),
+
+    %% Make sure we don't get a monitor alias if a spawn_request fails on noconnect...
+
+    {ok, Peer5, Node5} = ?CT_PEER(#{args => ["-kernel", "connect_all", "false"]}),
+    {ok, Peer6, Node6} = ?CT_PEER(#{args => ["-kernel", "connect_all", "false"]}),
+
+    ThisNode = node(),
+    ok = erpc:call(Node5, net_kernel, allow, [[ThisNode]]),
+    {ok, [ThisNode]} = erpc:call(Node5, net_kernel, allowed, []),
+    ok = erpc:call(Node6, net_kernel, allow, [[ThisNode]]),
+    {ok, [ThisNode]} = erpc:call(Node6, net_kernel, allowed, []),
+
+    wait_until(fun () ->
+                       _ = erpc:call(Node5, erlang, disconnect_node, [Node6]),
+                       _ = erpc:call(Node6, erlang, disconnect_node, [Node5]),
+                       Res5 = erpc:call(Node5, erlang, nodes, []),
+                       Res6 = erpc:call(Node6, erlang, nodes, []),
+                       Res5 == [ThisNode] andalso Res6 == [ThisNode]
+               end),
+
+    MonAliasFun =
+        fun (UnaliasOpt) ->
+                fun () ->
+                        erlang:yield(),
+                        MAF = spawn_request(Node6, fun () -> ok end,
+                                            [{monitor, [{alias, UnaliasOpt}]}]),
+                        MAF ! should_not_be_delivered_1,
+                        [{spawn_reply, MAF, ResType, Result}] = recv_msgs(1),
+                        error = ResType,
+                        noconnection = Result,
+                        MAF ! should_not_be_delivered_2,
+                        self() ! should_be_delivered,
+                        [should_be_delivered] = recv_msgs(1),
+                        ok
+                end
+        end,
+
+    ok = erpc:call(Node5, MonAliasFun(explicit_unalias)),
+    ok = erpc:call(Node5, MonAliasFun(reply_demonitor)),
+    ok = erpc:call(Node5, MonAliasFun(demonitor)),
+
+    peer:stop(Peer5),
+    peer:stop(Peer6),
     ok.
 
 spawn_monitor_alias_test(Peer, Node, SpawnType, ExitReason) ->
@@ -5648,6 +5697,29 @@ spawn_monitor_alias_test(Peer, Node, SpawnType, ExitReason) ->
     P5 ! {alias, MA5},
     [{MA5,1},{'DOWN', M_5, _, _, ExitReason}] = recv_msgs(2),
 
+    if SpawnType == spawn_request ->
+            %% Make sure we don't get a monitor alias if a spawn_request fails on badopt...
+            MonAliasFun =
+                fun (UnaliasOpt) ->
+                        erlang:yield(),
+                        MAF = spawn_request(Node, fun () -> ok end,
+                                            [{monitor, [{alias, UnaliasOpt}]}, invalid_opt]),
+                        MAF ! should_not_be_delivered_1,
+                        [{spawn_reply, MAF, ResType, Result}] = recv_msgs(1),
+                        error = ResType,
+                        badopt = Result,
+                        MAF ! should_not_be_delivered_2,
+                        self() ! should_be_delivered,
+                        [should_be_delivered] = recv_msgs(1),
+                        ok
+                end,
+            MonAliasFun(explicit_unalias),
+            MonAliasFun(reply_demonitor),
+            MonAliasFun(demonitor);
+       true ->
+            ok
+    end,
+
     case Node == node() of
         true ->
             ok;
@@ -5712,6 +5784,84 @@ down_aliasmonitor(Config) when is_list(Config) ->
     %% remote use of the alias to stop working...
     RPid ! {alias, AliasMonitor},
     receive {alias_reply, AliasMonitor, RPid} -> ok end,
+    peer:stop(Peer),
+    ok.
+
+monitor_time_offset_alias(Config) when is_list(Config) ->
+    monitor_time_offset_alias_test(explicit_unalias),
+    monitor_time_offset_alias_test(demonitor),
+    monitor_time_offset_alias_test(reply_demonitor).
+
+monitor_time_offset_alias_test(Deactivate) ->
+    Me = self(),
+    {ok, Peer, Node} = ?CT_PEER(#{args => ["+C", "single_time_warp"]}),
+    TrySelfAlias = fun (Alias) ->
+                           Ref = make_ref(),
+                           Alias ! Ref,
+                           receive Ref -> active
+                           after 0 -> inactive
+                           end
+                   end,
+    Tester = spawn_link(Node,
+                        fun () ->
+                                MonAlias = monitor(time_offset, clock_service,
+                                                   [{alias, Deactivate}]),
+                                Me ! {self(), mon_alias, MonAlias},
+                                receive
+                                    {Me, finalize_time_offset} ->
+                                        ok
+                                end,
+                                preliminary = erlang:system_flag(time_offset, finalize),
+                                receive
+                                    {'CHANGE', MonAlias, time_offset, clock_service, _} ->
+                                        ok
+                                after
+                                    1000 ->
+                                        exit(missing_time_offset_change_message)
+                                end,
+                                Me ! {self(), finalized_time_offset},
+                                receive
+                                    {Me, alias_message} ->
+                                        Me ! {self(), alias_message}
+                                end,
+                                case Deactivate of
+                                    explicit_unalias ->
+                                        active = TrySelfAlias(MonAlias),
+                                        unalias(MonAlias);
+                                    demonitor ->
+                                        active = TrySelfAlias(MonAlias),
+                                        demonitor(MonAlias);
+                                    reply_demonitor ->
+                                        ok
+                                end,
+                                inactive = TrySelfAlias(MonAlias),
+                                receive
+                                    {Me, pid_message} ->
+                                        Me ! {self(), pid_message}
+                                end
+                        end),
+    Alias = receive
+                {Tester, mon_alias, MonAlias} ->
+                    MonAlias
+            end,
+    Tester ! {self(), finalize_time_offset},
+    receive
+        {Tester, finalized_time_offset} ->
+            ok
+    end,
+    Alias ! {self(), alias_message},
+    Tester ! {self(), pid_message},
+    receive
+        {Tester, alias_message} ->
+            ok;
+        {Tester, pid_message} ->
+            ct:fail(alias_did_not_work)
+    end,
+    receive
+        {Tester, pid_message} ->
+            ok
+    end,
+    unlink(Tester),
     peer:stop(Peer),
     ok.
 
@@ -5910,9 +6060,11 @@ verify_nc(Node) ->
     end.
 
 enable_internal_state() ->
-    case catch erts_debug:get_internal_state(available_internal_state) of
+    try erts_debug:get_internal_state(available_internal_state) of
 	true -> true;
 	_ -> erts_debug:set_internal_state(available_internal_state, true)
+    catch
+        _:_ -> erts_debug:set_internal_state(available_internal_state, true)
     end.
 
 sys_mem_cond_run(OrigReqSizeMB, TestFun) when is_integer(OrigReqSizeMB) ->
@@ -6018,11 +6170,11 @@ ei_node_handler_loop(Node, Parent, Port) ->
     receive
         {'EXIT', Parent, Reason} ->
             erlang:disconnect_node(Node),
-            (catch port_close(Port)),
+            try port_close(Port) catch _:_ -> ok end,
             exit(Reason);
         {stop_node, Parent} ->
             erlang:disconnect_node(Node),
-            (catch port_close(Port)),
+            try port_close(Port) catch _:_ -> ok end,
             Parent ! {stop_node, self()},
             exit(normal);
         {check_node, Parent} ->
@@ -6038,7 +6190,7 @@ ei_node_handler_loop(Node, Parent, Port) ->
         Msg ->
             Msgs = fetch_all_messages([Msg]),
             erlang:disconnect_node(Node),
-            (catch port_close(Port)),
+            try port_close(Port) catch _:_ -> ok end,
             exit({ei_node_handler, Node, unexpected_messages, Msgs})
     end,
     ei_node_handler_loop(Node, Parent, Port).

@@ -2,12 +2,12 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  eval(Filename, Bindings)[0m
+[1m  eval(Filename, Bindings)[0m
 
-  The same as [;;4meval/1[0m, but the variable bindings [;;4mBindings[0m are
+  The same as [4meval/1[0m, but the variable bindings [4mBindings[0m are
   used in the evaluation. For information about the variable
-  bindings, see [;;4merl_eval[0m.
+  bindings, see [4merl_eval[0m.

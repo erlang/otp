@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -110,7 +110,7 @@ wxWidgets docs: [wxStaticBitmap](https://docs.wxwidgets.org/3.2/classwx_static_b
   move/2,move/3,move/4,moveAfterInTabOrder/2,moveBeforeInTabOrder/2,
   navigate/1,navigate/2,pageDown/1,pageUp/1,parent_class/1,popupMenu/2,
   popupMenu/3,popupMenu/4,raise/1,refresh/1,refresh/2,refreshRect/2,refreshRect/3,
-  releaseMouse/1,removeChild/2,reparent/2,screenToClient/1,screenToClient/2,
+  releaseMouse/1,removeChild/2,reparent/2,screenToClient/2,screenToClient/3,
   scrollLines/2,scrollPages/2,scrollWindow/3,scrollWindow/4,setAcceleratorTable/2,
   setAutoLayout/2,setBackgroundColour/2,setBackgroundStyle/2,setCaret/2,
   setClientSize/2,setClientSize/3,setContainingSizer/2,setCursor/2,
@@ -142,7 +142,7 @@ new() ->
 
 -doc(#{equiv => new(Parent,Id,Label, [])}).
 -spec new(Parent, Id, Label) -> wxStaticBitmap() when
-	Parent::wxWindow:wxWindow(), Id::integer(), Label::wxBitmap:wxBitmap().
+        Parent::wxWindow:wxWindow(), Id::integer(), Label::wxBitmap:wxBitmap().
 
 new(Parent,Id,Label)
  when is_record(Parent, wx_ref),is_integer(Id),is_record(Label, wx_ref) ->
@@ -172,7 +172,7 @@ new(#wx_ref{type=ParentT}=Parent,Id,#wx_ref{type=LabelT}=Label, Options)
 
 -doc(#{equiv => create(This,Parent,Id,Label, [])}).
 -spec create(This, Parent, Id, Label) -> boolean() when
-	This::wxStaticBitmap(), Parent::wxWindow:wxWindow(), Id::integer(), Label::wxBitmap:wxBitmap().
+        This::wxStaticBitmap(), Parent::wxWindow:wxWindow(), Id::integer(), Label::wxBitmap:wxBitmap().
 
 create(This,Parent,Id,Label)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id),is_record(Label, wx_ref) ->
@@ -210,7 +210,7 @@ been used.
 See: `setBitmap/2`
 """.
 -spec getBitmap(This) -> wxBitmap:wxBitmap() when
-	This::wxStaticBitmap().
+        This::wxStaticBitmap().
 getBitmap(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStaticBitmap),
   wxe_util:queue_cmd(This,?get_env(),?wxStaticBitmap_GetBitmap),
@@ -222,7 +222,7 @@ Sets the bitmap label.
 See: `getBitmap/1`
 """.
 -spec setBitmap(This, Label) -> 'ok' when
-	This::wxStaticBitmap(), Label::wxBitmap:wxBitmap().
+        This::wxStaticBitmap(), Label::wxBitmap:wxBitmap().
 setBitmap(#wx_ref{type=ThisT}=This,#wx_ref{type=LabelT}=Label) ->
   ?CLASS(ThisT,wxStaticBitmap),
   ?CLASS(LabelT,wxBitmap),
@@ -375,9 +375,9 @@ scrollPages(This,Pages) -> wxWindow:scrollPages(This,Pages).
 -doc false.
 scrollLines(This,Lines) -> wxWindow:scrollLines(This,Lines).
 -doc false.
-screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
+screenToClient(This,X,Y) -> wxWindow:screenToClient(This,X,Y).
 -doc false.
-screenToClient(This) -> wxWindow:screenToClient(This).
+screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
 -doc false.
 reparent(This,NewParent) -> wxWindow:reparent(This,NewParent).
 -doc false.

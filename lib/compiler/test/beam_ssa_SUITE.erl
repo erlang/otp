@@ -31,7 +31,9 @@
          mapfoldl/0,mapfoldl/1,
          grab_bag/1,redundant_br/1,
          coverage/1,normalize/1,
-         trycatch/1,gh_6599/1]).
+         trycatch/1,gh_6599/1,cs_div/1,gh_11494/1]).
+
+-import_record(beam_ssa, [b_set, b_var, b_literal]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -55,7 +57,9 @@ groups() ->
        coverage,
        normalize,
        trycatch,
-       gh_6599
+       gh_6599,
+       cs_div,
+       gh_11494
       ]}].
 
 init_per_suite(Config) ->
@@ -1345,9 +1349,6 @@ normalize(_Config) ->
 
     ok.
 
--record(b_var, {name}).
--record(b_literal, {val}).
-
 normalize_commutative(Op) ->
     A = #b_var{name=a},
     B = #b_var{name=b},
@@ -1397,11 +1398,15 @@ normalize_same(Op, Args) ->
 normalize_swapped(Op, [#b_literal{}=Lit,#b_var{}=Var]=Args) ->
     EmptyAnno = #{},
     I0 = make_bset(EmptyAnno, Op, Args),
-    {b_set,EmptyAnno,#b_var{name=1000},Op,[Var,Lit]} = beam_ssa:normalize(I0),
+    #b_set{anno=EmptyAnno,
+           dst=#b_var{name=1000},
+           op=Op,args=[Var,Lit]} = beam_ssa:normalize(I0),
 
     EmptyTypes = #{arg_types => #{}},
     I1 = make_bset(EmptyTypes, Op, Args),
-    {b_set,EmptyTypes,#b_var{name=1000},Op,[Var,Lit]} = beam_ssa:normalize(I1),
+    #b_set{anno=EmptyTypes,
+           dst=#b_var{name=1000},
+           op=Op,args=[Var,Lit]} = beam_ssa:normalize(I1),
 
     IntRange = beam_types:make_integer(0, 1023),
     ArgTypes0 = [{1,IntRange}],
@@ -1422,11 +1427,11 @@ normalize_swapped(Op, [#b_literal{}=Lit,#b_var{}=Var]=Args) ->
 
 make_bset(ArgTypes, Op, Args) when is_list(ArgTypes) ->
     Anno = #{arg_types => maps:from_list(ArgTypes)},
-    {b_set,Anno,#b_var{name=1000},Op,Args};
+    #b_set{anno=Anno,dst=#b_var{name=1000},op=Op,args=Args};
 make_bset(Anno, Op, Args) when is_map(Anno) ->
-    {b_set,Anno,#b_var{name=1000},Op,Args}.
+    #b_set{anno=Anno,dst=#b_var{name=1000},op=Op,args=Args}.
 
-unpack_bset({b_set,Anno,{b_var,1000},Op,Args}) ->
+unpack_bset(#b_set{anno=Anno,dst=#b_var{name=1000},op=Op,args=Args}) ->
     ArgTypes = maps:get(arg_types, Anno, #{}),
     {lists:sort(maps:to_list(ArgTypes)),Op,Args}.
 
@@ -1560,6 +1565,28 @@ gh_6599_7(X, Y) ->
         ok
     end.
 
+cs_div(_Config) ->
+    ?assertError(badarith, cs_div_1(id(2.0))),
+    2 = cs_div_2(id(2)),
+    ok.
+
+cs_div_1(X) when is_number(X) ->
+    X div 1.
+
+cs_div_2(X) when is_integer(X) ->
+    X div 1.
+
+gh_11494(_Config) ->
+    100 = inspect([100]),
+    <<>> = inspect(<<>>),
+    ok.
+
+inspect(Value) ->
+    case Value of
+        Res when is_integer(Res);
+                 is_bitstring(Res) -> Res;
+        [Num] -> inspect(Num)
+    end.
 
 %% The identity function.
 id(I) -> I.

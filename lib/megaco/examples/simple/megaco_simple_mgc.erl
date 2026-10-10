@@ -214,7 +214,7 @@ stop(Mid) ->
 		    case SendMod of
 			megaco_tcp -> megaco_tcp:close(SendHandle);
 			megaco_udp -> megaco_udp:close(SendHandle);
-			SendMod    -> exit(Pid, Reason)
+                        SendMod    -> erlang:exit_signal(Pid, Reason)
 		    end
 	    end,
     Conns = megaco:user_info(Mid, connections),
@@ -228,7 +228,7 @@ stop(Mid) ->
 	Pid ->
 	    d("stop -> Pid: ~p", [Pid]),
 	    unlink(Pid),
-	    exit(Pid, shutdown)
+            erlang:exit_signal(Pid, shutdown)
     end,
     ok.
 

@@ -2,17 +2,17 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  delete_element(Index, Tuple1)[0m
+[1m  delete_element(Index, Tuple1)[0m
 
-[;;4mSince[0m:
+[4mSince[0m:
   OTP R16B
 
-  Returns a new tuple with element at [;;4mIndex[0m removed from tuple [;;4m[0m
-  [;;4mTuple1[0m.
+  Returns a new tuple with element at [4mIndex[0m removed from tuple [4m[0m
+  [4mTuple1[0m.
 
   For example:
 

@@ -2,14 +2,14 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  localtime()[0m
+[1m  localtime()[0m
 
-  Returns the current local date and time, [;;4m{{Year, Month, Day},[0m
-  [;;4m{Hour, Minute, Second}}[0m.
+  Returns the current local date and time, [4m{{Year, Month, Day},[0m
+  [4m{Hour, Minute, Second}}[0m.
 
   For example:
 

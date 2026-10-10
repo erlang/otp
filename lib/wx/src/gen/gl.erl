@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND SGI-B-2.0
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -23,9 +23,6 @@
 
 %% This file is generated DO NOT EDIT
 
-%% @doc  Standard OpenGL api.
-%% See <a href="https://www.khronos.org/registry/OpenGL-Refpages/">www.khronos.org</a>
-%%
 %% Booleans are represented by integers 0 and 1.
 
 -module(gl).
@@ -316,11 +313,10 @@ This documents the functions as a brief version of the complete
 -export([get_interface/0, rec/1, lookup_func/1]).
 -nifs([lookup_func_nif/1]).
 -define(nif_stub,nif_stub_error(?LINE)).
-%% @hidden
+-doc false.
 nif_stub_error(Line) ->
     erlang:nif_error({nif_not_loaded,module,?MODULE,line,Line}).
 
-%% @hidden
 -doc false.
 init_nif() ->
   Base = "erl_gl",
@@ -337,12 +333,10 @@ init_nif() ->
             end,
   erlang:load_nif(NifFile, 0).
 
-%% @hidden
 -doc false.
 get_interface() ->
     wxe_util.  %% temporary
 
-%% @hidden
 -doc false.
 rec(Op) ->
     receive
@@ -384,8 +378,7 @@ clearIndex(C) when is_float(C) ->
 -doc """
 [`gl:clearColor/4`](`clearColor/4`) specifies the red, green, blue, and alpha
 values used by [`gl:clear/1`](`clear/1`) to clear the color buffers. Values
-specified by [`gl:clearColor/4`](`clearColor/4`) are clamped to the range \[0
-1].
+specified by [`gl:clearColor/4`](`clearColor/4`) are clamped to the range [0 1].
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glClearColor.xhtml)
 """.
@@ -427,7 +420,17 @@ indexMask(Mask) when is_integer(Mask) ->
   IF:queue_cmd(Mask,5040),
   ok.
 
--doc(#{equiv => colorMaski/5}).
+-doc """
+[`gl:colorMask/4`](`colorMask/4`) and [`gl:colorMaski/5`](`colorMaski/5`)
+specify whether the individual color components in the frame buffer can or
+cannot be written. [`gl:colorMaski/5`](`colorMaski/5`) sets the mask for a
+specific draw buffer, whereas [`gl:colorMask/4`](`colorMask/4`) sets the mask
+for all draw buffers. If `Red` is `?GL_FALSE`, for example, no change is made to
+the red component of any pixel in any of the color buffers, regardless of the
+drawing operation attempted.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glColorMask.xhtml)
+""".
 -spec colorMask(Red::0|1, Green::0|1, Blue::0|1, Alpha::0|1) -> 'ok'.
 colorMask(Red,Green,Blue,Alpha) when (0 =:= Red) orelse (1 =:= Red),(0 =:= Green) orelse (1 =:= Green),(0 =:= Blue) orelse (1 =:= Blue),(0 =:= Alpha) orelse (1 =:= Alpha) ->
   IF = get_interface(),
@@ -440,7 +443,7 @@ between an incoming fragment's alpha value and a constant reference value.
 [`gl:alphaFunc/2`](`alphaFunc/2`) specifies the reference value and the
 comparison function. The comparison is performed only if alpha testing is
 enabled. By default, it is not enabled. (See [`gl:enable/1`](`enable/1`) and
-[`gl:disable/1`](`enable/1`) of `?GL_ALPHA_TEST`.)
+[`gl:disable/1`](`disable/1`) of `?GL_ALPHA_TEST`.)
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glAlphaFunc.xml)
 """.
@@ -450,7 +453,15 @@ alphaFunc(Func,Ref) when is_integer(Func),is_float(Ref) ->
   IF:queue_cmd(Func,Ref,5042),
   ok.
 
--doc(#{equiv => blendFunci/3}).
+-doc """
+Pixels can be drawn using a function that blends the incoming (source) RGBA
+values with the RGBA values that are already in the frame buffer (the
+destination values). Blending is initially disabled. Use
+[`gl:enable/1`](`enable/1`) and [`gl:disable/1`](`disable/1`) with argument
+`?GL_BLEND` to enable and disable blending.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glBlendFunc.xhtml)
+""".
 -spec blendFunc(Sfactor::enum(), Dfactor::enum()) -> 'ok'.
 blendFunc(Sfactor,Dfactor) when is_integer(Sfactor),is_integer(Dfactor) ->
   IF = get_interface(),
@@ -461,7 +472,7 @@ blendFunc(Sfactor,Dfactor) when is_integer(Sfactor),is_integer(Dfactor) ->
 [`gl:logicOp/1`](`logicOp/1`) specifies a logical operation that, when enabled,
 is applied between the incoming RGBA color and the RGBA color at the
 corresponding location in the frame buffer. To enable or disable the logical
-operation, call [`gl:enable/1`](`enable/1`) and [`gl:disable/1`](`enable/1`)
+operation, call [`gl:enable/1`](`enable/1`) and [`gl:disable/1`](`disable/1`)
 using the symbolic constant `?GL_COLOR_LOGIC_OP`. The initial value is disabled.
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glLogicOp.xhtml)
@@ -476,7 +487,7 @@ logicOp(Opcode) when is_integer(Opcode) ->
 [`gl:cullFace/1`](`cullFace/1`) specifies whether front- or back-facing facets
 are culled (as specified by `mode`) when facet culling is enabled. Facet culling
 is initially disabled. To enable and disable facet culling, call the
-[`gl:enable/1`](`enable/1`) and [`gl:disable/1`](`enable/1`) commands with the
+[`gl:enable/1`](`enable/1`) and [`gl:disable/1`](`disable/1`) commands with the
 argument `?GL_CULL_FACE`. Facets include triangles, quadrilaterals, polygons,
 and rectangles.
 
@@ -493,7 +504,7 @@ In a scene composed entirely of opaque closed surfaces, back-facing polygons are
 never visible. Eliminating these invisible polygons has the obvious benefit of
 speeding up the rendering of the image. To enable and disable elimination of
 back-facing polygons, call [`gl:enable/1`](`enable/1`) and
-[`gl:disable/1`](`enable/1`) with argument `?GL_CULL_FACE`.
+[`gl:disable/1`](`disable/1`) with argument `?GL_CULL_FACE`.
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glFrontFace.xhtml)
 """.
@@ -522,7 +533,7 @@ pointSize(Size) when is_float(Size) ->
 [`gl:lineWidth/1`](`lineWidth/1`) specifies the rasterized width of both aliased
 and antialiased lines. Using a line width other than 1 has different effects,
 depending on whether line antialiasing is enabled. To enable and disable line
-antialiasing, call [`gl:enable/1`](`enable/1`) and [`gl:disable/1`](`enable/1`)
+antialiasing, call [`gl:enable/1`](`enable/1`) and [`gl:disable/1`](`disable/1`)
 with argument `?GL_LINE_SMOOTH`. Line antialiasing is initially disabled.
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glLineWidth.xhtml)
@@ -620,12 +631,12 @@ edgeFlag(Flag) when (0 =:= Flag) orelse (1 =:= Flag) ->
 
 -doc """
 Each vertex of a polygon, separate triangle, or separate quadrilateral specified
-between a [`gl:'begin'/1`](`'begin'/1`)/[`gl:'end'/0`](`'begin'/1`) pair is
-marked as the start of either a boundary or nonboundary edge. If the current
-edge flag is true when the vertex is specified, the vertex is marked as the
-start of a boundary edge. Otherwise, the vertex is marked as the start of a
-nonboundary edge. [`gl:edgeFlag/1`](`edgeFlag/1`) sets the edge flag bit to
-`?GL_TRUE` if `Flag` is `?GL_TRUE` and to `?GL_FALSE` otherwise.
+between a [`gl:'begin'/1`](`'begin'/1`)/[`gl:'end'/0`](`'end'/0`) pair is marked
+as the start of either a boundary or nonboundary edge. If the current edge flag
+is true when the vertex is specified, the vertex is marked as the start of a
+boundary edge. Otherwise, the vertex is marked as the start of a nonboundary
+edge. [`gl:edgeFlag/1`](`edgeFlag/1`) sets the edge flag bit to `?GL_TRUE` if
+`Flag` is `?GL_TRUE` and to `?GL_FALSE` otherwise.
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glEdgeFlag.xml)
 """.
@@ -649,7 +660,7 @@ Geometry is always clipped against the boundaries of a six-plane frustum in `x`,
 `y`, and `z`. [`gl:clipPlane/2`](`clipPlane/2`) allows the specification of
 additional planes, not necessarily perpendicular to the `x`, `y`, or `z` axis,
 against which all geometry is clipped. To determine the maximum number of
-additional clipping planes, call [`gl:getIntegerv/1`](`getBooleanv/1`) with
+additional clipping planes, call [`gl:getIntegerv/1`](`getIntegerv/1`) with
 argument `?GL_MAX_CLIP_PLANES`. All implementations support at least six such
 clipping planes. Because the resulting clipping region is the intersection of
 the defined half-spaces, it is always convex.
@@ -699,7 +710,7 @@ of twelve or more predefined values. In a fully configured system, `?GL_FRONT`,
 `?GL_LEFT`, and `?GL_FRONT_LEFT` all name the front left buffer,
 `?GL_FRONT_RIGHT` and `?GL_RIGHT` name the front right buffer, and
 `?GL_BACK_LEFT` and `?GL_BACK` name the back left buffer. Further more, the
-constants `?GL_COLOR_ATTACHMENT``i` may be used to indicate the `i`th color
+constants `?GL_COLOR_ATTACHMENT"i` may be used to indicate the `i`th color
 attachment where `i` ranges from zero to the value of
 `?GL_MAX_COLOR_ATTACHMENTS` minus one.
 
@@ -711,21 +722,40 @@ readBuffer(Mode) when is_integer(Mode) ->
   IF:queue_cmd(Mode,5059),
   ok.
 
--doc(#{equiv => enablei/2}).
+-doc """
+[`gl:enable/1`](`enable/1`) and [`gl:disable/1`](`disable/1`) enable and disable
+various capabilities. Use [`gl:isEnabled/1`](`isEnabled/1`) or
+[`gl:get/1`](`getBooleanv/1`) to determine the current setting of any
+capability. The initial value for each capability with the exception of
+`?GL_DITHER` and `?GL_MULTISAMPLE` is `?GL_FALSE`. The initial value for
+`?GL_DITHER` and `?GL_MULTISAMPLE` is `?GL_TRUE`.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glEnable.xhtml)
+""".
 -spec enable(Cap::enum()) -> 'ok'.
 enable(Cap) when is_integer(Cap) ->
   IF = get_interface(),
   IF:queue_cmd(Cap,5060),
   ok.
 
--doc(#{equiv => enablei/2}).
+-doc(#{equiv => enable/1}).
 -spec disable(Cap::enum()) -> 'ok'.
 disable(Cap) when is_integer(Cap) ->
   IF = get_interface(),
   IF:queue_cmd(Cap,5061),
   ok.
 
--doc(#{equiv => isEnabledi/2}).
+-doc """
+[`gl:isEnabled/1`](`isEnabled/1`) returns `?GL_TRUE` if `Cap` is an enabled
+capability and returns `?GL_FALSE` otherwise. Boolean states that are indexed
+may be tested with [`gl:isEnabledi/2`](`isEnabledi/2`). For
+[`gl:isEnabledi/2`](`isEnabledi/2`), `Index` specifies the index of the
+capability to test. `Index` must be between zero and the count of indexed
+capabilities for `Cap`. Initially all capabilities except `?GL_DITHER` are
+disabled; `?GL_DITHER` is initially enabled.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glIsEnabled.xhtml)
+""".
 -spec isEnabled(Cap::enum()) -> 0|1.
 isEnabled(Cap) when is_integer(Cap) ->
   IF = get_interface(),
@@ -734,10 +764,10 @@ isEnabled(Cap) when is_integer(Cap) ->
 
 -doc """
 [`gl:enableClientState/1`](`enableClientState/1`) and
-[`gl:disableClientState/1`](`enableClientState/1`) enable or disable individual
+[`gl:disableClientState/1`](`disableClientState/1`) enable or disable individual
 client-side capabilities. By default, all client-side capabilities are disabled.
 Both [`gl:enableClientState/1`](`enableClientState/1`) and
-[`gl:disableClientState/1`](`enableClientState/1`) take a single argument,
+[`gl:disableClientState/1`](`disableClientState/1`) take a single argument,
 `Cap`, which can assume one of the following values:
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glEnableClientState.xml)
@@ -755,27 +785,6 @@ disableClientState(Cap) when is_integer(Cap) ->
   IF:queue_cmd(Cap,5064),
   ok.
 
--doc(#{equiv => getIntegerv/1}).
--spec getBooleanv(Pname::enum()) -> [0|1].
-getBooleanv(Pname) when is_integer(Pname) ->
-  IF = get_interface(),
-  IF:queue_cmd(Pname,5065),
-  rec(5065).
-
--doc(#{equiv => getIntegerv/1}).
--spec getDoublev(Pname::enum()) -> [f()].
-getDoublev(Pname) when is_integer(Pname) ->
-  IF = get_interface(),
-  IF:queue_cmd(Pname,5066),
-  rec(5066).
-
--doc(#{equiv => getIntegerv/1}).
--spec getFloatv(Pname::enum()) -> [f()].
-getFloatv(Pname) when is_integer(Pname) ->
-  IF = get_interface(),
-  IF:queue_cmd(Pname,5067),
-  rec(5067).
-
 -doc """
 These commands return values for simple state variables in GL. `Pname` is a
 symbolic constant indicating the state variable to be returned, and `Data` is a
@@ -783,6 +792,27 @@ pointer to an array of the indicated type in which to place the returned data.
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGet.xhtml)
 """.
+-spec getBooleanv(Pname::enum()) -> [0|1].
+getBooleanv(Pname) when is_integer(Pname) ->
+  IF = get_interface(),
+  IF:queue_cmd(Pname,5065),
+  rec(5065).
+
+-doc(#{equiv => getBooleanv/1}).
+-spec getDoublev(Pname::enum()) -> [f()].
+getDoublev(Pname) when is_integer(Pname) ->
+  IF = get_interface(),
+  IF:queue_cmd(Pname,5066),
+  rec(5066).
+
+-doc(#{equiv => getBooleanv/1}).
+-spec getFloatv(Pname::enum()) -> [f()].
+getFloatv(Pname) when is_integer(Pname) ->
+  IF = get_interface(),
+  IF:queue_cmd(Pname,5067),
+  rec(5067).
+
+-doc(#{equiv => getBooleanv/1}).
 -spec getIntegerv(Pname::enum()) -> [i()].
 getIntegerv(Pname) when is_integer(Pname) ->
   IF = get_interface(),
@@ -864,7 +894,13 @@ getError()  ->
   IF:queue_cmd(5074),
   rec(5074).
 
--doc(#{equiv => getStringi/2}).
+-doc """
+[`gl:getString/1`](`getString/1`) returns a pointer to a static string
+describing some aspect of the current GL connection. `Name` can be one of the
+following:
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetString.xhtml)
+""".
 -spec getString(Name::enum()) -> string().
 getString(Name) when is_integer(Name) ->
   IF = get_interface(),
@@ -915,7 +951,13 @@ hint(Target,Mode) when is_integer(Target),is_integer(Mode) ->
   IF:queue_cmd(Target,Mode,5078),
   ok.
 
--doc(#{equiv => clearDepthf/1}).
+-doc """
+[`gl:clearDepth/1`](`clearDepth/1`) specifies the depth value used by
+[`gl:clear/1`](`clear/1`) to clear the depth buffer. Values specified by
+[`gl:clearDepth/1`](`clearDepth/1`) are clamped to the range [0 1].
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glClearDepth.xhtml)
+""".
 -spec clearDepth(Depth::clamp()) -> 'ok'.
 clearDepth(Depth) when is_float(Depth) ->
   IF = get_interface(),
@@ -926,7 +968,7 @@ clearDepth(Depth) when is_float(Depth) ->
 [`gl:depthFunc/1`](`depthFunc/1`) specifies the function used to compare each
 incoming pixel depth value with the depth value present in the depth buffer. The
 comparison is performed only if depth testing is enabled. (See
-[`gl:enable/1`](`enable/1`) and [`gl:disable/1`](`enable/1`) of
+[`gl:enable/1`](`enable/1`) and [`gl:disable/1`](`disable/1`) of
 `?GL_DEPTH_TEST`.)
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glDepthFunc.xhtml)
@@ -950,7 +992,18 @@ depthMask(Flag) when (0 =:= Flag) orelse (1 =:= Flag) ->
   IF:queue_cmd(Flag,5081),
   ok.
 
--doc(#{equiv => depthRangef/2}).
+-doc """
+After clipping and division by `w`, depth coordinates range from -1 to 1,
+corresponding to the near and far clipping planes.
+[`gl:depthRange/2`](`depthRange/2`) specifies a linear mapping of the normalized
+depth coordinates in this range to window depth coordinates. Regardless of the
+actual depth buffer implementation, window coordinate depth values are treated
+as though they range from 0 through 1 (like color components). Thus, the values
+accepted by [`gl:depthRange/2`](`depthRange/2`) are both clamped to this range
+before they are accepted.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glDepthRange.xhtml)
+""".
 -spec depthRange(Near_val::clamp(), Far_val::clamp()) -> 'ok'.
 depthRange(Near_val,Far_val) when is_float(Near_val),is_float(Far_val) ->
   IF = get_interface(),
@@ -1001,7 +1054,7 @@ matrixMode(Mode) when is_integer(Mode) ->
 [`gl:ortho/6`](`ortho/6`) describes a transformation that produces a parallel
 projection. The current matrix (see [`gl:matrixMode/1`](`matrixMode/1`)) is
 multiplied by this matrix and the result replaces the current matrix, as if
-[`gl:multMatrix()`](`multMatrixd/1`) were called with the following matrix as
+[`gl:multMatrix/1`](`multMatrixd/1`) were called with the following matrix as
 its argument:
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glOrtho.xml)
@@ -1016,7 +1069,7 @@ ortho(Left,Right,Bottom,Top,Near_val,Far_val) when is_float(Left),is_float(Right
 [`gl:frustum/6`](`frustum/6`) describes a perspective matrix that produces a
 perspective projection. The current matrix (see
 [`gl:matrixMode/1`](`matrixMode/1`)) is multiplied by this matrix and the result
-replaces the current matrix, as if [`gl:multMatrix()`](`multMatrixd/1`) were
+replaces the current matrix, as if [`gl:multMatrix/1`](`multMatrixd/1`) were
 called with the following matrix as its argument:
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glFrustum.xml)
@@ -1065,7 +1118,7 @@ popMatrix()  ->
 -doc """
 [`gl:loadIdentity/0`](`loadIdentity/0`) replaces the current matrix with the
 identity matrix. It is semantically equivalent to calling
-[`gl:loadMatrix()`](`loadMatrixd/1`) with the identity matrix
+[`gl:loadMatrix/1`](`loadMatrixd/1`) with the identity matrix
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glLoadIdentity.xml)
 """.
@@ -1075,104 +1128,104 @@ loadIdentity()  ->
   IF:queue_cmd(5091),
   ok.
 
--doc(#{equiv => loadMatrixf/1}).
--spec loadMatrixd(M::matrix()) -> 'ok'.
-loadMatrixd(M) when tuple_size(M) =:= 16; tuple_size(M) =:= 12 ->
-  IF = get_interface(),
-  IF:queue_cmd(M,5092),
-  ok.
-
 -doc """
-[`gl:loadMatrix()`](`loadMatrixd/1`) replaces the current matrix with the one
+[`gl:loadMatrix/1`](`loadMatrixd/1`) replaces the current matrix with the one
 whose elements are specified by `M`. The current matrix is the projection
 matrix, modelview matrix, or texture matrix, depending on the current matrix
 mode (see [`gl:matrixMode/1`](`matrixMode/1`)).
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glLoadMatrix.xml)
 """.
+-spec loadMatrixd(M::matrix()) -> 'ok'.
+loadMatrixd(M) when tuple_size(M) =:= 16; tuple_size(M) =:= 12 ->
+  IF = get_interface(),
+  IF:queue_cmd(M,5092),
+  ok.
+
+-doc(#{equiv => loadMatrixd/1}).
 -spec loadMatrixf(M::matrix()) -> 'ok'.
 loadMatrixf(M) when tuple_size(M) =:= 16; tuple_size(M) =:= 12 ->
   IF = get_interface(),
   IF:queue_cmd(M,5093),
   ok.
 
--doc(#{equiv => multMatrixf/1}).
+-doc """
+[`gl:multMatrix/1`](`multMatrixd/1`) multiplies the current matrix with the one
+specified using `M`, and replaces the current matrix with the product.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glMultMatrix.xml)
+""".
 -spec multMatrixd(M::matrix()) -> 'ok'.
 multMatrixd(M) when tuple_size(M) =:= 16; tuple_size(M) =:= 12 ->
   IF = get_interface(),
   IF:queue_cmd(M,5094),
   ok.
 
--doc """
-[`gl:multMatrix()`](`multMatrixd/1`) multiplies the current matrix with the one
-specified using `M`, and replaces the current matrix with the product.
-
-[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glMultMatrix.xml)
-""".
+-doc(#{equiv => multMatrixd/1}).
 -spec multMatrixf(M::matrix()) -> 'ok'.
 multMatrixf(M) when tuple_size(M) =:= 16; tuple_size(M) =:= 12 ->
   IF = get_interface(),
   IF:queue_cmd(M,5095),
   ok.
 
--doc(#{equiv => rotatef/4}).
+-doc """
+[`gl:rotate/4`](`rotated/4`) produces a rotation of `Angle` degrees around the
+vector (x y z). The current matrix (see [`gl:matrixMode/1`](`matrixMode/1`)) is
+multiplied by a rotation matrix with the product replacing the current matrix,
+as if [`gl:multMatrix/1`](`multMatrixd/1`) were called with the following matrix
+as its argument:
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glRotate.xml)
+""".
 -spec rotated(Angle::f(), X::f(), Y::f(), Z::f()) -> 'ok'.
 rotated(Angle,X,Y,Z) when is_float(Angle),is_float(X),is_float(Y),is_float(Z) ->
   IF = get_interface(),
   IF:queue_cmd(Angle,X,Y,Z,5096),
   ok.
 
--doc """
-[`gl:rotate()`](`rotated/4`) produces a rotation of `Angle` degrees around the
-vector (x y z). The current matrix (see [`gl:matrixMode/1`](`matrixMode/1`)) is
-multiplied by a rotation matrix with the product replacing the current matrix,
-as if [`gl:multMatrix()`](`multMatrixd/1`) were called with the following matrix
-as its argument:
-
-[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glRotate.xml)
-""".
+-doc(#{equiv => rotated/4}).
 -spec rotatef(Angle::f(), X::f(), Y::f(), Z::f()) -> 'ok'.
 rotatef(Angle,X,Y,Z) when is_float(Angle),is_float(X),is_float(Y),is_float(Z) ->
   IF = get_interface(),
   IF:queue_cmd(Angle,X,Y,Z,5097),
   ok.
 
--doc(#{equiv => scalef/3}).
+-doc """
+[`gl:scale/3`](`scaled/3`) produces a nonuniform scaling along the `x`, `y`, and
+`z` axes. The three parameters indicate the desired scale factor along each of
+the three axes.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glScale.xml)
+""".
 -spec scaled(X::f(), Y::f(), Z::f()) -> 'ok'.
 scaled(X,Y,Z) when is_float(X),is_float(Y),is_float(Z) ->
   IF = get_interface(),
   IF:queue_cmd(X,Y,Z,5098),
   ok.
 
--doc """
-[`gl:scale()`](`scaled/3`) produces a nonuniform scaling along the `x`, `y`, and
-`z` axes. The three parameters indicate the desired scale factor along each of
-the three axes.
-
-[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glScale.xml)
-""".
+-doc(#{equiv => scaled/3}).
 -spec scalef(X::f(), Y::f(), Z::f()) -> 'ok'.
 scalef(X,Y,Z) when is_float(X),is_float(Y),is_float(Z) ->
   IF = get_interface(),
   IF:queue_cmd(X,Y,Z,5099),
   ok.
 
--doc(#{equiv => translatef/3}).
+-doc """
+[`gl:translate/3`](`translated/3`) produces a translation by (x y z). The
+current matrix (see [`gl:matrixMode/1`](`matrixMode/1`)) is multiplied by this
+translation matrix, with the product replacing the current matrix, as if
+[`gl:multMatrix/1`](`multMatrixd/1`) were called with the following matrix for
+its argument:
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glTranslate.xml)
+""".
 -spec translated(X::f(), Y::f(), Z::f()) -> 'ok'.
 translated(X,Y,Z) when is_float(X),is_float(Y),is_float(Z) ->
   IF = get_interface(),
   IF:queue_cmd(X,Y,Z,5100),
   ok.
 
--doc """
-[`gl:translate()`](`translated/3`) produces a translation by (x y z). The
-current matrix (see [`gl:matrixMode/1`](`matrixMode/1`)) is multiplied by this
-translation matrix, with the product replacing the current matrix, as if
-[`gl:multMatrix()`](`multMatrixd/1`) were called with the following matrix for
-its argument:
-
-[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glTranslate.xml)
-""".
+-doc(#{equiv => translated/3}).
 -spec translatef(X::f(), Y::f(), Z::f()) -> 'ok'.
 translatef(X,Y,Z) when is_float(X),is_float(Y),is_float(Z) ->
   IF = get_interface(),
@@ -1224,7 +1277,7 @@ genLists(Range) when is_integer(Range) ->
 Display lists are groups of GL commands that have been stored for subsequent
 execution. Display lists are created with [`gl:newList/2`](`newList/2`). All
 subsequent commands are placed in the display list, in the order issued, until
-[`gl:endList/0`](`newList/2`) is called.
+[`gl:endList/0`](`endList/0`) is called.
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glNewList.xml)
 """.
@@ -1283,16 +1336,9 @@ listBase(Base) when is_integer(Base) ->
   IF:queue_cmd(Base,5109),
   ok.
 
--doc(#{equiv => '\'end\''/0}).
--spec 'begin'(Mode::enum()) -> 'ok'.
-'begin'(Mode) when is_integer(Mode) ->
-  IF = get_interface(),
-  IF:queue_cmd(Mode,5110),
-  ok.
-
 -doc """
-[`gl:'begin'/1`](`'begin'/1`) and [`gl:'end'/0`](`'begin'/1`) delimit the
-vertices that define a primitive or a group of like primitives.
+[`gl:'begin'/1`](`'begin'/1`) and [`gl:'end'/0`](`'end'/0`) delimit the vertices
+that define a primitive or a group of like primitives.
 [`gl:'begin'/1`](`'begin'/1`) accepts a single argument that specifies in which
 of ten ways the vertices are interpreted. Taking n as an integer count starting
 at one, and N as the total number of vertices specified, the interpretations are
@@ -1300,6 +1346,13 @@ as follows:
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glBegin.xml)
 """.
+-spec 'begin'(Mode::enum()) -> 'ok'.
+'begin'(Mode) when is_integer(Mode) ->
+  IF = get_interface(),
+  IF:queue_cmd(Mode,5110),
+  ok.
+
+-doc(#{equiv => 'begin'/1}).
 -spec 'end'() -> 'ok'.
 'end'()  ->
   IF = get_interface(),
@@ -1390,45 +1443,133 @@ vertex4s(X,Y,Z,W) when is_integer(X),is_integer(Y),is_integer(Z),is_integer(W) -
   IF:queue_cmd(X,Y,Z,W,5123),
   ok.
 
--doc(#{equiv => vertex4sv/1}).
+-doc """
+[`gl:vertex/1`](`vertex4sv/1`) commands are used within
+[`gl:'begin'/1`](`'begin'/1`)/[`gl:'end'/0`](`'end'/0`) pairs to specify point,
+line, and polygon vertices. The current color, normal, texture coordinates, and
+fog coordinate are associated with the vertex when
+[`gl:vertex/1`](`vertex4sv/1`) is called.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glVertex.xml)
+""".
 -spec vertex2dv({X::f(), Y::f()}) -> 'ok'.
 vertex2dv({X,Y}) ->  vertex2d(X,Y).
--doc(#{equiv => vertex4sv/1}).
+-doc """
+[`gl:vertex/1`](`vertex4sv/1`) commands are used within
+[`gl:'begin'/1`](`'begin'/1`)/[`gl:'end'/0`](`'end'/0`) pairs to specify point,
+line, and polygon vertices. The current color, normal, texture coordinates, and
+fog coordinate are associated with the vertex when
+[`gl:vertex/1`](`vertex4sv/1`) is called.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glVertex.xml)
+""".
 -spec vertex2fv({X::f(), Y::f()}) -> 'ok'.
 vertex2fv({X,Y}) ->  vertex2f(X,Y).
--doc(#{equiv => vertex4sv/1}).
+-doc """
+[`gl:vertex/1`](`vertex4sv/1`) commands are used within
+[`gl:'begin'/1`](`'begin'/1`)/[`gl:'end'/0`](`'end'/0`) pairs to specify point,
+line, and polygon vertices. The current color, normal, texture coordinates, and
+fog coordinate are associated with the vertex when
+[`gl:vertex/1`](`vertex4sv/1`) is called.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glVertex.xml)
+""".
 -spec vertex2iv({X::i(), Y::i()}) -> 'ok'.
 vertex2iv({X,Y}) ->  vertex2i(X,Y).
--doc(#{equiv => vertex4sv/1}).
+-doc """
+[`gl:vertex/1`](`vertex4sv/1`) commands are used within
+[`gl:'begin'/1`](`'begin'/1`)/[`gl:'end'/0`](`'end'/0`) pairs to specify point,
+line, and polygon vertices. The current color, normal, texture coordinates, and
+fog coordinate are associated with the vertex when
+[`gl:vertex/1`](`vertex4sv/1`) is called.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glVertex.xml)
+""".
 -spec vertex2sv({X::i(), Y::i()}) -> 'ok'.
 vertex2sv({X,Y}) ->  vertex2s(X,Y).
--doc(#{equiv => vertex4sv/1}).
+-doc """
+[`gl:vertex/1`](`vertex4sv/1`) commands are used within
+[`gl:'begin'/1`](`'begin'/1`)/[`gl:'end'/0`](`'end'/0`) pairs to specify point,
+line, and polygon vertices. The current color, normal, texture coordinates, and
+fog coordinate are associated with the vertex when
+[`gl:vertex/1`](`vertex4sv/1`) is called.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glVertex.xml)
+""".
 -spec vertex3dv({X::f(), Y::f(), Z::f()}) -> 'ok'.
 vertex3dv({X,Y,Z}) ->  vertex3d(X,Y,Z).
--doc(#{equiv => vertex4sv/1}).
+-doc """
+[`gl:vertex/1`](`vertex4sv/1`) commands are used within
+[`gl:'begin'/1`](`'begin'/1`)/[`gl:'end'/0`](`'end'/0`) pairs to specify point,
+line, and polygon vertices. The current color, normal, texture coordinates, and
+fog coordinate are associated with the vertex when
+[`gl:vertex/1`](`vertex4sv/1`) is called.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glVertex.xml)
+""".
 -spec vertex3fv({X::f(), Y::f(), Z::f()}) -> 'ok'.
 vertex3fv({X,Y,Z}) ->  vertex3f(X,Y,Z).
--doc(#{equiv => vertex4sv/1}).
+-doc """
+[`gl:vertex/1`](`vertex4sv/1`) commands are used within
+[`gl:'begin'/1`](`'begin'/1`)/[`gl:'end'/0`](`'end'/0`) pairs to specify point,
+line, and polygon vertices. The current color, normal, texture coordinates, and
+fog coordinate are associated with the vertex when
+[`gl:vertex/1`](`vertex4sv/1`) is called.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glVertex.xml)
+""".
 -spec vertex3iv({X::i(), Y::i(), Z::i()}) -> 'ok'.
 vertex3iv({X,Y,Z}) ->  vertex3i(X,Y,Z).
--doc(#{equiv => vertex4sv/1}).
+-doc """
+[`gl:vertex/1`](`vertex4sv/1`) commands are used within
+[`gl:'begin'/1`](`'begin'/1`)/[`gl:'end'/0`](`'end'/0`) pairs to specify point,
+line, and polygon vertices. The current color, normal, texture coordinates, and
+fog coordinate are associated with the vertex when
+[`gl:vertex/1`](`vertex4sv/1`) is called.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glVertex.xml)
+""".
 -spec vertex3sv({X::i(), Y::i(), Z::i()}) -> 'ok'.
 vertex3sv({X,Y,Z}) ->  vertex3s(X,Y,Z).
--doc(#{equiv => vertex4sv/1}).
+-doc """
+[`gl:vertex/1`](`vertex4sv/1`) commands are used within
+[`gl:'begin'/1`](`'begin'/1`)/[`gl:'end'/0`](`'end'/0`) pairs to specify point,
+line, and polygon vertices. The current color, normal, texture coordinates, and
+fog coordinate are associated with the vertex when
+[`gl:vertex/1`](`vertex4sv/1`) is called.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glVertex.xml)
+""".
 -spec vertex4dv({X::f(), Y::f(), Z::f(), W::f()}) -> 'ok'.
 vertex4dv({X,Y,Z,W}) ->  vertex4d(X,Y,Z,W).
--doc(#{equiv => vertex4sv/1}).
+-doc """
+[`gl:vertex/1`](`vertex4sv/1`) commands are used within
+[`gl:'begin'/1`](`'begin'/1`)/[`gl:'end'/0`](`'end'/0`) pairs to specify point,
+line, and polygon vertices. The current color, normal, texture coordinates, and
+fog coordinate are associated with the vertex when
+[`gl:vertex/1`](`vertex4sv/1`) is called.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glVertex.xml)
+""".
 -spec vertex4fv({X::f(), Y::f(), Z::f(), W::f()}) -> 'ok'.
 vertex4fv({X,Y,Z,W}) ->  vertex4f(X,Y,Z,W).
--doc(#{equiv => vertex4sv/1}).
+-doc """
+[`gl:vertex/1`](`vertex4sv/1`) commands are used within
+[`gl:'begin'/1`](`'begin'/1`)/[`gl:'end'/0`](`'end'/0`) pairs to specify point,
+line, and polygon vertices. The current color, normal, texture coordinates, and
+fog coordinate are associated with the vertex when
+[`gl:vertex/1`](`vertex4sv/1`) is called.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glVertex.xml)
+""".
 -spec vertex4iv({X::i(), Y::i(), Z::i(), W::i()}) -> 'ok'.
 vertex4iv({X,Y,Z,W}) ->  vertex4i(X,Y,Z,W).
 -doc """
-[`gl:vertex()`](`vertex2d/2`) commands are used within
-[`gl:'begin'/1`](`'begin'/1`)/[`gl:'end'/0`](`'begin'/1`) pairs to specify
-point, line, and polygon vertices. The current color, normal, texture
-coordinates, and fog coordinate are associated with the vertex when
-[`gl:vertex()`](`vertex2d/2`) is called.
+[`gl:vertex/1`](`vertex4sv/1`) commands are used within
+[`gl:'begin'/1`](`'begin'/1`)/[`gl:'end'/0`](`'end'/0`) pairs to specify point,
+line, and polygon vertices. The current color, normal, texture coordinates, and
+fog coordinate are associated with the vertex when
+[`gl:vertex/1`](`vertex4sv/1`) is called.
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glVertex.xml)
 """.
@@ -1469,21 +1610,53 @@ normal3s(Nx,Ny,Nz) when is_integer(Nx),is_integer(Ny),is_integer(Nz) ->
   IF:queue_cmd(Nx,Ny,Nz,5128),
   ok.
 
--doc(#{equiv => normal3sv/1}).
+-doc """
+The current normal is set to the given coordinates whenever
+[`gl:normal/1`](`normal3sv/1`) is issued. Byte, short, or integer arguments are
+converted to floating-point format with a linear mapping that maps the most
+positive representable integer value to 1.0 and the most negative representable
+integer value to -1.0.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glNormal.xml)
+""".
 -spec normal3bv({Nx::i(), Ny::i(), Nz::i()}) -> 'ok'.
 normal3bv({Nx,Ny,Nz}) ->  normal3b(Nx,Ny,Nz).
--doc(#{equiv => normal3sv/1}).
+-doc """
+The current normal is set to the given coordinates whenever
+[`gl:normal/1`](`normal3sv/1`) is issued. Byte, short, or integer arguments are
+converted to floating-point format with a linear mapping that maps the most
+positive representable integer value to 1.0 and the most negative representable
+integer value to -1.0.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glNormal.xml)
+""".
 -spec normal3dv({Nx::f(), Ny::f(), Nz::f()}) -> 'ok'.
 normal3dv({Nx,Ny,Nz}) ->  normal3d(Nx,Ny,Nz).
--doc(#{equiv => normal3sv/1}).
+-doc """
+The current normal is set to the given coordinates whenever
+[`gl:normal/1`](`normal3sv/1`) is issued. Byte, short, or integer arguments are
+converted to floating-point format with a linear mapping that maps the most
+positive representable integer value to 1.0 and the most negative representable
+integer value to -1.0.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glNormal.xml)
+""".
 -spec normal3fv({Nx::f(), Ny::f(), Nz::f()}) -> 'ok'.
 normal3fv({Nx,Ny,Nz}) ->  normal3f(Nx,Ny,Nz).
--doc(#{equiv => normal3sv/1}).
+-doc """
+The current normal is set to the given coordinates whenever
+[`gl:normal/1`](`normal3sv/1`) is issued. Byte, short, or integer arguments are
+converted to floating-point format with a linear mapping that maps the most
+positive representable integer value to 1.0 and the most negative representable
+integer value to -1.0.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glNormal.xml)
+""".
 -spec normal3iv({Nx::i(), Ny::i(), Nz::i()}) -> 'ok'.
 normal3iv({Nx,Ny,Nz}) ->  normal3i(Nx,Ny,Nz).
 -doc """
 The current normal is set to the given coordinates whenever
-[`gl:normal()`](`normal3b/3`) is issued. Byte, short, or integer arguments are
+[`gl:normal/1`](`normal3sv/1`) is issued. Byte, short, or integer arguments are
 converted to floating-point format with a linear mapping that maps the most
 positive representable integer value to 1.0 and the most negative representable
 integer value to -1.0.
@@ -1527,20 +1700,40 @@ indexub(C) when is_integer(C) ->
   IF:queue_cmd(C,5133),
   ok.
 
--doc(#{equiv => indexubv/1}).
+-doc """
+[`gl:index/1`](`indexubv/1`) updates the current (single-valued) color index. It
+takes one argument, the new value for the current color index.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glIndex.xml)
+""".
 -spec indexdv({C::f()}) -> 'ok'.
 indexdv({C}) ->  indexd(C).
--doc(#{equiv => indexubv/1}).
+-doc """
+[`gl:index/1`](`indexubv/1`) updates the current (single-valued) color index. It
+takes one argument, the new value for the current color index.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glIndex.xml)
+""".
 -spec indexfv({C::f()}) -> 'ok'.
 indexfv({C}) ->  indexf(C).
--doc(#{equiv => indexubv/1}).
+-doc """
+[`gl:index/1`](`indexubv/1`) updates the current (single-valued) color index. It
+takes one argument, the new value for the current color index.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glIndex.xml)
+""".
 -spec indexiv({C::i()}) -> 'ok'.
 indexiv({C}) ->  indexi(C).
--doc(#{equiv => indexubv/1}).
+-doc """
+[`gl:index/1`](`indexubv/1`) updates the current (single-valued) color index. It
+takes one argument, the new value for the current color index.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glIndex.xml)
+""".
 -spec indexsv({C::i()}) -> 'ok'.
 indexsv({C}) ->  indexs(C).
 -doc """
-[`gl:index()`](`indexd/1`) updates the current (single-valued) color index. It
+[`gl:index/1`](`indexubv/1`) updates the current (single-valued) color index. It
 takes one argument, the new value for the current color index.
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glIndex.xml)
@@ -1659,59 +1852,225 @@ color4us(Red,Green,Blue,Alpha) when is_integer(Red),is_integer(Green),is_integer
   IF:queue_cmd(Red,Green,Blue,Alpha,5149),
   ok.
 
--doc(#{equiv => color4usv/1}).
+-doc """
+The GL stores both a current single-valued color index and a current four-valued
+RGBA color. [`gl:color/1`](`color4usv/1`) sets a new four-valued RGBA color.
+[`gl:color/1`](`color4usv/1`) has two major variants:
+[`gl:color3/1`](`color4usv/1`) and [`gl:color4/1`](`color4usv/1`).
+[`gl:color3/1`](`color4usv/1`) variants specify new red, green, and blue values
+explicitly and set the current alpha value to 1.0 (full intensity) implicitly.
+[`gl:color4/1`](`color4usv/1`) variants specify all four color components
+explicitly.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glColor.xml)
+""".
 -spec color3bv({Red::i(), Green::i(), Blue::i()}) -> 'ok'.
 color3bv({Red,Green,Blue}) ->  color3b(Red,Green,Blue).
--doc(#{equiv => color4usv/1}).
+-doc """
+The GL stores both a current single-valued color index and a current four-valued
+RGBA color. [`gl:color/1`](`color4usv/1`) sets a new four-valued RGBA color.
+[`gl:color/1`](`color4usv/1`) has two major variants:
+[`gl:color3/1`](`color4usv/1`) and [`gl:color4/1`](`color4usv/1`).
+[`gl:color3/1`](`color4usv/1`) variants specify new red, green, and blue values
+explicitly and set the current alpha value to 1.0 (full intensity) implicitly.
+[`gl:color4/1`](`color4usv/1`) variants specify all four color components
+explicitly.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glColor.xml)
+""".
 -spec color3dv({Red::f(), Green::f(), Blue::f()}) -> 'ok'.
 color3dv({Red,Green,Blue}) ->  color3d(Red,Green,Blue).
--doc(#{equiv => color4usv/1}).
+-doc """
+The GL stores both a current single-valued color index and a current four-valued
+RGBA color. [`gl:color/1`](`color4usv/1`) sets a new four-valued RGBA color.
+[`gl:color/1`](`color4usv/1`) has two major variants:
+[`gl:color3/1`](`color4usv/1`) and [`gl:color4/1`](`color4usv/1`).
+[`gl:color3/1`](`color4usv/1`) variants specify new red, green, and blue values
+explicitly and set the current alpha value to 1.0 (full intensity) implicitly.
+[`gl:color4/1`](`color4usv/1`) variants specify all four color components
+explicitly.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glColor.xml)
+""".
 -spec color3fv({Red::f(), Green::f(), Blue::f()}) -> 'ok'.
 color3fv({Red,Green,Blue}) ->  color3f(Red,Green,Blue).
--doc(#{equiv => color4usv/1}).
+-doc """
+The GL stores both a current single-valued color index and a current four-valued
+RGBA color. [`gl:color/1`](`color4usv/1`) sets a new four-valued RGBA color.
+[`gl:color/1`](`color4usv/1`) has two major variants:
+[`gl:color3/1`](`color4usv/1`) and [`gl:color4/1`](`color4usv/1`).
+[`gl:color3/1`](`color4usv/1`) variants specify new red, green, and blue values
+explicitly and set the current alpha value to 1.0 (full intensity) implicitly.
+[`gl:color4/1`](`color4usv/1`) variants specify all four color components
+explicitly.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glColor.xml)
+""".
 -spec color3iv({Red::i(), Green::i(), Blue::i()}) -> 'ok'.
 color3iv({Red,Green,Blue}) ->  color3i(Red,Green,Blue).
--doc(#{equiv => color4usv/1}).
+-doc """
+The GL stores both a current single-valued color index and a current four-valued
+RGBA color. [`gl:color/1`](`color4usv/1`) sets a new four-valued RGBA color.
+[`gl:color/1`](`color4usv/1`) has two major variants:
+[`gl:color3/1`](`color4usv/1`) and [`gl:color4/1`](`color4usv/1`).
+[`gl:color3/1`](`color4usv/1`) variants specify new red, green, and blue values
+explicitly and set the current alpha value to 1.0 (full intensity) implicitly.
+[`gl:color4/1`](`color4usv/1`) variants specify all four color components
+explicitly.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glColor.xml)
+""".
 -spec color3sv({Red::i(), Green::i(), Blue::i()}) -> 'ok'.
 color3sv({Red,Green,Blue}) ->  color3s(Red,Green,Blue).
--doc(#{equiv => color4usv/1}).
+-doc """
+The GL stores both a current single-valued color index and a current four-valued
+RGBA color. [`gl:color/1`](`color4usv/1`) sets a new four-valued RGBA color.
+[`gl:color/1`](`color4usv/1`) has two major variants:
+[`gl:color3/1`](`color4usv/1`) and [`gl:color4/1`](`color4usv/1`).
+[`gl:color3/1`](`color4usv/1`) variants specify new red, green, and blue values
+explicitly and set the current alpha value to 1.0 (full intensity) implicitly.
+[`gl:color4/1`](`color4usv/1`) variants specify all four color components
+explicitly.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glColor.xml)
+""".
 -spec color3ubv({Red::i(), Green::i(), Blue::i()}) -> 'ok'.
 color3ubv({Red,Green,Blue}) ->  color3ub(Red,Green,Blue).
--doc(#{equiv => color4usv/1}).
+-doc """
+The GL stores both a current single-valued color index and a current four-valued
+RGBA color. [`gl:color/1`](`color4usv/1`) sets a new four-valued RGBA color.
+[`gl:color/1`](`color4usv/1`) has two major variants:
+[`gl:color3/1`](`color4usv/1`) and [`gl:color4/1`](`color4usv/1`).
+[`gl:color3/1`](`color4usv/1`) variants specify new red, green, and blue values
+explicitly and set the current alpha value to 1.0 (full intensity) implicitly.
+[`gl:color4/1`](`color4usv/1`) variants specify all four color components
+explicitly.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glColor.xml)
+""".
 -spec color3uiv({Red::i(), Green::i(), Blue::i()}) -> 'ok'.
 color3uiv({Red,Green,Blue}) ->  color3ui(Red,Green,Blue).
--doc(#{equiv => color4usv/1}).
+-doc """
+The GL stores both a current single-valued color index and a current four-valued
+RGBA color. [`gl:color/1`](`color4usv/1`) sets a new four-valued RGBA color.
+[`gl:color/1`](`color4usv/1`) has two major variants:
+[`gl:color3/1`](`color4usv/1`) and [`gl:color4/1`](`color4usv/1`).
+[`gl:color3/1`](`color4usv/1`) variants specify new red, green, and blue values
+explicitly and set the current alpha value to 1.0 (full intensity) implicitly.
+[`gl:color4/1`](`color4usv/1`) variants specify all four color components
+explicitly.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glColor.xml)
+""".
 -spec color3usv({Red::i(), Green::i(), Blue::i()}) -> 'ok'.
 color3usv({Red,Green,Blue}) ->  color3us(Red,Green,Blue).
--doc(#{equiv => color4usv/1}).
+-doc """
+The GL stores both a current single-valued color index and a current four-valued
+RGBA color. [`gl:color/1`](`color4usv/1`) sets a new four-valued RGBA color.
+[`gl:color/1`](`color4usv/1`) has two major variants:
+[`gl:color3/1`](`color4usv/1`) and [`gl:color4/1`](`color4usv/1`).
+[`gl:color3/1`](`color4usv/1`) variants specify new red, green, and blue values
+explicitly and set the current alpha value to 1.0 (full intensity) implicitly.
+[`gl:color4/1`](`color4usv/1`) variants specify all four color components
+explicitly.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glColor.xml)
+""".
 -spec color4bv({Red::i(), Green::i(), Blue::i(), Alpha::i()}) -> 'ok'.
 color4bv({Red,Green,Blue,Alpha}) ->  color4b(Red,Green,Blue,Alpha).
--doc(#{equiv => color4usv/1}).
+-doc """
+The GL stores both a current single-valued color index and a current four-valued
+RGBA color. [`gl:color/1`](`color4usv/1`) sets a new four-valued RGBA color.
+[`gl:color/1`](`color4usv/1`) has two major variants:
+[`gl:color3/1`](`color4usv/1`) and [`gl:color4/1`](`color4usv/1`).
+[`gl:color3/1`](`color4usv/1`) variants specify new red, green, and blue values
+explicitly and set the current alpha value to 1.0 (full intensity) implicitly.
+[`gl:color4/1`](`color4usv/1`) variants specify all four color components
+explicitly.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glColor.xml)
+""".
 -spec color4dv({Red::f(), Green::f(), Blue::f(), Alpha::f()}) -> 'ok'.
 color4dv({Red,Green,Blue,Alpha}) ->  color4d(Red,Green,Blue,Alpha).
--doc(#{equiv => color4usv/1}).
+-doc """
+The GL stores both a current single-valued color index and a current four-valued
+RGBA color. [`gl:color/1`](`color4usv/1`) sets a new four-valued RGBA color.
+[`gl:color/1`](`color4usv/1`) has two major variants:
+[`gl:color3/1`](`color4usv/1`) and [`gl:color4/1`](`color4usv/1`).
+[`gl:color3/1`](`color4usv/1`) variants specify new red, green, and blue values
+explicitly and set the current alpha value to 1.0 (full intensity) implicitly.
+[`gl:color4/1`](`color4usv/1`) variants specify all four color components
+explicitly.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glColor.xml)
+""".
 -spec color4fv({Red::f(), Green::f(), Blue::f(), Alpha::f()}) -> 'ok'.
 color4fv({Red,Green,Blue,Alpha}) ->  color4f(Red,Green,Blue,Alpha).
--doc(#{equiv => color4usv/1}).
+-doc """
+The GL stores both a current single-valued color index and a current four-valued
+RGBA color. [`gl:color/1`](`color4usv/1`) sets a new four-valued RGBA color.
+[`gl:color/1`](`color4usv/1`) has two major variants:
+[`gl:color3/1`](`color4usv/1`) and [`gl:color4/1`](`color4usv/1`).
+[`gl:color3/1`](`color4usv/1`) variants specify new red, green, and blue values
+explicitly and set the current alpha value to 1.0 (full intensity) implicitly.
+[`gl:color4/1`](`color4usv/1`) variants specify all four color components
+explicitly.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glColor.xml)
+""".
 -spec color4iv({Red::i(), Green::i(), Blue::i(), Alpha::i()}) -> 'ok'.
 color4iv({Red,Green,Blue,Alpha}) ->  color4i(Red,Green,Blue,Alpha).
--doc(#{equiv => color4usv/1}).
+-doc """
+The GL stores both a current single-valued color index and a current four-valued
+RGBA color. [`gl:color/1`](`color4usv/1`) sets a new four-valued RGBA color.
+[`gl:color/1`](`color4usv/1`) has two major variants:
+[`gl:color3/1`](`color4usv/1`) and [`gl:color4/1`](`color4usv/1`).
+[`gl:color3/1`](`color4usv/1`) variants specify new red, green, and blue values
+explicitly and set the current alpha value to 1.0 (full intensity) implicitly.
+[`gl:color4/1`](`color4usv/1`) variants specify all four color components
+explicitly.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glColor.xml)
+""".
 -spec color4sv({Red::i(), Green::i(), Blue::i(), Alpha::i()}) -> 'ok'.
 color4sv({Red,Green,Blue,Alpha}) ->  color4s(Red,Green,Blue,Alpha).
--doc(#{equiv => color4usv/1}).
+-doc """
+The GL stores both a current single-valued color index and a current four-valued
+RGBA color. [`gl:color/1`](`color4usv/1`) sets a new four-valued RGBA color.
+[`gl:color/1`](`color4usv/1`) has two major variants:
+[`gl:color3/1`](`color4usv/1`) and [`gl:color4/1`](`color4usv/1`).
+[`gl:color3/1`](`color4usv/1`) variants specify new red, green, and blue values
+explicitly and set the current alpha value to 1.0 (full intensity) implicitly.
+[`gl:color4/1`](`color4usv/1`) variants specify all four color components
+explicitly.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glColor.xml)
+""".
 -spec color4ubv({Red::i(), Green::i(), Blue::i(), Alpha::i()}) -> 'ok'.
 color4ubv({Red,Green,Blue,Alpha}) ->  color4ub(Red,Green,Blue,Alpha).
--doc(#{equiv => color4usv/1}).
+-doc """
+The GL stores both a current single-valued color index and a current four-valued
+RGBA color. [`gl:color/1`](`color4usv/1`) sets a new four-valued RGBA color.
+[`gl:color/1`](`color4usv/1`) has two major variants:
+[`gl:color3/1`](`color4usv/1`) and [`gl:color4/1`](`color4usv/1`).
+[`gl:color3/1`](`color4usv/1`) variants specify new red, green, and blue values
+explicitly and set the current alpha value to 1.0 (full intensity) implicitly.
+[`gl:color4/1`](`color4usv/1`) variants specify all four color components
+explicitly.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glColor.xml)
+""".
 -spec color4uiv({Red::i(), Green::i(), Blue::i(), Alpha::i()}) -> 'ok'.
 color4uiv({Red,Green,Blue,Alpha}) ->  color4ui(Red,Green,Blue,Alpha).
 -doc """
 The GL stores both a current single-valued color index and a current four-valued
-RGBA color. [`gl:color()`](`color3b/3`) sets a new four-valued RGBA color.
-[`gl:color()`](`color3b/3`) has two major variants: [`gl:color3()`](`color3b/3`)
-and [`gl:color4()`](`color3b/3`). [`gl:color3()`](`color3b/3`) variants specify
-new red, green, and blue values explicitly and set the current alpha value to
-1.0 (full intensity) implicitly. [`gl:color4()`](`color3b/3`) variants specify
-all four color components explicitly.
+RGBA color. [`gl:color/1`](`color4usv/1`) sets a new four-valued RGBA color.
+[`gl:color/1`](`color4usv/1`) has two major variants:
+[`gl:color3/1`](`color4usv/1`) and [`gl:color4/1`](`color4usv/1`).
+[`gl:color3/1`](`color4usv/1`) variants specify new red, green, and blue values
+explicitly and set the current alpha value to 1.0 (full intensity) implicitly.
+[`gl:color4/1`](`color4usv/1`) variants specify all four color components
+explicitly.
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glColor.xml)
 """.
@@ -1829,57 +2188,192 @@ texCoord4s(S,T,R,Q) when is_integer(S),is_integer(T),is_integer(R),is_integer(Q)
   IF:queue_cmd(S,T,R,Q,5165),
   ok.
 
--doc(#{equiv => texCoord4sv/1}).
+-doc """
+[`gl:texCoord/1`](`texCoord4sv/1`) specifies texture coordinates in one, two,
+three, or four dimensions. [`gl:texCoord1/1`](`texCoord4sv/1`) sets the current
+texture coordinates to (s 0 0 1); a call to [`gl:texCoord2/1`](`texCoord4sv/1`)
+sets them to (s t 0 1). Similarly, [`gl:texCoord3/1`](`texCoord4sv/1`) specifies
+the texture coordinates as (s t r 1), and [`gl:texCoord4/1`](`texCoord4sv/1`)
+defines all four components explicitly as (s t r q).
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glTexCoord.xml)
+""".
 -spec texCoord1dv({S::f()}) -> 'ok'.
 texCoord1dv({S}) ->  texCoord1d(S).
--doc(#{equiv => texCoord4sv/1}).
+-doc """
+[`gl:texCoord/1`](`texCoord4sv/1`) specifies texture coordinates in one, two,
+three, or four dimensions. [`gl:texCoord1/1`](`texCoord4sv/1`) sets the current
+texture coordinates to (s 0 0 1); a call to [`gl:texCoord2/1`](`texCoord4sv/1`)
+sets them to (s t 0 1). Similarly, [`gl:texCoord3/1`](`texCoord4sv/1`) specifies
+the texture coordinates as (s t r 1), and [`gl:texCoord4/1`](`texCoord4sv/1`)
+defines all four components explicitly as (s t r q).
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glTexCoord.xml)
+""".
 -spec texCoord1fv({S::f()}) -> 'ok'.
 texCoord1fv({S}) ->  texCoord1f(S).
--doc(#{equiv => texCoord4sv/1}).
+-doc """
+[`gl:texCoord/1`](`texCoord4sv/1`) specifies texture coordinates in one, two,
+three, or four dimensions. [`gl:texCoord1/1`](`texCoord4sv/1`) sets the current
+texture coordinates to (s 0 0 1); a call to [`gl:texCoord2/1`](`texCoord4sv/1`)
+sets them to (s t 0 1). Similarly, [`gl:texCoord3/1`](`texCoord4sv/1`) specifies
+the texture coordinates as (s t r 1), and [`gl:texCoord4/1`](`texCoord4sv/1`)
+defines all four components explicitly as (s t r q).
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glTexCoord.xml)
+""".
 -spec texCoord1iv({S::i()}) -> 'ok'.
 texCoord1iv({S}) ->  texCoord1i(S).
--doc(#{equiv => texCoord4sv/1}).
+-doc """
+[`gl:texCoord/1`](`texCoord4sv/1`) specifies texture coordinates in one, two,
+three, or four dimensions. [`gl:texCoord1/1`](`texCoord4sv/1`) sets the current
+texture coordinates to (s 0 0 1); a call to [`gl:texCoord2/1`](`texCoord4sv/1`)
+sets them to (s t 0 1). Similarly, [`gl:texCoord3/1`](`texCoord4sv/1`) specifies
+the texture coordinates as (s t r 1), and [`gl:texCoord4/1`](`texCoord4sv/1`)
+defines all four components explicitly as (s t r q).
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glTexCoord.xml)
+""".
 -spec texCoord1sv({S::i()}) -> 'ok'.
 texCoord1sv({S}) ->  texCoord1s(S).
--doc(#{equiv => texCoord4sv/1}).
+-doc """
+[`gl:texCoord/1`](`texCoord4sv/1`) specifies texture coordinates in one, two,
+three, or four dimensions. [`gl:texCoord1/1`](`texCoord4sv/1`) sets the current
+texture coordinates to (s 0 0 1); a call to [`gl:texCoord2/1`](`texCoord4sv/1`)
+sets them to (s t 0 1). Similarly, [`gl:texCoord3/1`](`texCoord4sv/1`) specifies
+the texture coordinates as (s t r 1), and [`gl:texCoord4/1`](`texCoord4sv/1`)
+defines all four components explicitly as (s t r q).
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glTexCoord.xml)
+""".
 -spec texCoord2dv({S::f(), T::f()}) -> 'ok'.
 texCoord2dv({S,T}) ->  texCoord2d(S,T).
--doc(#{equiv => texCoord4sv/1}).
+-doc """
+[`gl:texCoord/1`](`texCoord4sv/1`) specifies texture coordinates in one, two,
+three, or four dimensions. [`gl:texCoord1/1`](`texCoord4sv/1`) sets the current
+texture coordinates to (s 0 0 1); a call to [`gl:texCoord2/1`](`texCoord4sv/1`)
+sets them to (s t 0 1). Similarly, [`gl:texCoord3/1`](`texCoord4sv/1`) specifies
+the texture coordinates as (s t r 1), and [`gl:texCoord4/1`](`texCoord4sv/1`)
+defines all four components explicitly as (s t r q).
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glTexCoord.xml)
+""".
 -spec texCoord2fv({S::f(), T::f()}) -> 'ok'.
 texCoord2fv({S,T}) ->  texCoord2f(S,T).
--doc(#{equiv => texCoord4sv/1}).
+-doc """
+[`gl:texCoord/1`](`texCoord4sv/1`) specifies texture coordinates in one, two,
+three, or four dimensions. [`gl:texCoord1/1`](`texCoord4sv/1`) sets the current
+texture coordinates to (s 0 0 1); a call to [`gl:texCoord2/1`](`texCoord4sv/1`)
+sets them to (s t 0 1). Similarly, [`gl:texCoord3/1`](`texCoord4sv/1`) specifies
+the texture coordinates as (s t r 1), and [`gl:texCoord4/1`](`texCoord4sv/1`)
+defines all four components explicitly as (s t r q).
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glTexCoord.xml)
+""".
 -spec texCoord2iv({S::i(), T::i()}) -> 'ok'.
 texCoord2iv({S,T}) ->  texCoord2i(S,T).
--doc(#{equiv => texCoord4sv/1}).
+-doc """
+[`gl:texCoord/1`](`texCoord4sv/1`) specifies texture coordinates in one, two,
+three, or four dimensions. [`gl:texCoord1/1`](`texCoord4sv/1`) sets the current
+texture coordinates to (s 0 0 1); a call to [`gl:texCoord2/1`](`texCoord4sv/1`)
+sets them to (s t 0 1). Similarly, [`gl:texCoord3/1`](`texCoord4sv/1`) specifies
+the texture coordinates as (s t r 1), and [`gl:texCoord4/1`](`texCoord4sv/1`)
+defines all four components explicitly as (s t r q).
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glTexCoord.xml)
+""".
 -spec texCoord2sv({S::i(), T::i()}) -> 'ok'.
 texCoord2sv({S,T}) ->  texCoord2s(S,T).
--doc(#{equiv => texCoord4sv/1}).
+-doc """
+[`gl:texCoord/1`](`texCoord4sv/1`) specifies texture coordinates in one, two,
+three, or four dimensions. [`gl:texCoord1/1`](`texCoord4sv/1`) sets the current
+texture coordinates to (s 0 0 1); a call to [`gl:texCoord2/1`](`texCoord4sv/1`)
+sets them to (s t 0 1). Similarly, [`gl:texCoord3/1`](`texCoord4sv/1`) specifies
+the texture coordinates as (s t r 1), and [`gl:texCoord4/1`](`texCoord4sv/1`)
+defines all four components explicitly as (s t r q).
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glTexCoord.xml)
+""".
 -spec texCoord3dv({S::f(), T::f(), R::f()}) -> 'ok'.
 texCoord3dv({S,T,R}) ->  texCoord3d(S,T,R).
--doc(#{equiv => texCoord4sv/1}).
+-doc """
+[`gl:texCoord/1`](`texCoord4sv/1`) specifies texture coordinates in one, two,
+three, or four dimensions. [`gl:texCoord1/1`](`texCoord4sv/1`) sets the current
+texture coordinates to (s 0 0 1); a call to [`gl:texCoord2/1`](`texCoord4sv/1`)
+sets them to (s t 0 1). Similarly, [`gl:texCoord3/1`](`texCoord4sv/1`) specifies
+the texture coordinates as (s t r 1), and [`gl:texCoord4/1`](`texCoord4sv/1`)
+defines all four components explicitly as (s t r q).
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glTexCoord.xml)
+""".
 -spec texCoord3fv({S::f(), T::f(), R::f()}) -> 'ok'.
 texCoord3fv({S,T,R}) ->  texCoord3f(S,T,R).
--doc(#{equiv => texCoord4sv/1}).
+-doc """
+[`gl:texCoord/1`](`texCoord4sv/1`) specifies texture coordinates in one, two,
+three, or four dimensions. [`gl:texCoord1/1`](`texCoord4sv/1`) sets the current
+texture coordinates to (s 0 0 1); a call to [`gl:texCoord2/1`](`texCoord4sv/1`)
+sets them to (s t 0 1). Similarly, [`gl:texCoord3/1`](`texCoord4sv/1`) specifies
+the texture coordinates as (s t r 1), and [`gl:texCoord4/1`](`texCoord4sv/1`)
+defines all four components explicitly as (s t r q).
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glTexCoord.xml)
+""".
 -spec texCoord3iv({S::i(), T::i(), R::i()}) -> 'ok'.
 texCoord3iv({S,T,R}) ->  texCoord3i(S,T,R).
--doc(#{equiv => texCoord4sv/1}).
+-doc """
+[`gl:texCoord/1`](`texCoord4sv/1`) specifies texture coordinates in one, two,
+three, or four dimensions. [`gl:texCoord1/1`](`texCoord4sv/1`) sets the current
+texture coordinates to (s 0 0 1); a call to [`gl:texCoord2/1`](`texCoord4sv/1`)
+sets them to (s t 0 1). Similarly, [`gl:texCoord3/1`](`texCoord4sv/1`) specifies
+the texture coordinates as (s t r 1), and [`gl:texCoord4/1`](`texCoord4sv/1`)
+defines all four components explicitly as (s t r q).
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glTexCoord.xml)
+""".
 -spec texCoord3sv({S::i(), T::i(), R::i()}) -> 'ok'.
 texCoord3sv({S,T,R}) ->  texCoord3s(S,T,R).
--doc(#{equiv => texCoord4sv/1}).
+-doc """
+[`gl:texCoord/1`](`texCoord4sv/1`) specifies texture coordinates in one, two,
+three, or four dimensions. [`gl:texCoord1/1`](`texCoord4sv/1`) sets the current
+texture coordinates to (s 0 0 1); a call to [`gl:texCoord2/1`](`texCoord4sv/1`)
+sets them to (s t 0 1). Similarly, [`gl:texCoord3/1`](`texCoord4sv/1`) specifies
+the texture coordinates as (s t r 1), and [`gl:texCoord4/1`](`texCoord4sv/1`)
+defines all four components explicitly as (s t r q).
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glTexCoord.xml)
+""".
 -spec texCoord4dv({S::f(), T::f(), R::f(), Q::f()}) -> 'ok'.
 texCoord4dv({S,T,R,Q}) ->  texCoord4d(S,T,R,Q).
--doc(#{equiv => texCoord4sv/1}).
+-doc """
+[`gl:texCoord/1`](`texCoord4sv/1`) specifies texture coordinates in one, two,
+three, or four dimensions. [`gl:texCoord1/1`](`texCoord4sv/1`) sets the current
+texture coordinates to (s 0 0 1); a call to [`gl:texCoord2/1`](`texCoord4sv/1`)
+sets them to (s t 0 1). Similarly, [`gl:texCoord3/1`](`texCoord4sv/1`) specifies
+the texture coordinates as (s t r 1), and [`gl:texCoord4/1`](`texCoord4sv/1`)
+defines all four components explicitly as (s t r q).
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glTexCoord.xml)
+""".
 -spec texCoord4fv({S::f(), T::f(), R::f(), Q::f()}) -> 'ok'.
 texCoord4fv({S,T,R,Q}) ->  texCoord4f(S,T,R,Q).
--doc(#{equiv => texCoord4sv/1}).
+-doc """
+[`gl:texCoord/1`](`texCoord4sv/1`) specifies texture coordinates in one, two,
+three, or four dimensions. [`gl:texCoord1/1`](`texCoord4sv/1`) sets the current
+texture coordinates to (s 0 0 1); a call to [`gl:texCoord2/1`](`texCoord4sv/1`)
+sets them to (s t 0 1). Similarly, [`gl:texCoord3/1`](`texCoord4sv/1`) specifies
+the texture coordinates as (s t r 1), and [`gl:texCoord4/1`](`texCoord4sv/1`)
+defines all four components explicitly as (s t r q).
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glTexCoord.xml)
+""".
 -spec texCoord4iv({S::i(), T::i(), R::i(), Q::i()}) -> 'ok'.
 texCoord4iv({S,T,R,Q}) ->  texCoord4i(S,T,R,Q).
 -doc """
-[`gl:texCoord()`](`texCoord1d/1`) specifies texture coordinates in one, two,
-three, or four dimensions. [`gl:texCoord1()`](`texCoord1d/1`) sets the current
-texture coordinates to (s 0 0 1); a call to [`gl:texCoord2()`](`texCoord1d/1`)
-sets them to (s t 0 1). Similarly, [`gl:texCoord3()`](`texCoord1d/1`) specifies
-the texture coordinates as (s t r 1), and [`gl:texCoord4()`](`texCoord1d/1`)
+[`gl:texCoord/1`](`texCoord4sv/1`) specifies texture coordinates in one, two,
+three, or four dimensions. [`gl:texCoord1/1`](`texCoord4sv/1`) sets the current
+texture coordinates to (s 0 0 1); a call to [`gl:texCoord2/1`](`texCoord4sv/1`)
+sets them to (s t 0 1). Similarly, [`gl:texCoord3/1`](`texCoord4sv/1`) specifies
+the texture coordinates as (s t r 1), and [`gl:texCoord4/1`](`texCoord4sv/1`)
 defines all four components explicitly as (s t r q).
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glTexCoord.xml)
@@ -1970,37 +2464,114 @@ rasterPos4s(X,Y,Z,W) when is_integer(X),is_integer(Y),is_integer(Z),is_integer(W
   IF:queue_cmd(X,Y,Z,W,5177),
   ok.
 
--doc(#{equiv => rasterPos4sv/1}).
+-doc """
+The GL maintains a 3D position in window coordinates. This position, called the
+raster position, is used to position pixel and bitmap write operations. It is
+maintained with subpixel accuracy. See [`gl:bitmap/7`](`bitmap/7`),
+[`gl:drawPixels/5`](`drawPixels/5`), and [`gl:copyPixels/5`](`copyPixels/5`).
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glRasterPos.xml)
+""".
 -spec rasterPos2dv({X::f(), Y::f()}) -> 'ok'.
 rasterPos2dv({X,Y}) ->  rasterPos2d(X,Y).
--doc(#{equiv => rasterPos4sv/1}).
+-doc """
+The GL maintains a 3D position in window coordinates. This position, called the
+raster position, is used to position pixel and bitmap write operations. It is
+maintained with subpixel accuracy. See [`gl:bitmap/7`](`bitmap/7`),
+[`gl:drawPixels/5`](`drawPixels/5`), and [`gl:copyPixels/5`](`copyPixels/5`).
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glRasterPos.xml)
+""".
 -spec rasterPos2fv({X::f(), Y::f()}) -> 'ok'.
 rasterPos2fv({X,Y}) ->  rasterPos2f(X,Y).
--doc(#{equiv => rasterPos4sv/1}).
+-doc """
+The GL maintains a 3D position in window coordinates. This position, called the
+raster position, is used to position pixel and bitmap write operations. It is
+maintained with subpixel accuracy. See [`gl:bitmap/7`](`bitmap/7`),
+[`gl:drawPixels/5`](`drawPixels/5`), and [`gl:copyPixels/5`](`copyPixels/5`).
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glRasterPos.xml)
+""".
 -spec rasterPos2iv({X::i(), Y::i()}) -> 'ok'.
 rasterPos2iv({X,Y}) ->  rasterPos2i(X,Y).
--doc(#{equiv => rasterPos4sv/1}).
+-doc """
+The GL maintains a 3D position in window coordinates. This position, called the
+raster position, is used to position pixel and bitmap write operations. It is
+maintained with subpixel accuracy. See [`gl:bitmap/7`](`bitmap/7`),
+[`gl:drawPixels/5`](`drawPixels/5`), and [`gl:copyPixels/5`](`copyPixels/5`).
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glRasterPos.xml)
+""".
 -spec rasterPos2sv({X::i(), Y::i()}) -> 'ok'.
 rasterPos2sv({X,Y}) ->  rasterPos2s(X,Y).
--doc(#{equiv => rasterPos4sv/1}).
+-doc """
+The GL maintains a 3D position in window coordinates. This position, called the
+raster position, is used to position pixel and bitmap write operations. It is
+maintained with subpixel accuracy. See [`gl:bitmap/7`](`bitmap/7`),
+[`gl:drawPixels/5`](`drawPixels/5`), and [`gl:copyPixels/5`](`copyPixels/5`).
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glRasterPos.xml)
+""".
 -spec rasterPos3dv({X::f(), Y::f(), Z::f()}) -> 'ok'.
 rasterPos3dv({X,Y,Z}) ->  rasterPos3d(X,Y,Z).
--doc(#{equiv => rasterPos4sv/1}).
+-doc """
+The GL maintains a 3D position in window coordinates. This position, called the
+raster position, is used to position pixel and bitmap write operations. It is
+maintained with subpixel accuracy. See [`gl:bitmap/7`](`bitmap/7`),
+[`gl:drawPixels/5`](`drawPixels/5`), and [`gl:copyPixels/5`](`copyPixels/5`).
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glRasterPos.xml)
+""".
 -spec rasterPos3fv({X::f(), Y::f(), Z::f()}) -> 'ok'.
 rasterPos3fv({X,Y,Z}) ->  rasterPos3f(X,Y,Z).
--doc(#{equiv => rasterPos4sv/1}).
+-doc """
+The GL maintains a 3D position in window coordinates. This position, called the
+raster position, is used to position pixel and bitmap write operations. It is
+maintained with subpixel accuracy. See [`gl:bitmap/7`](`bitmap/7`),
+[`gl:drawPixels/5`](`drawPixels/5`), and [`gl:copyPixels/5`](`copyPixels/5`).
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glRasterPos.xml)
+""".
 -spec rasterPos3iv({X::i(), Y::i(), Z::i()}) -> 'ok'.
 rasterPos3iv({X,Y,Z}) ->  rasterPos3i(X,Y,Z).
--doc(#{equiv => rasterPos4sv/1}).
+-doc """
+The GL maintains a 3D position in window coordinates. This position, called the
+raster position, is used to position pixel and bitmap write operations. It is
+maintained with subpixel accuracy. See [`gl:bitmap/7`](`bitmap/7`),
+[`gl:drawPixels/5`](`drawPixels/5`), and [`gl:copyPixels/5`](`copyPixels/5`).
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glRasterPos.xml)
+""".
 -spec rasterPos3sv({X::i(), Y::i(), Z::i()}) -> 'ok'.
 rasterPos3sv({X,Y,Z}) ->  rasterPos3s(X,Y,Z).
--doc(#{equiv => rasterPos4sv/1}).
+-doc """
+The GL maintains a 3D position in window coordinates. This position, called the
+raster position, is used to position pixel and bitmap write operations. It is
+maintained with subpixel accuracy. See [`gl:bitmap/7`](`bitmap/7`),
+[`gl:drawPixels/5`](`drawPixels/5`), and [`gl:copyPixels/5`](`copyPixels/5`).
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glRasterPos.xml)
+""".
 -spec rasterPos4dv({X::f(), Y::f(), Z::f(), W::f()}) -> 'ok'.
 rasterPos4dv({X,Y,Z,W}) ->  rasterPos4d(X,Y,Z,W).
--doc(#{equiv => rasterPos4sv/1}).
+-doc """
+The GL maintains a 3D position in window coordinates. This position, called the
+raster position, is used to position pixel and bitmap write operations. It is
+maintained with subpixel accuracy. See [`gl:bitmap/7`](`bitmap/7`),
+[`gl:drawPixels/5`](`drawPixels/5`), and [`gl:copyPixels/5`](`copyPixels/5`).
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glRasterPos.xml)
+""".
 -spec rasterPos4fv({X::f(), Y::f(), Z::f(), W::f()}) -> 'ok'.
 rasterPos4fv({X,Y,Z,W}) ->  rasterPos4f(X,Y,Z,W).
--doc(#{equiv => rasterPos4sv/1}).
+-doc """
+The GL maintains a 3D position in window coordinates. This position, called the
+raster position, is used to position pixel and bitmap write operations. It is
+maintained with subpixel accuracy. See [`gl:bitmap/7`](`bitmap/7`),
+[`gl:drawPixels/5`](`drawPixels/5`), and [`gl:copyPixels/5`](`copyPixels/5`).
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glRasterPos.xml)
+""".
 -spec rasterPos4iv({X::i(), Y::i(), Z::i(), W::i()}) -> 'ok'.
 rasterPos4iv({X,Y,Z,W}) ->  rasterPos4i(X,Y,Z,W).
 -doc """
@@ -2013,63 +2584,63 @@ maintained with subpixel accuracy. See [`gl:bitmap/7`](`bitmap/7`),
 """.
 -spec rasterPos4sv({X::i(), Y::i(), Z::i(), W::i()}) -> 'ok'.
 rasterPos4sv({X,Y,Z,W}) ->  rasterPos4s(X,Y,Z,W).
--doc(#{equiv => rectsv/2}).
--spec rectd(X1::f(), Y1::f(), X2::f(), Y2::f()) -> 'ok'.
-rectd(X1,Y1,X2,Y2) when is_float(X1),is_float(Y1),is_float(X2),is_float(Y2) ->
-  IF = get_interface(),
-  IF:queue_cmd(X1,Y1,X2,Y2,5178),
-  ok.
-
--doc(#{equiv => rectsv/2}).
--spec rectf(X1::f(), Y1::f(), X2::f(), Y2::f()) -> 'ok'.
-rectf(X1,Y1,X2,Y2) when is_float(X1),is_float(Y1),is_float(X2),is_float(Y2) ->
-  IF = get_interface(),
-  IF:queue_cmd(X1,Y1,X2,Y2,5179),
-  ok.
-
--doc(#{equiv => rectsv/2}).
--spec recti(X1::i(), Y1::i(), X2::i(), Y2::i()) -> 'ok'.
-recti(X1,Y1,X2,Y2) when is_integer(X1),is_integer(Y1),is_integer(X2),is_integer(Y2) ->
-  IF = get_interface(),
-  IF:queue_cmd(X1,Y1,X2,Y2,5180),
-  ok.
-
--doc(#{equiv => rectsv/2}).
--spec rects(X1::i(), Y1::i(), X2::i(), Y2::i()) -> 'ok'.
-rects(X1,Y1,X2,Y2) when is_integer(X1),is_integer(Y1),is_integer(X2),is_integer(Y2) ->
-  IF = get_interface(),
-  IF:queue_cmd(X1,Y1,X2,Y2,5181),
-  ok.
-
--doc(#{equiv => rectsv/2}).
--spec rectdv(V1::{f(),f()}, V2::{f(),f()}) -> 'ok'.
-rectdv(V1,V2) when tuple_size(V1) =:= 2,tuple_size(V2) =:= 2 ->
-  IF = get_interface(),
-  IF:queue_cmd(V1,V2,5182),
-  ok.
-
--doc(#{equiv => rectsv/2}).
--spec rectfv(V1::{f(),f()}, V2::{f(),f()}) -> 'ok'.
-rectfv(V1,V2) when tuple_size(V1) =:= 2,tuple_size(V2) =:= 2 ->
-  IF = get_interface(),
-  IF:queue_cmd(V1,V2,5183),
-  ok.
-
--doc(#{equiv => rectsv/2}).
--spec rectiv(V1::{i(),i()}, V2::{i(),i()}) -> 'ok'.
-rectiv(V1,V2) when tuple_size(V1) =:= 2,tuple_size(V2) =:= 2 ->
-  IF = get_interface(),
-  IF:queue_cmd(V1,V2,5184),
-  ok.
-
 -doc """
-[`gl:rect()`](`rectd/4`) supports efficient specification of rectangles as two
+[`gl:rect/4`](`rectd/4`) supports efficient specification of rectangles as two
 corner points. Each rectangle command takes four arguments, organized either as
 two consecutive pairs of (x y) coordinates or as two pointers to arrays, each
 containing an (x y) pair. The resulting rectangle is defined in the z=0 plane.
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glRect.xml)
 """.
+-spec rectd(X1::f(), Y1::f(), X2::f(), Y2::f()) -> 'ok'.
+rectd(X1,Y1,X2,Y2) when is_float(X1),is_float(Y1),is_float(X2),is_float(Y2) ->
+  IF = get_interface(),
+  IF:queue_cmd(X1,Y1,X2,Y2,5178),
+  ok.
+
+-doc(#{equiv => rectd/4}).
+-spec rectf(X1::f(), Y1::f(), X2::f(), Y2::f()) -> 'ok'.
+rectf(X1,Y1,X2,Y2) when is_float(X1),is_float(Y1),is_float(X2),is_float(Y2) ->
+  IF = get_interface(),
+  IF:queue_cmd(X1,Y1,X2,Y2,5179),
+  ok.
+
+-doc(#{equiv => rectd/4}).
+-spec recti(X1::i(), Y1::i(), X2::i(), Y2::i()) -> 'ok'.
+recti(X1,Y1,X2,Y2) when is_integer(X1),is_integer(Y1),is_integer(X2),is_integer(Y2) ->
+  IF = get_interface(),
+  IF:queue_cmd(X1,Y1,X2,Y2,5180),
+  ok.
+
+-doc(#{equiv => rectd/4}).
+-spec rects(X1::i(), Y1::i(), X2::i(), Y2::i()) -> 'ok'.
+rects(X1,Y1,X2,Y2) when is_integer(X1),is_integer(Y1),is_integer(X2),is_integer(Y2) ->
+  IF = get_interface(),
+  IF:queue_cmd(X1,Y1,X2,Y2,5181),
+  ok.
+
+-doc(#{equiv => rectd/4}).
+-spec rectdv(V1::{f(),f()}, V2::{f(),f()}) -> 'ok'.
+rectdv(V1,V2) when tuple_size(V1) =:= 2,tuple_size(V2) =:= 2 ->
+  IF = get_interface(),
+  IF:queue_cmd(V1,V2,5182),
+  ok.
+
+-doc(#{equiv => rectd/4}).
+-spec rectfv(V1::{f(),f()}, V2::{f(),f()}) -> 'ok'.
+rectfv(V1,V2) when tuple_size(V1) =:= 2,tuple_size(V2) =:= 2 ->
+  IF = get_interface(),
+  IF:queue_cmd(V1,V2,5183),
+  ok.
+
+-doc(#{equiv => rectd/4}).
+-spec rectiv(V1::{i(),i()}, V2::{i(),i()}) -> 'ok'.
+rectiv(V1,V2) when tuple_size(V1) =:= 2,tuple_size(V2) =:= 2 ->
+  IF = get_interface(),
+  IF:queue_cmd(V1,V2,5184),
+  ok.
+
+-doc(#{equiv => rectd/4}).
 -spec rectsv(V1::{i(),i()}, V2::{i(),i()}) -> 'ok'.
 rectsv(V1,V2) when tuple_size(V1) =:= 2,tuple_size(V2) =:= 2 ->
   IF = get_interface(),
@@ -2175,8 +2746,8 @@ edgeFlagPointer(Stride,Ptr) when is_integer(Stride),is_integer(Ptr) orelse is_tu
 
 -doc """
 [`gl:arrayElement/1`](`arrayElement/1`) commands are used within
-[`gl:'begin'/1`](`'begin'/1`)/[`gl:'end'/0`](`'begin'/1`) pairs to specify
-vertex and attribute data for point, line, and polygon primitives. If
+[`gl:'begin'/1`](`'begin'/1`)/[`gl:'end'/0`](`'end'/0`) pairs to specify vertex
+and attribute data for point, line, and polygon primitives. If
 `?GL_VERTEX_ARRAY` is enabled when [`gl:arrayElement/1`](`arrayElement/1`) is
 called, a single vertex is drawn, using vertex and attribute data taken from
 location `I` of the enabled arrays. If `?GL_VERTEX_ARRAY` is not enabled, no
@@ -2255,152 +2826,152 @@ shadeModel(Mode) when is_integer(Mode) ->
   IF:queue_cmd(Mode,5204),
   ok.
 
--doc(#{equiv => lightiv/3}).
--spec lightf(Light::enum(), Pname::enum(), Param::f()) -> 'ok'.
-lightf(Light,Pname,Param) when is_integer(Light),is_integer(Pname),is_float(Param) ->
-  IF = get_interface(),
-  IF:queue_cmd(Light,Pname,Param,5205),
-  ok.
-
--doc(#{equiv => lightiv/3}).
--spec lighti(Light::enum(), Pname::enum(), Param::i()) -> 'ok'.
-lighti(Light,Pname,Param) when is_integer(Light),is_integer(Pname),is_integer(Param) ->
-  IF = get_interface(),
-  IF:queue_cmd(Light,Pname,Param,5206),
-  ok.
-
--doc(#{equiv => lightiv/3}).
--spec lightfv(Light::enum(), Pname::enum(), Params::tuple()) -> 'ok'.
-lightfv(Light,Pname,Params) when is_integer(Light),is_integer(Pname),is_tuple(Params) ->
-  IF = get_interface(),
-  IF:queue_cmd(Light,Pname,Params,5207),
-  ok.
-
 -doc """
-[`gl:light()`](`lightf/3`) sets the values of individual light source
+[`gl:light/3`](`lightf/3`) sets the values of individual light source
 parameters. `Light` names the light and is a symbolic name of the form
-`?GL_LIGHT` i, where i ranges from 0 to the value of `?GL_MAX_LIGHTS` \- 1.
+`?GL_LIGHT` i, where i ranges from 0 to the value of `?GL_MAX_LIGHTS` - 1.
 `Pname` specifies one of ten light source parameters, again by symbolic name.
 `Params` is either a single value or a pointer to an array that contains the new
 values.
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glLight.xml)
 """.
+-spec lightf(Light::enum(), Pname::enum(), Param::f()) -> 'ok'.
+lightf(Light,Pname,Param) when is_integer(Light),is_integer(Pname),is_float(Param) ->
+  IF = get_interface(),
+  IF:queue_cmd(Light,Pname,Param,5205),
+  ok.
+
+-doc(#{equiv => lightf/3}).
+-spec lighti(Light::enum(), Pname::enum(), Param::i()) -> 'ok'.
+lighti(Light,Pname,Param) when is_integer(Light),is_integer(Pname),is_integer(Param) ->
+  IF = get_interface(),
+  IF:queue_cmd(Light,Pname,Param,5206),
+  ok.
+
+-doc(#{equiv => lightf/3}).
+-spec lightfv(Light::enum(), Pname::enum(), Params::tuple()) -> 'ok'.
+lightfv(Light,Pname,Params) when is_integer(Light),is_integer(Pname),is_tuple(Params) ->
+  IF = get_interface(),
+  IF:queue_cmd(Light,Pname,Params,5207),
+  ok.
+
+-doc(#{equiv => lightf/3}).
 -spec lightiv(Light::enum(), Pname::enum(), Params::tuple()) -> 'ok'.
 lightiv(Light,Pname,Params) when is_integer(Light),is_integer(Pname),is_tuple(Params) ->
   IF = get_interface(),
   IF:queue_cmd(Light,Pname,Params,5208),
   ok.
 
--doc(#{equiv => getLightiv/2}).
--spec getLightfv(Light::enum(), Pname::enum()) -> {f(),f(),f(),f()}.
-getLightfv(Light,Pname) when is_integer(Light),is_integer(Pname) ->
-  IF = get_interface(),
-  IF:queue_cmd(Light,Pname,5209),
-  rec(5209).
-
 -doc """
-[`gl:getLight()`](`getLightfv/2`) returns in `Params` the value or values of a
+[`gl:getLight/2`](`getLightfv/2`) returns in `Params` the value or values of a
 light source parameter. `Light` names the light and is a symbolic name of the
-form `?GL_LIGHT` i where i ranges from 0 to the value of `?GL_MAX_LIGHTS` \- 1.
+form `?GL_LIGHT` i where i ranges from 0 to the value of `?GL_MAX_LIGHTS` - 1.
 `?GL_MAX_LIGHTS` is an implementation dependent constant that is greater than or
 equal to eight. `Pname` specifies one of ten light source parameters, again by
 symbolic name.
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glGetLight.xml)
 """.
+-spec getLightfv(Light::enum(), Pname::enum()) -> {f(),f(),f(),f()}.
+getLightfv(Light,Pname) when is_integer(Light),is_integer(Pname) ->
+  IF = get_interface(),
+  IF:queue_cmd(Light,Pname,5209),
+  rec(5209).
+
+-doc(#{equiv => getLightfv/2}).
 -spec getLightiv(Light::enum(), Pname::enum()) -> {i(),i(),i(),i()}.
 getLightiv(Light,Pname) when is_integer(Light),is_integer(Pname) ->
   IF = get_interface(),
   IF:queue_cmd(Light,Pname,5210),
   rec(5210).
 
--doc(#{equiv => lightModeliv/2}).
+-doc """
+[`gl:lightModel/2`](`lightModelf/2`) sets the lighting model parameter. `Pname`
+names a parameter and `Params` gives the new value. There are three lighting
+model parameters:
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glLightModel.xml)
+""".
 -spec lightModelf(Pname::enum(), Param::f()) -> 'ok'.
 lightModelf(Pname,Param) when is_integer(Pname),is_float(Param) ->
   IF = get_interface(),
   IF:queue_cmd(Pname,Param,5211),
   ok.
 
--doc(#{equiv => lightModeliv/2}).
+-doc(#{equiv => lightModelf/2}).
 -spec lightModeli(Pname::enum(), Param::i()) -> 'ok'.
 lightModeli(Pname,Param) when is_integer(Pname),is_integer(Param) ->
   IF = get_interface(),
   IF:queue_cmd(Pname,Param,5212),
   ok.
 
--doc(#{equiv => lightModeliv/2}).
+-doc(#{equiv => lightModelf/2}).
 -spec lightModelfv(Pname::enum(), Params::tuple()) -> 'ok'.
 lightModelfv(Pname,Params) when is_integer(Pname),is_tuple(Params) ->
   IF = get_interface(),
   IF:queue_cmd(Pname,Params,5213),
   ok.
 
--doc """
-[`gl:lightModel()`](`lightModelf/2`) sets the lighting model parameter. `Pname`
-names a parameter and `Params` gives the new value. There are three lighting
-model parameters:
-
-[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glLightModel.xml)
-""".
+-doc(#{equiv => lightModelf/2}).
 -spec lightModeliv(Pname::enum(), Params::tuple()) -> 'ok'.
 lightModeliv(Pname,Params) when is_integer(Pname),is_tuple(Params) ->
   IF = get_interface(),
   IF:queue_cmd(Pname,Params,5214),
   ok.
 
--doc(#{equiv => materialiv/3}).
+-doc """
+[`gl:material/3`](`materialf/3`) assigns values to material parameters. There
+are two matched sets of material parameters. One, the `front-facing` set, is
+used to shade points, lines, bitmaps, and all polygons (when two-sided lighting
+is disabled), or just front-facing polygons (when two-sided lighting is
+enabled). The other set, `back-facing`, is used to shade back-facing polygons
+only when two-sided lighting is enabled. Refer to the
+[`gl:lightModel/2`](`lightModelf/2`) reference page for details concerning one-
+and two-sided lighting calculations.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glMaterial.xml)
+""".
 -spec materialf(Face::enum(), Pname::enum(), Param::f()) -> 'ok'.
 materialf(Face,Pname,Param) when is_integer(Face),is_integer(Pname),is_float(Param) ->
   IF = get_interface(),
   IF:queue_cmd(Face,Pname,Param,5215),
   ok.
 
--doc(#{equiv => materialiv/3}).
+-doc(#{equiv => materialf/3}).
 -spec materiali(Face::enum(), Pname::enum(), Param::i()) -> 'ok'.
 materiali(Face,Pname,Param) when is_integer(Face),is_integer(Pname),is_integer(Param) ->
   IF = get_interface(),
   IF:queue_cmd(Face,Pname,Param,5216),
   ok.
 
--doc(#{equiv => materialiv/3}).
+-doc(#{equiv => materialf/3}).
 -spec materialfv(Face::enum(), Pname::enum(), Params::tuple()) -> 'ok'.
 materialfv(Face,Pname,Params) when is_integer(Face),is_integer(Pname),is_tuple(Params) ->
   IF = get_interface(),
   IF:queue_cmd(Face,Pname,Params,5217),
   ok.
 
--doc """
-[`gl:material()`](`materialf/3`) assigns values to material parameters. There
-are two matched sets of material parameters. One, the `front-facing` set, is
-used to shade points, lines, bitmaps, and all polygons (when two-sided lighting
-is disabled), or just front-facing polygons (when two-sided lighting is
-enabled). The other set, `back-facing`, is used to shade back-facing polygons
-only when two-sided lighting is enabled. Refer to the
-[`gl:lightModel()`](`lightModelf/2`) reference page for details concerning one-
-and two-sided lighting calculations.
-
-[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glMaterial.xml)
-""".
+-doc(#{equiv => materialf/3}).
 -spec materialiv(Face::enum(), Pname::enum(), Params::tuple()) -> 'ok'.
 materialiv(Face,Pname,Params) when is_integer(Face),is_integer(Pname),is_tuple(Params) ->
   IF = get_interface(),
   IF:queue_cmd(Face,Pname,Params,5218),
   ok.
 
--doc(#{equiv => getMaterialiv/2}).
+-doc """
+[`gl:getMaterial/2`](`getMaterialfv/2`) returns in `Params` the value or values
+of parameter `Pname` of material `Face`. Six parameters are defined:
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glGetMaterial.xml)
+""".
 -spec getMaterialfv(Face::enum(), Pname::enum()) -> {f(),f(),f(),f()}.
 getMaterialfv(Face,Pname) when is_integer(Face),is_integer(Pname) ->
   IF = get_interface(),
   IF:queue_cmd(Face,Pname,5219),
   rec(5219).
 
--doc """
-[`gl:getMaterial()`](`getMaterialfv/2`) returns in `Params` the value or values
-of parameter `Pname` of material `Face`. Six parameters are defined:
-
-[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glGetMaterial.xml)
-""".
+-doc(#{equiv => getMaterialfv/2}).
 -spec getMaterialiv(Face::enum(), Pname::enum()) -> {i(),i(),i(),i()}.
 getMaterialiv(Face,Pname) when is_integer(Face),is_integer(Pname) ->
   IF = get_interface(),
@@ -2436,15 +3007,8 @@ pixelZoom(Xfactor,Yfactor) when is_float(Xfactor),is_float(Yfactor) ->
   IF:queue_cmd(Xfactor,Yfactor,5222),
   ok.
 
--doc(#{equiv => pixelStorei/2}).
--spec pixelStoref(Pname::enum(), Param::f()) -> 'ok'.
-pixelStoref(Pname,Param) when is_integer(Pname),is_float(Param) ->
-  IF = get_interface(),
-  IF:queue_cmd(Pname,Param,5223),
-  ok.
-
 -doc """
-[`gl:pixelStore()`](`pixelStoref/2`) sets pixel storage modes that affect the
+[`gl:pixelStore/2`](`pixelStoref/2`) sets pixel storage modes that affect the
 operation of subsequent [`gl:readPixels/7`](`readPixels/7`) as well as the
 unpacking of texture patterns (see [`gl:texImage1D/8`](`texImage1D/8`),
 [`gl:texImage2D/9`](`texImage2D/9`), [`gl:texImage3D/10`](`texImage3D/10`),
@@ -2460,21 +3024,21 @@ unpacking of texture patterns (see [`gl:texImage1D/8`](`texImage1D/8`),
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glPixelStore.xhtml)
 """.
+-spec pixelStoref(Pname::enum(), Param::f()) -> 'ok'.
+pixelStoref(Pname,Param) when is_integer(Pname),is_float(Param) ->
+  IF = get_interface(),
+  IF:queue_cmd(Pname,Param,5223),
+  ok.
+
+-doc(#{equiv => pixelStoref/2}).
 -spec pixelStorei(Pname::enum(), Param::i()) -> 'ok'.
 pixelStorei(Pname,Param) when is_integer(Pname),is_integer(Param) ->
   IF = get_interface(),
   IF:queue_cmd(Pname,Param,5224),
   ok.
 
--doc(#{equiv => pixelTransferi/2}).
--spec pixelTransferf(Pname::enum(), Param::f()) -> 'ok'.
-pixelTransferf(Pname,Param) when is_integer(Pname),is_float(Param) ->
-  IF = get_interface(),
-  IF:queue_cmd(Pname,Param,5225),
-  ok.
-
 -doc """
-[`gl:pixelTransfer()`](`pixelTransferf/2`) sets pixel transfer modes that affect
+[`gl:pixelTransfer/2`](`pixelTransferf/2`) sets pixel transfer modes that affect
 the operation of subsequent [`gl:copyPixels/5`](`copyPixels/5`),
 [`gl:copyTexImage1D/7`](`copyTexImage1D/7`),
 [`gl:copyTexImage2D/8`](`copyTexImage2D/8`),
@@ -2508,34 +3072,27 @@ they are read from the frame buffer
 [`gl:texSubImage3D/11`](`texSubImage3D/11`)). Pixel transfer operations happen
 in the same order, and in the same manner, regardless of the command that
 resulted in the pixel operation. Pixel storage modes (see
-[`gl:pixelStore()`](`pixelStoref/2`)) control the unpacking of pixels being read
+[`gl:pixelStore/2`](`pixelStoref/2`)) control the unpacking of pixels being read
 from client memory and the packing of pixels being written back into client
 memory.
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glPixelTransfer.xml)
 """.
+-spec pixelTransferf(Pname::enum(), Param::f()) -> 'ok'.
+pixelTransferf(Pname,Param) when is_integer(Pname),is_float(Param) ->
+  IF = get_interface(),
+  IF:queue_cmd(Pname,Param,5225),
+  ok.
+
+-doc(#{equiv => pixelTransferf/2}).
 -spec pixelTransferi(Pname::enum(), Param::i()) -> 'ok'.
 pixelTransferi(Pname,Param) when is_integer(Pname),is_integer(Param) ->
   IF = get_interface(),
   IF:queue_cmd(Pname,Param,5226),
   ok.
 
--doc(#{equiv => pixelMapusv/3}).
--spec pixelMapfv(Map::enum(), Mapsize::i(), Values::binary()) -> 'ok'.
-pixelMapfv(Map,Mapsize,Values) when is_integer(Map),is_integer(Mapsize),is_binary(Values) ->
-  IF = get_interface(),
-  IF:queue_cmd(Map,Mapsize,Values,5227),
-  ok.
-
--doc(#{equiv => pixelMapusv/3}).
--spec pixelMapuiv(Map::enum(), Mapsize::i(), Values::binary()) -> 'ok'.
-pixelMapuiv(Map,Mapsize,Values) when is_integer(Map),is_integer(Mapsize),is_binary(Values) ->
-  IF = get_interface(),
-  IF:queue_cmd(Map,Mapsize,Values,5228),
-  ok.
-
 -doc """
-[`gl:pixelMap()`](`pixelMapfv/3`) sets up translation tables, or `maps`, used by
+[`gl:pixelMap/3`](`pixelMapfv/3`) sets up translation tables, or `maps`, used by
 [`gl:copyPixels/5`](`copyPixels/5`),
 [`gl:copyTexImage1D/7`](`copyTexImage1D/7`),
 [`gl:copyTexImage2D/8`](`copyTexImage2D/8`),
@@ -2554,37 +3111,37 @@ subset is supported, the routines [`gl:colorTable/6`](`colorTable/6`),
 [`gl:convolutionFilter2D/7`](`convolutionFilter2D/7`),
 [`gl:histogram/4`](`histogram/4`), [`gl:minmax/3`](`minmax/3`), and
 [`gl:separableFilter2D/8`](`separableFilter2D/8`). Use of these maps is
-described completely in the [`gl:pixelTransfer()`](`pixelTransferf/2`) reference
+described completely in the [`gl:pixelTransfer/2`](`pixelTransferf/2`) reference
 page, and partly in the reference pages for the pixel and texture image
 commands. Only the specification of the maps is described in this reference
 page.
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glPixelMap.xml)
 """.
+-spec pixelMapfv(Map::enum(), Mapsize::i(), Values::binary()) -> 'ok'.
+pixelMapfv(Map,Mapsize,Values) when is_integer(Map),is_integer(Mapsize),is_binary(Values) ->
+  IF = get_interface(),
+  IF:queue_cmd(Map,Mapsize,Values,5227),
+  ok.
+
+-doc(#{equiv => pixelMapfv/3}).
+-spec pixelMapuiv(Map::enum(), Mapsize::i(), Values::binary()) -> 'ok'.
+pixelMapuiv(Map,Mapsize,Values) when is_integer(Map),is_integer(Mapsize),is_binary(Values) ->
+  IF = get_interface(),
+  IF:queue_cmd(Map,Mapsize,Values,5228),
+  ok.
+
+-doc(#{equiv => pixelMapfv/3}).
 -spec pixelMapusv(Map::enum(), Mapsize::i(), Values::binary()) -> 'ok'.
 pixelMapusv(Map,Mapsize,Values) when is_integer(Map),is_integer(Mapsize),is_binary(Values) ->
   IF = get_interface(),
   IF:queue_cmd(Map,Mapsize,Values,5229),
   ok.
 
--doc(#{equiv => getPixelMapusv/2}).
--spec getPixelMapfv(Map::enum(), Values::mem()) -> 'ok'.
-getPixelMapfv(Map,Values) when is_integer(Map),is_tuple(Values) orelse is_binary(Values) ->
-  IF = get_interface(),
-  IF:queue_cmd(Map,Values,5230),
-  rec(5230).
-
--doc(#{equiv => getPixelMapusv/2}).
--spec getPixelMapuiv(Map::enum(), Values::mem()) -> 'ok'.
-getPixelMapuiv(Map,Values) when is_integer(Map),is_tuple(Values) orelse is_binary(Values) ->
-  IF = get_interface(),
-  IF:queue_cmd(Map,Values,5231),
-  rec(5231).
-
 -doc """
-See the [`gl:pixelMap()`](`pixelMapfv/3`) reference page for a description of
+See the [`gl:pixelMap/3`](`pixelMapfv/3`) reference page for a description of
 the acceptable values for the `Map` parameter.
-[`gl:getPixelMap()`](`getPixelMapfv/2`) returns in `Data` the contents of the
+[`gl:getPixelMap/2`](`getPixelMapfv/2`) returns in `Data` the contents of the
 pixel map specified in `Map`. Pixel maps are used during the execution of
 [`gl:readPixels/7`](`readPixels/7`), [`gl:drawPixels/5`](`drawPixels/5`),
 [`gl:copyPixels/5`](`copyPixels/5`), [`gl:texImage1D/8`](`texImage1D/8`),
@@ -2601,6 +3158,20 @@ indices, color components, and depth components to other values.
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glGetPixelMap.xml)
 """.
+-spec getPixelMapfv(Map::enum(), Values::mem()) -> 'ok'.
+getPixelMapfv(Map,Values) when is_integer(Map),is_tuple(Values) orelse is_binary(Values) ->
+  IF = get_interface(),
+  IF:queue_cmd(Map,Values,5230),
+  rec(5230).
+
+-doc(#{equiv => getPixelMapfv/2}).
+-spec getPixelMapuiv(Map::enum(), Values::mem()) -> 'ok'.
+getPixelMapuiv(Map,Values) when is_integer(Map),is_tuple(Values) orelse is_binary(Values) ->
+  IF = get_interface(),
+  IF:queue_cmd(Map,Values,5231),
+  rec(5231).
+
+-doc(#{equiv => getPixelMapfv/2}).
 -spec getPixelMapusv(Map::enum(), Values::mem()) -> 'ok'.
 getPixelMapusv(Map,Values) when is_integer(Map),is_tuple(Values) orelse is_binary(Values) ->
   IF = get_interface(),
@@ -2627,7 +3198,7 @@ bitmap(Width,Height,Xorig,Yorig,Xmove,Ymove,Bitmap) when is_integer(Width),is_in
 the frame buffer, starting with the pixel whose lower left corner is at location
 (`X`, `Y`), into client memory starting at location `Data`. Several parameters
 control the processing of the pixel data before it is placed into client memory.
-These parameters are set with [`gl:pixelStore()`](`pixelStoref/2`). This
+These parameters are set with [`gl:pixelStore/2`](`pixelStoref/2`). This
 reference page describes the effects on [`gl:readPixels/7`](`readPixels/7`) and
 `glReadnPixels` of most, but not all of the parameters specified by these three
 commands.
@@ -2644,11 +3215,11 @@ readPixels(X,Y,Width,Height,Format,Type,Pixels) when is_integer(X),is_integer(Y)
 -doc """
 [`gl:drawPixels/5`](`drawPixels/5`) reads pixel data from memory and writes it
 into the frame buffer relative to the current raster position, provided that the
-raster position is valid. Use [`gl:rasterPos()`](`rasterPos2d/2`) or
-[`gl:windowPos()`](`windowPos2d/2`) to set the current raster position; use
-[`gl:get()`](`getBooleanv/1`) with argument `?GL_CURRENT_RASTER_POSITION_VALID`
+raster position is valid. Use [`gl:rasterPos/1`](`rasterPos4sv/1`) or
+[`gl:windowPos/1`](`windowPos3sv/1`) to set the current raster position; use
+[`gl:get/1`](`getBooleanv/1`) with argument `?GL_CURRENT_RASTER_POSITION_VALID`
 to determine if the specified raster position is valid, and
-[`gl:get()`](`getBooleanv/1`) with argument `?GL_CURRENT_RASTER_POSITION` to
+[`gl:get/1`](`getBooleanv/1`) with argument `?GL_CURRENT_RASTER_POSITION` to
 query the raster position.
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glDrawPixels.xml)
@@ -2736,43 +3307,8 @@ clearStencil(S) when is_integer(S) ->
   IF:queue_cmd(S,5242),
   ok.
 
--doc(#{equiv => texGeniv/3}).
--spec texGend(Coord::enum(), Pname::enum(), Param::f()) -> 'ok'.
-texGend(Coord,Pname,Param) when is_integer(Coord),is_integer(Pname),is_float(Param) ->
-  IF = get_interface(),
-  IF:queue_cmd(Coord,Pname,Param,5243),
-  ok.
-
--doc(#{equiv => texGeniv/3}).
--spec texGenf(Coord::enum(), Pname::enum(), Param::f()) -> 'ok'.
-texGenf(Coord,Pname,Param) when is_integer(Coord),is_integer(Pname),is_float(Param) ->
-  IF = get_interface(),
-  IF:queue_cmd(Coord,Pname,Param,5244),
-  ok.
-
--doc(#{equiv => texGeniv/3}).
--spec texGeni(Coord::enum(), Pname::enum(), Param::i()) -> 'ok'.
-texGeni(Coord,Pname,Param) when is_integer(Coord),is_integer(Pname),is_integer(Param) ->
-  IF = get_interface(),
-  IF:queue_cmd(Coord,Pname,Param,5245),
-  ok.
-
--doc(#{equiv => texGeniv/3}).
--spec texGendv(Coord::enum(), Pname::enum(), Params::tuple()) -> 'ok'.
-texGendv(Coord,Pname,Params) when is_integer(Coord),is_integer(Pname),is_tuple(Params) ->
-  IF = get_interface(),
-  IF:queue_cmd(Coord,Pname,Params,5246),
-  ok.
-
--doc(#{equiv => texGeniv/3}).
--spec texGenfv(Coord::enum(), Pname::enum(), Params::tuple()) -> 'ok'.
-texGenfv(Coord,Pname,Params) when is_integer(Coord),is_integer(Pname),is_tuple(Params) ->
-  IF = get_interface(),
-  IF:queue_cmd(Coord,Pname,Params,5247),
-  ok.
-
 -doc """
-[`gl:texGen()`](`texGend/3`) selects a texture-coordinate generation function or
+[`gl:texGen/3`](`texGend/3`) selects a texture-coordinate generation function or
 supplies coefficients for one of the functions. `Coord` names one of the (`s`,
 `t`, `r`, `q`) texture coordinates; it must be one of the symbols `?GL_S`,
 `?GL_T`, `?GL_R`, or `?GL_Q`. `Pname` must be one of three symbolic constants:
@@ -2785,61 +3321,75 @@ generation function.
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glTexGen.xml)
 """.
+-spec texGend(Coord::enum(), Pname::enum(), Param::f()) -> 'ok'.
+texGend(Coord,Pname,Param) when is_integer(Coord),is_integer(Pname),is_float(Param) ->
+  IF = get_interface(),
+  IF:queue_cmd(Coord,Pname,Param,5243),
+  ok.
+
+-doc(#{equiv => texGend/3}).
+-spec texGenf(Coord::enum(), Pname::enum(), Param::f()) -> 'ok'.
+texGenf(Coord,Pname,Param) when is_integer(Coord),is_integer(Pname),is_float(Param) ->
+  IF = get_interface(),
+  IF:queue_cmd(Coord,Pname,Param,5244),
+  ok.
+
+-doc(#{equiv => texGend/3}).
+-spec texGeni(Coord::enum(), Pname::enum(), Param::i()) -> 'ok'.
+texGeni(Coord,Pname,Param) when is_integer(Coord),is_integer(Pname),is_integer(Param) ->
+  IF = get_interface(),
+  IF:queue_cmd(Coord,Pname,Param,5245),
+  ok.
+
+-doc(#{equiv => texGend/3}).
+-spec texGendv(Coord::enum(), Pname::enum(), Params::tuple()) -> 'ok'.
+texGendv(Coord,Pname,Params) when is_integer(Coord),is_integer(Pname),is_tuple(Params) ->
+  IF = get_interface(),
+  IF:queue_cmd(Coord,Pname,Params,5246),
+  ok.
+
+-doc(#{equiv => texGend/3}).
+-spec texGenfv(Coord::enum(), Pname::enum(), Params::tuple()) -> 'ok'.
+texGenfv(Coord,Pname,Params) when is_integer(Coord),is_integer(Pname),is_tuple(Params) ->
+  IF = get_interface(),
+  IF:queue_cmd(Coord,Pname,Params,5247),
+  ok.
+
+-doc(#{equiv => texGend/3}).
 -spec texGeniv(Coord::enum(), Pname::enum(), Params::tuple()) -> 'ok'.
 texGeniv(Coord,Pname,Params) when is_integer(Coord),is_integer(Pname),is_tuple(Params) ->
   IF = get_interface(),
   IF:queue_cmd(Coord,Pname,Params,5248),
   ok.
 
--doc(#{equiv => getTexGeniv/2}).
+-doc """
+[`gl:getTexGen/2`](`getTexGendv/2`) returns in `Params` selected parameters of a
+texture coordinate generation function that was specified using
+[`gl:texGen/3`](`texGend/3`). `Coord` names one of the (`s`, `t`, `r`, `q`)
+texture coordinates, using the symbolic constant `?GL_S`, `?GL_T`, `?GL_R`, or
+`?GL_Q`.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glGetTexGen.xml)
+""".
 -spec getTexGendv(Coord::enum(), Pname::enum()) -> {f(),f(),f(),f()}.
 getTexGendv(Coord,Pname) when is_integer(Coord),is_integer(Pname) ->
   IF = get_interface(),
   IF:queue_cmd(Coord,Pname,5249),
   rec(5249).
 
--doc(#{equiv => getTexGeniv/2}).
+-doc(#{equiv => getTexGendv/2}).
 -spec getTexGenfv(Coord::enum(), Pname::enum()) -> {f(),f(),f(),f()}.
 getTexGenfv(Coord,Pname) when is_integer(Coord),is_integer(Pname) ->
   IF = get_interface(),
   IF:queue_cmd(Coord,Pname,5250),
   rec(5250).
 
--doc """
-[`gl:getTexGen()`](`getTexGendv/2`) returns in `Params` selected parameters of a
-texture coordinate generation function that was specified using
-[`gl:texGen()`](`texGend/3`). `Coord` names one of the (`s`, `t`, `r`, `q`)
-texture coordinates, using the symbolic constant `?GL_S`, `?GL_T`, `?GL_R`, or
-`?GL_Q`.
-
-[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glGetTexGen.xml)
-""".
+-doc(#{equiv => getTexGendv/2}).
 -spec getTexGeniv(Coord::enum(), Pname::enum()) -> {i(),i(),i(),i()}.
 getTexGeniv(Coord,Pname) when is_integer(Coord),is_integer(Pname) ->
   IF = get_interface(),
   IF:queue_cmd(Coord,Pname,5251),
   rec(5251).
-
--doc(#{equiv => texEnviv/3}).
--spec texEnvf(Target::enum(), Pname::enum(), Param::f()) -> 'ok'.
-texEnvf(Target,Pname,Param) when is_integer(Target),is_integer(Pname),is_float(Param) ->
-  IF = get_interface(),
-  IF:queue_cmd(Target,Pname,Param,5252),
-  ok.
-
--doc(#{equiv => texEnviv/3}).
--spec texEnvi(Target::enum(), Pname::enum(), Param::i()) -> 'ok'.
-texEnvi(Target,Pname,Param) when is_integer(Target),is_integer(Pname),is_integer(Param) ->
-  IF = get_interface(),
-  IF:queue_cmd(Target,Pname,Param,5253),
-  ok.
-
--doc(#{equiv => texEnviv/3}).
--spec texEnvfv(Target::enum(), Pname::enum(), Params::tuple()) -> 'ok'.
-texEnvfv(Target,Pname,Params) when is_integer(Target),is_integer(Pname),is_tuple(Params) ->
-  IF = get_interface(),
-  IF:queue_cmd(Target,Pname,Params,5254),
-  ok.
 
 -doc """
 A texture environment specifies how texture values are interpreted when a
@@ -2852,58 +3402,58 @@ be `?GL_TEXTURE_ENV_MODE`, `?GL_TEXTURE_ENV_COLOR`, `?GL_COMBINE_RGB`,
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glTexEnv.xml)
 """.
+-spec texEnvf(Target::enum(), Pname::enum(), Param::f()) -> 'ok'.
+texEnvf(Target,Pname,Param) when is_integer(Target),is_integer(Pname),is_float(Param) ->
+  IF = get_interface(),
+  IF:queue_cmd(Target,Pname,Param,5252),
+  ok.
+
+-doc(#{equiv => texEnvf/3}).
+-spec texEnvi(Target::enum(), Pname::enum(), Param::i()) -> 'ok'.
+texEnvi(Target,Pname,Param) when is_integer(Target),is_integer(Pname),is_integer(Param) ->
+  IF = get_interface(),
+  IF:queue_cmd(Target,Pname,Param,5253),
+  ok.
+
+-doc(#{equiv => texEnvf/3}).
+-spec texEnvfv(Target::enum(), Pname::enum(), Params::tuple()) -> 'ok'.
+texEnvfv(Target,Pname,Params) when is_integer(Target),is_integer(Pname),is_tuple(Params) ->
+  IF = get_interface(),
+  IF:queue_cmd(Target,Pname,Params,5254),
+  ok.
+
+-doc(#{equiv => texEnvf/3}).
 -spec texEnviv(Target::enum(), Pname::enum(), Params::tuple()) -> 'ok'.
 texEnviv(Target,Pname,Params) when is_integer(Target),is_integer(Pname),is_tuple(Params) ->
   IF = get_interface(),
   IF:queue_cmd(Target,Pname,Params,5255),
   ok.
 
--doc(#{equiv => getTexEnviv/2}).
+-doc """
+[`gl:getTexEnv/2`](`getTexEnvfv/2`) returns in `Params` selected values of a
+texture environment that was specified with [`gl:texEnv/3`](`texEnvf/3`).
+`Target` specifies a texture environment.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glGetTexEnv.xml)
+""".
 -spec getTexEnvfv(Target::enum(), Pname::enum()) -> {f(),f(),f(),f()}.
 getTexEnvfv(Target,Pname) when is_integer(Target),is_integer(Pname) ->
   IF = get_interface(),
   IF:queue_cmd(Target,Pname,5256),
   rec(5256).
 
--doc """
-[`gl:getTexEnv()`](`getTexEnvfv/2`) returns in `Params` selected values of a
-texture environment that was specified with [`gl:texEnv()`](`texEnvf/3`).
-`Target` specifies a texture environment.
-
-[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glGetTexEnv.xml)
-""".
+-doc(#{equiv => getTexEnvfv/2}).
 -spec getTexEnviv(Target::enum(), Pname::enum()) -> {i(),i(),i(),i()}.
 getTexEnviv(Target,Pname) when is_integer(Target),is_integer(Pname) ->
   IF = get_interface(),
   IF:queue_cmd(Target,Pname,5257),
   rec(5257).
 
--doc(#{equiv => texParameteriv/3}).
--spec texParameterf(Target::enum(), Pname::enum(), Param::f()) -> 'ok'.
-texParameterf(Target,Pname,Param) when is_integer(Target),is_integer(Pname),is_float(Param) ->
-  IF = get_interface(),
-  IF:queue_cmd(Target,Pname,Param,5258),
-  ok.
-
--doc(#{equiv => texParameteriv/3}).
--spec texParameteri(Target::enum(), Pname::enum(), Param::i()) -> 'ok'.
-texParameteri(Target,Pname,Param) when is_integer(Target),is_integer(Pname),is_integer(Param) ->
-  IF = get_interface(),
-  IF:queue_cmd(Target,Pname,Param,5259),
-  ok.
-
--doc(#{equiv => texParameteriv/3}).
--spec texParameterfv(Target::enum(), Pname::enum(), Params::tuple()) -> 'ok'.
-texParameterfv(Target,Pname,Params) when is_integer(Target),is_integer(Pname),is_tuple(Params) ->
-  IF = get_interface(),
-  IF:queue_cmd(Target,Pname,Params,5260),
-  ok.
-
 -doc """
-[`gl:texParameter()`](`texParameterf/3`) and
-[`gl:textureParameter()`](`texParameterf/3`) assign the value or values in
+[`gl:texParameter/3`](`texParameterf/3`) and
+[`gl:textureParameter/3`](`texParameterf/3`) assign the value or values in
 `Params` to the texture parameter specified as `Pname`. For
-[`gl:texParameter()`](`texParameterf/3`), `Target` defines the target texture,
+[`gl:texParameter/3`](`texParameterf/3`), `Target` defines the target texture,
 either `?GL_TEXTURE_1D`, `?GL_TEXTURE_1D_ARRAY`, `?GL_TEXTURE_2D`,
 `?GL_TEXTURE_2D_ARRAY`, `?GL_TEXTURE_2D_MULTISAMPLE`,
 `?GL_TEXTURE_2D_MULTISAMPLE_ARRAY`, `?GL_TEXTURE_3D`, `?GL_TEXTURE_CUBE_MAP`,
@@ -2912,21 +3462,35 @@ are accepted in `Pname`:
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glTexParameter.xhtml)
 """.
+-spec texParameterf(Target::enum(), Pname::enum(), Param::f()) -> 'ok'.
+texParameterf(Target,Pname,Param) when is_integer(Target),is_integer(Pname),is_float(Param) ->
+  IF = get_interface(),
+  IF:queue_cmd(Target,Pname,Param,5258),
+  ok.
+
+-doc(#{equiv => texParameterf/3}).
+-spec texParameteri(Target::enum(), Pname::enum(), Param::i()) -> 'ok'.
+texParameteri(Target,Pname,Param) when is_integer(Target),is_integer(Pname),is_integer(Param) ->
+  IF = get_interface(),
+  IF:queue_cmd(Target,Pname,Param,5259),
+  ok.
+
+-doc(#{equiv => texParameterf/3}).
+-spec texParameterfv(Target::enum(), Pname::enum(), Params::tuple()) -> 'ok'.
+texParameterfv(Target,Pname,Params) when is_integer(Target),is_integer(Pname),is_tuple(Params) ->
+  IF = get_interface(),
+  IF:queue_cmd(Target,Pname,Params,5260),
+  ok.
+
+-doc(#{equiv => texParameterf/3}).
 -spec texParameteriv(Target::enum(), Pname::enum(), Params::tuple()) -> 'ok'.
 texParameteriv(Target,Pname,Params) when is_integer(Target),is_integer(Pname),is_tuple(Params) ->
   IF = get_interface(),
   IF:queue_cmd(Target,Pname,Params,5261),
   ok.
 
--doc(#{equiv => getTexParameteriv/2}).
--spec getTexParameterfv(Target::enum(), Pname::enum()) -> {f(),f(),f(),f()}.
-getTexParameterfv(Target,Pname) when is_integer(Target),is_integer(Pname) ->
-  IF = get_interface(),
-  IF:queue_cmd(Target,Pname,5262),
-  rec(5262).
-
 -doc """
-[`gl:getTexParameter()`](`getTexParameterfv/2`) and `glGetTextureParameter`
+[`gl:getTexParameter/2`](`getTexParameterfv/2`) and `glGetTextureParameter`
 return in `Params` the value or values of the texture parameter specified as
 `Pname`. `Target` defines the target texture. `?GL_TEXTURE_1D`,
 `?GL_TEXTURE_2D`, `?GL_TEXTURE_3D`, `?GL_TEXTURE_1D_ARRAY`,
@@ -2936,26 +3500,26 @@ return in `Params` the value or values of the texture parameter specified as
 one-dimensional array, two-dimensional array, rectangle, cube-mapped or
 cube-mapped array, two-dimensional multisample, or two-dimensional multisample
 array texturing, respectively. `Pname` accepts the same symbols as
-[`gl:texParameter()`](`texParameterf/3`), with the same interpretations:
+[`gl:texParameter/3`](`texParameterf/3`), with the same interpretations:
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetTexParameter.xhtml)
 """.
+-spec getTexParameterfv(Target::enum(), Pname::enum()) -> {f(),f(),f(),f()}.
+getTexParameterfv(Target,Pname) when is_integer(Target),is_integer(Pname) ->
+  IF = get_interface(),
+  IF:queue_cmd(Target,Pname,5262),
+  rec(5262).
+
+-doc(#{equiv => getTexParameterfv/2}).
 -spec getTexParameteriv(Target::enum(), Pname::enum()) -> {i(),i(),i(),i()}.
 getTexParameteriv(Target,Pname) when is_integer(Target),is_integer(Pname) ->
   IF = get_interface(),
   IF:queue_cmd(Target,Pname,5263),
   rec(5263).
 
--doc(#{equiv => getTexLevelParameteriv/3}).
--spec getTexLevelParameterfv(Target::enum(), Level::i(), Pname::enum()) -> {f()}.
-getTexLevelParameterfv(Target,Level,Pname) when is_integer(Target),is_integer(Level),is_integer(Pname) ->
-  IF = get_interface(),
-  IF:queue_cmd(Target,Level,Pname,5264),
-  rec(5264).
-
 -doc """
 [`gl:getTexLevelParameterfv/3`](`getTexLevelParameterfv/3`),
-[`gl:getTexLevelParameteriv/3`](`getTexLevelParameterfv/3`),
+[`gl:getTexLevelParameteriv/3`](`getTexLevelParameteriv/3`),
 `glGetTextureLevelParameterfv` and `glGetTextureLevelParameteriv` return in
 `Params` texture parameter values for a specific level-of-detail value,
 specified as `Level`. For the first two functions, `Target` defines the target
@@ -2969,6 +3533,13 @@ specifies the name of the texture object.
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetTexLevelParameter.xhtml)
 """.
+-spec getTexLevelParameterfv(Target::enum(), Level::i(), Pname::enum()) -> {f()}.
+getTexLevelParameterfv(Target,Level,Pname) when is_integer(Target),is_integer(Level),is_integer(Pname) ->
+  IF = get_interface(),
+  IF:queue_cmd(Target,Level,Pname,5264),
+  rec(5264).
+
+-doc(#{equiv => getTexLevelParameterfv/3}).
 -spec getTexLevelParameteriv(Target::enum(), Level::i(), Pname::enum()) -> {i()}.
 getTexLevelParameteriv(Target,Level,Pname) when is_integer(Target),is_integer(Level),is_integer(Pname) ->
   IF = get_interface(),
@@ -2978,7 +3549,7 @@ getTexLevelParameteriv(Target,Level,Pname) when is_integer(Target),is_integer(Le
 -doc """
 Texturing maps a portion of a specified texture image onto each graphical
 primitive for which texturing is enabled. To enable and disable one-dimensional
-texturing, call [`gl:enable/1`](`enable/1`) and [`gl:disable/1`](`enable/1`)
+texturing, call [`gl:enable/1`](`enable/1`) and [`gl:disable/1`](`disable/1`)
 with argument `?GL_TEXTURE_1D`.
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glTexImage1D.xhtml)
@@ -3093,9 +3664,9 @@ prioritizeTextures(Textures,Priorities) when is_list(Textures),is_list(Prioritie
   ok.
 
 -doc """
-GL establishes a \`\`working set'' of textures that are resident in texture
-memory. These textures can be bound to a texture target much more efficiently
-than textures that are not resident.
+GL establishes a "working set" of textures that are resident in texture memory.
+These textures can be bound to a texture target much more efficiently than
+textures that are not resident.
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glAreTexturesResident.xml)
 """.
@@ -3123,7 +3694,7 @@ isTexture(Texture) when is_integer(Texture) ->
 -doc """
 Texturing maps a portion of a specified texture image onto each graphical
 primitive for which texturing is enabled. To enable or disable one-dimensional
-texturing, call [`gl:enable/1`](`enable/1`) and [`gl:disable/1`](`enable/1`)
+texturing, call [`gl:enable/1`](`enable/1`) and [`gl:disable/1`](`disable/1`)
 with argument `?GL_TEXTURE_1D`.
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glTexSubImage1D.xhtml)
@@ -3208,31 +3779,41 @@ copyTexSubImage2D(Target,Level,Xoffset,Yoffset,X,Y,Width,Height) when is_integer
   IF:queue_cmd(Target,Level,Xoffset,Yoffset,X,Y,Width,Height,5284),
   ok.
 
--doc(#{equiv => map1f/6}).
+-doc """
+Evaluators provide a way to use polynomial or rational polynomial mapping to
+produce vertices, normals, texture coordinates, and colors. The values produced
+by an evaluator are sent to further stages of GL processing just as if they had
+been presented using [`gl:vertex/1`](`vertex4sv/1`),
+[`gl:normal/1`](`normal3sv/1`), [`gl:texCoord/1`](`texCoord4sv/1`), and
+[`gl:color/1`](`color4usv/1`) commands, except that the generated values do not
+update the current normal, texture coordinates, or color.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glMap1.xml)
+""".
 -spec map1d(Target::enum(), U1::f(), U2::f(), Stride::i(), Order::i(), Points::binary()) -> 'ok'.
 map1d(Target,U1,U2,Stride,Order,Points) when is_integer(Target),is_float(U1),is_float(U2),is_integer(Stride),is_integer(Order),is_binary(Points) ->
   IF = get_interface(),
   IF:queue_cmd(Target,U1,U2,Stride,Order,Points,5285),
   ok.
 
--doc """
-Evaluators provide a way to use polynomial or rational polynomial mapping to
-produce vertices, normals, texture coordinates, and colors. The values produced
-by an evaluator are sent to further stages of GL processing just as if they had
-been presented using [`gl:vertex()`](`vertex2d/2`),
-[`gl:normal()`](`normal3b/3`), [`gl:texCoord()`](`texCoord1d/1`), and
-[`gl:color()`](`color3b/3`) commands, except that the generated values do not
-update the current normal, texture coordinates, or color.
-
-[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glMap1.xml)
-""".
+-doc(#{equiv => map1d/6}).
 -spec map1f(Target::enum(), U1::f(), U2::f(), Stride::i(), Order::i(), Points::binary()) -> 'ok'.
 map1f(Target,U1,U2,Stride,Order,Points) when is_integer(Target),is_float(U1),is_float(U2),is_integer(Stride),is_integer(Order),is_binary(Points) ->
   IF = get_interface(),
   IF:queue_cmd(Target,U1,U2,Stride,Order,Points,5286),
   ok.
 
--doc(#{equiv => map2f/10}).
+-doc """
+Evaluators provide a way to use polynomial or rational polynomial mapping to
+produce vertices, normals, texture coordinates, and colors. The values produced
+by an evaluator are sent on to further stages of GL processing just as if they
+had been presented using [`gl:vertex/1`](`vertex4sv/1`),
+[`gl:normal/1`](`normal3sv/1`), [`gl:texCoord/1`](`texCoord4sv/1`), and
+[`gl:color/1`](`color4usv/1`) commands, except that the generated values do not
+update the current normal, texture coordinates, or color.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glMap2.xml)
+""".
 -spec map2d(Target, U1, U2, Ustride, Uorder, V1, V2, Vstride, Vorder, Points) -> 'ok'
     when Target::enum(), U1::f(), U2::f(), Ustride::i(), Uorder::i(), V1::f(), V2::f(), Vstride::i(), Vorder::i(), Points::binary().
 map2d(Target,U1,U2,Ustride,Uorder,V1,V2,Vstride,Vorder,Points) when is_integer(Target),is_float(U1),is_float(U2),is_integer(Ustride),is_integer(Uorder),is_float(V1),is_float(V2),is_integer(Vstride),is_integer(Vorder),is_binary(Points) ->
@@ -3240,17 +3821,7 @@ map2d(Target,U1,U2,Ustride,Uorder,V1,V2,Vstride,Vorder,Points) when is_integer(T
   IF:queue_cmd(Target,U1,U2,Ustride,Uorder,V1,V2,Vstride,Vorder,Points,5287),
   ok.
 
--doc """
-Evaluators provide a way to use polynomial or rational polynomial mapping to
-produce vertices, normals, texture coordinates, and colors. The values produced
-by an evaluator are sent on to further stages of GL processing just as if they
-had been presented using [`gl:vertex()`](`vertex2d/2`),
-[`gl:normal()`](`normal3b/3`), [`gl:texCoord()`](`texCoord1d/1`), and
-[`gl:color()`](`color3b/3`) commands, except that the generated values do not
-update the current normal, texture coordinates, or color.
-
-[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glMap2.xml)
-""".
+-doc(#{equiv => map2d/10}).
 -spec map2f(Target, U1, U2, Ustride, Uorder, V1, V2, Vstride, Vorder, Points) -> 'ok'
     when Target::enum(), U1::f(), U2::f(), Ustride::i(), Uorder::i(), V1::f(), V2::f(), Vstride::i(), Vorder::i(), Points::binary().
 map2f(Target,U1,U2,Ustride,Uorder,V1,V2,Vstride,Vorder,Points) when is_integer(Target),is_float(U1),is_float(U2),is_integer(Ustride),is_integer(Uorder),is_float(V1),is_float(V2),is_integer(Vstride),is_integer(Vorder),is_binary(Points) ->
@@ -3258,27 +3829,27 @@ map2f(Target,U1,U2,Ustride,Uorder,V1,V2,Vstride,Vorder,Points) when is_integer(T
   IF:queue_cmd(Target,U1,U2,Ustride,Uorder,V1,V2,Vstride,Vorder,Points,5288),
   ok.
 
--doc(#{equiv => getMapiv/3}).
+-doc """
+`glMap1` and `glMap2` define evaluators. [`gl:getMap/3`](`getMapdv/3`) returns
+evaluator parameters. `Target` chooses a map, `Query` selects a specific
+parameter, and `V` points to storage where the values will be returned.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glGetMap.xml)
+""".
 -spec getMapdv(Target::enum(), Query::enum(), V::mem()) -> 'ok'.
 getMapdv(Target,Query,V) when is_integer(Target),is_integer(Query),is_tuple(V) orelse is_binary(V) ->
   IF = get_interface(),
   IF:queue_cmd(Target,Query,V,5289),
   rec(5289).
 
--doc(#{equiv => getMapiv/3}).
+-doc(#{equiv => getMapdv/3}).
 -spec getMapfv(Target::enum(), Query::enum(), V::mem()) -> 'ok'.
 getMapfv(Target,Query,V) when is_integer(Target),is_integer(Query),is_tuple(V) orelse is_binary(V) ->
   IF = get_interface(),
   IF:queue_cmd(Target,Query,V,5290),
   rec(5290).
 
--doc """
-`glMap1` and `glMap2` define evaluators. [`gl:getMap()`](`getMapdv/3`) returns
-evaluator parameters. `Target` chooses a map, `Query` selects a specific
-parameter, and `V` points to storage where the values will be returned.
-
-[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glGetMap.xml)
-""".
+-doc(#{equiv => getMapdv/3}).
 -spec getMapiv(Target::enum(), Query::enum(), V::mem()) -> 'ok'.
 getMapiv(Target,Query,V) when is_integer(Target),is_integer(Query),is_tuple(V) orelse is_binary(V) ->
   IF = get_interface(),
@@ -3299,10 +3870,26 @@ evalCoord1f(U) when is_float(U) ->
   IF:queue_cmd(U,5293),
   ok.
 
--doc(#{equiv => evalCoord2fv/1}).
+-doc """
+[`gl:evalCoord1/1`](`evalCoord2fv/1`) evaluates enabled one-dimensional maps at
+argument `U`. [`gl:evalCoord2/1`](`evalCoord2fv/1`) does the same for
+two-dimensional maps using two domain values, `U` and `V`. To define a map, call
+`glMap1` and `glMap2`; to enable and disable it, call
+[`gl:enable/1`](`enable/1`) and [`gl:disable/1`](`disable/1`).
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glEvalCoord.xml)
+""".
 -spec evalCoord1dv({U::f()}) -> 'ok'.
 evalCoord1dv({U}) ->  evalCoord1d(U).
--doc(#{equiv => evalCoord2fv/1}).
+-doc """
+[`gl:evalCoord1/1`](`evalCoord2fv/1`) evaluates enabled one-dimensional maps at
+argument `U`. [`gl:evalCoord2/1`](`evalCoord2fv/1`) does the same for
+two-dimensional maps using two domain values, `U` and `V`. To define a map, call
+`glMap1` and `glMap2`; to enable and disable it, call
+[`gl:enable/1`](`enable/1`) and [`gl:disable/1`](`disable/1`).
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glEvalCoord.xml)
+""".
 -spec evalCoord1fv({U::f()}) -> 'ok'.
 evalCoord1fv({U}) ->  evalCoord1f(U).
 -doc(#{equiv => evalCoord2fv/1}).
@@ -3319,131 +3906,139 @@ evalCoord2f(U,V) when is_float(U),is_float(V) ->
   IF:queue_cmd(U,V,5295),
   ok.
 
--doc(#{equiv => evalCoord2fv/1}).
+-doc """
+[`gl:evalCoord1/1`](`evalCoord2fv/1`) evaluates enabled one-dimensional maps at
+argument `U`. [`gl:evalCoord2/1`](`evalCoord2fv/1`) does the same for
+two-dimensional maps using two domain values, `U` and `V`. To define a map, call
+`glMap1` and `glMap2`; to enable and disable it, call
+[`gl:enable/1`](`enable/1`) and [`gl:disable/1`](`disable/1`).
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glEvalCoord.xml)
+""".
 -spec evalCoord2dv({U::f(), V::f()}) -> 'ok'.
 evalCoord2dv({U,V}) ->  evalCoord2d(U,V).
 -doc """
-[`gl:evalCoord1()`](`evalCoord1d/1`) evaluates enabled one-dimensional maps at
-argument `U`. [`gl:evalCoord2()`](`evalCoord1d/1`) does the same for
+[`gl:evalCoord1/1`](`evalCoord2fv/1`) evaluates enabled one-dimensional maps at
+argument `U`. [`gl:evalCoord2/1`](`evalCoord2fv/1`) does the same for
 two-dimensional maps using two domain values, `U` and `V`. To define a map, call
 `glMap1` and `glMap2`; to enable and disable it, call
-[`gl:enable/1`](`enable/1`) and [`gl:disable/1`](`enable/1`).
+[`gl:enable/1`](`enable/1`) and [`gl:disable/1`](`disable/1`).
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glEvalCoord.xml)
 """.
 -spec evalCoord2fv({U::f(), V::f()}) -> 'ok'.
 evalCoord2fv({U,V}) ->  evalCoord2f(U,V).
--doc(#{equiv => mapGrid2f/6}).
+-doc """
+[`gl:mapGrid/3`](`mapGrid1d/3`) and [`gl:evalMesh/3`](`evalMesh1/3`) are used
+together to efficiently generate and evaluate a series of evenly-spaced map
+domain values. [`gl:evalMesh/3`](`evalMesh1/3`) steps through the integer domain
+of a one- or two-dimensional grid, whose range is the domain of the evaluation
+maps specified by `glMap1` and `glMap2`.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glMapGrid.xml)
+""".
 -spec mapGrid1d(Un::i(), U1::f(), U2::f()) -> 'ok'.
 mapGrid1d(Un,U1,U2) when is_integer(Un),is_float(U1),is_float(U2) ->
   IF = get_interface(),
   IF:queue_cmd(Un,U1,U2,5296),
   ok.
 
--doc(#{equiv => mapGrid2f/6}).
+-doc(#{equiv => mapGrid1d/3}).
 -spec mapGrid1f(Un::i(), U1::f(), U2::f()) -> 'ok'.
 mapGrid1f(Un,U1,U2) when is_integer(Un),is_float(U1),is_float(U2) ->
   IF = get_interface(),
   IF:queue_cmd(Un,U1,U2,5297),
   ok.
 
--doc(#{equiv => mapGrid2f/6}).
+-doc(#{equiv => mapGrid1d/3}).
 -spec mapGrid2d(Un::i(), U1::f(), U2::f(), Vn::i(), V1::f(), V2::f()) -> 'ok'.
 mapGrid2d(Un,U1,U2,Vn,V1,V2) when is_integer(Un),is_float(U1),is_float(U2),is_integer(Vn),is_float(V1),is_float(V2) ->
   IF = get_interface(),
   IF:queue_cmd(Un,U1,U2,Vn,V1,V2,5298),
   ok.
 
--doc """
-[`gl:mapGrid()`](`mapGrid1d/3`) and [`gl:evalMesh()`](`evalMesh1/3`) are used
-together to efficiently generate and evaluate a series of evenly-spaced map
-domain values. [`gl:evalMesh()`](`evalMesh1/3`) steps through the integer domain
-of a one- or two-dimensional grid, whose range is the domain of the evaluation
-maps specified by `glMap1` and `glMap2`.
-
-[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glMapGrid.xml)
-""".
+-doc(#{equiv => mapGrid1d/3}).
 -spec mapGrid2f(Un::i(), U1::f(), U2::f(), Vn::i(), V1::f(), V2::f()) -> 'ok'.
 mapGrid2f(Un,U1,U2,Vn,V1,V2) when is_integer(Un),is_float(U1),is_float(U2),is_integer(Vn),is_float(V1),is_float(V2) ->
   IF = get_interface(),
   IF:queue_cmd(Un,U1,U2,Vn,V1,V2,5299),
   ok.
 
--doc(#{equiv => evalPoint2/2}).
+-doc """
+[`gl:mapGrid/3`](`mapGrid1d/3`) and [`gl:evalMesh/3`](`evalMesh1/3`) are used in
+tandem to efficiently generate and evaluate a series of evenly spaced map domain
+values. [`gl:evalPoint/1`](`evalPoint1/1`) can be used to evaluate a single grid
+point in the same gridspace that is traversed by
+[`gl:evalMesh/3`](`evalMesh1/3`). Calling [`gl:evalPoint1/1`](`evalPoint1/1`) is
+equivalent to calling glEvalCoord1( i.ð u+u 1 ); where ð u=(u 2-u 1)/n
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glEvalPoint.xml)
+""".
 -spec evalPoint1(I::i()) -> 'ok'.
 evalPoint1(I) when is_integer(I) ->
   IF = get_interface(),
   IF:queue_cmd(I,5300),
   ok.
 
--doc """
-[`gl:mapGrid()`](`mapGrid1d/3`) and [`gl:evalMesh()`](`evalMesh1/3`) are used in
-tandem to efficiently generate and evaluate a series of evenly spaced map domain
-values. [`gl:evalPoint()`](`evalPoint1/1`) can be used to evaluate a single grid
-point in the same gridspace that is traversed by
-[`gl:evalMesh()`](`evalMesh1/3`). Calling [`gl:evalPoint1/1`](`evalPoint1/1`) is
-equivalent to calling glEvalCoord1( i.ð u+u 1 ); where ð u=(u 2-u 1)/n
-
-[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glEvalPoint.xml)
-""".
+-doc(#{equiv => evalPoint1/1}).
 -spec evalPoint2(I::i(), J::i()) -> 'ok'.
 evalPoint2(I,J) when is_integer(I),is_integer(J) ->
   IF = get_interface(),
   IF:queue_cmd(I,J,5301),
   ok.
 
--doc(#{equiv => evalMesh2/5}).
--spec evalMesh1(Mode::enum(), I1::i(), I2::i()) -> 'ok'.
-evalMesh1(Mode,I1,I2) when is_integer(Mode),is_integer(I1),is_integer(I2) ->
-  IF = get_interface(),
-  IF:queue_cmd(Mode,I1,I2,5302),
-  ok.
-
 -doc """
-[`gl:mapGrid()`](`mapGrid1d/3`) and [`gl:evalMesh()`](`evalMesh1/3`) are used in
+[`gl:mapGrid/3`](`mapGrid1d/3`) and [`gl:evalMesh/3`](`evalMesh1/3`) are used in
 tandem to efficiently generate and evaluate a series of evenly-spaced map domain
-values. [`gl:evalMesh()`](`evalMesh1/3`) steps through the integer domain of a
+values. [`gl:evalMesh/3`](`evalMesh1/3`) steps through the integer domain of a
 one- or two-dimensional grid, whose range is the domain of the evaluation maps
 specified by `glMap1` and `glMap2`. `Mode` determines whether the resulting
 vertices are connected as points, lines, or filled polygons.
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glEvalMesh.xml)
 """.
+-spec evalMesh1(Mode::enum(), I1::i(), I2::i()) -> 'ok'.
+evalMesh1(Mode,I1,I2) when is_integer(Mode),is_integer(I1),is_integer(I2) ->
+  IF = get_interface(),
+  IF:queue_cmd(Mode,I1,I2,5302),
+  ok.
+
+-doc(#{equiv => evalMesh1/3}).
 -spec evalMesh2(Mode::enum(), I1::i(), I2::i(), J1::i(), J2::i()) -> 'ok'.
 evalMesh2(Mode,I1,I2,J1,J2) when is_integer(Mode),is_integer(I1),is_integer(I2),is_integer(J1),is_integer(J2) ->
   IF = get_interface(),
   IF:queue_cmd(Mode,I1,I2,J1,J2,5303),
   ok.
 
--doc(#{equiv => fogiv/2}).
+-doc """
+Fog is initially disabled. While enabled, fog affects rasterized geometry,
+bitmaps, and pixel blocks, but not buffer clear operations. To enable and
+disable fog, call [`gl:enable/1`](`enable/1`) and [`gl:disable/1`](`disable/1`)
+with argument `?GL_FOG`.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glFog.xml)
+""".
 -spec fogf(Pname::enum(), Param::f()) -> 'ok'.
 fogf(Pname,Param) when is_integer(Pname),is_float(Param) ->
   IF = get_interface(),
   IF:queue_cmd(Pname,Param,5304),
   ok.
 
--doc(#{equiv => fogiv/2}).
+-doc(#{equiv => fogf/2}).
 -spec fogi(Pname::enum(), Param::i()) -> 'ok'.
 fogi(Pname,Param) when is_integer(Pname),is_integer(Param) ->
   IF = get_interface(),
   IF:queue_cmd(Pname,Param,5305),
   ok.
 
--doc(#{equiv => fogiv/2}).
+-doc(#{equiv => fogf/2}).
 -spec fogfv(Pname::enum(), Params::tuple()) -> 'ok'.
 fogfv(Pname,Params) when is_integer(Pname),is_tuple(Params) ->
   IF = get_interface(),
   IF:queue_cmd(Pname,Params,5306),
   ok.
 
--doc """
-Fog is initially disabled. While enabled, fog affects rasterized geometry,
-bitmaps, and pixel blocks, but not buffer clear operations. To enable and
-disable fog, call [`gl:enable/1`](`enable/1`) and [`gl:disable/1`](`enable/1`)
-with argument `?GL_FOG`.
-
-[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glFog.xml)
-""".
+-doc(#{equiv => fogf/2}).
 -spec fogiv(Pname::enum(), Params::tuple()) -> 'ok'.
 fogiv(Pname,Params) when is_integer(Pname),is_tuple(Params) ->
   IF = get_interface(),
@@ -3466,7 +4061,11 @@ feedbackBuffer(Size,Type,Buffer) when is_integer(Size),is_integer(Type),is_tuple
   IF:queue_cmd(Size,Type,Buffer,5308),
   rec(5308).
 
--doc "[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glPassThrough.xml)".
+-doc """
+
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glPassThrough.xml)
+""".
 -spec passThrough(Token::f()) -> 'ok'.
 passThrough(Token) when is_float(Token) ->
   IF = get_interface(),
@@ -3558,7 +4157,7 @@ drawRangeElements(Mode,Start,End,Count,Type,Indices) when is_integer(Mode),is_in
 Texturing maps a portion of a specified texture image onto each graphical
 primitive for which texturing is enabled. To enable and disable
 three-dimensional texturing, call [`gl:enable/1`](`enable/1`) and
-[`gl:disable/1`](`enable/1`) with argument `?GL_TEXTURE_3D`.
+[`gl:disable/1`](`disable/1`) with argument `?GL_TEXTURE_3D`.
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glTexImage3D.xhtml)
 """.
@@ -3660,7 +4259,11 @@ compressedTexImage1D(Target,Level,Internalformat,Width,Border,ImageSize,Data) wh
   IF:queue_cmd(Target,Level,Internalformat,Width,Border,ImageSize,Data,5328),
   ok.
 
--doc(#{equiv => compressedTextureSubImage3D/11}).
+-doc """
+Texturing allows elements of an image array to be read by shaders.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glCompressedTexSubImage3D.xhtml)
+""".
 -spec compressedTexSubImage3D(Target, Level, Xoffset, Yoffset, Zoffset, Width, Height, Depth, Format, ImageSize, Data) -> 'ok'
     when Target::enum(), Level::i(), Xoffset::i(), Yoffset::i(), Zoffset::i(), Width::i(), Height::i(), Depth::i(), Format::enum(), ImageSize::i(), Data::offset()|mem().
 compressedTexSubImage3D(Target,Level,Xoffset,Yoffset,Zoffset,Width,Height,Depth,Format,ImageSize,Data) when is_integer(Target),is_integer(Level),is_integer(Xoffset),is_integer(Yoffset),is_integer(Zoffset),is_integer(Width),is_integer(Height),is_integer(Depth),is_integer(Format),is_integer(ImageSize),is_integer(Data) orelse is_tuple(Data) orelse is_binary(Data) ->
@@ -3668,7 +4271,11 @@ compressedTexSubImage3D(Target,Level,Xoffset,Yoffset,Zoffset,Width,Height,Depth,
   IF:queue_cmd(Target,Level,Xoffset,Yoffset,Zoffset,Width,Height,Depth,Format,ImageSize,Data,5330),
   ok.
 
--doc(#{equiv => compressedTextureSubImage2D/9}).
+-doc """
+Texturing allows elements of an image array to be read by shaders.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glCompressedTexSubImage2D.xhtml)
+""".
 -spec compressedTexSubImage2D(Target, Level, Xoffset, Yoffset, Width, Height, Format, ImageSize, Data) -> 'ok'
     when Target::enum(), Level::i(), Xoffset::i(), Yoffset::i(), Width::i(), Height::i(), Format::enum(), ImageSize::i(), Data::offset()|mem().
 compressedTexSubImage2D(Target,Level,Xoffset,Yoffset,Width,Height,Format,ImageSize,Data) when is_integer(Target),is_integer(Level),is_integer(Xoffset),is_integer(Yoffset),is_integer(Width),is_integer(Height),is_integer(Format),is_integer(ImageSize),is_integer(Data) orelse is_tuple(Data) orelse is_binary(Data) ->
@@ -3676,7 +4283,11 @@ compressedTexSubImage2D(Target,Level,Xoffset,Yoffset,Width,Height,Format,ImageSi
   IF:queue_cmd(Target,Level,Xoffset,Yoffset,Width,Height,Format,ImageSize,Data,5332),
   ok.
 
--doc(#{equiv => compressedTextureSubImage1D/7}).
+-doc """
+Texturing allows elements of an image array to be read by shaders.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glCompressedTexSubImage1D.xhtml)
+""".
 -spec compressedTexSubImage1D(Target, Level, Xoffset, Width, Format, ImageSize, Data) -> 'ok'
     when Target::enum(), Level::i(), Xoffset::i(), Width::i(), Format::enum(), ImageSize::i(), Data::offset()|mem().
 compressedTexSubImage1D(Target,Level,Xoffset,Width,Format,ImageSize,Data) when is_integer(Target),is_integer(Level),is_integer(Xoffset),is_integer(Width),is_integer(Format),is_integer(ImageSize),is_integer(Data) orelse is_tuple(Data) orelse is_binary(Data) ->
@@ -3711,7 +4322,7 @@ getCompressedTexImage(Target,Lod,Img) when is_integer(Target),is_integer(Lod),is
 client state parameters to be modified by
 [`gl:texCoordPointer/4`](`texCoordPointer/4`), and enabled or disabled with
 [`gl:enableClientState/1`](`enableClientState/1`) or
-[`gl:disableClientState/1`](`enableClientState/1`), respectively, when called
+[`gl:disableClientState/1`](`disableClientState/1`), respectively, when called
 with a parameter of `?GL_TEXTURE_COORD_ARRAY`.
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glClientActiveTexture.xml)
@@ -3729,7 +4340,18 @@ multiTexCoord1d(Target,S) when is_integer(Target),is_float(S) ->
   IF:queue_cmd(Target,S,5338),
   ok.
 
--doc(#{equiv => multiTexCoord4sv/2}).
+-doc """
+[`gl:multiTexCoord/2`](`multiTexCoord4sv/2`) specifies texture coordinates in
+one, two, three, or four dimensions.
+[`gl:multiTexCoord1/2`](`multiTexCoord4sv/2`) sets the current texture
+coordinates to (s 0 0 1); a call to
+[`gl:multiTexCoord2/2`](`multiTexCoord4sv/2`) sets them to (s t 0 1). Similarly,
+[`gl:multiTexCoord3/2`](`multiTexCoord4sv/2`) specifies the texture coordinates
+as (s t r 1), and [`gl:multiTexCoord4/2`](`multiTexCoord4sv/2`) defines all four
+components explicitly as (s t r q).
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glMultiTexCoord.xml)
+""".
 -spec multiTexCoord1dv(Target::enum(), {S::f()}) -> 'ok'.
 multiTexCoord1dv(Target,{S}) ->  multiTexCoord1d(Target,S).
 -doc(#{equiv => multiTexCoord4sv/2}).
@@ -3739,7 +4361,18 @@ multiTexCoord1f(Target,S) when is_integer(Target),is_float(S) ->
   IF:queue_cmd(Target,S,5339),
   ok.
 
--doc(#{equiv => multiTexCoord4sv/2}).
+-doc """
+[`gl:multiTexCoord/2`](`multiTexCoord4sv/2`) specifies texture coordinates in
+one, two, three, or four dimensions.
+[`gl:multiTexCoord1/2`](`multiTexCoord4sv/2`) sets the current texture
+coordinates to (s 0 0 1); a call to
+[`gl:multiTexCoord2/2`](`multiTexCoord4sv/2`) sets them to (s t 0 1). Similarly,
+[`gl:multiTexCoord3/2`](`multiTexCoord4sv/2`) specifies the texture coordinates
+as (s t r 1), and [`gl:multiTexCoord4/2`](`multiTexCoord4sv/2`) defines all four
+components explicitly as (s t r q).
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glMultiTexCoord.xml)
+""".
 -spec multiTexCoord1fv(Target::enum(), {S::f()}) -> 'ok'.
 multiTexCoord1fv(Target,{S}) ->  multiTexCoord1f(Target,S).
 -doc(#{equiv => multiTexCoord4sv/2}).
@@ -3749,7 +4382,18 @@ multiTexCoord1i(Target,S) when is_integer(Target),is_integer(S) ->
   IF:queue_cmd(Target,S,5340),
   ok.
 
--doc(#{equiv => multiTexCoord4sv/2}).
+-doc """
+[`gl:multiTexCoord/2`](`multiTexCoord4sv/2`) specifies texture coordinates in
+one, two, three, or four dimensions.
+[`gl:multiTexCoord1/2`](`multiTexCoord4sv/2`) sets the current texture
+coordinates to (s 0 0 1); a call to
+[`gl:multiTexCoord2/2`](`multiTexCoord4sv/2`) sets them to (s t 0 1). Similarly,
+[`gl:multiTexCoord3/2`](`multiTexCoord4sv/2`) specifies the texture coordinates
+as (s t r 1), and [`gl:multiTexCoord4/2`](`multiTexCoord4sv/2`) defines all four
+components explicitly as (s t r q).
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glMultiTexCoord.xml)
+""".
 -spec multiTexCoord1iv(Target::enum(), {S::i()}) -> 'ok'.
 multiTexCoord1iv(Target,{S}) ->  multiTexCoord1i(Target,S).
 -doc(#{equiv => multiTexCoord4sv/2}).
@@ -3759,7 +4403,18 @@ multiTexCoord1s(Target,S) when is_integer(Target),is_integer(S) ->
   IF:queue_cmd(Target,S,5341),
   ok.
 
--doc(#{equiv => multiTexCoord4sv/2}).
+-doc """
+[`gl:multiTexCoord/2`](`multiTexCoord4sv/2`) specifies texture coordinates in
+one, two, three, or four dimensions.
+[`gl:multiTexCoord1/2`](`multiTexCoord4sv/2`) sets the current texture
+coordinates to (s 0 0 1); a call to
+[`gl:multiTexCoord2/2`](`multiTexCoord4sv/2`) sets them to (s t 0 1). Similarly,
+[`gl:multiTexCoord3/2`](`multiTexCoord4sv/2`) specifies the texture coordinates
+as (s t r 1), and [`gl:multiTexCoord4/2`](`multiTexCoord4sv/2`) defines all four
+components explicitly as (s t r q).
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glMultiTexCoord.xml)
+""".
 -spec multiTexCoord1sv(Target::enum(), {S::i()}) -> 'ok'.
 multiTexCoord1sv(Target,{S}) ->  multiTexCoord1s(Target,S).
 -doc(#{equiv => multiTexCoord4sv/2}).
@@ -3769,7 +4424,18 @@ multiTexCoord2d(Target,S,T) when is_integer(Target),is_float(S),is_float(T) ->
   IF:queue_cmd(Target,S,T,5342),
   ok.
 
--doc(#{equiv => multiTexCoord4sv/2}).
+-doc """
+[`gl:multiTexCoord/2`](`multiTexCoord4sv/2`) specifies texture coordinates in
+one, two, three, or four dimensions.
+[`gl:multiTexCoord1/2`](`multiTexCoord4sv/2`) sets the current texture
+coordinates to (s 0 0 1); a call to
+[`gl:multiTexCoord2/2`](`multiTexCoord4sv/2`) sets them to (s t 0 1). Similarly,
+[`gl:multiTexCoord3/2`](`multiTexCoord4sv/2`) specifies the texture coordinates
+as (s t r 1), and [`gl:multiTexCoord4/2`](`multiTexCoord4sv/2`) defines all four
+components explicitly as (s t r q).
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glMultiTexCoord.xml)
+""".
 -spec multiTexCoord2dv(Target::enum(), {S::f(), T::f()}) -> 'ok'.
 multiTexCoord2dv(Target,{S,T}) ->  multiTexCoord2d(Target,S,T).
 -doc(#{equiv => multiTexCoord4sv/2}).
@@ -3779,7 +4445,18 @@ multiTexCoord2f(Target,S,T) when is_integer(Target),is_float(S),is_float(T) ->
   IF:queue_cmd(Target,S,T,5343),
   ok.
 
--doc(#{equiv => multiTexCoord4sv/2}).
+-doc """
+[`gl:multiTexCoord/2`](`multiTexCoord4sv/2`) specifies texture coordinates in
+one, two, three, or four dimensions.
+[`gl:multiTexCoord1/2`](`multiTexCoord4sv/2`) sets the current texture
+coordinates to (s 0 0 1); a call to
+[`gl:multiTexCoord2/2`](`multiTexCoord4sv/2`) sets them to (s t 0 1). Similarly,
+[`gl:multiTexCoord3/2`](`multiTexCoord4sv/2`) specifies the texture coordinates
+as (s t r 1), and [`gl:multiTexCoord4/2`](`multiTexCoord4sv/2`) defines all four
+components explicitly as (s t r q).
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glMultiTexCoord.xml)
+""".
 -spec multiTexCoord2fv(Target::enum(), {S::f(), T::f()}) -> 'ok'.
 multiTexCoord2fv(Target,{S,T}) ->  multiTexCoord2f(Target,S,T).
 -doc(#{equiv => multiTexCoord4sv/2}).
@@ -3789,7 +4466,18 @@ multiTexCoord2i(Target,S,T) when is_integer(Target),is_integer(S),is_integer(T) 
   IF:queue_cmd(Target,S,T,5344),
   ok.
 
--doc(#{equiv => multiTexCoord4sv/2}).
+-doc """
+[`gl:multiTexCoord/2`](`multiTexCoord4sv/2`) specifies texture coordinates in
+one, two, three, or four dimensions.
+[`gl:multiTexCoord1/2`](`multiTexCoord4sv/2`) sets the current texture
+coordinates to (s 0 0 1); a call to
+[`gl:multiTexCoord2/2`](`multiTexCoord4sv/2`) sets them to (s t 0 1). Similarly,
+[`gl:multiTexCoord3/2`](`multiTexCoord4sv/2`) specifies the texture coordinates
+as (s t r 1), and [`gl:multiTexCoord4/2`](`multiTexCoord4sv/2`) defines all four
+components explicitly as (s t r q).
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glMultiTexCoord.xml)
+""".
 -spec multiTexCoord2iv(Target::enum(), {S::i(), T::i()}) -> 'ok'.
 multiTexCoord2iv(Target,{S,T}) ->  multiTexCoord2i(Target,S,T).
 -doc(#{equiv => multiTexCoord4sv/2}).
@@ -3799,7 +4487,18 @@ multiTexCoord2s(Target,S,T) when is_integer(Target),is_integer(S),is_integer(T) 
   IF:queue_cmd(Target,S,T,5345),
   ok.
 
--doc(#{equiv => multiTexCoord4sv/2}).
+-doc """
+[`gl:multiTexCoord/2`](`multiTexCoord4sv/2`) specifies texture coordinates in
+one, two, three, or four dimensions.
+[`gl:multiTexCoord1/2`](`multiTexCoord4sv/2`) sets the current texture
+coordinates to (s 0 0 1); a call to
+[`gl:multiTexCoord2/2`](`multiTexCoord4sv/2`) sets them to (s t 0 1). Similarly,
+[`gl:multiTexCoord3/2`](`multiTexCoord4sv/2`) specifies the texture coordinates
+as (s t r 1), and [`gl:multiTexCoord4/2`](`multiTexCoord4sv/2`) defines all four
+components explicitly as (s t r q).
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glMultiTexCoord.xml)
+""".
 -spec multiTexCoord2sv(Target::enum(), {S::i(), T::i()}) -> 'ok'.
 multiTexCoord2sv(Target,{S,T}) ->  multiTexCoord2s(Target,S,T).
 -doc(#{equiv => multiTexCoord4sv/2}).
@@ -3809,7 +4508,18 @@ multiTexCoord3d(Target,S,T,R) when is_integer(Target),is_float(S),is_float(T),is
   IF:queue_cmd(Target,S,T,R,5346),
   ok.
 
--doc(#{equiv => multiTexCoord4sv/2}).
+-doc """
+[`gl:multiTexCoord/2`](`multiTexCoord4sv/2`) specifies texture coordinates in
+one, two, three, or four dimensions.
+[`gl:multiTexCoord1/2`](`multiTexCoord4sv/2`) sets the current texture
+coordinates to (s 0 0 1); a call to
+[`gl:multiTexCoord2/2`](`multiTexCoord4sv/2`) sets them to (s t 0 1). Similarly,
+[`gl:multiTexCoord3/2`](`multiTexCoord4sv/2`) specifies the texture coordinates
+as (s t r 1), and [`gl:multiTexCoord4/2`](`multiTexCoord4sv/2`) defines all four
+components explicitly as (s t r q).
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glMultiTexCoord.xml)
+""".
 -spec multiTexCoord3dv(Target::enum(), {S::f(), T::f(), R::f()}) -> 'ok'.
 multiTexCoord3dv(Target,{S,T,R}) ->  multiTexCoord3d(Target,S,T,R).
 -doc(#{equiv => multiTexCoord4sv/2}).
@@ -3819,7 +4529,18 @@ multiTexCoord3f(Target,S,T,R) when is_integer(Target),is_float(S),is_float(T),is
   IF:queue_cmd(Target,S,T,R,5347),
   ok.
 
--doc(#{equiv => multiTexCoord4sv/2}).
+-doc """
+[`gl:multiTexCoord/2`](`multiTexCoord4sv/2`) specifies texture coordinates in
+one, two, three, or four dimensions.
+[`gl:multiTexCoord1/2`](`multiTexCoord4sv/2`) sets the current texture
+coordinates to (s 0 0 1); a call to
+[`gl:multiTexCoord2/2`](`multiTexCoord4sv/2`) sets them to (s t 0 1). Similarly,
+[`gl:multiTexCoord3/2`](`multiTexCoord4sv/2`) specifies the texture coordinates
+as (s t r 1), and [`gl:multiTexCoord4/2`](`multiTexCoord4sv/2`) defines all four
+components explicitly as (s t r q).
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glMultiTexCoord.xml)
+""".
 -spec multiTexCoord3fv(Target::enum(), {S::f(), T::f(), R::f()}) -> 'ok'.
 multiTexCoord3fv(Target,{S,T,R}) ->  multiTexCoord3f(Target,S,T,R).
 -doc(#{equiv => multiTexCoord4sv/2}).
@@ -3829,7 +4550,18 @@ multiTexCoord3i(Target,S,T,R) when is_integer(Target),is_integer(S),is_integer(T
   IF:queue_cmd(Target,S,T,R,5348),
   ok.
 
--doc(#{equiv => multiTexCoord4sv/2}).
+-doc """
+[`gl:multiTexCoord/2`](`multiTexCoord4sv/2`) specifies texture coordinates in
+one, two, three, or four dimensions.
+[`gl:multiTexCoord1/2`](`multiTexCoord4sv/2`) sets the current texture
+coordinates to (s 0 0 1); a call to
+[`gl:multiTexCoord2/2`](`multiTexCoord4sv/2`) sets them to (s t 0 1). Similarly,
+[`gl:multiTexCoord3/2`](`multiTexCoord4sv/2`) specifies the texture coordinates
+as (s t r 1), and [`gl:multiTexCoord4/2`](`multiTexCoord4sv/2`) defines all four
+components explicitly as (s t r q).
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glMultiTexCoord.xml)
+""".
 -spec multiTexCoord3iv(Target::enum(), {S::i(), T::i(), R::i()}) -> 'ok'.
 multiTexCoord3iv(Target,{S,T,R}) ->  multiTexCoord3i(Target,S,T,R).
 -doc(#{equiv => multiTexCoord4sv/2}).
@@ -3839,7 +4571,18 @@ multiTexCoord3s(Target,S,T,R) when is_integer(Target),is_integer(S),is_integer(T
   IF:queue_cmd(Target,S,T,R,5349),
   ok.
 
--doc(#{equiv => multiTexCoord4sv/2}).
+-doc """
+[`gl:multiTexCoord/2`](`multiTexCoord4sv/2`) specifies texture coordinates in
+one, two, three, or four dimensions.
+[`gl:multiTexCoord1/2`](`multiTexCoord4sv/2`) sets the current texture
+coordinates to (s 0 0 1); a call to
+[`gl:multiTexCoord2/2`](`multiTexCoord4sv/2`) sets them to (s t 0 1). Similarly,
+[`gl:multiTexCoord3/2`](`multiTexCoord4sv/2`) specifies the texture coordinates
+as (s t r 1), and [`gl:multiTexCoord4/2`](`multiTexCoord4sv/2`) defines all four
+components explicitly as (s t r q).
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glMultiTexCoord.xml)
+""".
 -spec multiTexCoord3sv(Target::enum(), {S::i(), T::i(), R::i()}) -> 'ok'.
 multiTexCoord3sv(Target,{S,T,R}) ->  multiTexCoord3s(Target,S,T,R).
 -doc(#{equiv => multiTexCoord4sv/2}).
@@ -3849,7 +4592,18 @@ multiTexCoord4d(Target,S,T,R,Q) when is_integer(Target),is_float(S),is_float(T),
   IF:queue_cmd(Target,S,T,R,Q,5350),
   ok.
 
--doc(#{equiv => multiTexCoord4sv/2}).
+-doc """
+[`gl:multiTexCoord/2`](`multiTexCoord4sv/2`) specifies texture coordinates in
+one, two, three, or four dimensions.
+[`gl:multiTexCoord1/2`](`multiTexCoord4sv/2`) sets the current texture
+coordinates to (s 0 0 1); a call to
+[`gl:multiTexCoord2/2`](`multiTexCoord4sv/2`) sets them to (s t 0 1). Similarly,
+[`gl:multiTexCoord3/2`](`multiTexCoord4sv/2`) specifies the texture coordinates
+as (s t r 1), and [`gl:multiTexCoord4/2`](`multiTexCoord4sv/2`) defines all four
+components explicitly as (s t r q).
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glMultiTexCoord.xml)
+""".
 -spec multiTexCoord4dv(Target::enum(), {S::f(), T::f(), R::f(), Q::f()}) -> 'ok'.
 multiTexCoord4dv(Target,{S,T,R,Q}) ->  multiTexCoord4d(Target,S,T,R,Q).
 -doc(#{equiv => multiTexCoord4sv/2}).
@@ -3859,7 +4613,18 @@ multiTexCoord4f(Target,S,T,R,Q) when is_integer(Target),is_float(S),is_float(T),
   IF:queue_cmd(Target,S,T,R,Q,5351),
   ok.
 
--doc(#{equiv => multiTexCoord4sv/2}).
+-doc """
+[`gl:multiTexCoord/2`](`multiTexCoord4sv/2`) specifies texture coordinates in
+one, two, three, or four dimensions.
+[`gl:multiTexCoord1/2`](`multiTexCoord4sv/2`) sets the current texture
+coordinates to (s 0 0 1); a call to
+[`gl:multiTexCoord2/2`](`multiTexCoord4sv/2`) sets them to (s t 0 1). Similarly,
+[`gl:multiTexCoord3/2`](`multiTexCoord4sv/2`) specifies the texture coordinates
+as (s t r 1), and [`gl:multiTexCoord4/2`](`multiTexCoord4sv/2`) defines all four
+components explicitly as (s t r q).
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glMultiTexCoord.xml)
+""".
 -spec multiTexCoord4fv(Target::enum(), {S::f(), T::f(), R::f(), Q::f()}) -> 'ok'.
 multiTexCoord4fv(Target,{S,T,R,Q}) ->  multiTexCoord4f(Target,S,T,R,Q).
 -doc(#{equiv => multiTexCoord4sv/2}).
@@ -3869,7 +4634,18 @@ multiTexCoord4i(Target,S,T,R,Q) when is_integer(Target),is_integer(S),is_integer
   IF:queue_cmd(Target,S,T,R,Q,5352),
   ok.
 
--doc(#{equiv => multiTexCoord4sv/2}).
+-doc """
+[`gl:multiTexCoord/2`](`multiTexCoord4sv/2`) specifies texture coordinates in
+one, two, three, or four dimensions.
+[`gl:multiTexCoord1/2`](`multiTexCoord4sv/2`) sets the current texture
+coordinates to (s 0 0 1); a call to
+[`gl:multiTexCoord2/2`](`multiTexCoord4sv/2`) sets them to (s t 0 1). Similarly,
+[`gl:multiTexCoord3/2`](`multiTexCoord4sv/2`) specifies the texture coordinates
+as (s t r 1), and [`gl:multiTexCoord4/2`](`multiTexCoord4sv/2`) defines all four
+components explicitly as (s t r q).
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glMultiTexCoord.xml)
+""".
 -spec multiTexCoord4iv(Target::enum(), {S::i(), T::i(), R::i(), Q::i()}) -> 'ok'.
 multiTexCoord4iv(Target,{S,T,R,Q}) ->  multiTexCoord4i(Target,S,T,R,Q).
 -doc(#{equiv => multiTexCoord4sv/2}).
@@ -3880,21 +4656,21 @@ multiTexCoord4s(Target,S,T,R,Q) when is_integer(Target),is_integer(S),is_integer
   ok.
 
 -doc """
-[`gl:multiTexCoord()`](`multiTexCoord1d/2`) specifies texture coordinates in
+[`gl:multiTexCoord/2`](`multiTexCoord4sv/2`) specifies texture coordinates in
 one, two, three, or four dimensions.
-[`gl:multiTexCoord1()`](`multiTexCoord1d/2`) sets the current texture
-coordinates to (s 0 0 1); a call to [`gl:multiTexCoord2()`](`multiTexCoord1d/2`)
-sets them to (s t 0 1). Similarly, [`gl:multiTexCoord3()`](`multiTexCoord1d/2`)
-specifies the texture coordinates as (s t r 1), and
-[`gl:multiTexCoord4()`](`multiTexCoord1d/2`) defines all four components
-explicitly as (s t r q).
+[`gl:multiTexCoord1/2`](`multiTexCoord4sv/2`) sets the current texture
+coordinates to (s 0 0 1); a call to
+[`gl:multiTexCoord2/2`](`multiTexCoord4sv/2`) sets them to (s t 0 1). Similarly,
+[`gl:multiTexCoord3/2`](`multiTexCoord4sv/2`) specifies the texture coordinates
+as (s t r 1), and [`gl:multiTexCoord4/2`](`multiTexCoord4sv/2`) defines all four
+components explicitly as (s t r q).
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glMultiTexCoord.xml)
 """.
 -spec multiTexCoord4sv(Target::enum(), {S::i(), T::i(), R::i(), Q::i()}) -> 'ok'.
 multiTexCoord4sv(Target,{S,T,R,Q}) ->  multiTexCoord4s(Target,S,T,R,Q).
 -doc """
-[`gl:loadTransposeMatrix()`](`loadTransposeMatrixf/1`) replaces the current
+[`gl:loadTransposeMatrix/1`](`loadTransposeMatrixf/1`) replaces the current
 matrix with the one whose elements are specified by `M`. The current matrix is
 the projection matrix, modelview matrix, or texture matrix, depending on the
 current matrix mode (see [`gl:matrixMode/1`](`matrixMode/1`)).
@@ -3915,7 +4691,7 @@ loadTransposeMatrixd(M) when tuple_size(M) =:= 16; tuple_size(M) =:= 12 ->
   ok.
 
 -doc """
-[`gl:multTransposeMatrix()`](`multTransposeMatrixf/1`) multiplies the current
+[`gl:multTransposeMatrix/1`](`multTransposeMatrixf/1`) multiplies the current
 matrix with the one specified using `M`, and replaces the current matrix with
 the product.
 
@@ -3934,7 +4710,15 @@ multTransposeMatrixd(M) when tuple_size(M) =:= 16; tuple_size(M) =:= 12 ->
   IF:queue_cmd(M,5357),
   ok.
 
--doc(#{equiv => blendFuncSeparatei/5}).
+-doc """
+Pixels can be drawn using a function that blends the incoming (source) RGBA
+values with the RGBA values that are already in the frame buffer (the
+destination values). Blending is initially disabled. Use
+[`gl:enable/1`](`enable/1`) and [`gl:disable/1`](`disable/1`) with argument
+`?GL_BLEND` to enable and disable blending.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glBlendFuncSeparate.xhtml)
+""".
 -spec blendFuncSeparate(SfactorRGB, DfactorRGB, SfactorAlpha, DfactorAlpha) -> 'ok'
     when SfactorRGB::enum(), DfactorRGB::enum(), SfactorAlpha::enum(), DfactorAlpha::enum().
 blendFuncSeparate(SfactorRGB,DfactorRGB,SfactorAlpha,DfactorAlpha) when is_integer(SfactorRGB),is_integer(DfactorRGB),is_integer(SfactorAlpha),is_integer(DfactorAlpha) ->
@@ -3958,39 +4742,39 @@ multiDrawArrays(Mode,First,Count) when is_integer(Mode),is_list(First) orelse is
   IF:queue_cmd(Mode,First,Count,5359),
   ok.
 
--doc(#{equiv => pointParameteriv/2}).
+-doc """
+The following values are accepted for `Pname`:
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glPointParameter.xhtml)
+""".
 -spec pointParameterf(Pname::enum(), Param::f()) -> 'ok'.
 pointParameterf(Pname,Param) when is_integer(Pname),is_float(Param) ->
   IF = get_interface(),
   IF:queue_cmd(Pname,Param,5361),
   ok.
 
--doc(#{equiv => pointParameteriv/2}).
+-doc(#{equiv => pointParameterf/2}).
 -spec pointParameterfv(Pname::enum(), Params::tuple()) -> 'ok'.
 pointParameterfv(Pname,Params) when is_integer(Pname),is_tuple(Params) ->
   IF = get_interface(),
   IF:queue_cmd(Pname,Params,5362),
   ok.
 
--doc(#{equiv => pointParameteriv/2}).
+-doc(#{equiv => pointParameterf/2}).
 -spec pointParameteri(Pname::enum(), Param::i()) -> 'ok'.
 pointParameteri(Pname,Param) when is_integer(Pname),is_integer(Param) ->
   IF = get_interface(),
   IF:queue_cmd(Pname,Param,5363),
   ok.
 
--doc """
-The following values are accepted for `Pname`:
-
-[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glPointParameter.xhtml)
-""".
+-doc(#{equiv => pointParameterf/2}).
 -spec pointParameteriv(Pname::enum(), Params::tuple()) -> 'ok'.
 pointParameteriv(Pname,Params) when is_integer(Pname),is_tuple(Params) ->
   IF = get_interface(),
   IF:queue_cmd(Pname,Params,5364),
   ok.
 
--doc(#{equiv => fogCoordfv/1}).
+-doc(#{equiv => fogCoorddv/1}).
 -spec fogCoordf(Coord::f()) -> 'ok'.
 fogCoordf(Coord) when is_float(Coord) ->
   IF = get_interface(),
@@ -3998,22 +4782,30 @@ fogCoordf(Coord) when is_float(Coord) ->
   ok.
 
 -doc """
-[`gl:fogCoord()`](`fogCoordf/1`) specifies the fog coordinate that is associated
-with each vertex and the current raster position. The value specified is
-interpolated and used in computing the fog color (see [`gl:fog()`](`fogf/2`)).
+[`gl:fogCoord/1`](`fogCoorddv/1`) specifies the fog coordinate that is
+associated with each vertex and the current raster position. The value specified
+is interpolated and used in computing the fog color (see
+[`gl:fog/2`](`fogf/2`)).
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glFogCoord.xml)
 """.
 -spec fogCoordfv({Coord::f()}) -> 'ok'.
 fogCoordfv({Coord}) ->  fogCoordf(Coord).
--doc(#{equiv => fogCoordfv/1}).
+-doc(#{equiv => fogCoorddv/1}).
 -spec fogCoordd(Coord::f()) -> 'ok'.
 fogCoordd(Coord) when is_float(Coord) ->
   IF = get_interface(),
   IF:queue_cmd(Coord,5366),
   ok.
 
--doc(#{equiv => fogCoordfv/1}).
+-doc """
+[`gl:fogCoord/1`](`fogCoorddv/1`) specifies the fog coordinate that is
+associated with each vertex and the current raster position. The value specified
+is interpolated and used in computing the fog color (see
+[`gl:fog/2`](`fogf/2`)).
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glFogCoord.xml)
+""".
 -spec fogCoorddv({Coord::f()}) -> 'ok'.
 fogCoorddv({Coord}) ->  fogCoordd(Coord).
 -doc """
@@ -4038,7 +4830,13 @@ secondaryColor3b(Red,Green,Blue) when is_integer(Red),is_integer(Green),is_integ
   IF:queue_cmd(Red,Green,Blue,5369),
   ok.
 
--doc(#{equiv => secondaryColor3usv/1}).
+-doc """
+The GL stores both a primary four-valued RGBA color and a secondary four-valued
+RGBA color (where alpha is always set to 0.0) that is associated with every
+vertex.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glSecondaryColor.xml)
+""".
 -spec secondaryColor3bv({Red::i(), Green::i(), Blue::i()}) -> 'ok'.
 secondaryColor3bv({Red,Green,Blue}) ->  secondaryColor3b(Red,Green,Blue).
 -doc(#{equiv => secondaryColor3usv/1}).
@@ -4048,7 +4846,13 @@ secondaryColor3d(Red,Green,Blue) when is_float(Red),is_float(Green),is_float(Blu
   IF:queue_cmd(Red,Green,Blue,5370),
   ok.
 
--doc(#{equiv => secondaryColor3usv/1}).
+-doc """
+The GL stores both a primary four-valued RGBA color and a secondary four-valued
+RGBA color (where alpha is always set to 0.0) that is associated with every
+vertex.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glSecondaryColor.xml)
+""".
 -spec secondaryColor3dv({Red::f(), Green::f(), Blue::f()}) -> 'ok'.
 secondaryColor3dv({Red,Green,Blue}) ->  secondaryColor3d(Red,Green,Blue).
 -doc(#{equiv => secondaryColor3usv/1}).
@@ -4058,7 +4862,13 @@ secondaryColor3f(Red,Green,Blue) when is_float(Red),is_float(Green),is_float(Blu
   IF:queue_cmd(Red,Green,Blue,5371),
   ok.
 
--doc(#{equiv => secondaryColor3usv/1}).
+-doc """
+The GL stores both a primary four-valued RGBA color and a secondary four-valued
+RGBA color (where alpha is always set to 0.0) that is associated with every
+vertex.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glSecondaryColor.xml)
+""".
 -spec secondaryColor3fv({Red::f(), Green::f(), Blue::f()}) -> 'ok'.
 secondaryColor3fv({Red,Green,Blue}) ->  secondaryColor3f(Red,Green,Blue).
 -doc(#{equiv => secondaryColor3usv/1}).
@@ -4068,7 +4878,13 @@ secondaryColor3i(Red,Green,Blue) when is_integer(Red),is_integer(Green),is_integ
   IF:queue_cmd(Red,Green,Blue,5372),
   ok.
 
--doc(#{equiv => secondaryColor3usv/1}).
+-doc """
+The GL stores both a primary four-valued RGBA color and a secondary four-valued
+RGBA color (where alpha is always set to 0.0) that is associated with every
+vertex.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glSecondaryColor.xml)
+""".
 -spec secondaryColor3iv({Red::i(), Green::i(), Blue::i()}) -> 'ok'.
 secondaryColor3iv({Red,Green,Blue}) ->  secondaryColor3i(Red,Green,Blue).
 -doc(#{equiv => secondaryColor3usv/1}).
@@ -4078,7 +4894,13 @@ secondaryColor3s(Red,Green,Blue) when is_integer(Red),is_integer(Green),is_integ
   IF:queue_cmd(Red,Green,Blue,5373),
   ok.
 
--doc(#{equiv => secondaryColor3usv/1}).
+-doc """
+The GL stores both a primary four-valued RGBA color and a secondary four-valued
+RGBA color (where alpha is always set to 0.0) that is associated with every
+vertex.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glSecondaryColor.xml)
+""".
 -spec secondaryColor3sv({Red::i(), Green::i(), Blue::i()}) -> 'ok'.
 secondaryColor3sv({Red,Green,Blue}) ->  secondaryColor3s(Red,Green,Blue).
 -doc(#{equiv => secondaryColor3usv/1}).
@@ -4088,7 +4910,13 @@ secondaryColor3ub(Red,Green,Blue) when is_integer(Red),is_integer(Green),is_inte
   IF:queue_cmd(Red,Green,Blue,5374),
   ok.
 
--doc(#{equiv => secondaryColor3usv/1}).
+-doc """
+The GL stores both a primary four-valued RGBA color and a secondary four-valued
+RGBA color (where alpha is always set to 0.0) that is associated with every
+vertex.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glSecondaryColor.xml)
+""".
 -spec secondaryColor3ubv({Red::i(), Green::i(), Blue::i()}) -> 'ok'.
 secondaryColor3ubv({Red,Green,Blue}) ->  secondaryColor3ub(Red,Green,Blue).
 -doc(#{equiv => secondaryColor3usv/1}).
@@ -4098,7 +4926,13 @@ secondaryColor3ui(Red,Green,Blue) when is_integer(Red),is_integer(Green),is_inte
   IF:queue_cmd(Red,Green,Blue,5375),
   ok.
 
--doc(#{equiv => secondaryColor3usv/1}).
+-doc """
+The GL stores both a primary four-valued RGBA color and a secondary four-valued
+RGBA color (where alpha is always set to 0.0) that is associated with every
+vertex.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glSecondaryColor.xml)
+""".
 -spec secondaryColor3uiv({Red::i(), Green::i(), Blue::i()}) -> 'ok'.
 secondaryColor3uiv({Red,Green,Blue}) ->  secondaryColor3ui(Red,Green,Blue).
 -doc(#{equiv => secondaryColor3usv/1}).
@@ -4140,7 +4974,14 @@ windowPos2d(X,Y) when is_float(X),is_float(Y) ->
   IF:queue_cmd(X,Y,5379),
   ok.
 
--doc(#{equiv => windowPos3sv/1}).
+-doc """
+The GL maintains a 3D position in window coordinates. This position, called the
+raster position, is used to position pixel and bitmap write operations. It is
+maintained with subpixel accuracy. See [`gl:bitmap/7`](`bitmap/7`),
+[`gl:drawPixels/5`](`drawPixels/5`), and [`gl:copyPixels/5`](`copyPixels/5`).
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glWindowPos.xml)
+""".
 -spec windowPos2dv({X::f(), Y::f()}) -> 'ok'.
 windowPos2dv({X,Y}) ->  windowPos2d(X,Y).
 -doc(#{equiv => windowPos3sv/1}).
@@ -4150,7 +4991,14 @@ windowPos2f(X,Y) when is_float(X),is_float(Y) ->
   IF:queue_cmd(X,Y,5380),
   ok.
 
--doc(#{equiv => windowPos3sv/1}).
+-doc """
+The GL maintains a 3D position in window coordinates. This position, called the
+raster position, is used to position pixel and bitmap write operations. It is
+maintained with subpixel accuracy. See [`gl:bitmap/7`](`bitmap/7`),
+[`gl:drawPixels/5`](`drawPixels/5`), and [`gl:copyPixels/5`](`copyPixels/5`).
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glWindowPos.xml)
+""".
 -spec windowPos2fv({X::f(), Y::f()}) -> 'ok'.
 windowPos2fv({X,Y}) ->  windowPos2f(X,Y).
 -doc(#{equiv => windowPos3sv/1}).
@@ -4160,7 +5008,14 @@ windowPos2i(X,Y) when is_integer(X),is_integer(Y) ->
   IF:queue_cmd(X,Y,5381),
   ok.
 
--doc(#{equiv => windowPos3sv/1}).
+-doc """
+The GL maintains a 3D position in window coordinates. This position, called the
+raster position, is used to position pixel and bitmap write operations. It is
+maintained with subpixel accuracy. See [`gl:bitmap/7`](`bitmap/7`),
+[`gl:drawPixels/5`](`drawPixels/5`), and [`gl:copyPixels/5`](`copyPixels/5`).
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glWindowPos.xml)
+""".
 -spec windowPos2iv({X::i(), Y::i()}) -> 'ok'.
 windowPos2iv({X,Y}) ->  windowPos2i(X,Y).
 -doc(#{equiv => windowPos3sv/1}).
@@ -4170,7 +5025,14 @@ windowPos2s(X,Y) when is_integer(X),is_integer(Y) ->
   IF:queue_cmd(X,Y,5382),
   ok.
 
--doc(#{equiv => windowPos3sv/1}).
+-doc """
+The GL maintains a 3D position in window coordinates. This position, called the
+raster position, is used to position pixel and bitmap write operations. It is
+maintained with subpixel accuracy. See [`gl:bitmap/7`](`bitmap/7`),
+[`gl:drawPixels/5`](`drawPixels/5`), and [`gl:copyPixels/5`](`copyPixels/5`).
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glWindowPos.xml)
+""".
 -spec windowPos2sv({X::i(), Y::i()}) -> 'ok'.
 windowPos2sv({X,Y}) ->  windowPos2s(X,Y).
 -doc(#{equiv => windowPos3sv/1}).
@@ -4180,7 +5042,14 @@ windowPos3d(X,Y,Z) when is_float(X),is_float(Y),is_float(Z) ->
   IF:queue_cmd(X,Y,Z,5383),
   ok.
 
--doc(#{equiv => windowPos3sv/1}).
+-doc """
+The GL maintains a 3D position in window coordinates. This position, called the
+raster position, is used to position pixel and bitmap write operations. It is
+maintained with subpixel accuracy. See [`gl:bitmap/7`](`bitmap/7`),
+[`gl:drawPixels/5`](`drawPixels/5`), and [`gl:copyPixels/5`](`copyPixels/5`).
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glWindowPos.xml)
+""".
 -spec windowPos3dv({X::f(), Y::f(), Z::f()}) -> 'ok'.
 windowPos3dv({X,Y,Z}) ->  windowPos3d(X,Y,Z).
 -doc(#{equiv => windowPos3sv/1}).
@@ -4190,7 +5059,14 @@ windowPos3f(X,Y,Z) when is_float(X),is_float(Y),is_float(Z) ->
   IF:queue_cmd(X,Y,Z,5384),
   ok.
 
--doc(#{equiv => windowPos3sv/1}).
+-doc """
+The GL maintains a 3D position in window coordinates. This position, called the
+raster position, is used to position pixel and bitmap write operations. It is
+maintained with subpixel accuracy. See [`gl:bitmap/7`](`bitmap/7`),
+[`gl:drawPixels/5`](`drawPixels/5`), and [`gl:copyPixels/5`](`copyPixels/5`).
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glWindowPos.xml)
+""".
 -spec windowPos3fv({X::f(), Y::f(), Z::f()}) -> 'ok'.
 windowPos3fv({X,Y,Z}) ->  windowPos3f(X,Y,Z).
 -doc(#{equiv => windowPos3sv/1}).
@@ -4200,7 +5076,14 @@ windowPos3i(X,Y,Z) when is_integer(X),is_integer(Y),is_integer(Z) ->
   IF:queue_cmd(X,Y,Z,5385),
   ok.
 
--doc(#{equiv => windowPos3sv/1}).
+-doc """
+The GL maintains a 3D position in window coordinates. This position, called the
+raster position, is used to position pixel and bitmap write operations. It is
+maintained with subpixel accuracy. See [`gl:bitmap/7`](`bitmap/7`),
+[`gl:drawPixels/5`](`drawPixels/5`), and [`gl:copyPixels/5`](`copyPixels/5`).
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glWindowPos.xml)
+""".
 -spec windowPos3iv({X::i(), Y::i(), Z::i()}) -> 'ok'.
 windowPos3iv({X,Y,Z}) ->  windowPos3i(X,Y,Z).
 -doc(#{equiv => windowPos3sv/1}).
@@ -4222,7 +5105,7 @@ maintained with subpixel accuracy. See [`gl:bitmap/7`](`bitmap/7`),
 windowPos3sv({X,Y,Z}) ->  windowPos3s(X,Y,Z).
 -doc """
 The `?GL_BLEND_COLOR` may be used to calculate the source and destination
-blending factors. The color components are clamped to the range \[0 1] before
+blending factors. The color components are clamped to the range [0 1] before
 being stored. See [`gl:blendFunc/2`](`blendFunc/2`) for a complete description
 of the blending operations. Initially the `?GL_BLEND_COLOR` is set to (0, 0, 0,
 0).
@@ -4235,7 +5118,17 @@ blendColor(Red,Green,Blue,Alpha) when is_float(Red),is_float(Green),is_float(Blu
   IF:queue_cmd(Red,Green,Blue,Alpha,5387),
   ok.
 
--doc(#{equiv => blendEquationi/2}).
+-doc """
+The blend equations determine how a new pixel (the "source" color) is combined
+with a pixel already in the framebuffer (the "destination" color). This function
+sets both the RGB blend equation and the alpha blend equation to a single
+equation. [`gl:blendEquationi/2`](`blendEquationi/2`) specifies the blend
+equation for a single draw buffer whereas
+[`gl:blendEquation/1`](`blendEquation/1`) sets the blend equation for all draw
+buffers.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glBlendEquation.xhtml)
+""".
 -spec blendEquation(Mode::enum()) -> 'ok'.
 blendEquation(Mode) when is_integer(Mode) ->
   IF = get_interface(),
@@ -4285,25 +5178,25 @@ isQuery(Id) when is_integer(Id) ->
   IF:queue_cmd(Id,5391),
   rec(5391).
 
--doc(#{equiv => endQuery/1}).
+-doc """
+[`gl:beginQuery/2`](`beginQuery/2`) and [`gl:endQuery/1`](`endQuery/1`) delimit
+the boundaries of a query object. `Query` must be a name previously returned
+from a call to [`gl:genQueries/1`](`genQueries/1`). If a query object with name
+`Id` does not yet exist it is created with the type determined by `Target`.
+`Target` must be one of `?GL_SAMPLES_PASSED`, `?GL_ANY_SAMPLES_PASSED`,
+`?GL_PRIMITIVES_GENERATED`, `?GL_TRANSFORM_FEEDBACK_PRIMITIVES_WRITTEN`, or
+`?GL_TIME_ELAPSED`. The behavior of the query object depends on its type and is
+as follows.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glBeginQuery.xhtml)
+""".
 -spec beginQuery(Target::enum(), Id::i()) -> 'ok'.
 beginQuery(Target,Id) when is_integer(Target),is_integer(Id) ->
   IF = get_interface(),
   IF:queue_cmd(Target,Id,5392),
   ok.
 
--doc """
-[`gl:beginQuery/2`](`beginQuery/2`) and [`gl:endQuery/1`](`beginQuery/2`)
-delimit the boundaries of a query object. `Query` must be a name previously
-returned from a call to [`gl:genQueries/1`](`genQueries/1`). If a query object
-with name `Id` does not yet exist it is created with the type determined by
-`Target`. `Target` must be one of `?GL_SAMPLES_PASSED`,
-`?GL_ANY_SAMPLES_PASSED`, `?GL_PRIMITIVES_GENERATED`,
-`?GL_TRANSFORM_FEEDBACK_PRIMITIVES_WRITTEN`, or `?GL_TIME_ELAPSED`. The behavior
-of the query object depends on its type and is as follows.
-
-[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glBeginQuery.xhtml)
-""".
+-doc(#{equiv => beginQuery/2}).
 -spec endQuery(Target::enum()) -> 'ok'.
 endQuery(Target) when is_integer(Target) ->
   IF = get_interface(),
@@ -4322,23 +5215,23 @@ getQueryiv(Target,Pname) when is_integer(Target),is_integer(Pname) ->
   IF:queue_cmd(Target,Pname,5394),
   rec(5394).
 
--doc(#{equiv => getQueryObjectuiv/2}).
+-doc """
+These commands return a selected parameter of the query object specified by
+`Id`. [`gl:getQueryObject/2`](`getQueryObjectiv/2`) returns in `Params` a
+selected parameter of the query object specified by `Id`.
+[`gl:getQueryBufferObject/2`](`getQueryObjectiv/2`) returns in `Buffer` a
+selected parameter of the query object specified by `Id`, by writing it to
+`Buffer`'s data store at the byte offset specified by `Offset`.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetQueryObject.xhtml)
+""".
 -spec getQueryObjectiv(Id::i(), Pname::enum()) -> i().
 getQueryObjectiv(Id,Pname) when is_integer(Id),is_integer(Pname) ->
   IF = get_interface(),
   IF:queue_cmd(Id,Pname,5395),
   rec(5395).
 
--doc """
-These commands return a selected parameter of the query object specified by
-`Id`. [`gl:getQueryObject()`](`getQueryObjectiv/2`) returns in `Params` a
-selected parameter of the query object specified by `Id`.
-[`gl:getQueryBufferObject()`](`getQueryObjectiv/2`) returns in `Buffer` a
-selected parameter of the query object specified by `Id`, by writing it to
-`Buffer`'s data store at the byte offset specified by `Offset`.
-
-[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetQueryObject.xhtml)
-""".
+-doc(#{equiv => getQueryObjectiv/2}).
 -spec getQueryObjectuiv(Id::i(), Pname::enum()) -> i().
 getQueryObjectuiv(Id,Pname) when is_integer(Id),is_integer(Pname) ->
   IF = get_interface(),
@@ -4465,7 +5358,18 @@ getBufferParameteriv(Target,Pname) when is_integer(Target),is_integer(Pname) ->
   IF:queue_cmd(Target,Pname,5406),
   rec(5406).
 
--doc(#{equiv => blendEquationSeparatei/3}).
+-doc """
+The blend equations determines how a new pixel (the "source" color) is combined
+with a pixel already in the framebuffer (the "destination" color). These
+functions specify one blend equation for the RGB-color components and one blend
+equation for the alpha component.
+[`gl:blendEquationSeparatei/3`](`blendEquationSeparatei/3`) specifies the blend
+equations for a single draw buffer whereas
+[`gl:blendEquationSeparate/2`](`blendEquationSeparate/2`) sets the blend
+equations for all draw buffers.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glBlendEquationSeparate.xhtml)
+""".
 -spec blendEquationSeparate(ModeRGB::enum(), ModeAlpha::enum()) -> 'ok'.
 blendEquationSeparate(ModeRGB,ModeAlpha) when is_integer(ModeRGB),is_integer(ModeAlpha) ->
   IF = get_interface(),
@@ -4670,24 +5574,24 @@ detachShader(Program,Shader) when is_integer(Program),is_integer(Shader) ->
   IF:queue_cmd(Program,Shader,5419),
   ok.
 
--doc(#{equiv => enableVertexAttribArray/1}).
+-doc """
+[`gl:enableVertexAttribArray/1`](`enableVertexAttribArray/1`) and
+[`gl:enableVertexArrayAttrib/2`](`enableVertexArrayAttrib/2`) enable the generic
+vertex attribute array specified by `Index`.
+[`gl:enableVertexAttribArray/1`](`enableVertexAttribArray/1`) uses currently
+bound vertex array object for the operation, whereas
+[`gl:enableVertexArrayAttrib/2`](`enableVertexArrayAttrib/2`) updates state of
+the vertex array object with ID `Vaobj`.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glEnableVertexAttribArray.xhtml)
+""".
 -spec disableVertexAttribArray(Index::i()) -> 'ok'.
 disableVertexAttribArray(Index) when is_integer(Index) ->
   IF = get_interface(),
   IF:queue_cmd(Index,5420),
   ok.
 
--doc """
-[`gl:enableVertexAttribArray/1`](`enableVertexAttribArray/1`) and
-[`gl:enableVertexArrayAttrib/2`](`disableVertexAttribArray/1`) enable the
-generic vertex attribute array specified by `Index`.
-[`gl:enableVertexAttribArray/1`](`enableVertexAttribArray/1`) uses currently
-bound vertex array object for the operation, whereas
-[`gl:enableVertexArrayAttrib/2`](`disableVertexAttribArray/1`) updates state of
-the vertex array object with ID `Vaobj`.
-
-[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glEnableVertexAttribArray.xhtml)
-""".
+-doc(#{equiv => disableVertexAttribArray/1}).
 -spec enableVertexAttribArray(Index::i()) -> 'ok'.
 enableVertexAttribArray(Index) when is_integer(Index) ->
   IF = get_interface(),
@@ -4698,7 +5602,7 @@ enableVertexAttribArray(Index) when is_integer(Index) ->
 [`gl:getActiveAttrib/3`](`getActiveAttrib/3`) returns information about an
 active attribute variable in the program object specified by `Program`. The
 number of active attributes can be obtained by calling
-[`gl:getProgram()`](`getProgramiv/2`) with the value `?GL_ACTIVE_ATTRIBUTES`. A
+[`gl:getProgram/2`](`getProgramiv/2`) with the value `?GL_ACTIVE_ATTRIBUTES`. A
 value of 0 for `Index` selects the first active attribute variable. Permissible
 values for `Index` range from zero to the number of active attribute variables
 minus one.
@@ -4715,7 +5619,7 @@ getActiveAttrib(Program,Index,BufSize) when is_integer(Program),is_integer(Index
 [`gl:getActiveUniform/3`](`getActiveUniform/3`) returns information about an
 active uniform variable in the program object specified by `Program`. The number
 of active uniform variables can be obtained by calling
-[`gl:getProgram()`](`getProgramiv/2`) with the value `?GL_ACTIVE_UNIFORMS`. A
+[`gl:getProgram/2`](`getProgramiv/2`) with the value `?GL_ACTIVE_UNIFORMS`. A
 value of 0 for `Index` selects the first active uniform variable. Permissible
 values for `Index` range from zero to the number of active uniform variables
 minus one.
@@ -4751,7 +5655,7 @@ program object specified by `Program` for the attribute variable specified by
 that attribute variable. If `Name` is a matrix attribute variable, the index of
 the first column of the matrix is returned. If the named attribute variable is
 not an active attribute in the specified program object or if `Name` starts with
-the reserved prefix "gl\_", a value of -1 is returned.
+the reserved prefix "gl_", a value of -1 is returned.
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetAttribLocation.xhtml)
 """.
@@ -4763,7 +5667,7 @@ getAttribLocation(Program,Name) when is_integer(Program),is_list(Name) ->
   rec(5425).
 
 -doc """
-[`gl:getProgram()`](`getProgramiv/2`) returns in `Params` the value of a
+[`gl:getProgram/2`](`getProgramiv/2`) returns in `Params` the value of a
 parameter for a specific program object. The following parameters are defined:
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetProgram.xhtml)
@@ -4789,7 +5693,7 @@ getProgramInfoLog(Program,BufSize) when is_integer(Program),is_integer(BufSize) 
   rec(5427).
 
 -doc """
-[`gl:getShader()`](`getShaderiv/2`) returns in `Params` the value of a parameter
+[`gl:getShader/2`](`getShaderiv/2`) returns in `Params` the value of a parameter
 for a specific shader object. The following parameters are defined:
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetShader.xhtml)
@@ -4830,13 +5734,13 @@ getShaderSource(Shader,BufSize) when is_integer(Shader),is_integer(BufSize) ->
   rec(5430).
 
 -doc """
-`glGetUniformLocation `returns an integer that represents the location of a
+`glGetUniformLocation ` returns an integer that represents the location of a
 specific uniform variable within a program object. `Name` must be a null
 terminated string that contains no white space. `Name` must be an active uniform
 variable name in `Program` that is not a structure, an array of structures, or a
 subcomponent of a vector or a matrix. This function returns -1 if `Name` does
 not correspond to an active uniform variable in `Program`, if `Name` starts with
-the reserved prefix "gl\_", or if `Name` is associated with an atomic counter or
+the reserved prefix "gl_", or if `Name` is associated with an atomic counter or
 a named uniform block.
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetUniformLocation.xhtml)
@@ -4848,42 +5752,57 @@ getUniformLocation(Program,Name) when is_integer(Program),is_list(Name) ->
   IF:queue_cmd(Program,NameBin,5431),
   rec(5431).
 
--doc(#{equiv => getUniformuiv/2}).
+-doc """
+[`gl:getUniform/2`](`getUniformfv/2`) and `glGetnUniform` return in `Params` the
+value(s) of the specified uniform variable. The type of the uniform variable
+specified by `Location` determines the number of values returned. If the uniform
+variable is defined in the shader as a boolean, int, or float, a single value
+will be returned. If it is defined as a vec2, ivec2, or bvec2, two values will
+be returned. If it is defined as a vec3, ivec3, or bvec3, three values will be
+returned, and so on. To query values stored in uniform variables declared as
+arrays, call [`gl:getUniform/2`](`getUniformfv/2`) for each element of the
+array. To query values stored in uniform variables declared as structures, call
+[`gl:getUniform/2`](`getUniformfv/2`) for each field in the structure. The
+values for uniform variables declared as a matrix will be returned in column
+major order.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetUniform.xhtml)
+""".
 -spec getUniformfv(Program::i(), Location::i()) -> matrix().
 getUniformfv(Program,Location) when is_integer(Program),is_integer(Location) ->
   IF = get_interface(),
   IF:queue_cmd(Program,Location,5432),
   rec(5432).
 
--doc(#{equiv => getUniformuiv/2}).
+-doc(#{equiv => getUniformfv/2}).
 -spec getUniformiv(Program::i(), Location::i()) -> {i(),i(),i(),i(),i(),i(),i(),i(),i(),i(),i(),i(),i(),i(),i(),i()}.
 getUniformiv(Program,Location) when is_integer(Program),is_integer(Location) ->
   IF = get_interface(),
   IF:queue_cmd(Program,Location,5433),
   rec(5433).
 
--doc(#{equiv => getVertexAttribiv/2}).
--spec getVertexAttribdv(Index::i(), Pname::enum()) -> {f(),f(),f(),f()}.
-getVertexAttribdv(Index,Pname) when is_integer(Index),is_integer(Pname) ->
-  IF = get_interface(),
-  IF:queue_cmd(Index,Pname,5434),
-  rec(5434).
-
--doc(#{equiv => getVertexAttribiv/2}).
--spec getVertexAttribfv(Index::i(), Pname::enum()) -> {f(),f(),f(),f()}.
-getVertexAttribfv(Index,Pname) when is_integer(Index),is_integer(Pname) ->
-  IF = get_interface(),
-  IF:queue_cmd(Index,Pname,5435),
-  rec(5435).
-
 -doc """
-[`gl:getVertexAttrib()`](`getVertexAttribdv/2`) returns in `Params` the value of
+[`gl:getVertexAttrib/2`](`getVertexAttribdv/2`) returns in `Params` the value of
 a generic vertex attribute parameter. The generic vertex attribute to be queried
 is specified by `Index`, and the parameter to be queried is specified by
 `Pname`.
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetVertexAttrib.xhtml)
 """.
+-spec getVertexAttribdv(Index::i(), Pname::enum()) -> {f(),f(),f(),f()}.
+getVertexAttribdv(Index,Pname) when is_integer(Index),is_integer(Pname) ->
+  IF = get_interface(),
+  IF:queue_cmd(Index,Pname,5434),
+  rec(5434).
+
+-doc(#{equiv => getVertexAttribdv/2}).
+-spec getVertexAttribfv(Index::i(), Pname::enum()) -> {f(),f(),f(),f()}.
+getVertexAttribfv(Index,Pname) when is_integer(Index),is_integer(Pname) ->
+  IF = get_interface(),
+  IF:queue_cmd(Index,Pname,5435),
+  rec(5435).
+
+-doc(#{equiv => getVertexAttribdv/2}).
 -spec getVertexAttribiv(Index::i(), Pname::enum()) -> {i(),i(),i(),i()}.
 getVertexAttribiv(Index,Pname) when is_integer(Index),is_integer(Pname) ->
   IF = get_interface(),
@@ -4911,7 +5830,7 @@ isProgram(Program) when is_integer(Program) ->
 shader object previously created with [`gl:createShader/1`](`createShader/1`)
 and not yet deleted with [`gl:deleteShader/1`](`deleteShader/1`). If `Shader` is
 zero or a non-zero value that is not the name of a shader object, or if an error
-occurs, `glIsShader `returns `?GL_FALSE`.
+occurs, `glIsShader ` returns `?GL_FALSE`.
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glIsShader.xhtml)
 """.
@@ -4979,63 +5898,72 @@ useProgram(Program) when is_integer(Program) ->
   IF:queue_cmd(Program,5441),
   ok.
 
--doc(#{equiv => uniformMatrix4x3fv/3}).
+-doc """
+[`gl:uniform/2`](`uniform1f/2`) modifies the value of a uniform variable or a
+uniform variable array. The location of the uniform variable to be modified is
+specified by `Location`, which should be a value returned by
+[`gl:getUniformLocation/2`](`getUniformLocation/2`).
+[`gl:uniform/2`](`uniform1f/2`) operates on the program object that was made
+part of current state by calling [`gl:useProgram/1`](`useProgram/1`).
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glUniform.xhtml)
+""".
 -spec uniform1f(Location::i(), V0::f()) -> 'ok'.
 uniform1f(Location,V0) when is_integer(Location),is_float(V0) ->
   IF = get_interface(),
   IF:queue_cmd(Location,V0,5442),
   ok.
 
--doc(#{equiv => uniformMatrix4x3fv/3}).
+-doc(#{equiv => uniform1f/2}).
 -spec uniform2f(Location::i(), V0::f(), V1::f()) -> 'ok'.
 uniform2f(Location,V0,V1) when is_integer(Location),is_float(V0),is_float(V1) ->
   IF = get_interface(),
   IF:queue_cmd(Location,V0,V1,5443),
   ok.
 
--doc(#{equiv => uniformMatrix4x3fv/3}).
+-doc(#{equiv => uniform1f/2}).
 -spec uniform3f(Location::i(), V0::f(), V1::f(), V2::f()) -> 'ok'.
 uniform3f(Location,V0,V1,V2) when is_integer(Location),is_float(V0),is_float(V1),is_float(V2) ->
   IF = get_interface(),
   IF:queue_cmd(Location,V0,V1,V2,5444),
   ok.
 
--doc(#{equiv => uniformMatrix4x3fv/3}).
+-doc(#{equiv => uniform1f/2}).
 -spec uniform4f(Location::i(), V0::f(), V1::f(), V2::f(), V3::f()) -> 'ok'.
 uniform4f(Location,V0,V1,V2,V3) when is_integer(Location),is_float(V0),is_float(V1),is_float(V2),is_float(V3) ->
   IF = get_interface(),
   IF:queue_cmd(Location,V0,V1,V2,V3,5445),
   ok.
 
--doc(#{equiv => uniformMatrix4x3fv/3}).
+-doc(#{equiv => uniform1f/2}).
 -spec uniform1i(Location::i(), V0::i()) -> 'ok'.
 uniform1i(Location,V0) when is_integer(Location),is_integer(V0) ->
   IF = get_interface(),
   IF:queue_cmd(Location,V0,5446),
   ok.
 
--doc(#{equiv => uniformMatrix4x3fv/3}).
+-doc(#{equiv => uniform1f/2}).
 -spec uniform2i(Location::i(), V0::i(), V1::i()) -> 'ok'.
 uniform2i(Location,V0,V1) when is_integer(Location),is_integer(V0),is_integer(V1) ->
   IF = get_interface(),
   IF:queue_cmd(Location,V0,V1,5447),
   ok.
 
--doc(#{equiv => uniformMatrix4x3fv/3}).
+-doc(#{equiv => uniform1f/2}).
 -spec uniform3i(Location::i(), V0::i(), V1::i(), V2::i()) -> 'ok'.
 uniform3i(Location,V0,V1,V2) when is_integer(Location),is_integer(V0),is_integer(V1),is_integer(V2) ->
   IF = get_interface(),
   IF:queue_cmd(Location,V0,V1,V2,5448),
   ok.
 
--doc(#{equiv => uniformMatrix4x3fv/3}).
+-doc(#{equiv => uniform1f/2}).
 -spec uniform4i(Location::i(), V0::i(), V1::i(), V2::i(), V3::i()) -> 'ok'.
 uniform4i(Location,V0,V1,V2,V3) when is_integer(Location),is_integer(V0),is_integer(V1),is_integer(V2),is_integer(V3) ->
   IF = get_interface(),
   IF:queue_cmd(Location,V0,V1,V2,V3,5449),
   ok.
 
--doc(#{equiv => uniformMatrix4x3fv/3}).
+-doc(#{equiv => uniform1f/2}).
 -spec uniform1fv(Location::i(), Value::[f()]) -> 'ok'.
 uniform1fv(Location,Value) when is_integer(Location),is_list(Value) ->
   IF = get_interface(),
@@ -5043,7 +5971,7 @@ uniform1fv(Location,Value) when is_integer(Location),is_list(Value) ->
   IF:queue_cmd(Location,Count,Value,5450),
   ok.
 
--doc(#{equiv => uniformMatrix4x3fv/3}).
+-doc(#{equiv => uniform1f/2}).
 -spec uniform2fv(Location::i(), Value::[{f(),f()}]) -> 'ok'.
 uniform2fv(Location,Value) when is_integer(Location),is_list(Value) ->
   IF = get_interface(),
@@ -5051,7 +5979,7 @@ uniform2fv(Location,Value) when is_integer(Location),is_list(Value) ->
   IF:queue_cmd(Location,Count,Value,5451),
   ok.
 
--doc(#{equiv => uniformMatrix4x3fv/3}).
+-doc(#{equiv => uniform1f/2}).
 -spec uniform3fv(Location::i(), Value::[{f(),f(),f()}]) -> 'ok'.
 uniform3fv(Location,Value) when is_integer(Location),is_list(Value) ->
   IF = get_interface(),
@@ -5059,7 +5987,7 @@ uniform3fv(Location,Value) when is_integer(Location),is_list(Value) ->
   IF:queue_cmd(Location,Count,Value,5452),
   ok.
 
--doc(#{equiv => uniformMatrix4x3fv/3}).
+-doc(#{equiv => uniform1f/2}).
 -spec uniform4fv(Location::i(), Value::[{f(),f(),f(),f()}]) -> 'ok'.
 uniform4fv(Location,Value) when is_integer(Location),is_list(Value) ->
   IF = get_interface(),
@@ -5067,7 +5995,7 @@ uniform4fv(Location,Value) when is_integer(Location),is_list(Value) ->
   IF:queue_cmd(Location,Count,Value,5453),
   ok.
 
--doc(#{equiv => uniformMatrix4x3fv/3}).
+-doc(#{equiv => uniform1f/2}).
 -spec uniform1iv(Location::i(), Value::[i()]) -> 'ok'.
 uniform1iv(Location,Value) when is_integer(Location),is_list(Value) ->
   IF = get_interface(),
@@ -5075,7 +6003,7 @@ uniform1iv(Location,Value) when is_integer(Location),is_list(Value) ->
   IF:queue_cmd(Location,Count,Value,5454),
   ok.
 
--doc(#{equiv => uniformMatrix4x3fv/3}).
+-doc(#{equiv => uniform1f/2}).
 -spec uniform2iv(Location::i(), Value::[{i(),i()}]) -> 'ok'.
 uniform2iv(Location,Value) when is_integer(Location),is_list(Value) ->
   IF = get_interface(),
@@ -5083,7 +6011,7 @@ uniform2iv(Location,Value) when is_integer(Location),is_list(Value) ->
   IF:queue_cmd(Location,Count,Value,5455),
   ok.
 
--doc(#{equiv => uniformMatrix4x3fv/3}).
+-doc(#{equiv => uniform1f/2}).
 -spec uniform3iv(Location::i(), Value::[{i(),i(),i()}]) -> 'ok'.
 uniform3iv(Location,Value) when is_integer(Location),is_list(Value) ->
   IF = get_interface(),
@@ -5091,7 +6019,7 @@ uniform3iv(Location,Value) when is_integer(Location),is_list(Value) ->
   IF:queue_cmd(Location,Count,Value,5456),
   ok.
 
--doc(#{equiv => uniformMatrix4x3fv/3}).
+-doc(#{equiv => uniform1f/2}).
 -spec uniform4iv(Location::i(), Value::[{i(),i(),i(),i()}]) -> 'ok'.
 uniform4iv(Location,Value) when is_integer(Location),is_list(Value) ->
   IF = get_interface(),
@@ -5099,7 +6027,7 @@ uniform4iv(Location,Value) when is_integer(Location),is_list(Value) ->
   IF:queue_cmd(Location,Count,Value,5457),
   ok.
 
--doc(#{equiv => uniformMatrix4x3fv/3}).
+-doc(#{equiv => uniform1f/2}).
 -spec uniformMatrix2fv(Location::i(), Transpose::0|1, Value::[{f(),f(),f(),f()}]) -> 'ok'.
 uniformMatrix2fv(Location,Transpose,Value) when is_integer(Location),(0 =:= Transpose) orelse (1 =:= Transpose),is_list(Value) ->
   IF = get_interface(),
@@ -5107,7 +6035,7 @@ uniformMatrix2fv(Location,Transpose,Value) when is_integer(Location),(0 =:= Tran
   IF:queue_cmd(Location,Count,Transpose,Value,5458),
   ok.
 
--doc(#{equiv => uniformMatrix4x3fv/3}).
+-doc(#{equiv => uniform1f/2}).
 -spec uniformMatrix3fv(Location::i(), Transpose::0|1, Value::[{f(),f(),f(),f(),f(),f(),f(),f(),f()}]) -> 'ok'.
 uniformMatrix3fv(Location,Transpose,Value) when is_integer(Location),(0 =:= Transpose) orelse (1 =:= Transpose),is_list(Value) ->
   IF = get_interface(),
@@ -5115,7 +6043,7 @@ uniformMatrix3fv(Location,Transpose,Value) when is_integer(Location),(0 =:= Tran
   IF:queue_cmd(Location,Count,Transpose,Value,5459),
   ok.
 
--doc(#{equiv => uniformMatrix4x3fv/3}).
+-doc(#{equiv => uniform1f/2}).
 -spec uniformMatrix4fv(Location, Transpose, Value) -> 'ok'
     when Location::i(), Transpose::0|1, Value::[{f(),f(),f(),f(),f(),f(),f(),f(),f(),f(),f(),f(),f(),f(),f(),f()}].
 uniformMatrix4fv(Location,Transpose,Value) when is_integer(Location),(0 =:= Transpose) orelse (1 =:= Transpose),is_list(Value) ->
@@ -5149,7 +6077,12 @@ vertexAttrib1d(Index,X) when is_integer(Index),is_float(X) ->
   IF:queue_cmd(Index,X,5462),
   ok.
 
--doc(#{equiv => vertexAttribL4dv/2}).
+-doc """
+The [`gl:vertexAttrib/2`](`vertexAttribL4dv/2`) family of entry points allows an
+application to pass generic vertex attributes in numbered locations.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glVertexAttrib.xhtml)
+""".
 -spec vertexAttrib1dv(Index::i(), {X::f()}) -> 'ok'.
 vertexAttrib1dv(Index,{X}) ->  vertexAttrib1d(Index,X).
 -doc(#{equiv => vertexAttribL4dv/2}).
@@ -5159,7 +6092,12 @@ vertexAttrib1f(Index,X) when is_integer(Index),is_float(X) ->
   IF:queue_cmd(Index,X,5463),
   ok.
 
--doc(#{equiv => vertexAttribL4dv/2}).
+-doc """
+The [`gl:vertexAttrib/2`](`vertexAttribL4dv/2`) family of entry points allows an
+application to pass generic vertex attributes in numbered locations.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glVertexAttrib.xhtml)
+""".
 -spec vertexAttrib1fv(Index::i(), {X::f()}) -> 'ok'.
 vertexAttrib1fv(Index,{X}) ->  vertexAttrib1f(Index,X).
 -doc(#{equiv => vertexAttribL4dv/2}).
@@ -5169,7 +6107,12 @@ vertexAttrib1s(Index,X) when is_integer(Index),is_integer(X) ->
   IF:queue_cmd(Index,X,5464),
   ok.
 
--doc(#{equiv => vertexAttribL4dv/2}).
+-doc """
+The [`gl:vertexAttrib/2`](`vertexAttribL4dv/2`) family of entry points allows an
+application to pass generic vertex attributes in numbered locations.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glVertexAttrib.xhtml)
+""".
 -spec vertexAttrib1sv(Index::i(), {X::i()}) -> 'ok'.
 vertexAttrib1sv(Index,{X}) ->  vertexAttrib1s(Index,X).
 -doc(#{equiv => vertexAttribL4dv/2}).
@@ -5179,7 +6122,12 @@ vertexAttrib2d(Index,X,Y) when is_integer(Index),is_float(X),is_float(Y) ->
   IF:queue_cmd(Index,X,Y,5465),
   ok.
 
--doc(#{equiv => vertexAttribL4dv/2}).
+-doc """
+The [`gl:vertexAttrib/2`](`vertexAttribL4dv/2`) family of entry points allows an
+application to pass generic vertex attributes in numbered locations.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glVertexAttrib.xhtml)
+""".
 -spec vertexAttrib2dv(Index::i(), {X::f(), Y::f()}) -> 'ok'.
 vertexAttrib2dv(Index,{X,Y}) ->  vertexAttrib2d(Index,X,Y).
 -doc(#{equiv => vertexAttribL4dv/2}).
@@ -5189,7 +6137,12 @@ vertexAttrib2f(Index,X,Y) when is_integer(Index),is_float(X),is_float(Y) ->
   IF:queue_cmd(Index,X,Y,5466),
   ok.
 
--doc(#{equiv => vertexAttribL4dv/2}).
+-doc """
+The [`gl:vertexAttrib/2`](`vertexAttribL4dv/2`) family of entry points allows an
+application to pass generic vertex attributes in numbered locations.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glVertexAttrib.xhtml)
+""".
 -spec vertexAttrib2fv(Index::i(), {X::f(), Y::f()}) -> 'ok'.
 vertexAttrib2fv(Index,{X,Y}) ->  vertexAttrib2f(Index,X,Y).
 -doc(#{equiv => vertexAttribL4dv/2}).
@@ -5199,7 +6152,12 @@ vertexAttrib2s(Index,X,Y) when is_integer(Index),is_integer(X),is_integer(Y) ->
   IF:queue_cmd(Index,X,Y,5467),
   ok.
 
--doc(#{equiv => vertexAttribL4dv/2}).
+-doc """
+The [`gl:vertexAttrib/2`](`vertexAttribL4dv/2`) family of entry points allows an
+application to pass generic vertex attributes in numbered locations.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glVertexAttrib.xhtml)
+""".
 -spec vertexAttrib2sv(Index::i(), {X::i(), Y::i()}) -> 'ok'.
 vertexAttrib2sv(Index,{X,Y}) ->  vertexAttrib2s(Index,X,Y).
 -doc(#{equiv => vertexAttribL4dv/2}).
@@ -5209,7 +6167,12 @@ vertexAttrib3d(Index,X,Y,Z) when is_integer(Index),is_float(X),is_float(Y),is_fl
   IF:queue_cmd(Index,X,Y,Z,5468),
   ok.
 
--doc(#{equiv => vertexAttribL4dv/2}).
+-doc """
+The [`gl:vertexAttrib/2`](`vertexAttribL4dv/2`) family of entry points allows an
+application to pass generic vertex attributes in numbered locations.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glVertexAttrib.xhtml)
+""".
 -spec vertexAttrib3dv(Index::i(), {X::f(), Y::f(), Z::f()}) -> 'ok'.
 vertexAttrib3dv(Index,{X,Y,Z}) ->  vertexAttrib3d(Index,X,Y,Z).
 -doc(#{equiv => vertexAttribL4dv/2}).
@@ -5219,7 +6182,12 @@ vertexAttrib3f(Index,X,Y,Z) when is_integer(Index),is_float(X),is_float(Y),is_fl
   IF:queue_cmd(Index,X,Y,Z,5469),
   ok.
 
--doc(#{equiv => vertexAttribL4dv/2}).
+-doc """
+The [`gl:vertexAttrib/2`](`vertexAttribL4dv/2`) family of entry points allows an
+application to pass generic vertex attributes in numbered locations.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glVertexAttrib.xhtml)
+""".
 -spec vertexAttrib3fv(Index::i(), {X::f(), Y::f(), Z::f()}) -> 'ok'.
 vertexAttrib3fv(Index,{X,Y,Z}) ->  vertexAttrib3f(Index,X,Y,Z).
 -doc(#{equiv => vertexAttribL4dv/2}).
@@ -5229,7 +6197,12 @@ vertexAttrib3s(Index,X,Y,Z) when is_integer(Index),is_integer(X),is_integer(Y),i
   IF:queue_cmd(Index,X,Y,Z,5470),
   ok.
 
--doc(#{equiv => vertexAttribL4dv/2}).
+-doc """
+The [`gl:vertexAttrib/2`](`vertexAttribL4dv/2`) family of entry points allows an
+application to pass generic vertex attributes in numbered locations.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glVertexAttrib.xhtml)
+""".
 -spec vertexAttrib3sv(Index::i(), {X::i(), Y::i(), Z::i()}) -> 'ok'.
 vertexAttrib3sv(Index,{X,Y,Z}) ->  vertexAttrib3s(Index,X,Y,Z).
 -doc(#{equiv => vertexAttribL4dv/2}).
@@ -5260,7 +6233,12 @@ vertexAttrib4Nub(Index,X,Y,Z,W) when is_integer(Index),is_integer(X),is_integer(
   IF:queue_cmd(Index,X,Y,Z,W,5474),
   ok.
 
--doc(#{equiv => vertexAttribL4dv/2}).
+-doc """
+The [`gl:vertexAttrib/2`](`vertexAttribL4dv/2`) family of entry points allows an
+application to pass generic vertex attributes in numbered locations.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glVertexAttrib.xhtml)
+""".
 -spec vertexAttrib4Nubv(Index::i(), {X::i(), Y::i(), Z::i(), W::i()}) -> 'ok'.
 vertexAttrib4Nubv(Index,{X,Y,Z,W}) ->  vertexAttrib4Nub(Index,X,Y,Z,W).
 -doc(#{equiv => vertexAttribL4dv/2}).
@@ -5291,7 +6269,12 @@ vertexAttrib4d(Index,X,Y,Z,W) when is_integer(Index),is_float(X),is_float(Y),is_
   IF:queue_cmd(Index,X,Y,Z,W,5478),
   ok.
 
--doc(#{equiv => vertexAttribL4dv/2}).
+-doc """
+The [`gl:vertexAttrib/2`](`vertexAttribL4dv/2`) family of entry points allows an
+application to pass generic vertex attributes in numbered locations.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glVertexAttrib.xhtml)
+""".
 -spec vertexAttrib4dv(Index::i(), {X::f(), Y::f(), Z::f(), W::f()}) -> 'ok'.
 vertexAttrib4dv(Index,{X,Y,Z,W}) ->  vertexAttrib4d(Index,X,Y,Z,W).
 -doc(#{equiv => vertexAttribL4dv/2}).
@@ -5301,7 +6284,12 @@ vertexAttrib4f(Index,X,Y,Z,W) when is_integer(Index),is_float(X),is_float(Y),is_
   IF:queue_cmd(Index,X,Y,Z,W,5479),
   ok.
 
--doc(#{equiv => vertexAttribL4dv/2}).
+-doc """
+The [`gl:vertexAttrib/2`](`vertexAttribL4dv/2`) family of entry points allows an
+application to pass generic vertex attributes in numbered locations.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glVertexAttrib.xhtml)
+""".
 -spec vertexAttrib4fv(Index::i(), {X::f(), Y::f(), Z::f(), W::f()}) -> 'ok'.
 vertexAttrib4fv(Index,{X,Y,Z,W}) ->  vertexAttrib4f(Index,X,Y,Z,W).
 -doc(#{equiv => vertexAttribL4dv/2}).
@@ -5318,7 +6306,12 @@ vertexAttrib4s(Index,X,Y,Z,W) when is_integer(Index),is_integer(X),is_integer(Y)
   IF:queue_cmd(Index,X,Y,Z,W,5481),
   ok.
 
--doc(#{equiv => vertexAttribL4dv/2}).
+-doc """
+The [`gl:vertexAttrib/2`](`vertexAttribL4dv/2`) family of entry points allows an
+application to pass generic vertex attributes in numbered locations.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glVertexAttrib.xhtml)
+""".
 -spec vertexAttrib4sv(Index::i(), {X::i(), Y::i(), Z::i(), W::i()}) -> 'ok'.
 vertexAttrib4sv(Index,{X,Y,Z,W}) ->  vertexAttrib4s(Index,X,Y,Z,W).
 -doc(#{equiv => vertexAttribL4dv/2}).
@@ -5345,7 +6338,7 @@ vertexAttrib4usv(Index,V) when is_integer(Index),tuple_size(V) =:= 4 ->
 -doc """
 [`gl:vertexAttribPointer/6`](`vertexAttribPointer/6`),
 [`gl:vertexAttribIPointer/5`](`vertexAttribIPointer/5`) and
-[`gl:vertexAttribLPointer/5`](`vertexAttribIPointer/5`) specify the location and
+[`gl:vertexAttribLPointer/5`](`vertexAttribLPointer/5`) specify the location and
 data format of the array of generic vertex attributes at index `Index` to use
 when rendering. `Size` specifies the number of components per attribute and must
 be 1, 2, 3, 4, or `?GL_BGRA`. `Type` specifies the data type of each component,
@@ -5362,7 +6355,7 @@ vertexAttribPointer(Index,Size,Type,Normalized,Stride,Pointer) when is_integer(I
   IF:queue_cmd(Index,Size,Type,Normalized,Stride,Pointer,5485),
   ok.
 
--doc(#{equiv => uniformMatrix4x3fv/3}).
+-doc(#{equiv => uniform1f/2}).
 -spec uniformMatrix2x3fv(Location::i(), Transpose::0|1, Value::[{f(),f(),f(),f(),f(),f()}]) -> 'ok'.
 uniformMatrix2x3fv(Location,Transpose,Value) when is_integer(Location),(0 =:= Transpose) orelse (1 =:= Transpose),is_list(Value) ->
   IF = get_interface(),
@@ -5370,7 +6363,7 @@ uniformMatrix2x3fv(Location,Transpose,Value) when is_integer(Location),(0 =:= Tr
   IF:queue_cmd(Location,Count,Transpose,Value,5487),
   ok.
 
--doc(#{equiv => uniformMatrix4x3fv/3}).
+-doc(#{equiv => uniform1f/2}).
 -spec uniformMatrix3x2fv(Location::i(), Transpose::0|1, Value::[{f(),f(),f(),f(),f(),f()}]) -> 'ok'.
 uniformMatrix3x2fv(Location,Transpose,Value) when is_integer(Location),(0 =:= Transpose) orelse (1 =:= Transpose),is_list(Value) ->
   IF = get_interface(),
@@ -5378,7 +6371,7 @@ uniformMatrix3x2fv(Location,Transpose,Value) when is_integer(Location),(0 =:= Tr
   IF:queue_cmd(Location,Count,Transpose,Value,5488),
   ok.
 
--doc(#{equiv => uniformMatrix4x3fv/3}).
+-doc(#{equiv => uniform1f/2}).
 -spec uniformMatrix2x4fv(Location::i(), Transpose::0|1, Value::[{f(),f(),f(),f(),f(),f(),f(),f()}]) -> 'ok'.
 uniformMatrix2x4fv(Location,Transpose,Value) when is_integer(Location),(0 =:= Transpose) orelse (1 =:= Transpose),is_list(Value) ->
   IF = get_interface(),
@@ -5386,7 +6379,7 @@ uniformMatrix2x4fv(Location,Transpose,Value) when is_integer(Location),(0 =:= Tr
   IF:queue_cmd(Location,Count,Transpose,Value,5489),
   ok.
 
--doc(#{equiv => uniformMatrix4x3fv/3}).
+-doc(#{equiv => uniform1f/2}).
 -spec uniformMatrix4x2fv(Location::i(), Transpose::0|1, Value::[{f(),f(),f(),f(),f(),f(),f(),f()}]) -> 'ok'.
 uniformMatrix4x2fv(Location,Transpose,Value) when is_integer(Location),(0 =:= Transpose) orelse (1 =:= Transpose),is_list(Value) ->
   IF = get_interface(),
@@ -5394,7 +6387,7 @@ uniformMatrix4x2fv(Location,Transpose,Value) when is_integer(Location),(0 =:= Tr
   IF:queue_cmd(Location,Count,Transpose,Value,5490),
   ok.
 
--doc(#{equiv => uniformMatrix4x3fv/3}).
+-doc(#{equiv => uniform1f/2}).
 -spec uniformMatrix3x4fv(Location, Transpose, Value) -> 'ok'
     when Location::i(), Transpose::0|1, Value::[{f(),f(),f(),f(),f(),f(),f(),f(),f(),f(),f(),f()}].
 uniformMatrix3x4fv(Location,Transpose,Value) when is_integer(Location),(0 =:= Transpose) orelse (1 =:= Transpose),is_list(Value) ->
@@ -5403,16 +6396,7 @@ uniformMatrix3x4fv(Location,Transpose,Value) when is_integer(Location),(0 =:= Tr
   IF:queue_cmd(Location,Count,Transpose,Value,5491),
   ok.
 
--doc """
-[`gl:uniform()`](`uniform1f/2`) modifies the value of a uniform variable or a
-uniform variable array. The location of the uniform variable to be modified is
-specified by `Location`, which should be a value returned by
-[`gl:getUniformLocation/2`](`getUniformLocation/2`).
-[`gl:uniform()`](`uniform1f/2`) operates on the program object that was made
-part of current state by calling [`gl:useProgram/1`](`useProgram/1`).
-
-[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glUniform.xhtml)
-""".
+-doc(#{equiv => uniform1f/2}).
 -spec uniformMatrix4x3fv(Location, Transpose, Value) -> 'ok'
     when Location::i(), Transpose::0|1, Value::[{f(),f(),f(),f(),f(),f(),f(),f(),f(),f(),f(),f()}].
 uniformMatrix4x3fv(Location,Transpose,Value) when is_integer(Location),(0 =:= Transpose) orelse (1 =:= Transpose),is_list(Value) ->
@@ -5421,94 +6405,65 @@ uniformMatrix4x3fv(Location,Transpose,Value) when is_integer(Location),(0 =:= Tr
   IF:queue_cmd(Location,Count,Transpose,Value,5492),
   ok.
 
--doc """
-[`gl:colorMask/4`](`colorMask/4`) and [`gl:colorMaski/5`](`colorMask/4`) specify
-whether the individual color components in the frame buffer can or cannot be
-written. [`gl:colorMaski/5`](`colorMask/4`) sets the mask for a specific draw
-buffer, whereas [`gl:colorMask/4`](`colorMask/4`) sets the mask for all draw
-buffers. If `Red` is `?GL_FALSE`, for example, no change is made to the red
-component of any pixel in any of the color buffers, regardless of the drawing
-operation attempted.
-
-[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glColorMask.xhtml)
-""".
+-doc(#{equiv => colorMask/4}).
 -spec colorMaski(Index::i(), R::0|1, G::0|1, B::0|1, A::0|1) -> 'ok'.
 colorMaski(Index,R,G,B,A) when is_integer(Index),(0 =:= R) orelse (1 =:= R),(0 =:= G) orelse (1 =:= G),(0 =:= B) orelse (1 =:= B),(0 =:= A) orelse (1 =:= A) ->
   IF = get_interface(),
   IF:queue_cmd(Index,R,G,B,A,5493),
   ok.
 
--doc(#{equiv => getIntegerv/1}).
+-doc(#{equiv => getBooleanv/1}).
 -spec getBooleani_v(Target::enum(), Index::i()) -> [0|1].
 getBooleani_v(Target,Index) when is_integer(Target),is_integer(Index) ->
   IF = get_interface(),
   IF:queue_cmd(Target,Index,5494),
   rec(5494).
 
--doc(#{equiv => getIntegerv/1}).
+-doc(#{equiv => getBooleanv/1}).
 -spec getIntegeri_v(Target::enum(), Index::i()) -> [i()].
 getIntegeri_v(Target,Index) when is_integer(Target),is_integer(Index) ->
   IF = get_interface(),
   IF:queue_cmd(Target,Index,5495),
   rec(5495).
 
--doc """
-[`gl:enable/1`](`enable/1`) and [`gl:disable/1`](`enable/1`) enable and disable
-various capabilities. Use [`gl:isEnabled/1`](`isEnabled/1`) or
-[`gl:get()`](`getBooleanv/1`) to determine the current setting of any
-capability. The initial value for each capability with the exception of
-`?GL_DITHER` and `?GL_MULTISAMPLE` is `?GL_FALSE`. The initial value for
-`?GL_DITHER` and `?GL_MULTISAMPLE` is `?GL_TRUE`.
-
-[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glEnable.xhtml)
-""".
+-doc(#{equiv => enable/1}).
 -spec enablei(Target::enum(), Index::i()) -> 'ok'.
 enablei(Target,Index) when is_integer(Target),is_integer(Index) ->
   IF = get_interface(),
   IF:queue_cmd(Target,Index,5496),
   ok.
 
--doc(#{equiv => enablei/2}).
+-doc(#{equiv => enable/1}).
 -spec disablei(Target::enum(), Index::i()) -> 'ok'.
 disablei(Target,Index) when is_integer(Target),is_integer(Index) ->
   IF = get_interface(),
   IF:queue_cmd(Target,Index,5497),
   ok.
 
--doc """
-[`gl:isEnabled/1`](`isEnabled/1`) returns `?GL_TRUE` if `Cap` is an enabled
-capability and returns `?GL_FALSE` otherwise. Boolean states that are indexed
-may be tested with [`gl:isEnabledi/2`](`isEnabled/1`). For
-[`gl:isEnabledi/2`](`isEnabled/1`), `Index` specifies the index of the
-capability to test. `Index` must be between zero and the count of indexed
-capabilities for `Cap`. Initially all capabilities except `?GL_DITHER` are
-disabled; `?GL_DITHER` is initially enabled.
-
-[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glIsEnabled.xhtml)
-""".
+-doc(#{equiv => isEnabled/1}).
 -spec isEnabledi(Target::enum(), Index::i()) -> 0|1.
 isEnabledi(Target,Index) when is_integer(Target),is_integer(Index) ->
   IF = get_interface(),
   IF:queue_cmd(Target,Index,5498),
   rec(5498).
 
--doc(#{equiv => endTransformFeedback/0}).
+-doc """
+Transform feedback mode captures the values of varying variables written by the
+vertex shader (or, if active, the geometry shader). Transform feedback is said
+to be active after a call to
+[`gl:beginTransformFeedback/1`](`beginTransformFeedback/1`) until a subsequent
+call to [`gl:endTransformFeedback/0`](`endTransformFeedback/0`). Transform
+feedback commands must be paired.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glBeginTransformFeedback.xhtml)
+""".
 -spec beginTransformFeedback(PrimitiveMode::enum()) -> 'ok'.
 beginTransformFeedback(PrimitiveMode) when is_integer(PrimitiveMode) ->
   IF = get_interface(),
   IF:queue_cmd(PrimitiveMode,5499),
   ok.
 
--doc """
-Transform feedback mode captures the values of varying variables written by the
-vertex shader (or, if active, the geometry shader). Transform feedback is said
-to be active after a call to
-[`gl:beginTransformFeedback/1`](`beginTransformFeedback/1`) until a subsequent
-call to [`gl:endTransformFeedback/0`](`beginTransformFeedback/1`). Transform
-feedback commands must be paired.
-
-[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glBeginTransformFeedback.xhtml)
-""".
+-doc(#{equiv => beginTransformFeedback/1}).
 -spec endTransformFeedback() -> 'ok'.
 endTransformFeedback()  ->
   IF = get_interface(),
@@ -5605,23 +6560,16 @@ clampColor(Target,Clamp) when is_integer(Target),is_integer(Clamp) ->
   IF:queue_cmd(Target,Clamp,5505),
   ok.
 
--doc(#{equiv => endConditionalRender/0}).
--spec beginConditionalRender(Id::i(), Mode::enum()) -> 'ok'.
-beginConditionalRender(Id,Mode) when is_integer(Id),is_integer(Mode) ->
-  IF = get_interface(),
-  IF:queue_cmd(Id,Mode,5506),
-  ok.
-
 -doc """
 Conditional rendering is started using
 [`gl:beginConditionalRender/2`](`beginConditionalRender/2`) and ended using
-[`gl:endConditionalRender/0`](`beginConditionalRender/2`). During conditional
+[`gl:endConditionalRender/0`](`endConditionalRender/0`). During conditional
 rendering, all vertex array commands, as well as [`gl:clear/1`](`clear/1`) and
-[`gl:clearBuffer()`](`clearBufferiv/3`) have no effect if the
+[`gl:clearBuffer/3`](`clearBufferiv/3`) have no effect if the
 (`?GL_SAMPLES_PASSED`) result of the query object `Id` is zero, or if the
 (`?GL_ANY_SAMPLES_PASSED`) result is `?GL_FALSE`. The results of commands
 setting the current vertex state, such as
-[`gl:vertexAttrib()`](`vertexAttrib1d/2`) are undefined. If the
+[`gl:vertexAttrib/2`](`vertexAttribL4dv/2`) are undefined. If the
 (`?GL_SAMPLES_PASSED`) result is non-zero or if the (`?GL_ANY_SAMPLES_PASSED`)
 result is `?GL_TRUE`, such commands are not discarded. The `Id` parameter to
 [`gl:beginConditionalRender/2`](`beginConditionalRender/2`) must be the name of
@@ -5635,27 +6583,48 @@ rendering commands without waiting for the query to complete.
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glBeginConditionalRender.xhtml)
 """.
+-spec beginConditionalRender(Id::i(), Mode::enum()) -> 'ok'.
+beginConditionalRender(Id,Mode) when is_integer(Id),is_integer(Mode) ->
+  IF = get_interface(),
+  IF:queue_cmd(Id,Mode,5506),
+  ok.
+
+-doc(#{equiv => beginConditionalRender/2}).
 -spec endConditionalRender() -> 'ok'.
 endConditionalRender()  ->
   IF = get_interface(),
   IF:queue_cmd(5507),
   ok.
 
--doc(#{equiv => vertexAttribLPointer/5}).
+-doc """
+[`gl:vertexAttribFormat/5`](`vertexAttribFormat/5`),
+[`gl:vertexAttribIFormat/4`](`vertexAttribIFormat/4`) and
+[`gl:vertexAttribLFormat/4`](`vertexAttribLFormat/4`), as well as
+[`gl:vertexArrayAttribFormat/6`](`vertexArrayAttribFormat/6`),
+[`gl:vertexArrayAttribIFormat/5`](`vertexArrayAttribIFormat/5`) and
+[`gl:vertexArrayAttribLFormat/5`](`vertexArrayAttribLFormat/5`) specify the
+organization of data in vertex arrays. The first three calls operate on the
+bound vertex array object, whereas the last three ones modify the state of a
+vertex array object with ID `Vaobj`. `Attribindex` specifies the index of the
+generic vertex attribute array whose data layout is being described, and must be
+less than the value of `?GL_MAX_VERTEX_ATTRIBS`.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glVertexAttribFormat.xhtml)
+""".
 -spec vertexAttribIPointer(Index::i(), Size::i(), Type::enum(), Stride::i(), Pointer::offset()|mem()) -> 'ok'.
 vertexAttribIPointer(Index,Size,Type,Stride,Pointer) when is_integer(Index),is_integer(Size),is_integer(Type),is_integer(Stride),is_integer(Pointer) orelse is_tuple(Pointer) orelse is_binary(Pointer) ->
   IF = get_interface(),
   IF:queue_cmd(Index,Size,Type,Stride,Pointer,5508),
   ok.
 
--doc(#{equiv => getVertexAttribiv/2}).
+-doc(#{equiv => getVertexAttribdv/2}).
 -spec getVertexAttribIiv(Index::i(), Pname::enum()) -> {i(),i(),i(),i()}.
 getVertexAttribIiv(Index,Pname) when is_integer(Index),is_integer(Pname) ->
   IF = get_interface(),
   IF:queue_cmd(Index,Pname,5510),
   rec(5510).
 
--doc(#{equiv => getVertexAttribiv/2}).
+-doc(#{equiv => getVertexAttribdv/2}).
 -spec getVertexAttribIuiv(Index::i(), Pname::enum()) -> {i(),i(),i(),i()}.
 getVertexAttribIuiv(Index,Pname) when is_integer(Index),is_integer(Pname) ->
   IF = get_interface(),
@@ -5718,28 +6687,68 @@ vertexAttribI4ui(Index,X,Y,Z,W) when is_integer(Index),is_integer(X),is_integer(
   IF:queue_cmd(Index,X,Y,Z,W,5519),
   ok.
 
--doc(#{equiv => vertexAttribL4dv/2}).
+-doc """
+The [`gl:vertexAttrib/2`](`vertexAttribL4dv/2`) family of entry points allows an
+application to pass generic vertex attributes in numbered locations.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glVertexAttrib.xhtml)
+""".
 -spec vertexAttribI1iv(Index::i(), {X::i()}) -> 'ok'.
 vertexAttribI1iv(Index,{X}) ->  vertexAttribI1i(Index,X).
--doc(#{equiv => vertexAttribL4dv/2}).
+-doc """
+The [`gl:vertexAttrib/2`](`vertexAttribL4dv/2`) family of entry points allows an
+application to pass generic vertex attributes in numbered locations.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glVertexAttrib.xhtml)
+""".
 -spec vertexAttribI2iv(Index::i(), {X::i(), Y::i()}) -> 'ok'.
 vertexAttribI2iv(Index,{X,Y}) ->  vertexAttribI2i(Index,X,Y).
--doc(#{equiv => vertexAttribL4dv/2}).
+-doc """
+The [`gl:vertexAttrib/2`](`vertexAttribL4dv/2`) family of entry points allows an
+application to pass generic vertex attributes in numbered locations.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glVertexAttrib.xhtml)
+""".
 -spec vertexAttribI3iv(Index::i(), {X::i(), Y::i(), Z::i()}) -> 'ok'.
 vertexAttribI3iv(Index,{X,Y,Z}) ->  vertexAttribI3i(Index,X,Y,Z).
--doc(#{equiv => vertexAttribL4dv/2}).
+-doc """
+The [`gl:vertexAttrib/2`](`vertexAttribL4dv/2`) family of entry points allows an
+application to pass generic vertex attributes in numbered locations.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glVertexAttrib.xhtml)
+""".
 -spec vertexAttribI4iv(Index::i(), {X::i(), Y::i(), Z::i(), W::i()}) -> 'ok'.
 vertexAttribI4iv(Index,{X,Y,Z,W}) ->  vertexAttribI4i(Index,X,Y,Z,W).
--doc(#{equiv => vertexAttribL4dv/2}).
+-doc """
+The [`gl:vertexAttrib/2`](`vertexAttribL4dv/2`) family of entry points allows an
+application to pass generic vertex attributes in numbered locations.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glVertexAttrib.xhtml)
+""".
 -spec vertexAttribI1uiv(Index::i(), {X::i()}) -> 'ok'.
 vertexAttribI1uiv(Index,{X}) ->  vertexAttribI1ui(Index,X).
--doc(#{equiv => vertexAttribL4dv/2}).
+-doc """
+The [`gl:vertexAttrib/2`](`vertexAttribL4dv/2`) family of entry points allows an
+application to pass generic vertex attributes in numbered locations.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glVertexAttrib.xhtml)
+""".
 -spec vertexAttribI2uiv(Index::i(), {X::i(), Y::i()}) -> 'ok'.
 vertexAttribI2uiv(Index,{X,Y}) ->  vertexAttribI2ui(Index,X,Y).
--doc(#{equiv => vertexAttribL4dv/2}).
+-doc """
+The [`gl:vertexAttrib/2`](`vertexAttribL4dv/2`) family of entry points allows an
+application to pass generic vertex attributes in numbered locations.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glVertexAttrib.xhtml)
+""".
 -spec vertexAttribI3uiv(Index::i(), {X::i(), Y::i(), Z::i()}) -> 'ok'.
 vertexAttribI3uiv(Index,{X,Y,Z}) ->  vertexAttribI3ui(Index,X,Y,Z).
--doc(#{equiv => vertexAttribL4dv/2}).
+-doc """
+The [`gl:vertexAttrib/2`](`vertexAttribL4dv/2`) family of entry points allows an
+application to pass generic vertex attributes in numbered locations.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glVertexAttrib.xhtml)
+""".
 -spec vertexAttribI4uiv(Index::i(), {X::i(), Y::i(), Z::i(), W::i()}) -> 'ok'.
 vertexAttribI4uiv(Index,{X,Y,Z,W}) ->  vertexAttribI4ui(Index,X,Y,Z,W).
 -doc(#{equiv => vertexAttribL4dv/2}).
@@ -5770,22 +6779,7 @@ vertexAttribI4usv(Index,V) when is_integer(Index),tuple_size(V) =:= 4 ->
   IF:queue_cmd(Index,V,5523),
   ok.
 
--doc """
-[`gl:getUniform()`](`getUniformfv/2`) and `glGetnUniform` return in `Params` the
-value(s) of the specified uniform variable. The type of the uniform variable
-specified by `Location` determines the number of values returned. If the uniform
-variable is defined in the shader as a boolean, int, or float, a single value
-will be returned. If it is defined as a vec2, ivec2, or bvec2, two values will
-be returned. If it is defined as a vec3, ivec3, or bvec3, three values will be
-returned, and so on. To query values stored in uniform variables declared as
-arrays, call [`gl:getUniform()`](`getUniformfv/2`) for each element of the
-array. To query values stored in uniform variables declared as structures, call
-[`gl:getUniform()`](`getUniformfv/2`) for each field in the structure. The
-values for uniform variables declared as a matrix will be returned in column
-major order.
-
-[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetUniform.xhtml)
-""".
+-doc(#{equiv => getUniformfv/2}).
 -spec getUniformuiv(Program::i(), Location::i()) -> {i(),i(),i(),i(),i(),i(),i(),i(),i(),i(),i(),i(),i(),i(),i(),i()}.
 getUniformuiv(Program,Location) when is_integer(Program),is_integer(Location) ->
   IF = get_interface(),
@@ -5824,35 +6818,35 @@ getFragDataLocation(Program,Name) when is_integer(Program),is_list(Name) ->
   IF:queue_cmd(Program,NameBin,5526),
   rec(5526).
 
--doc(#{equiv => uniformMatrix4x3fv/3}).
+-doc(#{equiv => uniform1f/2}).
 -spec uniform1ui(Location::i(), V0::i()) -> 'ok'.
 uniform1ui(Location,V0) when is_integer(Location),is_integer(V0) ->
   IF = get_interface(),
   IF:queue_cmd(Location,V0,5527),
   ok.
 
--doc(#{equiv => uniformMatrix4x3fv/3}).
+-doc(#{equiv => uniform1f/2}).
 -spec uniform2ui(Location::i(), V0::i(), V1::i()) -> 'ok'.
 uniform2ui(Location,V0,V1) when is_integer(Location),is_integer(V0),is_integer(V1) ->
   IF = get_interface(),
   IF:queue_cmd(Location,V0,V1,5528),
   ok.
 
--doc(#{equiv => uniformMatrix4x3fv/3}).
+-doc(#{equiv => uniform1f/2}).
 -spec uniform3ui(Location::i(), V0::i(), V1::i(), V2::i()) -> 'ok'.
 uniform3ui(Location,V0,V1,V2) when is_integer(Location),is_integer(V0),is_integer(V1),is_integer(V2) ->
   IF = get_interface(),
   IF:queue_cmd(Location,V0,V1,V2,5529),
   ok.
 
--doc(#{equiv => uniformMatrix4x3fv/3}).
+-doc(#{equiv => uniform1f/2}).
 -spec uniform4ui(Location::i(), V0::i(), V1::i(), V2::i(), V3::i()) -> 'ok'.
 uniform4ui(Location,V0,V1,V2,V3) when is_integer(Location),is_integer(V0),is_integer(V1),is_integer(V2),is_integer(V3) ->
   IF = get_interface(),
   IF:queue_cmd(Location,V0,V1,V2,V3,5530),
   ok.
 
--doc(#{equiv => uniformMatrix4x3fv/3}).
+-doc(#{equiv => uniform1f/2}).
 -spec uniform1uiv(Location::i(), Value::[i()]) -> 'ok'.
 uniform1uiv(Location,Value) when is_integer(Location),is_list(Value) ->
   IF = get_interface(),
@@ -5860,7 +6854,7 @@ uniform1uiv(Location,Value) when is_integer(Location),is_list(Value) ->
   IF:queue_cmd(Location,Count,Value,5531),
   ok.
 
--doc(#{equiv => uniformMatrix4x3fv/3}).
+-doc(#{equiv => uniform1f/2}).
 -spec uniform2uiv(Location::i(), Value::[{i(),i()}]) -> 'ok'.
 uniform2uiv(Location,Value) when is_integer(Location),is_list(Value) ->
   IF = get_interface(),
@@ -5868,7 +6862,7 @@ uniform2uiv(Location,Value) when is_integer(Location),is_list(Value) ->
   IF:queue_cmd(Location,Count,Value,5532),
   ok.
 
--doc(#{equiv => uniformMatrix4x3fv/3}).
+-doc(#{equiv => uniform1f/2}).
 -spec uniform3uiv(Location::i(), Value::[{i(),i(),i()}]) -> 'ok'.
 uniform3uiv(Location,Value) when is_integer(Location),is_list(Value) ->
   IF = get_interface(),
@@ -5876,7 +6870,7 @@ uniform3uiv(Location,Value) when is_integer(Location),is_list(Value) ->
   IF:queue_cmd(Location,Count,Value,5533),
   ok.
 
--doc(#{equiv => uniformMatrix4x3fv/3}).
+-doc(#{equiv => uniform1f/2}).
 -spec uniform4uiv(Location::i(), Value::[{i(),i(),i(),i()}]) -> 'ok'.
 uniform4uiv(Location,Value) when is_integer(Location),is_list(Value) ->
   IF = get_interface(),
@@ -5884,77 +6878,71 @@ uniform4uiv(Location,Value) when is_integer(Location),is_list(Value) ->
   IF:queue_cmd(Location,Count,Value,5534),
   ok.
 
--doc(#{equiv => texParameteriv/3}).
+-doc(#{equiv => texParameterf/3}).
 -spec texParameterIiv(Target::enum(), Pname::enum(), Params::tuple()) -> 'ok'.
 texParameterIiv(Target,Pname,Params) when is_integer(Target),is_integer(Pname),is_tuple(Params) ->
   IF = get_interface(),
   IF:queue_cmd(Target,Pname,Params,5535),
   ok.
 
--doc(#{equiv => texParameteriv/3}).
+-doc(#{equiv => texParameterf/3}).
 -spec texParameterIuiv(Target::enum(), Pname::enum(), Params::tuple()) -> 'ok'.
 texParameterIuiv(Target,Pname,Params) when is_integer(Target),is_integer(Pname),is_tuple(Params) ->
   IF = get_interface(),
   IF:queue_cmd(Target,Pname,Params,5536),
   ok.
 
--doc(#{equiv => getTexParameteriv/2}).
+-doc(#{equiv => getTexParameterfv/2}).
 -spec getTexParameterIiv(Target::enum(), Pname::enum()) -> {i(),i(),i(),i()}.
 getTexParameterIiv(Target,Pname) when is_integer(Target),is_integer(Pname) ->
   IF = get_interface(),
   IF:queue_cmd(Target,Pname,5537),
   rec(5537).
 
--doc(#{equiv => getTexParameteriv/2}).
+-doc(#{equiv => getTexParameterfv/2}).
 -spec getTexParameterIuiv(Target::enum(), Pname::enum()) -> {i(),i(),i(),i()}.
 getTexParameterIuiv(Target,Pname) when is_integer(Target),is_integer(Pname) ->
   IF = get_interface(),
   IF:queue_cmd(Target,Pname,5538),
   rec(5538).
 
--doc(#{equiv => clearBufferuiv/3}).
--spec clearBufferiv(Buffer::enum(), Drawbuffer::i(), Value::tuple()) -> 'ok'.
-clearBufferiv(Buffer,Drawbuffer,Value) when is_integer(Buffer),is_integer(Drawbuffer),is_tuple(Value) ->
-  IF = get_interface(),
-  IF:queue_cmd(Buffer,Drawbuffer,Value,5539),
-  ok.
-
 -doc """
 These commands clear a specified buffer of a framebuffer to specified value(s).
-For [`gl:clearBuffer*()`](`clearBufferiv/3`), the framebuffer is the currently
+For [`gl:clearBuffer*/3`](`clearBufferiv/3`), the framebuffer is the currently
 bound draw framebuffer object. For `glClearNamedFramebuffer*`, `Framebuffer` is
 zero, indicating the default draw framebuffer, or the name of a framebuffer
 object.
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glClearBuffer.xhtml)
 """.
+-spec clearBufferiv(Buffer::enum(), Drawbuffer::i(), Value::tuple()) -> 'ok'.
+clearBufferiv(Buffer,Drawbuffer,Value) when is_integer(Buffer),is_integer(Drawbuffer),is_tuple(Value) ->
+  IF = get_interface(),
+  IF:queue_cmd(Buffer,Drawbuffer,Value,5539),
+  ok.
+
+-doc(#{equiv => clearBufferiv/3}).
 -spec clearBufferuiv(Buffer::enum(), Drawbuffer::i(), Value::tuple()) -> 'ok'.
 clearBufferuiv(Buffer,Drawbuffer,Value) when is_integer(Buffer),is_integer(Drawbuffer),is_tuple(Value) ->
   IF = get_interface(),
   IF:queue_cmd(Buffer,Drawbuffer,Value,5540),
   ok.
 
--doc(#{equiv => clearBufferuiv/3}).
+-doc(#{equiv => clearBufferiv/3}).
 -spec clearBufferfv(Buffer::enum(), Drawbuffer::i(), Value::tuple()) -> 'ok'.
 clearBufferfv(Buffer,Drawbuffer,Value) when is_integer(Buffer),is_integer(Drawbuffer),is_tuple(Value) ->
   IF = get_interface(),
   IF:queue_cmd(Buffer,Drawbuffer,Value,5541),
   ok.
 
--doc(#{equiv => clearBufferuiv/3}).
+-doc(#{equiv => clearBufferiv/3}).
 -spec clearBufferfi(Buffer::enum(), Drawbuffer::i(), Depth::f(), Stencil::i()) -> 'ok'.
 clearBufferfi(Buffer,Drawbuffer,Depth,Stencil) when is_integer(Buffer),is_integer(Drawbuffer),is_float(Depth),is_integer(Stencil) ->
   IF = get_interface(),
   IF:queue_cmd(Buffer,Drawbuffer,Depth,Stencil,5542),
   ok.
 
--doc """
-[`gl:getString/1`](`getString/1`) returns a pointer to a static string
-describing some aspect of the current GL connection. `Name` can be one of the
-following:
-
-[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetString.xhtml)
-""".
+-doc(#{equiv => getString/1}).
 -spec getStringi(Name::enum(), Index::i()) -> string().
 getStringi(Name,Index) when is_integer(Name),is_integer(Index) ->
   IF = get_interface(),
@@ -6147,21 +7135,28 @@ checkFramebufferStatus(Target) when is_integer(Target) ->
   IF:queue_cmd(Target,5554),
   rec(5554).
 
--doc(#{equiv => framebufferTextureLayer/5}).
+-doc """
+These commands attach a selected mipmap level or image of a texture object as
+one of the logical buffers of the specified framebuffer object. Textures cannot
+be attached to the default draw and read framebuffer, so they are not valid
+targets of these commands.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glFramebufferTexture.xhtml)
+""".
 -spec framebufferTexture1D(Target::enum(), Attachment::enum(), Textarget::enum(), Texture::i(), Level::i()) -> 'ok'.
 framebufferTexture1D(Target,Attachment,Textarget,Texture,Level) when is_integer(Target),is_integer(Attachment),is_integer(Textarget),is_integer(Texture),is_integer(Level) ->
   IF = get_interface(),
   IF:queue_cmd(Target,Attachment,Textarget,Texture,Level,5555),
   ok.
 
--doc(#{equiv => framebufferTextureLayer/5}).
+-doc(#{equiv => framebufferTexture1D/5}).
 -spec framebufferTexture2D(Target::enum(), Attachment::enum(), Textarget::enum(), Texture::i(), Level::i()) -> 'ok'.
 framebufferTexture2D(Target,Attachment,Textarget,Texture,Level) when is_integer(Target),is_integer(Attachment),is_integer(Textarget),is_integer(Texture),is_integer(Level) ->
   IF = get_interface(),
   IF:queue_cmd(Target,Attachment,Textarget,Texture,Level,5556),
   ok.
 
--doc(#{equiv => framebufferTextureLayer/5}).
+-doc(#{equiv => framebufferTexture1D/5}).
 -spec framebufferTexture3D(Target, Attachment, Textarget, Texture, Level, Zoffset) -> 'ok'
     when Target::enum(), Attachment::enum(), Textarget::enum(), Texture::i(), Level::i(), Zoffset::i().
 framebufferTexture3D(Target,Attachment,Textarget,Texture,Level,Zoffset) when is_integer(Target),is_integer(Attachment),is_integer(Textarget),is_integer(Texture),is_integer(Level),is_integer(Zoffset) ->
@@ -6198,7 +7193,16 @@ getFramebufferAttachmentParameteriv(Target,Attachment,Pname) when is_integer(Tar
   IF:queue_cmd(Target,Attachment,Pname,5559),
   rec(5559).
 
--doc(#{equiv => generateTextureMipmap/1}).
+-doc """
+[`gl:generateMipmap/1`](`generateMipmap/1`) and
+[`gl:generateTextureMipmap/1`](`generateTextureMipmap/1`) generates mipmaps for
+the specified texture object. For [`gl:generateMipmap/1`](`generateMipmap/1`),
+the texture object that is bound to `Target`. For
+[`gl:generateTextureMipmap/1`](`generateTextureMipmap/1`), `Texture` is the name
+of the texture object.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGenerateMipmap.xhtml)
+""".
 -spec generateMipmap(Target::enum()) -> 'ok'.
 generateMipmap(Target) when is_integer(Target) ->
   IF = get_interface(),
@@ -6232,21 +7236,21 @@ renderbufferStorageMultisample(Target,Samples,Internalformat,Width,Height) when 
   IF:queue_cmd(Target,Samples,Internalformat,Width,Height,5562),
   ok.
 
--doc """
-These commands attach a selected mipmap level or image of a texture object as
-one of the logical buffers of the specified framebuffer object. Textures cannot
-be attached to the default draw and read framebuffer, so they are not valid
-targets of these commands.
-
-[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glFramebufferTexture.xhtml)
-""".
+-doc(#{equiv => framebufferTexture1D/5}).
 -spec framebufferTextureLayer(Target::enum(), Attachment::enum(), Texture::i(), Level::i(), Layer::i()) -> 'ok'.
 framebufferTextureLayer(Target,Attachment,Texture,Level,Layer) when is_integer(Target),is_integer(Attachment),is_integer(Texture),is_integer(Level),is_integer(Layer) ->
   IF = get_interface(),
   IF:queue_cmd(Target,Attachment,Texture,Level,Layer,5563),
   ok.
 
--doc(#{equiv => flushMappedNamedBufferRange/3}).
+-doc """
+[`gl:flushMappedBufferRange/3`](`flushMappedBufferRange/3`) indicates that
+modifications have been made to a range of a mapped buffer object. The buffer
+object must previously have been mapped with the `?GL_MAP_FLUSH_EXPLICIT_BIT`
+flag.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glFlushMappedBufferRange.xhtml)
+""".
 -spec flushMappedBufferRange(Target::enum(), Offset::i(), Length::i()) -> 'ok'.
 flushMappedBufferRange(Target,Offset,Length) when is_integer(Target),is_integer(Offset),is_integer(Length) ->
   IF = get_interface(),
@@ -6347,7 +7351,14 @@ drawElementsInstanced(Mode,Count,Type,Indices,Instancecount) when is_integer(Mod
   IF:queue_cmd(Mode,Count,Type,Indices,Instancecount,5570),
   ok.
 
--doc(#{equiv => textureBuffer/3}).
+-doc """
+[`gl:texBuffer/3`](`texBuffer/3`) and [`gl:textureBuffer/3`](`textureBuffer/3`)
+attaches the data store of a specified buffer object to a specified texture
+object, and specify the storage format for the texture image found in the buffer
+object. The texture object must be a buffer texture.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glTexBuffer.xhtml)
+""".
 -spec texBuffer(Target::enum(), Internalformat::enum(), Buffer::i()) -> 'ok'.
 texBuffer(Target,Internalformat,Buffer) when is_integer(Target),is_integer(Internalformat),is_integer(Buffer) ->
   IF = get_interface(),
@@ -6425,7 +7436,7 @@ number of characters that were (or would have been) written into `UniformName`
 is specified in `Length`. If `Length` is NULL, no length is returned. The length
 of the longest uniform name in `Program` is given by the value of
 `?GL_ACTIVE_UNIFORM_MAX_LENGTH`, which can be queried with
-[`gl:getProgram()`](`getProgramiv/2`).
+[`gl:getProgram/2`](`getProgramiv/2`).
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetActiveUniformName.xhtml)
 """.
@@ -6491,7 +7502,7 @@ uniformBlockBinding(Program,UniformBlockIndex,UniformBlockBinding) when is_integ
 [`gl:drawElementsBaseVertex/5`](`drawElementsBaseVertex/5`) behaves identically
 to [`gl:drawElements/4`](`drawElements/4`) except that the `i`th element
 transferred by the corresponding draw call will be taken from element
-`Indices`\[i] + `Basevertex` of each enabled array. If the resulting value is
+`Indices`[i] + `Basevertex` of each enabled array. If the resulting value is
 larger than the maximum value representable by `Type`, it is as if the
 calculation were upconverted to 32-bit unsigned integers (with wrapping on
 overflow conditions). The operation is undefined if the sum would be negative.
@@ -6515,7 +7526,7 @@ constraint that all values in the array `Indices` must lie between `Start` and
 range [`Start`, `End`] are treated in the same way as
 [`gl:drawElementsBaseVertex/5`](`drawElementsBaseVertex/5`). The `i`th element
 transferred by the corresponding draw call will be taken from element
-`Indices`\[i] + `Basevertex` of each enabled array. If the resulting value is
+`Indices`[i] + `Basevertex` of each enabled array. If the resulting value is
 larger than the maximum value representable by `Type`, it is as if the
 calculation were upconverted to 32-bit unsigned integers (with wrapping on
 overflow conditions). The operation is undefined if the sum would be negative.
@@ -6533,7 +7544,7 @@ drawRangeElementsBaseVertex(Mode,Start,End,Count,Type,Indices,Basevertex) when i
 [`gl:drawElementsInstancedBaseVertex/6`](`drawElementsInstancedBaseVertex/6`)
 behaves identically to [`gl:drawElementsInstanced/5`](`drawElementsInstanced/5`)
 except that the `i`th element transferred by the corresponding draw call will be
-taken from element `Indices`\[i] + `Basevertex` of each enabled array. If the
+taken from element `Indices`[i] + `Basevertex` of each enabled array. If the
 resulting value is larger than the maximum value representable by `Type`, it is
 as if the calculation were upconverted to 32-bit unsigned integers (with
 wrapping on overflow conditions). The operation is undefined if the sum would be
@@ -6627,15 +7638,15 @@ clientWaitSync(Sync,Flags,Timeout) when is_integer(Sync),is_integer(Flags),is_in
   rec(5592).
 
 -doc """
-[`gl:waitSync/3`](`waitSync/3`) causes the GL server to block and wait until
-`Sync` becomes signaled. `Sync` is the name of an existing sync object upon
-which to wait. `Flags` and `Timeout` are currently not used and must be set to
-zero and the special value `?GL_TIMEOUT_IGNORED`, respectively
-
 `Flags` and `Timeout` are placeholders for anticipated future extensions of sync
 object capabilities. They must have these reserved values in order that existing
 code calling [`gl:waitSync/3`](`waitSync/3`) operate properly in the presence of
 such extensions.
+
+[`gl:waitSync/3`](`waitSync/3`) causes the GL server to block and wait until
+`Sync` becomes signaled. `Sync` is the name of an existing sync object upon
+which to wait. `Flags` and `Timeout` are currently not used and must be set to
+zero and the special value `?GL_TIMEOUT_IGNORED`, respectively
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glWaitSync.xhtml)
 """.
@@ -6645,7 +7656,7 @@ waitSync(Sync,Flags,Timeout) when is_integer(Sync),is_integer(Flags),is_integer(
   IF:queue_cmd(Sync,Flags,Timeout,5593),
   ok.
 
--doc(#{equiv => getIntegerv/1}).
+-doc(#{equiv => getBooleanv/1}).
 -spec getInteger64v(Pname::enum()) -> [i()].
 getInteger64v(Pname) when is_integer(Pname) ->
   IF = get_interface(),
@@ -6664,21 +7675,26 @@ getSynciv(Sync,Pname,BufSize) when is_integer(Sync),is_integer(Pname),is_integer
   IF:queue_cmd(Sync,Pname,BufSize,5595),
   rec(5595).
 
--doc(#{equiv => getIntegerv/1}).
+-doc(#{equiv => getBooleanv/1}).
 -spec getInteger64i_v(Target::enum(), Index::i()) -> [i()].
 getInteger64i_v(Target,Index) when is_integer(Target),is_integer(Index) ->
   IF = get_interface(),
   IF:queue_cmd(Target,Index,5596),
   rec(5596).
 
--doc(#{equiv => getBufferParameterivARB/2}).
+-doc """
+These functions return in `Data` a selected parameter of the specified buffer
+object.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetBufferParameter.xhtml)
+""".
 -spec getBufferParameteri64v(Target::enum(), Pname::enum()) -> [i()].
 getBufferParameteri64v(Target,Pname) when is_integer(Target),is_integer(Pname) ->
   IF = get_interface(),
   IF:queue_cmd(Target,Pname,5597),
   rec(5597).
 
--doc(#{equiv => framebufferTextureLayer/5}).
+-doc(#{equiv => framebufferTexture1D/5}).
 -spec framebufferTexture(Target::enum(), Attachment::enum(), Texture::i(), Level::i()) -> 'ok'.
 framebufferTexture(Target,Attachment,Texture,Level) when is_integer(Target),is_integer(Attachment),is_integer(Texture),is_integer(Level) ->
   IF = get_interface(),
@@ -6833,15 +7849,8 @@ bindSampler(Unit,Sampler) when is_integer(Unit),is_integer(Sampler) ->
   IF:queue_cmd(Unit,Sampler,5608),
   ok.
 
--doc(#{equiv => samplerParameteriv/3}).
--spec samplerParameteri(Sampler::i(), Pname::enum(), Param::i()) -> 'ok'.
-samplerParameteri(Sampler,Pname,Param) when is_integer(Sampler),is_integer(Pname),is_integer(Param) ->
-  IF = get_interface(),
-  IF:queue_cmd(Sampler,Pname,Param,5609),
-  ok.
-
 -doc """
-[`gl:samplerParameter()`](`samplerParameteri/3`) assigns the value or values in
+[`gl:samplerParameter/3`](`samplerParameteri/3`) assigns the value or values in
 `Params` to the sampler parameter specified as `Pname`. `Sampler` specifies the
 sampler object to be modified, and must be the name of a sampler object
 previously returned from a call to [`gl:genSamplers/1`](`genSamplers/1`). The
@@ -6849,34 +7858,41 @@ following symbols are accepted in `Pname`:
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glSamplerParameter.xhtml)
 """.
+-spec samplerParameteri(Sampler::i(), Pname::enum(), Param::i()) -> 'ok'.
+samplerParameteri(Sampler,Pname,Param) when is_integer(Sampler),is_integer(Pname),is_integer(Param) ->
+  IF = get_interface(),
+  IF:queue_cmd(Sampler,Pname,Param,5609),
+  ok.
+
+-doc(#{equiv => samplerParameteri/3}).
 -spec samplerParameteriv(Sampler::i(), Pname::enum(), Param::[i()]) -> 'ok'.
 samplerParameteriv(Sampler,Pname,Param) when is_integer(Sampler),is_integer(Pname),is_list(Param) ->
   IF = get_interface(),
   IF:queue_cmd(Sampler,Pname,Param,5610),
   ok.
 
--doc(#{equiv => samplerParameteriv/3}).
+-doc(#{equiv => samplerParameteri/3}).
 -spec samplerParameterf(Sampler::i(), Pname::enum(), Param::f()) -> 'ok'.
 samplerParameterf(Sampler,Pname,Param) when is_integer(Sampler),is_integer(Pname),is_float(Param) ->
   IF = get_interface(),
   IF:queue_cmd(Sampler,Pname,Param,5611),
   ok.
 
--doc(#{equiv => samplerParameteriv/3}).
+-doc(#{equiv => samplerParameteri/3}).
 -spec samplerParameterfv(Sampler::i(), Pname::enum(), Param::[f()]) -> 'ok'.
 samplerParameterfv(Sampler,Pname,Param) when is_integer(Sampler),is_integer(Pname),is_list(Param) ->
   IF = get_interface(),
   IF:queue_cmd(Sampler,Pname,Param,5612),
   ok.
 
--doc(#{equiv => samplerParameteriv/3}).
+-doc(#{equiv => samplerParameteri/3}).
 -spec samplerParameterIiv(Sampler::i(), Pname::enum(), Param::[i()]) -> 'ok'.
 samplerParameterIiv(Sampler,Pname,Param) when is_integer(Sampler),is_integer(Pname),is_list(Param) ->
   IF = get_interface(),
   IF:queue_cmd(Sampler,Pname,Param,5613),
   ok.
 
--doc(#{equiv => samplerParameteriv/3}).
+-doc(#{equiv => samplerParameteri/3}).
 -spec samplerParameterIuiv(Sampler::i(), Pname::enum(), Param::[i()]) -> 'ok'.
 samplerParameterIuiv(Sampler,Pname,Param) when is_integer(Sampler),is_integer(Pname),is_list(Param) ->
   IF = get_interface(),
@@ -6884,11 +7900,11 @@ samplerParameterIuiv(Sampler,Pname,Param) when is_integer(Sampler),is_integer(Pn
   ok.
 
 -doc """
-[`gl:getSamplerParameter()`](`getSamplerParameteriv/2`) returns in `Params` the
+[`gl:getSamplerParameter/2`](`getSamplerParameteriv/2`) returns in `Params` the
 value or values of the sampler parameter specified as `Pname`. `Sampler` defines
 the target sampler, and must be the name of an existing sampler object, returned
 from a previous call to [`gl:genSamplers/1`](`genSamplers/1`). `Pname` accepts
-the same symbols as [`gl:samplerParameter()`](`samplerParameteri/3`), with the
+the same symbols as [`gl:samplerParameter/3`](`samplerParameteri/3`), with the
 same interpretations:
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetSamplerParameter.xhtml)
@@ -6927,7 +7943,7 @@ recorded after all previous commands on the GL client and server state and the
 framebuffer have been fully realized. When the time is recorded, the query
 result for that object is marked available.
 [`gl:queryCounter/2`](`queryCounter/2`) timer queries can be used within a
-[`gl:beginQuery/2`](`beginQuery/2`) / [`gl:endQuery/1`](`beginQuery/2`) block
+[`gl:beginQuery/2`](`beginQuery/2`) / [`gl:endQuery/1`](`endQuery/1`) block
 where the target is `?GL_TIME_ELAPSED` and it does not affect the result of that
 query object.
 
@@ -6939,14 +7955,14 @@ queryCounter(Id,Target) when is_integer(Id),is_integer(Target) ->
   IF:queue_cmd(Id,Target,5619),
   ok.
 
--doc(#{equiv => getQueryObjectuiv/2}).
+-doc(#{equiv => getQueryObjectiv/2}).
 -spec getQueryObjecti64v(Id::i(), Pname::enum()) -> i().
 getQueryObjecti64v(Id,Pname) when is_integer(Id),is_integer(Pname) ->
   IF = get_interface(),
   IF:queue_cmd(Id,Pname,5620),
   rec(5620).
 
--doc(#{equiv => getQueryObjectuiv/2}).
+-doc(#{equiv => getQueryObjectiv/2}).
 -spec getQueryObjectui64v(Id::i(), Pname::enum()) -> i().
 getQueryObjectui64v(Id,Pname) when is_integer(Id),is_integer(Pname) ->
   IF = get_interface(),
@@ -6988,65 +8004,28 @@ minSampleShading(Value) when is_float(Value) ->
   IF:queue_cmd(Value,5623),
   ok.
 
--doc """
-The blend equations determine how a new pixel (the ''source'' color) is combined
-with a pixel already in the framebuffer (the ''destination'' color). This
-function sets both the RGB blend equation and the alpha blend equation to a
-single equation. [`gl:blendEquationi/2`](`blendEquation/1`) specifies the blend
-equation for a single draw buffer whereas
-[`gl:blendEquation/1`](`blendEquation/1`) sets the blend equation for all draw
-buffers.
-
-[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glBlendEquation.xhtml)
-""".
+-doc(#{equiv => blendEquation/1}).
 -spec blendEquationi(Buf::i(), Mode::enum()) -> 'ok'.
 blendEquationi(Buf,Mode) when is_integer(Buf),is_integer(Mode) ->
   IF = get_interface(),
   IF:queue_cmd(Buf,Mode,5624),
   ok.
 
--doc """
-The blend equations determines how a new pixel (the ''source'' color) is
-combined with a pixel already in the framebuffer (the ''destination'' color).
-These functions specify one blend equation for the RGB-color components and one
-blend equation for the alpha component.
-[`gl:blendEquationSeparatei/3`](`blendEquationSeparate/2`) specifies the blend
-equations for a single draw buffer whereas
-[`gl:blendEquationSeparate/2`](`blendEquationSeparate/2`) sets the blend
-equations for all draw buffers.
-
-[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glBlendEquationSeparate.xhtml)
-""".
+-doc(#{equiv => blendEquationSeparate/2}).
 -spec blendEquationSeparatei(Buf::i(), ModeRGB::enum(), ModeAlpha::enum()) -> 'ok'.
 blendEquationSeparatei(Buf,ModeRGB,ModeAlpha) when is_integer(Buf),is_integer(ModeRGB),is_integer(ModeAlpha) ->
   IF = get_interface(),
   IF:queue_cmd(Buf,ModeRGB,ModeAlpha,5625),
   ok.
 
--doc """
-Pixels can be drawn using a function that blends the incoming (source) RGBA
-values with the RGBA values that are already in the frame buffer (the
-destination values). Blending is initially disabled. Use
-[`gl:enable/1`](`enable/1`) and [`gl:disable/1`](`enable/1`) with argument
-`?GL_BLEND` to enable and disable blending.
-
-[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glBlendFunc.xhtml)
-""".
+-doc(#{equiv => blendFunc/2}).
 -spec blendFunci(Buf::i(), Src::enum(), Dst::enum()) -> 'ok'.
 blendFunci(Buf,Src,Dst) when is_integer(Buf),is_integer(Src),is_integer(Dst) ->
   IF = get_interface(),
   IF:queue_cmd(Buf,Src,Dst,5626),
   ok.
 
--doc """
-Pixels can be drawn using a function that blends the incoming (source) RGBA
-values with the RGBA values that are already in the frame buffer (the
-destination values). Blending is initially disabled. Use
-[`gl:enable/1`](`enable/1`) and [`gl:disable/1`](`enable/1`) with argument
-`?GL_BLEND` to enable and disable blending.
-
-[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glBlendFuncSeparate.xhtml)
-""".
+-doc(#{equiv => blendFuncSeparate/4}).
 -spec blendFuncSeparatei(Buf::i(), SrcRGB::enum(), DstRGB::enum(), SrcAlpha::enum(), DstAlpha::enum()) -> 'ok'.
 blendFuncSeparatei(Buf,SrcRGB,DstRGB,SrcAlpha,DstAlpha) when is_integer(Buf),is_integer(SrcRGB),is_integer(DstRGB),is_integer(SrcAlpha),is_integer(DstAlpha) ->
   IF = get_interface(),
@@ -7087,35 +8066,35 @@ drawElementsIndirect(Mode,Type,Indirect) when is_integer(Mode),is_integer(Type),
   IF:queue_cmd(Mode,Type,Indirect,5630),
   ok.
 
--doc(#{equiv => uniformMatrix4x3fv/3}).
+-doc(#{equiv => uniform1f/2}).
 -spec uniform1d(Location::i(), X::f()) -> 'ok'.
 uniform1d(Location,X) when is_integer(Location),is_float(X) ->
   IF = get_interface(),
   IF:queue_cmd(Location,X,5632),
   ok.
 
--doc(#{equiv => uniformMatrix4x3fv/3}).
+-doc(#{equiv => uniform1f/2}).
 -spec uniform2d(Location::i(), X::f(), Y::f()) -> 'ok'.
 uniform2d(Location,X,Y) when is_integer(Location),is_float(X),is_float(Y) ->
   IF = get_interface(),
   IF:queue_cmd(Location,X,Y,5633),
   ok.
 
--doc(#{equiv => uniformMatrix4x3fv/3}).
+-doc(#{equiv => uniform1f/2}).
 -spec uniform3d(Location::i(), X::f(), Y::f(), Z::f()) -> 'ok'.
 uniform3d(Location,X,Y,Z) when is_integer(Location),is_float(X),is_float(Y),is_float(Z) ->
   IF = get_interface(),
   IF:queue_cmd(Location,X,Y,Z,5634),
   ok.
 
--doc(#{equiv => uniformMatrix4x3fv/3}).
+-doc(#{equiv => uniform1f/2}).
 -spec uniform4d(Location::i(), X::f(), Y::f(), Z::f(), W::f()) -> 'ok'.
 uniform4d(Location,X,Y,Z,W) when is_integer(Location),is_float(X),is_float(Y),is_float(Z),is_float(W) ->
   IF = get_interface(),
   IF:queue_cmd(Location,X,Y,Z,W,5635),
   ok.
 
--doc(#{equiv => uniformMatrix4x3fv/3}).
+-doc(#{equiv => uniform1f/2}).
 -spec uniform1dv(Location::i(), Value::[f()]) -> 'ok'.
 uniform1dv(Location,Value) when is_integer(Location),is_list(Value) ->
   IF = get_interface(),
@@ -7123,7 +8102,7 @@ uniform1dv(Location,Value) when is_integer(Location),is_list(Value) ->
   IF:queue_cmd(Location,Count,Value,5636),
   ok.
 
--doc(#{equiv => uniformMatrix4x3fv/3}).
+-doc(#{equiv => uniform1f/2}).
 -spec uniform2dv(Location::i(), Value::[{f(),f()}]) -> 'ok'.
 uniform2dv(Location,Value) when is_integer(Location),is_list(Value) ->
   IF = get_interface(),
@@ -7131,7 +8110,7 @@ uniform2dv(Location,Value) when is_integer(Location),is_list(Value) ->
   IF:queue_cmd(Location,Count,Value,5637),
   ok.
 
--doc(#{equiv => uniformMatrix4x3fv/3}).
+-doc(#{equiv => uniform1f/2}).
 -spec uniform3dv(Location::i(), Value::[{f(),f(),f()}]) -> 'ok'.
 uniform3dv(Location,Value) when is_integer(Location),is_list(Value) ->
   IF = get_interface(),
@@ -7139,7 +8118,7 @@ uniform3dv(Location,Value) when is_integer(Location),is_list(Value) ->
   IF:queue_cmd(Location,Count,Value,5638),
   ok.
 
--doc(#{equiv => uniformMatrix4x3fv/3}).
+-doc(#{equiv => uniform1f/2}).
 -spec uniform4dv(Location::i(), Value::[{f(),f(),f(),f()}]) -> 'ok'.
 uniform4dv(Location,Value) when is_integer(Location),is_list(Value) ->
   IF = get_interface(),
@@ -7147,7 +8126,7 @@ uniform4dv(Location,Value) when is_integer(Location),is_list(Value) ->
   IF:queue_cmd(Location,Count,Value,5639),
   ok.
 
--doc(#{equiv => uniformMatrix4x3fv/3}).
+-doc(#{equiv => uniform1f/2}).
 -spec uniformMatrix2dv(Location::i(), Transpose::0|1, Value::[{f(),f(),f(),f()}]) -> 'ok'.
 uniformMatrix2dv(Location,Transpose,Value) when is_integer(Location),(0 =:= Transpose) orelse (1 =:= Transpose),is_list(Value) ->
   IF = get_interface(),
@@ -7155,7 +8134,7 @@ uniformMatrix2dv(Location,Transpose,Value) when is_integer(Location),(0 =:= Tran
   IF:queue_cmd(Location,Count,Transpose,Value,5640),
   ok.
 
--doc(#{equiv => uniformMatrix4x3fv/3}).
+-doc(#{equiv => uniform1f/2}).
 -spec uniformMatrix3dv(Location::i(), Transpose::0|1, Value::[{f(),f(),f(),f(),f(),f(),f(),f(),f()}]) -> 'ok'.
 uniformMatrix3dv(Location,Transpose,Value) when is_integer(Location),(0 =:= Transpose) orelse (1 =:= Transpose),is_list(Value) ->
   IF = get_interface(),
@@ -7163,7 +8142,7 @@ uniformMatrix3dv(Location,Transpose,Value) when is_integer(Location),(0 =:= Tran
   IF:queue_cmd(Location,Count,Transpose,Value,5641),
   ok.
 
--doc(#{equiv => uniformMatrix4x3fv/3}).
+-doc(#{equiv => uniform1f/2}).
 -spec uniformMatrix4dv(Location, Transpose, Value) -> 'ok'
     when Location::i(), Transpose::0|1, Value::[{f(),f(),f(),f(),f(),f(),f(),f(),f(),f(),f(),f(),f(),f(),f(),f()}].
 uniformMatrix4dv(Location,Transpose,Value) when is_integer(Location),(0 =:= Transpose) orelse (1 =:= Transpose),is_list(Value) ->
@@ -7172,7 +8151,7 @@ uniformMatrix4dv(Location,Transpose,Value) when is_integer(Location),(0 =:= Tran
   IF:queue_cmd(Location,Count,Transpose,Value,5642),
   ok.
 
--doc(#{equiv => uniformMatrix4x3fv/3}).
+-doc(#{equiv => uniform1f/2}).
 -spec uniformMatrix2x3dv(Location::i(), Transpose::0|1, Value::[{f(),f(),f(),f(),f(),f()}]) -> 'ok'.
 uniformMatrix2x3dv(Location,Transpose,Value) when is_integer(Location),(0 =:= Transpose) orelse (1 =:= Transpose),is_list(Value) ->
   IF = get_interface(),
@@ -7180,7 +8159,7 @@ uniformMatrix2x3dv(Location,Transpose,Value) when is_integer(Location),(0 =:= Tr
   IF:queue_cmd(Location,Count,Transpose,Value,5643),
   ok.
 
--doc(#{equiv => uniformMatrix4x3fv/3}).
+-doc(#{equiv => uniform1f/2}).
 -spec uniformMatrix2x4dv(Location::i(), Transpose::0|1, Value::[{f(),f(),f(),f(),f(),f(),f(),f()}]) -> 'ok'.
 uniformMatrix2x4dv(Location,Transpose,Value) when is_integer(Location),(0 =:= Transpose) orelse (1 =:= Transpose),is_list(Value) ->
   IF = get_interface(),
@@ -7188,7 +8167,7 @@ uniformMatrix2x4dv(Location,Transpose,Value) when is_integer(Location),(0 =:= Tr
   IF:queue_cmd(Location,Count,Transpose,Value,5644),
   ok.
 
--doc(#{equiv => uniformMatrix4x3fv/3}).
+-doc(#{equiv => uniform1f/2}).
 -spec uniformMatrix3x2dv(Location::i(), Transpose::0|1, Value::[{f(),f(),f(),f(),f(),f()}]) -> 'ok'.
 uniformMatrix3x2dv(Location,Transpose,Value) when is_integer(Location),(0 =:= Transpose) orelse (1 =:= Transpose),is_list(Value) ->
   IF = get_interface(),
@@ -7196,7 +8175,7 @@ uniformMatrix3x2dv(Location,Transpose,Value) when is_integer(Location),(0 =:= Tr
   IF:queue_cmd(Location,Count,Transpose,Value,5645),
   ok.
 
--doc(#{equiv => uniformMatrix4x3fv/3}).
+-doc(#{equiv => uniform1f/2}).
 -spec uniformMatrix3x4dv(Location, Transpose, Value) -> 'ok'
     when Location::i(), Transpose::0|1, Value::[{f(),f(),f(),f(),f(),f(),f(),f(),f(),f(),f(),f()}].
 uniformMatrix3x4dv(Location,Transpose,Value) when is_integer(Location),(0 =:= Transpose) orelse (1 =:= Transpose),is_list(Value) ->
@@ -7205,7 +8184,7 @@ uniformMatrix3x4dv(Location,Transpose,Value) when is_integer(Location),(0 =:= Tr
   IF:queue_cmd(Location,Count,Transpose,Value,5646),
   ok.
 
--doc(#{equiv => uniformMatrix4x3fv/3}).
+-doc(#{equiv => uniform1f/2}).
 -spec uniformMatrix4x2dv(Location::i(), Transpose::0|1, Value::[{f(),f(),f(),f(),f(),f(),f(),f()}]) -> 'ok'.
 uniformMatrix4x2dv(Location,Transpose,Value) when is_integer(Location),(0 =:= Transpose) orelse (1 =:= Transpose),is_list(Value) ->
   IF = get_interface(),
@@ -7213,7 +8192,7 @@ uniformMatrix4x2dv(Location,Transpose,Value) when is_integer(Location),(0 =:= Tr
   IF:queue_cmd(Location,Count,Transpose,Value,5647),
   ok.
 
--doc(#{equiv => uniformMatrix4x3fv/3}).
+-doc(#{equiv => uniform1f/2}).
 -spec uniformMatrix4x3dv(Location, Transpose, Value) -> 'ok'
     when Location::i(), Transpose::0|1, Value::[{f(),f(),f(),f(),f(),f(),f(),f(),f(),f(),f(),f()}].
 uniformMatrix4x3dv(Location,Transpose,Value) when is_integer(Location),(0 =:= Transpose) orelse (1 =:= Transpose),is_list(Value) ->
@@ -7222,7 +8201,7 @@ uniformMatrix4x3dv(Location,Transpose,Value) when is_integer(Location),(0 =:= Tr
   IF:queue_cmd(Location,Count,Transpose,Value,5648),
   ok.
 
--doc(#{equiv => getUniformuiv/2}).
+-doc(#{equiv => getUniformfv/2}).
 -spec getUniformdv(Program::i(), Location::i()) -> matrix().
 getUniformdv(Program,Location) when is_integer(Program),is_integer(Location) ->
   IF = get_interface(),
@@ -7292,7 +8271,7 @@ getActiveSubroutineName(Program,Shadertype,Index,Bufsize) when is_integer(Progra
   rec(5653).
 
 -doc """
-[`gl:uniformSubroutines()`](`uniformSubroutinesuiv/2`) loads all active
+[`gl:uniformSubroutines/2`](`uniformSubroutinesuiv/2`) loads all active
 subroutine uniforms for shader stage `Shadertype` of the current program with
 subroutine indices from `Indices`, storing `Indices[i]` into the uniform at
 location `I`. `Count` must be equal to the value of
@@ -7310,7 +8289,7 @@ uniformSubroutinesuiv(Shadertype,Indices) when is_integer(Shadertype),is_list(In
   ok.
 
 -doc """
-[`gl:getUniformSubroutine()`](`getUniformSubroutineuiv/2`) retrieves the value
+[`gl:getUniformSubroutine/2`](`getUniformSubroutineuiv/2`) retrieves the value
 of the subroutine uniform at location `Location` for shader stage `Shadertype`
 of the current program. `Location` must be less than the value of
 `?GL_ACTIVE_SUBROUTINE_UNIFORM_LOCATIONS` for the shader currently in use at
@@ -7326,7 +8305,7 @@ getUniformSubroutineuiv(Shadertype,Location) when is_integer(Shadertype),is_inte
   rec(5655).
 
 -doc """
-[`gl:getProgramStage()`](`getProgramStageiv/3`) queries a parameter of a shader
+[`gl:getProgramStage/3`](`getProgramStageiv/3`) queries a parameter of a shader
 stage attached to a program object. `Program` contains the name of the program
 to which the shader is attached. `Shadertype` specifies the stage from which to
 query the parameter. `Pname` specifies which parameter should be queried. The
@@ -7342,13 +8321,13 @@ getProgramStageiv(Program,Shadertype,Pname) when is_integer(Program),is_integer(
   rec(5656).
 
 -doc """
-[`gl:patchParameter()`](`patchParameteri/2`) specifies the parameters that will
+[`gl:patchParameter/2`](`patchParameteri/2`) specifies the parameters that will
 be used for patch primitives. `Pname` specifies the parameter to modify and must
 be either `?GL_PATCH_VERTICES`, `?GL_PATCH_DEFAULT_OUTER_LEVEL` or
 `?GL_PATCH_DEFAULT_INNER_LEVEL`. For
 [`gl:patchParameteri/2`](`patchParameteri/2`), `Value` specifies the new value
 for the parameter specified by `Pname`. For
-[`gl:patchParameterfv/2`](`patchParameteri/2`), `Values` specifies the address
+[`gl:patchParameterfv/2`](`patchParameterfv/2`), `Values` specifies the address
 of an array containing the new values for the parameter specified by `Pname`.
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glPatchParameter.xhtml)
@@ -7502,17 +8481,10 @@ drawTransformFeedbackStream(Mode,Id,Stream) when is_integer(Mode),is_integer(Id)
   IF:queue_cmd(Mode,Id,Stream,5666),
   ok.
 
--doc(#{equiv => endQueryIndexed/2}).
--spec beginQueryIndexed(Target::enum(), Index::i(), Id::i()) -> 'ok'.
-beginQueryIndexed(Target,Index,Id) when is_integer(Target),is_integer(Index),is_integer(Id) ->
-  IF = get_interface(),
-  IF:queue_cmd(Target,Index,Id,5667),
-  ok.
-
 -doc """
 [`gl:beginQueryIndexed/3`](`beginQueryIndexed/3`) and
-[`gl:endQueryIndexed/2`](`beginQueryIndexed/3`) delimit the boundaries of a
-query object. `Query` must be a name previously returned from a call to
+[`gl:endQueryIndexed/2`](`endQueryIndexed/2`) delimit the boundaries of a query
+object. `Query` must be a name previously returned from a call to
 [`gl:genQueries/1`](`genQueries/1`). If a query object with name `Id` does not
 yet exist it is created with the type determined by `Target`. `Target` must be
 one of `?GL_SAMPLES_PASSED`, `?GL_ANY_SAMPLES_PASSED`,
@@ -7522,6 +8494,13 @@ as follows.
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glBeginQueryIndexed.xhtml)
 """.
+-spec beginQueryIndexed(Target::enum(), Index::i(), Id::i()) -> 'ok'.
+beginQueryIndexed(Target,Index,Id) when is_integer(Target),is_integer(Index),is_integer(Id) ->
+  IF = get_interface(),
+  IF:queue_cmd(Target,Index,Id,5667),
+  ok.
+
+-doc(#{equiv => beginQueryIndexed/3}).
 -spec endQueryIndexed(Target::enum(), Index::i()) -> 'ok'.
 endQueryIndexed(Target,Index) when is_integer(Target),is_integer(Index) ->
   IF = get_interface(),
@@ -7579,7 +8558,7 @@ quantities in different numeric formats in specified shader type. `ShaderType`
 specifies the type of shader for which the numeric precision and range is to be
 retrieved and must be one of `?GL_VERTEX_SHADER` or `?GL_FRAGMENT_SHADER`.
 `PrecisionType` specifies the numeric format to query and must be one of
-`?GL_LOW_FLOAT`, `?GL_MEDIUM_FLOAT``?GL_HIGH_FLOAT`, `?GL_LOW_INT`,
+`?GL_LOW_FLOAT`, `?GL_MEDIUM_FLOAT"?GL_HIGH_FLOAT`, `?GL_LOW_INT`,
 `?GL_MEDIUM_INT`, or `?GL_HIGH_INT`.
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetShaderPrecisionFormat.xhtml)
@@ -7590,31 +8569,14 @@ getShaderPrecisionFormat(Shadertype,Precisiontype) when is_integer(Shadertype),i
   IF:queue_cmd(Shadertype,Precisiontype,5672),
   rec(5672).
 
--doc """
-After clipping and division by `w`, depth coordinates range from -1 to 1,
-corresponding to the near and far clipping planes.
-[`gl:depthRange/2`](`depthRange/2`) specifies a linear mapping of the normalized
-depth coordinates in this range to window depth coordinates. Regardless of the
-actual depth buffer implementation, window coordinate depth values are treated
-as though they range from 0 through 1 (like color components). Thus, the values
-accepted by [`gl:depthRange/2`](`depthRange/2`) are both clamped to this range
-before they are accepted.
-
-[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glDepthRange.xhtml)
-""".
+-doc(#{equiv => depthRange/2}).
 -spec depthRangef(N::f(), F::f()) -> 'ok'.
 depthRangef(N,F) when is_float(N),is_float(F) ->
   IF = get_interface(),
   IF:queue_cmd(N,F,5673),
   ok.
 
--doc """
-[`gl:clearDepth/1`](`clearDepth/1`) specifies the depth value used by
-[`gl:clear/1`](`clear/1`) to clear the depth buffer. Values specified by
-[`gl:clearDepth/1`](`clearDepth/1`) are clamped to the range \[0 1].
-
-[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glClearDepth.xhtml)
-""".
+-doc(#{equiv => clearDepth/1}).
 -spec clearDepthf(D::f()) -> 'ok'.
 clearDepthf(D) when is_float(D) ->
   IF = get_interface(),
@@ -7645,7 +8607,7 @@ binary previously returned from [`gl:getProgramBinary/2`](`getProgramBinary/2`).
 `BinaryFormat` and `Binary` must be those returned by a previous call to
 [`gl:getProgramBinary/2`](`getProgramBinary/2`), and `Length` must be the length
 returned by [`gl:getProgramBinary/2`](`getProgramBinary/2`), or by
-[`gl:getProgram()`](`getProgramiv/2`) when called with `Pname` set to
+[`gl:getProgram/2`](`getProgramiv/2`) when called with `Pname` set to
 `?GL_PROGRAM_BINARY_LENGTH`. If these conditions are not met, loading the
 program binary will fail and `Program`'s `?GL_LINK_STATUS` will be set to
 `?GL_FALSE`.
@@ -7659,7 +8621,7 @@ programBinary(Program,BinaryFormat,Binary) when is_integer(Program),is_integer(B
   ok.
 
 -doc """
-[`gl:programParameter()`](`programParameteri/3`) specifies a new value for the
+[`gl:programParameter/3`](`programParameteri/3`) specifies a new value for the
 parameter nameed by `Pname` for the program object `Program`.
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glProgramParameter.xhtml)
@@ -7695,7 +8657,7 @@ useProgramStages(Pipeline,Stages,Program) when is_integer(Pipeline),is_integer(S
 [`gl:activeShaderProgram/2`](`activeShaderProgram/2`) sets the linked program
 named by `Program` to be the active program for the program pipeline object
 `Pipeline`. The active program in the active program pipeline object is the
-target of calls to [`gl:uniform()`](`uniform1f/2`) when no program has been made
+target of calls to [`gl:uniform/2`](`uniform1f/2`) when no program has been made
 current through a call to [`gl:useProgram/1`](`useProgram/1`).
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glActiveShaderProgram.xhtml)
@@ -7707,7 +8669,7 @@ activeShaderProgram(Pipeline,Program) when is_integer(Pipeline),is_integer(Progr
   ok.
 
 -doc """
-[`gl:createShaderProgram()`](`createShaderProgramv/2`) creates a program object
+[`gl:createShaderProgram/2`](`createShaderProgramv/2`) creates a program object
 containing compiled and linked shaders for a single stage specified by `Type`.
 `Strings` refers to an array of `Count` strings from which to create the shader
 executables.
@@ -7801,14 +8763,23 @@ getProgramPipelineiv(Pipeline,Pname) when is_integer(Pipeline),is_integer(Pname)
   IF:queue_cmd(Pipeline,Pname,5685),
   rec(5685).
 
--doc(#{equiv => programUniformMatrix4x3fv/4}).
+-doc """
+[`gl:programUniform/3`](`programUniform1i/3`) modifies the value of a uniform
+variable or a uniform variable array. The location of the uniform variable to be
+modified is specified by `Location`, which should be a value returned by
+[`gl:getUniformLocation/2`](`getUniformLocation/2`).
+[`gl:programUniform/3`](`programUniform1i/3`) operates on the program object
+specified by `Program`.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glProgramUniform.xhtml)
+""".
 -spec programUniform1i(Program::i(), Location::i(), V0::i()) -> 'ok'.
 programUniform1i(Program,Location,V0) when is_integer(Program),is_integer(Location),is_integer(V0) ->
   IF = get_interface(),
   IF:queue_cmd(Program,Location,V0,5686),
   ok.
 
--doc(#{equiv => programUniformMatrix4x3fv/4}).
+-doc(#{equiv => programUniform1i/3}).
 -spec programUniform1iv(Program::i(), Location::i(), Value::[i()]) -> 'ok'.
 programUniform1iv(Program,Location,Value) when is_integer(Program),is_integer(Location),is_list(Value) ->
   IF = get_interface(),
@@ -7816,14 +8787,14 @@ programUniform1iv(Program,Location,Value) when is_integer(Program),is_integer(Lo
   IF:queue_cmd(Program,Location,Count,Value,5687),
   ok.
 
--doc(#{equiv => programUniformMatrix4x3fv/4}).
+-doc(#{equiv => programUniform1i/3}).
 -spec programUniform1f(Program::i(), Location::i(), V0::f()) -> 'ok'.
 programUniform1f(Program,Location,V0) when is_integer(Program),is_integer(Location),is_float(V0) ->
   IF = get_interface(),
   IF:queue_cmd(Program,Location,V0,5688),
   ok.
 
--doc(#{equiv => programUniformMatrix4x3fv/4}).
+-doc(#{equiv => programUniform1i/3}).
 -spec programUniform1fv(Program::i(), Location::i(), Value::[f()]) -> 'ok'.
 programUniform1fv(Program,Location,Value) when is_integer(Program),is_integer(Location),is_list(Value) ->
   IF = get_interface(),
@@ -7831,14 +8802,14 @@ programUniform1fv(Program,Location,Value) when is_integer(Program),is_integer(Lo
   IF:queue_cmd(Program,Location,Count,Value,5689),
   ok.
 
--doc(#{equiv => programUniformMatrix4x3fv/4}).
+-doc(#{equiv => programUniform1i/3}).
 -spec programUniform1d(Program::i(), Location::i(), V0::f()) -> 'ok'.
 programUniform1d(Program,Location,V0) when is_integer(Program),is_integer(Location),is_float(V0) ->
   IF = get_interface(),
   IF:queue_cmd(Program,Location,V0,5690),
   ok.
 
--doc(#{equiv => programUniformMatrix4x3fv/4}).
+-doc(#{equiv => programUniform1i/3}).
 -spec programUniform1dv(Program::i(), Location::i(), Value::[f()]) -> 'ok'.
 programUniform1dv(Program,Location,Value) when is_integer(Program),is_integer(Location),is_list(Value) ->
   IF = get_interface(),
@@ -7846,14 +8817,14 @@ programUniform1dv(Program,Location,Value) when is_integer(Program),is_integer(Lo
   IF:queue_cmd(Program,Location,Count,Value,5691),
   ok.
 
--doc(#{equiv => programUniformMatrix4x3fv/4}).
+-doc(#{equiv => programUniform1i/3}).
 -spec programUniform1ui(Program::i(), Location::i(), V0::i()) -> 'ok'.
 programUniform1ui(Program,Location,V0) when is_integer(Program),is_integer(Location),is_integer(V0) ->
   IF = get_interface(),
   IF:queue_cmd(Program,Location,V0,5692),
   ok.
 
--doc(#{equiv => programUniformMatrix4x3fv/4}).
+-doc(#{equiv => programUniform1i/3}).
 -spec programUniform1uiv(Program::i(), Location::i(), Value::[i()]) -> 'ok'.
 programUniform1uiv(Program,Location,Value) when is_integer(Program),is_integer(Location),is_list(Value) ->
   IF = get_interface(),
@@ -7861,14 +8832,14 @@ programUniform1uiv(Program,Location,Value) when is_integer(Program),is_integer(L
   IF:queue_cmd(Program,Location,Count,Value,5693),
   ok.
 
--doc(#{equiv => programUniformMatrix4x3fv/4}).
+-doc(#{equiv => programUniform1i/3}).
 -spec programUniform2i(Program::i(), Location::i(), V0::i(), V1::i()) -> 'ok'.
 programUniform2i(Program,Location,V0,V1) when is_integer(Program),is_integer(Location),is_integer(V0),is_integer(V1) ->
   IF = get_interface(),
   IF:queue_cmd(Program,Location,V0,V1,5694),
   ok.
 
--doc(#{equiv => programUniformMatrix4x3fv/4}).
+-doc(#{equiv => programUniform1i/3}).
 -spec programUniform2iv(Program::i(), Location::i(), Value::[{i(),i()}]) -> 'ok'.
 programUniform2iv(Program,Location,Value) when is_integer(Program),is_integer(Location),is_list(Value) ->
   IF = get_interface(),
@@ -7876,14 +8847,14 @@ programUniform2iv(Program,Location,Value) when is_integer(Program),is_integer(Lo
   IF:queue_cmd(Program,Location,Count,Value,5695),
   ok.
 
--doc(#{equiv => programUniformMatrix4x3fv/4}).
+-doc(#{equiv => programUniform1i/3}).
 -spec programUniform2f(Program::i(), Location::i(), V0::f(), V1::f()) -> 'ok'.
 programUniform2f(Program,Location,V0,V1) when is_integer(Program),is_integer(Location),is_float(V0),is_float(V1) ->
   IF = get_interface(),
   IF:queue_cmd(Program,Location,V0,V1,5696),
   ok.
 
--doc(#{equiv => programUniformMatrix4x3fv/4}).
+-doc(#{equiv => programUniform1i/3}).
 -spec programUniform2fv(Program::i(), Location::i(), Value::[{f(),f()}]) -> 'ok'.
 programUniform2fv(Program,Location,Value) when is_integer(Program),is_integer(Location),is_list(Value) ->
   IF = get_interface(),
@@ -7891,14 +8862,14 @@ programUniform2fv(Program,Location,Value) when is_integer(Program),is_integer(Lo
   IF:queue_cmd(Program,Location,Count,Value,5697),
   ok.
 
--doc(#{equiv => programUniformMatrix4x3fv/4}).
+-doc(#{equiv => programUniform1i/3}).
 -spec programUniform2d(Program::i(), Location::i(), V0::f(), V1::f()) -> 'ok'.
 programUniform2d(Program,Location,V0,V1) when is_integer(Program),is_integer(Location),is_float(V0),is_float(V1) ->
   IF = get_interface(),
   IF:queue_cmd(Program,Location,V0,V1,5698),
   ok.
 
--doc(#{equiv => programUniformMatrix4x3fv/4}).
+-doc(#{equiv => programUniform1i/3}).
 -spec programUniform2dv(Program::i(), Location::i(), Value::[{f(),f()}]) -> 'ok'.
 programUniform2dv(Program,Location,Value) when is_integer(Program),is_integer(Location),is_list(Value) ->
   IF = get_interface(),
@@ -7906,14 +8877,14 @@ programUniform2dv(Program,Location,Value) when is_integer(Program),is_integer(Lo
   IF:queue_cmd(Program,Location,Count,Value,5699),
   ok.
 
--doc(#{equiv => programUniformMatrix4x3fv/4}).
+-doc(#{equiv => programUniform1i/3}).
 -spec programUniform2ui(Program::i(), Location::i(), V0::i(), V1::i()) -> 'ok'.
 programUniform2ui(Program,Location,V0,V1) when is_integer(Program),is_integer(Location),is_integer(V0),is_integer(V1) ->
   IF = get_interface(),
   IF:queue_cmd(Program,Location,V0,V1,5700),
   ok.
 
--doc(#{equiv => programUniformMatrix4x3fv/4}).
+-doc(#{equiv => programUniform1i/3}).
 -spec programUniform2uiv(Program::i(), Location::i(), Value::[{i(),i()}]) -> 'ok'.
 programUniform2uiv(Program,Location,Value) when is_integer(Program),is_integer(Location),is_list(Value) ->
   IF = get_interface(),
@@ -7921,14 +8892,14 @@ programUniform2uiv(Program,Location,Value) when is_integer(Program),is_integer(L
   IF:queue_cmd(Program,Location,Count,Value,5701),
   ok.
 
--doc(#{equiv => programUniformMatrix4x3fv/4}).
+-doc(#{equiv => programUniform1i/3}).
 -spec programUniform3i(Program::i(), Location::i(), V0::i(), V1::i(), V2::i()) -> 'ok'.
 programUniform3i(Program,Location,V0,V1,V2) when is_integer(Program),is_integer(Location),is_integer(V0),is_integer(V1),is_integer(V2) ->
   IF = get_interface(),
   IF:queue_cmd(Program,Location,V0,V1,V2,5702),
   ok.
 
--doc(#{equiv => programUniformMatrix4x3fv/4}).
+-doc(#{equiv => programUniform1i/3}).
 -spec programUniform3iv(Program::i(), Location::i(), Value::[{i(),i(),i()}]) -> 'ok'.
 programUniform3iv(Program,Location,Value) when is_integer(Program),is_integer(Location),is_list(Value) ->
   IF = get_interface(),
@@ -7936,14 +8907,14 @@ programUniform3iv(Program,Location,Value) when is_integer(Program),is_integer(Lo
   IF:queue_cmd(Program,Location,Count,Value,5703),
   ok.
 
--doc(#{equiv => programUniformMatrix4x3fv/4}).
+-doc(#{equiv => programUniform1i/3}).
 -spec programUniform3f(Program::i(), Location::i(), V0::f(), V1::f(), V2::f()) -> 'ok'.
 programUniform3f(Program,Location,V0,V1,V2) when is_integer(Program),is_integer(Location),is_float(V0),is_float(V1),is_float(V2) ->
   IF = get_interface(),
   IF:queue_cmd(Program,Location,V0,V1,V2,5704),
   ok.
 
--doc(#{equiv => programUniformMatrix4x3fv/4}).
+-doc(#{equiv => programUniform1i/3}).
 -spec programUniform3fv(Program::i(), Location::i(), Value::[{f(),f(),f()}]) -> 'ok'.
 programUniform3fv(Program,Location,Value) when is_integer(Program),is_integer(Location),is_list(Value) ->
   IF = get_interface(),
@@ -7951,14 +8922,14 @@ programUniform3fv(Program,Location,Value) when is_integer(Program),is_integer(Lo
   IF:queue_cmd(Program,Location,Count,Value,5705),
   ok.
 
--doc(#{equiv => programUniformMatrix4x3fv/4}).
+-doc(#{equiv => programUniform1i/3}).
 -spec programUniform3d(Program::i(), Location::i(), V0::f(), V1::f(), V2::f()) -> 'ok'.
 programUniform3d(Program,Location,V0,V1,V2) when is_integer(Program),is_integer(Location),is_float(V0),is_float(V1),is_float(V2) ->
   IF = get_interface(),
   IF:queue_cmd(Program,Location,V0,V1,V2,5706),
   ok.
 
--doc(#{equiv => programUniformMatrix4x3fv/4}).
+-doc(#{equiv => programUniform1i/3}).
 -spec programUniform3dv(Program::i(), Location::i(), Value::[{f(),f(),f()}]) -> 'ok'.
 programUniform3dv(Program,Location,Value) when is_integer(Program),is_integer(Location),is_list(Value) ->
   IF = get_interface(),
@@ -7966,14 +8937,14 @@ programUniform3dv(Program,Location,Value) when is_integer(Program),is_integer(Lo
   IF:queue_cmd(Program,Location,Count,Value,5707),
   ok.
 
--doc(#{equiv => programUniformMatrix4x3fv/4}).
+-doc(#{equiv => programUniform1i/3}).
 -spec programUniform3ui(Program::i(), Location::i(), V0::i(), V1::i(), V2::i()) -> 'ok'.
 programUniform3ui(Program,Location,V0,V1,V2) when is_integer(Program),is_integer(Location),is_integer(V0),is_integer(V1),is_integer(V2) ->
   IF = get_interface(),
   IF:queue_cmd(Program,Location,V0,V1,V2,5708),
   ok.
 
--doc(#{equiv => programUniformMatrix4x3fv/4}).
+-doc(#{equiv => programUniform1i/3}).
 -spec programUniform3uiv(Program::i(), Location::i(), Value::[{i(),i(),i()}]) -> 'ok'.
 programUniform3uiv(Program,Location,Value) when is_integer(Program),is_integer(Location),is_list(Value) ->
   IF = get_interface(),
@@ -7981,14 +8952,14 @@ programUniform3uiv(Program,Location,Value) when is_integer(Program),is_integer(L
   IF:queue_cmd(Program,Location,Count,Value,5709),
   ok.
 
--doc(#{equiv => programUniformMatrix4x3fv/4}).
+-doc(#{equiv => programUniform1i/3}).
 -spec programUniform4i(Program::i(), Location::i(), V0::i(), V1::i(), V2::i(), V3::i()) -> 'ok'.
 programUniform4i(Program,Location,V0,V1,V2,V3) when is_integer(Program),is_integer(Location),is_integer(V0),is_integer(V1),is_integer(V2),is_integer(V3) ->
   IF = get_interface(),
   IF:queue_cmd(Program,Location,V0,V1,V2,V3,5710),
   ok.
 
--doc(#{equiv => programUniformMatrix4x3fv/4}).
+-doc(#{equiv => programUniform1i/3}).
 -spec programUniform4iv(Program::i(), Location::i(), Value::[{i(),i(),i(),i()}]) -> 'ok'.
 programUniform4iv(Program,Location,Value) when is_integer(Program),is_integer(Location),is_list(Value) ->
   IF = get_interface(),
@@ -7996,14 +8967,14 @@ programUniform4iv(Program,Location,Value) when is_integer(Program),is_integer(Lo
   IF:queue_cmd(Program,Location,Count,Value,5711),
   ok.
 
--doc(#{equiv => programUniformMatrix4x3fv/4}).
+-doc(#{equiv => programUniform1i/3}).
 -spec programUniform4f(Program::i(), Location::i(), V0::f(), V1::f(), V2::f(), V3::f()) -> 'ok'.
 programUniform4f(Program,Location,V0,V1,V2,V3) when is_integer(Program),is_integer(Location),is_float(V0),is_float(V1),is_float(V2),is_float(V3) ->
   IF = get_interface(),
   IF:queue_cmd(Program,Location,V0,V1,V2,V3,5712),
   ok.
 
--doc(#{equiv => programUniformMatrix4x3fv/4}).
+-doc(#{equiv => programUniform1i/3}).
 -spec programUniform4fv(Program::i(), Location::i(), Value::[{f(),f(),f(),f()}]) -> 'ok'.
 programUniform4fv(Program,Location,Value) when is_integer(Program),is_integer(Location),is_list(Value) ->
   IF = get_interface(),
@@ -8011,14 +8982,14 @@ programUniform4fv(Program,Location,Value) when is_integer(Program),is_integer(Lo
   IF:queue_cmd(Program,Location,Count,Value,5713),
   ok.
 
--doc(#{equiv => programUniformMatrix4x3fv/4}).
+-doc(#{equiv => programUniform1i/3}).
 -spec programUniform4d(Program::i(), Location::i(), V0::f(), V1::f(), V2::f(), V3::f()) -> 'ok'.
 programUniform4d(Program,Location,V0,V1,V2,V3) when is_integer(Program),is_integer(Location),is_float(V0),is_float(V1),is_float(V2),is_float(V3) ->
   IF = get_interface(),
   IF:queue_cmd(Program,Location,V0,V1,V2,V3,5714),
   ok.
 
--doc(#{equiv => programUniformMatrix4x3fv/4}).
+-doc(#{equiv => programUniform1i/3}).
 -spec programUniform4dv(Program::i(), Location::i(), Value::[{f(),f(),f(),f()}]) -> 'ok'.
 programUniform4dv(Program,Location,Value) when is_integer(Program),is_integer(Location),is_list(Value) ->
   IF = get_interface(),
@@ -8026,14 +8997,14 @@ programUniform4dv(Program,Location,Value) when is_integer(Program),is_integer(Lo
   IF:queue_cmd(Program,Location,Count,Value,5715),
   ok.
 
--doc(#{equiv => programUniformMatrix4x3fv/4}).
+-doc(#{equiv => programUniform1i/3}).
 -spec programUniform4ui(Program::i(), Location::i(), V0::i(), V1::i(), V2::i(), V3::i()) -> 'ok'.
 programUniform4ui(Program,Location,V0,V1,V2,V3) when is_integer(Program),is_integer(Location),is_integer(V0),is_integer(V1),is_integer(V2),is_integer(V3) ->
   IF = get_interface(),
   IF:queue_cmd(Program,Location,V0,V1,V2,V3,5716),
   ok.
 
--doc(#{equiv => programUniformMatrix4x3fv/4}).
+-doc(#{equiv => programUniform1i/3}).
 -spec programUniform4uiv(Program::i(), Location::i(), Value::[{i(),i(),i(),i()}]) -> 'ok'.
 programUniform4uiv(Program,Location,Value) when is_integer(Program),is_integer(Location),is_list(Value) ->
   IF = get_interface(),
@@ -8041,7 +9012,7 @@ programUniform4uiv(Program,Location,Value) when is_integer(Program),is_integer(L
   IF:queue_cmd(Program,Location,Count,Value,5717),
   ok.
 
--doc(#{equiv => programUniformMatrix4x3fv/4}).
+-doc(#{equiv => programUniform1i/3}).
 -spec programUniformMatrix2fv(Program::i(), Location::i(), Transpose::0|1, Value::[{f(),f(),f(),f()}]) -> 'ok'.
 programUniformMatrix2fv(Program,Location,Transpose,Value) when is_integer(Program),is_integer(Location),(0 =:= Transpose) orelse (1 =:= Transpose),is_list(Value) ->
   IF = get_interface(),
@@ -8049,7 +9020,7 @@ programUniformMatrix2fv(Program,Location,Transpose,Value) when is_integer(Progra
   IF:queue_cmd(Program,Location,Count,Transpose,Value,5718),
   ok.
 
--doc(#{equiv => programUniformMatrix4x3fv/4}).
+-doc(#{equiv => programUniform1i/3}).
 -spec programUniformMatrix3fv(Program, Location, Transpose, Value) -> 'ok'
     when Program::i(), Location::i(), Transpose::0|1, Value::[{f(),f(),f(),f(),f(),f(),f(),f(),f()}].
 programUniformMatrix3fv(Program,Location,Transpose,Value) when is_integer(Program),is_integer(Location),(0 =:= Transpose) orelse (1 =:= Transpose),is_list(Value) ->
@@ -8058,7 +9029,7 @@ programUniformMatrix3fv(Program,Location,Transpose,Value) when is_integer(Progra
   IF:queue_cmd(Program,Location,Count,Transpose,Value,5719),
   ok.
 
--doc(#{equiv => programUniformMatrix4x3fv/4}).
+-doc(#{equiv => programUniform1i/3}).
 -spec programUniformMatrix4fv(Program, Location, Transpose, Value) -> 'ok'
     when Program::i(), Location::i(), Transpose::0|1, Value::[{f(),f(),f(),f(),f(),f(),f(),f(),f(),f(),f(),f(),f(),f(),f(),f()}].
 programUniformMatrix4fv(Program,Location,Transpose,Value) when is_integer(Program),is_integer(Location),(0 =:= Transpose) orelse (1 =:= Transpose),is_list(Value) ->
@@ -8067,7 +9038,7 @@ programUniformMatrix4fv(Program,Location,Transpose,Value) when is_integer(Progra
   IF:queue_cmd(Program,Location,Count,Transpose,Value,5720),
   ok.
 
--doc(#{equiv => programUniformMatrix4x3fv/4}).
+-doc(#{equiv => programUniform1i/3}).
 -spec programUniformMatrix2dv(Program::i(), Location::i(), Transpose::0|1, Value::[{f(),f(),f(),f()}]) -> 'ok'.
 programUniformMatrix2dv(Program,Location,Transpose,Value) when is_integer(Program),is_integer(Location),(0 =:= Transpose) orelse (1 =:= Transpose),is_list(Value) ->
   IF = get_interface(),
@@ -8075,7 +9046,7 @@ programUniformMatrix2dv(Program,Location,Transpose,Value) when is_integer(Progra
   IF:queue_cmd(Program,Location,Count,Transpose,Value,5721),
   ok.
 
--doc(#{equiv => programUniformMatrix4x3fv/4}).
+-doc(#{equiv => programUniform1i/3}).
 -spec programUniformMatrix3dv(Program, Location, Transpose, Value) -> 'ok'
     when Program::i(), Location::i(), Transpose::0|1, Value::[{f(),f(),f(),f(),f(),f(),f(),f(),f()}].
 programUniformMatrix3dv(Program,Location,Transpose,Value) when is_integer(Program),is_integer(Location),(0 =:= Transpose) orelse (1 =:= Transpose),is_list(Value) ->
@@ -8084,7 +9055,7 @@ programUniformMatrix3dv(Program,Location,Transpose,Value) when is_integer(Progra
   IF:queue_cmd(Program,Location,Count,Transpose,Value,5722),
   ok.
 
--doc(#{equiv => programUniformMatrix4x3fv/4}).
+-doc(#{equiv => programUniform1i/3}).
 -spec programUniformMatrix4dv(Program, Location, Transpose, Value) -> 'ok'
     when Program::i(), Location::i(), Transpose::0|1, Value::[{f(),f(),f(),f(),f(),f(),f(),f(),f(),f(),f(),f(),f(),f(),f(),f()}].
 programUniformMatrix4dv(Program,Location,Transpose,Value) when is_integer(Program),is_integer(Location),(0 =:= Transpose) orelse (1 =:= Transpose),is_list(Value) ->
@@ -8093,7 +9064,7 @@ programUniformMatrix4dv(Program,Location,Transpose,Value) when is_integer(Progra
   IF:queue_cmd(Program,Location,Count,Transpose,Value,5723),
   ok.
 
--doc(#{equiv => programUniformMatrix4x3fv/4}).
+-doc(#{equiv => programUniform1i/3}).
 -spec programUniformMatrix2x3fv(Program::i(), Location::i(), Transpose::0|1, Value::[{f(),f(),f(),f(),f(),f()}]) -> 'ok'.
 programUniformMatrix2x3fv(Program,Location,Transpose,Value) when is_integer(Program),is_integer(Location),(0 =:= Transpose) orelse (1 =:= Transpose),is_list(Value) ->
   IF = get_interface(),
@@ -8101,7 +9072,7 @@ programUniformMatrix2x3fv(Program,Location,Transpose,Value) when is_integer(Prog
   IF:queue_cmd(Program,Location,Count,Transpose,Value,5724),
   ok.
 
--doc(#{equiv => programUniformMatrix4x3fv/4}).
+-doc(#{equiv => programUniform1i/3}).
 -spec programUniformMatrix3x2fv(Program::i(), Location::i(), Transpose::0|1, Value::[{f(),f(),f(),f(),f(),f()}]) -> 'ok'.
 programUniformMatrix3x2fv(Program,Location,Transpose,Value) when is_integer(Program),is_integer(Location),(0 =:= Transpose) orelse (1 =:= Transpose),is_list(Value) ->
   IF = get_interface(),
@@ -8109,7 +9080,7 @@ programUniformMatrix3x2fv(Program,Location,Transpose,Value) when is_integer(Prog
   IF:queue_cmd(Program,Location,Count,Transpose,Value,5725),
   ok.
 
--doc(#{equiv => programUniformMatrix4x3fv/4}).
+-doc(#{equiv => programUniform1i/3}).
 -spec programUniformMatrix2x4fv(Program, Location, Transpose, Value) -> 'ok'
     when Program::i(), Location::i(), Transpose::0|1, Value::[{f(),f(),f(),f(),f(),f(),f(),f()}].
 programUniformMatrix2x4fv(Program,Location,Transpose,Value) when is_integer(Program),is_integer(Location),(0 =:= Transpose) orelse (1 =:= Transpose),is_list(Value) ->
@@ -8118,7 +9089,7 @@ programUniformMatrix2x4fv(Program,Location,Transpose,Value) when is_integer(Prog
   IF:queue_cmd(Program,Location,Count,Transpose,Value,5726),
   ok.
 
--doc(#{equiv => programUniformMatrix4x3fv/4}).
+-doc(#{equiv => programUniform1i/3}).
 -spec programUniformMatrix4x2fv(Program, Location, Transpose, Value) -> 'ok'
     when Program::i(), Location::i(), Transpose::0|1, Value::[{f(),f(),f(),f(),f(),f(),f(),f()}].
 programUniformMatrix4x2fv(Program,Location,Transpose,Value) when is_integer(Program),is_integer(Location),(0 =:= Transpose) orelse (1 =:= Transpose),is_list(Value) ->
@@ -8127,7 +9098,7 @@ programUniformMatrix4x2fv(Program,Location,Transpose,Value) when is_integer(Prog
   IF:queue_cmd(Program,Location,Count,Transpose,Value,5727),
   ok.
 
--doc(#{equiv => programUniformMatrix4x3fv/4}).
+-doc(#{equiv => programUniform1i/3}).
 -spec programUniformMatrix3x4fv(Program, Location, Transpose, Value) -> 'ok'
     when Program::i(), Location::i(), Transpose::0|1, Value::[{f(),f(),f(),f(),f(),f(),f(),f(),f(),f(),f(),f()}].
 programUniformMatrix3x4fv(Program,Location,Transpose,Value) when is_integer(Program),is_integer(Location),(0 =:= Transpose) orelse (1 =:= Transpose),is_list(Value) ->
@@ -8136,16 +9107,7 @@ programUniformMatrix3x4fv(Program,Location,Transpose,Value) when is_integer(Prog
   IF:queue_cmd(Program,Location,Count,Transpose,Value,5728),
   ok.
 
--doc """
-[`gl:programUniform()`](`programUniform1i/3`) modifies the value of a uniform
-variable or a uniform variable array. The location of the uniform variable to be
-modified is specified by `Location`, which should be a value returned by
-[`gl:getUniformLocation/2`](`getUniformLocation/2`).
-[`gl:programUniform()`](`programUniform1i/3`) operates on the program object
-specified by `Program`.
-
-[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glProgramUniform.xhtml)
-""".
+-doc(#{equiv => programUniform1i/3}).
 -spec programUniformMatrix4x3fv(Program, Location, Transpose, Value) -> 'ok'
     when Program::i(), Location::i(), Transpose::0|1, Value::[{f(),f(),f(),f(),f(),f(),f(),f(),f(),f(),f(),f()}].
 programUniformMatrix4x3fv(Program,Location,Transpose,Value) when is_integer(Program),is_integer(Location),(0 =:= Transpose) orelse (1 =:= Transpose),is_list(Value) ->
@@ -8154,7 +9116,7 @@ programUniformMatrix4x3fv(Program,Location,Transpose,Value) when is_integer(Prog
   IF:queue_cmd(Program,Location,Count,Transpose,Value,5729),
   ok.
 
--doc(#{equiv => programUniformMatrix4x3fv/4}).
+-doc(#{equiv => programUniform1i/3}).
 -spec programUniformMatrix2x3dv(Program::i(), Location::i(), Transpose::0|1, Value::[{f(),f(),f(),f(),f(),f()}]) -> 'ok'.
 programUniformMatrix2x3dv(Program,Location,Transpose,Value) when is_integer(Program),is_integer(Location),(0 =:= Transpose) orelse (1 =:= Transpose),is_list(Value) ->
   IF = get_interface(),
@@ -8162,7 +9124,7 @@ programUniformMatrix2x3dv(Program,Location,Transpose,Value) when is_integer(Prog
   IF:queue_cmd(Program,Location,Count,Transpose,Value,5730),
   ok.
 
--doc(#{equiv => programUniformMatrix4x3fv/4}).
+-doc(#{equiv => programUniform1i/3}).
 -spec programUniformMatrix3x2dv(Program::i(), Location::i(), Transpose::0|1, Value::[{f(),f(),f(),f(),f(),f()}]) -> 'ok'.
 programUniformMatrix3x2dv(Program,Location,Transpose,Value) when is_integer(Program),is_integer(Location),(0 =:= Transpose) orelse (1 =:= Transpose),is_list(Value) ->
   IF = get_interface(),
@@ -8170,7 +9132,7 @@ programUniformMatrix3x2dv(Program,Location,Transpose,Value) when is_integer(Prog
   IF:queue_cmd(Program,Location,Count,Transpose,Value,5731),
   ok.
 
--doc(#{equiv => programUniformMatrix4x3fv/4}).
+-doc(#{equiv => programUniform1i/3}).
 -spec programUniformMatrix2x4dv(Program, Location, Transpose, Value) -> 'ok'
     when Program::i(), Location::i(), Transpose::0|1, Value::[{f(),f(),f(),f(),f(),f(),f(),f()}].
 programUniformMatrix2x4dv(Program,Location,Transpose,Value) when is_integer(Program),is_integer(Location),(0 =:= Transpose) orelse (1 =:= Transpose),is_list(Value) ->
@@ -8179,7 +9141,7 @@ programUniformMatrix2x4dv(Program,Location,Transpose,Value) when is_integer(Prog
   IF:queue_cmd(Program,Location,Count,Transpose,Value,5732),
   ok.
 
--doc(#{equiv => programUniformMatrix4x3fv/4}).
+-doc(#{equiv => programUniform1i/3}).
 -spec programUniformMatrix4x2dv(Program, Location, Transpose, Value) -> 'ok'
     when Program::i(), Location::i(), Transpose::0|1, Value::[{f(),f(),f(),f(),f(),f(),f(),f()}].
 programUniformMatrix4x2dv(Program,Location,Transpose,Value) when is_integer(Program),is_integer(Location),(0 =:= Transpose) orelse (1 =:= Transpose),is_list(Value) ->
@@ -8188,7 +9150,7 @@ programUniformMatrix4x2dv(Program,Location,Transpose,Value) when is_integer(Prog
   IF:queue_cmd(Program,Location,Count,Transpose,Value,5733),
   ok.
 
--doc(#{equiv => programUniformMatrix4x3fv/4}).
+-doc(#{equiv => programUniform1i/3}).
 -spec programUniformMatrix3x4dv(Program, Location, Transpose, Value) -> 'ok'
     when Program::i(), Location::i(), Transpose::0|1, Value::[{f(),f(),f(),f(),f(),f(),f(),f(),f(),f(),f(),f()}].
 programUniformMatrix3x4dv(Program,Location,Transpose,Value) when is_integer(Program),is_integer(Location),(0 =:= Transpose) orelse (1 =:= Transpose),is_list(Value) ->
@@ -8197,7 +9159,7 @@ programUniformMatrix3x4dv(Program,Location,Transpose,Value) when is_integer(Prog
   IF:queue_cmd(Program,Location,Count,Transpose,Value,5734),
   ok.
 
--doc(#{equiv => programUniformMatrix4x3fv/4}).
+-doc(#{equiv => programUniform1i/3}).
 -spec programUniformMatrix4x3dv(Program, Location, Transpose, Value) -> 'ok'
     when Program::i(), Location::i(), Transpose::0|1, Value::[{f(),f(),f(),f(),f(),f(),f(),f(),f(),f(),f(),f()}].
 programUniformMatrix4x3dv(Program,Location,Transpose,Value) when is_integer(Program),is_integer(Location),(0 =:= Transpose) orelse (1 =:= Transpose),is_list(Value) ->
@@ -8266,45 +9228,46 @@ vertexAttribL4d(Index,X,Y,Z,W) when is_integer(Index),is_float(X),is_float(Y),is
   IF:queue_cmd(Index,X,Y,Z,W,5741),
   ok.
 
--doc(#{equiv => vertexAttribL4dv/2}).
+-doc """
+The [`gl:vertexAttrib/2`](`vertexAttribL4dv/2`) family of entry points allows an
+application to pass generic vertex attributes in numbered locations.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glVertexAttrib.xhtml)
+""".
 -spec vertexAttribL1dv(Index::i(), {X::f()}) -> 'ok'.
 vertexAttribL1dv(Index,{X}) ->  vertexAttribL1d(Index,X).
--doc(#{equiv => vertexAttribL4dv/2}).
+-doc """
+The [`gl:vertexAttrib/2`](`vertexAttribL4dv/2`) family of entry points allows an
+application to pass generic vertex attributes in numbered locations.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glVertexAttrib.xhtml)
+""".
 -spec vertexAttribL2dv(Index::i(), {X::f(), Y::f()}) -> 'ok'.
 vertexAttribL2dv(Index,{X,Y}) ->  vertexAttribL2d(Index,X,Y).
--doc(#{equiv => vertexAttribL4dv/2}).
+-doc """
+The [`gl:vertexAttrib/2`](`vertexAttribL4dv/2`) family of entry points allows an
+application to pass generic vertex attributes in numbered locations.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glVertexAttrib.xhtml)
+""".
 -spec vertexAttribL3dv(Index::i(), {X::f(), Y::f(), Z::f()}) -> 'ok'.
 vertexAttribL3dv(Index,{X,Y,Z}) ->  vertexAttribL3d(Index,X,Y,Z).
 -doc """
-The [`gl:vertexAttrib()`](`vertexAttrib1d/2`) family of entry points allows an
+The [`gl:vertexAttrib/2`](`vertexAttribL4dv/2`) family of entry points allows an
 application to pass generic vertex attributes in numbered locations.
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glVertexAttrib.xhtml)
 """.
 -spec vertexAttribL4dv(Index::i(), {X::f(), Y::f(), Z::f(), W::f()}) -> 'ok'.
 vertexAttribL4dv(Index,{X,Y,Z,W}) ->  vertexAttribL4d(Index,X,Y,Z,W).
--doc """
-[`gl:vertexAttribFormat/5`](`vertexAttribFormat/5`),
-[`gl:vertexAttribIFormat/4`](`vertexAttribIPointer/5`) and
-[`gl:vertexAttribLFormat/4`](`vertexAttribIPointer/5`), as well as
-[`gl:vertexArrayAttribFormat/6`](`vertexAttribIPointer/5`),
-[`gl:vertexArrayAttribIFormat/5`](`vertexAttribIPointer/5`) and
-[`gl:vertexArrayAttribLFormat/5`](`vertexAttribIPointer/5`) specify the
-organization of data in vertex arrays. The first three calls operate on the
-bound vertex array object, whereas the last three ones modify the state of a
-vertex array object with ID `Vaobj`. `Attribindex` specifies the index of the
-generic vertex attribute array whose data layout is being described, and must be
-less than the value of `?GL_MAX_VERTEX_ATTRIBS`.
-
-[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glVertexAttribFormat.xhtml)
-""".
+-doc(#{equiv => vertexAttribIPointer/5}).
 -spec vertexAttribLPointer(Index::i(), Size::i(), Type::enum(), Stride::i(), Pointer::offset()|mem()) -> 'ok'.
 vertexAttribLPointer(Index,Size,Type,Stride,Pointer) when is_integer(Index),is_integer(Size),is_integer(Type),is_integer(Stride),is_integer(Pointer) orelse is_tuple(Pointer) orelse is_binary(Pointer) ->
   IF = get_interface(),
   IF:queue_cmd(Index,Size,Type,Stride,Pointer,5742),
   ok.
 
--doc(#{equiv => getVertexAttribiv/2}).
+-doc(#{equiv => getVertexAttribdv/2}).
 -spec getVertexAttribLdv(Index::i(), Pname::enum()) -> {f(),f(),f(),f()}.
 getVertexAttribLdv(Index,Pname) when is_integer(Index),is_integer(Pname) ->
   IF = get_interface(),
@@ -8315,9 +9278,9 @@ getVertexAttribLdv(Index,Pname) when is_integer(Index),is_integer(Pname) ->
 [`gl:viewportArrayv/2`](`viewportArrayv/2`) specifies the parameters for
 multiple viewports simulataneously. `First` specifies the index of the first
 viewport to modify and `Count` specifies the number of viewports to modify.
-`First` must be less than the value of `?GL_MAX_VIEWPORTS`, and `First` \+
+`First` must be less than the value of `?GL_MAX_VIEWPORTS`, and `First` +
 `Count` must be less than or equal to the value of `?GL_MAX_VIEWPORTS`.
-Viewports whose indices lie outside the range [`First`, `First` \+ `Count`) are
+Viewports whose indices lie outside the range [`First`, `First` + `Count`) are
 not modified. `V` contains the address of an array of floating point values
 specifying the left ( x), bottom ( y), width ( w), and height ( h) of each
 viewport, in that order. x and y give the location of the viewport's lower left
@@ -8335,22 +9298,15 @@ viewportArrayv(First,V) when is_integer(First),is_list(V) ->
   IF:queue_cmd(First,Count,V,5745),
   ok.
 
--doc(#{equiv => viewportIndexedfv/2}).
--spec viewportIndexedf(Index::i(), X::f(), Y::f(), W::f(), H::f()) -> 'ok'.
-viewportIndexedf(Index,X,Y,W,H) when is_integer(Index),is_float(X),is_float(Y),is_float(W),is_float(H) ->
-  IF = get_interface(),
-  IF:queue_cmd(Index,X,Y,W,H,5746),
-  ok.
-
 -doc """
 [`gl:viewportIndexedf/5`](`viewportIndexedf/5`) and
-[`gl:viewportIndexedfv/2`](`viewportIndexedf/5`) specify the parameters for a
+[`gl:viewportIndexedfv/2`](`viewportIndexedfv/2`) specify the parameters for a
 single viewport. `Index` specifies the index of the viewport to modify. `Index`
 must be less than the value of `?GL_MAX_VIEWPORTS`. For
 [`gl:viewportIndexedf/5`](`viewportIndexedf/5`), `X`, `Y`, `W`, and `H` specify
 the left, bottom, width and height of the viewport in pixels, respectively. For
-[`gl:viewportIndexedfv/2`](`viewportIndexedf/5`), `V` contains the address of an
-array of floating point values specifying the left ( x), bottom ( y), width (
+[`gl:viewportIndexedfv/2`](`viewportIndexedfv/2`), `V` contains the address of
+an array of floating point values specifying the left ( x), bottom ( y), width (
 w), and height ( h) of each viewport, in that order. x and y give the location
 of the viewport's lower left corner, and w and h give the width and height of
 the viewport, respectively. The viewport specifies the affine transformation of
@@ -8360,6 +9316,13 @@ computed as follows:
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glViewportIndexed.xhtml)
 """.
+-spec viewportIndexedf(Index::i(), X::f(), Y::f(), W::f(), H::f()) -> 'ok'.
+viewportIndexedf(Index,X,Y,W,H) when is_integer(Index),is_float(X),is_float(Y),is_float(W),is_float(H) ->
+  IF = get_interface(),
+  IF:queue_cmd(Index,X,Y,W,H,5746),
+  ok.
+
+-doc(#{equiv => viewportIndexedf/5}).
 -spec viewportIndexedfv(Index::i(), V::{f(),f(),f(),f()}) -> 'ok'.
 viewportIndexedfv(Index,V) when is_integer(Index),tuple_size(V) =:= 4 ->
   IF = get_interface(),
@@ -8371,7 +9334,7 @@ viewportIndexedfv(Index,V) when is_integer(Index),tuple_size(V) =:= 4 ->
 boxes, in window coordinates for each viewport. `First` specifies the index of
 the first scissor box to modify and `Count` specifies the number of scissor
 boxes to modify. `First` must be less than the value of `?GL_MAX_VIEWPORTS`, and
-`First` \+ `Count` must be less than or equal to the value of
+`First` + `Count` must be less than or equal to the value of
 `?GL_MAX_VIEWPORTS`. `V` specifies the address of an array containing integers
 specifying the lower left corner of the scissor boxes, and the width and height
 of the scissor boxes, in that order.
@@ -8385,26 +9348,26 @@ scissorArrayv(First,V) when is_integer(First),is_list(V) ->
   IF:queue_cmd(First,Count,V,5748),
   ok.
 
--doc(#{equiv => scissorIndexedv/2}).
--spec scissorIndexed(Index::i(), Left::i(), Bottom::i(), Width::i(), Height::i()) -> 'ok'.
-scissorIndexed(Index,Left,Bottom,Width,Height) when is_integer(Index),is_integer(Left),is_integer(Bottom),is_integer(Width),is_integer(Height) ->
-  IF = get_interface(),
-  IF:queue_cmd(Index,Left,Bottom,Width,Height,5749),
-  ok.
-
 -doc """
 [`gl:scissorIndexed/5`](`scissorIndexed/5`) defines the scissor box for a
 specified viewport. `Index` specifies the index of scissor box to modify.
 `Index` must be less than the value of `?GL_MAX_VIEWPORTS`. For
 [`gl:scissorIndexed/5`](`scissorIndexed/5`), `Left`, `Bottom`, `Width` and
 `Height` specify the left, bottom, width and height of the scissor box, in
-pixels, respectively. For [`gl:scissorIndexedv/2`](`scissorIndexed/5`), `V`
+pixels, respectively. For [`gl:scissorIndexedv/2`](`scissorIndexedv/2`), `V`
 specifies the address of an array containing integers specifying the lower left
 corner of the scissor box, and the width and height of the scissor box, in that
 order.
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glScissorIndexed.xhtml)
 """.
+-spec scissorIndexed(Index::i(), Left::i(), Bottom::i(), Width::i(), Height::i()) -> 'ok'.
+scissorIndexed(Index,Left,Bottom,Width,Height) when is_integer(Index),is_integer(Left),is_integer(Bottom),is_integer(Width),is_integer(Height) ->
+  IF = get_interface(),
+  IF:queue_cmd(Index,Left,Bottom,Width,Height,5749),
+  ok.
+
+-doc(#{equiv => scissorIndexed/5}).
 -spec scissorIndexedv(Index::i(), V::{i(),i(),i(),i()}) -> 'ok'.
 scissorIndexedv(Index,V) when is_integer(Index),tuple_size(V) =:= 4 ->
   IF = get_interface(),
@@ -8418,10 +9381,10 @@ independent depth range specified as a linear mapping of the normalized depth
 coordinates in this range to window depth coordinates. Regardless of the actual
 depth buffer implementation, window coordinate depth values are treated as
 though they range from 0 through 1 (like color components).
-[`gl:depthRangeArray()`](`depthRangeArrayv/2`) specifies a linear mapping of the
+[`gl:depthRangeArray/2`](`depthRangeArrayv/2`) specifies a linear mapping of the
 normalized depth coordinates in this range to window depth coordinates for each
-viewport in the range [`First`, `First` \+ `Count`). Thus, the values accepted
-by [`gl:depthRangeArray()`](`depthRangeArrayv/2`) are both clamped to this range
+viewport in the range [`First`, `First` + `Count`). Thus, the values accepted by
+[`gl:depthRangeArray/2`](`depthRangeArrayv/2`) are both clamped to this range
 before they are accepted.
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glDepthRangeArray.xhtml)
@@ -8454,14 +9417,14 @@ depthRangeIndexed(Index,N,F) when is_integer(Index),is_float(N),is_float(F) ->
   IF:queue_cmd(Index,N,F,5752),
   ok.
 
--doc(#{equiv => getIntegerv/1}).
+-doc(#{equiv => getBooleanv/1}).
 -spec getFloati_v(Target::enum(), Index::i()) -> [f()].
 getFloati_v(Target,Index) when is_integer(Target),is_integer(Index) ->
   IF = get_interface(),
   IF:queue_cmd(Target,Index,5753),
   rec(5753).
 
--doc(#{equiv => getIntegerv/1}).
+-doc(#{equiv => getBooleanv/1}).
 -spec getDoublei_v(Target::enum(), Index::i()) -> [f()].
 getDoublei_v(Target,Index) when is_integer(Target),is_integer(Index) ->
   IF = get_interface(),
@@ -8505,7 +9468,7 @@ drawElementsInstancedBaseInstance(Mode,Count,Type,Indices,Instancecount,Baseinst
 [`gl:drawElementsInstancedBaseVertexBaseInstance/7`](`drawElementsInstancedBaseVertexBaseInstance/7`)
 behaves identically to [`gl:drawElementsInstanced/5`](`drawElementsInstanced/5`)
 except that the `i`th element transferred by the corresponding draw call will be
-taken from element `Indices`\[i] + `Basevertex` of each enabled array. If the
+taken from element `Indices`[i] + `Basevertex` of each enabled array. If the
 resulting value is larger than the maximum value representable by `Type`, it is
 as if the calculation were upconverted to 32-bit unsigned integers (with
 wrapping on overflow conditions). The operation is undefined if the sum would be
@@ -8545,7 +9508,17 @@ bindImageTexture(Unit,Texture,Level,Layered,Layer,Access,Format) when is_integer
   IF:queue_cmd(Unit,Texture,Level,Layered,Layer,Access,Format,5761),
   ok.
 
--doc(#{equiv => memoryBarrierByRegion/1}).
+-doc """
+[`gl:memoryBarrier/1`](`memoryBarrier/1`) defines a barrier ordering the memory
+transactions issued prior to the command relative to those issued after the
+barrier. For the purposes of this ordering, memory transactions performed by
+shaders are considered to be issued by the rendering command that triggered the
+execution of the shader. `Barriers` is a bitfield indicating the set of
+operations that are synchronized with shader stores; the bits used in `Barriers`
+are as follows:
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glMemoryBarrier.xhtml)
+""".
 -spec memoryBarrier(Barriers::i()) -> 'ok'.
 memoryBarrier(Barriers) when is_integer(Barriers) ->
   IF = get_interface(),
@@ -8554,7 +9527,7 @@ memoryBarrier(Barriers) when is_integer(Barriers) ->
 
 -doc """
 [`gl:texStorage1D/4`](`texStorage1D/4`) and
-[`gl:textureStorage1D()`](`texStorage1D/4`) specify the storage requirements for
+[`gl:textureStorage1D/4`](`texStorage1D/4`) specify the storage requirements for
 all levels of a one-dimensional texture simultaneously. Once a texture is
 specified with this command, the format and dimensions of all levels become
 immutable unless it is a proxy texture. The contents of the image may still be
@@ -8571,7 +9544,7 @@ texStorage1D(Target,Levels,Internalformat,Width) when is_integer(Target),is_inte
 
 -doc """
 [`gl:texStorage2D/5`](`texStorage2D/5`) and
-[`gl:textureStorage2D()`](`texStorage2D/5`) specify the storage requirements for
+[`gl:textureStorage2D/5`](`texStorage2D/5`) specify the storage requirements for
 all levels of a two-dimensional texture or one-dimensional texture array
 simultaneously. Once a texture is specified with this command, the format and
 dimensions of all levels become immutable unless it is a proxy texture. The
@@ -8588,7 +9561,7 @@ texStorage2D(Target,Levels,Internalformat,Width,Height) when is_integer(Target),
 
 -doc """
 [`gl:texStorage3D/6`](`texStorage3D/6`) and
-[`gl:textureStorage3D()`](`texStorage3D/6`) specify the storage requirements for
+[`gl:textureStorage3D/6`](`texStorage3D/6`) specify the storage requirements for
 all levels of a three-dimensional, two-dimensional array or cube-map array
 texture simultaneously. Once a texture is specified with this command, the
 format and dimensions of all levels become immutable unless it is a proxy
@@ -8643,7 +9616,7 @@ drawTransformFeedbackStreamInstanced(Mode,Id,Stream,Instancecount) when is_integ
   IF:queue_cmd(Mode,Id,Stream,Instancecount,5767),
   ok.
 
--doc(#{equiv => clearBufferuiv/3}).
+-doc(#{equiv => clearBufferiv/3}).
 -spec clearBufferData(Target, Internalformat, Format, Type, Data) -> 'ok'
     when Target::enum(), Internalformat::enum(), Format::enum(), Type::enum(), Data::offset()|mem().
 clearBufferData(Target,Internalformat,Format,Type,Data) when is_integer(Target),is_integer(Internalformat),is_integer(Format),is_integer(Type),is_integer(Data) orelse is_tuple(Data) orelse is_binary(Data) ->
@@ -8651,7 +9624,7 @@ clearBufferData(Target,Internalformat,Format,Type,Data) when is_integer(Target),
   IF:queue_cmd(Target,Internalformat,Format,Type,Data,5768),
   ok.
 
--doc(#{equiv => clearBufferuiv/3}).
+-doc(#{equiv => clearBufferiv/3}).
 -spec clearBufferSubData(Target, Internalformat, Offset, Size, Format, Type, Data) -> 'ok'
     when Target::enum(), Internalformat::enum(), Offset::i(), Size::i(), Format::enum(), Type::enum(), Data::offset()|mem().
 clearBufferSubData(Target,Internalformat,Offset,Size,Format,Type,Data) when is_integer(Target),is_integer(Internalformat),is_integer(Offset),is_integer(Size),is_integer(Format),is_integer(Type),is_integer(Data) orelse is_tuple(Data) orelse is_binary(Data) ->
@@ -8758,7 +9731,7 @@ dimensions as having a size of 1. For example, to invalidate a portion of a two-
 dimensional texture, the application would use `Zoffset` equal to zero and
 `Depth` equal to one. Cube map textures are treated as an array of six slices in
 the z-dimension, where a value of `Zoffset` is interpreted as specifying face
-`?GL_TEXTURE_CUBE_MAP_POSITIVE_X` \+ `Zoffset`.
+`?GL_TEXTURE_CUBE_MAP_POSITIVE_X` + `Zoffset`.
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glInvalidateTexSubImage.xhtml)
 """.
@@ -8953,7 +9926,15 @@ shaderStorageBlockBinding(Program,StorageBlockIndex,StorageBlockBinding) when is
   IF:queue_cmd(Program,StorageBlockIndex,StorageBlockBinding,5791),
   ok.
 
--doc(#{equiv => textureBufferRange/5}).
+-doc """
+[`gl:texBufferRange/5`](`texBufferRange/5`) and
+[`gl:textureBufferRange/5`](`textureBufferRange/5`) attach a range of the data
+store of a specified buffer object to a specified texture object, and specify
+the storage format for the texture image found in the buffer object. The texture
+object must be a buffer texture.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glTexBufferRange.xhtml)
+""".
 -spec texBufferRange(Target::enum(), Internalformat::enum(), Buffer::i(), Offset::i(), Size::i()) -> 'ok'.
 texBufferRange(Target,Internalformat,Buffer,Offset,Size) when is_integer(Target),is_integer(Internalformat),is_integer(Buffer),is_integer(Offset),is_integer(Size) ->
   IF = get_interface(),
@@ -8962,7 +9943,7 @@ texBufferRange(Target,Internalformat,Buffer,Offset,Size) when is_integer(Target)
 
 -doc """
 [`gl:texStorage2DMultisample/6`](`texStorage2DMultisample/6`) and
-[`gl:textureStorage2DMultisample()`](`texStorage2DMultisample/6`) specify the
+[`gl:textureStorage2DMultisample/6`](`texStorage2DMultisample/6`) specify the
 storage requirements for a two-dimensional multisample texture. Once a texture
 is specified with this command, its format and dimensions become immutable
 unless it is a proxy texture. The contents of the image may still be modified,
@@ -8980,7 +9961,7 @@ texStorage2DMultisample(Target,Samples,Internalformat,Width,Height,Fixedsamplelo
 
 -doc """
 [`gl:texStorage3DMultisample/7`](`texStorage3DMultisample/7`) and
-[`gl:textureStorage3DMultisample()`](`texStorage3DMultisample/7`) specify the
+[`gl:textureStorage3DMultisample/7`](`texStorage3DMultisample/7`) specify the
 storage requirements for a two-dimensional multisample array texture. Once a
 texture is specified with this command, its format and dimensions become
 immutable unless it is a proxy texture. The contents of the image may still be
@@ -9014,28 +9995,44 @@ textureView(Texture,Target,Origtexture,Internalformat,Minlevel,Numlevels,Minlaye
   IF:queue_cmd(Texture,Target,Origtexture,Internalformat,Minlevel,Numlevels,Minlayer,Numlayers,5795),
   ok.
 
--doc(#{equiv => vertexArrayVertexBuffer/5}).
+-doc """
+[`gl:bindVertexBuffer/4`](`bindVertexBuffer/4`) and
+[`gl:vertexArrayVertexBuffer/5`](`vertexArrayVertexBuffer/5`) bind the buffer
+named `Buffer` to the vertex buffer binding point whose index is given by
+`Bindingindex`. [`gl:bindVertexBuffer/4`](`bindVertexBuffer/4`) modifies the
+binding of the currently bound vertex array object, whereas
+[`gl:vertexArrayVertexBuffer/5`](`vertexArrayVertexBuffer/5`) allows the caller
+to specify ID of the vertex array object with an argument named `Vaobj`, for
+which the binding should be modified. `Offset` and `Stride` specify the offset
+of the first element within the buffer and the distance between elements within
+the buffer, respectively, and are both measured in basic machine units.
+`Bindingindex` must be less than the value of `?GL_MAX_VERTEX_ATTRIB_BINDINGS`.
+`Offset` and `Stride` must be greater than or equal to zero. If `Buffer` is
+zero, then any buffer currently bound to the specified binding point is unbound.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glBindVertexBuffer.xhtml)
+""".
 -spec bindVertexBuffer(Bindingindex::i(), Buffer::i(), Offset::i(), Stride::i()) -> 'ok'.
 bindVertexBuffer(Bindingindex,Buffer,Offset,Stride) when is_integer(Bindingindex),is_integer(Buffer),is_integer(Offset),is_integer(Stride) ->
   IF = get_interface(),
   IF:queue_cmd(Bindingindex,Buffer,Offset,Stride,5796),
   ok.
 
--doc(#{equiv => vertexAttribLPointer/5}).
+-doc(#{equiv => vertexAttribIPointer/5}).
 -spec vertexAttribFormat(Attribindex::i(), Size::i(), Type::enum(), Normalized::0|1, Relativeoffset::i()) -> 'ok'.
 vertexAttribFormat(Attribindex,Size,Type,Normalized,Relativeoffset) when is_integer(Attribindex),is_integer(Size),is_integer(Type),(0 =:= Normalized) orelse (1 =:= Normalized),is_integer(Relativeoffset) ->
   IF = get_interface(),
   IF:queue_cmd(Attribindex,Size,Type,Normalized,Relativeoffset,5797),
   ok.
 
--doc(#{equiv => vertexAttribLPointer/5}).
+-doc(#{equiv => vertexAttribIPointer/5}).
 -spec vertexAttribIFormat(Attribindex::i(), Size::i(), Type::enum(), Relativeoffset::i()) -> 'ok'.
 vertexAttribIFormat(Attribindex,Size,Type,Relativeoffset) when is_integer(Attribindex),is_integer(Size),is_integer(Type),is_integer(Relativeoffset) ->
   IF = get_interface(),
   IF:queue_cmd(Attribindex,Size,Type,Relativeoffset,5798),
   ok.
 
--doc(#{equiv => vertexAttribLPointer/5}).
+-doc(#{equiv => vertexAttribIPointer/5}).
 -spec vertexAttribLFormat(Attribindex::i(), Size::i(), Type::enum(), Relativeoffset::i()) -> 'ok'.
 vertexAttribLFormat(Attribindex,Size,Type,Relativeoffset) when is_integer(Attribindex),is_integer(Size),is_integer(Type),is_integer(Relativeoffset) ->
   IF = get_interface(),
@@ -9044,14 +10041,14 @@ vertexAttribLFormat(Attribindex,Size,Type,Relativeoffset) when is_integer(Attrib
 
 -doc """
 [`gl:vertexAttribBinding/2`](`vertexAttribBinding/2`) and
-[`gl:vertexArrayAttribBinding/3`](`vertexAttribBinding/2`) establishes an
+[`gl:vertexArrayAttribBinding/3`](`vertexArrayAttribBinding/3`) establishes an
 association between the generic vertex attribute of a vertex array object whose
 index is given by `Attribindex`, and a vertex buffer binding whose index is
 given by `Bindingindex`. For
 [`gl:vertexAttribBinding/2`](`vertexAttribBinding/2`), the vertex array object
 affected is that currently bound. For
-[`gl:vertexArrayAttribBinding/3`](`vertexAttribBinding/2`), `Vaobj` is the name
-of the vertex array object.
+[`gl:vertexArrayAttribBinding/3`](`vertexArrayAttribBinding/3`), `Vaobj` is the
+name of the vertex array object.
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glVertexAttribBinding.xhtml)
 """.
@@ -9063,13 +10060,13 @@ vertexAttribBinding(Attribindex,Bindingindex) when is_integer(Attribindex),is_in
 
 -doc """
 [`gl:vertexBindingDivisor/2`](`vertexBindingDivisor/2`) and
-[`gl:vertexArrayBindingDivisor/3`](`vertexBindingDivisor/2`) modify the rate at
-which generic vertex attributes advance when rendering multiple instances of
-primitives in a single draw command. If `Divisor` is zero, the attributes using
-the buffer bound to `Bindingindex` advance once per vertex. If `Divisor` is
-non-zero, the attributes advance once per `Divisor` instances of the set(s) of
-vertices being rendered. An attribute is referred to as `instanced` if the
-corresponding `Divisor` value is non-zero.
+[`gl:vertexArrayBindingDivisor/3`](`vertexArrayBindingDivisor/3`) modify the
+rate at which generic vertex attributes advance when rendering multiple
+instances of primitives in a single draw command. If `Divisor` is zero, the
+attributes using the buffer bound to `Bindingindex` advance once per vertex. If
+`Divisor` is non-zero, the attributes advance once per `Divisor` instances of
+the set(s) of vertices being rendered. An attribute is referred to as
+`instanced` if the corresponding `Divisor` value is non-zero.
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glVertexBindingDivisor.xhtml)
 """.
@@ -9144,13 +10141,13 @@ the string `Message` into the command stream. The value of `Id` specifies the ID
 of messages generated. The parameter `Length` contains the number of characters
 in `Message`. If `Length` is negative, it is implied that `Message` contains a
 null terminated string. The message has the specified `Source` and `Id`, the
-`Type``?GL_DEBUG_TYPE_PUSH_GROUP`, and
-`Severity``?GL_DEBUG_SEVERITY_NOTIFICATION`. The GL will put a new debug group
-on top of the debug group stack which inherits the control of the volume of
-debug output of the debug group previously residing on the top of the debug
-group stack. Because debug groups are strictly hierarchical, any additional
-control of the debug output volume will only apply within the active debug group
-and the debug groups pushed on top of the active debug group.
+`Type"?GL_DEBUG_TYPE_PUSH_GROUP`, and
+`Severity"?GL_DEBUG_SEVERITY_NOTIFICATION`. The GL will put a new debug group on
+top of the debug group stack which inherits the control of the volume of debug
+output of the debug group previously residing on the top of the debug group
+stack. Because debug groups are strictly hierarchical, any additional control of
+the debug output volume will only apply within the active debug group and the
+debug groups pushed on top of the active debug group.
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glPushDebugGroup.xhtml)
 """.
@@ -9336,7 +10333,18 @@ bindImageTextures(First,Textures) when is_integer(First),is_list(Textures) ->
   IF:queue_cmd(First,Count,Textures,5819),
   ok.
 
--doc(#{equiv => vertexArrayVertexBuffers/5}).
+-doc """
+[`gl:bindVertexBuffers/4`](`bindVertexBuffers/4`) and
+[`gl:vertexArrayVertexBuffers/5`](`vertexArrayVertexBuffers/5`) bind storage
+from an array of existing buffer objects to a specified number of consecutive
+vertex buffer binding points units in a vertex array object. For
+[`gl:bindVertexBuffers/4`](`bindVertexBuffers/4`), the vertex array object is
+the currently bound vertex array object. For
+[`gl:vertexArrayVertexBuffers/5`](`vertexArrayVertexBuffers/5`), `Vaobj` is the
+name of the vertex array object.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glBindVertexBuffers.xhtml)
+""".
 -spec bindVertexBuffers(First::i(), Buffers::[i()], Offsets::[i()], Strides::[i()]) -> 'ok'.
 bindVertexBuffers(First,Buffers,Offsets,Strides) when is_integer(First),is_list(Buffers),is_list(Offsets),is_list(Strides) ->
   IF = get_interface(),
@@ -9408,14 +10416,7 @@ createBuffers(N) when is_integer(N) ->
   IF:queue_cmd(N,5825),
   rec(5825).
 
--doc """
-[`gl:flushMappedBufferRange/3`](`flushMappedBufferRange/3`) indicates that
-modifications have been made to a range of a mapped buffer object. The buffer
-object must previously have been mapped with the `?GL_MAP_FLUSH_EXPLICIT_BIT`
-flag.
-
-[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glFlushMappedBufferRange.xhtml)
-""".
+-doc(#{equiv => flushMappedBufferRange/3}).
 -spec flushMappedNamedBufferRange(Buffer::i(), Offset::i(), Length::i()) -> 'ok'.
 flushMappedNamedBufferRange(Buffer,Offset,Length) when is_integer(Buffer),is_integer(Offset),is_integer(Length) ->
   IF = get_interface(),
@@ -9462,40 +10463,21 @@ createTextures(Target,N) when is_integer(Target),is_integer(N) ->
   IF:queue_cmd(Target,N,5829),
   rec(5829).
 
--doc """
-[`gl:texBuffer/3`](`texBuffer/3`) and [`gl:textureBuffer/3`](`texBuffer/3`)
-attaches the data store of a specified buffer object to a specified texture
-object, and specify the storage format for the texture image found in the buffer
-object. The texture object must be a buffer texture.
-
-[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glTexBuffer.xhtml)
-""".
+-doc(#{equiv => texBuffer/3}).
 -spec textureBuffer(Texture::i(), Internalformat::enum(), Buffer::i()) -> 'ok'.
 textureBuffer(Texture,Internalformat,Buffer) when is_integer(Texture),is_integer(Internalformat),is_integer(Buffer) ->
   IF = get_interface(),
   IF:queue_cmd(Texture,Internalformat,Buffer,5830),
   ok.
 
--doc """
-[`gl:texBufferRange/5`](`texBufferRange/5`) and
-[`gl:textureBufferRange/5`](`texBufferRange/5`) attach a range of the data store
-of a specified buffer object to a specified texture object, and specify the
-storage format for the texture image found in the buffer object. The texture
-object must be a buffer texture.
-
-[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glTexBufferRange.xhtml)
-""".
+-doc(#{equiv => texBufferRange/5}).
 -spec textureBufferRange(Texture::i(), Internalformat::enum(), Buffer::i(), Offset::i(), Size::i()) -> 'ok'.
 textureBufferRange(Texture,Internalformat,Buffer,Offset,Size) when is_integer(Texture),is_integer(Internalformat),is_integer(Buffer),is_integer(Offset),is_integer(Size) ->
   IF = get_interface(),
   IF:queue_cmd(Texture,Internalformat,Buffer,Offset,Size,5831),
   ok.
 
--doc """
-Texturing allows elements of an image array to be read by shaders.
-
-[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glCompressedTexSubImage1D.xhtml)
-""".
+-doc(#{equiv => compressedTexSubImage1D/7}).
 -spec compressedTextureSubImage1D(Texture, Level, Xoffset, Width, Format, ImageSize, Data) -> 'ok'
     when Texture::i(), Level::i(), Xoffset::i(), Width::i(), Format::enum(), ImageSize::i(), Data::offset()|mem().
 compressedTextureSubImage1D(Texture,Level,Xoffset,Width,Format,ImageSize,Data) when is_integer(Texture),is_integer(Level),is_integer(Xoffset),is_integer(Width),is_integer(Format),is_integer(ImageSize),is_integer(Data) orelse is_tuple(Data) orelse is_binary(Data) ->
@@ -9503,11 +10485,7 @@ compressedTextureSubImage1D(Texture,Level,Xoffset,Width,Format,ImageSize,Data) w
   IF:queue_cmd(Texture,Level,Xoffset,Width,Format,ImageSize,Data,5832),
   ok.
 
--doc """
-Texturing allows elements of an image array to be read by shaders.
-
-[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glCompressedTexSubImage2D.xhtml)
-""".
+-doc(#{equiv => compressedTexSubImage2D/9}).
 -spec compressedTextureSubImage2D(Texture, Level, Xoffset, Yoffset, Width, Height, Format, ImageSize, Data) -> 'ok'
     when Texture::i(), Level::i(), Xoffset::i(), Yoffset::i(), Width::i(), Height::i(), Format::enum(), ImageSize::i(), Data::offset()|mem().
 compressedTextureSubImage2D(Texture,Level,Xoffset,Yoffset,Width,Height,Format,ImageSize,Data) when is_integer(Texture),is_integer(Level),is_integer(Xoffset),is_integer(Yoffset),is_integer(Width),is_integer(Height),is_integer(Format),is_integer(ImageSize),is_integer(Data) orelse is_tuple(Data) orelse is_binary(Data) ->
@@ -9515,11 +10493,7 @@ compressedTextureSubImage2D(Texture,Level,Xoffset,Yoffset,Width,Height,Format,Im
   IF:queue_cmd(Texture,Level,Xoffset,Yoffset,Width,Height,Format,ImageSize,Data,5834),
   ok.
 
--doc """
-Texturing allows elements of an image array to be read by shaders.
-
-[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glCompressedTexSubImage3D.xhtml)
-""".
+-doc(#{equiv => compressedTexSubImage3D/11}).
 -spec compressedTextureSubImage3D(Texture, Level, Xoffset, Yoffset, Zoffset, Width, Height, Depth, Format, ImageSize, Data) -> 'ok'
     when Texture::i(), Level::i(), Xoffset::i(), Yoffset::i(), Zoffset::i(), Width::i(), Height::i(), Depth::i(), Format::enum(), ImageSize::i(), Data::offset()|mem().
 compressedTextureSubImage3D(Texture,Level,Xoffset,Yoffset,Zoffset,Width,Height,Depth,Format,ImageSize,Data) when is_integer(Texture),is_integer(Level),is_integer(Xoffset),is_integer(Yoffset),is_integer(Zoffset),is_integer(Width),is_integer(Height),is_integer(Depth),is_integer(Format),is_integer(ImageSize),is_integer(Data) orelse is_tuple(Data) orelse is_binary(Data) ->
@@ -9527,16 +10501,7 @@ compressedTextureSubImage3D(Texture,Level,Xoffset,Yoffset,Zoffset,Width,Height,D
   IF:queue_cmd(Texture,Level,Xoffset,Yoffset,Zoffset,Width,Height,Depth,Format,ImageSize,Data,5836),
   ok.
 
--doc """
-[`gl:generateMipmap/1`](`generateMipmap/1`) and
-[`gl:generateTextureMipmap/1`](`generateMipmap/1`) generates mipmaps for the
-specified texture object. For [`gl:generateMipmap/1`](`generateMipmap/1`), the
-texture object that is bound to `Target`. For
-[`gl:generateTextureMipmap/1`](`generateMipmap/1`), `Texture` is the name of the
-texture object.
-
-[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGenerateMipmap.xhtml)
-""".
+-doc(#{equiv => generateMipmap/1}).
 -spec generateTextureMipmap(Texture::i()) -> 'ok'.
 generateTextureMipmap(Texture) when is_integer(Texture) ->
   IF = get_interface(),
@@ -9568,14 +10533,14 @@ createVertexArrays(N) when is_integer(N) ->
   IF:queue_cmd(N,5840),
   rec(5840).
 
--doc(#{equiv => enableVertexAttribArray/1}).
+-doc(#{equiv => disableVertexAttribArray/1}).
 -spec disableVertexArrayAttrib(Vaobj::i(), Index::i()) -> 'ok'.
 disableVertexArrayAttrib(Vaobj,Index) when is_integer(Vaobj),is_integer(Index) ->
   IF = get_interface(),
   IF:queue_cmd(Vaobj,Index,5841),
   ok.
 
--doc(#{equiv => enableVertexAttribArray/1}).
+-doc(#{equiv => disableVertexAttribArray/1}).
 -spec enableVertexArrayAttrib(Vaobj::i(), Index::i()) -> 'ok'.
 enableVertexArrayAttrib(Vaobj,Index) when is_integer(Vaobj),is_integer(Index) ->
   IF = get_interface(),
@@ -9596,41 +10561,14 @@ vertexArrayElementBuffer(Vaobj,Buffer) when is_integer(Vaobj),is_integer(Buffer)
   IF:queue_cmd(Vaobj,Buffer,5843),
   ok.
 
--doc """
-[`gl:bindVertexBuffer/4`](`bindVertexBuffer/4`) and
-[`gl:vertexArrayVertexBuffer/5`](`bindVertexBuffer/4`) bind the buffer named
-`Buffer` to the vertex buffer binding point whose index is given by
-`Bindingindex`. [`gl:bindVertexBuffer/4`](`bindVertexBuffer/4`) modifies the
-binding of the currently bound vertex array object, whereas
-[`gl:vertexArrayVertexBuffer/5`](`bindVertexBuffer/4`) allows the caller to
-specify ID of the vertex array object with an argument named `Vaobj`, for which
-the binding should be modified. `Offset` and `Stride` specify the offset of the
-first element within the buffer and the distance between elements within the
-buffer, respectively, and are both measured in basic machine units.
-`Bindingindex` must be less than the value of `?GL_MAX_VERTEX_ATTRIB_BINDINGS`.
-`Offset` and `Stride` must be greater than or equal to zero. If `Buffer` is
-zero, then any buffer currently bound to the specified binding point is unbound.
-
-[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glBindVertexBuffer.xhtml)
-""".
+-doc(#{equiv => bindVertexBuffer/4}).
 -spec vertexArrayVertexBuffer(Vaobj::i(), Bindingindex::i(), Buffer::i(), Offset::i(), Stride::i()) -> 'ok'.
 vertexArrayVertexBuffer(Vaobj,Bindingindex,Buffer,Offset,Stride) when is_integer(Vaobj),is_integer(Bindingindex),is_integer(Buffer),is_integer(Offset),is_integer(Stride) ->
   IF = get_interface(),
   IF:queue_cmd(Vaobj,Bindingindex,Buffer,Offset,Stride,5844),
   ok.
 
--doc """
-[`gl:bindVertexBuffers/4`](`bindVertexBuffers/4`) and
-[`gl:vertexArrayVertexBuffers/5`](`bindVertexBuffers/4`) bind storage from an
-array of existing buffer objects to a specified number of consecutive vertex
-buffer binding points units in a vertex array object. For
-[`gl:bindVertexBuffers/4`](`bindVertexBuffers/4`), the vertex array object is
-the currently bound vertex array object. For
-[`gl:vertexArrayVertexBuffers/5`](`bindVertexBuffers/4`), `Vaobj` is the name of
-the vertex array object.
-
-[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glBindVertexBuffers.xhtml)
-""".
+-doc(#{equiv => bindVertexBuffers/4}).
 -spec vertexArrayVertexBuffers(Vaobj::i(), First::i(), Buffers::[i()], Offsets::[i()], Strides::[i()]) -> 'ok'.
 vertexArrayVertexBuffers(Vaobj,First,Buffers,Offsets,Strides) when is_integer(Vaobj),is_integer(First),is_list(Buffers),is_list(Offsets),is_list(Strides) ->
   IF = get_interface(),
@@ -9645,7 +10583,7 @@ vertexArrayAttribBinding(Vaobj,Attribindex,Bindingindex) when is_integer(Vaobj),
   IF:queue_cmd(Vaobj,Attribindex,Bindingindex,5846),
   ok.
 
--doc(#{equiv => vertexAttribLPointer/5}).
+-doc(#{equiv => vertexAttribIPointer/5}).
 -spec vertexArrayAttribFormat(Vaobj, Attribindex, Size, Type, Normalized, Relativeoffset) -> 'ok'
     when Vaobj::i(), Attribindex::i(), Size::i(), Type::enum(), Normalized::0|1, Relativeoffset::i().
 vertexArrayAttribFormat(Vaobj,Attribindex,Size,Type,Normalized,Relativeoffset) when is_integer(Vaobj),is_integer(Attribindex),is_integer(Size),is_integer(Type),(0 =:= Normalized) orelse (1 =:= Normalized),is_integer(Relativeoffset) ->
@@ -9653,14 +10591,14 @@ vertexArrayAttribFormat(Vaobj,Attribindex,Size,Type,Normalized,Relativeoffset) w
   IF:queue_cmd(Vaobj,Attribindex,Size,Type,Normalized,Relativeoffset,5847),
   ok.
 
--doc(#{equiv => vertexAttribLPointer/5}).
+-doc(#{equiv => vertexAttribIPointer/5}).
 -spec vertexArrayAttribIFormat(Vaobj::i(), Attribindex::i(), Size::i(), Type::enum(), Relativeoffset::i()) -> 'ok'.
 vertexArrayAttribIFormat(Vaobj,Attribindex,Size,Type,Relativeoffset) when is_integer(Vaobj),is_integer(Attribindex),is_integer(Size),is_integer(Type),is_integer(Relativeoffset) ->
   IF = get_interface(),
   IF:queue_cmd(Vaobj,Attribindex,Size,Type,Relativeoffset,5848),
   ok.
 
--doc(#{equiv => vertexAttribLPointer/5}).
+-doc(#{equiv => vertexAttribIPointer/5}).
 -spec vertexArrayAttribLFormat(Vaobj::i(), Attribindex::i(), Size::i(), Type::enum(), Relativeoffset::i()) -> 'ok'.
 vertexArrayAttribLFormat(Vaobj,Attribindex,Size,Type,Relativeoffset) when is_integer(Vaobj),is_integer(Attribindex),is_integer(Size),is_integer(Type),is_integer(Relativeoffset) ->
   IF = get_interface(),
@@ -9713,45 +10651,35 @@ createQueries(Target,N) when is_integer(Target),is_integer(N) ->
   IF:queue_cmd(Target,N,5853),
   rec(5853).
 
--doc(#{equiv => getQueryObjectuiv/2}).
+-doc(#{equiv => getQueryObjectiv/2}).
 -spec getQueryBufferObjecti64v(Id::i(), Buffer::i(), Pname::enum(), Offset::i()) -> 'ok'.
 getQueryBufferObjecti64v(Id,Buffer,Pname,Offset) when is_integer(Id),is_integer(Buffer),is_integer(Pname),is_integer(Offset) ->
   IF = get_interface(),
   IF:queue_cmd(Id,Buffer,Pname,Offset,5854),
   ok.
 
--doc(#{equiv => getQueryObjectuiv/2}).
+-doc(#{equiv => getQueryObjectiv/2}).
 -spec getQueryBufferObjectiv(Id::i(), Buffer::i(), Pname::enum(), Offset::i()) -> 'ok'.
 getQueryBufferObjectiv(Id,Buffer,Pname,Offset) when is_integer(Id),is_integer(Buffer),is_integer(Pname),is_integer(Offset) ->
   IF = get_interface(),
   IF:queue_cmd(Id,Buffer,Pname,Offset,5855),
   ok.
 
--doc(#{equiv => getQueryObjectuiv/2}).
+-doc(#{equiv => getQueryObjectiv/2}).
 -spec getQueryBufferObjectui64v(Id::i(), Buffer::i(), Pname::enum(), Offset::i()) -> 'ok'.
 getQueryBufferObjectui64v(Id,Buffer,Pname,Offset) when is_integer(Id),is_integer(Buffer),is_integer(Pname),is_integer(Offset) ->
   IF = get_interface(),
   IF:queue_cmd(Id,Buffer,Pname,Offset,5856),
   ok.
 
--doc(#{equiv => getQueryObjectuiv/2}).
+-doc(#{equiv => getQueryObjectiv/2}).
 -spec getQueryBufferObjectuiv(Id::i(), Buffer::i(), Pname::enum(), Offset::i()) -> 'ok'.
 getQueryBufferObjectuiv(Id,Buffer,Pname,Offset) when is_integer(Id),is_integer(Buffer),is_integer(Pname),is_integer(Offset) ->
   IF = get_interface(),
   IF:queue_cmd(Id,Buffer,Pname,Offset,5857),
   ok.
 
--doc """
-[`gl:memoryBarrier/1`](`memoryBarrier/1`) defines a barrier ordering the memory
-transactions issued prior to the command relative to those issued after the
-barrier. For the purposes of this ordering, memory transactions performed by
-shaders are considered to be issued by the rendering command that triggered the
-execution of the shader. `Barriers` is a bitfield indicating the set of
-operations that are synchronized with shader stores; the bits used in `Barriers`
-are as follows:
-
-[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glMemoryBarrier.xhtml)
-""".
+-doc(#{equiv => memoryBarrier/1}).
 -spec memoryBarrierByRegion(Barriers::i()) -> 'ok'.
 memoryBarrierByRegion(Barriers) when is_integer(Barriers) ->
   IF = get_interface(),
@@ -9803,7 +10731,6 @@ polygonOffsetClamp(Factor,Units,Clamp) when is_float(Factor),is_float(Units),is_
   IF:queue_cmd(Factor,Units,Clamp,5863),
   ok.
 
--doc false.
 -spec primitiveBoundingBoxARB(MinX, MinY, MinZ, MinW, MaxX, MaxY, MaxZ, MaxW) -> 'ok'
     when MinX::f(), MinY::f(), MinZ::f(), MinW::f(), MaxX::f(), MaxY::f(), MaxZ::f(), MaxW::f().
 primitiveBoundingBoxARB(MinX,MinY,MinZ,MinW,MaxX,MaxY,MaxZ,MaxW) when is_float(MinX),is_float(MinY),is_float(MinZ),is_float(MinW),is_float(MaxX),is_float(MaxY),is_float(MaxZ),is_float(MaxW) ->
@@ -9811,70 +10738,60 @@ primitiveBoundingBoxARB(MinX,MinY,MinZ,MinW,MaxX,MaxY,MaxZ,MaxW) when is_float(M
   IF:queue_cmd(MinX,MinY,MinZ,MinW,MaxX,MaxY,MaxZ,MaxW,5864),
   ok.
 
--doc false.
 -spec makeTextureHandleResidentARB(Handle::i()) -> 'ok'.
 makeTextureHandleResidentARB(Handle) when is_integer(Handle) ->
   IF = get_interface(),
   IF:queue_cmd(Handle,5865),
   ok.
 
--doc false.
 -spec makeTextureHandleNonResidentARB(Handle::i()) -> 'ok'.
 makeTextureHandleNonResidentARB(Handle) when is_integer(Handle) ->
   IF = get_interface(),
   IF:queue_cmd(Handle,5866),
   ok.
 
--doc false.
 -spec getImageHandleARB(Texture::i(), Level::i(), Layered::0|1, Layer::i(), Format::enum()) -> i().
 getImageHandleARB(Texture,Level,Layered,Layer,Format) when is_integer(Texture),is_integer(Level),(0 =:= Layered) orelse (1 =:= Layered),is_integer(Layer),is_integer(Format) ->
   IF = get_interface(),
   IF:queue_cmd(Texture,Level,Layered,Layer,Format,5867),
   rec(5867).
 
--doc false.
 -spec makeImageHandleResidentARB(Handle::i(), Access::enum()) -> 'ok'.
 makeImageHandleResidentARB(Handle,Access) when is_integer(Handle),is_integer(Access) ->
   IF = get_interface(),
   IF:queue_cmd(Handle,Access,5868),
   ok.
 
--doc false.
 -spec makeImageHandleNonResidentARB(Handle::i()) -> 'ok'.
 makeImageHandleNonResidentARB(Handle) when is_integer(Handle) ->
   IF = get_interface(),
   IF:queue_cmd(Handle,5869),
   ok.
 
--doc false.
 -spec uniformHandleui64ARB(Location::i(), Value::i()) -> 'ok'.
 uniformHandleui64ARB(Location,Value) when is_integer(Location),is_integer(Value) ->
   IF = get_interface(),
   IF:queue_cmd(Location,Value,5870),
   ok.
 
--doc false.
 -spec programUniformHandleui64ARB(Program::i(), Location::i(), Value::i()) -> 'ok'.
 programUniformHandleui64ARB(Program,Location,Value) when is_integer(Program),is_integer(Location),is_integer(Value) ->
   IF = get_interface(),
   IF:queue_cmd(Program,Location,Value,5871),
   ok.
 
--doc false.
 -spec isTextureHandleResidentARB(Handle::i()) -> 0|1.
 isTextureHandleResidentARB(Handle) when is_integer(Handle) ->
   IF = get_interface(),
   IF:queue_cmd(Handle,5872),
   rec(5872).
 
--doc false.
 -spec isImageHandleResidentARB(Handle::i()) -> 0|1.
 isImageHandleResidentARB(Handle) when is_integer(Handle) ->
   IF = get_interface(),
   IF:queue_cmd(Handle,5873),
   rec(5873).
 
--doc false.
 -spec dispatchComputeGroupSizeARB(Num_groups_x, Num_groups_y, Num_groups_z, Group_size_x, Group_size_y, Group_size_z) -> 'ok'
     when Num_groups_x::i(), Num_groups_y::i(), Num_groups_z::i(), Group_size_x::i(), Group_size_y::i(), Group_size_z::i().
 dispatchComputeGroupSizeARB(Num_groups_x,Num_groups_y,Num_groups_z,Group_size_x,Group_size_y,Group_size_z) when is_integer(Num_groups_x),is_integer(Num_groups_y),is_integer(Num_groups_z),is_integer(Group_size_x),is_integer(Group_size_y),is_integer(Group_size_z) ->
@@ -9882,7 +10799,6 @@ dispatchComputeGroupSizeARB(Num_groups_x,Num_groups_y,Num_groups_z,Group_size_x,
   IF:queue_cmd(Num_groups_x,Num_groups_y,Num_groups_z,Group_size_x,Group_size_y,Group_size_z,5874),
   ok.
 
--doc false.
 -spec programStringARB(Target::enum(), Format::enum(), String::string()) -> 'ok'.
 programStringARB(Target,Format,String) when is_integer(Target),is_integer(Format),is_list(String) ->
   IF = get_interface(),
@@ -9890,14 +10806,12 @@ programStringARB(Target,Format,String) when is_integer(Target),is_integer(Format
   IF:queue_cmd(Target,Format,StringBin,5875),
   ok.
 
--doc false.
 -spec bindProgramARB(Target::enum(), Program::i()) -> 'ok'.
 bindProgramARB(Target,Program) when is_integer(Target),is_integer(Program) ->
   IF = get_interface(),
   IF:queue_cmd(Target,Program,5876),
   ok.
 
--doc false.
 -spec deleteProgramsARB(Programs::[i()]) -> 'ok'.
 deleteProgramsARB(Programs) when is_list(Programs) ->
   IF = get_interface(),
@@ -9905,140 +10819,129 @@ deleteProgramsARB(Programs) when is_list(Programs) ->
   IF:queue_cmd(N,Programs,5877),
   ok.
 
--doc false.
 -spec genProgramsARB(N::i()) -> [i()].
 genProgramsARB(N) when is_integer(N) ->
   IF = get_interface(),
   IF:queue_cmd(N,5878),
   rec(5878).
 
--doc false.
 -spec programEnvParameter4dARB(Target::enum(), Index::i(), X::f(), Y::f(), Z::f(), W::f()) -> 'ok'.
 programEnvParameter4dARB(Target,Index,X,Y,Z,W) when is_integer(Target),is_integer(Index),is_float(X),is_float(Y),is_float(Z),is_float(W) ->
   IF = get_interface(),
   IF:queue_cmd(Target,Index,X,Y,Z,W,5879),
   ok.
 
--doc false.
+-doc(#{equiv => programEnvParameter4dARB/6}).
 -spec programEnvParameter4dvARB(Target::enum(), Index::i(), Params::{f(),f(),f(),f()}) -> 'ok'.
 programEnvParameter4dvARB(Target,Index,Params) when is_integer(Target),is_integer(Index),tuple_size(Params) =:= 4 ->
   IF = get_interface(),
   IF:queue_cmd(Target,Index,Params,5880),
   ok.
 
--doc false.
+-doc(#{equiv => programEnvParameter4dARB/6}).
 -spec programEnvParameter4fARB(Target::enum(), Index::i(), X::f(), Y::f(), Z::f(), W::f()) -> 'ok'.
 programEnvParameter4fARB(Target,Index,X,Y,Z,W) when is_integer(Target),is_integer(Index),is_float(X),is_float(Y),is_float(Z),is_float(W) ->
   IF = get_interface(),
   IF:queue_cmd(Target,Index,X,Y,Z,W,5881),
   ok.
 
--doc false.
+-doc(#{equiv => programEnvParameter4dARB/6}).
 -spec programEnvParameter4fvARB(Target::enum(), Index::i(), Params::{f(),f(),f(),f()}) -> 'ok'.
 programEnvParameter4fvARB(Target,Index,Params) when is_integer(Target),is_integer(Index),tuple_size(Params) =:= 4 ->
   IF = get_interface(),
   IF:queue_cmd(Target,Index,Params,5882),
   ok.
 
--doc false.
 -spec programLocalParameter4dARB(Target::enum(), Index::i(), X::f(), Y::f(), Z::f(), W::f()) -> 'ok'.
 programLocalParameter4dARB(Target,Index,X,Y,Z,W) when is_integer(Target),is_integer(Index),is_float(X),is_float(Y),is_float(Z),is_float(W) ->
   IF = get_interface(),
   IF:queue_cmd(Target,Index,X,Y,Z,W,5883),
   ok.
 
--doc false.
+-doc(#{equiv => programLocalParameter4dARB/6}).
 -spec programLocalParameter4dvARB(Target::enum(), Index::i(), Params::{f(),f(),f(),f()}) -> 'ok'.
 programLocalParameter4dvARB(Target,Index,Params) when is_integer(Target),is_integer(Index),tuple_size(Params) =:= 4 ->
   IF = get_interface(),
   IF:queue_cmd(Target,Index,Params,5884),
   ok.
 
--doc false.
+-doc(#{equiv => programLocalParameter4dARB/6}).
 -spec programLocalParameter4fARB(Target::enum(), Index::i(), X::f(), Y::f(), Z::f(), W::f()) -> 'ok'.
 programLocalParameter4fARB(Target,Index,X,Y,Z,W) when is_integer(Target),is_integer(Index),is_float(X),is_float(Y),is_float(Z),is_float(W) ->
   IF = get_interface(),
   IF:queue_cmd(Target,Index,X,Y,Z,W,5885),
   ok.
 
--doc false.
+-doc(#{equiv => programLocalParameter4dARB/6}).
 -spec programLocalParameter4fvARB(Target::enum(), Index::i(), Params::{f(),f(),f(),f()}) -> 'ok'.
 programLocalParameter4fvARB(Target,Index,Params) when is_integer(Target),is_integer(Index),tuple_size(Params) =:= 4 ->
   IF = get_interface(),
   IF:queue_cmd(Target,Index,Params,5886),
   ok.
 
--doc false.
 -spec getProgramEnvParameterdvARB(Target::enum(), Index::i()) -> {f(),f(),f(),f()}.
 getProgramEnvParameterdvARB(Target,Index) when is_integer(Target),is_integer(Index) ->
   IF = get_interface(),
   IF:queue_cmd(Target,Index,5887),
   rec(5887).
 
--doc false.
+-doc(#{equiv => getProgramEnvParameterdvARB/2}).
 -spec getProgramEnvParameterfvARB(Target::enum(), Index::i()) -> {f(),f(),f(),f()}.
 getProgramEnvParameterfvARB(Target,Index) when is_integer(Target),is_integer(Index) ->
   IF = get_interface(),
   IF:queue_cmd(Target,Index,5888),
   rec(5888).
 
--doc false.
 -spec getProgramLocalParameterdvARB(Target::enum(), Index::i()) -> {f(),f(),f(),f()}.
 getProgramLocalParameterdvARB(Target,Index) when is_integer(Target),is_integer(Index) ->
   IF = get_interface(),
   IF:queue_cmd(Target,Index,5889),
   rec(5889).
 
--doc false.
+-doc(#{equiv => getProgramLocalParameterdvARB/2}).
 -spec getProgramLocalParameterfvARB(Target::enum(), Index::i()) -> {f(),f(),f(),f()}.
 getProgramLocalParameterfvARB(Target,Index) when is_integer(Target),is_integer(Index) ->
   IF = get_interface(),
   IF:queue_cmd(Target,Index,5890),
   rec(5890).
 
--doc false.
 -spec getProgramStringARB(Target::enum(), Pname::enum(), String::mem()) -> 'ok'.
 getProgramStringARB(Target,Pname,String) when is_integer(Target),is_integer(Pname),is_tuple(String) orelse is_binary(String) ->
   IF = get_interface(),
   IF:queue_cmd(Target,Pname,String,5891),
   rec(5891).
 
--doc(#{equiv => framebufferTextureLayer/5}).
+-doc(#{equiv => framebufferTexture1D/5}).
 -spec framebufferTextureFaceARB(Target::enum(), Attachment::enum(), Texture::i(), Level::i(), Face::enum()) -> 'ok'.
 framebufferTextureFaceARB(Target,Attachment,Texture,Level,Face) when is_integer(Target),is_integer(Attachment),is_integer(Texture),is_integer(Level),is_integer(Face) ->
   IF = get_interface(),
   IF:queue_cmd(Target,Attachment,Texture,Level,Face,5892),
   ok.
 
--doc false.
 -spec uniform1i64ARB(Location::i(), X::i()) -> 'ok'.
 uniform1i64ARB(Location,X) when is_integer(Location),is_integer(X) ->
   IF = get_interface(),
   IF:queue_cmd(Location,X,5893),
   ok.
 
--doc false.
 -spec uniform2i64ARB(Location::i(), X::i(), Y::i()) -> 'ok'.
 uniform2i64ARB(Location,X,Y) when is_integer(Location),is_integer(X),is_integer(Y) ->
   IF = get_interface(),
   IF:queue_cmd(Location,X,Y,5894),
   ok.
 
--doc false.
 -spec uniform3i64ARB(Location::i(), X::i(), Y::i(), Z::i()) -> 'ok'.
 uniform3i64ARB(Location,X,Y,Z) when is_integer(Location),is_integer(X),is_integer(Y),is_integer(Z) ->
   IF = get_interface(),
   IF:queue_cmd(Location,X,Y,Z,5895),
   ok.
 
--doc false.
 -spec uniform4i64ARB(Location::i(), X::i(), Y::i(), Z::i(), W::i()) -> 'ok'.
 uniform4i64ARB(Location,X,Y,Z,W) when is_integer(Location),is_integer(X),is_integer(Y),is_integer(Z),is_integer(W) ->
   IF = get_interface(),
   IF:queue_cmd(Location,X,Y,Z,W,5896),
   ok.
 
--doc false.
 -spec uniform1i64vARB(Location::i(), Value::[i()]) -> 'ok'.
 uniform1i64vARB(Location,Value) when is_integer(Location),is_list(Value) ->
   IF = get_interface(),
@@ -10046,7 +10949,6 @@ uniform1i64vARB(Location,Value) when is_integer(Location),is_list(Value) ->
   IF:queue_cmd(Location,Count,Value,5897),
   ok.
 
--doc false.
 -spec uniform2i64vARB(Location::i(), Value::[{i(),i()}]) -> 'ok'.
 uniform2i64vARB(Location,Value) when is_integer(Location),is_list(Value) ->
   IF = get_interface(),
@@ -10054,7 +10956,6 @@ uniform2i64vARB(Location,Value) when is_integer(Location),is_list(Value) ->
   IF:queue_cmd(Location,Count,Value,5898),
   ok.
 
--doc false.
 -spec uniform3i64vARB(Location::i(), Value::[{i(),i(),i()}]) -> 'ok'.
 uniform3i64vARB(Location,Value) when is_integer(Location),is_list(Value) ->
   IF = get_interface(),
@@ -10062,7 +10963,6 @@ uniform3i64vARB(Location,Value) when is_integer(Location),is_list(Value) ->
   IF:queue_cmd(Location,Count,Value,5899),
   ok.
 
--doc false.
 -spec uniform4i64vARB(Location::i(), Value::[{i(),i(),i(),i()}]) -> 'ok'.
 uniform4i64vARB(Location,Value) when is_integer(Location),is_list(Value) ->
   IF = get_interface(),
@@ -10070,35 +10970,30 @@ uniform4i64vARB(Location,Value) when is_integer(Location),is_list(Value) ->
   IF:queue_cmd(Location,Count,Value,5900),
   ok.
 
--doc false.
 -spec uniform1ui64ARB(Location::i(), X::i()) -> 'ok'.
 uniform1ui64ARB(Location,X) when is_integer(Location),is_integer(X) ->
   IF = get_interface(),
   IF:queue_cmd(Location,X,5901),
   ok.
 
--doc false.
 -spec uniform2ui64ARB(Location::i(), X::i(), Y::i()) -> 'ok'.
 uniform2ui64ARB(Location,X,Y) when is_integer(Location),is_integer(X),is_integer(Y) ->
   IF = get_interface(),
   IF:queue_cmd(Location,X,Y,5902),
   ok.
 
--doc false.
 -spec uniform3ui64ARB(Location::i(), X::i(), Y::i(), Z::i()) -> 'ok'.
 uniform3ui64ARB(Location,X,Y,Z) when is_integer(Location),is_integer(X),is_integer(Y),is_integer(Z) ->
   IF = get_interface(),
   IF:queue_cmd(Location,X,Y,Z,5903),
   ok.
 
--doc false.
 -spec uniform4ui64ARB(Location::i(), X::i(), Y::i(), Z::i(), W::i()) -> 'ok'.
 uniform4ui64ARB(Location,X,Y,Z,W) when is_integer(Location),is_integer(X),is_integer(Y),is_integer(Z),is_integer(W) ->
   IF = get_interface(),
   IF:queue_cmd(Location,X,Y,Z,W,5904),
   ok.
 
--doc false.
 -spec uniform1ui64vARB(Location::i(), Value::[i()]) -> 'ok'.
 uniform1ui64vARB(Location,Value) when is_integer(Location),is_list(Value) ->
   IF = get_interface(),
@@ -10106,7 +11001,6 @@ uniform1ui64vARB(Location,Value) when is_integer(Location),is_list(Value) ->
   IF:queue_cmd(Location,Count,Value,5905),
   ok.
 
--doc false.
 -spec uniform2ui64vARB(Location::i(), Value::[{i(),i()}]) -> 'ok'.
 uniform2ui64vARB(Location,Value) when is_integer(Location),is_list(Value) ->
   IF = get_interface(),
@@ -10114,7 +11008,6 @@ uniform2ui64vARB(Location,Value) when is_integer(Location),is_list(Value) ->
   IF:queue_cmd(Location,Count,Value,5906),
   ok.
 
--doc false.
 -spec uniform3ui64vARB(Location::i(), Value::[{i(),i(),i()}]) -> 'ok'.
 uniform3ui64vARB(Location,Value) when is_integer(Location),is_list(Value) ->
   IF = get_interface(),
@@ -10122,7 +11015,6 @@ uniform3ui64vARB(Location,Value) when is_integer(Location),is_list(Value) ->
   IF:queue_cmd(Location,Count,Value,5907),
   ok.
 
--doc false.
 -spec uniform4ui64vARB(Location::i(), Value::[{i(),i(),i(),i()}]) -> 'ok'.
 uniform4ui64vARB(Location,Value) when is_integer(Location),is_list(Value) ->
   IF = get_interface(),
@@ -10130,49 +11022,42 @@ uniform4ui64vARB(Location,Value) when is_integer(Location),is_list(Value) ->
   IF:queue_cmd(Location,Count,Value,5908),
   ok.
 
--doc false.
 -spec getUniformi64vARB(Program::i(), Location::i()) -> {i(),i(),i(),i(),i(),i(),i(),i(),i(),i(),i(),i(),i(),i(),i(),i()}.
 getUniformi64vARB(Program,Location) when is_integer(Program),is_integer(Location) ->
   IF = get_interface(),
   IF:queue_cmd(Program,Location,5909),
   rec(5909).
 
--doc false.
 -spec getUniformui64vARB(Program::i(), Location::i()) -> {i(),i(),i(),i(),i(),i(),i(),i(),i(),i(),i(),i(),i(),i(),i(),i()}.
 getUniformui64vARB(Program,Location) when is_integer(Program),is_integer(Location) ->
   IF = get_interface(),
   IF:queue_cmd(Program,Location,5910),
   rec(5910).
 
--doc false.
 -spec programUniform1i64ARB(Program::i(), Location::i(), X::i()) -> 'ok'.
 programUniform1i64ARB(Program,Location,X) when is_integer(Program),is_integer(Location),is_integer(X) ->
   IF = get_interface(),
   IF:queue_cmd(Program,Location,X,5911),
   ok.
 
--doc false.
 -spec programUniform2i64ARB(Program::i(), Location::i(), X::i(), Y::i()) -> 'ok'.
 programUniform2i64ARB(Program,Location,X,Y) when is_integer(Program),is_integer(Location),is_integer(X),is_integer(Y) ->
   IF = get_interface(),
   IF:queue_cmd(Program,Location,X,Y,5912),
   ok.
 
--doc false.
 -spec programUniform3i64ARB(Program::i(), Location::i(), X::i(), Y::i(), Z::i()) -> 'ok'.
 programUniform3i64ARB(Program,Location,X,Y,Z) when is_integer(Program),is_integer(Location),is_integer(X),is_integer(Y),is_integer(Z) ->
   IF = get_interface(),
   IF:queue_cmd(Program,Location,X,Y,Z,5913),
   ok.
 
--doc false.
 -spec programUniform4i64ARB(Program::i(), Location::i(), X::i(), Y::i(), Z::i(), W::i()) -> 'ok'.
 programUniform4i64ARB(Program,Location,X,Y,Z,W) when is_integer(Program),is_integer(Location),is_integer(X),is_integer(Y),is_integer(Z),is_integer(W) ->
   IF = get_interface(),
   IF:queue_cmd(Program,Location,X,Y,Z,W,5914),
   ok.
 
--doc false.
 -spec programUniform1i64vARB(Program::i(), Location::i(), Value::[i()]) -> 'ok'.
 programUniform1i64vARB(Program,Location,Value) when is_integer(Program),is_integer(Location),is_list(Value) ->
   IF = get_interface(),
@@ -10180,7 +11065,6 @@ programUniform1i64vARB(Program,Location,Value) when is_integer(Program),is_integ
   IF:queue_cmd(Program,Location,Count,Value,5915),
   ok.
 
--doc false.
 -spec programUniform2i64vARB(Program::i(), Location::i(), Value::[{i(),i()}]) -> 'ok'.
 programUniform2i64vARB(Program,Location,Value) when is_integer(Program),is_integer(Location),is_list(Value) ->
   IF = get_interface(),
@@ -10188,7 +11072,6 @@ programUniform2i64vARB(Program,Location,Value) when is_integer(Program),is_integ
   IF:queue_cmd(Program,Location,Count,Value,5916),
   ok.
 
--doc false.
 -spec programUniform3i64vARB(Program::i(), Location::i(), Value::[{i(),i(),i()}]) -> 'ok'.
 programUniform3i64vARB(Program,Location,Value) when is_integer(Program),is_integer(Location),is_list(Value) ->
   IF = get_interface(),
@@ -10196,7 +11079,6 @@ programUniform3i64vARB(Program,Location,Value) when is_integer(Program),is_integ
   IF:queue_cmd(Program,Location,Count,Value,5917),
   ok.
 
--doc false.
 -spec programUniform4i64vARB(Program::i(), Location::i(), Value::[{i(),i(),i(),i()}]) -> 'ok'.
 programUniform4i64vARB(Program,Location,Value) when is_integer(Program),is_integer(Location),is_list(Value) ->
   IF = get_interface(),
@@ -10204,35 +11086,30 @@ programUniform4i64vARB(Program,Location,Value) when is_integer(Program),is_integ
   IF:queue_cmd(Program,Location,Count,Value,5918),
   ok.
 
--doc false.
 -spec programUniform1ui64ARB(Program::i(), Location::i(), X::i()) -> 'ok'.
 programUniform1ui64ARB(Program,Location,X) when is_integer(Program),is_integer(Location),is_integer(X) ->
   IF = get_interface(),
   IF:queue_cmd(Program,Location,X,5919),
   ok.
 
--doc false.
 -spec programUniform2ui64ARB(Program::i(), Location::i(), X::i(), Y::i()) -> 'ok'.
 programUniform2ui64ARB(Program,Location,X,Y) when is_integer(Program),is_integer(Location),is_integer(X),is_integer(Y) ->
   IF = get_interface(),
   IF:queue_cmd(Program,Location,X,Y,5920),
   ok.
 
--doc false.
 -spec programUniform3ui64ARB(Program::i(), Location::i(), X::i(), Y::i(), Z::i()) -> 'ok'.
 programUniform3ui64ARB(Program,Location,X,Y,Z) when is_integer(Program),is_integer(Location),is_integer(X),is_integer(Y),is_integer(Z) ->
   IF = get_interface(),
   IF:queue_cmd(Program,Location,X,Y,Z,5921),
   ok.
 
--doc false.
 -spec programUniform4ui64ARB(Program::i(), Location::i(), X::i(), Y::i(), Z::i(), W::i()) -> 'ok'.
 programUniform4ui64ARB(Program,Location,X,Y,Z,W) when is_integer(Program),is_integer(Location),is_integer(X),is_integer(Y),is_integer(Z),is_integer(W) ->
   IF = get_interface(),
   IF:queue_cmd(Program,Location,X,Y,Z,W,5922),
   ok.
 
--doc false.
 -spec programUniform1ui64vARB(Program::i(), Location::i(), Value::[i()]) -> 'ok'.
 programUniform1ui64vARB(Program,Location,Value) when is_integer(Program),is_integer(Location),is_list(Value) ->
   IF = get_interface(),
@@ -10240,7 +11117,6 @@ programUniform1ui64vARB(Program,Location,Value) when is_integer(Program),is_inte
   IF:queue_cmd(Program,Location,Count,Value,5923),
   ok.
 
--doc false.
 -spec programUniform2ui64vARB(Program::i(), Location::i(), Value::[{i(),i()}]) -> 'ok'.
 programUniform2ui64vARB(Program,Location,Value) when is_integer(Program),is_integer(Location),is_list(Value) ->
   IF = get_interface(),
@@ -10248,7 +11124,6 @@ programUniform2ui64vARB(Program,Location,Value) when is_integer(Program),is_inte
   IF:queue_cmd(Program,Location,Count,Value,5924),
   ok.
 
--doc false.
 -spec programUniform3ui64vARB(Program::i(), Location::i(), Value::[{i(),i(),i()}]) -> 'ok'.
 programUniform3ui64vARB(Program,Location,Value) when is_integer(Program),is_integer(Location),is_list(Value) ->
   IF = get_interface(),
@@ -10256,7 +11131,6 @@ programUniform3ui64vARB(Program,Location,Value) when is_integer(Program),is_inte
   IF:queue_cmd(Program,Location,Count,Value,5925),
   ok.
 
--doc false.
 -spec programUniform4ui64vARB(Program::i(), Location::i(), Value::[{i(),i(),i(),i()}]) -> 'ok'.
 programUniform4ui64vARB(Program,Location,Value) when is_integer(Program),is_integer(Location),is_list(Value) ->
   IF = get_interface(),
@@ -10279,15 +11153,8 @@ colorTable(Target,Internalformat,Width,Format,Type,Table) when is_integer(Target
   IF:queue_cmd(Target,Internalformat,Width,Format,Type,Table,5927),
   ok.
 
--doc(#{equiv => colorTableParameteriv/3}).
--spec colorTableParameterfv(Target::enum(), Pname::enum(), Params::{f(),f(),f(),f()}) -> 'ok'.
-colorTableParameterfv(Target,Pname,Params) when is_integer(Target),is_integer(Pname),tuple_size(Params) =:= 4 ->
-  IF = get_interface(),
-  IF:queue_cmd(Target,Pname,Params,5929),
-  ok.
-
 -doc """
-[`gl:colorTableParameter()`](`colorTableParameterfv/3`) is used to specify the
+[`gl:colorTableParameter/3`](`colorTableParameterfv/3`) is used to specify the
 scale factors and bias terms applied to color components when they are loaded
 into a color table. `Target` indicates which color table the scale and bias
 terms apply to; it must be set to `?GL_COLOR_TABLE`,
@@ -10295,6 +11162,13 @@ terms apply to; it must be set to `?GL_COLOR_TABLE`,
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glColorTableParameter.xml)
 """.
+-spec colorTableParameterfv(Target::enum(), Pname::enum(), Params::{f(),f(),f(),f()}) -> 'ok'.
+colorTableParameterfv(Target,Pname,Params) when is_integer(Target),is_integer(Pname),tuple_size(Params) =:= 4 ->
+  IF = get_interface(),
+  IF:queue_cmd(Target,Pname,Params,5929),
+  ok.
+
+-doc(#{equiv => colorTableParameterfv/3}).
 -spec colorTableParameteriv(Target::enum(), Pname::enum(), Params::{i(),i(),i(),i()}) -> 'ok'.
 colorTableParameteriv(Target,Pname,Params) when is_integer(Target),is_integer(Pname),tuple_size(Params) =:= 4 ->
   IF = get_interface(),
@@ -10328,18 +11202,18 @@ getColorTable(Target,Format,Type,Table) when is_integer(Target),is_integer(Forma
   IF:queue_cmd(Target,Format,Type,Table,5932),
   rec(5932).
 
--doc(#{equiv => getColorTableParameteriv/2}).
+-doc """
+Returns parameters specific to color table `Target`.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glGetColorTableParameter.xml)
+""".
 -spec getColorTableParameterfv(Target::enum(), Pname::enum()) -> {f(),f(),f(),f()}.
 getColorTableParameterfv(Target,Pname) when is_integer(Target),is_integer(Pname) ->
   IF = get_interface(),
   IF:queue_cmd(Target,Pname,5933),
   rec(5933).
 
--doc """
-Returns parameters specific to color table `Target`.
-
-[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glGetColorTableParameter.xml)
-""".
+-doc(#{equiv => getColorTableParameterfv/2}).
 -spec getColorTableParameteriv(Target::enum(), Pname::enum()) -> {i(),i(),i(),i()}.
 getColorTableParameteriv(Target,Pname) when is_integer(Target),is_integer(Pname) ->
   IF = get_interface(),
@@ -10407,33 +11281,33 @@ convolutionFilter2D(Target,Internalformat,Width,Height,Format,Type,Image) when i
   IF:queue_cmd(Target,Internalformat,Width,Height,Format,Type,Image,5940),
   ok.
 
--doc(#{equiv => convolutionParameteriv/3}).
+-doc """
+[`gl:convolutionParameter/3`](`convolutionParameterf/3`) sets the value of a
+convolution parameter.
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glConvolutionParameter.xml)
+""".
 -spec convolutionParameterf(Target::enum(), Pname::enum(), Params::tuple()) -> 'ok'.
 convolutionParameterf(Target,Pname,Params) when is_integer(Target),is_integer(Pname),is_tuple(Params) ->
   IF = get_interface(),
   IF:queue_cmd(Target,Pname,Params,5942),
   ok.
 
--doc(#{equiv => convolutionParameteriv/3}).
+-doc(#{equiv => convolutionParameterf/3}).
 -spec convolutionParameterfv(Target::enum(), Pname::enum(), Params::tuple()) -> 'ok'.
 convolutionParameterfv(Target,Pname,Params) when is_integer(Target),is_integer(Pname),is_tuple(Params) ->
   IF = get_interface(),
   IF:queue_cmd(Target,Pname,Params,5943),
   ok.
 
--doc(#{equiv => convolutionParameteriv/3}).
+-doc(#{equiv => convolutionParameterf/3}).
 -spec convolutionParameteri(Target::enum(), Pname::enum(), Params::tuple()) -> 'ok'.
 convolutionParameteri(Target,Pname,Params) when is_integer(Target),is_integer(Pname),is_tuple(Params) ->
   IF = get_interface(),
   IF:queue_cmd(Target,Pname,Params,5944),
   ok.
 
--doc """
-[`gl:convolutionParameter()`](`convolutionParameterf/3`) sets the value of a
-convolution parameter.
-
-[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glConvolutionParameter.xml)
-""".
+-doc(#{equiv => convolutionParameterf/3}).
 -spec convolutionParameteriv(Target::enum(), Pname::enum(), Params::tuple()) -> 'ok'.
 convolutionParameteriv(Target,Pname,Params) when is_integer(Target),is_integer(Pname),is_tuple(Params) ->
   IF = get_interface(),
@@ -10483,20 +11357,20 @@ getConvolutionFilter(Target,Format,Type,Image) when is_integer(Target),is_intege
   IF:queue_cmd(Target,Format,Type,Image,5948),
   rec(5948).
 
--doc(#{equiv => getConvolutionParameteriv/2}).
+-doc """
+[`gl:getConvolutionParameter/2`](`getConvolutionParameterfv/2`) retrieves
+convolution parameters. `Target` determines which convolution filter is queried.
+`Pname` determines which parameter is returned:
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glGetConvolutionParameter.xml)
+""".
 -spec getConvolutionParameterfv(Target::enum(), Pname::enum()) -> {f(),f(),f(),f()}.
 getConvolutionParameterfv(Target,Pname) when is_integer(Target),is_integer(Pname) ->
   IF = get_interface(),
   IF:queue_cmd(Target,Pname,5949),
   rec(5949).
 
--doc """
-[`gl:getConvolutionParameter()`](`getConvolutionParameterfv/2`) retrieves
-convolution parameters. `Target` determines which convolution filter is queried.
-`Pname` determines which parameter is returned:
-
-[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glGetConvolutionParameter.xml)
-""".
+-doc(#{equiv => getConvolutionParameterfv/2}).
 -spec getConvolutionParameteriv(Target::enum(), Pname::enum()) -> {i(),i(),i(),i()}.
 getConvolutionParameteriv(Target,Pname) when is_integer(Target),is_integer(Pname) ->
   IF = get_interface(),
@@ -10530,24 +11404,24 @@ getHistogram(Target,Reset,Format,Type,Values) when is_integer(Target),(0 =:= Res
   IF:queue_cmd(Target,Reset,Format,Type,Values,5953),
   rec(5953).
 
--doc(#{equiv => getHistogramParameteriv/2}).
--spec getHistogramParameterfv(Target::enum(), Pname::enum()) -> {f()}.
-getHistogramParameterfv(Target,Pname) when is_integer(Target),is_integer(Pname) ->
-  IF = get_interface(),
-  IF:queue_cmd(Target,Pname,5954),
-  rec(5954).
-
 -doc """
-[`gl:getHistogramParameter()`](`getHistogramParameterfv/2`) is used to query
+[`gl:getHistogramParameter/2`](`getHistogramParameterfv/2`) is used to query
 parameter values for the current histogram or for a proxy. The histogram state
 information may be queried by calling
-[`gl:getHistogramParameter()`](`getHistogramParameterfv/2`) with a `Target` of
+[`gl:getHistogramParameter/2`](`getHistogramParameterfv/2`) with a `Target` of
 `?GL_HISTOGRAM` (to obtain information for the current histogram table) or
 `?GL_PROXY_HISTOGRAM` (to obtain information from the most recent proxy request)
 and one of the following values for the `Pname` argument:
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glGetHistogramParameter.xml)
 """.
+-spec getHistogramParameterfv(Target::enum(), Pname::enum()) -> {f()}.
+getHistogramParameterfv(Target,Pname) when is_integer(Target),is_integer(Pname) ->
+  IF = get_interface(),
+  IF:queue_cmd(Target,Pname,5954),
+  rec(5954).
+
+-doc(#{equiv => getHistogramParameterfv/2}).
 -spec getHistogramParameteriv(Target::enum(), Pname::enum()) -> {i()}.
 getHistogramParameteriv(Target,Pname) when is_integer(Target),is_integer(Pname) ->
   IF = get_interface(),
@@ -10569,19 +11443,19 @@ getMinmax(Target,Reset,Format,Types,Values) when is_integer(Target),(0 =:= Reset
   IF:queue_cmd(Target,Reset,Format,Types,Values,5956),
   rec(5956).
 
--doc(#{equiv => getMinmaxParameteriv/2}).
+-doc """
+[`gl:getMinmaxParameter/2`](`getMinmaxParameterfv/2`) retrieves parameters for
+the current minmax table by setting `Pname` to one of the following values:
+
+[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glGetMinmaxParameter.xml)
+""".
 -spec getMinmaxParameterfv(Target::enum(), Pname::enum()) -> {f()}.
 getMinmaxParameterfv(Target,Pname) when is_integer(Target),is_integer(Pname) ->
   IF = get_interface(),
   IF:queue_cmd(Target,Pname,5957),
   rec(5957).
 
--doc """
-[`gl:getMinmaxParameter()`](`getMinmaxParameterfv/2`) retrieves parameters for
-the current minmax table by setting `Pname` to one of the following values:
-
-[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glGetMinmaxParameter.xml)
-""".
+-doc(#{equiv => getMinmaxParameterfv/2}).
 -spec getMinmaxParameteriv(Target::enum(), Pname::enum()) -> {i()}.
 getMinmaxParameteriv(Target,Pname) when is_integer(Target),is_integer(Pname) ->
   IF = get_interface(),
@@ -10590,13 +11464,13 @@ getMinmaxParameteriv(Target,Pname) when is_integer(Target),is_integer(Pname) ->
 
 -doc """
 When `?GL_HISTOGRAM` is enabled, RGBA color components are converted to
-histogram table indices by clamping to the range \[0,1], multiplying by the
-width of the histogram table, and rounding to the nearest integer. The table
-entries selected by the RGBA indices are then incremented. (If the internal
-format of the histogram table includes luminance, then the index derived from
-the R color component determines the luminance table entry to be incremented.)
-If a histogram table entry is incremented beyond its maximum value, then its
-value becomes undefined. (This is not an error.)
+histogram table indices by clamping to the range [0,1], multiplying by the width
+of the histogram table, and rounding to the nearest integer. The table entries
+selected by the RGBA indices are then incremented. (If the internal format of
+the histogram table includes luminance, then the index derived from the R color
+component determines the luminance table entry to be incremented.) If a
+histogram table entry is incremented beyond its maximum value, then its value
+becomes undefined. (This is not an error.)
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glHistogram.xml)
 """.
@@ -10619,7 +11493,8 @@ of the minmax table includes luminance, then the R color component of incoming
 pixels is used for comparison.) The contents of the minmax table may be
 retrieved at a later time by calling [`gl:getMinmax/5`](`getMinmax/5`). The
 minmax operation is enabled or disabled by calling [`gl:enable/1`](`enable/1`)
-or [`gl:disable/1`](`enable/1`), respectively, with an argument of `?GL_MINMAX`.
+or [`gl:disable/1`](`disable/1`), respectively, with an argument of
+`?GL_MINMAX`.
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glMinmax.xml)
 """.
@@ -10643,8 +11518,8 @@ resetHistogram(Target) when is_integer(Target) ->
 
 -doc """
 [`gl:resetMinmax/1`](`resetMinmax/1`) resets the elements of the current minmax
-table to their initial values: the \`\`maximum'' element receives the minimum
-possible component values, and the \`\`minimum'' element receives the maximum
+table to their initial values: the "maximum" element receives the minimum
+possible component values, and the "minimum" element receives the maximum
 possible component values.
 
 [External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl2.1/xhtml/glResetMinmax.xml)
@@ -10655,14 +11530,12 @@ resetMinmax(Target) when is_integer(Target) ->
   IF:queue_cmd(Target,5962),
   ok.
 
--doc false.
 -spec currentPaletteMatrixARB(Index::i()) -> 'ok'.
 currentPaletteMatrixARB(Index) when is_integer(Index) ->
   IF = get_interface(),
   IF:queue_cmd(Index,5963),
   ok.
 
--doc false.
 -spec matrixIndexubvARB(Indices::[i()]) -> 'ok'.
 matrixIndexubvARB(Indices) when is_list(Indices) ->
   IF = get_interface(),
@@ -10670,7 +11543,7 @@ matrixIndexubvARB(Indices) when is_list(Indices) ->
   IF:queue_cmd(Size,Indices,5964),
   ok.
 
--doc false.
+-doc(#{equiv => matrixIndexubvARB/1}).
 -spec matrixIndexusvARB(Indices::[i()]) -> 'ok'.
 matrixIndexusvARB(Indices) when is_list(Indices) ->
   IF = get_interface(),
@@ -10678,7 +11551,7 @@ matrixIndexusvARB(Indices) when is_list(Indices) ->
   IF:queue_cmd(Size,Indices,5965),
   ok.
 
--doc false.
+-doc(#{equiv => matrixIndexubvARB/1}).
 -spec matrixIndexuivARB(Indices::[i()]) -> 'ok'.
 matrixIndexuivARB(Indices) when is_list(Indices) ->
   IF = get_interface(),
@@ -10686,56 +11559,48 @@ matrixIndexuivARB(Indices) when is_list(Indices) ->
   IF:queue_cmd(Size,Indices,5966),
   ok.
 
--doc false.
 -spec sampleCoverageARB(Value::f(), Invert::0|1) -> 'ok'.
 sampleCoverageARB(Value,Invert) when is_float(Value),(0 =:= Invert) orelse (1 =:= Invert) ->
   IF = get_interface(),
   IF:queue_cmd(Value,Invert,5967),
   ok.
 
--doc false.
 -spec maxShaderCompilerThreadsARB(Count::i()) -> 'ok'.
 maxShaderCompilerThreadsARB(Count) when is_integer(Count) ->
   IF = get_interface(),
   IF:queue_cmd(Count,5968),
   ok.
 
--doc false.
 -spec evaluateDepthValuesARB() -> 'ok'.
 evaluateDepthValuesARB()  ->
   IF = get_interface(),
   IF:queue_cmd(5969),
   ok.
 
--doc false.
 -spec deleteObjectARB(Obj::i()) -> 'ok'.
 deleteObjectARB(Obj) when is_integer(Obj) ->
   IF = get_interface(),
   IF:queue_cmd(Obj,5970),
   ok.
 
--doc false.
 -spec getHandleARB(Pname::enum()) -> i().
 getHandleARB(Pname) when is_integer(Pname) ->
   IF = get_interface(),
   IF:queue_cmd(Pname,5971),
   rec(5971).
 
--doc false.
 -spec detachObjectARB(ContainerObj::i(), AttachedObj::i()) -> 'ok'.
 detachObjectARB(ContainerObj,AttachedObj) when is_integer(ContainerObj),is_integer(AttachedObj) ->
   IF = get_interface(),
   IF:queue_cmd(ContainerObj,AttachedObj,5972),
   ok.
 
--doc false.
 -spec createShaderObjectARB(ShaderType::enum()) -> i().
 createShaderObjectARB(ShaderType) when is_integer(ShaderType) ->
   IF = get_interface(),
   IF:queue_cmd(ShaderType,5973),
   rec(5973).
 
--doc false.
 -spec shaderSourceARB(ShaderObj::i(), String::[unicode:chardata()]) -> 'ok'.
 shaderSourceARB(ShaderObj,String) when is_integer(ShaderObj),is_list(String) ->
   IF = get_interface(),
@@ -10744,77 +11609,67 @@ shaderSourceARB(ShaderObj,String) when is_integer(ShaderObj),is_list(String) ->
   IF:queue_cmd(ShaderObj,Count,StringTemp,5974),
   ok.
 
--doc false.
 -spec compileShaderARB(ShaderObj::i()) -> 'ok'.
 compileShaderARB(ShaderObj) when is_integer(ShaderObj) ->
   IF = get_interface(),
   IF:queue_cmd(ShaderObj,5975),
   ok.
 
--doc false.
 -spec createProgramObjectARB() -> i().
 createProgramObjectARB()  ->
   IF = get_interface(),
   IF:queue_cmd(5976),
   rec(5976).
 
--doc false.
 -spec attachObjectARB(ContainerObj::i(), Obj::i()) -> 'ok'.
 attachObjectARB(ContainerObj,Obj) when is_integer(ContainerObj),is_integer(Obj) ->
   IF = get_interface(),
   IF:queue_cmd(ContainerObj,Obj,5977),
   ok.
 
--doc false.
 -spec linkProgramARB(ProgramObj::i()) -> 'ok'.
 linkProgramARB(ProgramObj) when is_integer(ProgramObj) ->
   IF = get_interface(),
   IF:queue_cmd(ProgramObj,5978),
   ok.
 
--doc false.
 -spec useProgramObjectARB(ProgramObj::i()) -> 'ok'.
 useProgramObjectARB(ProgramObj) when is_integer(ProgramObj) ->
   IF = get_interface(),
   IF:queue_cmd(ProgramObj,5979),
   ok.
 
--doc false.
 -spec validateProgramARB(ProgramObj::i()) -> 'ok'.
 validateProgramARB(ProgramObj) when is_integer(ProgramObj) ->
   IF = get_interface(),
   IF:queue_cmd(ProgramObj,5980),
   ok.
 
--doc false.
 -spec getObjectParameterfvARB(Obj::i(), Pname::enum()) -> f().
 getObjectParameterfvARB(Obj,Pname) when is_integer(Obj),is_integer(Pname) ->
   IF = get_interface(),
   IF:queue_cmd(Obj,Pname,5981),
   rec(5981).
 
--doc false.
+-doc(#{equiv => getObjectParameterfvARB/2}).
 -spec getObjectParameterivARB(Obj::i(), Pname::enum()) -> i().
 getObjectParameterivARB(Obj,Pname) when is_integer(Obj),is_integer(Pname) ->
   IF = get_interface(),
   IF:queue_cmd(Obj,Pname,5982),
   rec(5982).
 
--doc false.
 -spec getInfoLogARB(Obj::i(), MaxLength::i()) -> string().
 getInfoLogARB(Obj,MaxLength) when is_integer(Obj),is_integer(MaxLength) ->
   IF = get_interface(),
   IF:queue_cmd(Obj,MaxLength,5983),
   rec(5983).
 
--doc false.
 -spec getAttachedObjectsARB(ContainerObj::i(), MaxCount::i()) -> [i()].
 getAttachedObjectsARB(ContainerObj,MaxCount) when is_integer(ContainerObj),is_integer(MaxCount) ->
   IF = get_interface(),
   IF:queue_cmd(ContainerObj,MaxCount,5984),
   rec(5984).
 
--doc false.
 -spec getUniformLocationARB(ProgramObj::i(), Name::string()) -> i().
 getUniformLocationARB(ProgramObj,Name) when is_integer(ProgramObj),is_list(Name) ->
   IF = get_interface(),
@@ -10822,35 +11677,31 @@ getUniformLocationARB(ProgramObj,Name) when is_integer(ProgramObj),is_list(Name)
   IF:queue_cmd(ProgramObj,NameBin,5985),
   rec(5985).
 
--doc false.
 -spec getActiveUniformARB(ProgramObj::i(), Index::i(), MaxLength::i()) -> {Size::i(),Type::enum(),Name::string()}.
 getActiveUniformARB(ProgramObj,Index,MaxLength) when is_integer(ProgramObj),is_integer(Index),is_integer(MaxLength) ->
   IF = get_interface(),
   IF:queue_cmd(ProgramObj,Index,MaxLength,5986),
   rec(5986).
 
--doc false.
 -spec getUniformfvARB(ProgramObj::i(), Location::i()) -> matrix().
 getUniformfvARB(ProgramObj,Location) when is_integer(ProgramObj),is_integer(Location) ->
   IF = get_interface(),
   IF:queue_cmd(ProgramObj,Location,5987),
   rec(5987).
 
--doc false.
+-doc(#{equiv => getUniformfvARB/2}).
 -spec getUniformivARB(ProgramObj::i(), Location::i()) -> {i(),i(),i(),i(),i(),i(),i(),i(),i(),i(),i(),i(),i(),i(),i(),i()}.
 getUniformivARB(ProgramObj,Location) when is_integer(ProgramObj),is_integer(Location) ->
   IF = get_interface(),
   IF:queue_cmd(ProgramObj,Location,5988),
   rec(5988).
 
--doc false.
 -spec getShaderSourceARB(Obj::i(), MaxLength::i()) -> string().
 getShaderSourceARB(Obj,MaxLength) when is_integer(Obj),is_integer(MaxLength) ->
   IF = get_interface(),
   IF:queue_cmd(Obj,MaxLength,5989),
   rec(5989).
 
--doc false.
 -spec deleteNamedStringARB(Name::string()) -> 'ok'.
 deleteNamedStringARB(Name) when is_list(Name) ->
   IF = get_interface(),
@@ -10858,7 +11709,6 @@ deleteNamedStringARB(Name) when is_list(Name) ->
   IF:queue_cmd(NameBin,5990),
   ok.
 
--doc false.
 -spec compileShaderIncludeARB(Shader::i(), Path::[unicode:chardata()]) -> 'ok'.
 compileShaderIncludeARB(Shader,Path) when is_integer(Shader),is_list(Path) ->
   IF = get_interface(),
@@ -10867,7 +11717,6 @@ compileShaderIncludeARB(Shader,Path) when is_integer(Shader),is_list(Path) ->
   IF:queue_cmd(Shader,Count,PathTemp,5991),
   ok.
 
--doc false.
 -spec isNamedStringARB(Name::string()) -> 0|1.
 isNamedStringARB(Name) when is_list(Name) ->
   IF = get_interface(),
@@ -10875,14 +11724,12 @@ isNamedStringARB(Name) when is_list(Name) ->
   IF:queue_cmd(NameBin,5992),
   rec(5992).
 
--doc false.
 -spec bufferPageCommitmentARB(Target::enum(), Offset::i(), Size::i(), Commit::0|1) -> 'ok'.
 bufferPageCommitmentARB(Target,Offset,Size,Commit) when is_integer(Target),is_integer(Offset),is_integer(Size),(0 =:= Commit) orelse (1 =:= Commit) ->
   IF = get_interface(),
   IF:queue_cmd(Target,Offset,Size,Commit,5993),
   ok.
 
--doc false.
 -spec texPageCommitmentARB(Target, Level, Xoffset, Yoffset, Zoffset, Width, Height, Depth, Commit) -> 'ok'
     when Target::enum(), Level::i(), Xoffset::i(), Yoffset::i(), Zoffset::i(), Width::i(), Height::i(), Depth::i(), Commit::0|1.
 texPageCommitmentARB(Target,Level,Xoffset,Yoffset,Zoffset,Width,Height,Depth,Commit) when is_integer(Target),is_integer(Level),is_integer(Xoffset),is_integer(Yoffset),is_integer(Zoffset),is_integer(Width),is_integer(Height),is_integer(Depth),(0 =:= Commit) orelse (1 =:= Commit) ->
@@ -10890,42 +11737,38 @@ texPageCommitmentARB(Target,Level,Xoffset,Yoffset,Zoffset,Width,Height,Depth,Com
   IF:queue_cmd(Target,Level,Xoffset,Yoffset,Zoffset,Width,Height,Depth,Commit,5994),
   ok.
 
--doc false.
 -spec getCompressedTexImageARB(Target::enum(), Level::i(), Img::mem()) -> 'ok'.
 getCompressedTexImageARB(Target,Level,Img) when is_integer(Target),is_integer(Level),is_tuple(Img) orelse is_binary(Img) ->
   IF = get_interface(),
   IF:queue_cmd(Target,Level,Img,5995),
   rec(5995).
 
--doc false.
 -spec loadTransposeMatrixfARB(M::matrix()) -> 'ok'.
 loadTransposeMatrixfARB(M) when tuple_size(M) =:= 16; tuple_size(M) =:= 12 ->
   IF = get_interface(),
   IF:queue_cmd(M,5996),
   ok.
 
--doc false.
+-doc(#{equiv => loadTransposeMatrixfARB/1}).
 -spec loadTransposeMatrixdARB(M::matrix()) -> 'ok'.
 loadTransposeMatrixdARB(M) when tuple_size(M) =:= 16; tuple_size(M) =:= 12 ->
   IF = get_interface(),
   IF:queue_cmd(M,5997),
   ok.
 
--doc false.
 -spec multTransposeMatrixfARB(M::matrix()) -> 'ok'.
 multTransposeMatrixfARB(M) when tuple_size(M) =:= 16; tuple_size(M) =:= 12 ->
   IF = get_interface(),
   IF:queue_cmd(M,5998),
   ok.
 
--doc false.
+-doc(#{equiv => multTransposeMatrixfARB/1}).
 -spec multTransposeMatrixdARB(M::matrix()) -> 'ok'.
 multTransposeMatrixdARB(M) when tuple_size(M) =:= 16; tuple_size(M) =:= 12 ->
   IF = get_interface(),
   IF:queue_cmd(M,5999),
   ok.
 
--doc false.
 -spec weightbvARB(Weights::[i()]) -> 'ok'.
 weightbvARB(Weights) when is_list(Weights) ->
   IF = get_interface(),
@@ -10933,7 +11776,7 @@ weightbvARB(Weights) when is_list(Weights) ->
   IF:queue_cmd(Size,Weights,6000),
   ok.
 
--doc false.
+-doc(#{equiv => weightbvARB/1}).
 -spec weightsvARB(Weights::[i()]) -> 'ok'.
 weightsvARB(Weights) when is_list(Weights) ->
   IF = get_interface(),
@@ -10941,7 +11784,7 @@ weightsvARB(Weights) when is_list(Weights) ->
   IF:queue_cmd(Size,Weights,6001),
   ok.
 
--doc false.
+-doc(#{equiv => weightbvARB/1}).
 -spec weightivARB(Weights::[i()]) -> 'ok'.
 weightivARB(Weights) when is_list(Weights) ->
   IF = get_interface(),
@@ -10949,7 +11792,7 @@ weightivARB(Weights) when is_list(Weights) ->
   IF:queue_cmd(Size,Weights,6002),
   ok.
 
--doc false.
+-doc(#{equiv => weightbvARB/1}).
 -spec weightfvARB(Weights::[f()]) -> 'ok'.
 weightfvARB(Weights) when is_list(Weights) ->
   IF = get_interface(),
@@ -10957,7 +11800,7 @@ weightfvARB(Weights) when is_list(Weights) ->
   IF:queue_cmd(Size,Weights,6003),
   ok.
 
--doc false.
+-doc(#{equiv => weightbvARB/1}).
 -spec weightdvARB(Weights::[f()]) -> 'ok'.
 weightdvARB(Weights) when is_list(Weights) ->
   IF = get_interface(),
@@ -10965,7 +11808,7 @@ weightdvARB(Weights) when is_list(Weights) ->
   IF:queue_cmd(Size,Weights,6004),
   ok.
 
--doc false.
+-doc(#{equiv => weightbvARB/1}).
 -spec weightubvARB(Weights::[i()]) -> 'ok'.
 weightubvARB(Weights) when is_list(Weights) ->
   IF = get_interface(),
@@ -10973,7 +11816,7 @@ weightubvARB(Weights) when is_list(Weights) ->
   IF:queue_cmd(Size,Weights,6005),
   ok.
 
--doc false.
+-doc(#{equiv => weightbvARB/1}).
 -spec weightusvARB(Weights::[i()]) -> 'ok'.
 weightusvARB(Weights) when is_list(Weights) ->
   IF = get_interface(),
@@ -10981,7 +11824,7 @@ weightusvARB(Weights) when is_list(Weights) ->
   IF:queue_cmd(Size,Weights,6006),
   ok.
 
--doc false.
+-doc(#{equiv => weightbvARB/1}).
 -spec weightuivARB(Weights::[i()]) -> 'ok'.
 weightuivARB(Weights) when is_list(Weights) ->
   IF = get_interface(),
@@ -10989,26 +11832,19 @@ weightuivARB(Weights) when is_list(Weights) ->
   IF:queue_cmd(Size,Weights,6007),
   ok.
 
--doc false.
 -spec vertexBlendARB(Count::i()) -> 'ok'.
 vertexBlendARB(Count) when is_integer(Count) ->
   IF = get_interface(),
   IF:queue_cmd(Count,6008),
   ok.
 
--doc """
-These functions return in `Data` a selected parameter of the specified buffer
-object.
-
-[External documentation.](https://www.khronos.org/registry/OpenGL-Refpages/gl4/html/glGetBufferParameter.xhtml)
-""".
+-doc(#{equiv => getBufferParameteri64v/2}).
 -spec getBufferParameterivARB(Target::enum(), Pname::enum()) -> [i()].
 getBufferParameterivARB(Target,Pname) when is_integer(Target),is_integer(Pname) ->
   IF = get_interface(),
   IF:queue_cmd(Target,Pname,6009),
   rec(6009).
 
--doc false.
 -spec bindAttribLocationARB(ProgramObj::i(), Index::i(), Name::string()) -> 'ok'.
 bindAttribLocationARB(ProgramObj,Index,Name) when is_integer(ProgramObj),is_integer(Index),is_list(Name) ->
   IF = get_interface(),
@@ -11016,14 +11852,12 @@ bindAttribLocationARB(ProgramObj,Index,Name) when is_integer(ProgramObj),is_inte
   IF:queue_cmd(ProgramObj,Index,NameBin,6010),
   ok.
 
--doc false.
 -spec getActiveAttribARB(ProgramObj::i(), Index::i(), MaxLength::i()) -> {Size::i(),Type::enum(),Name::string()}.
 getActiveAttribARB(ProgramObj,Index,MaxLength) when is_integer(ProgramObj),is_integer(Index),is_integer(MaxLength) ->
   IF = get_interface(),
   IF:queue_cmd(ProgramObj,Index,MaxLength,6011),
   rec(6011).
 
--doc false.
 -spec getAttribLocationARB(ProgramObj::i(), Name::string()) -> i().
 getAttribLocationARB(ProgramObj,Name) when is_integer(ProgramObj),is_list(Name) ->
   IF = get_interface(),
@@ -11031,21 +11865,18 @@ getAttribLocationARB(ProgramObj,Name) when is_integer(ProgramObj),is_list(Name) 
   IF:queue_cmd(ProgramObj,NameBin,6012),
   rec(6012).
 
--doc false.
 -spec blendBarrierKHR() -> 'ok'.
 blendBarrierKHR()  ->
   IF = get_interface(),
   IF:queue_cmd(6013),
   ok.
 
--doc false.
 -spec maxShaderCompilerThreadsKHR(Count::i()) -> 'ok'.
 maxShaderCompilerThreadsKHR(Count) when is_integer(Count) ->
   IF = get_interface(),
   IF:queue_cmd(Count,6014),
   ok.
 
--doc false.
 -spec depthBoundsEXT(Zmin::clamp(), Zmax::clamp()) -> 'ok'.
 depthBoundsEXT(Zmin,Zmax) when is_float(Zmin),is_float(Zmax) ->
   IF = get_interface(),

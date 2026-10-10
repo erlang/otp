@@ -23,6 +23,57 @@ limitations under the License.
 
 This document describes the changes made to the Crypto application.
 
+## Crypto 5.10
+
+### Improvements and New Features
+
+- The documentation of the `crypto` module now contains runnable examples for most functions. The examples are verified by the crypto test suite, so they always match actual behavior.
+
+  Own Id: OTP-20373 Aux Id: [PR-11170]
+
+[PR-11170]: https://github.com/erlang/otp/pull/11170
+
+## Crypto 5.9.3
+
+### Fixed Bugs and Malfunctions
+
+- Fixed type mismatch between `ErlNifUInt64` and `uint64_t` in crypto NIF that caused incompatible-pointer warnings on macOS arm64 when passing DH parameters to OpenSSL.
+
+  Own Id: OTP-20333 Aux Id: [GH-11511], [PR-11513]
+
+[GH-11511]: https://github.com/erlang/otp/issues/11511
+[PR-11513]: https://github.com/erlang/otp/pull/11513
+
+## Crypto 5.9.2
+
+### Fixed Bugs and Malfunctions
+
+- Fixed crash in `crypto:macN/5` when supplied `MacLength` was greater than length of what the underlying hash returned.
+
+  Own Id: OTP-20239 Aux Id: [PR-11239]
+
+- Fixed segfault in `crypto:aead_cipher_init_nif` when argument validation fails.
+
+  Own Id: OTP-20241 Aux Id: [PR-11330]
+
+- Fix cipher key buffer overread for `chacha20_poly1305`.
+
+  Own Id: OTP-20244 Aux Id: [PR-11337]
+
+[PR-11239]: https://github.com/erlang/otp/pull/11239
+[PR-11330]: https://github.com/erlang/otp/pull/11330
+[PR-11337]: https://github.com/erlang/otp/pull/11337
+
+## Crypto 5.9.1
+
+### Fixed Bugs and Malfunctions
+
+- `crypto:compute_key/4` for `eddh` and [`crypto:generate_key/2,3`](`crypto:generate_key/3`) for `eddh`/`eddsa` now raise an `error:{notsup, Info, Description}` exception instead of returning the atom `notsup` when the underlying cryptolib lacks support.
+
+  Own Id: OTP-20215 Aux Id: [PR-11302]
+
+[PR-11302]: https://github.com/erlang/otp/pull/11302
+
 ## Crypto 5.9
 
 ### Fixed Bugs and Malfunctions
@@ -66,6 +117,47 @@ This document describes the changes made to the Crypto application.
 [PR-10836]: https://github.com/erlang/otp/pull/10836
 [PR-10839]: https://github.com/erlang/otp/pull/10839
 [PR-10993]: https://github.com/erlang/otp/pull/10993
+
+## Crypto 5.8.3.3
+
+### Fixed Bugs and Malfunctions
+
+- Fixed type mismatch between `ErlNifUInt64` and `uint64_t` in crypto NIF that caused incompatible-pointer warnings on macOS arm64 when passing DH parameters to OpenSSL.
+
+  Own Id: OTP-20333 Aux Id: [GH-11511], [PR-11513]
+
+[GH-11511]: https://github.com/erlang/otp/issues/11511
+[PR-11513]: https://github.com/erlang/otp/pull/11513
+
+## Crypto 5.8.3.2
+
+### Fixed Bugs and Malfunctions
+
+- Fixed crash in `crypto:macN/5` when supplied `MacLength` was greater than length of what the underlying hash returned.
+
+  Own Id: OTP-20239 Aux Id: [PR-11239]
+
+- Fixed segfault in `crypto:aead_cipher_init_nif` when argument validation fails.
+
+  Own Id: OTP-20241 Aux Id: [PR-11330]
+
+- Fix cipher key buffer overread for `chacha20_poly1305`.
+
+  Own Id: OTP-20244 Aux Id: [PR-11337]
+
+[PR-11239]: https://github.com/erlang/otp/pull/11239
+[PR-11330]: https://github.com/erlang/otp/pull/11330
+[PR-11337]: https://github.com/erlang/otp/pull/11337
+
+## Crypto 5.8.3.1
+
+### Fixed Bugs and Malfunctions
+
+- `crypto:compute_key/4` for `eddh` and [`crypto:generate_key/2,3`](`crypto:generate_key/3`) for `eddh`/`eddsa` now raise an `error:{notsup, Info, Description}` exception instead of returning the atom `notsup` when the underlying cryptolib lacks support.
+
+  Own Id: OTP-20215 Aux Id: [PR-11302]
+
+[PR-11302]: https://github.com/erlang/otp/pull/11302
 
 ## Crypto 5.8.3
 
@@ -233,6 +325,42 @@ This document describes the changes made to the Crypto application.
 [PR-9448]: https://github.com/erlang/otp/pull/9448
 [PR-9441]: https://github.com/erlang/otp/pull/9441
 [PR-9670]: https://github.com/erlang/otp/pull/9670
+
+## Crypto 5.5.3.5
+
+### Fixed Bugs and Malfunctions
+
+- Fixed type mismatch between `ErlNifUInt64` and `uint64_t` in crypto NIF that caused incompatible-pointer warnings on macOS arm64 when passing DH parameters to OpenSSL.
+
+  Own Id: OTP-20333 Aux Id: [GH-11511], [PR-11513]
+
+[GH-11511]: https://github.com/erlang/otp/issues/11511
+[PR-11513]: https://github.com/erlang/otp/pull/11513
+
+## Crypto 5.5.3.4
+
+### Fixed Bugs and Malfunctions
+
+- Fixed crash in `crypto:macN/5` when supplied `MacLength` was greater than length of what the underlying hash returned.
+
+  Own Id: OTP-20239 Aux Id: [PR-11239]
+
+- Fix cipher key buffer overread for `chacha20_poly1305`.
+
+  Own Id: OTP-20244 Aux Id: [PR-11337]
+
+[PR-11239]: https://github.com/erlang/otp/pull/11239
+[PR-11337]: https://github.com/erlang/otp/pull/11337
+
+## Crypto 5.5.3.3
+
+### Fixed Bugs and Malfunctions
+
+- `crypto:compute_key/4` for `eddh` and [`crypto:generate_key/2,3`](`crypto:generate_key/3`) for `eddh`/`eddsa` now raise an `error:{notsup, Info, Description}` exception instead of returning the atom `notsup` when the underlying cryptolib lacks support.
+
+  Own Id: OTP-20215 Aux Id: [PR-11302]
+
+[PR-11302]: https://github.com/erlang/otp/pull/11302
 
 ## Crypto 5.5.3.2
 

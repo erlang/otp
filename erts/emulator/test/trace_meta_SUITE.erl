@@ -652,7 +652,7 @@ setup() ->
 shutdown() ->
     trace_off(),
     Pid = get(slave),
-    case (catch is_process_alive(Pid)) of
+    try is_process_alive(Pid) of
 	true ->
 	    Ref = erlang:monitor(process,Pid),
 	    Pid ! die,
@@ -662,6 +662,7 @@ shutdown() ->
 	    end;
 	_ ->
 	    ok
+    catch _:_ -> ok
     end.
 
 trace_off() ->

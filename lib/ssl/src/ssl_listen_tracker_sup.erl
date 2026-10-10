@@ -52,25 +52,25 @@ start_child(Args) ->
 
 start_child_dist(Args) ->
     supervisor:start_child(tracker_name(dist), Args).
-  
+
 %%%=========================================================================
 %%%  Supervisor callback
 %%%=========================================================================
 init(_) ->
-    SupFlags = #{strategy  => simple_one_for_one, 
+    SupFlags = #{strategy  => simple_one_for_one,
                  intensity =>   0,
                  period    => 3600
                 },
     ChildSpecs = [#{id       => undefined,
                     start    => {tls_socket, start_link, []},
-                    restart  => temporary, 
+                    restart  => temporary,
                     shutdown => 4000,
                     modules  => [tls_socket],
                     type     => worker
-                   }],    
+                   }],
     {ok, {SupFlags, ChildSpecs}}.
 
 tracker_name(normal) ->
     ?MODULE;
 tracker_name(dist) ->
-    list_to_atom(atom_to_list(?MODULE) ++ "_dist").
+    ssl_listen_tracker_sup_dist.

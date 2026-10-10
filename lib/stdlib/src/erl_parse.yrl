@@ -693,11 +693,17 @@ ssa_check_when_clauses -> ssa_check_when_clause ssa_check_when_clauses :
 
 ssa_check_when_clause -> '%ssa%' atom ssa_check_clause_args_ls 'when' atom '->'
                              ssa_check_exprs '.' :
-   {ssa_check_when, ?anno('$1'), '$2', '$3', '$5', '$7'}.
+   {ssa_check_when, ?anno('$1'), '$2', '$3', [], '$5', '$7'}.
+ssa_check_when_clause -> '%ssa%' atom ssa_check_clause_args_ls ssa_check_anno 'when' atom '->'
+                             ssa_check_exprs '.' :
+   {ssa_check_when, ?anno('$1'), '$2', '$3', '$4', '$6', '$8'}.
 
 ssa_check_when_clause -> '%ssa%' ssa_check_clause_args_ls 'when' atom '->'
                              ssa_check_exprs '.' :
-   {ssa_check_when, ?anno('$1'), {atom,?anno('$1'),pass}, '$2', '$4', '$6'}.
+   {ssa_check_when, ?anno('$1'), {atom,?anno('$1'),pass}, '$2', [], '$4', '$6'}.
+ssa_check_when_clause -> '%ssa%' ssa_check_clause_args_ls ssa_check_anno 'when' atom '->'
+                             ssa_check_exprs '.' :
+   {ssa_check_when, ?anno('$1'), {atom,?anno('$1'),pass}, '$2', '$3', '$5', '$7'}.
 
 ssa_check_exprs -> ssa_check_expr : [add_anno_check('$1', [])].
 ssa_check_exprs -> ssa_check_expr ssa_check_anno : [add_anno_check('$1', '$2')].
@@ -997,6 +1003,7 @@ processed (see section [Error Information](#module-error-information)).
                        | af_record_field_access(abstract_expr())
                        | af_native_record_creation()
                        | af_native_record_update()
+                       | af_native_record_field_access(abstract_expr())
                        | af_map_creation(abstract_expr())
                        | af_map_update(abstract_expr())
                        | af_catch()
@@ -1033,7 +1040,7 @@ processed (see section [Error Information](#module-error-information)).
 
 -type af_local_function() :: abstract_expr().
 
--doc "Abstract representation of a remote function call.".
+-doc "Abstract representation of a remote function.".
 -type af_remote_function() ::
         {'remote', anno(), abstract_expr(), abstract_expr()}.
 
@@ -1123,6 +1130,7 @@ processed (see section [Error Information](#module-error-information)).
                        | af_record_creation(af_guard_test())
                        | af_record_index()
                        | af_record_field_access(af_guard_test())
+                       | af_native_record_field_access(af_guard_test())
                        | af_map_creation(af_guard_test())
                        | af_map_update(af_guard_test())
                        | af_guard_call()
@@ -1170,13 +1178,16 @@ processed (see section [Error Information](#module-error-information)).
 -type af_record_field(T) :: {'record_field', anno(), af_field_name(), T}.
 
 -type af_native_record_creation() ::
-        {'native_record', anno(), {atom(), atom()} | {}, [af_record_field(abstract_expr())]}.
+        {'record', anno(), native_record_name(), [af_record_field(abstract_expr())]}.
 
 -type af_native_record_update() ::
-        {'native_record_update', anno(), abstract_expr(), {atom(), atom()} | {}, [af_record_field(abstract_expr())]}.
+        {'record', anno(), abstract_expr(), native_record_name(), [af_record_field(abstract_expr())]}.
 
 -type af_native_record_pattern() ::
-        {'native_record', anno(), {atom(), atom()} | {}, [af_record_field(af_pattern())]}.
+        {'record', anno(), native_record_name(), [af_record_field(af_pattern())]}.
+
+-type af_native_record_field_access(T) ::
+        {'record_field', anno(), T, native_record_name(), af_field_name()}.
 
 -type af_map_pattern() ::
         {'map', anno(), [af_assoc_exact(af_pattern())]}.
@@ -1362,6 +1373,8 @@ processed (see section [Error Information](#module-error-information)).
 
 -type record_name() :: atom().
 
+-type native_record_name() :: {atom(), record_name()} | record_name().
+
 -type af_field_name() :: af_atom().
 
 -type function_name() :: atom().
@@ -1370,8 +1383,8 @@ processed (see section [Error Information](#module-error-information)).
 
 -doc """
 Tuples `{error, error_info()}` and `{warning, error_info()}`, denoting
-syntactically incorrect forms and warnings, and `{eof, line()}`, denoting an
-end-of-stream encountered before a complete form had been parsed.
+syntactically incorrect forms and warnings, and `{eof, erl_anno:location()}`,
+denoting an end-of-stream encountered before a complete form had been parsed.
 """.
 -type form_info() :: {'eof', erl_anno:location()}
                    | {'error', erl_scan:error_info() | error_info()}
@@ -1649,7 +1662,8 @@ build_attribute({atom,Aa,import_record}, Val) ->
     case Val of
 	[{atom,_Am,Mod},StrList] ->
 	    {attribute,Aa,import_record,{Mod,native_record_name_list(StrList)}};
-        [_,Other|_] -> error_bad_decl(Other, import_record)
+        [_,Other|_] -> error_bad_decl(Other, import_record);
+        [Other|_] -> error_bad_decl(Other, import_record)
     end;
 build_attribute({atom,Aa,record}, Val) ->
     case Val of
@@ -1970,6 +1984,12 @@ normalise({map,_,Pairs}=M) ->
 	    end, Pairs));
 normalise({'fun',_,{function,{atom,_,M},{atom,_,F},{integer,_,A}}}) ->
     fun M:F/A;
+normalise({'record',_,{M,N},Fs0}=R) ->
+    Fs1 = lists:map(fun
+                        ({record_field,_,K,V}) -> {normalise(K),normalise(V)};
+                        (_) -> erlang:error({badarg,R})
+                   end, Fs0),
+    records:create(M, N, Fs1, #{is_exported=>true});
 %% Special case for unary +/-.
 normalise({op,_,'+',{char,_,I}}) -> I;
 normalise({op,_,'+',{integer,_,I}}) -> I;
@@ -2009,11 +2029,13 @@ annotation contains the location given by option `location` or by option `line`.
 Option `location` overrides option `line`. If neither option `location` nor
 option `line` is given, `0` is used as location.
 
-Option `Encoding` is used for selecting which integer lists to be considered as
-strings. The default is to use the encoding returned by function
-`epp:default_encoding/0`. Value `none` means that no integer lists are
-considered as strings. `encoding_func()` is called with one integer of a list at
-a time; if it returns `true` for every integer, the list is considered a string.
+Option `Encoding` is used for selecting which integer lists or binaries to
+be considered as strings. The default is to use the encoding returned by function
+`epp:default_encoding/0`. Value `none` means that nothing is considered a string.
+`encoding_func()` is called with one character of a list or binary at
+a time; if it returns `true` for every character, the list or binary is considered
+a string. For binaries it is the decoded utf-8 character that is passed to `encoding_func()`.
+If the binary is not valid utf-8, it is not considered a string.
 """.
 -doc(#{since => <<"OTP R16B01">>}).
 -spec abstract(Data, Options) -> AbsTerm when
@@ -2043,14 +2065,9 @@ abstract(T, Location) ->
     Anno = erl_anno:new(Location),
     abstract(T, Anno, enc_func(epp:default_encoding())).
 
--define(UNICODE(C),
-         (C < 16#D800 orelse
-          C > 16#DFFF andalso C < 16#FFFE orelse
-          C > 16#FFFF andalso C =< 16#10FFFF)).
-
-enc_func(latin1) -> fun(C) -> C < 256 end;
-enc_func(unicode) -> fun(C) -> ?UNICODE(C) end;
-enc_func(utf8) -> fun(C) -> ?UNICODE(C) end;
+enc_func(latin1) -> fun(C) -> io_lib:printable_latin1_list([C]) end;
+enc_func(unicode) -> fun(C) -> io_lib:printable_unicode_list([C]) end;
+enc_func(utf8) -> enc_func(unicode);
 enc_func(none) -> none;
 enc_func(Fun) when is_function(Fun, 1) -> Fun;
 enc_func(Term) -> erlang:error({badarg, Term}).
@@ -2059,6 +2076,23 @@ abstract(T, A, _E) when is_integer(T) -> {integer,A,T};
 abstract(T, A, _E) when is_float(T) -> {float,A,T};
 abstract(T, A, _E) when is_atom(T) -> {atom,A,T};
 abstract([], A, _E) -> {nil,A};
+abstract(B, A, E) when is_binary(B), is_function(E) ->
+    maybe
+        List = unicode:characters_to_list(B, utf8),
+        true ?= is_list(List),
+        {string, _, String} ?= abstract_list(List, [], A, E),
+        Encoding =
+            case is_ascii_string(String) of
+                true ->
+                    default;
+                false ->
+                    [utf8]
+            end,
+        {bin, A, [{bin_element, A, {string, A, String}, default, Encoding}]}
+    else
+        _ ->
+            {bin, A, [abstract_byte(Byte, A) || Byte <- binary_to_list(B)]}
+    end;
 abstract(B, A, _E) when is_bitstring(B) ->
     {bin, A, [abstract_byte(Byte, A) || Byte <- bitstring_to_list(B)]};
 abstract([H|T], A, none=E) ->
@@ -2081,6 +2115,9 @@ abstract(Fun, A, E) when is_function(Fun) ->
                         abstract(F, A, E),
                         abstract(Arity, A, E)}}
     end.
+
+is_ascii_string(L) ->
+    lists:all(fun(C) -> C >= 0 andalso C < 128 end, L).
 
 abstract_list([H|T], String, A, E) ->
     case is_integer(H) andalso H >= 0 andalso E(H) of

@@ -2,16 +2,16 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  drestriction(SetFun, Set1, Set2)[0m
+[1m  drestriction(SetFun, Set1, Set2)[0m
 
-  Returns a subset of [;;4mSet1[0m containing those elements that do not
-  give an element in [;;4mSet2[0m as the result of applying [;;4mSetFun[0m.
+  Returns a subset of [4mSet1[0m containing those elements that do not
+  give an element in [4mSet2[0m as the result of applying [4mSetFun[0m.
 
-[;1mExamples[0m
+[1mExamples[0m
 
     1> SetFun = {external, fun({_A,B,C}) -> {B,C} end}.
     2> R1 = sofs:relation([{a,aa,1},{b,bb,2},{c,cc,3}]).
@@ -20,5 +20,5 @@
     5> sofs:to_external(R3).
     [{a,aa,1}]
 
-  [;;4mdrestriction(F, S1, S2)[0m is equivalent to [;;4m[0m
-  [;;4mdifference(S1, restriction(F, S1, S2))[0m.
+  [4mdrestriction(F, S1, S2)[0m is equivalent to [4m[0m
+  [4mdifference(S1, restriction(F, S1, S2))[0m.

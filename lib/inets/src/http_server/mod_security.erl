@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 1998-2025. All Rights Reserved.
+%% Copyright Ericsson AB 1998-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -376,7 +376,7 @@ secret_path(_Path, [], to_be_found) ->
 secret_path(_Path, [], Dir) ->
     {yes, Dir};
 secret_path(Path, [[NewDir]|Rest], Dir) ->
-    case re:run(Path, NewDir, [{capture, first}]) of
+    case re:run(Path, NewDir, [{capture, first}, caseless]) of
 	{match, _} when Dir =:= to_be_found ->
 	    secret_path(Path, Rest, NewDir);
 	{match, [{_, Length}]} when Length > length(Dir) ->

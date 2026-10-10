@@ -2,47 +2,47 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  read(IoDevice, Number)[0m
+[1m  read(IoDevice, Number)[0m
 
-  Reads [;;4mNumber[0m bytes/characters from the file referenced by [;;4m[0m
-  [;;4mIoDevice[0m.
+  Reads [4mNumber[0m bytes/characters from the file referenced by [4m[0m
+  [4mIoDevice[0m.
 
-  The functions [;;4mread/2[0m, [;;4mpread/3[0m, and [;;4mread_line/1[0m are the only
-  ways to read from a file opened in [;;4mraw[0m mode (although they work
+  The functions [4mread/2[0m, [4mpread/3[0m, and [4mread_line/1[0m are the only
+  ways to read from a file opened in [4mraw[0m mode (although they work
   for normally opened files, too).
 
-  For files where [;;4mencoding[0m is set to something else than [;;4mlatin1[0m,
+  For files where [4mencoding[0m is set to something else than [4mlatin1[0m,
   one character can be represented by more than one byte on the
-  file. The parameter [;;4mNumber[0m always denotes the number of 
+  file. The parameter [4mNumber[0m always denotes the number of 
   characters read from the file, while the position in the file can
   be moved much more than this number when reading a Unicode file.
 
-  Also, if [;;4mencoding[0m is set to something else than [;;4mlatin1[0m, the [;;4m[0m
-  [;;4mread/2[0m call fails if the data contains characters larger than
-  255, which is why [;;4mio:get_chars/3[0m is to be preferred when reading
+  Also, if [4mencoding[0m is set to something else than [4mlatin1[0m, the [4m[0m
+  [4mread/2[0m call fails if the data contains characters larger than
+  255, which is why [4mio:get_chars/3[0m is to be preferred when reading
   such a file.
 
   The function returns:
 
-   • [;;4m{ok, Data}[0m - If the file was opened in binary mode, the
+   • [4m{ok, Data}[0m - If the file was opened in binary mode, the
      read bytes are returned in a binary, otherwise in a list.
      The list or binary is shorter than the number of bytes
      requested if end of file was reached.
 
-   • [;;4meof[0m - Returned if [;;4mNumber>0[0m and end of file was reached
+   • [4meof[0m - Returned if [4mNumber>0[0m and end of file was reached
      before anything at all could be read.
 
-   • [;;4m{error, Reason}[0m - An error occurred.
+   • [4m{error, Reason}[0m - An error occurred.
 
   Typical error reasons:
 
-   • [;;4mebadf[0m - The file is not opened for reading.
+   • [4mebadf[0m - The file is not opened for reading.
 
-   • [;;4m{no_translation, unicode, latin1}[0m - The file is opened with
-     another [;;4mencoding[0m than [;;4mlatin1[0m and the data in the file
+   • [4m{no_translation, unicode, latin1}[0m - The file is opened with
+     another [4mencoding[0m than [4mlatin1[0m and the data in the file
      cannot be translated to the byte-oriented data that this
      function returns.

@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -97,7 +97,7 @@ Returns client object pointer for a listbox or choice selection event (not valid
 deselection).
 """.
 -spec getClientData(This) -> term() when
-	This::wxCommandEvent().
+        This::wxCommandEvent().
 getClientData(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxCommandEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxCommandEvent_getClientData),
@@ -112,7 +112,7 @@ for multiple-selection boxes, and in this case the index and string values are
 indeterminate and the listbox must be examined by the application.
 """.
 -spec getExtraLong(This) -> integer() when
-	This::wxCommandEvent().
+        This::wxCommandEvent().
 getExtraLong(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxCommandEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxCommandEvent_GetExtraLong),
@@ -127,7 +127,7 @@ For a menu item, this method returns -1 if the item is not checkable or a boolea
 (true or false) for checkable items indicating the new state of the item.
 """.
 -spec getInt(This) -> integer() when
-	This::wxCommandEvent().
+        This::wxCommandEvent().
 getInt(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxCommandEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxCommandEvent_GetInt),
@@ -135,7 +135,7 @@ getInt(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns item index for a listbox or choice selection event (not valid for a deselection).".
 -spec getSelection(This) -> integer() when
-	This::wxCommandEvent().
+        This::wxCommandEvent().
 getSelection(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxCommandEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxCommandEvent_GetSelection),
@@ -149,7 +149,7 @@ item. If some items have been selected and others deselected at the same time, i
 return the index of the first selected item.
 """.
 -spec getString(This) -> unicode:charlist() when
-	This::wxCommandEvent().
+        This::wxCommandEvent().
 getString(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxCommandEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxCommandEvent_GetString),
@@ -165,7 +165,7 @@ unchecked (and thus only makes sense for checkable menu items).
 Notice that this method cannot be used with `m:wxCheckListBox` currently.
 """.
 -spec isChecked(This) -> boolean() when
-	This::wxCommandEvent().
+        This::wxCommandEvent().
 isChecked(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxCommandEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxCommandEvent_IsChecked),
@@ -179,7 +179,7 @@ If some items have been selected and others deselected at the same time, it will
 true.
 """.
 -spec isSelection(This) -> boolean() when
-	This::wxCommandEvent().
+        This::wxCommandEvent().
 isSelection(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxCommandEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxCommandEvent_IsSelection),
@@ -187,7 +187,7 @@ isSelection(#wx_ref{type=ThisT}=This) ->
 
 -doc "Sets the `m\_commandInt` member.".
 -spec setInt(This, IntCommand) -> 'ok' when
-	This::wxCommandEvent(), IntCommand::integer().
+        This::wxCommandEvent(), IntCommand::integer().
 setInt(#wx_ref{type=ThisT}=This,IntCommand)
  when is_integer(IntCommand) ->
   ?CLASS(ThisT,wxCommandEvent),
@@ -195,7 +195,7 @@ setInt(#wx_ref{type=ThisT}=This,IntCommand)
 
 -doc "Sets the `m\_commandString` member.".
 -spec setString(This, String) -> 'ok' when
-	This::wxCommandEvent(), String::unicode:chardata().
+        This::wxCommandEvent(), String::unicode:chardata().
 setString(#wx_ref{type=ThisT}=This,String)
  when ?is_chardata(String) ->
   ?CLASS(ThisT,wxCommandEvent),

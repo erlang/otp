@@ -58,7 +58,7 @@
         ]).
 
 -define(REKEY_DATA_TMO, 65000).
--define(ALIVE, {alive, #{count_max => 3, interval => 100}}).
+-define(ALIVE, {alive, #{count_max => 3, interval => ssh_test_lib:alive_interval()}}).
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
@@ -524,7 +524,7 @@ tunnel_in_erlclient_erlserver_denied(Config) ->
 
 %%--------------------------------------------------------------------
 tunnel_in_erlclient_openssh_server(_Config) ->
-    C = ssh_test_lib:connect(?SSH_DEFAULT_PORT, [?ALIVE]),
+    C = ssh_test_lib:connect_with_retry(?SSH_DEFAULT_PORT, [?ALIVE]),
     {ToSock, ToHost, ToPort} = tunneling_listner(),
     
     ListenHost = {127,0,0,1},
@@ -556,7 +556,7 @@ tunnel_out_erlclient_erlserver(Config) ->
 
 %%--------------------------------------------------------------------
 tunnel_out_erlclient_openssh_server(_Config) ->
-    C = ssh_test_lib:connect(?SSH_DEFAULT_PORT, [?ALIVE]),
+    C = ssh_test_lib:connect_with_retry(?SSH_DEFAULT_PORT, [?ALIVE]),
     {ToSock, ToHost, ToPort} = tunneling_listner(),
     
     ListenHost = {127,0,0,1},
@@ -573,9 +573,9 @@ tunneling_listner() ->
     {LSock, LHost, LPort}.
 
 test_tunneling(ListenSocket, Host, Port) ->
-    {ok,Client1} = gen_tcp:connect(Host, Port, [{active,false}]),
+    {ok,Client1} = connect_with_retry(Host, Port, [{active,false}], 10),
     {ok,Server1} = gen_tcp:accept(ListenSocket),
-    {ok,Client2} = gen_tcp:connect(Host, Port, [{active,false}]),
+    {ok,Client2} = connect_with_retry(Host, Port, [{active,false}], 10),
     {ok,Server2} = gen_tcp:accept(ListenSocket),
     send_rcv("Hi!", Client1, Server1),
     send_rcv("Happy to see you!", Server1, Client1),
@@ -585,8 +585,20 @@ test_tunneling(ListenSocket, Host, Port) ->
     send_rcv("Still there?", Client2, Server2),
     send_rcv("Yes!", Server2, Client2),
     close_and_check(Server2, Client2).
-    
-    
+
+
+connect_with_retry(Host, Port, Opts, Retries) ->
+    case gen_tcp:connect(Host, Port, Opts) of
+        {ok, Sock} ->
+            {ok, Sock};
+        {error, econnrefused} when Retries > 0 ->
+            timer:sleep(100),
+            connect_with_retry(Host, Port, Opts, Retries - 1);
+        Other ->
+            Other
+    end.
+
+
 close_and_check(OneSide, OtherSide) ->
     ok = gen_tcp:close(OneSide),
     ok = chk_closed(OtherSide).
@@ -615,7 +627,7 @@ send_rcv(Txt, From, To) ->
 receive_data(Data, Conn) ->
     receive
 	Info when is_binary(Info) ->
-	    Lines = string:tokens(binary_to_list(Info), "\r\n "),
+	    Lines = string:tokens(strip_escape_sequences(Info), "\r\n "),
 	    case lists:member(Data, Lines) of
 		true ->
 		    ct:log("~p:~p  Expected result ~p found in lines: ~p~n", [?MODULE,?LINE,Data,Lines]),
@@ -635,7 +647,16 @@ receive_data(Data, Conn) ->
                           end,
             ct:log("timeout ~p:~p~nExpect ~p~nState = ~p",[?MODULE,?LINE,Data,State]),
             ct:fail("timeout ~p:~p",[?MODULE,?LINE])
-    end.	
+    end.
+
+strip_escape_sequences(Bin) when is_binary(Bin) ->
+    strip_escape_sequences(binary_to_list(Bin));
+strip_escape_sequences(Str) ->
+    %% Remove OSC sequences (\e]...\e\\ or \e]...<BEL>) and
+    %% CSI sequences (\e[...X).
+    %% Handles shell integration (OSC 3008) on Ubuntu 26.04+
+    re:replace(Str, "\e(?:\\][^\e]*(?:\e\\\\|\007)|\\[[0-9;?]*[a-zA-Z])",
+               "", [global, {return, list}]).
 
 receive_logout() ->
     receive

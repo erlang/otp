@@ -132,11 +132,6 @@ table. It also causes upper/lower casing operations to use Unicode properties
 for characters with code points greater than 127, even when UTF is not set.
 These behaviours can be changed within the pattern; see [Internal Option Setting](`m:re#sect10`).
 
-Some applications that allow their users to supply patterns may wish to
-restrict them for security reasons. If the `never_ucp` option is passed to
-`compile/2`, `(*UCP)` is not allowed, and its appearance in a pattern
-causes an error.
-
 _Locking Out Empty String Matching_
 
 Starting a pattern with `(*NOTEMPTY)` or `(*NOTEMPTY_ATSTART)` has the same effect

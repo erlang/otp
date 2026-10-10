@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -141,7 +141,7 @@ Event types emitted from this class:
   move/2,move/3,move/4,moveAfterInTabOrder/2,moveBeforeInTabOrder/2,
   navigate/1,navigate/2,pageDown/1,pageUp/1,parent_class/1,popupMenu/2,
   popupMenu/3,popupMenu/4,raise/1,refresh/1,refresh/2,refreshRect/2,refreshRect/3,
-  releaseMouse/1,removeChild/2,reparent/2,screenToClient/1,screenToClient/2,
+  releaseMouse/1,removeChild/2,reparent/2,screenToClient/2,screenToClient/3,
   scrollLines/2,scrollPages/2,scrollWindow/3,scrollWindow/4,setAcceleratorTable/2,
   setAutoLayout/2,setBackgroundColour/2,setBackgroundStyle/2,setCaret/2,
   setClientSize/2,setClientSize/3,setContainingSizer/2,setCursor/2,
@@ -172,7 +172,7 @@ new() ->
 
 -doc(#{equiv => new(Parent, [])}).
 -spec new(Parent) -> wxSplitterWindow() when
-	Parent::wxWindow:wxWindow().
+        Parent::wxWindow:wxWindow().
 
 new(Parent)
  when is_record(Parent, wx_ref) ->
@@ -215,7 +215,7 @@ new(#wx_ref{type=ParentT}=Parent, Options)
 
 -doc(#{equiv => create(This,Parent, [])}).
 -spec create(This, Parent) -> boolean() when
-	This::wxSplitterWindow(), Parent::wxWindow:wxWindow().
+        This::wxSplitterWindow(), Parent::wxWindow:wxWindow().
 
 create(This,Parent)
  when is_record(This, wx_ref),is_record(Parent, wx_ref) ->
@@ -251,7 +251,7 @@ Returns the current minimum pane size (defaults to zero).
 See: `setMinimumPaneSize/2`
 """.
 -spec getMinimumPaneSize(This) -> integer() when
-	This::wxSplitterWindow().
+        This::wxSplitterWindow().
 getMinimumPaneSize(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSplitterWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxSplitterWindow_GetMinimumPaneSize),
@@ -263,7 +263,7 @@ Returns the current sash gravity.
 See: `setSashGravity/2`
 """.
 -spec getSashGravity(This) -> number() when
-	This::wxSplitterWindow().
+        This::wxSplitterWindow().
 getSashGravity(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSplitterWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxSplitterWindow_GetSashGravity),
@@ -275,7 +275,7 @@ Returns the current sash position.
 See: `setSashPosition/3`
 """.
 -spec getSashPosition(This) -> integer() when
-	This::wxSplitterWindow().
+        This::wxSplitterWindow().
 getSashPosition(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSplitterWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxSplitterWindow_GetSashPosition),
@@ -293,7 +293,7 @@ See:
 """.
 %%  Res = ?wxSPLIT_HORIZONTAL | ?wxSPLIT_VERTICAL
 -spec getSplitMode(This) -> wx:wx_enum() when
-	This::wxSplitterWindow().
+        This::wxSplitterWindow().
 getSplitMode(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSplitterWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxSplitterWindow_GetSplitMode),
@@ -301,7 +301,7 @@ getSplitMode(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the left/top or only pane.".
 -spec getWindow1(This) -> wxWindow:wxWindow() when
-	This::wxSplitterWindow().
+        This::wxSplitterWindow().
 getWindow1(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSplitterWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxSplitterWindow_GetWindow1),
@@ -309,7 +309,7 @@ getWindow1(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the right/bottom pane.".
 -spec getWindow2(This) -> wxWindow:wxWindow() when
-	This::wxSplitterWindow().
+        This::wxSplitterWindow().
 getWindow2(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSplitterWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxSplitterWindow_GetWindow2),
@@ -329,7 +329,7 @@ See:
 * `splitHorizontally/4`
 """.
 -spec initialize(This, Window) -> 'ok' when
-	This::wxSplitterWindow(), Window::wxWindow:wxWindow().
+        This::wxSplitterWindow(), Window::wxWindow:wxWindow().
 initialize(#wx_ref{type=ThisT}=This,#wx_ref{type=WindowT}=Window) ->
   ?CLASS(ThisT,wxSplitterWindow),
   ?CLASS(WindowT,wxWindow),
@@ -337,7 +337,7 @@ initialize(#wx_ref{type=ThisT}=This,#wx_ref{type=WindowT}=Window) ->
 
 -doc "Returns true if the window is split, false otherwise.".
 -spec isSplit(This) -> boolean() when
-	This::wxSplitterWindow().
+        This::wxSplitterWindow().
 isSplit(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSplitterWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxSplitterWindow_IsSplit),
@@ -359,7 +359,7 @@ delete the replaced window and you may wish to do it yourself.
 See: `getMinimumPaneSize/1`
 """.
 -spec replaceWindow(This, WinOld, WinNew) -> boolean() when
-	This::wxSplitterWindow(), WinOld::wxWindow:wxWindow(), WinNew::wxWindow:wxWindow().
+        This::wxSplitterWindow(), WinOld::wxWindow:wxWindow(), WinNew::wxWindow:wxWindow().
 replaceWindow(#wx_ref{type=ThisT}=This,#wx_ref{type=WinOldT}=WinOld,#wx_ref{type=WinNewT}=WinNew) ->
   ?CLASS(ThisT,wxSplitterWindow),
   ?CLASS(WinOldT,wxWindow),
@@ -392,7 +392,7 @@ See the example code creating `m:wxSplitterWindow` in the splitter sample for mo
 See: `getSashGravity/1`
 """.
 -spec setSashGravity(This, Gravity) -> 'ok' when
-	This::wxSplitterWindow(), Gravity::number().
+        This::wxSplitterWindow(), Gravity::number().
 setSashGravity(#wx_ref{type=ThisT}=This,Gravity)
  when is_number(Gravity) ->
   ?CLASS(ThisT,wxSplitterWindow),
@@ -400,7 +400,7 @@ setSashGravity(#wx_ref{type=ThisT}=This,Gravity)
 
 -doc(#{equiv => setSashPosition(This,Position, [])}).
 -spec setSashPosition(This, Position) -> 'ok' when
-	This::wxSplitterWindow(), Position::integer().
+        This::wxSplitterWindow(), Position::integer().
 
 setSashPosition(This,Position)
  when is_record(This, wx_ref),is_integer(Position) ->
@@ -436,7 +436,7 @@ window may be unsplit even if minimum size is non-zero.
 See: `getMinimumPaneSize/1`
 """.
 -spec setMinimumPaneSize(This, PaneSize) -> 'ok' when
-	This::wxSplitterWindow(), PaneSize::integer().
+        This::wxSplitterWindow(), PaneSize::integer().
 setMinimumPaneSize(#wx_ref{type=ThisT}=This,PaneSize)
  when is_integer(PaneSize) ->
   ?CLASS(ThisT,wxSplitterWindow),
@@ -455,7 +455,7 @@ See:
 * `splitHorizontally/4`
 """.
 -spec setSplitMode(This, Mode) -> 'ok' when
-	This::wxSplitterWindow(), Mode::integer().
+        This::wxSplitterWindow(), Mode::integer().
 setSplitMode(#wx_ref{type=ThisT}=This,Mode)
  when is_integer(Mode) ->
   ?CLASS(ThisT,wxSplitterWindow),
@@ -463,7 +463,7 @@ setSplitMode(#wx_ref{type=ThisT}=This,Mode)
 
 -doc(#{equiv => splitHorizontally(This,Window1,Window2, [])}).
 -spec splitHorizontally(This, Window1, Window2) -> boolean() when
-	This::wxSplitterWindow(), Window1::wxWindow:wxWindow(), Window2::wxWindow:wxWindow().
+        This::wxSplitterWindow(), Window1::wxWindow:wxWindow(), Window2::wxWindow:wxWindow().
 
 splitHorizontally(This,Window1,Window2)
  when is_record(This, wx_ref),is_record(Window1, wx_ref),is_record(Window2, wx_ref) ->
@@ -503,7 +503,7 @@ splitHorizontally(#wx_ref{type=ThisT}=This,#wx_ref{type=Window1T}=Window1,#wx_re
 
 -doc(#{equiv => splitVertically(This,Window1,Window2, [])}).
 -spec splitVertically(This, Window1, Window2) -> boolean() when
-	This::wxSplitterWindow(), Window1::wxWindow:wxWindow(), Window2::wxWindow:wxWindow().
+        This::wxSplitterWindow(), Window1::wxWindow:wxWindow(), Window2::wxWindow:wxWindow().
 
 splitVertically(This,Window1,Window2)
  when is_record(This, wx_ref),is_record(Window1, wx_ref),is_record(Window2, wx_ref) ->
@@ -543,7 +543,7 @@ splitVertically(#wx_ref{type=ThisT}=This,#wx_ref{type=Window1T}=Window1,#wx_ref{
 
 -doc(#{equiv => unsplit(This, [])}).
 -spec unsplit(This) -> boolean() when
-	This::wxSplitterWindow().
+        This::wxSplitterWindow().
 
 unsplit(This)
  when is_record(This, wx_ref) ->
@@ -587,7 +587,7 @@ sending a size event to the parent window), and then call this function, before 
 the top-level window.
 """.
 -spec updateSize(This) -> 'ok' when
-	This::wxSplitterWindow().
+        This::wxSplitterWindow().
 updateSize(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSplitterWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxSplitterWindow_UpdateSize).
@@ -736,9 +736,9 @@ scrollPages(This,Pages) -> wxWindow:scrollPages(This,Pages).
 -doc false.
 scrollLines(This,Lines) -> wxWindow:scrollLines(This,Lines).
 -doc false.
-screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
+screenToClient(This,X,Y) -> wxWindow:screenToClient(This,X,Y).
 -doc false.
-screenToClient(This) -> wxWindow:screenToClient(This).
+screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
 -doc false.
 reparent(This,NewParent) -> wxWindow:reparent(This,NewParent).
 -doc false.

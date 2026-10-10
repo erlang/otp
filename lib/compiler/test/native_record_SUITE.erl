@@ -26,7 +26,9 @@
 	 init_per_group/2,end_per_group/2,
          local_basic/1,local_updates/1,non_atomic_names/1,
          external_records/1,any_record/1,
-         matching/1,is_record_bif/1,type_opts/1]).
+         matching/1,is_record_bif/1,type_opts/1,fail_label/1,
+         sys_core_nomatch/1,
+         cerl_update_tree/1]).
 
 %% Unexported records.
 -record #empty{}.
@@ -68,13 +70,15 @@ groups() ->
        external_records,
        matching,
        is_record_bif,
-       type_opts
+       type_opts,
+       fail_label,
+       sys_core_nomatch,
+       cerl_update_tree
       ]}].
 
 init_per_suite(Config) ->
     id(Config),
     test_lib:recompile(?MODULE),
-    {module,ext_records} = code:ensure_loaded(ext_records),
     Config.
 
 end_per_suite(_Config) ->
@@ -122,6 +126,8 @@ local_basic(_Config) ->
     ?assertError({badrecord,ARec}, ARec#b{x=99}),
     ?assertError({badfield,{{?MODULE,b},bad_field}},
                  BRec#b{bad_field = some_value}),
+    ?assertError({badfield,{{?MODULE,b},bad_field}},
+                 (#b{})#b{bad_field = some_value}),
 
     %% Test errors when accessing native records.
     ?assertError({badfield,{{?MODULE,b},zoo}}, BRec#b.zoo),
@@ -421,6 +427,13 @@ matching(_Config) ->
     none = match_bin(#b{z = #a{x = <<0,42>>, y = 0}}),
     none = match_bin(#b{z = #a{x = 0, y = 0}}),
     none = match_bin(#b{z = #b{}}),
+
+    case #rem{} of
+        #rem{non_existing=_} ->
+            error(should_not_match);
+        #rem{} ->
+            ok
+    end,
 
     ok.
 
@@ -797,6 +810,39 @@ type_opt_ccc(A, B) ->
         #b_set{} ->
             ok
     end.
+
+%% cerl:update_tree/2 did not handle record and record_pair nodes.
+
+cerl_update_tree(_Config) ->
+    Pair = cerl:c_record_pair(cerl:c_atom(f), cerl:c_int(1)),
+    Pair = cerl:update_tree(Pair, cerl:subtrees(Pair)),
+    R = cerl:c_record(cerl:c_atom(rec), [Pair]),
+    R = cerl:update_tree(R, cerl:subtrees(R)),
+    ok.
+
+%% Compiler passes did not handle put_record/6 instruction with
+%% a non-zero fail label.
+fail_label(_Config) ->
+    [true] = ext_creation(),
+    [true] = ext_update(#ext_records:vector{}),
+    ok.
+
+
+ext_creation() ->
+    [try #ext_records:vector{a = 1} catch _:_ -> true end].
+
+ext_update(R) ->
+    [try R#ext_records:vector{a = 1} catch _:_ -> true end].
+
+%% gh-11724: Crash in sys_core_fold. A nomatch warning should be
+%% emitted for `sys_core_nomatch_1/1`.
+sys_core_nomatch(_Config) ->
+    ?assertError({badmatch,#{true:=0}}, sys_core_nomatch_1(id(0))),
+    ok.
+
+sys_core_nomatch_1(X) ->
+    #d{f = X} = #{true => X},
+    ok.
 
 %%% Common utilities.
 

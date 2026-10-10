@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2017-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2017-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -241,21 +241,21 @@ The generic URI syntax consists of a hierarchical sequence of components
 referred to as the scheme, authority, path, query, and fragment:
 
 ```text
-    URI         = scheme ":" hier-part [ "?" query ] [ "#" fragment ]
-    hier-part   = "//" authority path-abempty
-                   / path-absolute
-                   / path-rootless
-                   / path-empty
-    scheme      = ALPHA *( ALPHA / DIGIT / "+" / "-" / "." )
-    authority   = [ userinfo "@" ] host [ ":" port ]
-    userinfo    = *( unreserved / pct-encoded / sub-delims / ":" )
+URI         = scheme ":" hier-part [ "?" query ] [ "#" fragment ]
+hier-part   = "//" authority path-abempty
+               / path-absolute
+               / path-rootless
+               / path-empty
+scheme      = ALPHA *( ALPHA / DIGIT / "+" / "-" / "." )
+authority   = [ userinfo "@" ] host [ ":" port ]
+userinfo    = *( unreserved / pct-encoded / sub-delims / ":" )
 
-    reserved    = gen-delims / sub-delims
-    gen-delims  = ":" / "/" / "?" / "#" / "[" / "]" / "@"
-    sub-delims  = "!" / "$" / "&" / "'" / "(" / ")"
-                / "*" / "+" / "," / ";" / "="
+reserved    = gen-delims / sub-delims
+gen-delims  = ":" / "/" / "?" / "#" / "[" / "]" / "@"
+sub-delims  = "!" / "$" / "&" / "'" / "(" / ")"
+            / "*" / "+" / "," / ";" / "="
 
-    unreserved  = ALPHA / DIGIT / "-" / "." / "_" / "~"
+unreserved  = ALPHA / DIGIT / "-" / "." / "_" / "~"
 ```
 
 The interpretation of a URI depends only on the characters used and not on how
@@ -513,8 +513,9 @@ See also the opposite operation `recompose/1`.
 
 ```erlang
 1> uri_string:parse("foo://user@example.com:8042/over/there?name=ferret#nose").
-#{port => 8042,scheme => "foo",path => "/over/there",host => "example.com",
-  fragment => "nose",query => "name=ferret",userinfo => "user"}
+#{fragment => "nose",host => "example.com",
+  path => "/over/there",port => 8042,query => "name=ferret",
+  scheme => "foo",userinfo => "user"}
 2> uri_string:parse(<<"foo://user@example.com:8042/over/there?name=ferret">>).
 #{port => 8042,scheme => <<"foo">>,path => <<"/over/there">>,
   host => <<"example.com">>,query => <<"name=ferret">>,userinfo => <<"user">>}
@@ -525,8 +526,7 @@ See also the opposite operation `recompose/1`.
 -doc(#{since => <<"OTP 21.0">>}).
 -spec parse(URIString) -> URIMap when
       URIString :: uri_string(),
-      URIMap :: uri_map()
-              | error().
+      URIMap :: uri_map() | error().
 parse(URIString) when is_binary(URIString) ->
     try parse_uri_reference(URIString, #{})
     catch
@@ -556,13 +556,14 @@ See also the opposite operation `parse/1`.
 
 ```erlang
 1> URIMap = #{fragment => "nose", host => "example.com", path => "/over/there",
-   port => 8042, query => "name=ferret", scheme => "foo", userinfo => "user"}.
-#{port => 8042,scheme => "foo",path => "/over/there",host => "example.com",
-  fragment => "nose",query => "name=ferret",userinfo => "user"}
+              port => 8042, query => "name=ferret", scheme => "foo",
+              userinfo => "user"}.
+#{fragment => "nose",host => "example.com",
+  path => "/over/there",port => 8042,query => "name=ferret",
+  scheme => "foo",userinfo => "user"}
+
 2> uri_string:recompose(URIMap).
 "foo://user@example.com:8042/over/there?name=ferret#nose"
-3> uri_string:recompose(#{}).
-{error,invalid_map,#{}}
 ```
 """.
 -doc(#{since => <<"OTP 21.0">>}).
@@ -592,7 +593,24 @@ recompose(Map) ->
 %%-------------------------------------------------------------------------
 %% Resolve URIs
 %%-------------------------------------------------------------------------
--doc(#{equiv => resolve(RefURI, BaseURI, [])}).
+-doc """
+Convert a `RefURI` reference that might be relative to a given base URI into the
+parsed components of the reference's target and return the resulting `TargetURI`
+as a percent-encoded URI string.
+
+_Example:_
+
+```erlang
+1> uri_string:resolve("/abs/ol/ute", "http://localhost/a/b/c?q").
+"http://localhost/abs/ol/ute"
+2> uri_string:resolve("../relative", "http://localhost/a/b/c?q").
+"http://localhost/a/relative"
+3> uri_string:resolve("http://localhost/full", "http://localhost/a/b/c?q").
+"http://localhost/full"
+4> uri_string:resolve(#{path => "path", query => "xyz"}, "http://localhost/a/b/c?q").
+"http://localhost/a/b/path?xyz"
+```
+""".
 -doc(#{since => <<"OTP 22.3">>}).
 -spec resolve(RefURI, BaseURI) -> TargetURI when
       RefURI :: uri_string() | uri_map(),
@@ -669,10 +687,11 @@ returned.
 
 ```erlang
 1> uri_string:transcode(<<"foo%00%00%00%F6bar"/utf32>>,
-   [{in_encoding, utf32},{out_encoding, utf8}]).
-<<"foo%C3%B6bar">>
-2> uri_string:transcode(<<255,255>>, [{in_encoding, utf8},{out_encoding, utf8}]).
-{error,invalid_input,<<255,255>>}
+     [{in_encoding, utf32},{out_encoding, utf8}]).
+<<"foo%C3%B6bar"/utf8>>
+2> uri_string:transcode("foo%F6bar", [{in_encoding, latin1},
+                                      {out_encoding, utf8}]).
+"foo%C3%B6bar"
 ```
 """.
 -doc(#{since => <<"OTP 21.0">>}).
@@ -766,10 +785,10 @@ If the input encoding is not UTF-8, an error tuple is returned.
 
 ```erlang
 1> uri_string:percent_decode(#{host => "localhost-%C3%B6rebro",path => [],
-   scheme => "http"}).
-#{scheme => "http",path => [],host => "localhost-örebro"}
-2> uri_string:percent_decode(#{host => "%zz"}).
-{error,{invalid,{host,{invalid_percent_encoding,<<"%zz">>}}}}
+                               scheme => "http"}).
+#{host => "localhost-örebro",path => [], scheme => "http"}
+2> uri_string:percent_decode(<<"%C3%B6rebro">>).
+<<"örebro"/utf8>>
 ```
 
 > #### Warning {: .warning }
@@ -879,7 +898,7 @@ Percent decode characters.
 > unexpected results.
 """.
 -doc(#{since => <<"OTP 25.0">>}).
--spec unquote(QuotedData) -> Data when
+-spec unquote(QuotedData) -> Data | error() when
       QuotedData :: unicode:chardata(),
       Data :: unicode:chardata().
 unquote(D) ->
@@ -943,13 +962,12 @@ See also the opposite operation `dissect_query/1`.
 ## Examples
 
 ```erlang
-1> uri_string:compose_query([{"foo bar","1"},{"city","örebro"}]).
-"foo+bar=1&city=%C3%B6rebro"
-2> uri_string:compose_query([{"foo bar","1"},{"city","örebro"}],
-   [{encoding, latin1}]).
+1> uri_string:compose_query([{"foo bar","1"},{"city","örebro"}],
+                            [{encoding, latin1}]).
 "foo+bar=1&city=%F6rebro"
-3> uri_string:compose_query([{"foo", 123}]).
-{error,invalid_input,123}
+2> uri_string:compose_query([{<<"foo bar">>,<<"1">>},
+                             {<<"city">>,<<"東京"/utf8>>}], [{encoding, latin1}]).
+<<"foo+bar=1&city=%26%2326481%3B%26%2320140%3B">>
 ```
 """.
 -doc(#{since => <<"OTP 21.0">>}).
@@ -1056,6 +1074,10 @@ parse_uri_reference(<<>>, _) -> #{path => <<>>};
 parse_uri_reference(URIString, URI) ->
     try parse_scheme_start(URIString, URI)
     catch
+        throw:{hier_error,E} ->
+            %% Failed when parsing the hier (that is after the `:`), so input is
+            %% unambiguously a URI; the inner error pinpoints the real problem.
+            throw(E);
         throw:{_,_,_} ->
             parse_relative_part(URIString, URI)
     end.
@@ -1237,8 +1259,13 @@ maybe_add_path(Map) ->
 
 -spec parse_scheme(binary(), uri_map()) -> {binary(), uri_map()}.
 parse_scheme(?STRING_REST($:, Rest), URI) ->
-    {_, URI1} = parse_hier(Rest, URI),
-    {Rest, URI1};
+    %% Past the scheme separator, any error after this would use
+    %% the error location from parse_hier (GH-7862).
+    try parse_hier(Rest, URI) of
+        {_, URI1} -> {Rest, URI1}
+    catch
+        throw:{error,invalid_uri,_} = E -> throw({hier_error,E})
+    end;
 parse_scheme(?STRING_REST(Char, Rest), URI) ->
     case is_scheme(Char) of
         true  -> parse_scheme(Rest, URI);
@@ -1774,12 +1801,14 @@ calculate_parsed_query_fragment(Input, Unparsed) ->
 
 get_port(<<>>) ->
     undefined;
-get_port(B) ->
+get_port(B) when byte_size(B) =< 5 ->
     try binary_to_integer(B)
     catch
         error:badarg ->
             throw({error, invalid_uri, B})
-    end.
+    end;
+get_port(B) ->
+    throw({error, invalid_uri, B}).
 
 
 %% Strip last char if it is in list
@@ -2070,30 +2099,27 @@ validate_scheme(<<H, Rest/binary>>) ->
 %% other - address shall be percent-encoded
 %%-------------------------------------------------------------------------
 classify_host([]) -> other;
-classify_host(Addr) when is_binary(Addr) ->
-    A = unicode:characters_to_list(Addr),
-    classify_host_ipv6(A);
 classify_host(Addr) ->
-    classify_host_ipv6(Addr).
-
-classify_host_ipv6(Addr) ->
     case is_ipv6_address(Addr) of
         true -> ipv6;
-        false -> classify_host_ipv4(Addr)
+        false ->
+            case is_ipv4_address(Addr) of
+                true -> ipv4;
+                false when is_binary(Addr) ->
+                    classify_host_regname(
+                      unicode:characters_to_list(Addr));
+                false ->
+                    classify_host_regname(Addr)
+            end
     end.
 
-classify_host_ipv4(Addr) ->
-    case is_ipv4_address(Addr) of
-        true -> ipv4;
-        false -> classify_host_regname(Addr)
-    end.
-
-classify_host_regname([]) -> regname;
 classify_host_regname([H|T]) ->
     case is_reg_name(H) of
         true -> classify_host_regname(T);
         false -> other
-    end.
+    end;
+classify_host_regname([]) ->
+    regname.
 
 is_ipv4_address(Addr) ->
     case inet:parse_ipv4strict_address(Addr) of
@@ -2509,11 +2535,11 @@ form_urlencode(Cs, [{encoding, latin1}]) when is_list(Cs) ->
 form_urlencode(Cs, [{encoding, latin1}]) when is_binary(Cs) ->
     html5_byte_encode(base10_encode(Cs));
 form_urlencode(Cs, [{encoding, Encoding}])
-  when is_list(Cs), Encoding =:= utf8; Encoding =:= unicode ->
+  when is_list(Cs), (Encoding =:= utf8 orelse Encoding =:= unicode) ->
     B = convert_to_binary(Cs, utf8, Encoding),
     html5_byte_encode(B);
 form_urlencode(Cs, [{encoding, Encoding}])
-  when is_binary(Cs), Encoding =:= utf8; Encoding =:= unicode ->
+  when is_binary(Cs), (Encoding =:= utf8 orelse Encoding =:= unicode) ->
     html5_byte_encode(Cs);
 form_urlencode(Cs, [{encoding, Encoding}]) when is_list(Cs); is_binary(Cs) ->
     throw({error,invalid_encoding, Encoding});

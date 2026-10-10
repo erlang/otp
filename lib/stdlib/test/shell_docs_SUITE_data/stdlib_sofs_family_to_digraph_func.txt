@@ -2,32 +2,32 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  family_to_digraph(Family)[0m
+[1m  family_to_digraph(Family)[0m
 
   There is no documentation for family_to_digraph(Family, [])
 
-[;1m  family_to_digraph(Family, GraphType)[0m
+[1m  family_to_digraph(Family, GraphType)[0m
 
-  Creates a directed graph from family [;;4mFamily[0m.
+  Creates a directed graph from family [4mFamily[0m.
 
-  For each pair (a, {b[1], ..., b[n]}) of [;;4mFamily[0m, vertex a and the
+  For each pair (a, {b[1], ..., b[n]}) of [4mFamily[0m, vertex a and the
   edges (a, b[i]) for 1 <= i <= n are added to a newly created
   directed graph.
 
-  [;;4mGraphType[0m is passed on to [;;4mdigraph:new/1[0m.
+  [4mGraphType[0m is passed on to [4mdigraph:new/1[0m.
 
-  It F is a family, it holds that F is a subset of [;;4m[0m
-  [;;4mdigraph_to_family(family_to_digraph(F), type(F))[0m. Equality holds
-  if [;;4munion_of_family(F)[0m is a subset of [;;4mdomain(F)[0m.
+  It F is a family, it holds that F is a subset of [4m[0m
+  [4mdigraph_to_family(family_to_digraph(F), type(F))[0m. Equality holds
+  if [4munion_of_family(F)[0m is a subset of [4mdomain(F)[0m.
 
-  Creating a cycle in an acyclic graph exits the process with a [;;4m[0m
-  [;;4mcyclic[0m message.
+  Creating a cycle in an acyclic graph exits the process with a [4m[0m
+  [4mcyclic[0m message.
 
-[;1mExamples[0m
+[1mExamples[0m
 
     1> F1 = sofs:family([{1,[a,b]}, {2,[c,d]}, {3,[d]}, {a,[b]}]).
     2> G = sofs:family_to_digraph(F1, []).

@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2011-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2011-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -22,8 +22,8 @@
 
 <<wxTaskBarIcon_class
 class EwxTaskBarIcon : public wxTaskBarIcon {
- public: ~EwxTaskBarIcon() {((WxeApp *)wxTheApp)->clearPtr(this);};
- EwxTaskBarIcon(wxTaskBarIconType iconType) : wxTaskBarIcon(iconType) { createPopupMenu = 0; };
+ public: ~EwxTaskBarIcon() {clear_cb(me_ref, createPopupMenu); ((WxeApp *)wxTheApp)->clearPtr(this);};
+ EwxTaskBarIcon(wxTaskBarIconType iconType) : wxTaskBarIcon(iconType) { createPopupMenu = 0; me_ref = NULL; };
 
  int createPopupMenu;
  wxe_me_ref *me_ref;

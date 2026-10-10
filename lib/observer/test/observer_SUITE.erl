@@ -597,7 +597,7 @@ ensure_observer_stopped(_) ->
 	Pid when is_pid(Pid) ->
 	    ?P("~s(~w) -> observer process still running: kill"
 	       "~n   ~p", [?FUNCTION_NAME, ?LINE, erlang:process_info(Pid)]),
-	    exit(kill, Pid),
+            erlang:exit_signal(kill, Pid),
 	    ok
     end.
 

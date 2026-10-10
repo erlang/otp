@@ -161,6 +161,8 @@ format_one({h5,_,Hs}) ->
     format_one({h3,[],Hs});
 format_one({p,_,Ps}) ->
     format_p(Ps);
+format_one({br,_,_}) ->
+    ~".br\n";
 format_one({pre,_,Ps}) ->
     format_pre(Ps);
 format_one({ol,_,Ol}) ->

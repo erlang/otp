@@ -92,7 +92,8 @@ suite() ->
 
 all() -> 
     Groups = [{api, "ENET_TEST_API", include}],
-    [use_group(Group, Env, Default) || {Group, Env, Default} <- Groups].
+    [Spec || {Group, Env, Default} <- Groups,
+             Spec <- use_group(Group, Env, Default)].
 
 use_group(Group, Env, Default) ->
 	case os:getenv(Env) of

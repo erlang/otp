@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2015-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2015-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -111,13 +111,18 @@ find_issuer(IsIssuerFun, Db, _) ->
 verify_crl_issuer(CRL, #cert{otp = OTPCertCandidate}, Issuer, NotIssuer) ->
     TBSCert = OTPCertCandidate#'OTPCertificate'.tbsCertificate,
     case public_key:pkix_normalize_name(TBSCert#'OTPTBSCertificate'.subject) of
-	Issuer ->
-	    case public_key:pkix_crl_verify(CRL, OTPCertCandidate) of
-		true ->
-		    throw({ok, OTPCertCandidate});
-		false ->
-		    NotIssuer
-	    end;
-	_ ->
-	    NotIssuer
+        Issuer ->
+            try public_key:pkix_crl_verify(CRL, OTPCertCandidate) of
+                true ->
+                    throw({ok, OTPCertCandidate});
+                false ->
+                    NotIssuer
+            catch _:_ ->
+                    %% Fail gracefully unlikely to happen in valid use cases
+                    ?LOG_WARNING("SSL WARNING: Ignoring CRL "
+                                 "unexpected signature algorithm", [CRL]),
+                    NotIssuer
+            end;
+        _ ->
+            NotIssuer
     end.

@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -100,7 +100,7 @@ new(Options)
 
 -doc "Get the string to find.".
 -spec getFindString(This) -> unicode:charlist() when
-	This::wxFindReplaceData().
+        This::wxFindReplaceData().
 getFindString(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxFindReplaceData),
   wxe_util:queue_cmd(This,?get_env(),?wxFindReplaceData_GetFindString),
@@ -108,7 +108,7 @@ getFindString(#wx_ref{type=ThisT}=This) ->
 
 -doc "Get the replacement string.".
 -spec getReplaceString(This) -> unicode:charlist() when
-	This::wxFindReplaceData().
+        This::wxFindReplaceData().
 getReplaceString(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxFindReplaceData),
   wxe_util:queue_cmd(This,?get_env(),?wxFindReplaceData_GetReplaceString),
@@ -116,7 +116,7 @@ getReplaceString(#wx_ref{type=ThisT}=This) ->
 
 -doc "Get the combination of `wxFindReplaceFlags` values.".
 -spec getFlags(This) -> integer() when
-	This::wxFindReplaceData().
+        This::wxFindReplaceData().
 getFlags(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxFindReplaceData),
   wxe_util:queue_cmd(This,?get_env(),?wxFindReplaceData_GetFlags),
@@ -124,7 +124,7 @@ getFlags(#wx_ref{type=ThisT}=This) ->
 
 -doc "Set the flags to use to initialize the controls of the dialog.".
 -spec setFlags(This, Flags) -> 'ok' when
-	This::wxFindReplaceData(), Flags::integer().
+        This::wxFindReplaceData(), Flags::integer().
 setFlags(#wx_ref{type=ThisT}=This,Flags)
  when is_integer(Flags) ->
   ?CLASS(ThisT,wxFindReplaceData),
@@ -132,7 +132,7 @@ setFlags(#wx_ref{type=ThisT}=This,Flags)
 
 -doc "Set the string to find (used as initial value by the dialog).".
 -spec setFindString(This, Str) -> 'ok' when
-	This::wxFindReplaceData(), Str::unicode:chardata().
+        This::wxFindReplaceData(), Str::unicode:chardata().
 setFindString(#wx_ref{type=ThisT}=This,Str)
  when ?is_chardata(Str) ->
   ?CLASS(ThisT,wxFindReplaceData),
@@ -141,7 +141,7 @@ setFindString(#wx_ref{type=ThisT}=This,Str)
 
 -doc "Set the replacement string (used as initial value by the dialog).".
 -spec setReplaceString(This, Str) -> 'ok' when
-	This::wxFindReplaceData(), Str::unicode:chardata().
+        This::wxFindReplaceData(), Str::unicode:chardata().
 setReplaceString(#wx_ref{type=ThisT}=This,Str)
  when ?is_chardata(Str) ->
   ?CLASS(ThisT,wxFindReplaceData),

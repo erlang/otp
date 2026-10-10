@@ -91,7 +91,8 @@
 
 -export([large_file/0, large_file/1, large_write/0, large_write/1]).
 
--export([read_line_1/1, read_line_2/1, read_line_3/1,read_line_4/1]).
+-export([read_line_1/1,read_line_2/1,read_line_3/1,read_line_4/1,read_line_5/1,
+         read_line_6/1]).
 
 -export([advise/1]).
 
@@ -139,7 +140,7 @@ all() ->
      delayed_write, read_ahead, segment_read, segment_write,
      ipread, interleaved_read_write, otp_5814, otp_10852,
      large_file, large_write, read_line_1, read_line_2, read_line_3,
-     read_line_4, standard_io, old_io_protocol,
+     read_line_4, read_line_5, read_line_6, standard_io, old_io_protocol,
      unicode_mode, {group, bench}
     ].
 
@@ -853,7 +854,7 @@ untranslatable_names_1(Config) ->
     after
 	catch peer:stop(Peer),
 	file:set_cwd(OldCwd),
-	[file:delete(F) || {_,F} <- untranslatable_names()],
+        [file:delete(filename:join(Dir, F)) || {_,F} <- untranslatable_names()],
 	file:del_dir(Dir)
     end,
     ok.
@@ -889,7 +890,7 @@ untranslatable_names_error_1(Config) ->
     after
 	catch peer:stop(Peer),
 	file:set_cwd(OldCwd),
-	[file:delete(F) || {_,F} <- untranslatable_names()],
+        [file:delete(filename:join(Dir, F)) || {_,F} <- untranslatable_names()],
 	file:del_dir(Dir)
     end,
     ok.
@@ -4044,47 +4045,51 @@ otp_10852_1(Config) ->
     {ok, Peer, Node} = ?CT_PEER(["+fnu"]),
     Dir = proplists:get_value(priv_dir, Config),
     B = filename:join(Dir, <<"\xE4">>),
-    ok = rpc_call(Node, get_cwd, [B]),
-    {error, no_translation} = rpc_call(Node, set_cwd, [B]),
-    ok = rpc_call(Node, delete, [B]),
-    ok = rpc_call(Node, rename, [B, B]),
-    ok = rpc_call(Node, read_file_info, [B]),
-    ok = rpc_call(Node, read_link_info, [B]),
-    ok = rpc_call(Node, read_link, [B]),
-    ok = rpc_call(Node, write_file_info, [B,#file_info{}]),
-    ok = rpc_call(Node, list_dir, [B]),
-    ok = rpc_call(Node, list_dir_all, [B]),
-    ok = rpc_call(Node, read_file, [B]),
-    ok = rpc_call(Node, make_link, [B,B]),
-    case rpc_call(Node, make_symlink, [B,B]) of
-        {error, eilseq} ->
-            %% Some versions of OS X refuse to create files with illegal names.
-            {unix,darwin} = os:type();
-        {error, eperm} ->
-            %% The test user might not have permission to create symlinks.
-            {win32,_} = os:type();
-        ok ->
-            ok
+    try
+        ok = rpc_call(Node, get_cwd, [B]),
+        {error, no_translation} = rpc_call(Node, set_cwd, [B]),
+        ok = rpc_call(Node, delete, [B]),
+        ok = rpc_call(Node, rename, [B, B]),
+        ok = rpc_call(Node, read_file_info, [B]),
+        ok = rpc_call(Node, read_link_info, [B]),
+        ok = rpc_call(Node, read_link, [B]),
+        ok = rpc_call(Node, write_file_info, [B,#file_info{}]),
+        ok = rpc_call(Node, list_dir, [B]),
+        ok = rpc_call(Node, list_dir_all, [B]),
+        ok = rpc_call(Node, read_file, [B]),
+        ok = rpc_call(Node, make_link, [B,B]),
+        case rpc_call(Node, make_symlink, [B,B]) of
+            {error, eilseq} ->
+                %% Some versions of OS X refuse to create files with illegal names.
+                {unix,darwin} = os:type();
+            {error, eperm} ->
+                %% The test user might not have permission to create symlinks.
+                {win32,_} = os:type();
+            ok ->
+                ok
+        end,
+        ok = rpc_call(Node, delete, [B]),
+        case rpc_call(Node, make_dir, [B]) of
+            {error, eilseq} ->
+                {unix,darwin} = os:type();
+            ok ->
+                ok
+        end,
+        ok = rpc_call(Node, del_dir, [B]),
+        case rpc_call(Node, write_file, [B,B]) of
+            {error, eilseq} ->
+                {unix,darwin} = os:type();
+            ok ->
+                {ok, Fd} = rpc_call(Node, open, [B,[read]]),
+                ok = rpc_call(Node, close, [Fd]),
+                {ok,0} = rpc_call(Node, copy, [B,B]),
+                {ok, Fd2, B} = rpc_call(Node, path_open, [["."], B, [read]]),
+                ok = rpc_call(Node, close, [Fd2])
+        end
+    after
+        file:delete(B),
+        peer:stop(Peer)
     end,
-    ok = rpc_call(Node, delete, [B]),
-    case rpc_call(Node, make_dir, [B]) of
-        {error, eilseq} ->
-            {unix,darwin} = os:type();
-        ok ->
-            ok
-    end,
-    ok = rpc_call(Node, del_dir, [B]),
-    case rpc_call(Node, write_file, [B,B]) of
-        {error, eilseq} ->
-            {unix,darwin} = os:type();
-        ok ->
-            {ok, Fd} = rpc_call(Node, open, [B,[read]]),
-            ok = rpc_call(Node, close, [Fd]),
-            {ok,0} = rpc_call(Node, copy, [B,B]),
-            {ok, Fd2, B} = rpc_call(Node, path_open, [["."], B, [read]]),
-            ok = rpc_call(Node, close, [Fd2])
-    end,
-    peer:stop(Peer),
     ok.
 
 rpc_call(N, F, As) ->
@@ -4602,6 +4607,50 @@ read_line_4(Config) when is_list(Config) ->
       end || {_,File,_,Y} <- All , Y =:= fail],
     read_line_remove_files(All),
     ok.
+%% read_line with ram file.
+read_line_5(Config) when is_list(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    All = read_line_testdata(PrivDir),
+    read_line_create_files(All),
+    [ begin
+          io:format("read_line_all: ~s~n",[File]),
+          {X,_} = read_line_all5(File),
+          true
+      end || {_,File,X,_} <- All ],
+    [ begin
+          io:format("read_line_all_alternating: ~s~n",[File]),
+          {Y,_} = read_line_all_alternating5(File),
+          true
+      end || {_,File,_,Y} <- All , Y =/= fail],
+    [ begin
+          io:format("read_line_all_alternating (failing as should): ~s~n",[File]),
+          {'EXIT',_} = (catch read_line_all_alternating5(File)),
+          true
+      end || {_,File,_,Y} <- All , Y =:= fail],
+    read_line_remove_files(All),
+    ok.
+%% read_line with cooked ram file.
+read_line_6(Config) when is_list(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    All = read_line_testdata(PrivDir),
+    read_line_create_files(All),
+    [ begin
+          io:format("read_line_all: ~s~n",[File]),
+          {X,_} = read_line_all6(File),
+          true
+      end || {_,File,X,_} <- All ],
+    [ begin
+          io:format("read_line_all_alternating: ~s~n",[File]),
+          {Y,_} = read_line_all_alternating6(File),
+          true
+      end || {_,File,_,Y} <- All , Y =/= fail],
+    [ begin
+          io:format("read_line_all_alternating (failing as should): ~s~n",[File]),
+          {'EXIT',_} = (catch read_line_all_alternating6(File)),
+          true
+      end || {_,File,_,Y} <- All , Y =:= fail],
+    read_line_remove_files(All),
+    ok.
 
 rl_lines() ->
     [ <<"hej">>,<<"hopp">>,<<"i">>,<<"lingon\rskogen">>].
@@ -4716,6 +4765,24 @@ read_line_all4(Filename) ->
     Bin = re:replace(list_to_binary([element(2,file:read_file(Filename))]),
 		     "\r\n","\n",[global,{return,binary}]),
     {length(X),Bin}.
+read_line_all5(Filename) ->
+    {ok, Content} = file:read_file(Filename),
+    {ok,F} = file:open(Content,[read,binary,ram]),
+    X=read_rl_lines2(F),
+    file:close(F),
+    Bin = list_to_binary([B || {ok,B} <- X]),
+    Bin = re:replace(list_to_binary([element(2,file:read_file(Filename))]),
+                     "\r\n","\n",[global,{return,binary}]),
+    {length(X),Bin}.
+read_line_all6(Filename) ->
+    {ok, Content} = file:read_file(Filename),
+    {ok,F} = file:open(Content,[read,binary,ram,cooked]),
+    X=read_rl_lines2(F),
+    file:close(F),
+    Bin = list_to_binary([B || {ok,B} <- X]),
+    Bin = re:replace(list_to_binary([element(2,file:read_file(Filename))]),
+                     "\r\n","\n",[global,{return,binary}]),
+    {length(X),Bin}.
 
 read_rl_lines(F) ->
     case ?PRIM_FILE:read_line(F) of
@@ -4769,6 +4836,24 @@ read_line_all_alternating4(Filename) ->
     Bin = list_to_binary([B || {ok,B} <- X]),
     Bin = re:replace(list_to_binary([element(2,file:read_file(Filename))]),
 		     "\r\n","\n",[global,{return,binary}]),
+    {length(X),Bin}.
+read_line_all_alternating5(Filename) ->
+    {ok, Content} = file:read_file(Filename),
+    {ok,F} = file:open(Content,[read,binary,ram]),
+    X=read_rl_lines2(F,true),
+    file:close(F),
+    Bin = list_to_binary([B || {ok,B} <- X]),
+    Bin = re:replace(list_to_binary([element(2,file:read_file(Filename))]),
+                     "\r\n","\n",[global,{return,binary}]),
+    {length(X),Bin}.
+read_line_all_alternating6(Filename) ->
+    {ok, Content} = file:read_file(Filename),
+    {ok,F} = file:open(Content,[read,binary,ram,cooked]),
+    X=read_rl_lines2(F,true),
+    file:close(F),
+    Bin = list_to_binary([B || {ok,B} <- X]),
+    Bin = re:replace(list_to_binary([element(2,file:read_file(Filename))]),
+                     "\r\n","\n",[global,{return,binary}]),
     {length(X),Bin}.
 
 read_rl_lines(F,Alternate) ->

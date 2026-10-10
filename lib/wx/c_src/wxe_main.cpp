@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright Ericsson AB 2014-2025. All Rights Reserved.
+ * Copyright Ericsson AB 2014-2026. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -82,9 +82,7 @@ int start_native_gui(ErlNifEnv *env)
     enif_mutex_unlock(wxe_status_m);
     return wxe_status;
   } else {
-    wxString msg;
-    msg.Printf(wxT("Erlang failed to create wxe-thread %d\r\n"), res);
-    send_msg("error", &msg);
+    fprintf(stderr, "Erlang failed to create wxe-thread %d\r\n", res);
     return -1;
   }
 }

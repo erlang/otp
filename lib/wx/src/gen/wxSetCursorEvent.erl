@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -96,7 +96,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -doc "Returns a reference to the cursor specified by this event.".
 -spec getCursor(This) -> wxCursor:wxCursor() when
-	This::wxSetCursorEvent().
+        This::wxSetCursorEvent().
 getCursor(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSetCursorEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxSetCursorEvent_GetCursor),
@@ -104,7 +104,7 @@ getCursor(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the X coordinate of the mouse in client coordinates.".
 -spec getX(This) -> integer() when
-	This::wxSetCursorEvent().
+        This::wxSetCursorEvent().
 getX(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSetCursorEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxSetCursorEvent_GetX),
@@ -112,7 +112,7 @@ getX(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the Y coordinate of the mouse in client coordinates.".
 -spec getY(This) -> integer() when
-	This::wxSetCursorEvent().
+        This::wxSetCursorEvent().
 getY(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSetCursorEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxSetCursorEvent_GetY),
@@ -125,7 +125,7 @@ Remark: You cannot specify wxNullCursor with this event, as it is not considered
 cursor.
 """.
 -spec hasCursor(This) -> boolean() when
-	This::wxSetCursorEvent().
+        This::wxSetCursorEvent().
 hasCursor(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSetCursorEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxSetCursorEvent_HasCursor),
@@ -133,7 +133,7 @@ hasCursor(#wx_ref{type=ThisT}=This) ->
 
 -doc "Sets the cursor associated with this event.".
 -spec setCursor(This, Cursor) -> 'ok' when
-	This::wxSetCursorEvent(), Cursor::wxCursor:wxCursor().
+        This::wxSetCursorEvent(), Cursor::wxCursor:wxCursor().
 setCursor(#wx_ref{type=ThisT}=This,#wx_ref{type=CursorT}=Cursor) ->
   ?CLASS(ThisT,wxSetCursorEvent),
   ?CLASS(CursorT,wxCursor),

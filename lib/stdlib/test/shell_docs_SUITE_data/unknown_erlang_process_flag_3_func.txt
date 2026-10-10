@@ -2,15 +2,15 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  process_flag(Pid, Flag, Value)[0m
+[1m  process_flag(Pid, Flag, Value)[0m
 
-  Sets certain flags for the process [;;4mPid[0m, in the same manner as [;;4m[0m
-  [;;4mprocess_flag/2[0m. Returns the old value of the flag. The valid
-  values for [;;4mFlag[0m are only a subset of those allowed in [;;4m[0m
-  [;;4mprocess_flag/2[0m, namely [;;4msave_calls[0m.
+  Sets certain flags for the process [4mPid[0m, in the same manner as [4m[0m
+  [4mprocess_flag/2[0m. Returns the old value of the flag. The valid
+  values for [4mFlag[0m are only a subset of those allowed in [4m[0m
+  [4mprocess_flag/2[0m, namely [4msave_calls[0m.
 
-  Failure: [;;4mbadarg[0m if [;;4mPid[0m is not a local process.
+  Failure: [4mbadarg[0m if [4mPid[0m is not a local process.

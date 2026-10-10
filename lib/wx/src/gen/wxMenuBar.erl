@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -114,7 +114,7 @@ wxWidgets docs: [wxMenuBar](https://docs.wxwidgets.org/3.2/classwx_menu_bar.html
   moveAfterInTabOrder/2,moveBeforeInTabOrder/2,navigate/1,navigate/2,
   pageDown/1,pageUp/1,parent_class/1,popupMenu/2,popupMenu/3,popupMenu/4,
   raise/1,refresh/1,refresh/2,refreshRect/2,refreshRect/3,releaseMouse/1,
-  removeChild/2,reparent/2,screenToClient/1,screenToClient/2,scrollLines/2,
+  removeChild/2,reparent/2,screenToClient/2,screenToClient/3,scrollLines/2,
   scrollPages/2,scrollWindow/3,scrollWindow/4,setAcceleratorTable/2,
   setAutoLayout/2,setBackgroundColour/2,setBackgroundStyle/2,setCaret/2,
   setClientSize/2,setClientSize/3,setContainingSizer/2,setCursor/2,
@@ -145,7 +145,7 @@ new() ->
 
 -doc "".
 -spec new(Style) -> wxMenuBar() when
-	Style::integer().
+        Style::integer().
 new(Style)
  when is_integer(Style) ->
   wxe_util:queue_cmd(Style,?get_env(),?wxMenuBar_new_1),
@@ -159,7 +159,7 @@ Return: true on success, false if an error occurred.
 See: `insert/4`
 """.
 -spec append(This, Menu, Title) -> boolean() when
-	This::wxMenuBar(), Menu::wxMenu:wxMenu(), Title::unicode:chardata().
+        This::wxMenuBar(), Menu::wxMenu:wxMenu(), Title::unicode:chardata().
 append(#wx_ref{type=ThisT}=This,#wx_ref{type=MenuT}=Menu,Title)
  when ?is_chardata(Title) ->
   ?CLASS(ThisT,wxMenuBar),
@@ -175,7 +175,7 @@ Remark: Only use this when the menu bar has been associated with a frame; otherw
 the `m:wxMenu` equivalent call.
 """.
 -spec check(This, Id, Check) -> 'ok' when
-	This::wxMenuBar(), Id::integer(), Check::boolean().
+        This::wxMenuBar(), Id::integer(), Check::boolean().
 check(#wx_ref{type=ThisT}=This,Id,Check)
  when is_integer(Id),is_boolean(Check) ->
   ?CLASS(ThisT,wxMenuBar),
@@ -188,7 +188,7 @@ Remark: Only use this when the menu bar has been associated with a frame; otherw
 the `m:wxMenu` equivalent call.
 """.
 -spec enable(This, Id, Enable) -> 'ok' when
-	This::wxMenuBar(), Id::integer(), Enable::boolean().
+        This::wxMenuBar(), Id::integer(), Enable::boolean().
 enable(#wx_ref{type=ThisT}=This,Id,Enable)
  when is_integer(Id),is_boolean(Enable) ->
   ?CLASS(ThisT,wxMenuBar),
@@ -200,7 +200,7 @@ Enables or disables a whole menu.
 Remark: Only use this when the menu bar has been associated with a frame.
 """.
 -spec enableTop(This, Pos, Enable) -> 'ok' when
-	This::wxMenuBar(), Pos::integer(), Enable::boolean().
+        This::wxMenuBar(), Pos::integer(), Enable::boolean().
 enableTop(#wx_ref{type=ThisT}=This,Pos,Enable)
  when is_integer(Pos),is_boolean(Enable) ->
   ?CLASS(ThisT,wxMenuBar),
@@ -214,7 +214,7 @@ The `title` parameter may specify either the menu title (with accelerator charac
 i.e. `"&File"`) or just the menu label (`"File"`) indifferently.
 """.
 -spec findMenu(This, Title) -> integer() when
-	This::wxMenuBar(), Title::unicode:chardata().
+        This::wxMenuBar(), Title::unicode:chardata().
 findMenu(#wx_ref{type=ThisT}=This,Title)
  when ?is_chardata(Title) ->
   ?CLASS(ThisT,wxMenuBar),
@@ -231,7 +231,7 @@ Remark: Any special menu codes are stripped out of source and target strings bef
 matching.
 """.
 -spec findMenuItem(This, MenuString, ItemString) -> integer() when
-	This::wxMenuBar(), MenuString::unicode:chardata(), ItemString::unicode:chardata().
+        This::wxMenuBar(), MenuString::unicode:chardata(), ItemString::unicode:chardata().
 findMenuItem(#wx_ref{type=ThisT}=This,MenuString,ItemString)
  when ?is_chardata(MenuString),?is_chardata(ItemString) ->
   ?CLASS(ThisT,wxMenuBar),
@@ -246,7 +246,7 @@ Finds the menu item object associated with the given menu item identifier.
 Return: The found menu item object, or NULL if one was not found.
 """.
 -spec findItem(This, Id) -> wxMenuItem:wxMenuItem() when
-	This::wxMenuBar(), Id::integer().
+        This::wxMenuBar(), Id::integer().
 findItem(#wx_ref{type=ThisT}=This,Id)
  when is_integer(Id) ->
   ?CLASS(ThisT,wxMenuBar),
@@ -262,7 +262,7 @@ was not found.
 See: `setHelpString/3`
 """.
 -spec getHelpString(This, Id) -> unicode:charlist() when
-	This::wxMenuBar(), Id::integer().
+        This::wxMenuBar(), Id::integer().
 getHelpString(#wx_ref{type=ThisT}=This,Id)
  when is_integer(Id) ->
   ?CLASS(ThisT,wxMenuBar),
@@ -277,7 +277,7 @@ Return: The menu item label, or the empty string if the item was not found.
 Remark: Use only after the menubar has been associated with a frame.
 """.
 -spec getLabel(This, Id) -> unicode:charlist() when
-	This::wxMenuBar(), Id::integer().
+        This::wxMenuBar(), Id::integer().
 getLabel(#wx_ref{type=ThisT}=This,Id)
  when is_integer(Id) ->
   ?CLASS(ThisT,wxMenuBar),
@@ -286,7 +286,7 @@ getLabel(#wx_ref{type=ThisT}=This,Id)
 
 -doc "Equivalent to: `getMenuLabel/2`".
 -spec getLabelTop(This, Pos) -> unicode:charlist() when
-	This::wxMenuBar(), Pos::integer().
+        This::wxMenuBar(), Pos::integer().
 
 getLabelTop(This,Pos)
  when is_record(This, wx_ref),is_integer(Pos) ->
@@ -308,7 +308,7 @@ See:
 * `setMenuLabel/3`
 """.
 -spec getMenuLabel(This, Pos) -> unicode:charlist() when
-	This::wxMenuBar(), Pos::integer().
+        This::wxMenuBar(), Pos::integer().
 getMenuLabel(#wx_ref{type=ThisT}=This,Pos)
  when is_integer(Pos) ->
   ?CLASS(ThisT,wxMenuBar),
@@ -331,7 +331,7 @@ See:
 * `setMenuLabel/3`
 """.
 -spec getMenuLabelText(This, Pos) -> unicode:charlist() when
-	This::wxMenuBar(), Pos::integer().
+        This::wxMenuBar(), Pos::integer().
 getMenuLabelText(#wx_ref{type=ThisT}=This,Pos)
  when is_integer(Pos) ->
   ?CLASS(ThisT,wxMenuBar),
@@ -340,7 +340,7 @@ getMenuLabelText(#wx_ref{type=ThisT}=This,Pos)
 
 -doc "Returns the menu at `menuIndex` (zero-based).".
 -spec getMenu(This, MenuIndex) -> wxMenu:wxMenu() when
-	This::wxMenuBar(), MenuIndex::integer().
+        This::wxMenuBar(), MenuIndex::integer().
 getMenu(#wx_ref{type=ThisT}=This,MenuIndex)
  when is_integer(MenuIndex) ->
   ?CLASS(ThisT,wxMenuBar),
@@ -349,7 +349,7 @@ getMenu(#wx_ref{type=ThisT}=This,MenuIndex)
 
 -doc "Returns the number of menus in this menubar.".
 -spec getMenuCount(This) -> integer() when
-	This::wxMenuBar().
+        This::wxMenuBar().
 getMenuCount(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxMenuBar),
   wxe_util:queue_cmd(This,?get_env(),?wxMenuBar_GetMenuCount),
@@ -366,7 +366,7 @@ Return: true on success, false if an error occurred.
 See: `append/3`
 """.
 -spec insert(This, Pos, Menu, Title) -> boolean() when
-	This::wxMenuBar(), Pos::integer(), Menu::wxMenu:wxMenu(), Title::unicode:chardata().
+        This::wxMenuBar(), Pos::integer(), Menu::wxMenu:wxMenu(), Title::unicode:chardata().
 insert(#wx_ref{type=ThisT}=This,Pos,#wx_ref{type=MenuT}=Menu,Title)
  when is_integer(Pos),?is_chardata(Title) ->
   ?CLASS(ThisT,wxMenuBar),
@@ -381,7 +381,7 @@ Determines whether an item is checked.
 Return: true if the item was found and is checked, false otherwise.
 """.
 -spec isChecked(This, Id) -> boolean() when
-	This::wxMenuBar(), Id::integer().
+        This::wxMenuBar(), Id::integer().
 isChecked(#wx_ref{type=ThisT}=This,Id)
  when is_integer(Id) ->
   ?CLASS(ThisT,wxMenuBar),
@@ -390,7 +390,7 @@ isChecked(#wx_ref{type=ThisT}=This,Id)
 
 -doc "".
 -spec setAutoWindowMenu(Enable) -> 'ok' when
-	Enable::boolean().
+        Enable::boolean().
 setAutoWindowMenu(Enable)
  when is_boolean(Enable) ->
   wxe_util:queue_cmd(Enable,?get_env(),?wxMenuBar_SetAutoWindowMenu).
@@ -412,7 +412,7 @@ Only for:wxosx
 Since: 3.0.1
 """.
 -spec oSXGetAppleMenu(This) -> wxMenu:wxMenu() when
-	This::wxMenuBar().
+        This::wxMenuBar().
 oSXGetAppleMenu(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxMenuBar),
   wxe_util:queue_cmd(This,?get_env(),?wxMenuBar_OSXGetAppleMenu),
@@ -442,7 +442,7 @@ Remark: Only exists on Mac, other platforms do not have this method.
 Only for:wxosx
 """.
 -spec macSetCommonMenuBar(Menubar) -> 'ok' when
-	Menubar::wxMenuBar().
+        Menubar::wxMenuBar().
 macSetCommonMenuBar(#wx_ref{type=MenubarT}=Menubar) ->
   ?CLASS(MenubarT,wxMenuBar),
   wxe_util:queue_cmd(Menubar,?get_env(),?wxMenuBar_MacSetCommonMenuBar).
@@ -453,7 +453,7 @@ Determines whether an item is enabled.
 Return: true if the item was found and is enabled, false otherwise.
 """.
 -spec isEnabled(This, Id) -> boolean() when
-	This::wxMenuBar(), Id::integer().
+        This::wxMenuBar(), Id::integer().
 isEnabled(#wx_ref{type=ThisT}=This,Id)
  when is_integer(Id) ->
   ?CLASS(ThisT,wxMenuBar),
@@ -469,7 +469,7 @@ This function may be used together with `insert/4` to change the menubar dynamic
 See: `replace/4`
 """.
 -spec remove(This, Pos) -> wxMenu:wxMenu() when
-	This::wxMenuBar(), Pos::integer().
+        This::wxMenuBar(), Pos::integer().
 remove(#wx_ref{type=ThisT}=This,Pos)
  when is_integer(Pos) ->
   ?CLASS(ThisT,wxMenuBar),
@@ -488,7 +488,7 @@ See:
 * `remove/2`
 """.
 -spec replace(This, Pos, Menu, Title) -> wxMenu:wxMenu() when
-	This::wxMenuBar(), Pos::integer(), Menu::wxMenu:wxMenu(), Title::unicode:chardata().
+        This::wxMenuBar(), Pos::integer(), Menu::wxMenu:wxMenu(), Title::unicode:chardata().
 replace(#wx_ref{type=ThisT}=This,Pos,#wx_ref{type=MenuT}=Menu,Title)
  when is_integer(Pos),?is_chardata(Title) ->
   ?CLASS(ThisT,wxMenuBar),
@@ -503,7 +503,7 @@ Sets the help string associated with a menu item.
 See: `getHelpString/2`
 """.
 -spec setHelpString(This, Id, HelpString) -> 'ok' when
-	This::wxMenuBar(), Id::integer(), HelpString::unicode:chardata().
+        This::wxMenuBar(), Id::integer(), HelpString::unicode:chardata().
 setHelpString(#wx_ref{type=ThisT}=This,Id,HelpString)
  when is_integer(Id),?is_chardata(HelpString) ->
   ?CLASS(ThisT,wxMenuBar),
@@ -518,7 +518,7 @@ Remark: Use only after the menubar has been associated with a frame.
 See: `getLabel/2`
 """.
 -spec setLabel(This, Id, Label) -> 'ok' when
-	This::wxMenuBar(), Id::integer(), Label::unicode:chardata().
+        This::wxMenuBar(), Id::integer(), Label::unicode:chardata().
 setLabel(#wx_ref{type=ThisT}=This,Id,Label)
  when is_integer(Id),?is_chardata(Label) ->
   ?CLASS(ThisT,wxMenuBar),
@@ -527,7 +527,7 @@ setLabel(#wx_ref{type=ThisT}=This,Id,Label)
 
 -doc "Equivalent to: `setMenuLabel/3`".
 -spec setLabelTop(This, Pos, Label) -> 'ok' when
-	This::wxMenuBar(), Pos::integer(), Label::unicode:chardata().
+        This::wxMenuBar(), Pos::integer(), Label::unicode:chardata().
 
 setLabelTop(This,Pos,Label)
  when is_record(This, wx_ref),is_integer(Pos),?is_chardata(Label) ->
@@ -539,7 +539,7 @@ Sets the label of a top-level menu.
 Remark: Use only after the menubar has been associated with a frame.
 """.
 -spec setMenuLabel(This, Pos, Label) -> 'ok' when
-	This::wxMenuBar(), Pos::integer(), Label::unicode:chardata().
+        This::wxMenuBar(), Pos::integer(), Label::unicode:chardata().
 setMenuLabel(#wx_ref{type=ThisT}=This,Pos,Label)
  when is_integer(Pos),?is_chardata(Label) ->
   ?CLASS(ThisT,wxMenuBar),
@@ -688,9 +688,9 @@ scrollPages(This,Pages) -> wxWindow:scrollPages(This,Pages).
 -doc false.
 scrollLines(This,Lines) -> wxWindow:scrollLines(This,Lines).
 -doc false.
-screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
+screenToClient(This,X,Y) -> wxWindow:screenToClient(This,X,Y).
 -doc false.
-screenToClient(This) -> wxWindow:screenToClient(This).
+screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
 -doc false.
 reparent(This,NewParent) -> wxWindow:reparent(This,NewParent).
 -doc false.

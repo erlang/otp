@@ -99,14 +99,6 @@ negative() ->
 init_per_suite(Config0) ->
     Config = [{debug, ?DEBUG}] ++
         ssl_test_lib:init_per_suite(Config0, openssl),
-    case ssl_test_lib:openssl_ocsp_support(Config) of
-        true ->
-            do_init_per_suite(Config);
-        false ->
-            {skip, "OCSP not well supported in openSSL"}
-    end.
-
-do_init_per_suite(Config) ->
     {ok, _} = make_certs:all(?config(data_dir, Config),
                              ?config(priv_dir, Config), [{staple, true}]),
     ssl_test_lib:cert_options(Config).

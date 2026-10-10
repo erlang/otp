@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2020-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2020-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -887,15 +887,17 @@ next_dtls_record(Data, StateName, #state{protocol_buffers = #protocol_buffers{
 
 
 
-decode_cipher_text(#state{protocol_buffers = #protocol_buffers{dtls_cipher_texts = [ CT | Rest]} = Buffers,
+decode_cipher_text(#state{protocol_buffers = #protocol_buffers{dtls_cipher_texts = [ CT | Rest]} =
+                              Buffers,
                           connection_states = ConnStates0} = State) ->
     case dtls_record:decode_cipher_text(CT, ConnStates0) of
-	{Plain, ConnStates} ->		      
+        {Plain, ConnStates} ->
 	    {Plain, State#state{protocol_buffers =
 				    Buffers#protocol_buffers{dtls_cipher_texts = Rest},
 				connection_states = ConnStates}};
 	#alert{} = Alert ->
-	    {Alert, State}
+            {Alert, State#state{protocol_buffers =
+                                    Buffers#protocol_buffers{dtls_cipher_texts = Rest}}}
     end.
 
 decode_alerts(Bin) ->

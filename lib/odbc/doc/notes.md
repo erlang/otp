@@ -23,6 +23,17 @@ limitations under the License.
 
 This document describes the changes made to the odbc application.
 
+## ODBC 2.17.1
+
+### Improvements and New Features
+
+- Added the `max_long_column_size` option to limit buffer allocation size preventing memory exhaustion.
+
+  Own Id: OTP-20328 Aux Id: [PR-10297], [GH-9302]
+
+[PR-10297]: https://github.com/erlang/otp/pull/10297
+[GH-9302]: https://github.com/erlang/otp/issues/9302
+
 ## ODBC 2.17
 
 ### Fixed Bugs and Malfunctions

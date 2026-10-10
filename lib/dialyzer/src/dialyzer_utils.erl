@@ -1186,7 +1186,7 @@ label(Tree) ->
       cerl:set_ann(Tree, [{label, Label}]).
 
 -spec get_location(cerl:cerl(), -1 | erl_anno:location()) ->
-                      erl_anno:location().
+                      -1 | erl_anno:location().
 
 %% Get the location of Tree, if Tree is a leaf, or the location of the
 %% leftmost subtree of Tree, if Tree is not a leaf. If there is no

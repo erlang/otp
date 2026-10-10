@@ -29,7 +29,8 @@
 -export([open_modes/1, pread_pwrite/1, position/1,
 	 truncate/1, sync/1, get_file_and_size/1,
 	 large_file_errors/1, large_file_light/1,
-	 large_file_heavy/0, large_file_heavy/1]).
+         large_file_heavy/0, large_file_heavy/1,
+         cooked_ram/1]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -46,7 +47,8 @@ suite() ->
 all() -> 
     [open_modes, pread_pwrite, position,
      truncate, sync, get_file_and_size,
-     large_file_errors, large_file_light, large_file_heavy].
+     large_file_errors, large_file_light, large_file_heavy,
+     cooked_ram].
 
 groups() -> 
     [].
@@ -445,6 +447,46 @@ do_large_file_heavy(_Config) ->
     {ok, 0}         = ?FILE_MODULE:position(Fd, cur),
     ok              = ?FILE_MODULE:close(Fd),
     ok.
+
+%% Test cooked option for ram files.
+%% The cooked option wraps a ram file in a pid-based I/O server,
+%% making it usable with the io module (unlike a plain ram file
+%% which returns a raw file descriptor).
+cooked_ram(_Config) ->
+    Data = <<"hello, world\nline two\n">>,
+
+    %% Basic read via io module.
+    {ok, Fd1} = ?FILE_MODULE:open(Data, [ram, read, binary, cooked]),
+    
+    <<"hello, world\n">> = io:get_line(Fd1, ''),
+    <<"line two\n">> = io:get_line(Fd1, ''),
+    eof = io:get_line(Fd1, ''),
+    ok = ?FILE_MODULE:close(Fd1),
+
+    %% Write and read back.
+    {ok, Fd2} = ?FILE_MODULE:open(<<>>, [ram, write, read, binary, cooked]),
+    
+    ok = io:put_chars(Fd2, "test data"),
+    {ok, 0} = ?FILE_MODULE:position(Fd2, bof),
+    {ok, <<"test data">>} = ?FILE_MODULE:read(Fd2, 100),
+    ok = ?FILE_MODULE:close(Fd2),
+
+    %% io:scan_erl_form works (needed for epp).
+    ErlData = <<"-module(test).\n">>,
+    {ok, Fd3} = ?FILE_MODULE:open(ErlData, [ram, read, binary, cooked]),
+    {ok, Tokens, _} = io:scan_erl_form(Fd3, '', 1),
+    true = is_list(Tokens),
+    ok = ?FILE_MODULE:close(Fd3),
+
+    %% io:setopts and io:getopts work on cooked ram files.
+    {ok, Fd4} = ?FILE_MODULE:open(Data, [ram, read, binary, cooked]),
+    io:setopts(Fd4, [{binary, false}]),
+    {ok, "hello, world\nline two\n"} = ?FILE_MODULE:read(Fd4, 100),
+    false = proplists:get_value(binary, io:getopts(Fd4)),
+    ok = ?FILE_MODULE:close(Fd4),
+
+    ok.
+
 
 %%--------------------------------------------------------------------------
 %% Utility functions

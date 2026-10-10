@@ -22,6 +22,8 @@
 -module(snmp_app_sup).
 -moduledoc false.
 
+-compile([{nowarn_deprecated_function, [{erlang,exit,2}]}]).
+
 -include("snmp_debug.hrl").
 
 -behaviour(supervisor).

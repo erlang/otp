@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -125,7 +125,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -doc(#{equiv => add(This,Window, [])}).
 -spec add(This, Window) -> wxSizerItem:wxSizerItem() when
-	This::wxSizer(), Window::wxWindow:wxWindow() | wxSizer:wxSizer().
+        This::wxSizer(), Window::wxWindow:wxWindow() | wxSizer:wxSizer().
 
 add(This,Window)
  when is_record(This, wx_ref),is_record(Window, wx_ref) ->
@@ -138,9 +138,9 @@ Appends a child to the sizer.
 classes that you will instantiate to use it so they are described here:
 """.
 -spec add(This, Width, Height) -> wxSizerItem:wxSizerItem() when
-	This::wxSizer(), Width::integer(), Height::integer();
+        This::wxSizer(), Width::integer(), Height::integer();
       (This, Window, Flags) -> wxSizerItem:wxSizerItem() when
-	This::wxSizer(), Window::wxWindow:wxWindow() | wxSizer:wxSizer(), Flags::wxSizerFlags:wxSizerFlags();
+        This::wxSizer(), Window::wxWindow:wxWindow() | wxSizer:wxSizer(), Flags::wxSizerFlags:wxSizerFlags();
       (This, Window, [Option]) -> wxSizerItem:wxSizerItem() when
 	This::wxSizer(), Window::wxWindow:wxWindow() | wxSizer:wxSizer(),
 	Option :: {'proportion', integer()}
@@ -190,7 +190,7 @@ add(#wx_ref{type=ThisT}=This,#wx_ref{type=WindowT}=Window, Options)
 		 | {'border', integer()}
 		 | {'userData', wx:wx_object()};
       (This, Width, Height, Flags) -> wxSizerItem:wxSizerItem() when
-	This::wxSizer(), Width::integer(), Height::integer(), Flags::wxSizerFlags:wxSizerFlags().
+        This::wxSizer(), Width::integer(), Height::integer(), Flags::wxSizerFlags:wxSizerFlags().
 add(#wx_ref{type=ThisT}=This,Width,Height, Options)
  when is_integer(Width),is_integer(Height),is_list(Options) ->
   ?CLASS(ThisT,wxSizer),
@@ -218,7 +218,7 @@ More readable way of calling:
 See: `addSpacer/2`
 """.
 -spec addSpacer(This, Size) -> wxSizerItem:wxSizerItem() when
-	This::wxSizer(), Size::integer().
+        This::wxSizer(), Size::integer().
 addSpacer(#wx_ref{type=ThisT}=This,Size)
  when is_integer(Size) ->
   ?CLASS(ThisT,wxSizer),
@@ -227,7 +227,7 @@ addSpacer(#wx_ref{type=ThisT}=This,Size)
 
 -doc(#{equiv => addStretchSpacer(This, [])}).
 -spec addStretchSpacer(This) -> wxSizerItem:wxSizerItem() when
-	This::wxSizer().
+        This::wxSizer().
 
 addStretchSpacer(This)
  when is_record(This, wx_ref) ->
@@ -256,7 +256,7 @@ This method is abstract and has to be overwritten by any derived class.
 Here, the sizer will do the actual calculation of its children's minimal sizes.
 """.
 -spec calcMin(This) -> {W::integer(), H::integer()} when
-	This::wxSizer().
+        This::wxSizer().
 calcMin(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSizer),
   wxe_util:queue_cmd(This,?get_env(),?wxSizer_CalcMin),
@@ -264,7 +264,7 @@ calcMin(#wx_ref{type=ThisT}=This) ->
 
 -doc(#{equiv => clear(This, [])}).
 -spec clear(This) -> 'ok' when
-	This::wxSizer().
+        This::wxSizer().
 
 clear(This)
  when is_record(This, wx_ref) ->
@@ -300,9 +300,9 @@ was found and detached, false otherwise.
 See: `remove/2`
 """.
 -spec detach(This, Window) -> boolean() when
-	This::wxSizer(), Window::wxWindow:wxWindow() | wxSizer:wxSizer();
+        This::wxSizer(), Window::wxWindow:wxWindow() | wxSizer:wxSizer();
       (This, Index) -> boolean() when
-	This::wxSizer(), Index::integer().
+        This::wxSizer(), Index::integer().
 detach(#wx_ref{type=ThisT}=This,#wx_ref{type=WindowT}=Window) ->
   ?CLASS(ThisT,wxSizer),
   IswxWindow = ?CLASS_T(WindowT,wxWindow),
@@ -330,7 +330,7 @@ description of `m:wxBoxSizer`.
 Return: The new window size.
 """.
 -spec fit(This, Window) -> {W::integer(), H::integer()} when
-	This::wxSizer(), Window::wxWindow:wxWindow().
+        This::wxSizer(), Window::wxWindow:wxWindow().
 fit(#wx_ref{type=ThisT}=This,#wx_ref{type=WindowT}=Window) ->
   ?CLASS(ThisT,wxSizer),
   ?CLASS(WindowT,wxWindow),
@@ -339,7 +339,7 @@ fit(#wx_ref{type=ThisT}=This,#wx_ref{type=WindowT}=Window) ->
 
 -doc "Equivalent to: `fitInside/2`".
 -spec setVirtualSizeHints(This, Window) -> 'ok' when
-	This::wxSizer(), Window::wxWindow:wxWindow().
+        This::wxSizer(), Window::wxWindow:wxWindow().
 
 setVirtualSizeHints(This,Window)
  when is_record(This, wx_ref),is_record(Window, wx_ref) ->
@@ -359,7 +359,7 @@ See:
 * `setVirtualSizeHints/2`
 """.
 -spec fitInside(This, Window) -> 'ok' when
-	This::wxSizer(), Window::wxWindow:wxWindow().
+        This::wxSizer(), Window::wxWindow:wxWindow().
 fitInside(#wx_ref{type=ThisT}=This,#wx_ref{type=WindowT}=Window) ->
   ?CLASS(ThisT,wxSizer),
   ?CLASS(WindowT,wxWindow),
@@ -367,7 +367,7 @@ fitInside(#wx_ref{type=ThisT}=This,#wx_ref{type=WindowT}=Window) ->
 
 -doc "".
 -spec getChildren(This) -> [wxSizerItem:wxSizerItem()] when
-	This::wxSizer().
+        This::wxSizer().
 getChildren(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSizer),
   wxe_util:queue_cmd(This,?get_env(),?wxSizer_GetChildren),
@@ -379,9 +379,9 @@ Finds `m:wxSizerItem` which is located in the sizer at position `index`.
 Use parameter `recursive` to search in subsizers too. Returns pointer to item or NULL.
 """.
 -spec getItem(This, Window) -> wxSizerItem:wxSizerItem() when
-	This::wxSizer(), Window::wxWindow:wxWindow() | wxSizer:wxSizer();
+        This::wxSizer(), Window::wxWindow:wxWindow() | wxSizer:wxSizer();
       (This, Index) -> wxSizerItem:wxSizerItem() when
-	This::wxSizer(), Index::integer().
+        This::wxSizer(), Index::integer().
 
 getItem(This,Window)
  when is_record(This, wx_ref),is_record(Window, wx_ref) ->
@@ -418,7 +418,7 @@ getItem(#wx_ref{type=ThisT}=This,#wx_ref{type=WindowT}=Window, Options)
 
 -doc "Returns the current size of the sizer.".
 -spec getSize(This) -> {W::integer(), H::integer()} when
-	This::wxSizer().
+        This::wxSizer().
 getSize(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSizer),
   wxe_util:queue_cmd(This,?get_env(),?wxSizer_GetSize),
@@ -426,7 +426,7 @@ getSize(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the current position of the sizer.".
 -spec getPosition(This) -> {X::integer(), Y::integer()} when
-	This::wxSizer().
+        This::wxSizer().
 getPosition(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSizer),
   wxe_util:queue_cmd(This,?get_env(),?wxSizer_GetPosition),
@@ -442,7 +442,7 @@ minimal or actual size, use `wxWindow::SetMinClientSize()` (not implemented in w
 not `wxWindow:setMinSize/2` or `wxWindow:setSize/6`.
 """.
 -spec getMinSize(This) -> {W::integer(), H::integer()} when
-	This::wxSizer().
+        This::wxSizer().
 getMinSize(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSizer),
   wxe_util:queue_cmd(This,?get_env(),?wxSizer_GetMinSize),
@@ -462,9 +462,9 @@ See:
 * `show/3`
 """.
 -spec hide(This, Window) -> boolean() when
-	This::wxSizer(), Window::wxWindow:wxWindow() | wxSizer:wxSizer();
+        This::wxSizer(), Window::wxWindow:wxWindow() | wxSizer:wxSizer();
       (This, Index) -> boolean() when
-	This::wxSizer(), Index::integer().
+        This::wxSizer(), Index::integer().
 
 hide(This,Window)
  when is_record(This, wx_ref),is_record(Window, wx_ref) ->
@@ -509,7 +509,7 @@ hide(#wx_ref{type=ThisT}=This,#wx_ref{type=WindowT}=Window, Options)
 
 -doc "".
 -spec insert(This, Index, Item) -> wxSizerItem:wxSizerItem() when
-	This::wxSizer(), Index::integer(), Item::wxSizerItem:wxSizerItem().
+        This::wxSizer(), Index::integer(), Item::wxSizerItem:wxSizerItem().
 insert(#wx_ref{type=ThisT}=This,Index,#wx_ref{type=ItemT}=Item)
  when is_integer(Index) ->
   ?CLASS(ThisT,wxSizer),
@@ -523,9 +523,9 @@ Insert a child into the sizer before any existing item at `index`.
 See `add/4` for the meaning of the other parameters.
 """.
 -spec insert(This, Index, Width, Height) -> wxSizerItem:wxSizerItem() when
-	This::wxSizer(), Index::integer(), Width::integer(), Height::integer();
+        This::wxSizer(), Index::integer(), Width::integer(), Height::integer();
       (This, Index, Window, Flags) -> wxSizerItem:wxSizerItem() when
-	This::wxSizer(), Index::integer(), Window::wxWindow:wxWindow() | wxSizer:wxSizer(), Flags::wxSizerFlags:wxSizerFlags();
+        This::wxSizer(), Index::integer(), Window::wxWindow:wxWindow() | wxSizer:wxSizer(), Flags::wxSizerFlags:wxSizerFlags();
       (This, Index, Window, [Option]) -> wxSizerItem:wxSizerItem() when
 	This::wxSizer(), Index::integer(), Window::wxWindow:wxWindow() | wxSizer:wxSizer(),
 	Option :: {'proportion', integer()}
@@ -580,7 +580,7 @@ See `add/4` for the meaning of the other parameters.
 		 | {'border', integer()}
 		 | {'userData', wx:wx_object()};
       (This, Index, Width, Height, Flags) -> wxSizerItem:wxSizerItem() when
-	This::wxSizer(), Index::integer(), Width::integer(), Height::integer(), Flags::wxSizerFlags:wxSizerFlags().
+        This::wxSizer(), Index::integer(), Width::integer(), Height::integer(), Flags::wxSizerFlags:wxSizerFlags().
 insert(#wx_ref{type=ThisT}=This,Index,Width,Height, Options)
  when is_integer(Index),is_integer(Width),is_integer(Height),is_list(Options) ->
   ?CLASS(ThisT,wxSizer),
@@ -605,7 +605,7 @@ Inserts non-stretchable space to the sizer.
 More readable way of calling wxSizer::Insert(index, size, size).
 """.
 -spec insertSpacer(This, Index, Size) -> wxSizerItem:wxSizerItem() when
-	This::wxSizer(), Index::integer(), Size::integer().
+        This::wxSizer(), Index::integer(), Size::integer().
 insertSpacer(#wx_ref{type=ThisT}=This,Index,Size)
  when is_integer(Index),is_integer(Size) ->
   ?CLASS(ThisT,wxSizer),
@@ -614,7 +614,7 @@ insertSpacer(#wx_ref{type=ThisT}=This,Index,Size)
 
 -doc(#{equiv => insertStretchSpacer(This,Index, [])}).
 -spec insertStretchSpacer(This, Index) -> wxSizerItem:wxSizerItem() when
-	This::wxSizer(), Index::integer().
+        This::wxSizer(), Index::integer().
 
 insertStretchSpacer(This,Index)
  when is_record(This, wx_ref),is_integer(Index) ->
@@ -648,9 +648,9 @@ See:
 * `wxSizerItem:isShown/1`
 """.
 -spec isShown(This, Window) -> boolean() when
-	This::wxSizer(), Window::wxWindow:wxWindow() | wxSizer:wxSizer();
+        This::wxSizer(), Window::wxWindow:wxWindow() | wxSizer:wxSizer();
       (This, Index) -> boolean() when
-	This::wxSizer(), Index::integer().
+        This::wxSizer(), Index::integer().
 isShown(#wx_ref{type=ThisT}=This,#wx_ref{type=WindowT}=Window) ->
   ?CLASS(ThisT,wxSizer),
   IswxWindow = ?CLASS_T(WindowT,wxWindow),
@@ -670,7 +670,7 @@ isShown(#wx_ref{type=ThisT}=This,Index)
 
 -doc "Equivalent to: `layout/1`".
 -spec recalcSizes(This) -> 'ok' when
-	This::wxSizer().
+        This::wxSizer().
 
 recalcSizes(This)
  when is_record(This, wx_ref) ->
@@ -682,14 +682,14 @@ removed a child (window, other sizer or space) from the sizer while keeping the 
 dimension.
 """.
 -spec layout(This) -> 'ok' when
-	This::wxSizer().
+        This::wxSizer().
 layout(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSizer),
   wxe_util:queue_cmd(This,?get_env(),?wxSizer_Layout).
 
 -doc "".
 -spec prepend(This, Item) -> wxSizerItem:wxSizerItem() when
-	This::wxSizer(), Item::wxSizerItem:wxSizerItem().
+        This::wxSizer(), Item::wxSizerItem:wxSizerItem().
 prepend(#wx_ref{type=ThisT}=This,#wx_ref{type=ItemT}=Item) ->
   ?CLASS(ThisT,wxSizer),
   ?CLASS(ItemT,wxSizerItem),
@@ -701,9 +701,9 @@ Same as `add/4`, but prepends the items to the beginning of the list of items (w
 subsizers or spaces) owned by this sizer.
 """.
 -spec prepend(This, Width, Height) -> wxSizerItem:wxSizerItem() when
-	This::wxSizer(), Width::integer(), Height::integer();
+        This::wxSizer(), Width::integer(), Height::integer();
       (This, Window, Flags) -> wxSizerItem:wxSizerItem() when
-	This::wxSizer(), Window::wxWindow:wxWindow() | wxSizer:wxSizer(), Flags::wxSizerFlags:wxSizerFlags();
+        This::wxSizer(), Window::wxWindow:wxWindow() | wxSizer:wxSizer(), Flags::wxSizerFlags:wxSizerFlags();
       (This, Window, [Option]) -> wxSizerItem:wxSizerItem() when
 	This::wxSizer(), Window::wxWindow:wxWindow() | wxSizer:wxSizer(),
 	Option :: {'proportion', integer()}
@@ -756,7 +756,7 @@ subsizers or spaces) owned by this sizer.
 		 | {'border', integer()}
 		 | {'userData', wx:wx_object()};
       (This, Width, Height, Flags) -> wxSizerItem:wxSizerItem() when
-	This::wxSizer(), Width::integer(), Height::integer(), Flags::wxSizerFlags:wxSizerFlags().
+        This::wxSizer(), Width::integer(), Height::integer(), Flags::wxSizerFlags:wxSizerFlags().
 prepend(#wx_ref{type=ThisT}=This,Width,Height, Options)
  when is_integer(Width),is_integer(Height),is_list(Options) ->
   ?CLASS(ThisT,wxSizer),
@@ -781,7 +781,7 @@ Prepends non-stretchable space to the sizer.
 More readable way of calling wxSizer::Prepend(size, size, 0).
 """.
 -spec prependSpacer(This, Size) -> wxSizerItem:wxSizerItem() when
-	This::wxSizer(), Size::integer().
+        This::wxSizer(), Size::integer().
 prependSpacer(#wx_ref{type=ThisT}=This,Size)
  when is_integer(Size) ->
   ?CLASS(ThisT,wxSizer),
@@ -790,7 +790,7 @@ prependSpacer(#wx_ref{type=ThisT}=This,Size)
 
 -doc(#{equiv => prependStretchSpacer(This, [])}).
 -spec prependStretchSpacer(This) -> wxSizerItem:wxSizerItem() when
-	This::wxSizer().
+        This::wxSizer().
 
 prependStretchSpacer(This)
  when is_record(This, wx_ref) ->
@@ -822,9 +822,9 @@ the layout "on screen" after removing a child from the sizer.
 Return: true if the child item was found and removed, false otherwise.
 """.
 -spec remove(This, Index) -> boolean() when
-	This::wxSizer(), Index::integer();
+        This::wxSizer(), Index::integer();
       (This, Sizer) -> boolean() when
-	This::wxSizer(), Sizer::wxSizer().
+        This::wxSizer(), Sizer::wxSizer().
 remove(#wx_ref{type=ThisT}=This,Index)
  when is_integer(Index) ->
   ?CLASS(ThisT,wxSizer),
@@ -849,9 +849,9 @@ layout "on screen" after replacing a child from the sizer.
 Returns true if the child item was found and removed, false otherwise.
 """.
 -spec replace(This, Oldwin, Newwin) -> boolean() when
-	This::wxSizer(), Oldwin::wxWindow:wxWindow() | wxSizer:wxSizer(), Newwin::wxWindow:wxWindow() | wxSizer:wxSizer();
+        This::wxSizer(), Oldwin::wxWindow:wxWindow() | wxSizer:wxSizer(), Newwin::wxWindow:wxWindow() | wxSizer:wxSizer();
       (This, Index, Newitem) -> boolean() when
-	This::wxSizer(), Index::integer(), Newitem::wxSizerItem:wxSizerItem().
+        This::wxSizer(), Index::integer(), Newitem::wxSizerItem:wxSizerItem().
 
 replace(This,Oldwin,Newwin)
  when is_record(This, wx_ref),is_record(Oldwin, wx_ref),is_record(Newwin, wx_ref) ->
@@ -907,7 +907,7 @@ This is an overloaded member function, provided for convenience. It differs from
 above function only in what argument(s) it accepts.
 """.
 -spec setDimension(This, Pos, Size) -> 'ok' when
-	This::wxSizer(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}.
+        This::wxSizer(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}.
 setDimension(#wx_ref{type=ThisT}=This,{PosX,PosY} = Pos,{SizeW,SizeH} = Size)
  when is_integer(PosX),is_integer(PosY),is_integer(SizeW),is_integer(SizeH) ->
   ?CLASS(ThisT,wxSizer),
@@ -919,7 +919,7 @@ by the sizer to resize themselves according to the rules defined by the paramete
 and `prepend/4` methods.
 """.
 -spec setDimension(This, X, Y, Width, Height) -> 'ok' when
-	This::wxSizer(), X::integer(), Y::integer(), Width::integer(), Height::integer().
+        This::wxSizer(), X::integer(), Y::integer(), Width::integer(), Height::integer().
 setDimension(#wx_ref{type=ThisT}=This,X,Y,Width,Height)
  when is_integer(X),is_integer(Y),is_integer(Width),is_integer(Height) ->
   ?CLASS(ThisT,wxSizer),
@@ -933,7 +933,7 @@ children need. After calling this method `getMinSize/1` will return either the m
 by its children or the minimal size set here, depending on which is bigger.
 """.
 -spec setMinSize(This, Size) -> 'ok' when
-	This::wxSizer(), Size::{W::integer(), H::integer()}.
+        This::wxSizer(), Size::{W::integer(), H::integer()}.
 setMinSize(#wx_ref{type=ThisT}=This,{SizeW,SizeH} = Size)
  when is_integer(SizeW),is_integer(SizeH) ->
   ?CLASS(ThisT,wxSizer),
@@ -944,7 +944,7 @@ This is an overloaded member function, provided for convenience. It differs from
 above function only in what argument(s) it accepts.
 """.
 -spec setMinSize(This, Width, Height) -> 'ok' when
-	This::wxSizer(), Width::integer(), Height::integer().
+        This::wxSizer(), Width::integer(), Height::integer().
 setMinSize(#wx_ref{type=ThisT}=This,Width,Height)
  when is_integer(Width),is_integer(Height) ->
   ?CLASS(ThisT,wxSizer),
@@ -952,9 +952,9 @@ setMinSize(#wx_ref{type=ThisT}=This,Width,Height)
 
 -doc "".
 -spec setItemMinSize(This, Window, Size) -> boolean() when
-	This::wxSizer(), Window::wxWindow:wxWindow() | wxSizer:wxSizer(), Size::{W::integer(), H::integer()};
+        This::wxSizer(), Window::wxWindow:wxWindow() | wxSizer:wxSizer(), Size::{W::integer(), H::integer()};
       (This, Index, Size) -> boolean() when
-	This::wxSizer(), Index::integer(), Size::{W::integer(), H::integer()}.
+        This::wxSizer(), Index::integer(), Size::{W::integer(), H::integer()}.
 setItemMinSize(#wx_ref{type=ThisT}=This,#wx_ref{type=WindowT}=Window,{SizeW,SizeH} = Size)
  when is_integer(SizeW),is_integer(SizeH) ->
   ?CLASS(ThisT,wxSizer),
@@ -975,9 +975,9 @@ setItemMinSize(#wx_ref{type=ThisT}=This,Index,{SizeW,SizeH} = Size)
 
 -doc "".
 -spec setItemMinSize(This, Window, Width, Height) -> boolean() when
-	This::wxSizer(), Window::wxWindow:wxWindow() | wxSizer:wxSizer(), Width::integer(), Height::integer();
+        This::wxSizer(), Window::wxWindow:wxWindow() | wxSizer:wxSizer(), Width::integer(), Height::integer();
       (This, Index, Width, Height) -> boolean() when
-	This::wxSizer(), Index::integer(), Width::integer(), Height::integer().
+        This::wxSizer(), Index::integer(), Width::integer(), Height::integer().
 setItemMinSize(#wx_ref{type=ThisT}=This,#wx_ref{type=WindowT}=Window,Width,Height)
  when is_integer(Width),is_integer(Height) ->
   ?CLASS(ThisT,wxSizer),
@@ -1008,7 +1008,7 @@ toplevel window itself (see the sample in the description of `m:wxBoxSizer`) if 
 toplevel window is resizable.
 """.
 -spec setSizeHints(This, Window) -> 'ok' when
-	This::wxSizer(), Window::wxWindow:wxWindow().
+        This::wxSizer(), Window::wxWindow:wxWindow().
 setSizeHints(#wx_ref{type=ThisT}=This,#wx_ref{type=WindowT}=Window) ->
   ?CLASS(ThisT,wxSizer),
   ?CLASS(WindowT,wxWindow),
@@ -1016,11 +1016,11 @@ setSizeHints(#wx_ref{type=ThisT}=This,#wx_ref{type=WindowT}=Window) ->
 
 -doc "".
 -spec show(This, Window) -> boolean() when
-	This::wxSizer(), Window::wxWindow:wxWindow() | wxSizer:wxSizer();
+        This::wxSizer(), Window::wxWindow:wxWindow() | wxSizer:wxSizer();
       (This, Index) -> boolean() when
-	This::wxSizer(), Index::integer();
+        This::wxSizer(), Index::integer();
       (This, Show) -> 'ok' when
-	This::wxSizer(), Show::boolean().
+        This::wxSizer(), Show::boolean().
 
 show(This,Window)
  when is_record(This, wx_ref),is_record(Window, wx_ref) ->
@@ -1080,7 +1080,7 @@ show(#wx_ref{type=ThisT}=This,Index, Options)
 
 -doc "Show or hide all items managed by the sizer.".
 -spec showItems(This, Show) -> 'ok' when
-	This::wxSizer(), Show::boolean().
+        This::wxSizer(), Show::boolean().
 showItems(#wx_ref{type=ThisT}=This,Show)
  when is_boolean(Show) ->
   ?CLASS(ThisT,wxSizer),

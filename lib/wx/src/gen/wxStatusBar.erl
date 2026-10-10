@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -143,7 +143,7 @@ wxWidgets docs: [wxStatusBar](https://docs.wxwidgets.org/3.2/classwx_status_bar.
   move/2,move/3,move/4,moveAfterInTabOrder/2,moveBeforeInTabOrder/2,
   navigate/1,navigate/2,pageDown/1,pageUp/1,parent_class/1,popupMenu/2,
   popupMenu/3,popupMenu/4,raise/1,refresh/1,refresh/2,refreshRect/2,refreshRect/3,
-  releaseMouse/1,removeChild/2,reparent/2,screenToClient/1,screenToClient/2,
+  releaseMouse/1,removeChild/2,reparent/2,screenToClient/2,screenToClient/3,
   scrollLines/2,scrollPages/2,scrollWindow/3,scrollWindow/4,setAcceleratorTable/2,
   setAutoLayout/2,setBackgroundColour/2,setBackgroundStyle/2,setCaret/2,
   setClientSize/2,setClientSize/3,setContainingSizer/2,setCursor/2,
@@ -174,7 +174,7 @@ new() ->
 
 -doc(#{equiv => new(Parent, [])}).
 -spec new(Parent) -> wxStatusBar() when
-	Parent::wxWindow:wxWindow().
+        Parent::wxWindow:wxWindow().
 
 new(Parent)
  when is_record(Parent, wx_ref) ->
@@ -201,7 +201,7 @@ new(#wx_ref{type=ParentT}=Parent, Options)
 
 -doc(#{equiv => create(This,Parent, [])}).
 -spec create(This, Parent) -> boolean() when
-	This::wxStatusBar(), Parent::wxWindow:wxWindow().
+        This::wxStatusBar(), Parent::wxWindow:wxWindow().
 
 create(This,Parent)
  when is_record(This, wx_ref),is_record(Parent, wx_ref) ->
@@ -245,7 +245,7 @@ getFieldRect(#wx_ref{type=ThisT}=This,I)
 
 -doc "Returns the number of fields in the status bar.".
 -spec getFieldsCount(This) -> integer() when
-	This::wxStatusBar().
+        This::wxStatusBar().
 getFieldsCount(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStatusBar),
   wxe_util:queue_cmd(This,?get_env(),?wxStatusBar_GetFieldsCount),
@@ -253,7 +253,7 @@ getFieldsCount(#wx_ref{type=ThisT}=This) ->
 
 -doc(#{equiv => getStatusText(This, [])}).
 -spec getStatusText(This) -> unicode:charlist() when
-	This::wxStatusBar().
+        This::wxStatusBar().
 
 getStatusText(This)
  when is_record(This, wx_ref) ->
@@ -280,7 +280,7 @@ getStatusText(#wx_ref{type=ThisT}=This, Options)
 
 -doc(#{equiv => popStatusText(This, [])}).
 -spec popStatusText(This) -> 'ok' when
-	This::wxStatusBar().
+        This::wxStatusBar().
 
 popStatusText(This)
  when is_record(This, wx_ref) ->
@@ -308,7 +308,7 @@ popStatusText(#wx_ref{type=ThisT}=This, Options)
 
 -doc(#{equiv => pushStatusText(This,String, [])}).
 -spec pushStatusText(This, String) -> 'ok' when
-	This::wxStatusBar(), String::unicode:chardata().
+        This::wxStatusBar(), String::unicode:chardata().
 
 pushStatusText(This,String)
  when is_record(This, wx_ref),?is_chardata(String) ->
@@ -334,7 +334,7 @@ pushStatusText(#wx_ref{type=ThisT}=This,String, Options)
 
 -doc(#{equiv => setFieldsCount(This,Number, [])}).
 -spec setFieldsCount(This, Number) -> 'ok' when
-	This::wxStatusBar(), Number::integer().
+        This::wxStatusBar(), Number::integer().
 
 setFieldsCount(This,Number)
  when is_record(This, wx_ref),is_integer(Number) ->
@@ -359,7 +359,7 @@ The real height may be bigger than the height specified here depending on the si
 font used by the status bar.
 """.
 -spec setMinHeight(This, Height) -> 'ok' when
-	This::wxStatusBar(), Height::integer().
+        This::wxStatusBar(), Height::integer().
 setMinHeight(#wx_ref{type=ThisT}=This,Height)
  when is_integer(Height) ->
   ?CLASS(ThisT,wxStatusBar),
@@ -367,7 +367,7 @@ setMinHeight(#wx_ref{type=ThisT}=This,Height)
 
 -doc(#{equiv => setStatusText(This,Text, [])}).
 -spec setStatusText(This, Text) -> 'ok' when
-	This::wxStatusBar(), Text::unicode:chardata().
+        This::wxStatusBar(), Text::unicode:chardata().
 
 setStatusText(This,Text)
  when is_record(This, wx_ref),?is_chardata(Text) ->
@@ -424,7 +424,7 @@ See:
 * `wxFrame:setStatusWidths/2`
 """.
 -spec setStatusWidths(This, Widths_field) -> 'ok' when
-	This::wxStatusBar(), Widths_field::[integer()].
+        This::wxStatusBar(), Widths_field::[integer()].
 setStatusWidths(#wx_ref{type=ThisT}=This,Widths_field)
  when is_list(Widths_field) ->
   ?CLASS(ThisT,wxStatusBar),
@@ -435,7 +435,7 @@ Sets the styles of the fields in the status line which can make fields appear fl
 raised instead of the standard sunken 3D border.
 """.
 -spec setStatusStyles(This, Styles) -> 'ok' when
-	This::wxStatusBar(), Styles::[integer()].
+        This::wxStatusBar(), Styles::[integer()].
 setStatusStyles(#wx_ref{type=ThisT}=This,Styles)
  when is_list(Styles) ->
   ?CLASS(ThisT,wxStatusBar),
@@ -585,9 +585,9 @@ scrollPages(This,Pages) -> wxWindow:scrollPages(This,Pages).
 -doc false.
 scrollLines(This,Lines) -> wxWindow:scrollLines(This,Lines).
 -doc false.
-screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
+screenToClient(This,X,Y) -> wxWindow:screenToClient(This,X,Y).
 -doc false.
-screenToClient(This) -> wxWindow:screenToClient(This).
+screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
 -doc false.
 reparent(This,NewParent) -> wxWindow:reparent(This,NewParent).
 -doc false.

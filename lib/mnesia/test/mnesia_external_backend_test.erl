@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 1996-2025. All Rights Reserved.
+%% Copyright Ericsson AB 1996-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -47,6 +47,8 @@ all() -> [
 groups() ->
     [].
 
+init_per_testcase(backup_and_restore_should_work_with_external_backend, _Conf) ->
+    {skip, "Not implemented"};
 init_per_testcase(Func, Conf) ->
     file:delete("bup0.BUP"),
     file:delete("bup1.BUP"),

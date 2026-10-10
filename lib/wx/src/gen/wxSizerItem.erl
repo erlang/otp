@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -84,7 +84,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -doc(#{equiv => new(Window, [])}).
 -spec new(Window) -> wxSizerItem() when
-	Window::wxWindow:wxWindow() | wxSizer:wxSizer().
+        Window::wxWindow:wxWindow() | wxSizer:wxSizer().
 
 new(Window)
  when is_record(Window, wx_ref) ->
@@ -92,9 +92,9 @@ new(Window)
 
 -doc "".
 -spec new(Width, Height) -> wxSizerItem() when
-	Width::integer(), Height::integer();
+        Width::integer(), Height::integer();
       (Window, Flags) -> wxSizerItem() when
-	Window::wxWindow:wxWindow() | wxSizer:wxSizer(), Flags::wxSizerFlags:wxSizerFlags();
+        Window::wxWindow:wxWindow() | wxSizer:wxSizer(), Flags::wxSizerFlags:wxSizerFlags();
       (Window, [Option]) -> wxSizerItem() when
 	Window::wxWindow:wxWindow() | wxSizer:wxSizer(),
 	Option :: {'proportion', integer()}
@@ -154,7 +154,7 @@ new(Width,Height, Options)
 
 -doc "Calculates the minimum desired size for the item, including any space needed by borders.".
 -spec calcMin(This) -> {W::integer(), H::integer()} when
-	This::wxSizerItem().
+        This::wxSizerItem().
 calcMin(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSizerItem),
   wxe_util:queue_cmd(This,?get_env(),?wxSizerItem_CalcMin),
@@ -162,21 +162,21 @@ calcMin(#wx_ref{type=ThisT}=This) ->
 
 -doc "Destroy the window or the windows in a subsizer, depending on the type of item.".
 -spec deleteWindows(This) -> 'ok' when
-	This::wxSizerItem().
+        This::wxSizerItem().
 deleteWindows(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSizerItem),
   wxe_util:queue_cmd(This,?get_env(),?wxSizerItem_DeleteWindows).
 
 -doc "Enable deleting the SizerItem without destroying the contained sizer.".
 -spec detachSizer(This) -> 'ok' when
-	This::wxSizerItem().
+        This::wxSizerItem().
 detachSizer(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSizerItem),
   wxe_util:queue_cmd(This,?get_env(),?wxSizerItem_DetachSizer).
 
 -doc "Return the border attribute.".
 -spec getBorder(This) -> integer() when
-	This::wxSizerItem().
+        This::wxSizerItem().
 getBorder(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSizerItem),
   wxe_util:queue_cmd(This,?get_env(),?wxSizerItem_GetBorder),
@@ -188,7 +188,7 @@ Return the flags attribute.
 See `wxSizer flags list` (not implemented in wx) for details.
 """.
 -spec getFlag(This) -> integer() when
-	This::wxSizerItem().
+        This::wxSizerItem().
 getFlag(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSizerItem),
   wxe_util:queue_cmd(This,?get_env(),?wxSizerItem_GetFlag),
@@ -196,7 +196,7 @@ getFlag(#wx_ref{type=ThisT}=This) ->
 
 -doc "Get the minimum size needed for the item.".
 -spec getMinSize(This) -> {W::integer(), H::integer()} when
-	This::wxSizerItem().
+        This::wxSizerItem().
 getMinSize(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSizerItem),
   wxe_util:queue_cmd(This,?get_env(),?wxSizerItem_GetMinSize),
@@ -204,7 +204,7 @@ getMinSize(#wx_ref{type=ThisT}=This) ->
 
 -doc "What is the current position of the item, as set in the last Layout.".
 -spec getPosition(This) -> {X::integer(), Y::integer()} when
-	This::wxSizerItem().
+        This::wxSizerItem().
 getPosition(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSizerItem),
   wxe_util:queue_cmd(This,?get_env(),?wxSizerItem_GetPosition),
@@ -212,7 +212,7 @@ getPosition(#wx_ref{type=ThisT}=This) ->
 
 -doc "Get the proportion item attribute.".
 -spec getProportion(This) -> integer() when
-	This::wxSizerItem().
+        This::wxSizerItem().
 getProportion(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSizerItem),
   wxe_util:queue_cmd(This,?get_env(),?wxSizerItem_GetProportion),
@@ -220,7 +220,7 @@ getProportion(#wx_ref{type=ThisT}=This) ->
 
 -doc "Get the ratio item attribute.".
 -spec getRatio(This) -> number() when
-	This::wxSizerItem().
+        This::wxSizerItem().
 getRatio(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSizerItem),
   wxe_util:queue_cmd(This,?get_env(),?wxSizerItem_GetRatio),
@@ -228,7 +228,7 @@ getRatio(#wx_ref{type=ThisT}=This) ->
 
 -doc "Get the rectangle of the item on the parent window, excluding borders.".
 -spec getRect(This) -> {X::integer(), Y::integer(), W::integer(), H::integer()} when
-	This::wxSizerItem().
+        This::wxSizerItem().
 getRect(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSizerItem),
   wxe_util:queue_cmd(This,?get_env(),?wxSizerItem_GetRect),
@@ -236,7 +236,7 @@ getRect(#wx_ref{type=ThisT}=This) ->
 
 -doc "Get the current size of the item, as set in the last Layout.".
 -spec getSize(This) -> {W::integer(), H::integer()} when
-	This::wxSizerItem().
+        This::wxSizerItem().
 getSize(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSizerItem),
   wxe_util:queue_cmd(This,?get_env(),?wxSizerItem_GetSize),
@@ -248,7 +248,7 @@ If this item is tracking a sizer, return it.
 NULL otherwise.
 """.
 -spec getSizer(This) -> wxSizer:wxSizer() when
-	This::wxSizerItem().
+        This::wxSizerItem().
 getSizer(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSizerItem),
   wxe_util:queue_cmd(This,?get_env(),?wxSizerItem_GetSizer),
@@ -256,7 +256,7 @@ getSizer(#wx_ref{type=ThisT}=This) ->
 
 -doc "If this item is tracking a spacer, return its size.".
 -spec getSpacer(This) -> {W::integer(), H::integer()} when
-	This::wxSizerItem().
+        This::wxSizerItem().
 getSpacer(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSizerItem),
   wxe_util:queue_cmd(This,?get_env(),?wxSizerItem_GetSpacer),
@@ -264,7 +264,7 @@ getSpacer(#wx_ref{type=ThisT}=This) ->
 
 -doc "Get the userData item attribute.".
 -spec getUserData(This) -> wx:wx_object() when
-	This::wxSizerItem().
+        This::wxSizerItem().
 getUserData(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSizerItem),
   wxe_util:queue_cmd(This,?get_env(),?wxSizerItem_GetUserData),
@@ -276,7 +276,7 @@ If this item is tracking a window then return it.
 NULL otherwise.
 """.
 -spec getWindow(This) -> wxWindow:wxWindow() when
-	This::wxSizerItem().
+        This::wxSizerItem().
 getWindow(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSizerItem),
   wxe_util:queue_cmd(This,?get_env(),?wxSizerItem_GetWindow),
@@ -284,7 +284,7 @@ getWindow(#wx_ref{type=ThisT}=This) ->
 
 -doc "Is this item a sizer?".
 -spec isSizer(This) -> boolean() when
-	This::wxSizerItem().
+        This::wxSizerItem().
 isSizer(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSizerItem),
   wxe_util:queue_cmd(This,?get_env(),?wxSizerItem_IsSizer),
@@ -302,7 +302,7 @@ item, then `isShown/1` always returns true for it (see `wxSizerFlags::ReserveSpa
 (not implemented in wx)).
 """.
 -spec isShown(This) -> boolean() when
-	This::wxSizerItem().
+        This::wxSizerItem().
 isShown(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSizerItem),
   wxe_util:queue_cmd(This,?get_env(),?wxSizerItem_IsShown),
@@ -310,7 +310,7 @@ isShown(#wx_ref{type=ThisT}=This) ->
 
 -doc "Is this item a spacer?".
 -spec isSpacer(This) -> boolean() when
-	This::wxSizerItem().
+        This::wxSizerItem().
 isSpacer(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSizerItem),
   wxe_util:queue_cmd(This,?get_env(),?wxSizerItem_IsSpacer),
@@ -318,7 +318,7 @@ isSpacer(#wx_ref{type=ThisT}=This) ->
 
 -doc "Is this item a window?".
 -spec isWindow(This) -> boolean() when
-	This::wxSizerItem().
+        This::wxSizerItem().
 isWindow(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSizerItem),
   wxe_util:queue_cmd(This,?get_env(),?wxSizerItem_IsWindow),
@@ -326,7 +326,7 @@ isWindow(#wx_ref{type=ThisT}=This) ->
 
 -doc "Set the border item attribute.".
 -spec setBorder(This, Border) -> 'ok' when
-	This::wxSizerItem(), Border::integer().
+        This::wxSizerItem(), Border::integer().
 setBorder(#wx_ref{type=ThisT}=This,Border)
  when is_integer(Border) ->
   ?CLASS(ThisT,wxSizerItem),
@@ -337,7 +337,7 @@ Set the position and size of the space allocated to the sizer, and adjust the po
 and size of the item to be within that space taking alignment and borders into account.
 """.
 -spec setDimension(This, Pos, Size) -> 'ok' when
-	This::wxSizerItem(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}.
+        This::wxSizerItem(), Pos::{X::integer(), Y::integer()}, Size::{W::integer(), H::integer()}.
 setDimension(#wx_ref{type=ThisT}=This,{PosX,PosY} = Pos,{SizeW,SizeH} = Size)
  when is_integer(PosX),is_integer(PosY),is_integer(SizeW),is_integer(SizeH) ->
   ?CLASS(ThisT,wxSizerItem),
@@ -345,7 +345,7 @@ setDimension(#wx_ref{type=ThisT}=This,{PosX,PosY} = Pos,{SizeW,SizeH} = Size)
 
 -doc "Set the flag item attribute.".
 -spec setFlag(This, Flag) -> 'ok' when
-	This::wxSizerItem(), Flag::integer().
+        This::wxSizerItem(), Flag::integer().
 setFlag(#wx_ref{type=ThisT}=This,Flag)
  when is_integer(Flag) ->
   ?CLASS(ThisT,wxSizerItem),
@@ -357,7 +357,7 @@ Sets the minimum size to be allocated for this item.
 This is identical to `setMinSize/3`, prefer to use the other function, as its name is more clear.
 """.
 -spec setInitSize(This, X, Y) -> 'ok' when
-	This::wxSizerItem(), X::integer(), Y::integer().
+        This::wxSizerItem(), X::integer(), Y::integer().
 setInitSize(#wx_ref{type=ThisT}=This,X,Y)
  when is_integer(X),is_integer(Y) ->
   ?CLASS(ThisT,wxSizerItem),
@@ -369,7 +369,7 @@ Sets the minimum size to be allocated for this item.
 If this item is a window, the `size` is also passed to `wxWindow:setMinSize/2`.
 """.
 -spec setMinSize(This, Size) -> 'ok' when
-	This::wxSizerItem(), Size::{W::integer(), H::integer()}.
+        This::wxSizerItem(), Size::{W::integer(), H::integer()}.
 setMinSize(#wx_ref{type=ThisT}=This,{SizeW,SizeH} = Size)
  when is_integer(SizeW),is_integer(SizeH) ->
   ?CLASS(ThisT,wxSizerItem),
@@ -380,7 +380,7 @@ This is an overloaded member function, provided for convenience. It differs from
 above function only in what argument(s) it accepts.
 """.
 -spec setMinSize(This, X, Y) -> 'ok' when
-	This::wxSizerItem(), X::integer(), Y::integer().
+        This::wxSizerItem(), X::integer(), Y::integer().
 setMinSize(#wx_ref{type=ThisT}=This,X,Y)
  when is_integer(X),is_integer(Y) ->
   ?CLASS(ThisT,wxSizerItem),
@@ -388,7 +388,7 @@ setMinSize(#wx_ref{type=ThisT}=This,X,Y)
 
 -doc "Set the proportion item attribute.".
 -spec setProportion(This, Proportion) -> 'ok' when
-	This::wxSizerItem(), Proportion::integer().
+        This::wxSizerItem(), Proportion::integer().
 setProportion(#wx_ref{type=ThisT}=This,Proportion)
  when is_integer(Proportion) ->
   ?CLASS(ThisT,wxSizerItem),
@@ -396,9 +396,9 @@ setProportion(#wx_ref{type=ThisT}=This,Proportion)
 
 -doc "".
 -spec setRatio(This, Ratio) -> 'ok' when
-	This::wxSizerItem(), Ratio::number();
+        This::wxSizerItem(), Ratio::number();
       (This, Size) -> 'ok' when
-	This::wxSizerItem(), Size::{W::integer(), H::integer()}.
+        This::wxSizerItem(), Size::{W::integer(), H::integer()}.
 setRatio(#wx_ref{type=ThisT}=This,Ratio)
  when is_number(Ratio) ->
   ?CLASS(ThisT,wxSizerItem),
@@ -410,7 +410,7 @@ setRatio(#wx_ref{type=ThisT}=This,{SizeW,SizeH} = Size)
 
 -doc "Set the ratio item attribute.".
 -spec setRatio(This, Width, Height) -> 'ok' when
-	This::wxSizerItem(), Width::integer(), Height::integer().
+        This::wxSizerItem(), Width::integer(), Height::integer().
 setRatio(#wx_ref{type=ThisT}=This,Width,Height)
  when is_integer(Width),is_integer(Height) ->
   ?CLASS(ThisT,wxSizerItem),
@@ -422,7 +422,7 @@ Set the sizer tracked by this item.
 Old sizer, if any, is deleted.
 """.
 -spec assignSizer(This, Sizer) -> 'ok' when
-	This::wxSizerItem(), Sizer::wxSizer:wxSizer().
+        This::wxSizerItem(), Sizer::wxSizer:wxSizer().
 assignSizer(#wx_ref{type=ThisT}=This,#wx_ref{type=SizerT}=Sizer) ->
   ?CLASS(ThisT,wxSizerItem),
   ?CLASS(SizerT,wxSizer),
@@ -434,7 +434,7 @@ Set the size of the spacer tracked by this item.
 Old spacer, if any, is deleted.
 """.
 -spec assignSpacer(This, Size) -> 'ok' when
-	This::wxSizerItem(), Size::{W::integer(), H::integer()}.
+        This::wxSizerItem(), Size::{W::integer(), H::integer()}.
 assignSpacer(#wx_ref{type=ThisT}=This,{SizeW,SizeH} = Size)
  when is_integer(SizeW),is_integer(SizeH) ->
   ?CLASS(ThisT,wxSizerItem),
@@ -442,7 +442,7 @@ assignSpacer(#wx_ref{type=ThisT}=This,{SizeW,SizeH} = Size)
 
 -doc "".
 -spec assignSpacer(This, W, H) -> 'ok' when
-	This::wxSizerItem(), W::integer(), H::integer().
+        This::wxSizerItem(), W::integer(), H::integer().
 assignSpacer(#wx_ref{type=ThisT}=This,W,H)
  when is_integer(W),is_integer(H) ->
   ?CLASS(ThisT,wxSizerItem),
@@ -464,7 +464,7 @@ Also note that the previously contained window is `not` deleted, so it's also th
 responsibility to do it, if necessary.
 """.
 -spec assignWindow(This, Window) -> 'ok' when
-	This::wxSizerItem(), Window::wxWindow:wxWindow().
+        This::wxSizerItem(), Window::wxWindow:wxWindow().
 assignWindow(#wx_ref{type=ThisT}=This,#wx_ref{type=WindowT}=Window) ->
   ?CLASS(ThisT,wxSizerItem),
   ?CLASS(WindowT,wxWindow),
@@ -477,7 +477,7 @@ of the layout or not.
 If the item is tracking a window then it is shown or hidden as needed.
 """.
 -spec show(This, Show) -> 'ok' when
-	This::wxSizerItem(), Show::boolean().
+        This::wxSizerItem(), Show::boolean().
 show(#wx_ref{type=ThisT}=This,Show)
  when is_boolean(Show) ->
   ?CLASS(ThisT,wxSizerItem),

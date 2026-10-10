@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -108,7 +108,7 @@ new(Options)
 
 -doc "Returns the stop at the given index.".
 -spec item(This, N) -> {wx:wx_colour4(), float()} when
-	This::wxGraphicsGradientStops(), N::integer().
+        This::wxGraphicsGradientStops(), N::integer().
 item(#wx_ref{type=ThisT}=This,N)
  when is_integer(N) ->
   ?CLASS(ThisT,wxGraphicsGradientStops),
@@ -117,7 +117,7 @@ item(#wx_ref{type=ThisT}=This,N)
 
 -doc "Returns the number of stops.".
 -spec getCount(This) -> integer() when
-	This::wxGraphicsGradientStops().
+        This::wxGraphicsGradientStops().
 getCount(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGraphicsGradientStops),
   wxe_util:queue_cmd(This,?get_env(),?wxGraphicsGradientStops_GetCount),
@@ -125,7 +125,7 @@ getCount(#wx_ref{type=ThisT}=This) ->
 
 -doc "Set the start colour to `col`.".
 -spec setStartColour(This, Col) -> 'ok' when
-	This::wxGraphicsGradientStops(), Col::wx:wx_colour().
+        This::wxGraphicsGradientStops(), Col::wx:wx_colour().
 setStartColour(#wx_ref{type=ThisT}=This,Col)
  when ?is_colordata(Col) ->
   ?CLASS(ThisT,wxGraphicsGradientStops),
@@ -133,7 +133,7 @@ setStartColour(#wx_ref{type=ThisT}=This,Col)
 
 -doc "Returns the start colour.".
 -spec getStartColour(This) -> wx:wx_colour4() when
-	This::wxGraphicsGradientStops().
+        This::wxGraphicsGradientStops().
 getStartColour(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGraphicsGradientStops),
   wxe_util:queue_cmd(This,?get_env(),?wxGraphicsGradientStops_GetStartColour),
@@ -141,7 +141,7 @@ getStartColour(#wx_ref{type=ThisT}=This) ->
 
 -doc "Set the end colour to `col`.".
 -spec setEndColour(This, Col) -> 'ok' when
-	This::wxGraphicsGradientStops(), Col::wx:wx_colour().
+        This::wxGraphicsGradientStops(), Col::wx:wx_colour().
 setEndColour(#wx_ref{type=ThisT}=This,Col)
  when ?is_colordata(Col) ->
   ?CLASS(ThisT,wxGraphicsGradientStops),
@@ -149,7 +149,7 @@ setEndColour(#wx_ref{type=ThisT}=This,Col)
 
 -doc "Returns the end colour.".
 -spec getEndColour(This) -> wx:wx_colour4() when
-	This::wxGraphicsGradientStops().
+        This::wxGraphicsGradientStops().
 getEndColour(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGraphicsGradientStops),
   wxe_util:queue_cmd(This,?get_env(),?wxGraphicsGradientStops_GetEndColour),
@@ -157,7 +157,7 @@ getEndColour(#wx_ref{type=ThisT}=This) ->
 
 -doc "Add a new stop.".
 -spec add(This, Col, Pos) -> 'ok' when
-	This::wxGraphicsGradientStops(), Col::wx:wx_colour(), Pos::number().
+        This::wxGraphicsGradientStops(), Col::wx:wx_colour(), Pos::number().
 add(#wx_ref{type=ThisT}=This,Col,Pos)
  when ?is_colordata(Col),is_number(Pos) ->
   ?CLASS(ThisT,wxGraphicsGradientStops),

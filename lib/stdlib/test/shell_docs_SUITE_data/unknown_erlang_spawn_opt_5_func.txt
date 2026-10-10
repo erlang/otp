@@ -2,18 +2,18 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  spawn_opt(Node, Module, Function, Args, Options)[0m
+[1m  spawn_opt(Node, Module, Function, Args, Options)[0m
 
   Returns the process identifier (pid) of a new process started by
-  the application of [;;4mModule:Function[0m to [;;4mArgs[0m on [;;4mNode[0m. If [;;4mNode[0m
-  does not exist, a useless pid is returned. Otherwise works like [;;4m[0m
-  [;;4mspawn_opt/4[0m.
+  the application of [4mModule:Function[0m to [4mArgs[0m on [4mNode[0m. If [4mNode[0m
+  does not exist, a useless pid is returned. Otherwise works like [4m[0m
+  [4mspawn_opt/4[0m.
 
   Valid options depends on what options are supported by the node
-  identified by [;;4mNode[0m. A description of valid [;;4mOption[0ms for the
+  identified by [4mNode[0m. A description of valid [4mOption[0ms for the
   local node of current OTP version can be found in the
-  documentation of [;;4mspawn_opt/4[0m.
+  documentation of [4mspawn_opt/4[0m.

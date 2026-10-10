@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2010-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2010-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -75,9 +75,12 @@ all() ->
 groups() ->
     [{stateful, [], [main_test, expired_ticket_test, invalid_ticket_test]},
      {stateful_with_cert, [], [main_test, expired_ticket_test, invalid_ticket_test]},
-     {stateless, [], [expired_ticket_test, invalid_ticket_test, main_test, certificate_encoding_test]},
-     {stateless_with_cert, [], [expired_ticket_test, invalid_ticket_test, main_test, certificate_encoding_test]},
-     {stateless_antireplay, [], [main_test, misc_test, valid_ticket_older_than_windowsize_test, certificate_encoding_test]}
+     {stateless, [], [expired_ticket_test, invalid_ticket_test, main_test,
+                      certificate_encoding_test]},
+     {stateless_with_cert, [], [expired_ticket_test, invalid_ticket_test, main_test,
+                                certificate_encoding_test]},
+     {stateless_antireplay, [], [main_test, misc_test, valid_ticket_older_than_windowsize_test,
+                                 certificate_encoding_test]}
     ].
 
 init_per_suite(Config0) ->
@@ -223,7 +226,6 @@ misc_test(Config) when is_list(Config) ->
     Pid ! rotate_bloom_filters,
     Pid ! general_handle_info,
     {ok, state} = tls_server_session_ticket:code_change(old_version, state, extra),
-    Pid = tls_server_session_ticket:format_status(not_relevant, Pid),
     true = is_process_alive(Pid).
 
 certificate_encoding_test() ->

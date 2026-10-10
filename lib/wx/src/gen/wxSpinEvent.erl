@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2009-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -99,7 +99,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -doc "Retrieve the current spin button or control value.".
 -spec getPosition(This) -> integer() when
-	This::wxSpinEvent().
+        This::wxSpinEvent().
 getPosition(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSpinEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxSpinEvent_GetPosition),
@@ -107,7 +107,7 @@ getPosition(#wx_ref{type=ThisT}=This) ->
 
 -doc "Set the value associated with the event.".
 -spec setPosition(This, Pos) -> 'ok' when
-	This::wxSpinEvent(), Pos::integer().
+        This::wxSpinEvent(), Pos::integer().
 setPosition(#wx_ref{type=ThisT}=This,Pos)
  when is_integer(Pos) ->
   ?CLASS(ThisT,wxSpinEvent),

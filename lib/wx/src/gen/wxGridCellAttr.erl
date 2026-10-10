@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -85,7 +85,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -doc "Sets the text colour.".
 -spec setTextColour(This, ColText) -> 'ok' when
-	This::wxGridCellAttr(), ColText::wx:wx_colour().
+        This::wxGridCellAttr(), ColText::wx:wx_colour().
 setTextColour(#wx_ref{type=ThisT}=This,ColText)
  when ?is_colordata(ColText) ->
   ?CLASS(ThisT,wxGridCellAttr),
@@ -93,7 +93,7 @@ setTextColour(#wx_ref{type=ThisT}=This,ColText)
 
 -doc "Sets the background colour.".
 -spec setBackgroundColour(This, ColBack) -> 'ok' when
-	This::wxGridCellAttr(), ColBack::wx:wx_colour().
+        This::wxGridCellAttr(), ColBack::wx:wx_colour().
 setBackgroundColour(#wx_ref{type=ThisT}=This,ColBack)
  when ?is_colordata(ColBack) ->
   ?CLASS(ThisT,wxGridCellAttr),
@@ -101,7 +101,7 @@ setBackgroundColour(#wx_ref{type=ThisT}=This,ColBack)
 
 -doc "Sets the font.".
 -spec setFont(This, Font) -> 'ok' when
-	This::wxGridCellAttr(), Font::wxFont:wxFont().
+        This::wxGridCellAttr(), Font::wxFont:wxFont().
 setFont(#wx_ref{type=ThisT}=This,#wx_ref{type=FontT}=Font) ->
   ?CLASS(ThisT,wxGridCellAttr),
   ?CLASS(FontT,wxFont),
@@ -114,7 +114,7 @@ Sets the alignment.
 can be one of `wxALIGN_TOP`, `wxALIGN_CENTRE` or `wxALIGN_BOTTOM`.
 """.
 -spec setAlignment(This, HAlign, VAlign) -> 'ok' when
-	This::wxGridCellAttr(), HAlign::integer(), VAlign::integer().
+        This::wxGridCellAttr(), HAlign::integer(), VAlign::integer().
 setAlignment(#wx_ref{type=ThisT}=This,HAlign,VAlign)
  when is_integer(HAlign),is_integer(VAlign) ->
   ?CLASS(ThisT,wxGridCellAttr),
@@ -122,7 +122,7 @@ setAlignment(#wx_ref{type=ThisT}=This,HAlign,VAlign)
 
 -doc(#{equiv => setReadOnly(This, [])}).
 -spec setReadOnly(This) -> 'ok' when
-	This::wxGridCellAttr().
+        This::wxGridCellAttr().
 
 setReadOnly(This)
  when is_record(This, wx_ref) ->
@@ -146,7 +146,7 @@ Sets the renderer to be used for cells with this attribute.
 Takes ownership of the pointer.
 """.
 -spec setRenderer(This, Renderer) -> 'ok' when
-	This::wxGridCellAttr(), Renderer::wxGridCellRenderer:wxGridCellRenderer().
+        This::wxGridCellAttr(), Renderer::wxGridCellRenderer:wxGridCellRenderer().
 setRenderer(#wx_ref{type=ThisT}=This,#wx_ref{type=RendererT}=Renderer) ->
   ?CLASS(ThisT,wxGridCellAttr),
   ?CLASS(RendererT,wxGridCellRenderer),
@@ -154,7 +154,7 @@ setRenderer(#wx_ref{type=ThisT}=This,#wx_ref{type=RendererT}=Renderer) ->
 
 -doc "Sets the editor to be used with the cells with this attribute.".
 -spec setEditor(This, Editor) -> 'ok' when
-	This::wxGridCellAttr(), Editor::wxGridCellEditor:wxGridCellEditor().
+        This::wxGridCellAttr(), Editor::wxGridCellEditor:wxGridCellEditor().
 setEditor(#wx_ref{type=ThisT}=This,#wx_ref{type=EditorT}=Editor) ->
   ?CLASS(ThisT,wxGridCellAttr),
   ?CLASS(EditorT,wxGridCellEditor),
@@ -162,7 +162,7 @@ setEditor(#wx_ref{type=ThisT}=This,#wx_ref{type=EditorT}=Editor) ->
 
 -doc "Returns true if this attribute has a valid text colour set.".
 -spec hasTextColour(This) -> boolean() when
-	This::wxGridCellAttr().
+        This::wxGridCellAttr().
 hasTextColour(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGridCellAttr),
   wxe_util:queue_cmd(This,?get_env(),?wxGridCellAttr_HasTextColour),
@@ -170,7 +170,7 @@ hasTextColour(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns true if this attribute has a valid background colour set.".
 -spec hasBackgroundColour(This) -> boolean() when
-	This::wxGridCellAttr().
+        This::wxGridCellAttr().
 hasBackgroundColour(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGridCellAttr),
   wxe_util:queue_cmd(This,?get_env(),?wxGridCellAttr_HasBackgroundColour),
@@ -178,7 +178,7 @@ hasBackgroundColour(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns true if this attribute has a valid font set.".
 -spec hasFont(This) -> boolean() when
-	This::wxGridCellAttr().
+        This::wxGridCellAttr().
 hasFont(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGridCellAttr),
   wxe_util:queue_cmd(This,?get_env(),?wxGridCellAttr_HasFont),
@@ -186,7 +186,7 @@ hasFont(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns true if this attribute has a valid alignment set.".
 -spec hasAlignment(This) -> boolean() when
-	This::wxGridCellAttr().
+        This::wxGridCellAttr().
 hasAlignment(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGridCellAttr),
   wxe_util:queue_cmd(This,?get_env(),?wxGridCellAttr_HasAlignment),
@@ -194,7 +194,7 @@ hasAlignment(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns true if this attribute has a valid cell renderer set.".
 -spec hasRenderer(This) -> boolean() when
-	This::wxGridCellAttr().
+        This::wxGridCellAttr().
 hasRenderer(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGridCellAttr),
   wxe_util:queue_cmd(This,?get_env(),?wxGridCellAttr_HasRenderer),
@@ -202,7 +202,7 @@ hasRenderer(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns true if this attribute has a valid cell editor set.".
 -spec hasEditor(This) -> boolean() when
-	This::wxGridCellAttr().
+        This::wxGridCellAttr().
 hasEditor(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGridCellAttr),
   wxe_util:queue_cmd(This,?get_env(),?wxGridCellAttr_HasEditor),
@@ -210,7 +210,7 @@ hasEditor(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the text colour.".
 -spec getTextColour(This) -> wx:wx_colour4() when
-	This::wxGridCellAttr().
+        This::wxGridCellAttr().
 getTextColour(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGridCellAttr),
   wxe_util:queue_cmd(This,?get_env(),?wxGridCellAttr_GetTextColour),
@@ -218,7 +218,7 @@ getTextColour(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the background colour.".
 -spec getBackgroundColour(This) -> wx:wx_colour4() when
-	This::wxGridCellAttr().
+        This::wxGridCellAttr().
 getBackgroundColour(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGridCellAttr),
   wxe_util:queue_cmd(This,?get_env(),?wxGridCellAttr_GetBackgroundColour),
@@ -226,7 +226,7 @@ getBackgroundColour(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the font.".
 -spec getFont(This) -> wxFont:wxFont() when
-	This::wxGridCellAttr().
+        This::wxGridCellAttr().
 getFont(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGridCellAttr),
   wxe_util:queue_cmd(This,?get_env(),?wxGridCellAttr_GetFont),
@@ -242,7 +242,7 @@ Notice that `hAlign` and `vAlign` values are always overwritten by this function
 (not implemented in wx) if this is not desirable.
 """.
 -spec getAlignment(This) -> {HAlign::integer(), VAlign::integer()} when
-	This::wxGridCellAttr().
+        This::wxGridCellAttr().
 getAlignment(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGridCellAttr),
   wxe_util:queue_cmd(This,?get_env(),?wxGridCellAttr_GetAlignment),
@@ -255,7 +255,7 @@ The caller is responsible for calling `DecRef()` (not implemented in wx) on the 
 pointer, use `GetRendererPtr()` (not implemented in wx) to do it automatically.
 """.
 -spec getRenderer(This, Grid, Row, Col) -> wxGridCellRenderer:wxGridCellRenderer() when
-	This::wxGridCellAttr(), Grid::wxGrid:wxGrid(), Row::integer(), Col::integer().
+        This::wxGridCellAttr(), Grid::wxGrid:wxGrid(), Row::integer(), Col::integer().
 getRenderer(#wx_ref{type=ThisT}=This,#wx_ref{type=GridT}=Grid,Row,Col)
  when is_integer(Row),is_integer(Col) ->
   ?CLASS(ThisT,wxGridCellAttr),
@@ -270,7 +270,7 @@ The caller is responsible for calling `DecRef()` (not implemented in wx) on the 
 pointer, use `GetEditorPtr()` (not implemented in wx) to do it automatically.
 """.
 -spec getEditor(This, Grid, Row, Col) -> wxGridCellEditor:wxGridCellEditor() when
-	This::wxGridCellAttr(), Grid::wxGrid:wxGrid(), Row::integer(), Col::integer().
+        This::wxGridCellAttr(), Grid::wxGrid:wxGrid(), Row::integer(), Col::integer().
 getEditor(#wx_ref{type=ThisT}=This,#wx_ref{type=GridT}=Grid,Row,Col)
  when is_integer(Row),is_integer(Col) ->
   ?CLASS(ThisT,wxGridCellAttr),
@@ -280,7 +280,7 @@ getEditor(#wx_ref{type=ThisT}=This,#wx_ref{type=GridT}=Grid,Row,Col)
 
 -doc "Returns true if this cell is set as read-only.".
 -spec isReadOnly(This) -> boolean() when
-	This::wxGridCellAttr().
+        This::wxGridCellAttr().
 isReadOnly(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGridCellAttr),
   wxe_util:queue_cmd(This,?get_env(),?wxGridCellAttr_IsReadOnly),
@@ -288,7 +288,7 @@ isReadOnly(#wx_ref{type=ThisT}=This) ->
 
 -doc "".
 -spec setDefAttr(This, DefAttr) -> 'ok' when
-	This::wxGridCellAttr(), DefAttr::wxGridCellAttr().
+        This::wxGridCellAttr(), DefAttr::wxGridCellAttr().
 setDefAttr(#wx_ref{type=ThisT}=This,#wx_ref{type=DefAttrT}=DefAttr) ->
   ?CLASS(ThisT,wxGridCellAttr),
   ?CLASS(DefAttrT,wxGridCellAttr),

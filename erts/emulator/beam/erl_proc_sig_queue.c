@@ -2,9 +2,9 @@
  * %CopyrightBegin%
  *
  * SPDX-License-Identifier: Apache-2.0
- * 
- * Copyright Ericsson AB 2018-2025. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2018-2026. All Rights Reserved.
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -16,7 +16,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -4903,10 +4903,6 @@ convert_to_down_message(Process *c_p,
          */
 
         tag = save_heap_frag_eterm(c_p, mp, &mdep->u.name);
-        
-        /* Restore to normal monitor */
-        ASSERT(mdep->u.name == NIL);
-        mdp->origin.flags &= ~ERTS_ML_FLGS_SPAWN;
 
         ref = STORE_NC(&hp, ohp, mdp->ref);
         
@@ -6052,8 +6048,18 @@ handle_altact_msg(Process *c_p, ErtsSigRecvTracing *tracing,
             mon->flags &= ~ERTS_ML_STATE_ALIAS_MASK;
 
             erts_monitor_tree_delete(&ERTS_P_MONITORS(c_p), mon);
-            if (flags & ERTS_ML_FLG_PRIO_ALIAS)
+            if (flags & ERTS_ML_FLG_PRIO_ALIAS) {
+                mon->flags &= ~ERTS_ML_FLG_PRIO_ALIAS;
+                /*
+                 * See comment at end of function why we don't delete alias
+                 * reference now...
+                 */
                 prio_alias_deactivated = !0;
+            }
+            if (flags & ERTS_ML_FLG_PRIO_ML) {
+                mon->flags &= ~ERTS_ML_FLG_PRIO_ML;
+                erts_proc_sig_prio_item_deleted(c_p, ERTS_PRIO_ITEM_TYPE_MONITOR);
+            }
 
             switch (ERTS_ML_GET_TYPE(mon)) {
             case ERTS_MON_TYPE_DIST_PORT:
@@ -6188,8 +6194,10 @@ handle_altact_msg(Process *c_p, ErtsSigRecvTracing *tracing,
                 /* drop faulty encoded external message... */
                 return cnt;
             }
-            cnt += insert_prepared_prio_msg(c_p, tracing, mp, ERL_MESSAGE_TERM(mp),
-                                            token, next_nm_sig);
+            cnt += insert_prepared_prio_msg_attached(c_p, tracing, mp,
+                                                     mp->data.attached,
+                                                     ERL_MESSAGE_TERM(mp), token,
+                                                     next_nm_sig);
         }
         break;
     }
@@ -6455,7 +6463,8 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
                     erts_monitor_release(tmon);
             }
             else {
-                switch (omon->flags & ERTS_ML_STATE_ALIAS_MASK) {
+                switch (omon->flags & (ERTS_ML_STATE_ALIAS_MASK
+                                       | ERTS_ML_FLG_SPAWN_PENDING)) {
                 case ERTS_ML_STATE_ALIAS_UNALIAS: {
                     Uint32 add_flags;
                     ErtsMonitorData *amdp;
@@ -6520,11 +6529,6 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
                 ASSERT(erts_monitor_is_origin(mon));
                 handle_persistent_mon_msg(c_p, &tracing, type, mon, sig,
                                           msg, next_nm_sig);
-
-                if ((mon->flags & ERTS_ML_STATE_ALIAS_MASK)
-                    == ERTS_ML_STATE_ALIAS_ONCE) {
-                    mon->flags &= ~ERTS_ML_STATE_ALIAS_MASK;
-                }
             }
             else {
                 cnt++;
@@ -6673,6 +6677,11 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
                     ErtsELink *elnk;
                     ErtsLink *dlnk = erts_link_to_other(llnk, &elnk);
                     if (!elnk->unlinking) {
+                        if (llnk->flags & ERTS_ML_FLG_PRIO_ML) {
+                            llnk->flags &= ~ERTS_ML_FLG_PRIO_ML;
+                            erts_proc_sig_prio_item_deleted(
+                                c_p, ERTS_PRIO_ITEM_TYPE_LINK);
+                        }
                         erts_link_tree_delete(&ERTS_P_LINKS(c_p), llnk);
                         if (erts_link_dist_delete(dlnk))
                             erts_link_release_both(&elnk->ld);
@@ -6691,6 +6700,11 @@ erts_proc_sig_handle_incoming(Process *c_p, erts_aint32_t *statep,
                 llnk = erts_link_tree_lookup(ERTS_P_LINKS(c_p),
                                              sulnk->from);
                 if (llnk && !((ErtsILink *) llnk)->unlinking) {
+                    if (llnk->flags & ERTS_ML_FLG_PRIO_ML) {
+                        llnk->flags &= ~ERTS_ML_FLG_PRIO_ML;
+                        erts_proc_sig_prio_item_deleted(
+                            c_p, ERTS_PRIO_ITEM_TYPE_LINK);
+                    }
                     if (tracing.procs)
                         getting_unlinked(c_p, sulnk->from);
                     erts_link_tree_delete(&ERTS_P_LINKS(c_p), llnk);
@@ -9541,8 +9555,6 @@ erts_proc_sig_prio_item_added(Process *c_p, ErtsPrioItemType type)
             pq_info = get_prio_queue_info(c_p);
         else
             pq_info = create_prio_q_info(c_p);
-
-        ASSERT(!(c_p->sig_qs.flags & FS_PRIO_MQ_SAVE));
     }
 
     ASSERT(pq_info);

@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright Ericsson AB 2008-2025. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2026. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -224,7 +224,7 @@ void ecb_glGetClipPlane(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
 {
   ERL_NIF_TERM reply;
   GLenum plane;
-  GLdouble equation[4];
+  GLdouble equation[4] = {0};
   if(!enif_get_uint(env, argv[0],  &plane)) Badarg(5057,"plane");
   weglGetClipPlane(plane,equation);
   reply =      enif_make_tuple4(env,
@@ -294,7 +294,7 @@ void ecb_glGetBooleanv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
 {
   ERL_NIF_TERM reply;
   GLenum pname;
-  GLboolean params[16];
+  GLboolean params[16] = {0};
   ERL_NIF_TERM params_ts[16];
   if(!enif_get_uint(env, argv[0],  &pname)) Badarg(5065,"pname");
   weglGetBooleanv(pname,params);
@@ -309,7 +309,7 @@ void ecb_glGetDoublev(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
 {
   ERL_NIF_TERM reply;
   GLenum pname;
-  GLdouble params[16];
+  GLdouble params[16] = {0};
   ERL_NIF_TERM params_ts[16];
   if(!enif_get_uint(env, argv[0],  &pname)) Badarg(5066,"pname");
   weglGetDoublev(pname,params);
@@ -324,7 +324,7 @@ void ecb_glGetFloatv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
 {
   ERL_NIF_TERM reply;
   GLenum pname;
-  GLfloat params[16];
+  GLfloat params[16] = {0};
   ERL_NIF_TERM params_ts[16];
   if(!enif_get_uint(env, argv[0],  &pname)) Badarg(5067,"pname");
   weglGetFloatv(pname,params);
@@ -339,7 +339,7 @@ void ecb_glGetIntegerv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
 {
   ERL_NIF_TERM reply;
   GLenum pname;
-  GLint params[16];
+  GLint params[16] = {0};
   ERL_NIF_TERM params_ts[16];
   if(!enif_get_uint(env, argv[0],  &pname)) Badarg(5068,"pname");
   weglGetIntegerv(pname,params);
@@ -1956,7 +1956,7 @@ void ecb_glGetLightfv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
   ERL_NIF_TERM reply;
   GLenum light;
   GLenum pname;
-  GLfloat params[4];
+  GLfloat params[4] = {0};
   if(!enif_get_uint(env, argv[0],  &light)) Badarg(5209,"light");
   if(!enif_get_uint(env, argv[1],  &pname)) Badarg(5209,"pname");
   weglGetLightfv(light,pname,params);
@@ -1974,7 +1974,7 @@ void ecb_glGetLightiv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
   ERL_NIF_TERM reply;
   GLenum light;
   GLenum pname;
-  GLint params[4];
+  GLint params[4] = {0};
   if(!enif_get_uint(env, argv[0],  &light)) Badarg(5210,"light");
   if(!enif_get_uint(env, argv[1],  &pname)) Badarg(5210,"pname");
   weglGetLightiv(light,pname,params);
@@ -2108,7 +2108,7 @@ void ecb_glGetMaterialfv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
   ERL_NIF_TERM reply;
   GLenum face;
   GLenum pname;
-  GLfloat params[4];
+  GLfloat params[4] = {0};
   if(!enif_get_uint(env, argv[0],  &face)) Badarg(5219,"face");
   if(!enif_get_uint(env, argv[1],  &pname)) Badarg(5219,"pname");
   weglGetMaterialfv(face,pname,params);
@@ -2126,7 +2126,7 @@ void ecb_glGetMaterialiv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
   ERL_NIF_TERM reply;
   GLenum face;
   GLenum pname;
-  GLint params[4];
+  GLint params[4] = {0};
   if(!enif_get_uint(env, argv[0],  &face)) Badarg(5220,"face");
   if(!enif_get_uint(env, argv[1],  &pname)) Badarg(5220,"pname");
   weglGetMaterialiv(face,pname,params);
@@ -2237,7 +2237,7 @@ void ecb_glGetPixelMapfv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
     int values_a;
     const ERL_NIF_TERM *values_t;
     if(enif_get_tuple(env, argv[1], &values_a, &values_t) &&
-         enif_is_binary(env, values_t[1]))
+         values_a >= 2 && enif_is_binary(env, values_t[1]))
        enif_inspect_binary(env, values_t[1], &values);
     else Badarg(5230, "values");
   } else Badarg(5230, "values");
@@ -2258,7 +2258,7 @@ void ecb_glGetPixelMapuiv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
     int values_a;
     const ERL_NIF_TERM *values_t;
     if(enif_get_tuple(env, argv[1], &values_a, &values_t) &&
-         enif_is_binary(env, values_t[1]))
+         values_a >= 2 && enif_is_binary(env, values_t[1]))
        enif_inspect_binary(env, values_t[1], &values);
     else Badarg(5231, "values");
   } else Badarg(5231, "values");
@@ -2279,7 +2279,7 @@ void ecb_glGetPixelMapusv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
     int values_a;
     const ERL_NIF_TERM *values_t;
     if(enif_get_tuple(env, argv[1], &values_a, &values_t) &&
-         enif_is_binary(env, values_t[1]))
+         values_a >= 2 && enif_is_binary(env, values_t[1]))
        enif_inspect_binary(env, values_t[1], &values);
     else Badarg(5232, "values");
   } else Badarg(5232, "values");
@@ -2334,7 +2334,7 @@ void ecb_glReadPixels(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
     int pixels_a;
     const ERL_NIF_TERM *pixels_t;
     if(enif_get_tuple(env, argv[6], &pixels_a, &pixels_t) &&
-         enif_is_binary(env, pixels_t[1]))
+         pixels_a >= 2 && enif_is_binary(env, pixels_t[1]))
        enif_inspect_binary(env, pixels_t[1], &pixels);
     else Badarg(5235, "pixels");
   } else Badarg(5235, "pixels");
@@ -2513,7 +2513,7 @@ void ecb_glGetTexGendv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
   ERL_NIF_TERM reply;
   GLenum coord;
   GLenum pname;
-  GLdouble params[4];
+  GLdouble params[4] = {0};
   if(!enif_get_uint(env, argv[0],  &coord)) Badarg(5249,"coord");
   if(!enif_get_uint(env, argv[1],  &pname)) Badarg(5249,"pname");
   weglGetTexGendv(coord,pname,params);
@@ -2531,7 +2531,7 @@ void ecb_glGetTexGenfv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
   ERL_NIF_TERM reply;
   GLenum coord;
   GLenum pname;
-  GLfloat params[4];
+  GLfloat params[4] = {0};
   if(!enif_get_uint(env, argv[0],  &coord)) Badarg(5250,"coord");
   if(!enif_get_uint(env, argv[1],  &pname)) Badarg(5250,"pname");
   weglGetTexGenfv(coord,pname,params);
@@ -2549,7 +2549,7 @@ void ecb_glGetTexGeniv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
   ERL_NIF_TERM reply;
   GLenum coord;
   GLenum pname;
-  GLint params[4];
+  GLint params[4] = {0};
   if(!enif_get_uint(env, argv[0],  &coord)) Badarg(5251,"coord");
   if(!enif_get_uint(env, argv[1],  &pname)) Badarg(5251,"pname");
   weglGetTexGeniv(coord,pname,params);
@@ -2629,7 +2629,7 @@ void ecb_glGetTexEnvfv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
   ERL_NIF_TERM reply;
   GLenum target;
   GLenum pname;
-  GLfloat params[4];
+  GLfloat params[4] = {0};
   if(!enif_get_uint(env, argv[0],  &target)) Badarg(5256,"target");
   if(!enif_get_uint(env, argv[1],  &pname)) Badarg(5256,"pname");
   weglGetTexEnvfv(target,pname,params);
@@ -2647,7 +2647,7 @@ void ecb_glGetTexEnviv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
   ERL_NIF_TERM reply;
   GLenum target;
   GLenum pname;
-  GLint params[4];
+  GLint params[4] = {0};
   if(!enif_get_uint(env, argv[0],  &target)) Badarg(5257,"target");
   if(!enif_get_uint(env, argv[1],  &pname)) Badarg(5257,"pname");
   weglGetTexEnviv(target,pname,params);
@@ -2727,7 +2727,7 @@ void ecb_glGetTexParameterfv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[
   ERL_NIF_TERM reply;
   GLenum target;
   GLenum pname;
-  GLfloat params[4];
+  GLfloat params[4] = {0};
   if(!enif_get_uint(env, argv[0],  &target)) Badarg(5262,"target");
   if(!enif_get_uint(env, argv[1],  &pname)) Badarg(5262,"pname");
   weglGetTexParameterfv(target,pname,params);
@@ -2745,7 +2745,7 @@ void ecb_glGetTexParameteriv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[
   ERL_NIF_TERM reply;
   GLenum target;
   GLenum pname;
-  GLint params[4];
+  GLint params[4] = {0};
   if(!enif_get_uint(env, argv[0],  &target)) Badarg(5263,"target");
   if(!enif_get_uint(env, argv[1],  &pname)) Badarg(5263,"pname");
   weglGetTexParameteriv(target,pname,params);
@@ -2764,7 +2764,7 @@ void ecb_glGetTexLevelParameterfv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM 
   GLenum target;
   GLint level;
   GLenum pname;
-  GLfloat params[1];
+  GLfloat params[1] = {0};
   if(!enif_get_uint(env, argv[0],  &target)) Badarg(5264,"target");
   if(!enif_get_int(env, argv[1],  &level)) Badarg(5264,"level");
   if(!enif_get_uint(env, argv[2],  &pname)) Badarg(5264,"pname");
@@ -2781,7 +2781,7 @@ void ecb_glGetTexLevelParameteriv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM 
   GLenum target;
   GLint level;
   GLenum pname;
-  GLint params[1];
+  GLint params[1] = {0};
   if(!enif_get_uint(env, argv[0],  &target)) Badarg(5265,"target");
   if(!enif_get_int(env, argv[1],  &level)) Badarg(5265,"level");
   if(!enif_get_uint(env, argv[2],  &pname)) Badarg(5265,"pname");
@@ -2863,7 +2863,7 @@ void ecb_glGetTexImage(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
     int pixels_a;
     const ERL_NIF_TERM *pixels_t;
     if(enif_get_tuple(env, argv[4], &pixels_a, &pixels_t) &&
-         enif_is_binary(env, pixels_t[1]))
+         pixels_a >= 2 && enif_is_binary(env, pixels_t[1]))
        enif_inspect_binary(env, pixels_t[1], &pixels);
     else Badarg(5270, "pixels");
   } else Badarg(5270, "pixels");
@@ -2878,6 +2878,7 @@ void ecb_glGenTextures(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
   ERL_NIF_TERM reply;
   GLsizei n;
   if(!enif_get_int(env, argv[0],  &n)) Badarg(5271,"n");
+  if(n < 0) Badarg(5271,"n");
   std::vector <GLuint> textures (n);
   std::vector <ERL_NIF_TERM> textures_ts (n);
   weglGenTextures(n,textures.data());
@@ -2973,6 +2974,7 @@ void ecb_glAreTexturesResident(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM arg
     };
     textures = textures_vec.data();
   }
+  if(n < 0) Badarg(5275,"n");
   std::vector <GLboolean> residences (n);
   std::vector <ERL_NIF_TERM> residences_ts (n);
   result = weglAreTexturesResident(n,textures,residences.data());
@@ -3224,7 +3226,7 @@ void ecb_glGetMapdv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
     int v_a;
     const ERL_NIF_TERM *v_t;
     if(enif_get_tuple(env, argv[2], &v_a, &v_t) &&
-         enif_is_binary(env, v_t[1]))
+         v_a >= 2 && enif_is_binary(env, v_t[1]))
        enif_inspect_binary(env, v_t[1], &v);
     else Badarg(5289, "v");
   } else Badarg(5289, "v");
@@ -3247,7 +3249,7 @@ void ecb_glGetMapfv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
     int v_a;
     const ERL_NIF_TERM *v_t;
     if(enif_get_tuple(env, argv[2], &v_a, &v_t) &&
-         enif_is_binary(env, v_t[1]))
+         v_a >= 2 && enif_is_binary(env, v_t[1]))
        enif_inspect_binary(env, v_t[1], &v);
     else Badarg(5290, "v");
   } else Badarg(5290, "v");
@@ -3270,7 +3272,7 @@ void ecb_glGetMapiv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
     int v_a;
     const ERL_NIF_TERM *v_t;
     if(enif_get_tuple(env, argv[2], &v_a, &v_t) &&
-         enif_is_binary(env, v_t[1]))
+         v_a >= 2 && enif_is_binary(env, v_t[1]))
        enif_inspect_binary(env, v_t[1], &v);
     else Badarg(5291, "v");
   } else Badarg(5291, "v");
@@ -3477,7 +3479,7 @@ void ecb_glFeedbackBuffer(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
     int buffer_a;
     const ERL_NIF_TERM *buffer_t;
     if(enif_get_tuple(env, argv[2], &buffer_a, &buffer_t) &&
-         enif_is_binary(env, buffer_t[1]))
+         buffer_a >= 2 && enif_is_binary(env, buffer_t[1]))
        enif_inspect_binary(env, buffer_t[1], &buffer);
     else Badarg(5308, "buffer");
   } else Badarg(5308, "buffer");
@@ -3505,7 +3507,7 @@ void ecb_glSelectBuffer(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
     int buffer_a;
     const ERL_NIF_TERM *buffer_t;
     if(enif_get_tuple(env, argv[1], &buffer_a, &buffer_t) &&
-         enif_is_binary(env, buffer_t[1]))
+         buffer_a >= 2 && enif_is_binary(env, buffer_t[1]))
        enif_inspect_binary(env, buffer_t[1], &buffer);
     else Badarg(5310, "buffer");
   } else Badarg(5310, "buffer");
@@ -3837,7 +3839,7 @@ void ecb_glGetCompressedTexImage(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM a
     int img_a;
     const ERL_NIF_TERM *img_t;
     if(enif_get_tuple(env, argv[2], &img_a, &img_t) &&
-         enif_is_binary(env, img_t[1]))
+         img_a >= 2 && enif_is_binary(env, img_t[1]))
        enif_inspect_binary(env, img_t[1], &img);
     else Badarg(5336, "img");
   } else Badarg(5336, "img");
@@ -4574,6 +4576,7 @@ void ecb_glGenQueries(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
   ERL_NIF_TERM reply;
   GLsizei n;
   if(!enif_get_int(env, argv[0],  &n)) Badarg(5389,"n");
+  if(n < 0) Badarg(5389,"n");
   std::vector <GLuint> ids (n);
   std::vector <ERL_NIF_TERM> ids_ts (n);
   weglGenQueries(n,ids.data());
@@ -4710,6 +4713,7 @@ void ecb_glGenBuffers(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
   ERL_NIF_TERM reply;
   GLsizei n;
   if(!enif_get_int(env, argv[0],  &n)) Badarg(5399,"n");
+  if(n < 0) Badarg(5399,"n");
   std::vector <GLuint> buffers (n);
   std::vector <ERL_NIF_TERM> buffers_ts (n);
   weglGenBuffers(n,buffers.data());
@@ -4783,7 +4787,7 @@ void ecb_glGetBufferSubData(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[]
     int data_a;
     const ERL_NIF_TERM *data_t;
     if(enif_get_tuple(env, argv[3], &data_a, &data_t) &&
-         enif_is_binary(env, data_t[1]))
+         data_a >= 2 && enif_is_binary(env, data_t[1]))
        enif_inspect_binary(env, data_t[1], &data);
     else Badarg(5405, "data");
   } else Badarg(5405, "data");
@@ -5014,6 +5018,7 @@ void ecb_glGetAttachedShaders(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv
   GLsizei count;
   if(!enif_get_uint(env, argv[0],  &program)) Badarg(5424,"program");
   if(!enif_get_int(env, argv[1],  &maxCount)) Badarg(5424,"maxCount");
+  if(maxCount < 0) Badarg(5424,"maxCount");
   std::vector <GLuint> shaders (maxCount);
   std::vector <ERL_NIF_TERM> shaders_ts (maxCount);
   weglGetAttachedShaders(program,maxCount,&count,shaders.data());
@@ -5136,7 +5141,7 @@ void ecb_glGetUniformfv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
   ERL_NIF_TERM reply;
   GLuint program;
   GLint location;
-  GLfloat params[16];
+  GLfloat params[16] = {0};
   ERL_NIF_TERM params_ts[16];
   if(!enif_get_uint(env, argv[0],  &program)) Badarg(5432,"program");
   if(!enif_get_int(env, argv[1],  &location)) Badarg(5432,"location");
@@ -5153,7 +5158,7 @@ void ecb_glGetUniformiv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
   ERL_NIF_TERM reply;
   GLuint program;
   GLint location;
-  GLint params[16];
+  GLint params[16] = {0};
   ERL_NIF_TERM params_ts[16];
   if(!enif_get_uint(env, argv[0],  &program)) Badarg(5433,"program");
   if(!enif_get_int(env, argv[1],  &location)) Badarg(5433,"location");
@@ -5170,7 +5175,7 @@ void ecb_glGetVertexAttribdv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[
   ERL_NIF_TERM reply;
   GLuint index;
   GLenum pname;
-  GLdouble params[4];
+  GLdouble params[4] = {0};
   if(!enif_get_uint(env, argv[0],  &index)) Badarg(5434,"index");
   if(!enif_get_uint(env, argv[1],  &pname)) Badarg(5434,"pname");
   weglGetVertexAttribdv(index,pname,params);
@@ -5188,7 +5193,7 @@ void ecb_glGetVertexAttribfv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[
   ERL_NIF_TERM reply;
   GLuint index;
   GLenum pname;
-  GLfloat params[4];
+  GLfloat params[4] = {0};
   if(!enif_get_uint(env, argv[0],  &index)) Badarg(5435,"index");
   if(!enif_get_uint(env, argv[1],  &pname)) Badarg(5435,"pname");
   weglGetVertexAttribfv(index,pname,params);
@@ -5206,7 +5211,7 @@ void ecb_glGetVertexAttribiv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[
   ERL_NIF_TERM reply;
   GLuint index;
   GLenum pname;
-  GLint params[4];
+  GLint params[4] = {0};
   if(!enif_get_uint(env, argv[0],  &index)) Badarg(5436,"index");
   if(!enif_get_uint(env, argv[1],  &pname)) Badarg(5436,"pname");
   weglGetVertexAttribiv(index,pname,params);
@@ -6272,7 +6277,7 @@ void ecb_glGetBooleani_v(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
   ERL_NIF_TERM reply;
   GLenum target;
   GLuint index;
-  GLboolean data[16];
+  GLboolean data[16] = {0};
   ERL_NIF_TERM data_ts[16];
   if(!enif_get_uint(env, argv[0],  &target)) Badarg(5494,"target");
   if(!enif_get_uint(env, argv[1],  &index)) Badarg(5494,"index");
@@ -6289,7 +6294,7 @@ void ecb_glGetIntegeri_v(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
   ERL_NIF_TERM reply;
   GLenum target;
   GLuint index;
-  GLint data[16];
+  GLint data[16] = {0};
   ERL_NIF_TERM data_ts[16];
   if(!enif_get_uint(env, argv[0],  &target)) Badarg(5495,"target");
   if(!enif_get_uint(env, argv[1],  &index)) Badarg(5495,"index");
@@ -6463,7 +6468,7 @@ void ecb_glGetVertexAttribIiv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv
   ERL_NIF_TERM reply;
   GLuint index;
   GLenum pname;
-  GLint params[4];
+  GLint params[4] = {0};
   if(!enif_get_uint(env, argv[0],  &index)) Badarg(5510,"index");
   if(!enif_get_uint(env, argv[1],  &pname)) Badarg(5510,"pname");
   weglGetVertexAttribIiv(index,pname,params);
@@ -6481,7 +6486,7 @@ void ecb_glGetVertexAttribIuiv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM arg
   ERL_NIF_TERM reply;
   GLuint index;
   GLenum pname;
-  GLuint params[4];
+  GLuint params[4] = {0};
   if(!enif_get_uint(env, argv[0],  &index)) Badarg(5511,"index");
   if(!enif_get_uint(env, argv[1],  &pname)) Badarg(5511,"pname");
   weglGetVertexAttribIuiv(index,pname,params);
@@ -6675,7 +6680,7 @@ void ecb_glGetUniformuiv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
   ERL_NIF_TERM reply;
   GLuint program;
   GLint location;
-  GLuint params[16];
+  GLuint params[16] = {0};
   ERL_NIF_TERM params_ts[16];
   if(!enif_get_uint(env, argv[0],  &program)) Badarg(5524,"program");
   if(!enif_get_int(env, argv[1],  &location)) Badarg(5524,"location");
@@ -6903,7 +6908,7 @@ void ecb_glGetTexParameterIiv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv
   ERL_NIF_TERM reply;
   GLenum target;
   GLenum pname;
-  GLint params[4];
+  GLint params[4] = {0};
   if(!enif_get_uint(env, argv[0],  &target)) Badarg(5537,"target");
   if(!enif_get_uint(env, argv[1],  &pname)) Badarg(5537,"pname");
   weglGetTexParameterIiv(target,pname,params);
@@ -6921,7 +6926,7 @@ void ecb_glGetTexParameterIuiv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM arg
   ERL_NIF_TERM reply;
   GLenum target;
   GLenum pname;
-  GLuint params[4];
+  GLuint params[4] = {0};
   if(!enif_get_uint(env, argv[0],  &target)) Badarg(5538,"target");
   if(!enif_get_uint(env, argv[1],  &pname)) Badarg(5538,"pname");
   weglGetTexParameterIuiv(target,pname,params);
@@ -7068,6 +7073,7 @@ void ecb_glGenRenderbuffers(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[]
   ERL_NIF_TERM reply;
   GLsizei n;
   if(!enif_get_int(env, argv[0],  &n)) Badarg(5547,"n");
+  if(n < 0) Badarg(5547,"n");
   std::vector <GLuint> renderbuffers (n);
   std::vector <ERL_NIF_TERM> renderbuffers_ts (n);
   weglGenRenderbuffers(n,renderbuffers.data());
@@ -7152,6 +7158,7 @@ void ecb_glGenFramebuffers(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
   ERL_NIF_TERM reply;
   GLsizei n;
   if(!enif_get_int(env, argv[0],  &n)) Badarg(5553,"n");
+  if(n < 0) Badarg(5553,"n");
   std::vector <GLuint> framebuffers (n);
   std::vector <ERL_NIF_TERM> framebuffers_ts (n);
   weglGenFramebuffers(n,framebuffers.data());
@@ -7356,6 +7363,7 @@ void ecb_glGenVertexArrays(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
   ERL_NIF_TERM reply;
   GLsizei n;
   if(!enif_get_int(env, argv[0],  &n)) Badarg(5567,"n");
+  if(n < 0) Badarg(5567,"n");
   std::vector <GLuint> arrays (n);
   std::vector <ERL_NIF_TERM> arrays_ts (n);
   weglGenVertexArrays(n,arrays.data());
@@ -7460,6 +7468,7 @@ void ecb_glGetUniformIndices(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[
     uniformNames.push_back((GLchar *) uniformNames_tmp.data);
     uniformNames_l = uniformNames_t;
   }
+  if(uniformCount < 0) Badarg(5575,"uniformCount");
   std::vector <GLuint> uniformIndices (uniformCount);
   std::vector <ERL_NIF_TERM> uniformIndices_ts (uniformCount);
   weglGetUniformIndices(program,uniformCount,(const GLchar **) uniformNames.data(),uniformIndices.data());
@@ -7493,6 +7502,7 @@ void ecb_glGetActiveUniformsiv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM arg
     uniformIndices = uniformIndices_vec.data();
   }
   if(!enif_get_uint(env, argv[3],  &pname)) Badarg(5576,"pname");
+  if(uniformCount < 0) Badarg(5576,"uniformCount");
   std::vector <GLint> params (uniformCount);
   std::vector <ERL_NIF_TERM> params_ts (uniformCount);
   weglGetActiveUniformsiv(program,uniformCount,uniformIndices,pname,params.data());
@@ -7551,7 +7561,7 @@ void ecb_glGetActiveUniformBlockiv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM
     int params_a;
     const ERL_NIF_TERM *params_t;
     if(enif_get_tuple(env, argv[3], &params_a, &params_t) &&
-         enif_is_binary(env, params_t[1]))
+         params_a >= 2 && enif_is_binary(env, params_t[1]))
        enif_inspect_binary(env, params_t[1], &params);
     else Badarg(5579, "params");
   } else Badarg(5579, "params");
@@ -7728,7 +7738,7 @@ void ecb_glGetInteger64v(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
 {
   ERL_NIF_TERM reply;
   GLenum pname;
-  GLint64 data[16];
+  GLint64 data[16] = {0};
   ERL_NIF_TERM data_ts[16];
   if(!enif_get_uint(env, argv[0],  &pname)) Badarg(5594,"pname");
   weglGetInteger64v(pname,data);
@@ -7749,6 +7759,7 @@ void ecb_glGetSynciv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
   if(!egl_get_ptr(env, argv[0], (void **) &sync)) Badarg(5595,"sync");
   if(!enif_get_uint(env, argv[1],  &pname)) Badarg(5595,"pname");
   if(!enif_get_int(env, argv[2],  &bufSize)) Badarg(5595,"bufSize");
+  if(bufSize < 0) Badarg(5595,"bufSize");
   std::vector <GLint> values (bufSize);
   std::vector <ERL_NIF_TERM> values_ts (bufSize);
   weglGetSynciv((GLsync) sync,pname,bufSize,&length,values.data());
@@ -7764,7 +7775,7 @@ void ecb_glGetInteger64i_v(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
   ERL_NIF_TERM reply;
   GLenum target;
   GLuint index;
-  GLint64 data[16];
+  GLint64 data[16] = {0};
   ERL_NIF_TERM data_ts[16];
   if(!enif_get_uint(env, argv[0],  &target)) Badarg(5596,"target");
   if(!enif_get_uint(env, argv[1],  &index)) Badarg(5596,"index");
@@ -7781,7 +7792,7 @@ void ecb_glGetBufferParameteri64v(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM 
   ERL_NIF_TERM reply;
   GLenum target;
   GLenum pname;
-  GLint64 params[16];
+  GLint64 params[16] = {0};
   ERL_NIF_TERM params_ts[16];
   if(!enif_get_uint(env, argv[0],  &target)) Badarg(5597,"target");
   if(!enif_get_uint(env, argv[1],  &pname)) Badarg(5597,"pname");
@@ -7847,7 +7858,7 @@ void ecb_glGetMultisamplefv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[]
   ERL_NIF_TERM reply;
   GLenum pname;
   GLuint index;
-  GLfloat val[2];
+  GLfloat val[2] = {0};
   if(!enif_get_uint(env, argv[0],  &pname)) Badarg(5601,"pname");
   if(!enif_get_uint(env, argv[1],  &index)) Badarg(5601,"index");
   weglGetMultisamplefv(pname,index,val);
@@ -7899,6 +7910,7 @@ void ecb_glGenSamplers(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
   ERL_NIF_TERM reply;
   GLsizei count;
   if(!enif_get_int(env, argv[0],  &count)) Badarg(5605,"count");
+  if(count < 0) Badarg(5605,"count");
   std::vector <GLuint> samplers (count);
   std::vector <ERL_NIF_TERM> samplers_ts (count);
   weglGenSamplers(count,samplers.data());
@@ -8070,7 +8082,7 @@ void ecb_glGetSamplerParameteriv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM a
   ERL_NIF_TERM reply;
   GLuint sampler;
   GLenum pname;
-  GLint params[4];
+  GLint params[4] = {0};
   if(!enif_get_uint(env, argv[0],  &sampler)) Badarg(5615,"sampler");
   if(!enif_get_uint(env, argv[1],  &pname)) Badarg(5615,"pname");
   weglGetSamplerParameteriv(sampler,pname,params);
@@ -8088,7 +8100,7 @@ void ecb_glGetSamplerParameterIiv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM 
   ERL_NIF_TERM reply;
   GLuint sampler;
   GLenum pname;
-  GLint params[4];
+  GLint params[4] = {0};
   if(!enif_get_uint(env, argv[0],  &sampler)) Badarg(5616,"sampler");
   if(!enif_get_uint(env, argv[1],  &pname)) Badarg(5616,"pname");
   weglGetSamplerParameterIiv(sampler,pname,params);
@@ -8106,7 +8118,7 @@ void ecb_glGetSamplerParameterfv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM a
   ERL_NIF_TERM reply;
   GLuint sampler;
   GLenum pname;
-  GLfloat params[4];
+  GLfloat params[4] = {0};
   if(!enif_get_uint(env, argv[0],  &sampler)) Badarg(5617,"sampler");
   if(!enif_get_uint(env, argv[1],  &pname)) Badarg(5617,"pname");
   weglGetSamplerParameterfv(sampler,pname,params);
@@ -8124,7 +8136,7 @@ void ecb_glGetSamplerParameterIuiv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM
   ERL_NIF_TERM reply;
   GLuint sampler;
   GLenum pname;
-  GLuint params[4];
+  GLuint params[4] = {0};
   if(!enif_get_uint(env, argv[0],  &sampler)) Badarg(5618,"sampler");
   if(!enif_get_uint(env, argv[1],  &pname)) Badarg(5618,"pname");
   weglGetSamplerParameterIuiv(sampler,pname,params);
@@ -8714,7 +8726,7 @@ void ecb_glGetUniformdv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
   ERL_NIF_TERM reply;
   GLuint program;
   GLint location;
-  GLdouble params[16];
+  GLdouble params[16] = {0};
   ERL_NIF_TERM params_ts[16];
   if(!enif_get_uint(env, argv[0],  &program)) Badarg(5649,"program");
   if(!enif_get_int(env, argv[1],  &location)) Badarg(5649,"location");
@@ -8828,7 +8840,7 @@ void ecb_glGetUniformSubroutineuiv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM
   ERL_NIF_TERM reply;
   GLenum shadertype;
   GLint location;
-  GLuint params[16];
+  GLuint params[16] = {0};
   ERL_NIF_TERM params_ts[16];
   if(!enif_get_uint(env, argv[0],  &shadertype)) Badarg(5655,"shadertype");
   if(!enif_get_int(env, argv[1],  &location)) Badarg(5655,"location");
@@ -8921,6 +8933,7 @@ void ecb_glGenTransformFeedbacks(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM a
   ERL_NIF_TERM reply;
   GLsizei n;
   if(!enif_get_int(env, argv[0],  &n)) Badarg(5661,"n");
+  if(n < 0) Badarg(5661,"n");
   std::vector <GLuint> ids (n);
   std::vector <ERL_NIF_TERM> ids_ts (n);
   weglGenTransformFeedbacks(n,ids.data());
@@ -9044,7 +9057,7 @@ void ecb_glGetShaderPrecisionFormat(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TER
   ERL_NIF_TERM reply;
   GLenum shadertype;
   GLenum precisiontype;
-  GLint range[2];
+  GLint range[2] = {0};
   GLint precision;
   if(!enif_get_uint(env, argv[0],  &shadertype)) Badarg(5672,"shadertype");
   if(!enif_get_uint(env, argv[1],  &precisiontype)) Badarg(5672,"precisiontype");
@@ -9191,6 +9204,7 @@ void ecb_glGenProgramPipelines(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM arg
   ERL_NIF_TERM reply;
   GLsizei n;
   if(!enif_get_int(env, argv[0],  &n)) Badarg(5683,"n");
+  if(n < 0) Badarg(5683,"n");
   std::vector <GLuint> pipelines (n);
   std::vector <ERL_NIF_TERM> pipelines_ts (n);
   weglGenProgramPipelines(n,pipelines.data());
@@ -10602,7 +10616,7 @@ void ecb_glGetVertexAttribLdv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv
   ERL_NIF_TERM reply;
   GLuint index;
   GLenum pname;
-  GLdouble params[4];
+  GLdouble params[4] = {0};
   if(!enif_get_uint(env, argv[0],  &index)) Badarg(5744,"index");
   if(!enif_get_uint(env, argv[1],  &pname)) Badarg(5744,"pname");
   weglGetVertexAttribLdv(index,pname,params);
@@ -10777,7 +10791,7 @@ void ecb_glGetFloati_v(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
   ERL_NIF_TERM reply;
   GLenum target;
   GLuint index;
-  GLfloat data[16];
+  GLfloat data[16] = {0};
   ERL_NIF_TERM data_ts[16];
   if(!enif_get_uint(env, argv[0],  &target)) Badarg(5753,"target");
   if(!enif_get_uint(env, argv[1],  &index)) Badarg(5753,"index");
@@ -10794,7 +10808,7 @@ void ecb_glGetDoublei_v(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
   ERL_NIF_TERM reply;
   GLenum target;
   GLuint index;
-  GLdouble data[16];
+  GLdouble data[16] = {0};
   ERL_NIF_TERM data_ts[16];
   if(!enif_get_uint(env, argv[0],  &target)) Badarg(5754,"target");
   if(!enif_get_uint(env, argv[1],  &index)) Badarg(5754,"index");
@@ -10878,6 +10892,7 @@ void ecb_glGetInternalformativ(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM arg
   if(!enif_get_uint(env, argv[1],  &internalformat)) Badarg(5760,"internalformat");
   if(!enif_get_uint(env, argv[2],  &pname)) Badarg(5760,"pname");
   if(!enif_get_int(env, argv[3],  &bufSize)) Badarg(5760,"bufSize");
+  if(bufSize < 0) Badarg(5760,"bufSize");
   std::vector <GLint> params (bufSize);
   std::vector <ERL_NIF_TERM> params_ts (bufSize);
   weglGetInternalformativ(target,internalformat,pname,bufSize,params.data());
@@ -11116,6 +11131,7 @@ void ecb_glGetInternalformati64v(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM a
   if(!enif_get_uint(env, argv[1],  &internalformat)) Badarg(5777,"internalformat");
   if(!enif_get_uint(env, argv[2],  &pname)) Badarg(5777,"pname");
   if(!enif_get_int(env, argv[3],  &bufSize)) Badarg(5777,"bufSize");
+  if(bufSize < 0) Badarg(5777,"bufSize");
   std::vector <GLint64> params (bufSize);
   std::vector <ERL_NIF_TERM> params_ts (bufSize);
   weglGetInternalformati64v(target,internalformat,pname,bufSize,params.data());
@@ -11538,16 +11554,22 @@ void ecb_glGetDebugMessageLog(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv
   unsigned char *messageLog;
   if(!enif_get_uint(env, argv[0],  &count)) Badarg(5804,"count");
   if(!enif_get_int(env, argv[1],  &bufSize)) Badarg(5804,"bufSize");
+  if(count < 0) Badarg(5804,"count");
   std::vector <GLenum> sources (count);
   std::vector <ERL_NIF_TERM> sources_ts (count);
+  if(count < 0) Badarg(5804,"count");
   std::vector <GLenum> types (count);
   std::vector <ERL_NIF_TERM> types_ts (count);
+  if(count < 0) Badarg(5804,"count");
   std::vector <GLuint> ids (count);
   std::vector <ERL_NIF_TERM> ids_ts (count);
+  if(count < 0) Badarg(5804,"count");
   std::vector <GLenum> severities (count);
   std::vector <ERL_NIF_TERM> severities_ts (count);
+  if(count < 0) Badarg(5804,"count");
   std::vector <GLsizei> lengths (count);
   std::vector <ERL_NIF_TERM> lengths_ts (count);
+  if(bufSize < 0) Badarg(5804,"bufSize");
   messageLog = (unsigned char *) enif_alloc((int) bufSize*sizeof(GLchar));
   unsigned char *messageLog_ptr = messageLog;
   std::vector <ERL_NIF_TERM> messageLog_ts (count);
@@ -11892,6 +11914,7 @@ void ecb_glCreateTransformFeedbacks(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TER
   ERL_NIF_TERM reply;
   GLsizei n;
   if(!enif_get_int(env, argv[0],  &n)) Badarg(5822,"n");
+  if(n < 0) Badarg(5822,"n");
   std::vector <GLuint> ids (n);
   std::vector <ERL_NIF_TERM> ids_ts (n);
   weglCreateTransformFeedbacks(n,ids.data());
@@ -11933,6 +11956,7 @@ void ecb_glCreateBuffers(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
   ERL_NIF_TERM reply;
   GLsizei n;
   if(!enif_get_int(env, argv[0],  &n)) Badarg(5825,"n");
+  if(n < 0) Badarg(5825,"n");
   std::vector <GLuint> buffers (n);
   std::vector <ERL_NIF_TERM> buffers_ts (n);
   weglCreateBuffers(n,buffers.data());
@@ -11959,6 +11983,7 @@ void ecb_glCreateFramebuffers(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv
   ERL_NIF_TERM reply;
   GLsizei n;
   if(!enif_get_int(env, argv[0],  &n)) Badarg(5827,"n");
+  if(n < 0) Badarg(5827,"n");
   std::vector <GLuint> framebuffers (n);
   std::vector <ERL_NIF_TERM> framebuffers_ts (n);
   weglCreateFramebuffers(n,framebuffers.data());
@@ -11974,6 +11999,7 @@ void ecb_glCreateRenderbuffers(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM arg
   ERL_NIF_TERM reply;
   GLsizei n;
   if(!enif_get_int(env, argv[0],  &n)) Badarg(5828,"n");
+  if(n < 0) Badarg(5828,"n");
   std::vector <GLuint> renderbuffers (n);
   std::vector <ERL_NIF_TERM> renderbuffers_ts (n);
   weglCreateRenderbuffers(n,renderbuffers.data());
@@ -11991,6 +12017,7 @@ void ecb_glCreateTextures(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
   GLsizei n;
   if(!enif_get_uint(env, argv[0],  &target)) Badarg(5829,"target");
   if(!enif_get_int(env, argv[1],  &n)) Badarg(5829,"n");
+  if(n < 0) Badarg(5829,"n");
   std::vector <GLuint> textures (n);
   std::vector <ERL_NIF_TERM> textures_ts (n);
   weglCreateTextures(target,n,textures.data());
@@ -12132,6 +12159,7 @@ void ecb_glCreateVertexArrays(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv
   ERL_NIF_TERM reply;
   GLsizei n;
   if(!enif_get_int(env, argv[0],  &n)) Badarg(5840,"n");
+  if(n < 0) Badarg(5840,"n");
   std::vector <GLuint> arrays (n);
   std::vector <ERL_NIF_TERM> arrays_ts (n);
   weglCreateVertexArrays(n,arrays.data());
@@ -12311,6 +12339,7 @@ void ecb_glCreateSamplers(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
   ERL_NIF_TERM reply;
   GLsizei n;
   if(!enif_get_int(env, argv[0],  &n)) Badarg(5851,"n");
+  if(n < 0) Badarg(5851,"n");
   std::vector <GLuint> samplers (n);
   std::vector <ERL_NIF_TERM> samplers_ts (n);
   weglCreateSamplers(n,samplers.data());
@@ -12326,6 +12355,7 @@ void ecb_glCreateProgramPipelines(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM 
   ERL_NIF_TERM reply;
   GLsizei n;
   if(!enif_get_int(env, argv[0],  &n)) Badarg(5852,"n");
+  if(n < 0) Badarg(5852,"n");
   std::vector <GLuint> pipelines (n);
   std::vector <ERL_NIF_TERM> pipelines_ts (n);
   weglCreateProgramPipelines(n,pipelines.data());
@@ -12343,6 +12373,7 @@ void ecb_glCreateQueries(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
   GLsizei n;
   if(!enif_get_uint(env, argv[0],  &target)) Badarg(5853,"target");
   if(!enif_get_int(env, argv[1],  &n)) Badarg(5853,"n");
+  if(n < 0) Badarg(5853,"n");
   std::vector <GLuint> ids (n);
   std::vector <ERL_NIF_TERM> ids_ts (n);
   weglCreateQueries(target,n,ids.data());
@@ -12636,6 +12667,7 @@ void ecb_glGenProgramsARB(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
   ERL_NIF_TERM reply;
   GLsizei n;
   if(!enif_get_int(env, argv[0],  &n)) Badarg(5878,"n");
+  if(n < 0) Badarg(5878,"n");
   std::vector <GLuint> programs (n);
   std::vector <ERL_NIF_TERM> programs_ts (n);
   weglGenProgramsARB(n,programs.data());
@@ -12807,7 +12839,7 @@ void ecb_glGetProgramEnvParameterdvARB(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_
   ERL_NIF_TERM reply;
   GLenum target;
   GLuint index;
-  GLdouble params[4];
+  GLdouble params[4] = {0};
   if(!enif_get_uint(env, argv[0],  &target)) Badarg(5887,"target");
   if(!enif_get_uint(env, argv[1],  &index)) Badarg(5887,"index");
   weglGetProgramEnvParameterdvARB(target,index,params);
@@ -12825,7 +12857,7 @@ void ecb_glGetProgramEnvParameterfvARB(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_
   ERL_NIF_TERM reply;
   GLenum target;
   GLuint index;
-  GLfloat params[4];
+  GLfloat params[4] = {0};
   if(!enif_get_uint(env, argv[0],  &target)) Badarg(5888,"target");
   if(!enif_get_uint(env, argv[1],  &index)) Badarg(5888,"index");
   weglGetProgramEnvParameterfvARB(target,index,params);
@@ -12843,7 +12875,7 @@ void ecb_glGetProgramLocalParameterdvARB(ErlNifEnv* env, ErlNifPid *self, ERL_NI
   ERL_NIF_TERM reply;
   GLenum target;
   GLuint index;
-  GLdouble params[4];
+  GLdouble params[4] = {0};
   if(!enif_get_uint(env, argv[0],  &target)) Badarg(5889,"target");
   if(!enif_get_uint(env, argv[1],  &index)) Badarg(5889,"index");
   weglGetProgramLocalParameterdvARB(target,index,params);
@@ -12861,7 +12893,7 @@ void ecb_glGetProgramLocalParameterfvARB(ErlNifEnv* env, ErlNifPid *self, ERL_NI
   ERL_NIF_TERM reply;
   GLenum target;
   GLuint index;
-  GLfloat params[4];
+  GLfloat params[4] = {0};
   if(!enif_get_uint(env, argv[0],  &target)) Badarg(5890,"target");
   if(!enif_get_uint(env, argv[1],  &index)) Badarg(5890,"index");
   weglGetProgramLocalParameterfvARB(target,index,params);
@@ -12887,7 +12919,7 @@ void ecb_glGetProgramStringARB(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM arg
     int string_a;
     const ERL_NIF_TERM *string_t;
     if(enif_get_tuple(env, argv[2], &string_a, &string_t) &&
-         enif_is_binary(env, string_t[1]))
+         string_a >= 2 && enif_is_binary(env, string_t[1]))
        enif_inspect_binary(env, string_t[1], &string);
     else Badarg(5891, "string");
   } else Badarg(5891, "string");
@@ -13209,7 +13241,7 @@ void ecb_glGetUniformi64vARB(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[
   ERL_NIF_TERM reply;
   GLuint program;
   GLint location;
-  GLint64 params[16];
+  GLint64 params[16] = {0};
   ERL_NIF_TERM params_ts[16];
   if(!enif_get_uint(env, argv[0],  &program)) Badarg(5909,"program");
   if(!enif_get_int(env, argv[1],  &location)) Badarg(5909,"location");
@@ -13226,7 +13258,7 @@ void ecb_glGetUniformui64vARB(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv
   ERL_NIF_TERM reply;
   GLuint program;
   GLint location;
-  GLuint64 params[16];
+  GLuint64 params[16] = {0};
   ERL_NIF_TERM params_ts[16];
   if(!enif_get_uint(env, argv[0],  &program)) Badarg(5910,"program");
   if(!enif_get_int(env, argv[1],  &location)) Badarg(5910,"location");
@@ -13658,7 +13690,7 @@ void ecb_glGetColorTable(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
     int table_a;
     const ERL_NIF_TERM *table_t;
     if(enif_get_tuple(env, argv[3], &table_a, &table_t) &&
-         enif_is_binary(env, table_t[1]))
+         table_a >= 2 && enif_is_binary(env, table_t[1]))
        enif_inspect_binary(env, table_t[1], &table);
     else Badarg(5932, "table");
   } else Badarg(5932, "table");
@@ -13673,7 +13705,7 @@ void ecb_glGetColorTableParameterfv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TER
   ERL_NIF_TERM reply;
   GLenum target;
   GLenum pname;
-  GLfloat params[4];
+  GLfloat params[4] = {0};
   if(!enif_get_uint(env, argv[0],  &target)) Badarg(5933,"target");
   if(!enif_get_uint(env, argv[1],  &pname)) Badarg(5933,"pname");
   weglGetColorTableParameterfv(target,pname,params);
@@ -13691,7 +13723,7 @@ void ecb_glGetColorTableParameteriv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TER
   ERL_NIF_TERM reply;
   GLenum target;
   GLenum pname;
-  GLint params[4];
+  GLint params[4] = {0};
   if(!enif_get_uint(env, argv[0],  &target)) Badarg(5934,"target");
   if(!enif_get_uint(env, argv[1],  &pname)) Badarg(5934,"pname");
   weglGetColorTableParameteriv(target,pname,params);
@@ -13914,7 +13946,7 @@ void ecb_glGetConvolutionFilter(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM ar
     int image_a;
     const ERL_NIF_TERM *image_t;
     if(enif_get_tuple(env, argv[3], &image_a, &image_t) &&
-         enif_is_binary(env, image_t[1]))
+         image_a >= 2 && enif_is_binary(env, image_t[1]))
        enif_inspect_binary(env, image_t[1], &image);
     else Badarg(5948, "image");
   } else Badarg(5948, "image");
@@ -13929,7 +13961,7 @@ void ecb_glGetConvolutionParameterfv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TE
   ERL_NIF_TERM reply;
   GLenum target;
   GLenum pname;
-  GLfloat params[4];
+  GLfloat params[4] = {0};
   if(!enif_get_uint(env, argv[0],  &target)) Badarg(5949,"target");
   if(!enif_get_uint(env, argv[1],  &pname)) Badarg(5949,"pname");
   weglGetConvolutionParameterfv(target,pname,params);
@@ -13947,7 +13979,7 @@ void ecb_glGetConvolutionParameteriv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TE
   ERL_NIF_TERM reply;
   GLenum target;
   GLenum pname;
-  GLint params[4];
+  GLint params[4] = {0};
   if(!enif_get_uint(env, argv[0],  &target)) Badarg(5950,"target");
   if(!enif_get_uint(env, argv[1],  &pname)) Badarg(5950,"pname");
   weglGetConvolutionParameteriv(target,pname,params);
@@ -14008,7 +14040,7 @@ void ecb_glGetHistogram(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
     int values_a;
     const ERL_NIF_TERM *values_t;
     if(enif_get_tuple(env, argv[4], &values_a, &values_t) &&
-         enif_is_binary(env, values_t[1]))
+         values_a >= 2 && enif_is_binary(env, values_t[1]))
        enif_inspect_binary(env, values_t[1], &values);
     else Badarg(5953, "values");
   } else Badarg(5953, "values");
@@ -14023,7 +14055,7 @@ void ecb_glGetHistogramParameterfv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM
   ERL_NIF_TERM reply;
   GLenum target;
   GLenum pname;
-  GLfloat params[1];
+  GLfloat params[1] = {0};
   if(!enif_get_uint(env, argv[0],  &target)) Badarg(5954,"target");
   if(!enif_get_uint(env, argv[1],  &pname)) Badarg(5954,"pname");
   weglGetHistogramParameterfv(target,pname,params);
@@ -14038,7 +14070,7 @@ void ecb_glGetHistogramParameteriv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM
   ERL_NIF_TERM reply;
   GLenum target;
   GLenum pname;
-  GLint params[1];
+  GLint params[1] = {0};
   if(!enif_get_uint(env, argv[0],  &target)) Badarg(5955,"target");
   if(!enif_get_uint(env, argv[1],  &pname)) Badarg(5955,"pname");
   weglGetHistogramParameteriv(target,pname,params);
@@ -14065,7 +14097,7 @@ void ecb_glGetMinmax(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
     int values_a;
     const ERL_NIF_TERM *values_t;
     if(enif_get_tuple(env, argv[4], &values_a, &values_t) &&
-         enif_is_binary(env, values_t[1]))
+         values_a >= 2 && enif_is_binary(env, values_t[1]))
        enif_inspect_binary(env, values_t[1], &values);
     else Badarg(5956, "values");
   } else Badarg(5956, "values");
@@ -14080,7 +14112,7 @@ void ecb_glGetMinmaxParameterfv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM ar
   ERL_NIF_TERM reply;
   GLenum target;
   GLenum pname;
-  GLfloat params[1];
+  GLfloat params[1] = {0};
   if(!enif_get_uint(env, argv[0],  &target)) Badarg(5957,"target");
   if(!enif_get_uint(env, argv[1],  &pname)) Badarg(5957,"pname");
   weglGetMinmaxParameterfv(target,pname,params);
@@ -14095,7 +14127,7 @@ void ecb_glGetMinmaxParameteriv(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM ar
   ERL_NIF_TERM reply;
   GLenum target;
   GLenum pname;
-  GLint params[1];
+  GLint params[1] = {0};
   if(!enif_get_uint(env, argv[0],  &target)) Badarg(5958,"target");
   if(!enif_get_uint(env, argv[1],  &pname)) Badarg(5958,"pname");
   weglGetMinmaxParameteriv(target,pname,params);
@@ -14392,6 +14424,7 @@ void ecb_glGetAttachedObjectsARB(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM a
   GLsizei count;
   if(!enif_get_uint64(env, argv[0],  &containerObj)) Badarg(5984,"containerObj");
   if(!enif_get_int(env, argv[1],  &maxCount)) Badarg(5984,"maxCount");
+  if(maxCount < 0) Badarg(5984,"maxCount");
   std::vector <GLhandleARB> obj (maxCount);
   std::vector <ERL_NIF_TERM> obj_ts (maxCount);
   weglGetAttachedObjectsARB((GLhandleARB) containerObj,maxCount,&count,obj.data());
@@ -14445,7 +14478,7 @@ void ecb_glGetUniformfvARB(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
   ERL_NIF_TERM reply;
   egl_uint64_t programObj;
   GLint location;
-  GLfloat params[16];
+  GLfloat params[16] = {0};
   ERL_NIF_TERM params_ts[16];
   if(!enif_get_uint64(env, argv[0],  &programObj)) Badarg(5987,"programObj");
   if(!enif_get_int(env, argv[1],  &location)) Badarg(5987,"location");
@@ -14462,7 +14495,7 @@ void ecb_glGetUniformivARB(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM argv[])
   ERL_NIF_TERM reply;
   egl_uint64_t programObj;
   GLint location;
-  GLint params[16];
+  GLint params[16] = {0};
   ERL_NIF_TERM params_ts[16];
   if(!enif_get_uint64(env, argv[0],  &programObj)) Badarg(5988,"programObj");
   if(!enif_get_int(env, argv[1],  &location)) Badarg(5988,"location");
@@ -14577,7 +14610,7 @@ void ecb_glGetCompressedTexImageARB(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TER
     int img_a;
     const ERL_NIF_TERM *img_t;
     if(enif_get_tuple(env, argv[2], &img_a, &img_t) &&
-         enif_is_binary(env, img_t[1]))
+         img_a >= 2 && enif_is_binary(env, img_t[1]))
        enif_inspect_binary(env, img_t[1], &img);
     else Badarg(5995, "img");
   } else Badarg(5995, "img");
@@ -14919,7 +14952,7 @@ void ecb_glGetBufferParameterivARB(ErlNifEnv* env, ErlNifPid *self, ERL_NIF_TERM
   ERL_NIF_TERM reply;
   GLenum target;
   GLenum pname;
-  GLint params[16];
+  GLint params[16] = {0};
   ERL_NIF_TERM params_ts[16];
   if(!enif_get_uint(env, argv[0],  &target)) Badarg(6009,"target");
   if(!enif_get_uint(env, argv[1],  &pname)) Badarg(6009,"pname");

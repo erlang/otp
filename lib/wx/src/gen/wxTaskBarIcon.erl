@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -142,7 +142,7 @@ instead of calling this method from event handler, because some ports (e.g. wxCo
 not implement `popupMenu/2` and mouse click events at all.
 """.
 -spec popupMenu(This, Menu) -> boolean() when
-	This::wxTaskBarIcon(), Menu::wxMenu:wxMenu().
+        This::wxTaskBarIcon(), Menu::wxMenu:wxMenu().
 popupMenu(#wx_ref{type=ThisT}=This,#wx_ref{type=MenuT}=Menu) ->
   ?CLASS(ThisT,wxTaskBarIcon),
   ?CLASS(MenuT,wxMenu),
@@ -151,7 +151,7 @@ popupMenu(#wx_ref{type=ThisT}=This,#wx_ref{type=MenuT}=Menu) ->
 
 -doc "Removes the icon previously set with `setIcon/3`.".
 -spec removeIcon(This) -> boolean() when
-	This::wxTaskBarIcon().
+        This::wxTaskBarIcon().
 removeIcon(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTaskBarIcon),
   wxe_util:queue_cmd(This,?get_env(),?wxTaskBarIcon_RemoveIcon),
@@ -159,7 +159,7 @@ removeIcon(#wx_ref{type=ThisT}=This) ->
 
 -doc(#{equiv => setIcon(This,Icon, [])}).
 -spec setIcon(This, Icon) -> boolean() when
-	This::wxTaskBarIcon(), Icon::wxIcon:wxIcon().
+        This::wxTaskBarIcon(), Icon::wxIcon:wxIcon().
 
 setIcon(This,Icon)
  when is_record(This, wx_ref),is_record(Icon, wx_ref) ->

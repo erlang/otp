@@ -87,8 +87,8 @@ body_data(Headers, Body) when is_binary(Body)->
 %%-------------------------------------------------------------------------
 %% validate(Method, Uri, Version) -> ok | {error, {bad_request, Reason} |
 %%			     {error, {not_supported, {Method, Uri, Version}}
-%%      Method = "HEAD" | "GET" | "POST" | "PATCH" | "TRACE" | "PUT"
-%%               | "DELETE"
+%%      Method = "HEAD" | "GET" | "POST" | "PATCH" | "OPTIONS" | "TRACE"
+%%               | "PUT" | "DELETE"
 %%      Uri = uri()
 %%      Version = "HTTP/N.M"      
 %% Description: Checks that HTTP-request-line is valid.
@@ -104,6 +104,8 @@ validate("DELETE", Uri, "HTTP/1." ++ _N) ->
 validate("POST", Uri, "HTTP/1." ++ _N) ->
     validate_uri(Uri);
 validate("PATCH", Uri, "HTTP/1." ++ _N) ->
+    validate_uri(Uri);
+validate("OPTIONS", Uri, "HTTP/1." ++ _N) ->
     validate_uri(Uri);
 validate("TRACE", Uri, "HTTP/1." ++ N) when hd(N) >= $1 ->
     validate_uri(Uri);
@@ -205,22 +207,35 @@ parse_headers(<<?CR,?LF,?CR,?LF,Body/binary>>, [], [], _, _,  _, Result) ->
 parse_headers(<<?CR,?LF,?CR,?LF,Body/binary>>, Header, Headers, _, _,
 	      Options, Result) ->
     Customize = proplists:get_value(customize, Options),
+    HttpVersion = lists:nth(3, lists:reverse(Result)),
     case http_request:key_value(lists:reverse(Header)) of
-	undefined -> %% Skip invalid headers
+	undefined -> %% Skip headers with missing :
 	    FinalHeaders = lists:filtermap(fun(H) ->
 						   httpd_custom:customize_headers(Customize, request_header, H)
 					   end,
 					   Headers),
-	    {ok, list_to_tuple(lists:reverse([Body, {http_request:headers(FinalHeaders, #http_request_h{}), FinalHeaders} | Result]))};
+            case http_request:headers(FinalHeaders, #http_request_h{}) of
+                {error, withespace_before_colon} ->
+                    {error, {bad_request, 400, ?ERROR_WHITESPACE_BEFORE_COLON}, HttpVersion};
+                ParsedHeaders ->
+                    {ok, list_to_tuple(lists:reverse([Body, {ParsedHeaders, FinalHeaders} | Result]))}
+            end;
+	{error, whitespace_before_colon} ->
+	    HttpVersion = lists:nth(3, lists:reverse(Result)),
+	    {error, {bad_request, 400, ?ERROR_WHITESPACE_BEFORE_COLON}, HttpVersion};
 	NewHeader ->
 	    case check_header(NewHeader, Headers, Options) of
 		ok ->
 		    FinalHeaders = lists:filtermap(fun(H) ->
 							   httpd_custom:customize_headers(Customize, request_header, H)
 						   end, [NewHeader | Headers]),
-		    {ok, list_to_tuple(lists:reverse([Body, {http_request:headers(FinalHeaders, 
-										  #http_request_h{}),  
-							     FinalHeaders} | Result]))};
+
+                    case http_request:headers(FinalHeaders, #http_request_h{}) of
+                        {error, whitespace_before_colon} ->
+                            {error, {bad_request, 400, ?ERROR_WHITESPACE_BEFORE_COLON}, HttpVersion};
+                      ParsedHeaders ->
+                            {ok, list_to_tuple(lists:reverse([Body, {ParsedHeaders, FinalHeaders} | Result]))}
+                    end;
 		
 		{error, Reason} ->
 		    HttpVersion = lists:nth(3, lists:reverse(Result)),
@@ -256,16 +271,24 @@ parse_headers(<<?LF, Octet, Rest/binary>>, Header, Headers, Current, Max,
     %% If ?CR is is missing RFC2616 section-19.3 
     parse_headers(<<?CR,?LF, Octet, Rest/binary>>, Header, Headers, Current, Max,
 		  Options, Result); 
+parse_headers(<<?CR, ?LF, Obs:8, _/binary>>, _, _, _, _, _, Result) when
+          Obs =:= ?SP;
+          Obs =:= ?TAB ->
+        HttpVersion = lists:nth(3, lists:reverse(Result)),
+        {error, {bad_request, 400, "obs-fold not supported"}, HttpVersion};
 parse_headers(<<?CR,?LF, Octet, Rest/binary>>, Header, Headers, Current, Max,
 	      Options, Result) ->
     case http_request:key_value(lists:reverse(Header)) of
 	undefined -> %% Skip headers with missing :
-	    parse_headers(Rest, [Octet], Headers, 
+	    parse_headers(Rest, [Octet], Headers,
 			  Current, Max, Options, Result);
+	{error, whitespace_before_colon} ->
+	    HttpVersion = lists:nth(3, lists:reverse(Result)),
+	    {error, {bad_request, 400, "whitespace before colon in header"}, HttpVersion};
 	NewHeader ->
 	    case check_header(NewHeader, Headers, Options) of
 		ok ->
-		    parse_headers(Rest, [Octet], [NewHeader | Headers], 
+		    parse_headers(Rest, [Octet], [NewHeader | Headers],
 				  Current, Max, Options, Result);
 		{error, Reason} ->
 		    HttpVersion = lists:nth(3, lists:reverse(Result)),
@@ -343,7 +366,22 @@ validate_uri(RequestURI) ->
         {error, _, _} ->
             {error, {bad_request, {malformed_syntax, RequestURI}}};
         URI ->
-            {ok, URI}
+            {ok, collapse_uri_path_slashes(URI)}
+    end.
+
+%% Collapse consecutive slashes in the path component only.
+%% Uses uri_string:parse/1 to avoid mangling "://" in absolute URIs.
+collapse_uri_path_slashes([$/ | _] = Path) ->
+    %% Path-only form (the common case for httpd requests).
+    httpd_util:collapse_slashes(Path);
+collapse_uri_path_slashes(URI) ->
+    case uri_string:parse(URI) of
+        #{path := Path} = Parsed when map_size(Parsed) > 1 ->
+            %% Absolute URI — collapse only the path, recompose.
+            uri_string:recompose(Parsed#{path => httpd_util:collapse_slashes(Path)});
+        _ ->
+            %% Unparseable or path-only without leading slash.
+            httpd_util:collapse_slashes(URI)
     end.
    
 validate_version("HTTP/1.1") ->
@@ -433,11 +471,25 @@ default_version()->
     "HTTP/1.1".
 
 check_header({"content-length", Value}, Headers, MaxSizes) ->
-    case check_parsed_content_length_values(Value, Headers) of
+    case lists:keymember("transfer-encoding", 1, Headers) of
         true ->
-            check_content_length_value(Value, MaxSizes);
+            {error, {bad_request, 400, ?CL_TE_ERROR}};
         false ->
-            {error, {bad_request, 400, "Multiple Content-Length headers with different values"}}
+            case check_parsed_content_length_values(Value, Headers) of
+                true ->
+                    check_content_length_value(Value, MaxSizes);
+                false ->
+                    {error, {bad_request, 400,
+                             "Multiple Content-Length headers with different values"}}
+            end
+    end;
+
+check_header({"transfer-encoding", _Value}, Headers, _MaxSizes) ->
+    case lists:keymember("content-length", 1, Headers) of
+        true ->
+            {error, {bad_request, 400, ?CL_TE_ERROR}};
+        false ->
+            ok
     end;
 
 check_header(_, _, _) ->

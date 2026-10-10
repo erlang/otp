@@ -2,9 +2,9 @@
  * %CopyrightBegin%
  *
  * SPDX-License-Identifier: Apache-2.0
- * 
- * Copyright Ericsson AB 2006-2025. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2006-2026. All Rights Reserved.
+ *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -16,7 +16,7 @@
  * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
  * See the License for the specific language governing permissions and
  * limitations under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -57,6 +57,7 @@ typedef erts_atomic_t ErtsPortTaskHandle;
 #define ERTS_PT_FLG_NOSUSPEND		(1 << 2)
 #define ERTS_PT_FLG_REF			(1 << 3)
 #define ERTS_PT_FLG_BAD_OUTPUT		(1 << 4)
+#define ERTS_PT_FLG_ASYNC_NOSUSPEND     (1 << 5)
 
 typedef enum {
     ERTS_PORT_TASK_INPUT = 0,
@@ -256,7 +257,7 @@ void erts_port_task_init(void);
 void erts_port_task_pre_alloc_init_thread(void);
 
 void erts_port_task_tmp_handle_detach(ErtsPortTaskHandle *);
-int erts_port_task_abort(ErtsPortTaskHandle *);
+int erts_port_task_abort(Port *, ErtsPortTaskHandle *);
 
 void erts_port_task_abort_nosuspend_tasks(Port *);
 

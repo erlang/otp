@@ -75,7 +75,9 @@ check_result() ->
     Node = full_node_name(?REG_NAME),
     LTTS = {?REG_NAME, Node},
     Mon = erlang:monitor(process, LTTS),
-    (catch LTTS ! {get_result, ?REG_NAME, self()}),
+    try LTTS ! {get_result, ?REG_NAME, self()}
+    catch _:_ -> ok
+    end,
     receive
 	{'DOWN', Mon, process, _, Reason} ->
 	    {?REG_NAME, 'DOWN', Reason};
@@ -413,9 +415,11 @@ get_test_results([], NewTORs) ->
 mk_node_cmdline(Name) ->
     Static = "-detached -noinput",
     Pa = filename:dirname(code:which(?MODULE)),
-    Prog = case catch init:get_argument(progname) of
+    Prog = try init:get_argument(progname) of
 	       {ok,[[P]]} -> P;
 	       _ -> exit(no_progname_argument_found)
+           catch
+               _:_ -> exit(no_progname_argument_found)
 	   end,
     NameSw = case net_kernel:longnames() of
 		 false -> "-sname ";
@@ -439,11 +443,15 @@ full_node_name(PreName) ->
 ping_node(_Node, 0) ->
     pang;
 ping_node(Node, N) when is_integer(N), N > 0 ->
-    case catch net_adm:ping(Node) of
+    try net_adm:ping(Node) of
 	pong -> pong;
 	_ ->
-	    receive after 100 -> ok end,
-	    ping_node(Node, N-1)
+            receive after 100 -> ok end,
+            ping_node(Node, N-1)
+    catch
+        _:_ ->
+            receive after 100 -> ok end,
+            ping_node(Node, N-1)
     end.
 
 start_node(Name) ->

@@ -3,7 +3,7 @@
 
 SPDX-License-Identifier: Apache-2.0
 
-Copyright Ericsson AB 2023-2025. All Rights Reserved.
+Copyright Ericsson AB 2023-2026. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -20,6 +20,17 @@ limitations under the License.
 %CopyrightEnd%
 -->
 # SNMP Release Notes
+
+## SNMP 5.20.5
+
+### Fixed Bugs and Malfunctions
+
+- The SNMP PDU decoder now bounds the byte length accepted for INTEGER, Counter32, Gauge32/Unsigned32, TimeTicks, and Counter64 values during decoding (4, 5, 5, 5, and 9 bytes respectively, matching the SMIv2 value ranges), instead of accepting an
+    arbitrarily large byte string and converting it to an integer.
+
+  Own Id: OTP-20346 Aux Id: [PR-11538]
+
+[PR-11538]: https://github.com/erlang/otp/pull/11538
 
 ## SNMP 5.20.4
 
@@ -49,6 +60,17 @@ limitations under the License.
 [PR-10718]: https://github.com/erlang/otp/pull/10718
 [PR-10580]: https://github.com/erlang/otp/pull/10580
 [PR-10730]: https://github.com/erlang/otp/pull/10730
+
+## SNMP 5.20.2.2
+
+### Fixed Bugs and Malfunctions
+
+- The SNMP PDU decoder now bounds the byte length accepted for INTEGER, Counter32, Gauge32/Unsigned32, TimeTicks, and Counter64 values during decoding (4, 5, 5, 5, and 9 bytes respectively, matching the SMIv2 value ranges), instead of accepting an
+    arbitrarily large byte string and converting it to an integer.
+
+  Own Id: OTP-20346 Aux Id: [PR-11538]
+
+[PR-11538]: https://github.com/erlang/otp/pull/11538
 
 ## SNMP 5.20.2.1
 
@@ -195,6 +217,17 @@ limitations under the License.
 [PR-8734]: https://github.com/erlang/otp/pull/8734
 [PR-9441]: https://github.com/erlang/otp/pull/9441
 [PR-9670]: https://github.com/erlang/otp/pull/9670
+
+## SNMP 5.18.2.1
+
+### Fixed Bugs and Malfunctions
+
+- The SNMP PDU decoder now bounds the byte length accepted for INTEGER, Counter32, Gauge32/Unsigned32, TimeTicks, and Counter64 values during decoding (4, 5, 5, 5, and 9 bytes respectively, matching the SMIv2 value ranges), instead of accepting an
+    arbitrarily large byte string and converting it to an integer.
+
+  Own Id: OTP-20346 Aux Id: [PR-11538]
+
+[PR-11538]: https://github.com/erlang/otp/pull/11538
 
 ## SNMP 5.18.2
 

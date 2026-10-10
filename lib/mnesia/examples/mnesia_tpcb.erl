@@ -495,7 +495,7 @@ sync_stop(Pid) ->
     receive
 	{Pid, {stopped, Res}} ->  Res
     after timer:minutes(1) ->
-	    exit(Pid, kill),
+            erlang:exit_signal(Pid, kill),
 	    {error, brutal_kill}
     end.
 

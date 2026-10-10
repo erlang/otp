@@ -312,6 +312,11 @@ empty_group_by_remote_leave(Config) when is_list(Config) ->
     {_, _, NewRemoteMap} = maps:get(RemoteNode, element(8, sys:get_state(?FUNCTION_NAME))),
     % empty group should be deleted.
     ?assertEqual(#{}, NewRemoteMap),
+    % regression test: which_groups/1 must not keep listing a group that has
+    % zero members after the last *remote* member leaves (it only reflects
+    % the peer's cached local_data correctly; the ETS-backed global view
+    % used by which_groups/1 must also be pruned).
+    ?assertEqual([], pg:which_groups(?FUNCTION_NAME)),
 
     %% another variant of emptying a group remotely: join([Pi1, Pid2]) and leave ([Pid2, Pid1])
     RemotePid2 = spawn_sleeper_at(Node),
@@ -323,6 +328,7 @@ empty_group_by_remote_leave(Config) when is_list(Config) ->
     sync_via({?FUNCTION_NAME, Node}, ?FUNCTION_NAME),
     ?assertEqual([], pg:get_members(?FUNCTION_NAME, ?FUNCTION_NAME)),
     {_, _, NewRemoteMap} = maps:get(RemoteNode, element(8, sys:get_state(?FUNCTION_NAME))),
+    ?assertEqual([], pg:which_groups(?FUNCTION_NAME)),
     peer:stop(Peer),
     ok.
 

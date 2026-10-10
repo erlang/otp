@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -165,7 +165,28 @@ obj_id(_) ->
     %%==========================================================
 
     [roundtrip('ObjId', V) ||
-	V <- [{0,22,3},{1,39,3},{2,100,3},{2,16303,3},{2,16304,3}]],
+        V <- [{0,22,3},
+              {1,39,3},
+              {2,100,3},
+              {2,16303,3},
+              {2,16304,3},
+              {2,1 bsl (14 * 7),3}]],
+
+    try
+        [roundtrip('ObjId', V) ||
+         V <- [{0,22,3},
+              {1,39,3},
+              {2,100,3},
+              {2,16303,3},
+              {2,16304,3},
+              {2,1 bsl (20 * 7),3}]]
+    of
+        [_|_]=Res -> ct:fail("Failed to reject overlong oid ~p", [Res])
+    catch
+        _:_ ->
+            ok
+    end,
+
     ok.
 
 rel_oid(_Rules) ->

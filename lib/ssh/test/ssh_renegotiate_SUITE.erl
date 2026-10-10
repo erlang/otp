@@ -104,8 +104,13 @@ groups() ->
 init_per_suite(Config) ->
     ?CHECK_CRYPTO(begin
                       ssh:start(),
-                      ct:log("Pub keys setup for: ~p",
-                             [ssh_test_lib:setup_all_user_host_keys(Config)]),
+                      %% All test cases in this suite authenticate with a
+                      %% password (see ssh_test_lib:std_daemon/std_connect).
+                      %% The client user_dir is the suite priv_dir, so it must
+                      %% be kept free of private keys: otherwise the client
+                      %% would offer them as publickey "queries" that the
+                      %% password-only daemon rejects, exhausting the default
+                      %% max_auth_tries (6) before the password method is tried.
                       [{preferred_algorithms,ssh_transport:supported_algorithms()}
                        | Config]
                   end).
@@ -126,11 +131,11 @@ end_per_testcase(_TestCase, _Config) ->
 
 %%----------------------------------------------------------------------------
 %%% Idle timeout test
-rekey0() -> [{timetrap,{seconds,120}}].
-rekey1() -> [{timetrap,{seconds,120}}].
-rekey2() -> [{timetrap,{seconds,120}}].
-rekey3() -> [{timetrap,{seconds,120}}].
-rekey4() -> [{timetrap,{seconds,120}}].
+rekey0() -> [{timetrap,{seconds,120 * ssh_test_lib:timetrap_scale()}}].
+rekey1() -> [{timetrap,{seconds,120 * ssh_test_lib:timetrap_scale()}}].
+rekey2() -> [{timetrap,{seconds,120 * ssh_test_lib:timetrap_scale()}}].
+rekey3() -> [{timetrap,{seconds,120 * ssh_test_lib:timetrap_scale()}}].
+rekey4() -> [{timetrap,{seconds,120 * ssh_test_lib:timetrap_scale()}}].
     
 rekey0(Config) -> ssh_dbg:start(), ssh_dbg:on(renegotiation),
                   R = rekey_chk(Config, 0,                   0),

@@ -23,6 +23,37 @@ limitations under the License.
 
 This document describes the changes made to the asn1 application.
 
+## Asn1 5.5.2
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a denial-of-service attack in asn1, where abnormally large OID components (arcs) could cause resource exhaustion.
+
+  Own Id: OTP-20272 Aux Id: [CVE-2026-65634], [PR-11655]
+
+- The JER backend will no longer break certain values (true, false, null) when they are typed as ENUMERATED, they will now be encoded as strings as required by the standard.
+
+  Own Id: OTP-20355 Aux Id: ERIERL-1355, [PR-11559]
+
+[CVE-2026-65634]: https://nvd.nist.gov/vuln/detail/2026-65634
+[PR-11655]: https://github.com/erlang/otp/pull/11655
+[PR-11559]: https://github.com/erlang/otp/pull/11559
+
+## Asn1 5.5.1
+
+### Fixed Bugs and Malfunctions
+
+- The modern representation of BITSTRINGs is now always supported for encoding, regardless of any legacy options given. The JER backend would not support the modern representation when any legacy option was given.
+
+  Own Id: OTP-20145 Aux Id: [PR-11097]
+
+- The `make clean` command did not remove all generated `.erl` files.
+
+  Own Id: OTP-20295 Aux Id: [PR-11375]
+
+[PR-11097]: https://github.com/erlang/otp/pull/11097
+[PR-11375]: https://github.com/erlang/otp/pull/11375
+
 ## Asn1 5.5
 
 ### Improvements and New Features
@@ -36,6 +67,22 @@ This document describes the changes made to the asn1 application.
   Own Id: OTP-20066 Aux Id: [PR-10839]
 
 [PR-10839]: https://github.com/erlang/otp/pull/10839
+
+## Asn1 5.4.3.1
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a denial-of-service attack in asn1, where abnormally large OID components (arcs) could cause resource exhaustion.
+
+  Own Id: OTP-20272 Aux Id: [CVE-2026-65634], [PR-11655]
+
+- The JER backend will no longer break certain values (true, false, null) when they are typed as ENUMERATED, they will now be encoded as strings as required by the standard.
+
+  Own Id: OTP-20355 Aux Id: ERIERL-1355, [PR-11559]
+
+[CVE-2026-65634]: https://nvd.nist.gov/vuln/detail/2026-65634
+[PR-11655]: https://github.com/erlang/otp/pull/11655
+[PR-11559]: https://github.com/erlang/otp/pull/11559
 
 ## Asn1 5.4.3
 
@@ -115,6 +162,22 @@ This document describes the changes made to the asn1 application.
 
 [PR-9670]: https://github.com/erlang/otp/pull/9670
 [PR-9774]: https://github.com/erlang/otp/pull/9774
+
+## Asn1 5.3.4.3
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a denial-of-service attack in asn1, where abnormally large OID components (arcs) could cause resource exhaustion.
+
+  Own Id: OTP-20272 Aux Id: [CVE-2026-65634], [PR-11655]
+
+- The JER backend will no longer break certain values (true, false, null) when they are typed as ENUMERATED, they will now be encoded as strings as required by the standard.
+
+  Own Id: OTP-20355 Aux Id: ERIERL-1355, [PR-11559]
+
+[CVE-2026-65634]: https://nvd.nist.gov/vuln/detail/2026-65634
+[PR-11655]: https://github.com/erlang/otp/pull/11655
+[PR-11559]: https://github.com/erlang/otp/pull/11559
 
 ## Asn1 5.3.4.2
 

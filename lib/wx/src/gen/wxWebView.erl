@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -210,7 +210,7 @@ Event types emitted from this class:
   move/2,move/3,move/4,moveAfterInTabOrder/2,moveBeforeInTabOrder/2,
   navigate/1,navigate/2,pageDown/1,pageUp/1,parent_class/1,popupMenu/2,
   popupMenu/3,popupMenu/4,raise/1,refresh/1,refresh/2,refreshRect/2,refreshRect/3,
-  releaseMouse/1,removeChild/2,reparent/2,screenToClient/1,screenToClient/2,
+  releaseMouse/1,removeChild/2,reparent/2,screenToClient/2,screenToClient/3,
   scrollLines/2,scrollPages/2,scrollWindow/3,scrollWindow/4,setAcceleratorTable/2,
   setAutoLayout/2,setBackgroundColour/2,setBackgroundStyle/2,setCaret/2,
   setClientSize/2,setClientSize/3,setContainingSizer/2,setCursor/2,
@@ -236,7 +236,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -doc(#{equiv => new(Parent,Id, [])}).
 -spec new(Parent, Id) -> wxWebView() when
-	Parent::wxWindow:wxWindow(), Id::integer().
+        Parent::wxWindow:wxWindow(), Id::integer().
 
 new(Parent,Id)
  when is_record(Parent, wx_ref),is_integer(Id) ->
@@ -272,7 +272,7 @@ new(#wx_ref{type=ParentT}=Parent,Id, Options)
 
 -doc "Get the title of the current web page, or its URL/path if title is not available.".
 -spec getCurrentTitle(This) -> unicode:charlist() when
-	This::wxWebView().
+        This::wxWebView().
 getCurrentTitle(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWebView),
   wxe_util:queue_cmd(This,?get_env(),?wxWebView_GetCurrentTitle),
@@ -280,7 +280,7 @@ getCurrentTitle(#wx_ref{type=ThisT}=This) ->
 
 -doc "Get the URL of the currently displayed document.".
 -spec getCurrentURL(This) -> unicode:charlist() when
-	This::wxWebView().
+        This::wxWebView().
 getCurrentURL(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWebView),
   wxe_util:queue_cmd(This,?get_env(),?wxWebView_GetCurrentURL),
@@ -292,7 +292,7 @@ Get the HTML source code of the currently displayed document.
 Return: The HTML source code, or an empty string if no page is currently shown.
 """.
 -spec getPageSource(This) -> unicode:charlist() when
-	This::wxWebView().
+        This::wxWebView().
 getPageSource(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWebView),
   wxe_util:queue_cmd(This,?get_env(),?wxWebView_GetPageSource),
@@ -300,7 +300,7 @@ getPageSource(#wx_ref{type=ThisT}=This) ->
 
 -doc "Get the text of the current page.".
 -spec getPageText(This) -> unicode:charlist() when
-	This::wxWebView().
+        This::wxWebView().
 getPageText(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWebView),
   wxe_util:queue_cmd(This,?get_env(),?wxWebView_GetPageText),
@@ -308,7 +308,7 @@ getPageText(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns whether the web control is currently busy (e.g. loading a page).".
 -spec isBusy(This) -> boolean() when
-	This::wxWebView().
+        This::wxWebView().
 isBusy(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWebView),
   wxe_util:queue_cmd(This,?get_env(),?wxWebView_IsBusy),
@@ -316,7 +316,7 @@ isBusy(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns whether the web control is currently editable.".
 -spec isEditable(This) -> boolean() when
-	This::wxWebView().
+        This::wxWebView().
 isEditable(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWebView),
   wxe_util:queue_cmd(This,?get_env(),?wxWebView_IsEditable),
@@ -329,7 +329,7 @@ Note: Web engines generally report errors asynchronously, so if you wish to know
 loading the URL was successful, register to receive navigation error events.
 """.
 -spec loadURL(This, Url) -> 'ok' when
-	This::wxWebView(), Url::unicode:chardata().
+        This::wxWebView(), Url::unicode:chardata().
 loadURL(#wx_ref{type=ThisT}=This,Url)
  when ?is_chardata(Url) ->
   ?CLASS(ThisT,wxWebView),
@@ -338,14 +338,14 @@ loadURL(#wx_ref{type=ThisT}=This,Url)
 
 -doc "Opens a print dialog so that the user may print the currently displayed page.".
 -spec print(This) -> 'ok' when
-	This::wxWebView().
+        This::wxWebView().
 print(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWebView),
   wxe_util:queue_cmd(This,?get_env(),?wxWebView_Print).
 
 -doc(#{equiv => reload(This, [])}).
 -spec reload(This) -> 'ok' when
-	This::wxWebView().
+        This::wxWebView().
 
 reload(This)
  when is_record(This, wx_ref) ->
@@ -413,7 +413,7 @@ runScript(#wx_ref{type=ThisT}=This,Javascript)
 
 -doc(#{equiv => setEditable(This, [])}).
 -spec setEditable(This) -> 'ok' when
-	This::wxWebView().
+        This::wxWebView().
 
 setEditable(This)
  when is_record(This, wx_ref) ->
@@ -444,7 +444,7 @@ loading before calling `setPage/3`. The baseURL parameter is not used in this ba
 backend.
 """.
 -spec setPage(This, Html, BaseUrl) -> 'ok' when
-	This::wxWebView(), Html::unicode:chardata(), BaseUrl::unicode:chardata().
+        This::wxWebView(), Html::unicode:chardata(), BaseUrl::unicode:chardata().
 setPage(#wx_ref{type=ThisT}=This,Html,BaseUrl)
  when ?is_chardata(Html),?is_chardata(BaseUrl) ->
   ?CLASS(ThisT,wxWebView),
@@ -459,7 +459,7 @@ May trigger an error event of type `wxWEBVIEW_NAV_ERR_USER_CANCELLED`. TODO: mak
 errors uniform across ports.
 """.
 -spec stop(This) -> 'ok' when
-	This::wxWebView().
+        This::wxWebView().
 stop(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWebView),
   wxe_util:queue_cmd(This,?get_env(),?wxWebView_Stop).
@@ -470,7 +470,7 @@ Returns true if the current selection can be copied.
 Note: This always returns `true` on the macOS WebKit backend.
 """.
 -spec canCopy(This) -> boolean() when
-	This::wxWebView().
+        This::wxWebView().
 canCopy(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWebView),
   wxe_util:queue_cmd(This,?get_env(),?wxWebView_CanCopy),
@@ -482,7 +482,7 @@ Returns true if the current selection can be cut.
 Note: This always returns `true` on the macOS WebKit backend.
 """.
 -spec canCut(This) -> boolean() when
-	This::wxWebView().
+        This::wxWebView().
 canCut(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWebView),
   wxe_util:queue_cmd(This,?get_env(),?wxWebView_CanCut),
@@ -494,7 +494,7 @@ Returns true if data can be pasted.
 Note: This always returns `true` on the macOS WebKit backend.
 """.
 -spec canPaste(This) -> boolean() when
-	This::wxWebView().
+        This::wxWebView().
 canPaste(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWebView),
   wxe_util:queue_cmd(This,?get_env(),?wxWebView_CanPaste),
@@ -502,28 +502,28 @@ canPaste(#wx_ref{type=ThisT}=This) ->
 
 -doc "Copies the current selection.".
 -spec copy(This) -> 'ok' when
-	This::wxWebView().
+        This::wxWebView().
 copy(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWebView),
   wxe_util:queue_cmd(This,?get_env(),?wxWebView_Copy).
 
 -doc "Cuts the current selection.".
 -spec cut(This) -> 'ok' when
-	This::wxWebView().
+        This::wxWebView().
 cut(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWebView),
   wxe_util:queue_cmd(This,?get_env(),?wxWebView_Cut).
 
 -doc "Pastes the current data.".
 -spec paste(This) -> 'ok' when
-	This::wxWebView().
+        This::wxWebView().
 paste(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWebView),
   wxe_util:queue_cmd(This,?get_env(),?wxWebView_Paste).
 
 -doc(#{equiv => enableContextMenu(This, [])}).
 -spec enableContextMenu(This) -> 'ok' when
-	This::wxWebView().
+        This::wxWebView().
 
 enableContextMenu(This)
  when is_record(This, wx_ref) ->
@@ -554,7 +554,7 @@ Returns true if a context menu will be shown on right click.
 Since: 2.9.5
 """.
 -spec isContextMenuEnabled(This) -> boolean() when
-	This::wxWebView().
+        This::wxWebView().
 isContextMenuEnabled(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWebView),
   wxe_util:queue_cmd(This,?get_env(),?wxWebView_IsContextMenuEnabled),
@@ -562,7 +562,7 @@ isContextMenuEnabled(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns true if it is possible to navigate backward in the history of visited pages.".
 -spec canGoBack(This) -> boolean() when
-	This::wxWebView().
+        This::wxWebView().
 canGoBack(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWebView),
   wxe_util:queue_cmd(This,?get_env(),?wxWebView_CanGoBack),
@@ -570,7 +570,7 @@ canGoBack(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns true if it is possible to navigate forward in the history of visited pages.".
 -spec canGoForward(This) -> boolean() when
-	This::wxWebView().
+        This::wxWebView().
 canGoForward(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWebView),
   wxe_util:queue_cmd(This,?get_env(),?wxWebView_CanGoForward),
@@ -582,14 +582,14 @@ Clear the history, this will also remove the visible page.
 Note: This is not implemented on the WebKit2GTK+ backend.
 """.
 -spec clearHistory(This) -> 'ok' when
-	This::wxWebView().
+        This::wxWebView().
 clearHistory(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWebView),
   wxe_util:queue_cmd(This,?get_env(),?wxWebView_ClearHistory).
 
 -doc(#{equiv => enableHistory(This, [])}).
 -spec enableHistory(This) -> 'ok' when
-	This::wxWebView().
+        This::wxWebView().
 
 enableHistory(This)
  when is_record(This, wx_ref) ->
@@ -619,7 +619,7 @@ Navigate back in the history of visited pages.
 Only valid if `canGoBack/1` returns true.
 """.
 -spec goBack(This) -> 'ok' when
-	This::wxWebView().
+        This::wxWebView().
 goBack(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWebView),
   wxe_util:queue_cmd(This,?get_env(),?wxWebView_GoBack).
@@ -630,14 +630,14 @@ Navigate forward in the history of visited pages.
 Only valid if `canGoForward/1` returns true.
 """.
 -spec goForward(This) -> 'ok' when
-	This::wxWebView().
+        This::wxWebView().
 goForward(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWebView),
   wxe_util:queue_cmd(This,?get_env(),?wxWebView_GoForward).
 
 -doc "Clears the current selection.".
 -spec clearSelection(This) -> 'ok' when
-	This::wxWebView().
+        This::wxWebView().
 clearSelection(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWebView),
   wxe_util:queue_cmd(This,?get_env(),?wxWebView_ClearSelection).
@@ -649,14 +649,14 @@ Note that for `wxWEBVIEW_BACKEND_WEBKIT` the selection must be editable, either 
 SetEditable or the correct HTML attribute.
 """.
 -spec deleteSelection(This) -> 'ok' when
-	This::wxWebView().
+        This::wxWebView().
 deleteSelection(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWebView),
   wxe_util:queue_cmd(This,?get_env(),?wxWebView_DeleteSelection).
 
 -doc "Returns the currently selected source, if any.".
 -spec getSelectedSource(This) -> unicode:charlist() when
-	This::wxWebView().
+        This::wxWebView().
 getSelectedSource(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWebView),
   wxe_util:queue_cmd(This,?get_env(),?wxWebView_GetSelectedSource),
@@ -664,7 +664,7 @@ getSelectedSource(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the currently selected text, if any.".
 -spec getSelectedText(This) -> unicode:charlist() when
-	This::wxWebView().
+        This::wxWebView().
 getSelectedText(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWebView),
   wxe_util:queue_cmd(This,?get_env(),?wxWebView_GetSelectedText),
@@ -672,7 +672,7 @@ getSelectedText(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns true if there is a current selection.".
 -spec hasSelection(This) -> boolean() when
-	This::wxWebView().
+        This::wxWebView().
 hasSelection(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWebView),
   wxe_util:queue_cmd(This,?get_env(),?wxWebView_HasSelection),
@@ -680,14 +680,14 @@ hasSelection(#wx_ref{type=ThisT}=This) ->
 
 -doc "Selects the entire page.".
 -spec selectAll(This) -> 'ok' when
-	This::wxWebView().
+        This::wxWebView().
 selectAll(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWebView),
   wxe_util:queue_cmd(This,?get_env(),?wxWebView_SelectAll).
 
 -doc "Returns true if there is an action to redo.".
 -spec canRedo(This) -> boolean() when
-	This::wxWebView().
+        This::wxWebView().
 canRedo(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWebView),
   wxe_util:queue_cmd(This,?get_env(),?wxWebView_CanRedo),
@@ -695,7 +695,7 @@ canRedo(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns true if there is an action to undo.".
 -spec canUndo(This) -> boolean() when
-	This::wxWebView().
+        This::wxWebView().
 canUndo(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWebView),
   wxe_util:queue_cmd(This,?get_env(),?wxWebView_CanUndo),
@@ -703,21 +703,21 @@ canUndo(#wx_ref{type=ThisT}=This) ->
 
 -doc "Redos the last action.".
 -spec redo(This) -> 'ok' when
-	This::wxWebView().
+        This::wxWebView().
 redo(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWebView),
   wxe_util:queue_cmd(This,?get_env(),?wxWebView_Redo).
 
 -doc "Undos the last action.".
 -spec undo(This) -> 'ok' when
-	This::wxWebView().
+        This::wxWebView().
 undo(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWebView),
   wxe_util:queue_cmd(This,?get_env(),?wxWebView_Undo).
 
 -doc(#{equiv => find(This,Text, [])}).
 -spec find(This, Text) -> integer() when
-	This::wxWebView(), Text::unicode:chardata().
+        This::wxWebView(), Text::unicode:chardata().
 
 find(This,Text)
  when is_record(This, wx_ref),?is_chardata(Text) ->
@@ -761,7 +761,7 @@ through `setZoomType/2`).
 """.
 %%  Type = ?wxWEBVIEW_ZOOM_TYPE_LAYOUT | ?wxWEBVIEW_ZOOM_TYPE_TEXT
 -spec canSetZoomType(This, Type) -> boolean() when
-	This::wxWebView(), Type::wx:wx_enum().
+        This::wxWebView(), Type::wx:wx_enum().
 canSetZoomType(#wx_ref{type=ThisT}=This,Type)
  when is_integer(Type) ->
   ?CLASS(ThisT,wxWebView),
@@ -777,7 +777,7 @@ Return: The current level of zoom.
 """.
 %%  Res = ?wxWEBVIEW_ZOOM_TINY | ?wxWEBVIEW_ZOOM_SMALL | ?wxWEBVIEW_ZOOM_MEDIUM | ?wxWEBVIEW_ZOOM_LARGE | ?wxWEBVIEW_ZOOM_LARGEST
 -spec getZoom(This) -> wx:wx_enum() when
-	This::wxWebView().
+        This::wxWebView().
 getZoom(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWebView),
   wxe_util:queue_cmd(This,?get_env(),?wxWebView_GetZoom),
@@ -790,7 +790,7 @@ Return: How the zoom factor is currently interpreted by the HTML engine.
 """.
 %%  Res = ?wxWEBVIEW_ZOOM_TYPE_LAYOUT | ?wxWEBVIEW_ZOOM_TYPE_TEXT
 -spec getZoomType(This) -> wx:wx_enum() when
-	This::wxWebView().
+        This::wxWebView().
 getZoomType(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWebView),
   wxe_util:queue_cmd(This,?get_env(),?wxWebView_GetZoomType),
@@ -803,7 +803,7 @@ See `setZoomFactor/2` for more precise scaling other than the measured steps pro
 """.
 %%  Zoom = ?wxWEBVIEW_ZOOM_TINY | ?wxWEBVIEW_ZOOM_SMALL | ?wxWEBVIEW_ZOOM_MEDIUM | ?wxWEBVIEW_ZOOM_LARGE | ?wxWEBVIEW_ZOOM_LARGEST
 -spec setZoom(This, Zoom) -> 'ok' when
-	This::wxWebView(), Zoom::wx:wx_enum().
+        This::wxWebView(), Zoom::wx:wx_enum().
 setZoom(#wx_ref{type=ThisT}=This,Zoom)
  when is_integer(Zoom) ->
   ?CLASS(ThisT,wxWebView),
@@ -816,7 +816,7 @@ Note: invoke `canSetZoomType/2` first, some HTML renderers may not support all z
 """.
 %%  ZoomType = ?wxWEBVIEW_ZOOM_TYPE_LAYOUT | ?wxWEBVIEW_ZOOM_TYPE_TEXT
 -spec setZoomType(This, ZoomType) -> 'ok' when
-	This::wxWebView(), ZoomType::wx:wx_enum().
+        This::wxWebView(), ZoomType::wx:wx_enum().
 setZoomType(#wx_ref{type=ThisT}=This,ZoomType)
  when is_integer(ZoomType) ->
   ?CLASS(ThisT,wxWebView),
@@ -830,7 +830,7 @@ Return: The current factor of zoom.
 Since: 3.1.4
 """.
 -spec getZoomFactor(This) -> number() when
-	This::wxWebView().
+        This::wxWebView().
 getZoomFactor(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWebView),
   wxe_util:queue_cmd(This,?get_env(),?wxWebView_GetZoomFactor),
@@ -845,7 +845,7 @@ of `wxWEBVIEW_ZOOM_TYPE_TEXT`.
 Since: 3.1.4
 """.
 -spec setZoomFactor(This, Zoom) -> 'ok' when
-	This::wxWebView(), Zoom::number().
+        This::wxWebView(), Zoom::number().
 setZoomFactor(#wx_ref{type=ThisT}=This,Zoom)
  when is_number(Zoom) ->
   ?CLASS(ThisT,wxWebView),
@@ -857,7 +857,7 @@ Allows to check if a specific backend is currently available.
 Since: 3.1.4
 """.
 -spec isBackendAvailable(Backend) -> boolean() when
-	Backend::unicode:chardata().
+        Backend::unicode:chardata().
 isBackendAvailable(Backend)
  when ?is_chardata(Backend) ->
   Backend_UC = unicode:characters_to_binary(Backend),
@@ -1005,9 +1005,9 @@ scrollPages(This,Pages) -> wxWindow:scrollPages(This,Pages).
 -doc false.
 scrollLines(This,Lines) -> wxWindow:scrollLines(This,Lines).
 -doc false.
-screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
+screenToClient(This,X,Y) -> wxWindow:screenToClient(This,X,Y).
 -doc false.
-screenToClient(This) -> wxWindow:screenToClient(This).
+screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
 -doc false.
 reparent(This,NewParent) -> wxWindow:reparent(This,NewParent).
 -doc false.

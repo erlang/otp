@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -115,7 +115,7 @@ wxWidgets docs: [wxPickerBase](https://docs.wxwidgets.org/3.2/classwx_picker_bas
   move/2,move/3,move/4,moveAfterInTabOrder/2,moveBeforeInTabOrder/2,
   navigate/1,navigate/2,pageDown/1,pageUp/1,parent_class/1,popupMenu/2,
   popupMenu/3,popupMenu/4,raise/1,refresh/1,refresh/2,refreshRect/2,refreshRect/3,
-  releaseMouse/1,removeChild/2,reparent/2,screenToClient/1,screenToClient/2,
+  releaseMouse/1,removeChild/2,reparent/2,screenToClient/2,screenToClient/3,
   scrollLines/2,scrollPages/2,scrollWindow/3,scrollWindow/4,setAcceleratorTable/2,
   setAutoLayout/2,setBackgroundColour/2,setBackgroundStyle/2,setCaret/2,
   setClientSize/2,setClientSize/3,setContainingSizer/2,setCursor/2,
@@ -145,7 +145,7 @@ Sets the margin (in pixel) between the picker and the text control.
 This function can be used only when `hasTextCtrl/1` returns true.
 """.
 -spec setInternalMargin(This, Margin) -> 'ok' when
-	This::wxPickerBase(), Margin::integer().
+        This::wxPickerBase(), Margin::integer().
 setInternalMargin(#wx_ref{type=ThisT}=This,Margin)
  when is_integer(Margin) ->
   ?CLASS(ThisT,wxPickerBase),
@@ -157,7 +157,7 @@ Returns the margin (in pixel) between the picker and the text control.
 This function can be used only when `hasTextCtrl/1` returns true.
 """.
 -spec getInternalMargin(This) -> integer() when
-	This::wxPickerBase().
+        This::wxPickerBase().
 getInternalMargin(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPickerBase),
   wxe_util:queue_cmd(This,?get_env(),?wxPickerBase_GetInternalMargin),
@@ -171,7 +171,7 @@ Look at the detailed description of `m:wxPickerBase` for more info.
 This function can be used only when `hasTextCtrl/1` returns true.
 """.
 -spec setTextCtrlProportion(This, Prop) -> 'ok' when
-	This::wxPickerBase(), Prop::integer().
+        This::wxPickerBase(), Prop::integer().
 setTextCtrlProportion(#wx_ref{type=ThisT}=This,Prop)
  when is_integer(Prop) ->
   ?CLASS(ThisT,wxPickerBase),
@@ -183,7 +183,7 @@ Sets the proportion value of the picker.
 Look at the detailed description of `m:wxPickerBase` for more info.
 """.
 -spec setPickerCtrlProportion(This, Prop) -> 'ok' when
-	This::wxPickerBase(), Prop::integer().
+        This::wxPickerBase(), Prop::integer().
 setPickerCtrlProportion(#wx_ref{type=ThisT}=This,Prop)
  when is_integer(Prop) ->
   ?CLASS(ThisT,wxPickerBase),
@@ -195,7 +195,7 @@ Returns the proportion value of the text control.
 This function can be used only when `hasTextCtrl/1` returns true.
 """.
 -spec getTextCtrlProportion(This) -> integer() when
-	This::wxPickerBase().
+        This::wxPickerBase().
 getTextCtrlProportion(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPickerBase),
   wxe_util:queue_cmd(This,?get_env(),?wxPickerBase_GetTextCtrlProportion),
@@ -203,7 +203,7 @@ getTextCtrlProportion(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the proportion value of the picker.".
 -spec getPickerCtrlProportion(This) -> integer() when
-	This::wxPickerBase().
+        This::wxPickerBase().
 getPickerCtrlProportion(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPickerBase),
   wxe_util:queue_cmd(This,?get_env(),?wxPickerBase_GetPickerCtrlProportion),
@@ -214,7 +214,7 @@ Returns true if this window has a valid text control (i.e. if the `wxPB\_USE\_TE
 style was given when creating this control).
 """.
 -spec hasTextCtrl(This) -> boolean() when
-	This::wxPickerBase().
+        This::wxPickerBase().
 hasTextCtrl(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPickerBase),
   wxe_util:queue_cmd(This,?get_env(),?wxPickerBase_HasTextCtrl),
@@ -230,7 +230,7 @@ because of a typo). Thus you should never parse the content of the textctrl to g
 user's input; rather use the derived-class getter (e.g. `wxColourPickerCtrl:getColour/1`, `wxFilePickerCtrl:getPath/1`, etc).
 """.
 -spec getTextCtrl(This) -> wxTextCtrl:wxTextCtrl() when
-	This::wxPickerBase().
+        This::wxPickerBase().
 getTextCtrl(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPickerBase),
   wxe_util:queue_cmd(This,?get_env(),?wxPickerBase_GetTextCtrl),
@@ -242,7 +242,7 @@ Returns true if the text control is growable.
 This function can be used only when `hasTextCtrl/1` returns true.
 """.
 -spec isTextCtrlGrowable(This) -> boolean() when
-	This::wxPickerBase().
+        This::wxPickerBase().
 isTextCtrlGrowable(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPickerBase),
   wxe_util:queue_cmd(This,?get_env(),?wxPickerBase_IsTextCtrlGrowable),
@@ -250,7 +250,7 @@ isTextCtrlGrowable(#wx_ref{type=ThisT}=This) ->
 
 -doc(#{equiv => setPickerCtrlGrowable(This, [])}).
 -spec setPickerCtrlGrowable(This) -> 'ok' when
-	This::wxPickerBase().
+        This::wxPickerBase().
 
 setPickerCtrlGrowable(This)
  when is_record(This, wx_ref) ->
@@ -270,7 +270,7 @@ setPickerCtrlGrowable(#wx_ref{type=ThisT}=This, Options)
 
 -doc(#{equiv => setTextCtrlGrowable(This, [])}).
 -spec setTextCtrlGrowable(This) -> 'ok' when
-	This::wxPickerBase().
+        This::wxPickerBase().
 
 setTextCtrlGrowable(This)
  when is_record(This, wx_ref) ->
@@ -294,7 +294,7 @@ setTextCtrlGrowable(#wx_ref{type=ThisT}=This, Options)
 
 -doc "Returns true if the picker control is growable.".
 -spec isPickerCtrlGrowable(This) -> boolean() when
-	This::wxPickerBase().
+        This::wxPickerBase().
 isPickerCtrlGrowable(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPickerBase),
   wxe_util:queue_cmd(This,?get_env(),?wxPickerBase_IsPickerCtrlGrowable),
@@ -441,9 +441,9 @@ scrollPages(This,Pages) -> wxWindow:scrollPages(This,Pages).
 -doc false.
 scrollLines(This,Lines) -> wxWindow:scrollLines(This,Lines).
 -doc false.
-screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
+screenToClient(This,X,Y) -> wxWindow:screenToClient(This,X,Y).
 -doc false.
-screenToClient(This) -> wxWindow:screenToClient(This).
+screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
 -doc false.
 reparent(This,NewParent) -> wxWindow:reparent(This,NewParent).
 -doc false.

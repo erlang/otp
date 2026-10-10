@@ -23,6 +23,109 @@ limitations under the License.
 
 This document describes the changes made to the Compiler application.
 
+## Compiler 10.0.6
+
+### Fixed Bugs and Malfunctions
+
+- Certain uses of funs could crash the compiler. For example:
+  
+  ```
+  f() ->
+      F = fun Fn(0) -> 0; Fn(N) -> Fn(N - 1) end,
+      [F(X) || X <- [1, 2]].
+  ```
+  This has been corrected.
+
+  Own Id: OTP-20386 Aux Id: [GH-11619], [PR-11638]
+
+[GH-11619]: https://github.com/erlang/otp/issues/11619
+[PR-11638]: https://github.com/erlang/otp/pull/11638
+
+## Compiler 10.0.5
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a native record crash in the `sys_core_fold` compiler pass.
+
+  Own Id: OTP-20254 Aux Id: [GH-11351], [PR-11359]
+
+- The compiler could crash when compiling a map comprehension.
+
+  Own Id: OTP-20255 Aux Id: [GH-11352], [PR-11363]
+
+- Fixed a crash when the key pattern in a map comprehension was a bitstring.
+
+  Own Id: OTP-20262 Aux Id: [GH-11367], [PR-11379]
+
+- Fixed an issue that could crash the compiler when compiling comprehensions with the `compr_assign` feature enabled.
+
+  Own Id: OTP-20267 Aux Id: [GH-11366], [PR-11390]
+
+- Code that called `erlang:0()` inside a fun could crash the compiler.
+
+  Own Id: OTP-20280 Aux Id: [GH-11414], [PR-11424]
+
+- Fixed an internal error when `lists:keyfind/3` is called with an argument that exceeds system limits.
+
+  Own Id: OTP-20291 Aux Id: [GH-11413], [PR-11444]
+
+- An incorrect `useless_building` warning has been eliminated.
+
+  Own Id: OTP-20304 Aux Id: [GH-11472], [PR-11477]
+
+- In rare circumstances, the type analysis pass of the compiler could run for many minutes.
+
+  Own Id: OTP-20365 Aux Id: [GH-11534], [PR-11566]
+
+[GH-11351]: https://github.com/erlang/otp/issues/11351
+[PR-11359]: https://github.com/erlang/otp/pull/11359
+[GH-11352]: https://github.com/erlang/otp/issues/11352
+[PR-11363]: https://github.com/erlang/otp/pull/11363
+[GH-11367]: https://github.com/erlang/otp/issues/11367
+[PR-11379]: https://github.com/erlang/otp/pull/11379
+[GH-11366]: https://github.com/erlang/otp/issues/11366
+[PR-11390]: https://github.com/erlang/otp/pull/11390
+[GH-11414]: https://github.com/erlang/otp/issues/11414
+[PR-11424]: https://github.com/erlang/otp/pull/11424
+[GH-11413]: https://github.com/erlang/otp/issues/11413
+[PR-11444]: https://github.com/erlang/otp/pull/11444
+[GH-11472]: https://github.com/erlang/otp/issues/11472
+[PR-11477]: https://github.com/erlang/otp/pull/11477
+[GH-11534]: https://github.com/erlang/otp/issues/11534
+[PR-11566]: https://github.com/erlang/otp/pull/11566
+
+## Compiler 10.0.4
+
+### Fixed Bugs and Malfunctions
+
+- compiler: Fix bug in `beam_types:subtract/2` for bitstrings
+
+  Own Id: OTP-20312 Aux Id: [GH-11494], [PR-11503]
+
+[GH-11494]: https://github.com/erlang/otp/issues/11494
+[PR-11503]: https://github.com/erlang/otp/pull/11503
+
+## Compiler 10.0.3
+
+### Fixed Bugs and Malfunctions
+
+- compiler: Fix an internal consistency check failure with `setelement`
+
+  Own Id: OTP-20261 Aux Id: [GH-11368], [PR-11374]
+
+[GH-11368]: https://github.com/erlang/otp/issues/11368
+[PR-11374]: https://github.com/erlang/otp/pull/11374
+
+## Compiler 10.0.2
+
+### Fixed Bugs and Malfunctions
+
+- Several compiler bugs that could crash the compiler or generate incorrect code in rare circumstances have been fixed.
+
+  Own Id: OTP-20222 Aux Id: [PR-11219]
+
+[PR-11219]: https://github.com/erlang/otp/pull/11219
+
 ## Compiler 10.0.1
 
 ### Fixed Bugs and Malfunctions
@@ -272,6 +375,41 @@ This document describes the changes made to the Compiler application.
 [PR-10819]: https://github.com/erlang/otp/pull/10819
 [PR-9814]: https://github.com/erlang/otp/pull/9814
 [PR-10839]: https://github.com/erlang/otp/pull/10839
+
+## Compiler 9.0.6.3
+
+### Fixed Bugs and Malfunctions
+
+- In rare circumstances, the type analysis pass of the compiler could run for many minutes.
+
+  Own Id: OTP-20365 Aux Id: [GH-11534], [PR-11566]
+
+- Certain uses of funs could crash the compiler. For example:
+  
+  ```
+  f() ->
+      F = fun Fn(0) -> 0; Fn(N) -> Fn(N - 1) end,
+      [F(X) || X <- [1, 2]].
+  ```
+  This has been corrected.
+
+  Own Id: OTP-20386 Aux Id: [GH-11619], [PR-11638]
+
+[GH-11534]: https://github.com/erlang/otp/issues/11534
+[PR-11566]: https://github.com/erlang/otp/pull/11566
+[GH-11619]: https://github.com/erlang/otp/issues/11619
+[PR-11638]: https://github.com/erlang/otp/pull/11638
+
+## Compiler 9.0.6.2
+
+### Fixed Bugs and Malfunctions
+
+- compiler: Fix bug in `beam_types:subtract/2` for bitstrings
+
+  Own Id: OTP-20312 Aux Id: [GH-11494], [PR-11503]
+
+[GH-11494]: https://github.com/erlang/otp/issues/11494
+[PR-11503]: https://github.com/erlang/otp/pull/11503
 
 ## Compiler 9.0.6.1
 
@@ -723,6 +861,41 @@ This document describes the changes made to the Compiler application.
 [PR-8670]: https://github.com/erlang/otp/pull/8670
 [PR-9334]: https://github.com/erlang/otp/pull/9334
 [PR-9604]: https://github.com/erlang/otp/pull/9604
+
+## Compiler 8.6.1.7
+
+### Fixed Bugs and Malfunctions
+
+- In rare circumstances, the type analysis pass of the compiler could run for many minutes.
+
+  Own Id: OTP-20365 Aux Id: [GH-11534], [PR-11566]
+
+- Certain uses of funs could crash the compiler. For example:
+  
+  ```
+  f() ->
+      F = fun Fn(0) -> 0; Fn(N) -> Fn(N - 1) end,
+      [F(X) || X <- [1, 2]].
+  ```
+  This has been corrected.
+
+  Own Id: OTP-20386 Aux Id: [GH-11619], [PR-11638]
+
+[GH-11534]: https://github.com/erlang/otp/issues/11534
+[PR-11566]: https://github.com/erlang/otp/pull/11566
+[GH-11619]: https://github.com/erlang/otp/issues/11619
+[PR-11638]: https://github.com/erlang/otp/pull/11638
+
+## Compiler 8.6.1.6
+
+### Fixed Bugs and Malfunctions
+
+- compiler: Fix bug in `beam_types:subtract/2` for bitstrings
+
+  Own Id: OTP-20312 Aux Id: [GH-11494], [PR-11503]
+
+[GH-11494]: https://github.com/erlang/otp/issues/11494
+[PR-11503]: https://github.com/erlang/otp/pull/11503
 
 ## Compiler 8.6.1.5
 

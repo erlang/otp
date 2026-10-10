@@ -42,6 +42,8 @@
 
 -import(error_logger,[error_msg/2, warning_msg/2]).
 
+-compile([{nowarn_deprecated_function, [{erlang,exit,2}]}]).
+
 -include("dist_util.hrl").
 -include("dist.hrl").
 

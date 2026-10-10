@@ -41,6 +41,8 @@
 	[{errmsg,"[an error occurred while processing this directive]"},
 	 {timefmt,"%A, %d-%b-%y %T %Z"},
 	 {sizefmt,"abbrev"}]).
+-define(ERROR_WHITESPACE_BEFORE_COLON, "Whitespace before colon in header").
 
+-define(CL_TE_ERROR, "Transfer-Encoding and Content-Length headers in the same request are forbidden").
 
 -endif. % -ifdef(httpd_internal_hrl).

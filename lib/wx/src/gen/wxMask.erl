@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -95,7 +95,7 @@ new() ->
 
 -doc "Constructs a mask from a monochrome bitmap.".
 -spec new(Bitmap) -> wxMask() when
-	Bitmap::wxBitmap:wxBitmap().
+        Bitmap::wxBitmap:wxBitmap().
 new(#wx_ref{type=BitmapT}=Bitmap) ->
   ?CLASS(BitmapT,wxBitmap),
   wxe_util:queue_cmd(Bitmap,?get_env(),?wxMask_new_1),
@@ -103,9 +103,9 @@ new(#wx_ref{type=BitmapT}=Bitmap) ->
 
 -doc "Constructs a mask from a bitmap and a colour that indicates the background.".
 -spec new(Bitmap, Index) -> wxMask() when
-	Bitmap::wxBitmap:wxBitmap(), Index::integer();
+        Bitmap::wxBitmap:wxBitmap(), Index::integer();
       (Bitmap, Colour) -> wxMask() when
-	Bitmap::wxBitmap:wxBitmap(), Colour::wx:wx_colour().
+        Bitmap::wxBitmap:wxBitmap(), Colour::wx:wx_colour().
 new(#wx_ref{type=BitmapT}=Bitmap,Index)
  when is_integer(Index) ->
   ?CLASS(BitmapT,wxBitmap),
@@ -119,7 +119,7 @@ new(#wx_ref{type=BitmapT}=Bitmap,Colour)
 
 -doc "Constructs a mask from a monochrome bitmap.".
 -spec create(This, Bitmap) -> boolean() when
-	This::wxMask(), Bitmap::wxBitmap:wxBitmap().
+        This::wxMask(), Bitmap::wxBitmap:wxBitmap().
 create(#wx_ref{type=ThisT}=This,#wx_ref{type=BitmapT}=Bitmap) ->
   ?CLASS(ThisT,wxMask),
   ?CLASS(BitmapT,wxBitmap),
@@ -128,9 +128,9 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=BitmapT}=Bitmap) ->
 
 -doc "Constructs a mask from a bitmap and a colour that indicates the background.".
 -spec create(This, Bitmap, Index) -> boolean() when
-	This::wxMask(), Bitmap::wxBitmap:wxBitmap(), Index::integer();
+        This::wxMask(), Bitmap::wxBitmap:wxBitmap(), Index::integer();
       (This, Bitmap, Colour) -> boolean() when
-	This::wxMask(), Bitmap::wxBitmap:wxBitmap(), Colour::wx:wx_colour().
+        This::wxMask(), Bitmap::wxBitmap:wxBitmap(), Colour::wx:wx_colour().
 create(#wx_ref{type=ThisT}=This,#wx_ref{type=BitmapT}=Bitmap,Index)
  when is_integer(Index) ->
   ?CLASS(ThisT,wxMask),

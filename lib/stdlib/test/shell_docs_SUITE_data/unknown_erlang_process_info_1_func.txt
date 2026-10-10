@@ -2,60 +2,60 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  process_info(Pid)[0m
+[1m  process_info(Pid)[0m
 
-  Returns a list containing [;;4mInfoTuple[0ms with miscellaneous
-  information about the process identified by [;;4mPid[0m, or [;;4mundefined[0m
+  Returns a list containing [4mInfoTuple[0ms with miscellaneous
+  information about the process identified by [4mPid[0m, or [4mundefined[0m
   if the process is not alive.
 
-  The order of the [;;4mInfoTuple[0ms is undefined and all [;;4mInfoTuple[0ms
-  are not mandatory. The [;;4mInfoTuple[0ms part of the result can be
+  The order of the [4mInfoTuple[0ms is undefined and all [4mInfoTuple[0ms
+  are not mandatory. The [4mInfoTuple[0ms part of the result can be
   changed without prior notice.
 
-  The [;;4mInfoTuple[0ms with the following items are part of the result:
+  The [4mInfoTuple[0ms with the following items are part of the result:
 
-   • [;;4mcurrent_function[0m
+   • [4mcurrent_function[0m
 
-   • [;;4minitial_call[0m
+   • [4minitial_call[0m
 
-   • [;;4mstatus[0m
+   • [4mstatus[0m
 
-   • [;;4mmessage_queue_len[0m
+   • [4mmessage_queue_len[0m
 
-   • [;;4mlinks[0m
+   • [4mlinks[0m
 
-   • [;;4mdictionary[0m
+   • [4mdictionary[0m
 
-   • [;;4mtrap_exit[0m
+   • [4mtrap_exit[0m
 
-   • [;;4merror_handler[0m
+   • [4merror_handler[0m
 
-   • [;;4mpriority[0m
+   • [4mpriority[0m
 
-   • [;;4mgroup_leader[0m
+   • [4mgroup_leader[0m
 
-   • [;;4mtotal_heap_size[0m
+   • [4mtotal_heap_size[0m
 
-   • [;;4mheap_size[0m
+   • [4mheap_size[0m
 
-   • [;;4mstack_size[0m
+   • [4mstack_size[0m
 
-   • [;;4mreductions[0m
+   • [4mreductions[0m
 
-   • [;;4mgarbage_collection[0m
+   • [4mgarbage_collection[0m
 
-  If the process identified by [;;4mPid[0m has a registered name, also an [;;4m[0m
-  [;;4mInfoTuple[0m with item [;;4mregistered_name[0m is included.
+  If the process identified by [4mPid[0m has a registered name, also an [4m[0m
+  [4mInfoTuple[0m with item [4mregistered_name[0m is included.
 
-  For information about specific [;;4mInfoTuple[0ms, see [;;4mprocess_info/2[0m.
+  For information about specific [4mInfoTuple[0ms, see [4mprocess_info/2[0m.
 
-  [;;4mWarning[0m
+  [4mWarning[0m
 
     This BIF is intended for debugging only. For all other
-    purposes, use [;;4mprocess_info/2[0m.
+    purposes, use [4mprocess_info/2[0m.
 
-  Failure: [;;4mbadarg[0m if [;;4mPid[0m is not a local process.
+  Failure: [4mbadarg[0m if [4mPid[0m is not a local process.

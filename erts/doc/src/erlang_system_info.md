@@ -51,6 +51,10 @@ order to make it easier to navigate.
   [`atom_limit`](`m:erlang#system_info_atom_limit`),
   [`ets_count`](`m:erlang#system_info_ets_count`),
   [`ets_limit`](`m:erlang#system_info_ets_limit`),
+  [`export_count`](`m:erlang#system_info_export_count`),
+  [`export_limit`](`m:erlang#system_info_export_limit`),
+  [`module_count`](`m:erlang#system_info_module_count`),
+  [`module_limit`](`m:erlang#system_info_module_limit`),
   [`port_count`](`m:erlang#system_info_port_count`),
   [`port_limit`](`m:erlang#system_info_port_limit`),
   [`process_count`](`m:erlang#system_info_process_count`),
@@ -368,11 +372,35 @@ Returns information about the current system (emulator) limits as specified by `
   
   Since: OTP 21.1
 
-- `ets_limit`{: #system_info_ets_limit } - Returns the limit for number of
-  ETS tables. This limit is [partially obsolete](`m:ets#max_ets_tables`) and
-  number of tables are only limited by available memory.
+- `ets_limit`{: #system_info_ets_limit } - Returns the effective sizing hint for
+  the internal index used to look up named ETS tables. Despite its historical
+  name, this value does not limit the number of ETS tables; they are limited only
+  by available memory. See [ETS table sizing](`m:ets#max_ets_tables`).
   
   Since: OTP R16B03
+
+- `export_count`{: #system_info_export_count } - Returns the number of exported
+  functions currently loaded at the local node. The value is given as an
+  integer.
+  
+  Since: OTP 30.0
+
+- `export_limit`{: #system_info_export_limit } - Returns the maximum number of
+  exported functions allowed. This limit can be changed at startup by passing
+  command-line flag [`+zmel`](erl_cmd.md#+zmel) to `erl(1)`.
+  
+  Since: OTP 30.0
+
+- `module_count`{: #system_info_module_count } - Returns the number of modules
+  currently loaded at the local node. The value is given as an integer.
+  
+  Since: OTP 30.0
+
+- `module_limit`{: #system_info_module_limit } - Returns the maximum number of
+  modules allowed. This limit can be changed at startup by passing command-line
+  flag [`+zmml`](erl_cmd.md#+zmml) to `erl(1)`.
+  
+  Since: OTP 30.0
 
 - `port_count`{: #system_info_port_count } - Returns the number of ports
   currently existing at the local node. The value is given as an integer. This

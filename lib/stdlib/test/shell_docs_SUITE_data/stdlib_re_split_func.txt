@@ -2,15 +2,15 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  split(Subject, RE)[0m
+[1m  split(Subject, RE)[0m
 
   There is no documentation for split(Subject, RE, [])
 
-[;1m  split(Subject, RE, Options)[0m
+[1m  split(Subject, RE, Options)[0m
 
   Splits the input into parts by finding tokens according to the
   regular expression supplied.
@@ -20,14 +20,14 @@
   occurs. The matching part of the string is removed from the
   output.
 
-  As in [;;4mrun/3[0m, an [;;4mmp/0[0m compiled with option [;;4municode[0m requires [;;4m[0m
-  [;;4mSubject[0m to be a Unicode [;;4mcharlist()[0m. If compilation is done
-  implicitly and the [;;4municode[0m compilation option is specified to
-  this function, both the regular expression and [;;4mSubject[0m are to be
-  specified as valid Unicode [;;4mcharlist()[0ms.
+  As in [4mrun/3[0m, an [4mmp/0[0m compiled with option [4municode[0m requires [4m[0m
+  [4mSubject[0m to be a Unicode [4mcharlist()[0m. If compilation is done
+  implicitly and the [4municode[0m compilation option is specified to
+  this function, both the regular expression and [4mSubject[0m are to be
+  specified as valid Unicode [4mcharlist()[0ms.
 
   The result is given as a list of "strings", the preferred data
-  type specified in option [;;4mreturn[0m (default [;;4miodata[0m).
+  type specified in option [4mreturn[0m (default [4miodata[0m).
 
   If subexpressions are specified in the regular expression, the
   matching subexpressions are returned in the resulting list as
@@ -56,7 +56,7 @@
   As there is no matching subexpression for the last part in the
   example (the "g"), nothing is inserted after that. To make the
   group of strings and the parts matching the subexpressions more
-  obvious, one can use option [;;4mgroup[0m, which groups together the
+  obvious, one can use option [4mgroup[0m, which groups together the
   part of the subject string with the parts matching the
   subexpressions when the string was split:
 
@@ -88,7 +88,7 @@
   empty rest, which is also returned. This behavior differs from the
   default behavior of the split function in Perl, where empty
   strings at the end are by default removed. To get the "trimming"
-  default behavior of Perl, specify [;;4mtrim[0m as an option:
+  default behavior of Perl, specify [4mtrim[0m as an option:
 
     re:split("Erlang","[lg]",[{return,list},trim]).
 
@@ -98,7 +98,7 @@
 
   The "trim" option says; "give me as many parts as possible except
   the empty ones", which sometimes can be useful. You can also
-  specify how many parts you want, by specifying [;;4m{parts,[0mN[;;4m}[0m:
+  specify how many parts you want, by specifying [4m{parts,[0mN[4m}[0m:
 
     re:split("Erlang","[lg]",[{return,list},{parts,2}]).
 
@@ -108,8 +108,8 @@
 
   Notice that the last part is "ang", not "an", as splitting was
   specified into two parts, and the splitting stops when enough
-  parts are given, which is why the result differs from that of [;;4m[0m
-  [;;4mtrim[0m.
+  parts are given, which is why the result differs from that of [4m[0m
+  [4mtrim[0m.
 
   More than three parts are not possible with this indata, so
 
@@ -118,53 +118,53 @@
   gives the same result as the default, which is to be viewed as "an
   infinite number of parts".
 
-  Specifying [;;4m0[0m as the number of parts gives the same effect as
-  option [;;4mtrim[0m. If subexpressions are captured, empty
+  Specifying [4m0[0m as the number of parts gives the same effect as
+  option [4mtrim[0m. If subexpressions are captured, empty
   subexpressions matched at the end are also stripped from the
-  result if [;;4mtrim[0m or [;;4m{parts,0}[0m is specified.
+  result if [4mtrim[0m or [4m{parts,0}[0m is specified.
 
-  The [;;4mtrim[0m behavior corresponds exactly to the Perl default. [;;4m[0m
-  [;;4m{parts,N}[0m, where N is a positive integer, corresponds exactly to
+  The [4mtrim[0m behavior corresponds exactly to the Perl default. [4m[0m
+  [4m{parts,N}[0m, where N is a positive integer, corresponds exactly to
   the Perl behavior with a positive numerical third parameter. The
-  default behavior of [;;4msplit/3[0m corresponds to the Perl behavior
+  default behavior of [4msplit/3[0m corresponds to the Perl behavior
   when a negative integer is specified as the third parameter for
   the Perl routine.
 
-  Summary of options not previously described for function [;;4mrun/3[0m:
+  Summary of options not previously described for function [4mrun/3[0m:
 
-   • [;;4m{return,ReturnType}[0m - Specifies how the parts of the
+   • [4m{return,ReturnType}[0m - Specifies how the parts of the
      original string are presented in the result list. Valid
      types:
 
-      ￮ [;;4miodata[0m - The variant of [;;4miodata/0[0m that gives the
+      ￮ [4miodata[0m - The variant of [4miodata/0[0m that gives the
         least copying of data with the current implementation
         (often a binary, but do not depend on it).
 
-      ￮ [;;4mbinary[0m - All parts returned as binaries.
+      ￮ [4mbinary[0m - All parts returned as binaries.
 
-      ￮ [;;4mlist[0m - All parts returned as lists of characters
+      ￮ [4mlist[0m - All parts returned as lists of characters
         ("strings").
 
-   • [;;4mgroup[0m - Groups together the part of the string with the
+   • [4mgroup[0m - Groups together the part of the string with the
      parts of the string matching the subexpressions of the
      regular expression.
 
-     The return value from the function is in this case a [;;4mlist/0[0m
-     of [;;4mlist/0[0ms. Each sublist begins with the string picked out
+     The return value from the function is in this case a [4mlist/0[0m
+     of [4mlist/0[0ms. Each sublist begins with the string picked out
      of the subject string, followed by the parts matching each
      of the subexpressions in order of occurrence in the regular
      expression.
 
-   • [;;4m{parts,N}[0m - Specifies the number of parts the subject
+   • [4m{parts,N}[0m - Specifies the number of parts the subject
      string is to be split into.
 
      The number of parts is to be a positive integer for a
-     specific maximum number of parts, and [;;4minfinity[0m for the
-     maximum number of parts possible (the default). Specifying [;;4m[0m
-     [;;4m{parts,0}[0m gives as many parts as possible disregarding
-     empty parts at the end, the same as specifying [;;4mtrim[0m.
+     specific maximum number of parts, and [4minfinity[0m for the
+     maximum number of parts possible (the default). Specifying [4m[0m
+     [4m{parts,0}[0m gives as many parts as possible disregarding
+     empty parts at the end, the same as specifying [4mtrim[0m.
 
-   • [;;4mtrim[0m - Specifies that empty parts at the end of the result
-     list are to be disregarded. The same as specifying [;;4m[0m
-     [;;4m{parts,0}[0m. This corresponds to the default behavior of the [;;4m[0m
-     [;;4msplit[0m built-in function in Perl.
+   • [4mtrim[0m - Specifies that empty parts at the end of the result
+     list are to be disregarded. The same as specifying [4m[0m
+     [4m{parts,0}[0m. This corresponds to the default behavior of the [4m[0m
+     [4msplit[0m built-in function in Perl.

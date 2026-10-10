@@ -100,11 +100,13 @@
 -define(IS_FUNC_ARITY(A), is_integer(A, 0, ?MAX_FUNC_ARGS)).
 
 %% Variable value info.
--record(sub, {v=[],                                 %Variable substitutions
-              s=sets:new() :: sets:set(), %Variables in scope
-              t=#{} :: map(),                       %Types
-              in_guard=false,                       %In guard or not.
-              top=true}).                           %Not inside a term.
+-record #sub{
+   v=[],                                 %Variable substitutions
+   s :: sets:set(),                      %Variables in scope
+   t=#{} :: map(),                       %Types
+   in_guard=false,                       %In guard or not.
+   top=true                              %Not inside a term.
+  }.
 -type sub() :: #sub{}.
 
 -spec module(cerl:c_module(), [compile:option()]) ->
@@ -474,6 +476,10 @@ ifes_1(FVar, #c_map_pair{key=Key,val=Val}, _Safe) ->
     ifes_1(FVar, Key, false) andalso ifes_1(FVar, Val, false);
 ifes_1(FVar, #c_primop{args=Args}, _Safe) ->
     ifes_list(FVar, Args, false);
+ifes_1(FVar, #c_record{es=Elements}, _Safe) ->
+    ifes_list(FVar, Elements, false);
+ifes_1(FVar, #c_record_pair{val=Val}, _Safe) ->
+    ifes_1(FVar, Val, false);
 ifes_1(FVar, #c_seq{arg=Arg,body=Body}, Safe) ->
     %% Arg of a #c_seq{} has no effect so it's okay to use FVar there even if
     %% Safe=false.
@@ -850,15 +856,17 @@ simplify_call(#c_call{anno=Anno0}, maps, get, [Key0, Map, Default]) ->
                       args=[#c_tuple{es=[#c_literal{val=badmap},
                                          Fail]}]},
 
+    EmptyMap = #c_literal{val=#{}},
     Cs = [#c_clause{anno=Anno,
-                    pats=[#c_map{es=[#c_map_pair{op=#c_literal{val=exact},
+                    pats=[#c_map{arg=EmptyMap,
+                                 es=[#c_map_pair{op=#c_literal{val=exact},
                                                  key=Key,
                                                  val=Value}],
                                  is_pat=true}],
                     guard=#c_literal{val=true},
                     body=Value},
           #c_clause{anno=Anno,
-                    pats=[#c_map{es=[],is_pat=true}],
+                    pats=[#c_map{arg=EmptyMap,es=[],is_pat=true}],
                     guard=#c_literal{val=true},
                     body=Default},
           #c_clause{anno=Anno,
@@ -1787,7 +1795,9 @@ case_opt_arg(E0, Sub, Cs, LitExpr) ->
 case_opt_arg_1(E0, Cs0, LitExpr) ->
     case cerl:is_data(E0) of
 	false ->
-            {error,Cs0};
+            %% Still remove clauses that are impossible because
+            %% of type mismatch
+            {error,case_opt_nomatch(E0, Cs0, LitExpr)};
 	true ->
 	    E = case_opt_compiler_generated(E0),
 	    Cs = case_opt_nomatch(E, Cs0, LitExpr),
@@ -2314,7 +2324,7 @@ is_simple_case_arg(_) -> false.
 %%
 
 is_bool_expr(#c_call{module=#c_literal{val=erlang},
-		     name=#c_literal{val=Name},args=Args}) ->
+		     name=#c_literal{val=Name},args=Args}) when is_atom(Name) ->
     NumArgs = length(Args),
     erl_internal:comp_op(Name, NumArgs) orelse
 	erl_internal:new_type_test(Name, NumArgs) orelse
@@ -2897,7 +2907,7 @@ void() -> #c_literal{val=ok}.
 descend(_Core, #sub{top=false}=Sub) ->
     Sub;
 descend(Core, #sub{top=true}=Sub) ->
-    case should_suppress_warning(Core) of
+    case is_compiler_generated(Core) of
         true ->
             %% In a list comprehension being ignored such as:
             %%

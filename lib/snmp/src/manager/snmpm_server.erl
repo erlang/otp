@@ -23,6 +23,8 @@
 -module(snmpm_server).
 -moduledoc false.
 
+-compile([{nowarn_deprecated_function, [{erlang,exit,2}]}]).
+
 %%----------------------------------------------------------------------
 %% This module implements a simple SNMP manager for Erlang.
 %%

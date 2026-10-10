@@ -911,11 +911,9 @@ do_create(TarFile, [Name|Rest], Opts) ->
 
 %% Adds a file to a tape archive.
 -doc """
-Equivalent to `add/4`.
+Equivalent to [`add(TarDescriptor, Name, Name, Options)`](`add/4`) if `Name` is `t:name_in_archive/0`.
 
-If `Name` is `t:name_in_archive/0`, then [`add(TarDescriptor, Name, Name, Options)`](`add/4`) is called.
-
-If `Name` is a two tuple then [`add(TarDescriptor, NameInArchive, Name, Options)`](`add/4`) is called.
+If `Name` is a two tuple `{NameInArchive, Name}`, then [`add(TarDescriptor, Name, NameInArchive, Options)`](`add/4`) is called.
 """.
 -spec add(TarDescriptor, Name, Options) -> ok | {error, term()} when
     TarDescriptor :: tar_descriptor(),
@@ -1276,30 +1274,24 @@ build_pax_entry(Header, PaxAttrs, Opts) ->
 build_pax_file(Keys, PaxAttrs) ->
     build_pax_file(Keys, PaxAttrs, []).
 build_pax_file([], _, Acc) ->
-    unicode:characters_to_binary(Acc);
+    iolist_to_binary(Acc);
 build_pax_file([K|Rest], Attrs, Acc) ->
-    V = maps:get(K, Attrs),
-    Size = sizeof(K) + sizeof(V) + 3,
-    Size2 = sizeof(Size) + Size,
-    Key = to_string(K),
-    Value = to_string(V),
-    Record = unicode:characters_to_binary(io_lib:format("~B ~ts=~ts\n", [Size2, Key, Value])),
-    if byte_size(Record) =/= Size2 ->
-            Size3 = byte_size(Record),
-            Record2 = io_lib:format("~B ~ts=~ts\n", [Size3, Key, Value]),
-            build_pax_file(Rest, Attrs, [Acc, Record2]);
-       true ->
-            build_pax_file(Rest, Attrs, [Acc, Record])
-    end.
+    Key = unicode:characters_to_binary(to_string(K)),
+    Value = unicode:characters_to_binary(to_string(maps:get(K, Attrs))),
+    %% The record length includes its own decimal digits, the separating
+    %% space, "=" and the trailing newline, all counted in bytes
+    Size = pax_record_size(byte_size(Key) + byte_size(Value) + 3),
+    Record = [integer_to_binary(Size), $\s, Key, $=, Value, $\n],
+    build_pax_file(Rest, Attrs, [Acc, Record]).
 
-sizeof(Bin) when is_binary(Bin) ->
-    byte_size(Bin);
-sizeof(List) when is_list(List) ->
-    length(List);
-sizeof(N) when is_integer(N) ->
-    byte_size(integer_to_binary(N));
-sizeof(N) when is_float(N) ->
-    byte_size(float_to_binary(N)).
+pax_record_size(Base) ->
+    pax_record_size(Base, Base).
+
+pax_record_size(Base, Size) ->
+    case Base + byte_size(integer_to_binary(Size)) of
+        Size -> Size;
+        NewSize -> pax_record_size(Base, NewSize)
+    end.
 
 to_string(Bin) when is_binary(Bin) ->
     unicode:characters_to_list(Bin);
@@ -1337,7 +1329,7 @@ join_split_ustar_path([Part|_], {ok, _, nil})
   when byte_size(Part) > ?USTAR_PREFIX_LEN ->
     false;
 join_split_ustar_path([Part|_], {ok, _Name, Acc})
-  when (byte_size(Part)+byte_size(Acc)) > ?USTAR_PREFIX_LEN ->
+  when (byte_size(Acc)+1+byte_size(Part)) > ?USTAR_PREFIX_LEN ->
     false;
 join_split_ustar_path([Part|Rest], {ok, Name, nil}) ->
     join_split_ustar_path(Rest, {ok, Name, Part});
@@ -1788,7 +1780,7 @@ parse_string(Bin) when is_binary(Bin) ->
         Str when is_list(Str) ->
             Str;
         {incomplete, _Str, _Rest} ->
-            binary_to_list(Bin);
+            binary_to_list(Prefix);
         {error, _Str, _Rest} ->
             throw({error, {bad_header, invalid_string}})
     end.

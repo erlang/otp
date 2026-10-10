@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -188,9 +188,9 @@ new() ->
 -doc "Equivalent to: `new/2`".
 %%  Type = ?wxBITMAP_TYPE_INVALID | ?wxBITMAP_TYPE_BMP | ?wxBITMAP_TYPE_BMP_RESOURCE | ?wxBITMAP_TYPE_RESOURCE | ?wxBITMAP_TYPE_ICO | ?wxBITMAP_TYPE_ICO_RESOURCE | ?wxBITMAP_TYPE_CUR | ?wxBITMAP_TYPE_CUR_RESOURCE | ?wxBITMAP_TYPE_XBM | ?wxBITMAP_TYPE_XBM_DATA | ?wxBITMAP_TYPE_XPM | ?wxBITMAP_TYPE_XPM_DATA | ?wxBITMAP_TYPE_TIFF | ?wxBITMAP_TYPE_TIF | ?wxBITMAP_TYPE_TIFF_RESOURCE | ?wxBITMAP_TYPE_TIF_RESOURCE | ?wxBITMAP_TYPE_GIF | ?wxBITMAP_TYPE_GIF_RESOURCE | ?wxBITMAP_TYPE_PNG | ?wxBITMAP_TYPE_PNG_RESOURCE | ?wxBITMAP_TYPE_JPEG | ?wxBITMAP_TYPE_JPEG_RESOURCE | ?wxBITMAP_TYPE_PNM | ?wxBITMAP_TYPE_PNM_RESOURCE | ?wxBITMAP_TYPE_PCX | ?wxBITMAP_TYPE_PCX_RESOURCE | ?wxBITMAP_TYPE_PICT | ?wxBITMAP_TYPE_PICT_RESOURCE | ?wxBITMAP_TYPE_ICON | ?wxBITMAP_TYPE_ICON_RESOURCE | ?wxBITMAP_TYPE_ANI | ?wxBITMAP_TYPE_IFF | ?wxBITMAP_TYPE_TGA | ?wxBITMAP_TYPE_MACCURSOR | ?wxBITMAP_TYPE_MACCURSOR_RESOURCE | ?wxBITMAP_TYPE_ANY
 -spec new(Name) -> wxImage() when
-	Name::unicode:chardata();
+        Name::unicode:chardata();
       (Sz) -> wxImage() when
-	Sz::{W::integer(), H::integer()}.
+        Sz::{W::integer(), H::integer()}.
 
 new(Name)
  when ?is_chardata(Name) ->
@@ -206,13 +206,13 @@ above function only in what argument(s) it accepts.
 """.
 %%  Type = ?wxBITMAP_TYPE_INVALID | ?wxBITMAP_TYPE_BMP | ?wxBITMAP_TYPE_BMP_RESOURCE | ?wxBITMAP_TYPE_RESOURCE | ?wxBITMAP_TYPE_ICO | ?wxBITMAP_TYPE_ICO_RESOURCE | ?wxBITMAP_TYPE_CUR | ?wxBITMAP_TYPE_CUR_RESOURCE | ?wxBITMAP_TYPE_XBM | ?wxBITMAP_TYPE_XBM_DATA | ?wxBITMAP_TYPE_XPM | ?wxBITMAP_TYPE_XPM_DATA | ?wxBITMAP_TYPE_TIFF | ?wxBITMAP_TYPE_TIF | ?wxBITMAP_TYPE_TIFF_RESOURCE | ?wxBITMAP_TYPE_TIF_RESOURCE | ?wxBITMAP_TYPE_GIF | ?wxBITMAP_TYPE_GIF_RESOURCE | ?wxBITMAP_TYPE_PNG | ?wxBITMAP_TYPE_PNG_RESOURCE | ?wxBITMAP_TYPE_JPEG | ?wxBITMAP_TYPE_JPEG_RESOURCE | ?wxBITMAP_TYPE_PNM | ?wxBITMAP_TYPE_PNM_RESOURCE | ?wxBITMAP_TYPE_PCX | ?wxBITMAP_TYPE_PCX_RESOURCE | ?wxBITMAP_TYPE_PICT | ?wxBITMAP_TYPE_PICT_RESOURCE | ?wxBITMAP_TYPE_ICON | ?wxBITMAP_TYPE_ICON_RESOURCE | ?wxBITMAP_TYPE_ANI | ?wxBITMAP_TYPE_IFF | ?wxBITMAP_TYPE_TGA | ?wxBITMAP_TYPE_MACCURSOR | ?wxBITMAP_TYPE_MACCURSOR_RESOURCE | ?wxBITMAP_TYPE_ANY
 -spec new(Width, Height) -> wxImage() when
-	Width::integer(), Height::integer();
+        Width::integer(), Height::integer();
       (Name, [Option]) -> wxImage() when
 	Name::unicode:chardata(),
 	Option :: {'type', wx:wx_enum()}
 		 | {'index', integer()};
       (Sz, Data) -> wxImage() when
-	Sz::{W::integer(), H::integer()}, Data::binary();
+        Sz::{W::integer(), H::integer()}, Data::binary();
       (Sz, [Option]) -> wxImage() when
 	Sz::{W::integer(), H::integer()},
 	Option :: {'clear', boolean()}.
@@ -246,7 +246,7 @@ This is an overloaded member function, provided for convenience. It differs from
 above function only in what argument(s) it accepts.
 """.
 -spec new(Width, Height, Data) -> wxImage() when
-	Width::integer(), Height::integer(), Data::binary();
+        Width::integer(), Height::integer(), Data::binary();
       (Width, Height, [Option]) -> wxImage() when
 	Width::integer(), Height::integer(),
 	Option :: {'clear', boolean()};
@@ -254,7 +254,7 @@ above function only in what argument(s) it accepts.
 	Name::unicode:chardata(), Mimetype::unicode:chardata(),
 	Option :: {'index', integer()};
       (Sz, Data, Alpha) -> wxImage() when
-	Sz::{W::integer(), H::integer()}, Data::binary(), Alpha::binary().
+        Sz::{W::integer(), H::integer()}, Data::binary(), Alpha::binary().
 new(Width,Height,Data)
  when is_integer(Width),is_integer(Height),is_binary(Data) ->
   wxe_util:queue_cmd(Width,Height,Data,?get_env(),?wxImage_new_3_0),
@@ -287,7 +287,7 @@ If `static_data` is false then the `m:wxImage` will take ownership of the data a
 it afterwards. For this, it has to be allocated with `malloc`.
 """.
 -spec new(Width, Height, Data, Alpha) -> wxImage() when
-	Width::integer(), Height::integer(), Data::binary(), Alpha::binary().
+        Width::integer(), Height::integer(), Data::binary(), Alpha::binary().
 new(Width,Height,Data,Alpha)
  when is_integer(Width),is_integer(Height),is_binary(Data),is_binary(Alpha) ->
   wxe_util:queue_cmd(Width,Height,Data,Alpha,?get_env(),?wxImage_new_4),
@@ -304,7 +304,7 @@ See:
 * `blurVertical/2`
 """.
 -spec blur(This, BlurRadius) -> wxImage() when
-	This::wxImage(), BlurRadius::integer().
+        This::wxImage(), BlurRadius::integer().
 blur(#wx_ref{type=ThisT}=This,BlurRadius)
  when is_integer(BlurRadius) ->
   ?CLASS(ThisT,wxImage),
@@ -322,7 +322,7 @@ See:
 * `blurVertical/2`
 """.
 -spec blurHorizontal(This, BlurRadius) -> wxImage() when
-	This::wxImage(), BlurRadius::integer().
+        This::wxImage(), BlurRadius::integer().
 blurHorizontal(#wx_ref{type=ThisT}=This,BlurRadius)
  when is_integer(BlurRadius) ->
   ?CLASS(ThisT,wxImage),
@@ -340,7 +340,7 @@ See:
 * `blurHorizontal/2`
 """.
 -spec blurVertical(This, BlurRadius) -> wxImage() when
-	This::wxImage(), BlurRadius::integer().
+        This::wxImage(), BlurRadius::integer().
 blurVertical(#wx_ref{type=ThisT}=This,BlurRadius)
  when is_integer(BlurRadius) ->
   ?CLASS(ThisT,wxImage),
@@ -349,7 +349,7 @@ blurVertical(#wx_ref{type=ThisT}=This,BlurRadius)
 
 -doc(#{equiv => convertAlphaToMask(This, [])}).
 -spec convertAlphaToMask(This) -> boolean() when
-	This::wxImage().
+        This::wxImage().
 
 convertAlphaToMask(This)
  when is_record(This, wx_ref) ->
@@ -379,7 +379,7 @@ convertAlphaToMask(#wx_ref{type=ThisT}=This, Options)
 
 -doc(#{equiv => convertAlphaToMask(This,Mr,Mg,Mb, [])}).
 -spec convertAlphaToMask(This, Mr, Mg, Mb) -> boolean() when
-	This::wxImage(), Mr::integer(), Mg::integer(), Mb::integer().
+        This::wxImage(), Mr::integer(), Mg::integer(), Mb::integer().
 
 convertAlphaToMask(This,Mr,Mg,Mb)
  when is_record(This, wx_ref),is_integer(Mr),is_integer(Mg),is_integer(Mb) ->
@@ -414,7 +414,7 @@ Returns a greyscale version of the image.
 Since: 2.9.0
 """.
 -spec convertToGreyscale(This) -> wxImage() when
-	This::wxImage().
+        This::wxImage().
 convertToGreyscale(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxImage),
   wxe_util:queue_cmd(This,?get_env(),?wxImage_ConvertToGreyscale_0),
@@ -428,7 +428,7 @@ greyscale. Defaults to using the standard ITU-T BT.601 when converting to YUV, w
 pixel equals (R * `weight_r`) + (G * `weight_g`) + (B * `weight_b`).
 """.
 -spec convertToGreyscale(This, Weight_r, Weight_g, Weight_b) -> wxImage() when
-	This::wxImage(), Weight_r::number(), Weight_g::number(), Weight_b::number().
+        This::wxImage(), Weight_r::number(), Weight_g::number(), Weight_b::number().
 convertToGreyscale(#wx_ref{type=ThisT}=This,Weight_r,Weight_g,Weight_b)
  when is_number(Weight_r),is_number(Weight_g),is_number(Weight_b) ->
   ?CLASS(ThisT,wxImage),
@@ -442,7 +442,7 @@ The returned image has white colour where the original has (r,g,b) colour and bl
 colour everywhere else.
 """.
 -spec convertToMono(This, R, G, B) -> wxImage() when
-	This::wxImage(), R::integer(), G::integer(), B::integer().
+        This::wxImage(), R::integer(), G::integer(), B::integer().
 convertToMono(#wx_ref{type=ThisT}=This,R,G,B)
  when is_integer(R),is_integer(G),is_integer(B) ->
   ?CLASS(ThisT,wxImage),
@@ -451,7 +451,7 @@ convertToMono(#wx_ref{type=ThisT}=This,R,G,B)
 
 -doc "Returns an identical copy of this image.".
 -spec copy(This) -> wxImage() when
-	This::wxImage().
+        This::wxImage().
 copy(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxImage),
   wxe_util:queue_cmd(This,?get_env(),?wxImage_Copy),
@@ -459,7 +459,7 @@ copy(#wx_ref{type=ThisT}=This) ->
 
 -doc(#{equiv => create(This,Sz, [])}).
 -spec create(This, Sz) -> boolean() when
-	This::wxImage(), Sz::{W::integer(), H::integer()}.
+        This::wxImage(), Sz::{W::integer(), H::integer()}.
 
 create(This,{SzW,SzH} = Sz)
  when is_record(This, wx_ref),is_integer(SzW),is_integer(SzH) ->
@@ -470,9 +470,9 @@ This is an overloaded member function, provided for convenience. It differs from
 above function only in what argument(s) it accepts.
 """.
 -spec create(This, Width, Height) -> boolean() when
-	This::wxImage(), Width::integer(), Height::integer();
+        This::wxImage(), Width::integer(), Height::integer();
       (This, Sz, Data) -> boolean() when
-	This::wxImage(), Sz::{W::integer(), H::integer()}, Data::binary();
+        This::wxImage(), Sz::{W::integer(), H::integer()}, Data::binary();
       (This, Sz, [Option]) -> boolean() when
 	This::wxImage(), Sz::{W::integer(), H::integer()},
 	Option :: {'clear', boolean()}.
@@ -499,12 +499,12 @@ This is an overloaded member function, provided for convenience. It differs from
 above function only in what argument(s) it accepts.
 """.
 -spec create(This, Width, Height, Data) -> boolean() when
-	This::wxImage(), Width::integer(), Height::integer(), Data::binary();
+        This::wxImage(), Width::integer(), Height::integer(), Data::binary();
       (This, Width, Height, [Option]) -> boolean() when
 	This::wxImage(), Width::integer(), Height::integer(),
 	Option :: {'clear', boolean()};
       (This, Sz, Data, Alpha) -> boolean() when
-	This::wxImage(), Sz::{W::integer(), H::integer()}, Data::binary(), Alpha::binary().
+        This::wxImage(), Sz::{W::integer(), H::integer()}, Data::binary(), Alpha::binary().
 create(#wx_ref{type=ThisT}=This,Width,Height,Data)
  when is_integer(Width),is_integer(Height),is_binary(Data) ->
   ?CLASS(ThisT,wxImage),
@@ -532,7 +532,7 @@ See `new/4` for more info.
 Return: true if the call succeeded, false otherwise.
 """.
 -spec create(This, Width, Height, Data, Alpha) -> boolean() when
-	This::wxImage(), Width::integer(), Height::integer(), Data::binary(), Alpha::binary().
+        This::wxImage(), Width::integer(), Height::integer(), Data::binary(), Alpha::binary().
 create(#wx_ref{type=ThisT}=This,Width,Height,Data,Alpha)
  when is_integer(Width),is_integer(Height),is_binary(Data),is_binary(Alpha) ->
   ?CLASS(ThisT,wxImage),
@@ -541,7 +541,7 @@ create(#wx_ref{type=ThisT}=This,Width,Height,Data,Alpha)
 
 -doc "Destroys the image data.".
 -spec 'Destroy'(This) -> 'ok' when
-	This::wxImage().
+        This::wxImage().
 'Destroy'(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxImage),
   wxe_util:queue_cmd(This,?get_env(),?wxImage_Destroy).
@@ -610,7 +610,7 @@ this pointer may be used to directly manipulate the alpha values which are store
 RGB ones.
 """.
 -spec getAlpha(This) -> binary() when
-	This::wxImage().
+        This::wxImage().
 getAlpha(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxImage),
   wxe_util:queue_cmd(This,?get_env(),?wxImage_GetAlpha_0),
@@ -618,7 +618,7 @@ getAlpha(#wx_ref{type=ThisT}=This) ->
 
 -doc "Return alpha value at given pixel location.".
 -spec getAlpha(This, X, Y) -> integer() when
-	This::wxImage(), X::integer(), Y::integer().
+        This::wxImage(), X::integer(), Y::integer().
 getAlpha(#wx_ref{type=ThisT}=This,X,Y)
  when is_integer(X),is_integer(Y) ->
   ?CLASS(ThisT,wxImage),
@@ -627,7 +627,7 @@ getAlpha(#wx_ref{type=ThisT}=This,X,Y)
 
 -doc "Returns the blue intensity at the given coordinate.".
 -spec getBlue(This, X, Y) -> integer() when
-	This::wxImage(), X::integer(), Y::integer().
+        This::wxImage(), X::integer(), Y::integer().
 getBlue(#wx_ref{type=ThisT}=This,X,Y)
  when is_integer(X),is_integer(Y) ->
   ?CLASS(ThisT,wxImage),
@@ -646,7 +646,7 @@ second row following after it and so on.
 You should not delete the returned pointer nor pass it to `setData/4`.
 """.
 -spec getData(This) -> binary() when
-	This::wxImage().
+        This::wxImage().
 getData(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxImage),
   wxe_util:queue_cmd(This,?get_env(),?wxImage_GetData),
@@ -654,7 +654,7 @@ getData(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the green intensity at the given coordinate.".
 -spec getGreen(This, X, Y) -> integer() when
-	This::wxImage(), X::integer(), Y::integer().
+        This::wxImage(), X::integer(), Y::integer().
 getGreen(#wx_ref{type=ThisT}=This,X,Y)
  when is_integer(X),is_integer(Y) ->
   ?CLASS(ThisT,wxImage),
@@ -663,7 +663,7 @@ getGreen(#wx_ref{type=ThisT}=This,X,Y)
 
 -doc(#{equiv => getImageCount(Filename, [])}).
 -spec getImageCount(Filename) -> integer() when
-	Filename::unicode:chardata().
+        Filename::unicode:chardata().
 
 getImageCount(Filename)
  when ?is_chardata(Filename) ->
@@ -729,7 +729,7 @@ Gets the height of the image in pixels.
 See: `getWidth/1`
 """.
 -spec getHeight(This) -> integer() when
-	This::wxImage().
+        This::wxImage().
 getHeight(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxImage),
   wxe_util:queue_cmd(This,?get_env(),?wxImage_GetHeight),
@@ -737,7 +737,7 @@ getHeight(#wx_ref{type=ThisT}=This) ->
 
 -doc "Gets the blue value of the mask colour.".
 -spec getMaskBlue(This) -> integer() when
-	This::wxImage().
+        This::wxImage().
 getMaskBlue(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxImage),
   wxe_util:queue_cmd(This,?get_env(),?wxImage_GetMaskBlue),
@@ -745,7 +745,7 @@ getMaskBlue(#wx_ref{type=ThisT}=This) ->
 
 -doc "Gets the green value of the mask colour.".
 -spec getMaskGreen(This) -> integer() when
-	This::wxImage().
+        This::wxImage().
 getMaskGreen(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxImage),
   wxe_util:queue_cmd(This,?get_env(),?wxImage_GetMaskGreen),
@@ -753,7 +753,7 @@ getMaskGreen(#wx_ref{type=ThisT}=This) ->
 
 -doc "Gets the red value of the mask colour.".
 -spec getMaskRed(This) -> integer() when
-	This::wxImage().
+        This::wxImage().
 getMaskRed(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxImage),
   wxe_util:queue_cmd(This,?get_env(),?wxImage_GetMaskRed),
@@ -782,7 +782,7 @@ Some of the `m:wxImage` handlers have been modified to set the palette if one ex
 the image file (usually 256 or less colour images in GIF or PNG format).
 """.
 -spec getPalette(This) -> wxPalette:wxPalette() when
-	This::wxImage().
+        This::wxImage().
 getPalette(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxImage),
   wxe_util:queue_cmd(This,?get_env(),?wxImage_GetPalette),
@@ -790,7 +790,7 @@ getPalette(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the red intensity at the given coordinate.".
 -spec getRed(This, X, Y) -> integer() when
-	This::wxImage(), X::integer(), Y::integer().
+        This::wxImage(), X::integer(), Y::integer().
 getRed(#wx_ref{type=ThisT}=This,X,Y)
  when is_integer(X),is_integer(Y) ->
   ?CLASS(ThisT,wxImage),
@@ -799,7 +799,7 @@ getRed(#wx_ref{type=ThisT}=This,X,Y)
 
 -doc "Returns a sub image of the current one as long as the rect belongs entirely to the image.".
 -spec getSubImage(This, Rect) -> wxImage() when
-	This::wxImage(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}.
+        This::wxImage(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}.
 getSubImage(#wx_ref{type=ThisT}=This,{RectX,RectY,RectW,RectH} = Rect)
  when is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH) ->
   ?CLASS(ThisT,wxImage),
@@ -812,7 +812,7 @@ Gets the width of the image in pixels.
 See: `getHeight/1`
 """.
 -spec getWidth(This) -> integer() when
-	This::wxImage().
+        This::wxImage().
 getWidth(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxImage),
   wxe_util:queue_cmd(This,?get_env(),?wxImage_GetWidth),
@@ -827,7 +827,7 @@ See:
 * `setAlpha/4`
 """.
 -spec hasAlpha(This) -> boolean() when
-	This::wxImage().
+        This::wxImage().
 hasAlpha(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxImage),
   wxe_util:queue_cmd(This,?get_env(),?wxImage_HasAlpha),
@@ -835,7 +835,7 @@ hasAlpha(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns true if there is a mask active, false otherwise.".
 -spec hasMask(This) -> boolean() when
-	This::wxImage().
+        This::wxImage().
 hasMask(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxImage),
   wxe_util:queue_cmd(This,?get_env(),?wxImage_HasMask),
@@ -865,7 +865,7 @@ See:
 * `hasOption/2`
 """.
 -spec getOption(This, Name) -> unicode:charlist() when
-	This::wxImage(), Name::unicode:chardata().
+        This::wxImage(), Name::unicode:chardata().
 getOption(#wx_ref{type=ThisT}=This,Name)
  when ?is_chardata(Name) ->
   ?CLASS(ThisT,wxImage),
@@ -983,7 +983,7 @@ See:
 * `getOption/2`
 """.
 -spec getOptionInt(This, Name) -> integer() when
-	This::wxImage(), Name::unicode:chardata().
+        This::wxImage(), Name::unicode:chardata().
 getOptionInt(#wx_ref{type=ThisT}=This,Name)
  when ?is_chardata(Name) ->
   ?CLASS(ThisT,wxImage),
@@ -1006,7 +1006,7 @@ See:
 * `getOptionInt/2`
 """.
 -spec hasOption(This, Name) -> boolean() when
-	This::wxImage(), Name::unicode:chardata().
+        This::wxImage(), Name::unicode:chardata().
 hasOption(#wx_ref{type=ThisT}=This,Name)
  when ?is_chardata(Name) ->
   ?CLASS(ThisT,wxImage),
@@ -1022,7 +1022,7 @@ will be by default initialized to all pixels being fully opaque. But if the imag
 mask colour, all mask pixels will be completely transparent.
 """.
 -spec initAlpha(This) -> 'ok' when
-	This::wxImage().
+        This::wxImage().
 initAlpha(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxImage),
   wxe_util:queue_cmd(This,?get_env(),?wxImage_InitAlpha).
@@ -1043,7 +1043,7 @@ initStandardHandlers() ->
 
 -doc(#{equiv => isTransparent(This,X,Y, [])}).
 -spec isTransparent(This, X, Y) -> boolean() when
-	This::wxImage(), X::integer(), Y::integer().
+        This::wxImage(), X::integer(), Y::integer().
 
 isTransparent(This,X,Y)
  when is_record(This, wx_ref),is_integer(X),is_integer(Y) ->
@@ -1068,7 +1068,7 @@ isTransparent(#wx_ref{type=ThisT}=This,X,Y, Options)
 
 -doc(#{equiv => loadFile(This,Name, [])}).
 -spec loadFile(This, Name) -> boolean() when
-	This::wxImage(), Name::unicode:chardata().
+        This::wxImage(), Name::unicode:chardata().
 
 loadFile(This,Name)
  when is_record(This, wx_ref),?is_chardata(Name) ->
@@ -1116,7 +1116,7 @@ loadFile(#wx_ref{type=ThisT}=This,Name,Mimetype, Options)
 
 -doc "Equivalent to: `isOk/1`".
 -spec ok(This) -> boolean() when
-	This::wxImage().
+        This::wxImage().
 
 ok(This)
  when is_record(This, wx_ref) ->
@@ -1124,7 +1124,7 @@ ok(This)
 
 -doc "Returns true if image data is present.".
 -spec isOk(This) -> boolean() when
-	This::wxImage().
+        This::wxImage().
 isOk(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxImage),
   wxe_util:queue_cmd(This,?get_env(),?wxImage_IsOk),
@@ -1138,7 +1138,7 @@ The handler is also deleted.
 Return: true if the handler was found and removed, false otherwise.
 """.
 -spec removeHandler(Name) -> boolean() when
-	Name::unicode:chardata().
+        Name::unicode:chardata().
 removeHandler(Name)
  when ?is_chardata(Name) ->
   Name_UC = unicode:characters_to_binary(Name),
@@ -1147,7 +1147,7 @@ removeHandler(Name)
 
 -doc(#{equiv => mirror(This, [])}).
 -spec mirror(This) -> wxImage() when
-	This::wxImage().
+        This::wxImage().
 
 mirror(This)
  when is_record(This, wx_ref) ->
@@ -1172,7 +1172,7 @@ mirror(#wx_ref{type=ThisT}=This, Options)
 
 -doc "Replaces the colour specified by `r1`,g1,b1 by the colour `r2`,g2,b2.".
 -spec replace(This, R1, G1, B1, R2, G2, B2) -> 'ok' when
-	This::wxImage(), R1::integer(), G1::integer(), B1::integer(), R2::integer(), G2::integer(), B2::integer().
+        This::wxImage(), R1::integer(), G1::integer(), B1::integer(), R2::integer(), G2::integer(), B2::integer().
 replace(#wx_ref{type=ThisT}=This,R1,G1,B1,R2,G2,B2)
  when is_integer(R1),is_integer(G1),is_integer(B1),is_integer(R2),is_integer(G2),is_integer(B2) ->
   ?CLASS(ThisT,wxImage),
@@ -1180,7 +1180,7 @@ replace(#wx_ref{type=ThisT}=This,R1,G1,B1,R2,G2,B2)
 
 -doc(#{equiv => rescale(This,Width,Height, [])}).
 -spec rescale(This, Width, Height) -> wxImage() when
-	This::wxImage(), Width::integer(), Height::integer().
+        This::wxImage(), Width::integer(), Height::integer().
 
 rescale(This,Width,Height)
  when is_record(This, wx_ref),is_integer(Width),is_integer(Height) ->
@@ -1210,7 +1210,7 @@ rescale(#wx_ref{type=ThisT}=This,Width,Height, Options)
 
 -doc(#{equiv => resize(This,Size,Pos, [])}).
 -spec resize(This, Size, Pos) -> wxImage() when
-	This::wxImage(), Size::{W::integer(), H::integer()}, Pos::{X::integer(), Y::integer()}.
+        This::wxImage(), Size::{W::integer(), H::integer()}, Pos::{X::integer(), Y::integer()}.
 
 resize(This,{SizeW,SizeH} = Size,{PosX,PosY} = Pos)
  when is_record(This, wx_ref),is_integer(SizeW),is_integer(SizeH),is_integer(PosX),is_integer(PosY) ->
@@ -1248,7 +1248,7 @@ resize(#wx_ref{type=ThisT}=This,{SizeW,SizeH} = Size,{PosX,PosY} = Pos, Options)
 
 -doc(#{equiv => rotate(This,Angle,RotationCentre, [])}).
 -spec rotate(This, Angle, RotationCentre) -> wxImage() when
-	This::wxImage(), Angle::number(), RotationCentre::{X::integer(), Y::integer()}.
+        This::wxImage(), Angle::number(), RotationCentre::{X::integer(), Y::integer()}.
 
 rotate(This,Angle,{RotationCentreX,RotationCentreY} = RotationCentre)
  when is_record(This, wx_ref),is_number(Angle),is_integer(RotationCentreX),is_integer(RotationCentreY) ->
@@ -1283,7 +1283,7 @@ Rotates the hue of each pixel in the image by `angle`, which is a double in the 
 -1.0 to +1.0, where -1.0 corresponds to -360 degrees and +1.0 corresponds to +360 degrees.
 """.
 -spec rotateHue(This, Angle) -> 'ok' when
-	This::wxImage(), Angle::number().
+        This::wxImage(), Angle::number().
 rotateHue(#wx_ref{type=ThisT}=This,Angle)
  when is_number(Angle) ->
   ?CLASS(ThisT,wxImage),
@@ -1291,7 +1291,7 @@ rotateHue(#wx_ref{type=ThisT}=This,Angle)
 
 -doc(#{equiv => rotate90(This, [])}).
 -spec rotate90(This) -> wxImage() when
-	This::wxImage().
+        This::wxImage().
 
 rotate90(This)
  when is_record(This, wx_ref) ->
@@ -1318,7 +1318,7 @@ fail if the extension is not recognized! You can use one of the forms above to s
 to files with non-standard extensions.
 """.
 -spec saveFile(This, Name) -> boolean() when
-	This::wxImage(), Name::unicode:chardata().
+        This::wxImage(), Name::unicode:chardata().
 saveFile(#wx_ref{type=ThisT}=This,Name)
  when ?is_chardata(Name) ->
   ?CLASS(ThisT,wxImage),
@@ -1329,9 +1329,9 @@ saveFile(#wx_ref{type=ThisT}=This,Name)
 -doc "Saves an image in the named file.".
 %%  Type = ?wxBITMAP_TYPE_INVALID | ?wxBITMAP_TYPE_BMP | ?wxBITMAP_TYPE_BMP_RESOURCE | ?wxBITMAP_TYPE_RESOURCE | ?wxBITMAP_TYPE_ICO | ?wxBITMAP_TYPE_ICO_RESOURCE | ?wxBITMAP_TYPE_CUR | ?wxBITMAP_TYPE_CUR_RESOURCE | ?wxBITMAP_TYPE_XBM | ?wxBITMAP_TYPE_XBM_DATA | ?wxBITMAP_TYPE_XPM | ?wxBITMAP_TYPE_XPM_DATA | ?wxBITMAP_TYPE_TIFF | ?wxBITMAP_TYPE_TIF | ?wxBITMAP_TYPE_TIFF_RESOURCE | ?wxBITMAP_TYPE_TIF_RESOURCE | ?wxBITMAP_TYPE_GIF | ?wxBITMAP_TYPE_GIF_RESOURCE | ?wxBITMAP_TYPE_PNG | ?wxBITMAP_TYPE_PNG_RESOURCE | ?wxBITMAP_TYPE_JPEG | ?wxBITMAP_TYPE_JPEG_RESOURCE | ?wxBITMAP_TYPE_PNM | ?wxBITMAP_TYPE_PNM_RESOURCE | ?wxBITMAP_TYPE_PCX | ?wxBITMAP_TYPE_PCX_RESOURCE | ?wxBITMAP_TYPE_PICT | ?wxBITMAP_TYPE_PICT_RESOURCE | ?wxBITMAP_TYPE_ICON | ?wxBITMAP_TYPE_ICON_RESOURCE | ?wxBITMAP_TYPE_ANI | ?wxBITMAP_TYPE_IFF | ?wxBITMAP_TYPE_TGA | ?wxBITMAP_TYPE_MACCURSOR | ?wxBITMAP_TYPE_MACCURSOR_RESOURCE | ?wxBITMAP_TYPE_ANY
 -spec saveFile(This, Name, Type) -> boolean() when
-	This::wxImage(), Name::unicode:chardata(), Type::wx:wx_enum();
+        This::wxImage(), Name::unicode:chardata(), Type::wx:wx_enum();
       (This, Name, Mimetype) -> boolean() when
-	This::wxImage(), Name::unicode:chardata(), Mimetype::unicode:chardata().
+        This::wxImage(), Name::unicode:chardata(), Mimetype::unicode:chardata().
 saveFile(#wx_ref{type=ThisT}=This,Name,Type)
  when ?is_chardata(Name),is_integer(Type) ->
   ?CLASS(ThisT,wxImage),
@@ -1348,7 +1348,7 @@ saveFile(#wx_ref{type=ThisT}=This,Name,Mimetype)
 
 -doc(#{equiv => scale(This,Width,Height, [])}).
 -spec scale(This, Width, Height) -> wxImage() when
-	This::wxImage(), Width::integer(), Height::integer().
+        This::wxImage(), Width::integer(), Height::integer().
 
 scale(This,Width,Height)
  when is_record(This, wx_ref),is_integer(Width),is_integer(Height) ->
@@ -1392,7 +1392,7 @@ scale(#wx_ref{type=ThisT}=This,Width,Height, Options)
 
 -doc(#{equiv => size(This,Size,Pos, [])}).
 -spec size(This, Size, Pos) -> wxImage() when
-	This::wxImage(), Size::{W::integer(), H::integer()}, Pos::{X::integer(), Y::integer()}.
+        This::wxImage(), Size::{W::integer(), H::integer()}, Pos::{X::integer(), Y::integer()}.
 
 size(This,{SizeW,SizeH} = Size,{PosX,PosY} = Pos)
  when is_record(This, wx_ref),is_integer(SizeW),is_integer(SizeH),is_integer(PosX),is_integer(PosY) ->
@@ -1441,7 +1441,7 @@ with malloc(). `m:wxImage` takes ownership of the pointer and will free it unles
 parameter is set to true - in this case the caller should do it.
 """.
 -spec setAlpha(This, Alpha) -> 'ok' when
-	This::wxImage(), Alpha::binary().
+        This::wxImage(), Alpha::binary().
 setAlpha(#wx_ref{type=ThisT}=This,Alpha)
  when is_binary(Alpha) ->
   ?CLASS(ThisT,wxImage),
@@ -1454,7 +1454,7 @@ This function should only be called if the image has alpha channel data, use `ha
 for this.
 """.
 -spec setAlpha(This, X, Y, Alpha) -> 'ok' when
-	This::wxImage(), X::integer(), Y::integer(), Alpha::integer().
+        This::wxImage(), X::integer(), Y::integer(), Alpha::integer().
 setAlpha(#wx_ref{type=ThisT}=This,X,Y,Alpha)
  when is_integer(X),is_integer(Y),is_integer(Alpha) ->
   ?CLASS(ThisT,wxImage),
@@ -1473,7 +1473,7 @@ object, that will be responsible for deleting it. Do not pass to this function a
 obtained through `getData/1`.
 """.
 -spec setData(This, Data) -> 'ok' when
-	This::wxImage(), Data::binary().
+        This::wxImage(), Data::binary().
 setData(#wx_ref{type=ThisT}=This,Data)
  when is_binary(Data) ->
   ?CLASS(ThisT,wxImage),
@@ -1484,7 +1484,7 @@ This is an overloaded member function, provided for convenience. It differs from
 above function only in what argument(s) it accepts.
 """.
 -spec setData(This, Data, New_width, New_height) -> 'ok' when
-	This::wxImage(), Data::binary(), New_width::integer(), New_height::integer().
+        This::wxImage(), Data::binary(), New_width::integer(), New_height::integer().
 setData(#wx_ref{type=ThisT}=This,Data,New_width,New_height)
  when is_binary(Data),is_integer(New_width),is_integer(New_height) ->
   ?CLASS(ThisT,wxImage),
@@ -1492,7 +1492,7 @@ setData(#wx_ref{type=ThisT}=This,Data,New_width,New_height)
 
 -doc(#{equiv => setMask(This, [])}).
 -spec setMask(This) -> 'ok' when
-	This::wxImage().
+        This::wxImage().
 
 setMask(This)
  when is_record(This, wx_ref) ->
@@ -1516,7 +1516,7 @@ setMask(#wx_ref{type=ThisT}=This, Options)
 
 -doc "Sets the mask colour for this image (and tells the image to use the mask).".
 -spec setMaskColour(This, Red, Green, Blue) -> 'ok' when
-	This::wxImage(), Red::integer(), Green::integer(), Blue::integer().
+        This::wxImage(), Red::integer(), Green::integer(), Blue::integer().
 setMaskColour(#wx_ref{type=ThisT}=This,Red,Green,Blue)
  when is_integer(Red),is_integer(Green),is_integer(Blue) ->
   ?CLASS(ThisT,wxImage),
@@ -1543,7 +1543,7 @@ Note: Note that this method involves computing the histogram, which is a computa
 intensive operation.
 """.
 -spec setMaskFromImage(This, Mask, Mr, Mg, Mb) -> boolean() when
-	This::wxImage(), Mask::wxImage(), Mr::integer(), Mg::integer(), Mb::integer().
+        This::wxImage(), Mask::wxImage(), Mr::integer(), Mg::integer(), Mb::integer().
 setMaskFromImage(#wx_ref{type=ThisT}=This,#wx_ref{type=MaskT}=Mask,Mr,Mg,Mb)
  when is_integer(Mr),is_integer(Mg),is_integer(Mb) ->
   ?CLASS(ThisT,wxImage),
@@ -1569,9 +1569,9 @@ See:
 * `hasOption/2`
 """.
 -spec setOption(This, Name, Value) -> 'ok' when
-	This::wxImage(), Name::unicode:chardata(), Value::integer();
+        This::wxImage(), Name::unicode:chardata(), Value::integer();
       (This, Name, Value) -> 'ok' when
-	This::wxImage(), Name::unicode:chardata(), Value::unicode:chardata().
+        This::wxImage(), Name::unicode:chardata(), Value::unicode:chardata().
 setOption(#wx_ref{type=ThisT}=This,Name,Value)
  when ?is_chardata(Name),is_integer(Value) ->
   ?CLASS(ThisT,wxImage),
@@ -1591,7 +1591,7 @@ The palette may be used when converting `m:wxImage` to `m:wxBitmap` (MSW only at
 or in file save operations (none as yet).
 """.
 -spec setPalette(This, Palette) -> 'ok' when
-	This::wxImage(), Palette::wxPalette:wxPalette().
+        This::wxImage(), Palette::wxPalette:wxPalette().
 setPalette(#wx_ref{type=ThisT}=This,#wx_ref{type=PaletteT}=Palette) ->
   ?CLASS(ThisT,wxImage),
   ?CLASS(PaletteT,wxPalette),
@@ -1604,7 +1604,7 @@ This routine performs bounds-checks for the coordinate so it can be considered a
 to manipulate the data.
 """.
 -spec setRGB(This, Rect, Red, Green, Blue) -> 'ok' when
-	This::wxImage(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}, Red::integer(), Green::integer(), Blue::integer().
+        This::wxImage(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}, Red::integer(), Green::integer(), Blue::integer().
 setRGB(#wx_ref{type=ThisT}=This,{RectX,RectY,RectW,RectH} = Rect,Red,Green,Blue)
  when is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH),is_integer(Red),is_integer(Green),is_integer(Blue) ->
   ?CLASS(ThisT,wxImage),
@@ -1612,7 +1612,7 @@ setRGB(#wx_ref{type=ThisT}=This,{RectX,RectY,RectW,RectH} = Rect,Red,Green,Blue)
 
 -doc "Set the color of the pixel at the given x and y coordinate.".
 -spec setRGB(This, X, Y, R, G, B) -> 'ok' when
-	This::wxImage(), X::integer(), Y::integer(), R::integer(), G::integer(), B::integer().
+        This::wxImage(), X::integer(), Y::integer(), R::integer(), G::integer(), B::integer().
 setRGB(#wx_ref{type=ThisT}=This,X,Y,R,G,B)
  when is_integer(X),is_integer(Y),is_integer(R),is_integer(G),is_integer(B) ->
   ?CLASS(ThisT,wxImage),

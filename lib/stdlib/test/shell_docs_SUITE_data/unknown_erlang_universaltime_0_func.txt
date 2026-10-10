@@ -2,16 +2,16 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  universaltime()[0m
+[1m  universaltime()[0m
 
   Returns the current date and time according to Universal Time
-  Coordinated (UTC) in the form [;;4m{{Year, Month, Day}, {Hour, Minute,[0m
-  [;;4mSecond}}[0m if supported by the underlying OS. Otherwise [;;4m[0m
-  [;;4merlang:universaltime()[0m is equivalent to [;;4merlang:localtime()[0m. The
+  Coordinated (UTC) in the form [4m{{Year, Month, Day}, {Hour, Minute,[0m
+  [4mSecond}}[0m if supported by the underlying OS. Otherwise [4m[0m
+  [4merlang:universaltime()[0m is equivalent to [4merlang:localtime()[0m. The
   return value is based on the OS System Time.
 
   For example:

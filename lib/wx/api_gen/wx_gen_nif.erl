@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -123,13 +123,16 @@ gen_derived_dest_2(C=#class{name=Class, options=Opts}) ->
 		_ -> ok
 	    end,
 	    w("class E~s : public ~s {~n",[Class,Class]),
-	    case Class of
-		"wxGLCanvas" ->  %% Special for cleaning up gl context
-		    w(" public: ~~E~s() {deleteActiveGL(this);"
-		      "((WxeApp *)wxTheApp)->clearPtr(this);};~n", [Class]);
-		_ ->
-		    w(" public: ~~E~s() {((WxeApp *)wxTheApp)->clearPtr(this);};~n", [Class])
-	    end,
+            case Class of
+                "wxGLCanvas" ->  %% Special for cleaning up gl context
+                    w(" public: ~~E~s() {deleteActiveGL(this);"
+                      "((WxeApp *)wxTheApp)->clearPtr(this);};~n", [Class]);
+                "wxGLContext" ->  %% Special for cleaning up glc entries
+                    w(" public: ~~E~s() {deleteActiveGLContext(this);"
+                      "((WxeApp *)wxTheApp)->clearPtr(this);};~n", [Class]);
+                _ ->
+                    w(" public: ~~E~s() {((WxeApp *)wxTheApp)->clearPtr(this);};~n", [Class])
+            end,
 	    gen_constructors(C),
 	    case lists:keysearch(ifdef,1,Opts) of
 		{value, {ifdef, Endif}} ->
@@ -448,7 +451,10 @@ declare_type(N,false,_,#type{base=Base,single=true,name=Type,by_val=false,mod=Mo
   when Base =:= int; Base =:= long; Base =:= float; Base =:= double ->
     w("  ~s~s ~s;~n", [mods(Mod),Type,N]);
 declare_type(N,false,_,#type{base={enum,_},single=true,name=Type,by_val=false,mod=Mod}) ->
-    w("  ~s~s ~s;~n", [mods(Mod),Type,N]);
+    %% Value-initialise: some wx calls write this out-param only conditionally
+    %% (e.g. wxCalendarCtrl::HitTest writes *wd only on a header hit), yet the
+    %% value is returned unconditionally — an uninitialised enum read is UB.
+    w("  ~s~s ~s = {};~n", [mods(Mod),Type,N]);
 declare_type(N,false,_,#type{name="wxArrayTreeItemIds",ref=reference}) ->
     w("  wxArrayTreeItemIds ~s;~n", [N]);
 declare_type(N,false,_,#type{name="wxDateTime"}) ->
@@ -550,6 +556,7 @@ copy_arguments([#param{where=Where, in=In, def=none, name=N, type=Type}|Rest])
     case Type of
         #type{base = binary, by_val=copy} ->
             w("  ~s = (unsigned char *) malloc(~s_bin.size);\n", [N,N]),
+            w("  if(!~s) Badarg(\"~s\");\n", [N,N]),
             w("  memcpy(~s,~s_bin.data,~s_bin.size);\n", [N,N,N]);
         _ ->
             ignore
@@ -590,7 +597,11 @@ badarg(Arg) ->
 
 decode_arg(N,#type{name=Class,base={class,_},single=true}, Arg,Argc) ->
     wa("  ~s *~s;~n",[Class, N], Arg),
-    w("  ~s = (~s *) memenv->getPtr(env, ~s, \"~s\");~n", [N,Class,Argc,N]);
+    w("  ~s = (~s *) memenv->getPtr(env, ~s, \"~s\");~n", [N,Class,Argc,N]),
+    case N of
+        "This" -> w("  if(!This) throw wxe_badarg(\"This\");~n", []);
+        _ -> ok
+    end;
 decode_arg(N,{merged,[{_, #type{base={class,_},single=true},_}|_]},arg,Argc) ->
     w("  ERL_NIF_TERM ~s_type;~n", [N]),
     w("  void * ~s = memenv->getPtr(env, ~s, \"~s\", &~s_type);~n", [N,Argc,N,N]);
@@ -750,7 +761,7 @@ decode_arg(N,#type{name=Type,base={term,_},single=Single,mod=Mod0},Arg,Argc) ->
             w("  ~sTail = ~s;~n",[N,Argc]),
             w("  while(!enif_is_empty_list(env, ~sTail)) {~n", [N]),
             w("    if(!enif_get_list_cell(env, ~sTail, &~sHead, &~sTail)) ~s;~n",[N,N,N,badarg(N)]),
-            w("    ~s.push_back(new ~s(~s));~n", [N,Type,Argc]),
+            w("    ~s.push_back(new ~s(~sHead));~n", [N,Type,N]),
             w("  };~n",[])
     end;
 
@@ -858,7 +869,6 @@ call_wx(_N,{constructor,_},#type{base={class,RClass}},Ps) ->
     Ps;
 call_wx(N,{member,_},Type,Ps0) ->
     {Beg,End} = return_res(Type),
-    w("  if(!This) throw wxe_badarg(\"This\");~n",[]),
     copy_arguments(Ps0),
     Ps = filter(Ps0),
     case [P || #param{type={merged,_}}=P <- Ps] of
@@ -997,7 +1007,7 @@ return_res1(#type{name=Type,single=true,by_val=true, base={class, _}}) ->
 return_res1(#type{base={enum,_Type},single=true,by_val=true}) ->
     {"int Result = " , ""};
 return_res1(#type{name="wxCharBuffer", base={binary,_},single=true,by_val=true}) ->
-    {"char * Result = ", ".data()"};
+    {"wxCharBuffer Result_cb = ", "; char * Result = Result_cb.data()"};
 return_res1(#type{name=Type,single=array,ref=reference}) ->
     {Type ++ " Result = ", ""};
 return_res1(#type{name=Type,single=true,by_val=true, mod=Mods}) ->

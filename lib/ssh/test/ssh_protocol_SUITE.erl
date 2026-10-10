@@ -31,6 +31,11 @@
 -include("ssh_connect.hrl").
 -include("ssh_auth.hrl").
 -include("ssh_test_lib.hrl").
+-include_lib("public_key/include/public_key.hrl"). % #'ECPoint'{}, ?'id-Ed25519'
+
+%% RFC 3526 Group 14 — 2048-bit MODP prime (generator = 2).
+-define(RFC3526_GROUP14_PRIME,
+        16#FFFFFFFFFFFFFFFFC90FDAA22168C234C4C6628B80DC1CD129024E088A67CC74020BBEA63B139B22514A08798E3404DDEF9519B3CD3A431B302B0A6DF25F14374FE1356D6D51C245E485B576625E7EC6F44C42E9A637ED6B0BFF5CB6F406B7EDEE386BFB5A899FA5AE9F24117C4B1FE649286651ECE45B3DC2007CB8A163BF0598DA48361C55D39A69163FA8FD24CF5F83655D23DCA3AD961C62F356208552BB9ED529077096966D670C354E4ABC9804F1746C08CA18217C32905E462E36CE3BE39E772C180E86039B2783A2EC07A28FB5C55DF06F4C52C9DE2BCBF6955817183995497CEA956AE515D2261898FA051015728E5A8AACAA68FFFFFFFFFFFFFFFF).
 
 -export([
          suite/0,
@@ -46,7 +51,7 @@
 
 -export([
          bad_long_service_name/1,
-         bad_packet_length/2,
+         bad_packet_length/5,
          bad_service_name/1,
          bad_service_name/2,
          bad_service_name_length/2,
@@ -76,11 +81,14 @@
          kex_strict_violation/1,
          kex_strict_violation_2/1,
          kex_strict_msg_unknown/1,
+         dh_kexdh_init_e_out_of_bounds/1,
          gex_client_init_option_groups/1,
          gex_client_init_option_groups_file/1,
          gex_client_init_option_groups_moduli_file/1,
          gex_client_old_request_exact/1,
          gex_client_old_request_noexact/1,
+         gex_client_rejects_small_group/1,
+         gex_client_rejects_bad_generator/1,
          gex_server_gex_limit/1,
          lib_match/1,
          lib_no_match/1,
@@ -98,6 +106,8 @@
          no_ext_info_s2/1,
          packet_length_too_large/1,
          packet_length_too_short/1,
+         packet_length_longer_than_max/1,
+         bad_mac/1,
          preferred_algorithms/1,
          service_name_length_too_large/1,
          service_name_length_too_short/1,
@@ -105,7 +115,18 @@
          channel_close_timeout/1,
          extra_ssh_msg_service_request/1,
          client_guesses_correctly/1,
-         client_guesses_incorrectly/1
+         client_guesses_incorrectly/1,
+         max_auth_tries_exceeded/1,
+         max_auth_tries_exceeded_none/1,
+         max_auth_tries_almost_exceeded/1,
+         max_auth_tries_exceeded_kb/1,
+         max_auth_tries_exceeded_pubkey/1,
+         max_auth_tries_exceeded_unsupported/1,
+         max_auth_tries_pubkey_probe_free/1,
+         max_auth_tries_none_after_pubkey_probe/1,
+         max_auth_tries_signed_pubkey_failure/1,
+         max_auth_tries_password_change/1,
+         max_auth_tries_infinity/1
         ]).
 
 -define(DEFAULT_KEX, 'diffie-hellman-group14-sha256').
@@ -129,6 +150,27 @@
                                    [{client2server,Ciphs}, {server2client,Ciphs}]
                           end)()
         ).
+
+-define(COMMON_CIPHERS, ['aes256-ctr',
+                         'aes192-ctr',
+                         'aes128-ctr']).
+-define(COMMON_CBC_CIPHERS, ['aes256-cbc',
+                             'aes192-cbc',
+                             'aes128-cbc',
+                             '3des-cbc']).
+-define(ALL_COMMON_CIPHERS, ?COMMON_CBC_CIPHERS ++ ?COMMON_CIPHERS).
+-define(AEAD_CIPHERS, ['AEAD_AES_256_GCM',
+                       'AEAD_AES_128_GCM',
+                       'chacha20-poly1305@openssh.com']).
+-define(MACS, ['hmac-sha2-512',
+               'hmac-sha2-256',
+               'hmac-sha1',
+               'hmac-sha1-96'
+              ]).
+-define(ETM_MACS, ['hmac-sha2-512-etm@openssh.com',
+                   'hmac-sha2-256-etm@openssh.com',
+                   'hmac-sha1-etm@openssh.com']).
+
 -define(HARDCODED_KEXDH_REPLY,
         #ssh_msg_kexdh_reply{
            public_host_key = {{{'ECPoint',<<73,72,235,162,96,101,154,59,217,114,123,192,96,105,250,29,214,76,60,63,167,21,221,118,246,168,152,2,7,172,137,125>>},
@@ -152,6 +194,10 @@ suite() ->
                 ok;
            (extra_ssh_msg_service_request, 1) ->
                 ok;
+           (max_auth_tries_almost_exceeded, 1) ->
+                ok;
+           (max_auth_tries_infinity, 10) ->
+                ok;
            (_, EventNumber) ->
                 {fail, lists:flatten(
                          io_lib:format("unexpected event cnt: ~s",
@@ -173,7 +219,7 @@ all() ->
      {group,kex},
      {group,service_requests},
      {group,authentication},
-     {group,packet_size_error},
+     {group,packet_error},
      {group,field_size_error},
      {group,ext_info},
      {group,preferred_algorithms},
@@ -182,7 +228,8 @@ all() ->
      {group,alive},
      {group,dh},
      {group,ecdh},
-     {group,hybrid}
+     {group,hybrid},
+     {group,max_auth_tries}
     ].
 
 groups() ->
@@ -191,12 +238,14 @@ groups() ->
 		       lib_match,
 		       lib_no_match
 		      ]},
-     {packet_size_error, [], [packet_length_too_large,
-			      packet_length_too_short,
-			      decompression_bomb_client,
-			      decompression_bomb_client_after_auth,
-			      decompression_bomb_server,
-			      decompression_bomb_server_after_auth]},
+     {packet_error, [], [decompression_bomb_client,
+                         decompression_bomb_client_after_auth,
+                         decompression_bomb_server,
+                         decompression_bomb_server_after_auth,
+                         {group, common},
+                         {group, common_cbc},
+                         {group, enc_then_mac},
+                         {group, aead}]},
      {field_size_error, [], [service_name_length_too_large,
 			     service_name_length_too_short]},
      {kex, [], [custom_kexinit,
@@ -208,12 +257,15 @@ groups() ->
 		gex_client_init_option_groups_file,
 		gex_client_old_request_exact,
 		gex_client_old_request_noexact,
+                gex_client_rejects_small_group,
+                gex_client_rejects_bad_generator,
                 kex_strict_negotiated,
                 kex_strict_violation_key_exchange,
                 kex_strict_violation_new_keys,
                 kex_strict_violation,
                 kex_strict_violation_2,
-                kex_strict_msg_unknown]},
+                kex_strict_msg_unknown,
+                dh_kexdh_init_e_out_of_bounds]},
      {service_requests, [], [bad_service_name,
 			     bad_long_service_name,
 			     bad_very_long_service_name,
@@ -247,7 +299,34 @@ groups() ->
                   client_guesses_incorrectly]},
      {dh, [], [{group, guess}]},
      {ecdh, [], [{group, guess}]},
-     {hybrid, [], [{group, guess}]}
+     {hybrid, [], [{group, guess}]},
+     {common, [], [packet_length_too_short,
+                   packet_length_too_large,
+                   packet_length_longer_than_max,
+                   bad_mac]},
+     {common_cbc, [], [packet_length_too_short,
+                       packet_length_too_large,
+                       packet_length_longer_than_max,
+                       bad_mac]},
+     {enc_then_mac, [], [packet_length_too_short,
+                         packet_length_too_large,
+                         packet_length_longer_than_max,
+                         bad_mac]},
+     {aead, [], [packet_length_too_short,
+                packet_length_too_large,
+                packet_length_longer_than_max,
+                bad_mac]},
+     {max_auth_tries, [], [max_auth_tries_exceeded,
+                           max_auth_tries_exceeded_none,
+                           max_auth_tries_almost_exceeded,
+                           max_auth_tries_exceeded_kb,
+                           max_auth_tries_exceeded_pubkey,
+                           max_auth_tries_exceeded_unsupported,
+                           max_auth_tries_pubkey_probe_free,
+                           max_auth_tries_none_after_pubkey_probe,
+                           max_auth_tries_signed_pubkey_failure,
+                           max_auth_tries_password_change,
+                           max_auth_tries_infinity]}
     ].
 
 
@@ -255,6 +334,7 @@ init_per_suite(Config) ->
     ?CHECK_CRYPTO(start_std_daemon( setup_dirs( start_apps(Config)))).
 
 end_per_suite(Config) ->
+    ssh_test_lib:clean_all_user_host_keys(Config),
     stop_apps(Config).
 
 init_per_group(guess, Config) ->
@@ -279,6 +359,18 @@ init_per_group(guess, Config) ->
         _ ->
             {skip, "Not enough public key algorithms supported"}
     end;
+init_per_group(common, Config0) ->
+    Config = [{discard, false} | Config0],
+    get_supported_alg_groups_or_skip([{cipher, ?COMMON_CIPHERS}, {mac, ?MACS}], Config);
+init_per_group(common_cbc, Config0) ->
+    Config = [{discard, true} | Config0],
+    get_supported_alg_groups_or_skip([{cipher, ?COMMON_CBC_CIPHERS}, {mac, ?MACS}], Config);
+init_per_group(enc_then_mac, Config0) ->
+    Config = [{discard, false} | Config0],
+    get_supported_alg_groups_or_skip([{cipher, ?ALL_COMMON_CIPHERS}, {mac, ?ETM_MACS}], Config);
+init_per_group(aead, Config0) ->
+    Config = [{discard, false} | Config0],
+    get_supported_alg_groups_or_skip([{cipher, ?AEAD_CIPHERS}], Config);
 init_per_group(_GroupName, Config) ->
     Config.
 
@@ -299,6 +391,9 @@ init_per_testcase(TC, Config) when TC == kex_strict_negotiated;
     Level = ssh_test_lib:get_log_level(),
     ssh_test_lib:set_log_level(debug),
     [{saved_log_level, Level} | Config];
+init_per_testcase(TC, Config) when TC == gex_client_rejects_small_group;
+                                   TC == gex_client_rejects_bad_generator ->
+    Config;
 init_per_testcase(TC, Config) when TC == gex_client_init_option_groups ;
 				   TC == gex_client_init_option_groups_moduli_file ;
 				   TC == gex_client_init_option_groups_file ;
@@ -307,10 +402,8 @@ init_per_testcase(TC, Config) when TC == gex_client_init_option_groups ;
 				   TC == gex_client_old_request_noexact ->
     Opts = case TC of
 	       gex_client_init_option_groups ->
-		   [{dh_gex_groups, 
-                     [{1023, 5, 
-                       16#D9277DAA27DB131C03B108D41A76B4DA8ACEECCCAE73D2E48CEDAAA70B09EF9F04FB020DCF36C51B8E485B26FABE0337E24232BE4F4E693548310244937433FB1A5758195DC73B84ADEF8237472C46747D79DC0A2CF8A57CE8DBD8F466A20F8551E7B1B824B2E4987A8816D9BC0741C2798F3EBAD3ADEBCC78FCE6A770E2EC9F
-                      }]}];
+                   [{dh_gex_groups,
+                     [{2048, 2, ?RFC3526_GROUP14_PRIME}]}];
 	       gex_client_init_option_groups_file ->
 		   DataDir = proplists:get_value(data_dir, Config),
 		   F = filename:join(DataDir, "dh_group_test"),
@@ -338,11 +431,28 @@ init_per_testcase(TC, Config) when TC == gex_client_init_option_groups ;
 		      | Opts]);
 init_per_testcase(decompression_bomb_client, Config) ->
     start_std_daemon(Config, [{preferred_algorithms, [{compression, ['zlib']}]}]);
+init_per_testcase(TC, Config) when TC == packet_length_too_short;
+                                   TC == packet_length_too_large;
+                                   TC == packet_length_longer_than_max;
+                                   TC == bad_mac ->
+    Algs = proplists:get_value(preferred_algorithms, Config),
+    start_std_daemon(Config, [{preferred_algorithms, [{kex, [?DEFAULT_KEX]} | Algs]}]);
 init_per_testcase(_TestCase, Config) ->
     check_std_daemon_works(Config, ?LINE).
 
-end_per_testcase(Tc, Config) when Tc == no_common_alg_server_disconnects;
-                                  Tc == custom_kexinit ->
+end_per_testcase(TC, Config) when TC == no_common_alg_server_disconnects;
+                                  TC == custom_kexinit;
+                                  TC == gex_client_init_option_groups;
+                                  TC == gex_client_init_option_groups_moduli_file;
+                                  TC == gex_client_init_option_groups_file;
+                                  TC == gex_server_gex_limit;
+                                  TC == gex_client_old_request_exact;
+                                  TC == gex_client_old_request_noexact;
+                                  TC == decompression_bomb_client;
+                                  TC == packet_length_too_short;
+                                  TC == packet_length_too_large;
+                                  TC == packet_length_longer_than_max;
+                                  TC == bad_mac ->
     stop_std_daemon(Config);
 end_per_testcase(TC, Config) when TC == kex_strict_negotiated;
                                   TC == kex_strict_violation_key_exchange;
@@ -352,15 +462,6 @@ end_per_testcase(TC, Config) when TC == kex_strict_negotiated;
                                   TC == kex_strict_msg_unknown ->
     ssh_test_lib:set_log_level(proplists:get_value(saved_log_level, Config)),
     Config;
-end_per_testcase(TC, Config) when TC == gex_client_init_option_groups ;
-				  TC == gex_client_init_option_groups_moduli_file ;
-				  TC == gex_client_init_option_groups_file ;
-				  TC == gex_server_gex_limit ;
-				  TC == gex_client_old_request_exact ;
-				  TC == gex_client_old_request_noexact ->
-    stop_std_daemon(Config);
-end_per_testcase(decompression_bomb_client, Config) ->
-    stop_std_daemon(Config);
 end_per_testcase(_TestCase, Config) ->
     check_std_daemon_works(Config, ?LINE).
 
@@ -661,9 +762,8 @@ no_common_alg_client_disconnects(Config) ->
 
 %%%--------------------------------------------------------------------
 gex_client_init_option_groups(Config) ->
-    do_gex_client_init(Config, {512, 2048, 4000},
-		       {5,16#D9277DAA27DB131C03B108D41A76B4DA8ACEECCCAE73D2E48CEDAAA70B09EF9F04FB020DCF36C51B8E485B26FABE0337E24232BE4F4E693548310244937433FB1A5758195DC73B84ADEF8237472C46747D79DC0A2CF8A57CE8DBD8F466A20F8551E7B1B824B2E4987A8816D9BC0741C2798F3EBAD3ADEBCC78FCE6A770E2EC9F}
-                      ).
+    do_gex_client_init(Config, {2048, 2048, 4000},
+                       {2, ?RFC3526_GROUP14_PRIME}).
 
 gex_client_init_option_groups_file(Config) ->
     do_gex_client_init(Config, {2000, 2048, 4000},
@@ -741,6 +841,67 @@ do_gex_client_init_old(Config, N, {G,P}) ->
 	 ).
 
 %%%--------------------------------------------------------------------
+%%% Client rejects a DH GEX group with too-small prime (512 bits).
+%%% The test lib acts as server and sends a bad GEX_GROUP; the real
+%%% OTP client must disconnect with KEY_EXCHANGE_FAILED.
+gex_client_rejects_small_group(Config) ->
+    %% 512-bit number (not even prime — doesn't matter, size check rejects first)
+    SmallP = 16#D4BCD52406F2C926B7E8BE5FF5D2B2E3B956F79441CE5B2E35,
+    gex_client_rejects_group(Config, SmallP, 2).
+
+%%% Client rejects a DH GEX group with invalid generator (G=1).
+gex_client_rejects_bad_generator(Config) ->
+    %% Valid 2048-bit prime (RFC 3526 group 14), but generator = 1
+    gex_client_rejects_group(Config, ?RFC3526_GROUP14_PRIME, 1).
+
+gex_client_rejects_group(Config, P, G) ->
+    {ok, InitialState} = ssh_trpt_test_lib:exec(listen),
+    HostPort = ssh_trpt_test_lib:server_host_port(InitialState),
+    Parent = self(),
+
+    %% Server side: accept, negotiate DH-GEX, send bad group
+    Pid =
+        spawn_link(
+          fun() ->
+                  Parent !
+                      {result, self(),
+                       ssh_trpt_test_lib:exec(
+                         [{set_options, [print_ops, print_seqnums, print_messages]},
+                          {accept, [{system_dir, ssh_test_lib:system_dir(Config)},
+                                    {user_dir, ssh_test_lib:user_dir(Config)}]},
+                          receive_hello,
+                          {send, hello},
+                          {send, ssh_msg_kexinit},
+                          {match, #ssh_msg_kexinit{_='_'}, receive_msg},
+                          {match, #ssh_msg_kex_dh_gex_request{_='_'}, receive_msg},
+                          {send, #ssh_msg_kex_dh_gex_group{p = P, g = G}},
+                          {match, disconnect(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED),
+                           receive_msg}
+                         ],
+                         InitialState)}
+          end),
+
+    %% Client side: connect forcing DH-GEX
+    Result = std_connect(HostPort, Config,
+                         [{preferred_algorithms,
+                           [{kex, ['diffie-hellman-group-exchange-sha256']},
+                            {cipher, ?DEFAULT_CIPHERS}]}]),
+    ct:log("Client connect result: ~p", [Result]),
+
+    receive
+        {result, Pid, {ok, _}} ->
+            ok;
+        {result, Pid, {error, {Op, ExecResult, S}}} ->
+            ct:log("ERROR!~nOp = ~p~nExecResult = ~p~nState =~n~s",
+                   [Op, ExecResult, ssh_trpt_test_lib:format_msg(S)]),
+            {fail, ExecResult};
+        {result, Pid, X} ->
+            ct:fail(X)
+    after
+        30000 -> ct:fail("timeout ~p:~p", [?MODULE, ?LINE])
+    end.
+
+%%%--------------------------------------------------------------------
 bad_service_name(Config) -> 
     bad_service_name(Config, "kfglkjf").
     
@@ -776,34 +937,85 @@ bad_service_name(Config, Name) ->
 	  ], InitialState).
 
 %%%--------------------------------------------------------------------
-packet_length_too_large(Config) -> bad_packet_length(Config, +4).
+%%% Both packet_length_too_large and packet_length_too_short check for misaligned block size
+packet_length_too_large(Config) -> bad_packet_length(Config, 50, +4, false, 0).
 
-packet_length_too_short(Config) -> bad_packet_length(Config, -4).
-    
-bad_packet_length(Config, LengthExcess) ->
-    PacketFun = 
-	fun(Msg, Ssh) ->
-		BinMsg = ssh_message:encode(Msg),
-		ssh_transport:pack(BinMsg, Ssh, LengthExcess)
-	end,
-    {ok,InitialState} = connect_and_kex(Config),
-    {ok,_} =
-	ssh_trpt_test_lib:exec(
-	  [{set_options, [print_ops, print_seqnums, print_messages]},
-	   {send, {special,
-		   #ssh_msg_service_request{name="ssh-userauth"},
-		   PacketFun}},
-	   %% Prohibit remote decoder starvation:	   
-	   {send, #ssh_msg_service_request{name="ssh-userauth"}},
-	   {match, disconnect(), receive_msg}
-	  ], InitialState).
+packet_length_too_short(Config) -> bad_packet_length(Config, 50, -4, false, 1).
+
+%%%--------------------------------------------------------------------
+packet_length_longer_than_max(Config) -> bad_packet_length(Config, ?SSH_MAX_PACKET_SIZE, 0, true, 0).
+
+bad_packet_length(Config, DataLength, LengthExcess, ImmediateDisconnect, OvershootAmount) ->
+    Parent = self(),
+    PacketFun =
+        fun(Msg, Ssh) ->
+                BinMsg = ssh_message:encode(Msg),
+                {Packet, _} = Result = ssh_transport:pack(BinMsg, Ssh, LengthExcess),
+                Parent ! {size, byte_size(Packet)},
+                Result
+        end,
+    test_packet_discard(Config, PacketFun, DataLength, ImmediateDisconnect, OvershootAmount).
+
+%%%--------------------------------------------------------------------
+bad_mac(Config) ->
+    Parent = self(),
+    PacketFun =
+        fun(Msg, #ssh{send_mac_size = MacSize} = Ssh0) ->
+                BinMsg = ssh_message:encode(Msg),
+                %% Replace mac in packet with invalid mac
+                {Packet0, Ssh} = ssh_transport:pack(BinMsg, Ssh0),
+                PacketSize = byte_size(Packet0),
+                PacketData = binary:part(Packet0, PacketSize, -MacSize),
+                FakeMac = binary:copy(<<"a">>, MacSize),
+                Packet = <<PacketData/binary, FakeMac/binary>>,
+                Parent ! {size, PacketSize},
+                {Packet, Ssh}
+        end,
+    test_packet_discard(Config, PacketFun, 50, false, 0).
+
+%%%--------------------------------------------------------------------
+test_packet_discard(Config, PacketFun, DataLength, ImmediateDisconnect, OvershootAmount) ->
+    {ok, InitialState} = ssh_trpt_test_lib:exec(
+                           [{set_options, [print_ops, {print_messages,detail}]}]),
+    Algs = proplists:get_value(preferred_algorithms, Config, []),
+    {ok, AfterKexState} = connect_and_kex(Config, InitialState, [{kex, [?DEFAULT_KEX]} | Algs]),
+    {ok, AfterSendState0} =
+        ssh_trpt_test_lib:exec(
+          [{set_options, [print_ops, print_seqnums, print_messages]},
+           {send, {special,
+                   #ssh_msg_ignore{data = binary:copy(<<"a">>, DataLength)},
+                   PacketFun}}
+          ], AfterKexState),
+
+    Size = receive {size, S} -> S end,
+    Missing = ?SSH_MAX_PACKET_SIZE - Size,
+    case proplists:get_value(discard, Config) == false orelse ImmediateDisconnect of
+        true ->
+            %% Packet discard is not needed or we already sent as much (or more)
+            %% than ?SSH_MAX_PACKET_SIZE, we get disconnect
+            {ok, _} =
+                ssh_trpt_test_lib:exec([{match, disconnect(), receive_msg}], AfterSendState0);
+        false ->
+            %% Packet is too short to cause disconnect immediately
+            {error, {_, receive_timeout, AfterSendState1}} =
+                ssh_trpt_test_lib:exec([{match, disconnect(), receive_msg}], AfterSendState0),
+            %% We send some data but not enough to reach ?SSH_MAX_PACKET_SIZE, still no disconnect
+            {error, {_, receive_timeout, AfterSendState}} =
+                ssh_trpt_test_lib:exec([{send, binary:copy(<<"a">>, Missing - 1)},
+                                        {match, disconnect(), receive_msg}], AfterSendState1),
+            %% We send exactly (or more) the amount to reach (or go past) ?SSH_MAX_PACKET_SIZE,
+            %% we get disconnect
+            {ok, _} =
+                ssh_trpt_test_lib:exec([{send, binary:copy(<<"a">>, 1 + OvershootAmount)},
+                                        {match, disconnect(), receive_msg}], AfterSendState)
+    end.
 
 %%%--------------------------------------------------------------------
 decompression_bomb_client(Config) ->
     {ok, InitialState} = connect_and_kex(Config, ssh_trpt_test_lib:exec([]),
                                          [{kex, [?DEFAULT_KEX]},
                                           {cipher, ?DEFAULT_CIPHERS},
-                                          {compression, ['zlib']}], dh),
+                                          {compression, ['zlib']}]),
     %% ?SSH_MAX_PACKET_SIZE - 9 is enough to trigger disconnect because Payload of ssh packet becomes:
     %% 1 byte message identifier
     %% 4 bytes length of data field
@@ -822,7 +1034,7 @@ decompression_bomb_client_after_auth(Config) ->
     {ok, InitialState} = connect_and_kex(Config, ssh_trpt_test_lib:exec([]),
                                          [{kex, [?DEFAULT_KEX]},
                                           {cipher, ?DEFAULT_CIPHERS},
-                                          {compression, ['zlib@openssh.com']}], dh),
+                                          {compression, ['zlib@openssh.com']}]),
     {User, Pwd} = server_user_password(Config),
     {ok, AfterAuthState} =
         ssh_trpt_test_lib:exec(
@@ -1394,8 +1606,14 @@ kex_strict_violation(Config) ->
            {send, ssh_msg_kexinit},
            {match, #ssh_msg_kexinit{_='_'}, receive_msg},
            {send, ssh_msg_kexdh_init_dup},
-           {match,# ssh_msg_kexdh_reply{_='_'}, receive_msg},
-           {match, disconnect(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED), receive_msg}]},
+           {match, #ssh_msg_kexdh_reply{_='_'}, receive_msg},
+           %% Server processes first kexdh_init (sends newkeys), then
+           %% detects the duplicate and disconnects. Depending on timing
+           %% we may see newkeys, disconnect, or tcp_closed here.
+           %% The actual violation assertion is verified via event_logged.
+           {match, {'or', [#ssh_msg_newkeys{_='_'},
+                           #ssh_msg_disconnect{code = ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED},
+                           tcp_closed]}, receive_msg}]},
          {new_keys, "Message ssh_msg_newkeys in wrong state",
           [receive_hello,
            {send, hello},
@@ -1499,6 +1717,40 @@ kex_strict_msg_unknown(Config) ->
          {match, disconnect(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED), receive_msg}],
     kex_strict_helper(Config, TestMessages, ExpectedReason).
 
+%% RFC 4253 §8 / RFC 4419 §3: a peer's DH value must satisfy 1 < e < p-1.
+%% A peer driving e (or, on the client side, f) to one of {0, 1, p-1, p}
+%% must be rejected with SSH_DISCONNECT_KEY_EXCHANGE_FAILED. Verify this
+%% for the server, which receives e from the client.
+dh_kexdh_init_e_out_of_bounds(Config) ->
+    {_G, P} = ?dh_group14,
+    [verify_kexdh_init_rejected(Config, E) || E <- [0, 1, P-1, P]],
+    ok.
+
+verify_kexdh_init_rejected(Config, E) ->
+    ct:log("Trying kexdh_init with e=~p", [E]),
+    {ok, InitialState} = ssh_trpt_test_lib:exec(
+                          [{set_options, [print_ops, print_seqnums, print_messages]}]),
+    {ok, _} =
+        ssh_trpt_test_lib:exec(
+          [{connect,
+            ssh_test_lib:server_host(Config), ssh_test_lib:server_port(Config),
+            [{preferred_algorithms,
+              [{kex, ['diffie-hellman-group14-sha256']},
+               {cipher, ?DEFAULT_CIPHERS}]},
+             {silently_accept_hosts, true},
+             {recv_ext_info, false},
+             {user_dir, ssh_test_lib:user_dir(Config)},
+             {user_interaction, false}
+             | proplists:get_value(extra_options, Config, [])
+            ]},
+           receive_hello,
+           {send, hello},
+           {send, ssh_msg_kexinit},
+           {match, #ssh_msg_kexinit{_='_'}, receive_msg},
+           {send, #ssh_msg_kexdh_init{e = E}},
+           {match, disconnect(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED), receive_msg}],
+          InitialState).
+
 kex_strict_helper(Config0, TestMessages, ExpectedReason) ->
     Config = ssh_test_lib:add_log_handler(?FUNCTION_NAME, Config0),
     %% Connect and negotiate keys
@@ -1517,7 +1769,8 @@ kex_strict_helper(Config0, TestMessages, ExpectedReason) ->
              {user_interaction, false}
             | proplists:get_value(extra_options,Config,[])
             ]}] ++
-              TestMessages,
+              TestMessages ++
+              [close_socket],
           InitialState),
     ct:sleep(100),
     {ok, Events} = ssh_test_lib:get_log_events(Config),
@@ -1867,13 +2120,15 @@ alive_reneg_eserver_tclient(Config) ->
     [CHandlerPid] = CHandler(ssh_info:get_subs_tree(sshd_sup), []),
     ?CT_LOG("Server side connection handler PID: ~p", [CHandlerPid]),
     ssh_connection_handler:renegotiate(CHandlerPid),
-    %% The disconnect is received under 2 seconds since the tclient already
-    %% failed to reply to one of the probles from eserver.
+    %% The disconnect is received after the renegotiation_alive timeout since
+    %% the tclient already failed to reply to one of the probes from eserver.
+    %% Daemon uses interval=1000, count_max=3. Add margin for Windows scheduling.
+    DisconnectTimeout = 2000 + 2 * ssh_test_lib:alive_interval(),
     {ok, _} =
         ssh_trpt_test_lib:exec(
           [{match, #ssh_msg_kexinit{_='_'}, receive_msg},
            {match, disconnect(), receive_msg}],
-          ssh_trpt_test_lib:set_timeout(TrptState3, 2000)),
+          ssh_trpt_test_lib:set_timeout(TrptState3, DisconnectTimeout)),
     ?CT_LOG("[OK] triggering incomplete, server triggered locally key renegotiation"),
     ssh:stop_daemon(DaemonPid),
     ?CT_LOG("[OK] test case finished"),
@@ -1979,9 +2234,515 @@ client_guesses_incorrectly(Config) ->
      || Helper <- Helpers, K <- ServerKexAlgs, P <- ServerPubKeyAlgs,
         K /= KexAlgs orelse P /= PubKeyAlgs].
 
+
+%%--------------------------------------------------------------------
+%% Macros for max_auth_tries tests
+-define(MATCH_FAILURE, {match, #ssh_msg_userauth_failure{_='_'}, receive_msg}).
+-define(MATCH_DISCONNECT, {match, disconnect(2), receive_msg}).
+
+%%--------------------------------------------------------------------
+max_auth_tries_exceeded(Config) ->
+    %% Test that the server disconnects once max_auth_tries is exceeded.
+    %% We set max_auth_tries to 3. The client's first "none" request is a
+    %% free method-discovery probe (RFC 4252, like OpenSSH), a second "none"
+    %% and every real method count against the limit. So: none#1 (free),
+    %% none#2 (try 1), password#1 (try 2), password#2 -> disconnect.
+    Parent = self(),
+    Ref = make_ref(),
+    DisconnectRef = make_ref(),
+    with_max_auth_daemon(
+      Config, 3,
+      [{failfun, test_failfun(Parent, Ref)},
+       {disconnectfun, test_disconnectfun(Parent, DisconnectRef)}],
+      fun(Host, Port, UserDir, _Pwd) ->
+              User = "foo",
+              {ok, State1} = connect_and_request_userauth(Host, Port, UserDir),
+
+              %% The first "none" is a free method-discovery probe; the second
+              %% counts as a failed attempt (MaxTries=3 -> 2 tries left).
+              {ok, State2} =
+                  user_auth_method_failed("none", User, State1, ?MATCH_FAILURE),
+              {ok, State3} =
+                  user_auth_method_failed("none", User, State2, ?MATCH_FAILURE),
+
+              %% One more failure is answered with a failure message, the next
+              %% one disconnects.
+              BadPwd = "wrong_password",
+              {ok, State4} =
+                  user_auth_password_failed(BadPwd, User, State3, ?MATCH_FAILURE),
+              {ok, _State5} =
+                  user_auth_password_failed(BadPwd, User, State4,
+                                            ?MATCH_DISCONNECT),
+              assert_callbacks(
+                Ref, User, ["Bad user or password", "Bad user or password"]),
+              assert_disconnect_callback(
+                DisconnectRef,
+                "Disconnects with code = 2 [RFC4253 11.1]: Protocol error")
+      end).
+
+%%--------------------------------------------------------------------
+max_auth_tries_exceeded_none(Config) ->
+    %% Repeated "none" requests eventually exhaust max_auth_tries, just like
+    %% OpenSSH. Only the very first "none" is free, so with max_auth_tries
+    %% set to 3: none#1 (free), none#2 (try 1), none#3 (try 2), none#4 ->
+    %% disconnect.
+    with_max_auth_daemon(
+      Config, 3, [],
+      fun(Host, Port, UserDir, _Pwd) ->
+              User = "foo",
+              {ok, State1} = connect_and_request_userauth(Host, Port, UserDir),
+              {ok, State2} =
+                  user_auth_method_failed("none", User, State1, ?MATCH_FAILURE),
+              {ok, State3} =
+                  user_auth_method_failed("none", User, State2, ?MATCH_FAILURE),
+              {ok, State4} =
+                  user_auth_method_failed("none", User, State3, ?MATCH_FAILURE),
+              {ok, _State5} =
+                  user_auth_method_failed("none", User, State4,
+                                          ?MATCH_DISCONNECT)
+      end).
+
+%%--------------------------------------------------------------------
+max_auth_tries_almost_exceeded(Config) ->
+    %% Test that the server rejects password authentication
+    %% allows the authentication to succeed even at the last
+    %% attempt
+    with_max_auth_daemon(
+      Config, 2, [{failfun, fun ssh_test_lib:failfun/2}],
+      fun(Host, Port, UserDir, Pwd) ->
+              User = "foo",
+              {ok, State1} = connect_and_request_userauth(Host, Port, UserDir),
+              %% One failure
+              BadPwd = "wrong_password",
+              {ok, State2} =
+                  user_auth_password_failed(BadPwd, User, State1, ?MATCH_FAILURE),
+              %% Success at the last attempt
+              {ok, _State3} =
+                  ssh_trpt_test_lib:exec(
+                    [{send, #ssh_msg_userauth_request{
+                               user = User,
+                               service = "ssh-connection",
+                               method = "password",
+                               data = <<?BOOLEAN(?FALSE),
+                                        ?STRING(unicode:characters_to_binary(Pwd))>>}},
+                     {match, #ssh_msg_userauth_success{_='_'}, receive_msg}
+                    ], State2)
+      end).
+
+max_auth_tries_exceeded_kb(Config) ->
+    %% Same as max_auth_tries_exceeded but with keyboard-interactive as the
+    %% real method and max_auth_tries set to 6. none#1 is free, none#2 uses
+    %% try 1, then four kb failures use tries 2-5 and the sixth disconnects.
+    Parent = self(),
+    Ref = make_ref(),
+    with_max_auth_daemon(
+      Config, 6, [{failfun, test_failfun(Parent, Ref)}],
+      fun(Host, Port, UserDir, _Pwd) ->
+              User = "foo",
+              {ok, State1} = connect_and_request_userauth(Host, Port, UserDir),
+
+              %% The first "none" is free; the second counts (MaxTries=6 ->
+              %% 5 left).
+              {ok, State2} =
+                  user_auth_method_failed("none", User, State1, ?MATCH_FAILURE),
+              {ok, State3} =
+                  user_auth_method_failed("none", User, State2, ?MATCH_FAILURE),
+
+              %% Four more failures are answered with a failure message, the
+              %% fifth disconnects.
+              BadPwd = "wrong_password",
+              {ok, State4} =
+                  user_auth_kb_int_failed(BadPwd, User, State3, ?MATCH_FAILURE),
+              {ok, State5} =
+                  user_auth_kb_int_failed(BadPwd, User, State4, ?MATCH_FAILURE),
+              {ok, State6} =
+                  user_auth_kb_int_failed(BadPwd, User, State5, ?MATCH_FAILURE),
+              {ok, State7} =
+                  user_auth_kb_int_failed(BadPwd, User, State6, ?MATCH_FAILURE),
+              {ok, _State8} =
+                  user_auth_kb_int_failed(BadPwd, User, State7,
+                                          ?MATCH_DISCONNECT),
+              assert_callbacks(
+                Ref, User, lists:duplicate(5, "Bad user or password"))
+      end).
+
+%%--------------------------------------------------------------------
+max_auth_tries_exceeded_pubkey(Config) ->
+    %% Test that publickey "query" requests (the RFC 4252 section 7 message
+    %% with the has-signature boolean set to FALSE) count against
+    %% max_auth_tries when the offered key would not be accepted by the
+    %% server. We set max_auth_tries to 3 and send 3 probes with a valid but
+    %% unauthorized key. The third probe leads to the connection being
+    %% disconnected with a protocol error.
+    with_max_auth_daemon(
+      Config, 3, [],
+      fun(Host, Port, UserDir, _Pwd) ->
+              User = "foo",
+              {ok, State1} = connect_and_request_userauth(Host, Port, UserDir),
+
+              %% A valid but (for user "foo") unauthorized key: every probe
+              %% is rejected.
+              {KeyBlob, KeyAlg} = unauthorized_pubkey(),
+              {ok, State2} =
+                  user_auth_pubkey_probe_failed(KeyBlob, KeyAlg, User, State1,
+                                                ?MATCH_FAILURE),
+              {ok, State3} =
+                  user_auth_pubkey_probe_failed(KeyBlob, KeyAlg, User, State2,
+                                                ?MATCH_FAILURE),
+              {ok, _State4} =
+                  user_auth_pubkey_probe_failed(KeyBlob, KeyAlg, User, State3,
+                                                ?MATCH_DISCONNECT)
+      end).
+
+%%--------------------------------------------------------------------
+max_auth_tries_exceeded_unsupported(Config) ->
+    %% A userauth request with a method the server does not support (i.e. not
+    %% in userauth_methods and not "none") counts against max_auth_tries, like
+    %% OpenSSH. We set max_auth_tries to 3 and send 3 requests with an
+    %% unsupported method; each is answered with a failure listing the
+    %% supported methods, and the third leads to a disconnect.
+    with_max_auth_daemon(
+      Config, 3, [],
+      fun(Host, Port, UserDir, _Pwd) ->
+              User = "foo",
+              {ok, State1} = connect_and_request_userauth(Host, Port, UserDir),
+              Method = "hostbased",
+              {ok, State2} =
+                  user_auth_method_failed(Method, User, State1, ?MATCH_FAILURE),
+              {ok, State3} =
+                  user_auth_method_failed(Method, User, State2, ?MATCH_FAILURE),
+              {ok, _State4} =
+                  user_auth_method_failed(Method, User, State3,
+                                          ?MATCH_DISCONNECT)
+      end).
+
+%%--------------------------------------------------------------------
+max_auth_tries_pubkey_probe_free(Config) ->
+    %% An accepted unsigned public-key probe does not consume the failure
+    %% budget. With a limit of two, two subsequent bad passwords are therefore
+    %% needed to disconnect the client.
+    with_max_auth_daemon(
+      Config, 2, [],
+      fun(Host, Port, UserDir, _Pwd) ->
+              User = "foo",
+              {KeyBlob, KeyAlg} = authorized_pubkey(UserDir),
+              {ok, State1} = connect_and_request_userauth(Host, Port, UserDir),
+              {ok, State2} =
+                  user_auth_pubkey_probe_accepted(KeyBlob, KeyAlg, User, State1),
+              {ok, State3} =
+                  user_auth_password_failed("wrong_password", User, State2,
+                                            ?MATCH_FAILURE),
+              {ok, _State4} =
+                  user_auth_password_failed("wrong_password", User, State3,
+                                            ?MATCH_DISCONNECT)
+      end).
+
+%%--------------------------------------------------------------------
+max_auth_tries_none_after_pubkey_probe(Config) ->
+    %% Only an initial "none" request is free. Once an accepted public-key
+    %% probe has been sent, "none" consumes one try and the following bad
+    %% password reaches a limit of two.
+    with_max_auth_daemon(
+      Config, 2, [],
+      fun(Host, Port, UserDir, _Pwd) ->
+              User = "foo",
+              {KeyBlob, KeyAlg} = authorized_pubkey(UserDir),
+              {ok, State1} = connect_and_request_userauth(Host, Port, UserDir),
+              {ok, State2} =
+                  user_auth_pubkey_probe_accepted(KeyBlob, KeyAlg, User, State1),
+              {ok, State3} =
+                  user_auth_method_failed("none", User, State2, ?MATCH_FAILURE),
+              {ok, _State4} =
+                  user_auth_password_failed("wrong_password", User, State3,
+                                            ?MATCH_DISCONNECT)
+      end).
+
+%%--------------------------------------------------------------------
+max_auth_tries_signed_pubkey_failure(Config) ->
+    %% A signed public-key request with an invalid signature consumes a try.
+    %% A subsequent bad password therefore reaches a limit of two.
+    with_max_auth_daemon(
+      Config, 2, [],
+      fun(Host, Port, UserDir, _Pwd) ->
+              User = "foo",
+              {KeyBlob, KeyAlg} = authorized_pubkey(UserDir),
+              {ok, State1} = connect_and_request_userauth(Host, Port, UserDir),
+              {ok, State2} =
+                  user_auth_signed_pubkey_failed(KeyBlob, KeyAlg, User, State1,
+                                                ?MATCH_FAILURE),
+              {ok, _State3} =
+                  user_auth_password_failed("wrong_password", User, State2,
+                                            ?MATCH_DISCONNECT)
+      end).
+
+%%--------------------------------------------------------------------
+max_auth_tries_password_change(Config) ->
+    %% Rejecting a valid unsolicited password-change request consumes one try
+    %% and is reported through failfun. The following bad password therefore
+    %% reaches a limit of two.
+    Parent = self(),
+    Ref = make_ref(),
+    with_max_auth_daemon(
+      Config, 2, [{failfun, test_failfun(Parent, Ref)}],
+      fun(Host, Port, UserDir, Pwd) ->
+              User = "foo",
+              {ok, State1} = connect_and_request_userauth(Host, Port, UserDir),
+              {ok, State2} =
+                  user_auth_password_change_failed(Pwd, "new_password", User,
+                                                   State1, ?MATCH_FAILURE),
+              {ok, _State3} =
+                  user_auth_password_failed("wrong_password", User, State2,
+                                            ?MATCH_DISCONNECT),
+              assert_callbacks(Ref, User,
+                               ["Password change not supported",
+                                "Bad user or password"])
+      end).
+
+%%--------------------------------------------------------------------
+max_auth_tries_infinity(Config) ->
+    %% With max_auth_tries set to infinity the server never disconnects due
+    %% to failed attempts. We send 10 failed password attempts (well above
+    %% the default of 6), each answered with a failure, and then a correct
+    %% password which is accepted.
+    with_max_auth_daemon(
+      Config, infinity, [{failfun, fun ssh_test_lib:failfun/2}],
+      fun(Host, Port, UserDir, Pwd) ->
+              User = "foo",
+              {ok, State1} = connect_and_request_userauth(Host, Port, UserDir),
+
+              BadPwd = "wrong_password",
+              {ok, StateN} =
+                  lists:foldl(
+                    fun(_, {ok, StateAcc}) ->
+                            user_auth_password_failed(BadPwd, User, StateAcc,
+                                                      ?MATCH_FAILURE)
+                    end, {ok, State1}, lists:seq(1, 10)),
+
+              {ok, _StateOk} =
+                  ssh_trpt_test_lib:exec(
+                    [{send, #ssh_msg_userauth_request{
+                               user = User,
+                               service = "ssh-connection",
+                               method = "password",
+                               data = <<?BOOLEAN(?FALSE),
+                                        ?STRING(unicode:characters_to_binary(Pwd))>>}},
+                     {match, #ssh_msg_userauth_success{_='_'}, receive_msg}
+                    ], StateN)
+      end).
+
 %%%================================================================
 %%%==== Internal functions ========================================
 %%%================================================================
+
+%% Connect, run key exchange and request the ssh-userauth service.
+connect_and_request_userauth(Host, Port, UserDir) ->
+    {ok, InitState} =
+        ssh_trpt_test_lib:exec(
+          [{set_options, [print_ops, print_messages]},
+           {connect,Host,Port,
+            [{preferred_algorithms,[{kex,[?DEFAULT_KEX]},
+                                    {cipher,?DEFAULT_CIPHERS}
+                                   ]},
+             {silently_accept_hosts, true},
+             {recv_ext_info, false},
+             {user_dir, UserDir},
+             {user_interaction, false}
+            ]},
+           receive_hello,
+           {send, hello},
+           {send, ssh_msg_kexinit},
+           {match, #ssh_msg_kexinit{_='_'}, receive_msg},
+           {send, ssh_msg_kexdh_init},
+           {match,# ssh_msg_kexdh_reply{_='_'}, receive_msg},
+           {send, #ssh_msg_newkeys{}},
+           {match, #ssh_msg_newkeys{_='_'}, receive_msg}
+          ]),
+    ssh_trpt_test_lib:exec(
+      [{send, #ssh_msg_service_request{name = "ssh-userauth"}},
+       {match, #ssh_msg_service_accept{name = "ssh-userauth"}, receive_msg}
+      ], InitState).
+
+%% Run a test with a daemon configured for a specific authentication limit and
+%% guarantee that the daemon is stopped when an assertion fails.
+with_max_auth_daemon(Config, MaxTries, ExtraOptions, TestFun) ->
+    UserDir = ssh_test_lib:user_dir(Config),
+    Pwd = "bar",
+    {Pid, Host, Port} =
+        ssh_test_lib:daemon([{system_dir, ssh_test_lib:system_dir(Config)},
+                             {user_dir, UserDir},
+                             {password, Pwd},
+                             {max_auth_tries, MaxTries}
+                             | ExtraOptions]),
+    try
+        TestFun(Host, Port, UserDir, Pwd)
+    after
+        try ssh:stop_daemon(Pid)
+        catch
+            _:_ -> ok
+        end
+    end.
+
+%% Read one of the suite's generated authorized keys. Deriving the algorithm
+%% from the key keeps the tests portable across crypto/FIPS configurations.
+authorized_pubkey(UserDir) ->
+    {ok, AuthorizedKeys} =
+        file:read_file(filename:join(UserDir, "authorized_keys")),
+    DefaultAlgs = ssh_transport:default_algorithms(public_key),
+    [{Key, KeyAlg} | _] =
+        [{CandidateKey, CandidateAlg}
+         || {CandidateKey, _Attributes} <- ssh_file:decode(AuthorizedKeys,
+                                                           auth_keys),
+            {ok, CandidateAlg} <-
+                [authorized_key_algorithm(CandidateKey, DefaultAlgs)]],
+    KeyBlob = ssh_message:ssh2_pubkey_encode(Key),
+    {KeyBlob, atom_to_binary(KeyAlg, latin1)}.
+
+authorized_key_algorithm(Key, DefaultAlgs) ->
+    Candidates =
+        case ssh_transport:public_algo(Key) of
+            'ssh-rsa' -> ['rsa-sha2-512', 'rsa-sha2-256', 'ssh-rsa'];
+            PublicAlg -> [PublicAlg]
+        end,
+    case [Alg || Alg <- Candidates, lists:member(Alg, DefaultAlgs)] of
+        [SelectedAlg | _] -> {ok, SelectedAlg};
+        [] -> error
+    end.
+
+%% Build a valid but (for the test user) unauthorized public key blob.
+unauthorized_pubkey() ->
+    {PubBin, _PrivBin} = crypto:generate_key(ecdh, secp256r1),
+    PubKey = {#'ECPoint'{point = PubBin}, {namedCurve, ?'secp256r1'}},
+    {ssh_message:ssh2_pubkey_encode(PubKey), <<"ecdsa-sha2-nistp256">>}.
+
+user_auth_pubkey_probe_accepted(KeyBlob, Alg, User, State) ->
+    ssh_trpt_test_lib:exec(
+      [{send, #ssh_msg_userauth_request{user = User,
+                                        service = "ssh-connection",
+                                        method = "publickey",
+                                        data = <<?BYTE(?FALSE),
+                                                 ?STRING(Alg),
+                                                 ?STRING(KeyBlob)>>}},
+       %% SSH_MSG_USERAUTH_PK_OK and SSH_MSG_USERAUTH_PASSWD_CHANGEREQ share
+       %% message number 60. The transport test decoder represents that number
+       %% with the latter record, whose prompt field contains the algorithm.
+       {match, #ssh_msg_userauth_passwd_changereq{prompt = Alg,
+                                                  language = KeyBlob},
+        receive_msg}
+      ], State).
+
+user_auth_pubkey_probe_failed(KeyBlob, Alg, User, State, Match) ->
+    ssh_trpt_test_lib:exec(
+      [{send, #ssh_msg_userauth_request{user = User,
+                                        service = "ssh-connection",
+                                        method = "publickey",
+                                        data = <<?BYTE(?FALSE),
+                                                 ?STRING(Alg),
+                                                 ?STRING(KeyBlob)>>}},
+       Match
+      ], State).
+
+user_auth_signed_pubkey_failed(KeyBlob, Alg, User, State, Match) ->
+    %% An empty SSH signature blob is well-formed at the request level but can
+    %% never verify, which reliably exercises the signed-public-key path.
+    ssh_trpt_test_lib:exec(
+      [{send, #ssh_msg_userauth_request{user = User,
+                                        service = "ssh-connection",
+                                        method = "publickey",
+                                        data = <<?BYTE(?TRUE),
+                                                 ?STRING(Alg),
+                                                 ?STRING(KeyBlob),
+                                                 ?STRING(<<>>)>>}},
+       Match
+      ], State).
+
+user_auth_method_failed(Method, User, State, Match) ->
+    ssh_trpt_test_lib:exec(
+      [{send, #ssh_msg_userauth_request{user = User,
+                                        service = "ssh-connection",
+                                        method = Method}},
+       Match
+      ], State).
+
+user_auth_kb_int_failed(Pwd0, User, State, Match) ->
+    Pwd = unicode:characters_to_binary(Pwd0),
+    ssh_trpt_test_lib:exec(
+      [{send, #ssh_msg_userauth_request{user = User,
+                                        service = "ssh-connection",
+                                        method = "keyboard-interactive",
+                                        data = <<0,0,0,0,0,0,0,0>>}},
+       {match, #ssh_msg_userauth_info_request{_='_'}, receive_msg},
+       {send, #ssh_msg_userauth_info_response{num_responses = 1,
+                                              data = [Pwd]}},
+       Match
+      ], State).
+
+user_auth_password_change_failed(OldPwd0, NewPwd0, User, State, Match) ->
+    OldPwd = unicode:characters_to_binary(OldPwd0),
+    NewPwd = unicode:characters_to_binary(NewPwd0),
+    ssh_trpt_test_lib:exec(
+      [{send, #ssh_msg_userauth_request{user = User,
+                                        service = "ssh-connection",
+                                        method = "password",
+                                        data = <<?BOOLEAN(?TRUE),
+                                                 ?STRING(OldPwd),
+                                                 ?STRING(NewPwd)>>}},
+       Match
+      ], State).
+
+user_auth_password_failed(Pwd0, User, State, Match) ->
+    Pwd = unicode:characters_to_binary(Pwd0),
+    ssh_trpt_test_lib:exec(
+      [{send, #ssh_msg_userauth_request{user = User,
+                                        service = "ssh-connection",
+                                        method = "password",
+                                        data = <<?BOOLEAN(?FALSE),
+                                                 ?STRING(Pwd)>>}},
+       Match
+      ], State).
+
+test_failfun(Parent, Ref) ->
+    fun(User, _Peer, Reason) ->
+            Parent ! {Ref, failfun, User, Reason}
+    end.
+
+test_disconnectfun(Parent, Ref) ->
+    fun(Reason) ->
+            Parent ! {Ref, disconnectfun, lists:flatten(Reason)}
+    end.
+
+assert_disconnect_callback(Ref, ExpectedReason) ->
+    receive
+        {Ref, disconnectfun, ExpectedReason} ->
+            ok;
+        {Ref, disconnectfun, ActualReason} ->
+            ct:fail("Unexpected disconnect callback: expected ~p, got ~p",
+                    [ExpectedReason, ActualReason])
+    after 2000 ->
+            ct:fail("Missing disconnect callback: ~p", [ExpectedReason])
+    end.
+
+assert_callbacks(Ref, User, ExpectedReasons) ->
+    assert_callbacks(Ref, User, ExpectedReasons, ExpectedReasons).
+
+assert_callbacks(Ref, User, [ExpectedReason | Rest], AllExpected) ->
+    receive
+        {Ref, failfun, User, ExpectedReason} ->
+            assert_callbacks(Ref, User, Rest, AllExpected);
+        {Ref, Tag, ActualUser, Reason} ->
+            ct:fail("Unexpected authentication callback: expected ~p, got ~p",
+                    [{failfun, User, ExpectedReason},
+                     {Tag, ActualUser, Reason}])
+    after 2000 ->
+            ct:fail("Missing authentication callbacks: ~p", [AllExpected])
+    end;
+assert_callbacks(Ref, _User, [], _AllExpected) ->
+    receive
+        {Ref, Tag, User, Reason} ->
+            ct:fail("Unexpected extra authentication callback: ~p",
+                    [{Tag, User, Reason}])
+    after 0 ->
+            ok
+    end.
 
 chk_pref_algs(Config,
               ExpectedKex,
@@ -2019,12 +2780,12 @@ chk_pref_algs(Config,
 
 filter_supported(K, Algs) -> Algs -- (Algs--supported(K)).
 
-supported(cipher) ->
+supported(Key) when Key =:= cipher; Key =:= mac; Key =:= compression ->
     proplists:get_value(
       server2client,
-      ssh_transport:supported_algorithms(cipher));
-supported(K) ->
-    ssh_transport:supported_algorithms(K).
+      ssh_transport:supported_algorithms(Key));
+supported(Key) ->
+    ssh_transport:supported_algorithms(Key).
 
 to_lists(L) -> lists:map(fun erlang:atom_to_list/1, L).
     
@@ -2119,6 +2880,9 @@ connect_and_kex(Config) ->
 
 connect_and_kex(Config, InitialState) ->
     ClientAlgs = [{kex,[?DEFAULT_KEX]}, {cipher,?DEFAULT_CIPHERS}],
+    connect_and_kex(Config, InitialState, ClientAlgs).
+
+connect_and_kex(Config, InitialState, ClientAlgs) ->
     connect_and_kex(Config, InitialState, ClientAlgs, dh).
 
 connect_and_kex(Config, InitialState, ClientAlgs, Variant) ->
@@ -2398,3 +3162,32 @@ get_specific_ops(ecdh) ->
     {ssh_msg_kex_ecdh_init_guess, ssh_msg_kex_ecdh_init, #ssh_msg_kex_ecdh_reply{_='_'}};
 get_specific_ops(hybrid) ->
     {ssh_msg_kex_hybrid_init_guess, ssh_msg_kex_hybrid_init, #ssh_msg_kex_hybrid_reply{_='_'}}.
+
+%%%----------------------------------------------------------------
+get_supported_alg_groups_or_skip(Groups, Config) ->
+    try
+        SupportedGroups =
+            lists:filtermap(fun({Key, Group}) ->
+                                    case get_supported_alg_group_or_skip(Key, Group) of
+                                        [] ->
+                                            false;
+                                        {Key, SupportedGroup} ->
+                                            {true, {Key, SupportedGroup}}
+                                    end
+                            end, Groups),
+        [{preferred_algorithms, SupportedGroups} | Config]
+    catch
+        throw : Other ->
+            Other
+    end.
+
+%%%----------------------------------------------------------------
+get_supported_alg_group_or_skip(_, []) ->
+    [];
+get_supported_alg_group_or_skip(Key, Algorithms) ->
+    case filter_supported(Key, Algorithms) of
+        [] ->
+            throw({skip, "Required algorithms not supported."});
+        Supported ->
+            {Key, Supported}
+    end.

@@ -2,18 +2,18 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  multiple_relative_product(TupleOfBinRels, BinRel1)[0m
+[1m  multiple_relative_product(TupleOfBinRels, BinRel1)[0m
 
-  If [;;4mTupleOfBinRels[0m is a non-empty tuple {R[1], ..., R[n]} of
-  binary relations and [;;4mBinRel1[0m is a binary relation, then [;;4mBinRel2[0m
+  If [4mTupleOfBinRels[0m is a non-empty tuple {R[1], ..., R[n]} of
+  binary relations and [4mBinRel1[0m is a binary relation, then [4mBinRel2[0m
   is the multiple relative product of the ordered set
-  (R[i], ..., R[n]) and [;;4mBinRel1[0m.
+  (R[i], ..., R[n]) and [4mBinRel1[0m.
 
-[;1mExamples[0m
+[1mExamples[0m
 
     1> Ri = sofs:relation([{a,1},{b,2},{c,3}]).
     2> R = sofs:relation([{a,b},{b,c},{c,a}]).

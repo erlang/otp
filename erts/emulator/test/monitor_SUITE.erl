@@ -24,6 +24,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("eunit/include/eunit.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 -export([all/0, suite/0, groups/0,
          init_per_testcase/2, end_per_testcase/2,
@@ -119,7 +120,7 @@ case_2a(Config) when is_list(Config) ->
 
 y2(Parent) ->
     R = receive T -> T end,
-    Parent ! (catch erlang:demonitor(R)),
+    Parent ! (try erlang:demonitor(R) catch _:_ -> ok end),
     ok.
 
 expect_down(Ref, P) ->
@@ -167,12 +168,7 @@ mon_e_1(Config) when is_list(Config) ->
 %%% manually at least once.
 
 mon_error(Type, Item) ->
-    case catch erlang:monitor(Type, Item) of
-        {'EXIT', _} ->
-            ok;
-        Other ->
-            ct:fail({err, Other})
-    end.
+    ?assertError(_, erlang:monitor(Type, Item)).
 
 %%% Error cases for demonitor/1
 
@@ -204,12 +200,7 @@ demon_e_1(Config) when is_list(Config) ->
     ok.
 
 demon_error(Ref, Reason) ->
-    case catch erlang:demonitor(Ref) of
-        {'EXIT', {Reason, _}} ->
-            ok;
-        Other ->
-            ct:fail({err, Other})
-    end.
+    ?assertError(_, erlang:demonitor(Ref)).
 
 %%% No-op cases for demonitor/1
 
@@ -276,9 +267,9 @@ demon_3(Config) when is_list(Config) ->
     ok.
 
 demonitor_flush(Config) when is_list(Config) ->
-    {'EXIT', {badarg, _}} = (catch erlang:demonitor(make_ref(), flush)),
-    {'EXIT', {badarg, _}} = (catch erlang:demonitor(make_ref(), [flus])),
-    {'EXIT', {badarg, _}} = (catch erlang:demonitor(x, [flush])),
+    ?assertError(badarg, erlang:demonitor(make_ref(), flush)),
+    ?assertError(badarg, erlang:demonitor(make_ref(), [flus])),
+    ?assertError(badarg, erlang:demonitor(x, [flush])),
     {ok, Peer, N} = ?CT_PEER(),
     ok = demonitor_flush_test(N),
     peer:stop(Peer),
@@ -1266,18 +1257,25 @@ monitor_3_noproc_gh6185_exit_test(AliasTest, TagTest) ->
 id(X) -> X.
 
 busy_wait_until(Fun) ->
-    case catch Fun() of
+    try Fun() of
         true ->
             ok;
         _ ->
             busy_wait_until(Fun)
+    catch
+        _:_ ->
+            busy_wait_until(Fun)
     end.
 
 wait_until(Fun) ->
-    case catch Fun() of
+    try Fun() of
         true ->
             ok;
         _ ->
+            receive after 100 -> ok end,
+            wait_until(Fun)
+    catch
+        _:_ ->
             receive after 100 -> ok end,
             wait_until(Fun)
     end.
@@ -1337,10 +1335,10 @@ jeeves_loop(Parent) ->
             jeeves_loop(Parent);
         {Parent, {monitor_process, P}} ->
             Parent ! {self(), {monitor_process, 
-                               catch erlang:monitor(process, P) }},
+                               try erlang:monitor(process, P) catch _:_ -> ok end}},
             jeeves_loop(Parent);
         {Parent, {demonitor, Ref}} ->
-            Parent ! {self(), {demonitor, catch erlang:demonitor(Ref)}},
+            Parent ! {self(), {demonitor, try erlang:demonitor(Ref) catch _:_ -> ok end}},
             jeeves_loop(Parent);
         {Parent, stop} ->
             ok;

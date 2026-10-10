@@ -82,6 +82,7 @@
          get_pre_shared_key/4,
          get_pre_shared_key_early_data/2,
          get_supported_groups/1,
+         get_client_signatures/1,
          generate_kex_keys/1,
          hybrid_algs/1,
          calculate_client_early_traffic_secret/5,
@@ -367,6 +368,9 @@ certificate_verify(PrivateKey, SignatureScheme,
 %% Upon receiving a message with type server_hello, implementations MUST
 %% first examine the Random value and, if it matches this value, process
 %% it as described in Section 4.1.4).
+maybe_hello_retry_request(#server_hello{random = ?HELLO_RETRY_REQUEST_RANDOM},
+                          #state{protocol_specific = #{hello_retry := true}}) ->
+    {error, ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE)};
 maybe_hello_retry_request(#server_hello{random = ?HELLO_RETRY_REQUEST_RANDOM} = ServerHello, 
                           #state{protocol_specific = PS} = State0) ->
     {error, {State0#state{protocol_specific = PS#{hello_retry => true}}, start, ServerHello}};
@@ -734,8 +738,20 @@ decode_key_update(N) ->
     throw(?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER, {request_update,N})).
 
 decode_cert_entries(Entries) ->
-    [ #certificate_entry{data = Data, extensions = decode_extensions(BinExts, certificate_request)}
-      || <<?UINT24(DSize), Data:DSize/binary, ?UINT16(Esize), BinExts:Esize/binary>> <= Entries ].
+    decode_cert_entries(Entries, []).
+
+%% RFC 8446 §4.4.2: the CertificateEntry list is fully length-delimited; a
+%% truncated or malformed trailing entry must abort with decode_error rather
+%% than being silently dropped.
+decode_cert_entries(<<>>, Acc) ->
+    lists:reverse(Acc);
+decode_cert_entries(<<?UINT24(DSize), Data:DSize/binary,
+                      ?UINT16(Esize), BinExts:Esize/binary, Rest/binary>>, Acc) ->
+    Entry = #certificate_entry{data = Data,
+                               extensions = decode_extensions(BinExts, certificate_request)},
+    decode_cert_entries(Rest, [Entry | Acc]);
+decode_cert_entries(_Other, _Acc) ->
+    throw(?ALERT_REC(?FATAL, ?DECODE_ERROR, truncated_certificate_entry)).
 
 encode_extensions(Exts)->
     ssl_handshake:encode_extensions(extensions_list(Exts)).
@@ -1142,34 +1158,35 @@ get_pre_shared_key({_, PSK}, _) ->
 %% Server initiates a full handshake
 get_pre_shared_key(_, _, HKDFAlgo, undefined) ->
     {ok, binary:copy(<<0>>, ssl_cipher:hash_size(HKDFAlgo))};
-%% Session resumption not configured
-get_pre_shared_key(undefined, _, HKDFAlgo, _) ->
-    {ok, binary:copy(<<0>>, ssl_cipher:hash_size(HKDFAlgo))};
-get_pre_shared_key(_, undefined, HKDFAlgo, _) ->
-    {ok, binary:copy(<<0>>, ssl_cipher:hash_size(HKDFAlgo))};
+%% Session resumption not configured, i.e. we did not offer any PSK, so the
+%% server's selected_identity cannot be within the range we supplied.
+%% RFC 8446 Section 4.2.11: abort with an "illegal_parameter" alert instead of
+%% silently falling back to the (zero) "no PSK" value, which would skip server
+%% authentication.
+get_pre_shared_key(undefined, _, _, ServerPSK) ->
+    {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER, {unsolicited_pre_shared_key, ServerPSK})};
+get_pre_shared_key(_, undefined, _, ServerPSK) ->
+    {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER, {unsolicited_pre_shared_key, ServerPSK})};
 %% Session resumption
-get_pre_shared_key(manual = SessionTickets, UseTicket, HKDFAlgo, ServerPSK) ->
+get_pre_shared_key(manual = SessionTickets, UseTicket, _HKDFAlgo, ServerPSK) ->
     TicketData = get_ticket_data(self(), SessionTickets, UseTicket),
     case choose_psk(TicketData, ServerPSK) of
-        undefined -> %% full handshake, default PSK
-            {ok, binary:copy(<<0>>, ssl_cipher:hash_size(HKDFAlgo))};
+        undefined -> %% No PSK was offered that matches the server selection
+            {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER, {unsolicited_pre_shared_key, ServerPSK})};
         illegal_parameter ->
             {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER)};
         {_, PSK, _, _, _} ->
             {ok, PSK}
     end;
-get_pre_shared_key(auto = SessionTickets, UseTicket, HKDFAlgo, ServerPSK) ->
-    TicketData = get_ticket_data(self(), SessionTickets, UseTicket),
+get_pre_shared_key(auto = SessionTickets, TicketData0, _HKDFAlgo, ServerPSK) ->
+    TicketData = get_ticket_data(self(), SessionTickets, TicketData0),
     case choose_psk(TicketData, ServerPSK) of
-        undefined -> %% full handshake, default PSK
-            tls_client_ticket_store:unlock_tickets(self(), UseTicket),
-            {ok, binary:copy(<<0>>, ssl_cipher:hash_size(HKDFAlgo))};
+        undefined -> %% No PSK was offered that matches the server selection
+            {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER,
+                               {unsolicited_pre_shared_key, ServerPSK})};
         illegal_parameter ->
-            tls_client_ticket_store:unlock_tickets(self(), UseTicket),
             {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER)};
-        {Key, PSK, _, _, _} ->
-            tls_client_ticket_store:remove_tickets([Key]),  %% Remove single-use ticket
-            tls_client_ticket_store:unlock_tickets(self(), UseTicket -- [Key]),
+        {_Key, PSK, _, _, _} ->
             {ok, PSK}
     end.
 %%
@@ -1189,6 +1206,14 @@ get_supported_groups(undefined = Groups) ->
     {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER, {supported_groups, Groups})};
 get_supported_groups(#supported_groups{supported_groups = Groups}) ->
     {ok, Groups}.
+
+get_client_signatures(Extensions) ->
+    case maps:get(signature_algs, Extensions, undefined) of
+        undefined ->
+            {error, ?ALERT_REC(?FATAL, ?MISSING_EXTENSION, {signature_algs, Extensions})};
+        Value ->
+            {ok, get_signature_scheme_list(Value)}
+    end.
 
 generate_kex_keys(secp256r1) ->
     public_key:generate_key({namedCurve, secp256r1});
@@ -1213,6 +1238,15 @@ generate_kex_keys(Group) when Group == secp256r1mlkem768;
     {Curve, MLKem} = hybrid_algs(Group),
     {public_key:generate_key({namedCurve, Curve}), 
      crypto:generate_key(MLKem, [])};
+generate_kex_keys(brainpoolP256r1tls13) ->
+    public_key:generate_key({namedCurve, brainpoolP256r1});
+generate_kex_keys(brainpoolP384r1tls13) ->
+    public_key:generate_key({namedCurve, brainpoolP384r1});
+generate_kex_keys(brainpoolP512r1tls13) ->
+    %% The brainpool*tls13 groups are advertised in supported_groups but are
+    %% not FFDHE groups; without an explicit clause they would fall into the
+    %% FFDHE catch-all below and crash in ssl_dh_groups:dh_params/1.
+    public_key:generate_key({namedCurve, brainpoolP512r1});
 generate_kex_keys(FFDHE) ->
     public_key:generate_key(ssl_dh_groups:dh_params(FFDHE)).
 
@@ -1566,15 +1600,17 @@ verify_signature_algorithm(#state{
         true ->
             {ok, maybe_update_selected_sign_alg(State, PeerSignAlg, Role)};
         false ->
-            {error, {?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE,
+            {error, {?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER,
                                 "CertificateVerify uses unsupported signature algorithm"), State}}
     end.
 
-
-maybe_update_selected_sign_alg(#state{session = Session} = State, SignAlg, client) ->
-    State#state{session = Session#session{sign_alg = SignAlg}};
-maybe_update_selected_sign_alg(State, _, _) ->
-    State.
+maybe_update_selected_sign_alg(State, _, client) ->
+    %% Client verifies the server's scheme but doesn't record it —
+    %% session.sign_alg holds the client's own signature algorithm
+    %% for its CertificateVerify.
+    State;
+maybe_update_selected_sign_alg(#state{session = Session} = State, SignAlg, server) ->
+    State#state{session = Session#session{sign_alg = SignAlg}}.
 
 context_string(server) ->
     <<"TLS 1.3, server CertificateVerify">>;
@@ -1794,7 +1830,16 @@ handle_pre_shared_key(#state{ssl_options = #{session_tickets := Tickets},
                                                        OfferedPreSharedKeys}, Cipher) when Tickets =/= disabled ->
     Tracker = proplists:get_value(session_tickets_tracker, Trackers),
     #{prf := CipherHash} = ssl_cipher_format:suite_bin_to_map(Cipher),
-    tls_server_session_ticket:use(Tracker, OfferedPreSharedKeys, CipherHash, HHistory).
+    #offered_psks{
+       identities = Identities,
+       binders = Binders
+      } = OfferedPreSharedKeys,
+    case length(Identities) == length(Binders) of
+        true ->
+            tls_server_session_ticket:use(Tracker, OfferedPreSharedKeys, CipherHash, HHistory);
+        false ->
+            {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER, illegal_pre_shared_key)}
+    end.
 
 %% If the handshake includes a HelloRetryRequest, the initial
 %% ClientHello and HelloRetryRequest are included in the transcript
@@ -1954,16 +1999,14 @@ ciphers_for_early_data0(CipherSuite) ->
         false -> false
     end.
 
-
 get_ticket_data(_, undefined, _) ->
     undefined;
 get_ticket_data(_, _, undefined) ->
     undefined;
 get_ticket_data(_, manual, UseTicket) ->
     process_user_tickets(UseTicket);
-get_ticket_data(Pid, auto, UseTicket) ->
-    tls_client_ticket_store:get_tickets(Pid, UseTicket).
-
+get_ticket_data(_, auto, [#ticket_data{}] = AutoTicketData) ->
+    AutoTicketData.
 
 process_user_tickets(UseTicket) ->
     process_user_tickets(UseTicket, [], 0).

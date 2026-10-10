@@ -595,8 +595,10 @@ behavior of earlier flags.
   keeping track of the memory consumption and the number of terms in ETS tables
   of type ordered_set with the write_concurrency option activated.
 
-- **`+e Number`{: #+e }** - Sets the maximum number of ETS tables. This limit is
-  [partially obsolete](`m:ets#max_ets_tables`).
+- **`+e Number`{: #+e }** - Sets a sizing hint for the internal index used to
+  look up named ETS tables. It does not limit the number of ETS tables. Values
+  below 8192 are treated as 8192, and the number of lookup buckets is rounded up
+  to a power of two. See [ETS table sizing](`m:ets#max_ets_tables`).
 
 - **`+ec`** - Forces option `compressed` on all ETS tables. Only intended for
   test and evaluation.
@@ -1454,6 +1456,24 @@ behavior of earlier flags.
     timeout value in effect.
 
     Since: OTP 27.0
+
+  - **`+zmml limit`{: #+zmml }** - Sets the maximum number of modules that can
+    be loaded into the runtime system. Valid range of this limit is
+    `[1, 2147483647]` (on 32-bit systems the maximum is `134217727`). Defaults
+    to 65536. The limit is rounded up to a whole number of index-table pages,
+    so the effective value can be slightly larger than requested.
+
+    The current (effective) value can be read by Erlang code by calling
+    [`erlang:system_info(module_limit)`](`m:erlang#system_info_module_limit`).
+
+  - **`+zmel limit`{: #+zmel }** - Sets the maximum number of exported functions
+    that can be loaded into the runtime system. Valid range of this limit is
+    `[1, 2147483647]` (on 32-bit systems the maximum is `134217727`). Defaults
+    to 524288. The limit is rounded up to a whole number of index-table pages,
+    so the effective value can be slightly larger than requested.
+
+    The current (effective) value can be read by Erlang code by calling
+    [`erlang:system_info(export_limit)`](`m:erlang#system_info_export_limit`).
 
 ## Environment Variables
 

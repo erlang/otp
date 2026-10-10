@@ -41,6 +41,19 @@
 #include "erl_bits.h"
 #include "erl_bif_unique.h"
 
+#if defined(__SSE2__) || defined(_M_X64) || \
+    (defined(_M_IX86) && defined(_M_IX86_FP) && _M_IX86_FP >= 2)
+#  include <emmintrin.h>
+#  define ERTS_HAVE_BYTE_SET_SIMD 1
+#  define ERTS_BYTE_SET_SIMD_SSE2 1
+#elif defined(__ARM_NEON) || defined(_M_ARM64)
+#  include <arm_neon.h>
+#  define ERTS_HAVE_BYTE_SET_SIMD 1
+#  define ERTS_BYTE_SET_SIMD_NEON 1
+#else
+#  define ERTS_HAVE_BYTE_SET_SIMD 0
+#endif
+
 
 /*
  * The native implementation functions for the module binary.
@@ -164,6 +177,7 @@ static void *my_alloc(MyAllocator *my, Uint size)
  */
 
 #define ALPHABET_SIZE 256
+#define AC_ROOT_SIMD_MAX 16
 
 typedef struct _findall_data {
     Uint pos;
@@ -203,6 +217,10 @@ typedef struct _ac_trie {
 #endif
     Uint32 counter;                    /* Number of added patterns */
     ACNode *root;                      /* pointer to the root state */
+#if ERTS_HAVE_BYTE_SET_SIMD
+    Uint root_byte_count;
+    byte root_bytes[AC_ROOT_SIMD_MAX];
+#endif
 } ACTrie;
 
 typedef struct _bm_data {
@@ -450,6 +468,9 @@ static ACTrie *create_acdata(MyAllocator *my, Uint len,
 					   allocation */
     act->counter = 0;
     act->root = acn = my_alloc(my, sizeof(ACNode));
+#if ERTS_HAVE_BYTE_SET_SIMD
+    act->root_byte_count = 0;
+#endif
     acn->d = 0;
     acn->final = 0;
     acn->h = NULL;
@@ -533,6 +554,15 @@ static void ac_add_one_pattern(MyAllocator *my, ACTrie *act,
 	} else {
 	    /* allocate a new node */
 	    ACNode *nn = my_alloc(my,sizeof(ACNode));
+#if ERTS_HAVE_BYTE_SET_SIMD
+            if (acn == act->root &&
+                act->root_byte_count <= AC_ROOT_SIMD_MAX) {
+                if (act->root_byte_count < AC_ROOT_SIMD_MAX) {
+                    act->root_bytes[act->root_byte_count] = x[i];
+                }
+                act->root_byte_count++;
+            }
+#endif
 #ifdef HARDDEBUG
 	    nn->id = ++(act->idc);
 #endif
@@ -611,6 +641,106 @@ static void ac_compute_failure_functions(ACTrie *act, ACNode **qbuff)
     root->h = root;
 }
 
+#if ERTS_HAVE_BYTE_SET_SIMD
+static ERTS_INLINE Uint ac_root_simd_skip_block(const ACTrie *act,
+                                                const byte *haystack)
+{
+    Uint i;
+
+#if defined(ERTS_BYTE_SET_SIMD_NEON)
+    static const byte lane_indices[16] = {
+        0, 1, 2, 3, 4, 5, 6, 7,
+        8, 9, 10, 11, 12, 13, 14, 15
+    };
+    uint8x16_t input = vld1q_u8(haystack);
+    uint8x16_t matches = vdupq_n_u8(0);
+    uint8x16_t positions;
+
+    for (i = 0; i < act->root_byte_count; i++) {
+        matches = vorrq_u8(matches,
+                           vceqq_u8(input,
+                                    vdupq_n_u8(act->root_bytes[i])));
+    }
+    if (vmaxvq_u8(matches) == 0) {
+        return 16;
+    }
+    positions = vbslq_u8(matches,
+                         vld1q_u8(lane_indices),
+                         vdupq_n_u8(16));
+    return vminvq_u8(positions);
+#elif defined(ERTS_BYTE_SET_SIMD_SSE2)
+    __m128i input = _mm_loadu_si128((const __m128i *)haystack);
+    __m128i matches = _mm_setzero_si128();
+    unsigned int mask;
+
+    for (i = 0; i < act->root_byte_count; i++) {
+        matches = _mm_or_si128(matches,
+                               _mm_cmpeq_epi8(
+                                   input,
+                                   _mm_set1_epi8(act->root_bytes[i])));
+    }
+    mask = (unsigned int)_mm_movemask_epi8(matches);
+    if (mask == 0) {
+        return 16;
+    }
+#  if defined(_MSC_VER)
+    {
+        unsigned long first;
+        _BitScanForward(&first, mask);
+        return first;
+    }
+#  else
+    return (Uint)__builtin_ctz(mask);
+#  endif
+#endif
+}
+#endif
+
+/* Advance over bytes that cannot leave the root state. Return non-zero when
+ * the byte at *pos has a root transition. Each SIMD block or scalar byte costs
+ * one reduction, including the scan that finds a root transition. */
+static ERTS_INLINE int ac_root_skip(const ACTrie *act,
+                                    const byte *haystack,
+                                    Uint len,
+                                    Uint max_reductions,
+                                    Uint *pos,
+                                    Uint *used_reductions)
+{
+    Uint i = *pos;
+    Uint used = 0;
+
+#if ERTS_HAVE_BYTE_SET_SIMD
+    if (act->root_byte_count != 0 &&
+        act->root_byte_count <= AC_ROOT_SIMD_MAX) {
+        while (used < max_reductions && len - i >= 16) {
+            Uint skip = ac_root_simd_skip_block(act, haystack + i);
+
+            used++;
+            i += skip;
+            if (skip < 16) {
+                *pos = i;
+                *used_reductions = used;
+                return 1;
+            }
+        }
+    }
+#endif
+
+    while (used < max_reductions && i < len) {
+        used++;
+        if (act->root->g[haystack[i]] != NULL) {
+            *pos = i;
+            *used_reductions = used;
+            return 1;
+        }
+        i++;
+    }
+
+    *pos = i;
+    *used_reductions = used;
+    return 0;
+}
+
 
 /*
  * The actual searching for needles in the haystack...
@@ -638,6 +768,7 @@ static BFReturn ac_find_first_match(BinaryFindContext *ctx,
                                     const byte *haystack)
 {
     ACFindFirstState *state = &(ctx->u.ff.d.ac);
+    ACTrie *act = ERTS_MAGIC_BIN_DATA(ctx->pat_bin);
     Uint *mpos = &(ctx->u.ff.pos);
     Uint *mlen = &(ctx->u.ff.len);
     Uint *reductions = &(ctx->reds);
@@ -650,7 +781,24 @@ static BFReturn ac_find_first_match(BinaryFindContext *ctx,
     register Uint reds = *reductions;
 
     while (i < len) {
-	if (reds == 0) {
+        int reduction_charged = 0;
+
+        if (candidate == NULL && q == act->root) {
+            Uint used_reductions;
+
+            reduction_charged = ac_root_skip(act,
+                                             haystack,
+                                             len,
+                                             reds,
+                                             &i,
+                                             &used_reductions);
+            reds -= used_reductions;
+            if (i == len) {
+                break;
+            }
+        }
+
+        if (!reduction_charged && reds == 0) {
 	    state->q = q;
 	    state->pos = i;
 	    state->len = len;
@@ -658,8 +806,9 @@ static BFReturn ac_find_first_match(BinaryFindContext *ctx,
 	    state->candidate_start = candidate_start;
 	    return BF_RESTART;
 	}
-
-    reds--;
+        if (!reduction_charged) {
+            reds--;
+        }
 
 	while (q->g[haystack[i]] == NULL && q->h != q) {
 	    q = q->h;
@@ -730,6 +879,7 @@ static BFReturn ac_find_all_non_overlapping(BinaryFindContext *ctx,
                                             const byte *haystack)
 {
     ACFindAllState *state = &(ctx->u.fa.d.ac);
+    ACTrie *act = ERTS_MAGIC_BIN_DATA(ctx->pat_bin);
     Uint *reductions = &(ctx->reds);
     ACNode *q = state->q;
     Uint i = state->pos;
@@ -742,7 +892,25 @@ static BFReturn ac_find_all_non_overlapping(BinaryFindContext *ctx,
     register Uint reds = *reductions;
 
     while (i < len) {
-	if (--reds == 0) {
+        int reduction_charged = 0;
+
+        if (q == act->root) {
+            Uint used_reductions;
+            Uint max_reductions = reds > 0 ? reds - 1 : 0;
+
+            reduction_charged = ac_root_skip(act,
+                                             haystack,
+                                             len,
+                                             max_reductions,
+                                             &i,
+                                             &used_reductions);
+            reds -= used_reductions;
+            if (i == len) {
+                break;
+            }
+        }
+
+        if (!reduction_charged && --reds == 0) {
 	    state->q = q;
 	    state->pos = i;
 	    state->len = len;

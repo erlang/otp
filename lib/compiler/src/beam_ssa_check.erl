@@ -2,7 +2,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,6 +26,7 @@
 -import(lists, [reverse/1, flatten/1]).
 
 -include("beam_ssa.hrl").
+-include("beam_types.hrl").
 
 %%-define(DEBUG, true).
 
@@ -56,19 +57,19 @@ functions(_Tag, []) ->
 function(Tag, F) ->
     run_checks(beam_ssa:get_anno(ssa_checks, F, []), F, Tag).
 
-run_checks([{ssa_check_when,WantedResult,{atom,_,Tag},Args,Exprs}|Checks],
+run_checks([{ssa_check_when,WantedResult,{atom,_,Tag},Args,CheckAnnos,Exprs}|Checks],
            F, Tag) ->
-    check_function(Args, Exprs, WantedResult, F) ++ run_checks(Checks, F, Tag);
+    check_function(Args, CheckAnnos, Exprs, WantedResult, F) ++ run_checks(Checks, F, Tag);
 run_checks([_|Checks], F, Tag) ->
     run_checks(Checks, F, Tag);
 run_checks([], _, _) ->
     [].
 
-check_function(CheckArgs, Exprs, {atom,Loc,pass}, #b_function{args=_Args}=F) ->
-    run_check(CheckArgs, Exprs, Loc, F);
-check_function(CheckArgs, Exprs, {atom,Loc,Key}, #b_function{args=_Args}=F)
+check_function(CheckArgs, CheckAnnos, Exprs, {atom,Loc,pass}, #b_function{args=_Args}=F) ->
+    run_check(CheckArgs, CheckAnnos, Exprs, Loc, F);
+check_function(CheckArgs, CheckAnnos, Exprs, {atom,Loc,Key}, #b_function{args=_Args}=F)
   when Key =:= fail ; Key =:= xfail ->
-    case run_check(CheckArgs, Exprs, Loc, F) of
+    case run_check(CheckArgs, CheckAnnos, Exprs, Loc, F) of
         [] ->
             %% This succeeded but should have failed
             {File,_} = beam_ssa:get_anno(location, F),
@@ -76,13 +77,13 @@ check_function(CheckArgs, Exprs, {atom,Loc,Key}, #b_function{args=_Args}=F)
         _ ->
             []
     end;
-check_function(_, _, {atom,Loc,Result}, F) ->
+check_function(_, _, _, {atom,Loc,Result}, F) ->
     {File,_} = beam_ssa:get_anno(location, F),
     [{File,[{Loc,?MODULE,{unknown_result_kind,Result}}]}].
 
-run_check(CheckArgs, Exprs, Loc, #b_function{args=FunArgs}=F) ->
+run_check(CheckArgs, CheckAnnos, Exprs, Loc, #b_function{args=FunArgs}=F) ->
+    _ = check_annos(CheckAnnos, F#b_function.anno, #{}),
     init_and_run_check(CheckArgs, FunArgs, #{}, Loc, Exprs, F).
-
 
 %% Create a mapping from each argument in the check pattern to the
 %% actual arguments of the SSA function.
@@ -264,8 +265,12 @@ env_post({list,_,Elems}, #b_literal{val=Ls}, Env) ->
     post_list(Elems, Ls, Env);
 env_post({list,_,Elems}, Ls, Env) when is_list(Ls) ->
     post_list(Elems, Ls, Env);
+env_post({tuple,_,Es}, #b_literal{val=Ls}, Env) when is_record(Ls) ->
+    post_tuple(Es, record_to_list(Ls), Env);
 env_post({tuple,_,Es}, #b_literal{val=Ls}, Env) ->
     post_tuple(Es, tuple_to_list(Ls), Env);
+env_post({tuple,_,Es}, Tuple, Env) when is_record(Tuple) ->
+    post_tuple(Es, record_to_list(Tuple), Env);
 env_post({tuple,_,Es}, Tuple, Env) when is_tuple(Tuple) ->
     post_tuple(Es, tuple_to_list(Tuple), Env);
 env_post({map,_,Elems}, #b_literal{val=Map}, Env) when is_map(Map) ->
@@ -323,11 +328,15 @@ post_tuple([Elem|Elements], [A|Actual], Env0) ->
 post_tuple([], [], Env) ->
     Env.
 
-post_map([{Key,Val}|Items], Map, Env) ->
-    K = build_map_key(Key, Env),
-    V = build_map_key(Val, Env),
-    #{K := V} = Map,
+record_to_list(R) ->
+    Name = records:get_name(R),
+    Fs = records:get_field_names(R),
+    [Name | [records:get(F, R) || F <- Fs]].
 
+post_map([{Key,Val}|Items], Map, Env0) ->
+    K = build_map_key(Key, Env0),
+    #{K := V} = Map,
+    Env = env_post(Val, V, Env0),
     post_map(Items, maps:remove(K, Map), Env);
 post_map([], Map, Env) ->
     0 = maps:size(Map),

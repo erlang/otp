@@ -115,7 +115,7 @@ Simple JSON value encodeable with `json:encode/1`.
     | list(encode_value())
     | encode_map(encode_value()).
 
--type encode_map(Value) :: #{binary() | atom() | integer() => Value}.
+-type encode_map(Value) :: #{binary() | atom() | integer() | float() => Value}.
 
 -doc """
 Generates JSON corresponding to `Term`.
@@ -133,6 +133,9 @@ Supports basic data mapping:
 | `#{binary() => _}`     | Object   |
 | `#{atom() => _}`       | Object   |
 | `#{integer() => _}`    | Object   |
+| `#{float() => _}`      | Object   |
+
+Map keys are encoded as JSON object names, which are strings.
 
 This is equivalent to `encode(Term, fun json:encode_value/2)`.
 
@@ -250,7 +253,8 @@ list_loop([Elem | Rest], Encode) -> [$,, Encode(Elem, Encode) | list_loop(Rest, 
 -doc """
 Default encoder for maps as JSON objects used by `json:encode/1`.
 
-Accepts maps with atom, binary, integer, or float keys.
+Accepts Erlang maps with atom, binary, integer, or float keys.
+The keys are encoded as JSON object names.
 """.
 -doc(#{since => <<"OTP 27.0">>}).
 -spec encode_map(encode_map(dynamic()), encoder()) -> iodata().
@@ -263,7 +267,8 @@ do_encode_map(Map, Encode) when is_function(Encode, 2) ->
 -doc """
 Encoder for maps as JSON objects.
 
-Accepts maps with atom, binary, integer, or float keys.
+Accepts Erlang maps with atom, binary, integer, or float keys.
+The keys are encoded as JSON object names.
 Verifies that no duplicate keys will be produced in the
 resulting JSON object.
 
@@ -279,7 +284,8 @@ encode_map_checked(Map, Encode) ->
 -doc """
 Encoder for lists of key-value pairs as JSON objects.
 
-Accepts lists with atom, binary, integer, or float keys.
+Accepts key-value lists with atom, binary, integer, or float keys.
+The keys are encoded as JSON object names.
 """.
 -doc(#{since => <<"OTP 27.0">>}).
 -spec encode_key_value_list([{term(), term()}], encoder()) -> iodata().
@@ -289,7 +295,8 @@ encode_key_value_list(List, Encode) when is_function(Encode, 2) ->
 -doc """
 Encoder for lists of key-value pairs as JSON objects.
 
-Accepts lists with atom, binary, integer, or float keys.
+Accepts key-value lists with atom, binary, integer, or float keys.
+The keys are encoded as JSON object names.
 Verifies that no duplicate keys will be produced in the
 resulting JSON object.
 
@@ -702,7 +709,8 @@ format_tail([], _, _, _, _) ->
 -doc """
 Format function for lists of key-value pairs as JSON objects.
 
-Accepts lists with atom, binary, integer, or float keys.
+Accepts key-value lists with atom, binary, integer, or float keys.
+The keys are encoded as JSON object names.
 """.
 -doc(#{since => <<"OTP 27.2">>}).
 
@@ -722,7 +730,8 @@ format_key_value_list(KVList, UserEnc, #{level := Level} = State) ->
 -doc """
 Format function for lists of key-value pairs as JSON objects.
 
-Accepts lists with atom, binary, integer, or float keys.
+Accepts key-value lists with atom, binary, integer, or float keys.
+The keys are encoded as JSON object names.
 Verifies that no duplicate keys will be produced in the
 resulting JSON object.
 
@@ -797,9 +806,6 @@ steps(N) ->  ["\n", lists:duplicate(N, " ")].
 %% Decoding implementation
 %%
 
--define(ARRAY, array).
--define(OBJECT, object).
-
 -type from_binary_fun() :: fun((binary()) -> dynamic()).
 -type array_start_fun() :: fun((Acc :: dynamic()) -> ArrayAcc :: dynamic()).
 -type array_push_fun() :: fun((Value :: dynamic(), Acc :: dynamic()) -> NewAcc :: dynamic()).
@@ -835,7 +841,7 @@ steps(N) ->  ["\n", lists:duplicate(N, " ")].
 }).
 
 -type acc() :: dynamic().
--type stack() :: [?ARRAY | ?OBJECT | binary() | acc()].
+-type stack() :: [] | {acc(), stack()} | nonempty_improper_list(acc(), stack()).
 -type decode() :: #decode{}.
 
 -opaque continuation_state() :: tuple().
@@ -860,13 +866,14 @@ Supports basic data mapping:
 | Boolean  | `true \| false`        |
 | Null     | `null`                 |
 | String   | `binary()`             |
+| Array    | `list()`               |
 | Object   | `#{binary() => _}`     |
 
 ## Errors
 
-* `error(unexpected_end)` if `Binary` contains incomplete JSON value
-* `error({invalid_byte, Byte})` if `Binary` contains unexpected byte or invalid UTF-8 byte
-* `error({unexpected_sequence, Bytes})` if `Binary` contains invalid UTF-8 escape
+* `error(unexpected_end)` if `Binary` contains an incomplete JSON value.
+* `error({invalid_byte, Byte})` if `Binary` contains an unexpected byte or an invalid UTF-8 byte.
+* `error({unexpected_sequence, Bytes})` if `Binary` contains an invalid UTF-8 escape or an invalid IEEE 754 float.
 
 ## Example
 
@@ -1349,8 +1356,8 @@ array_start(<<>>, Original, Skip, Acc, Stack, Decode, Len) ->
     unexpected(Original, Skip, Acc, Stack, Decode, Len, 0, value);
 array_start(Rest, Original, Skip, OldAcc, Stack, Decode, Len) ->
     case Decode#decode.array_start of
-        undefined -> value(Rest, Original, Skip+Len, [], [?ARRAY, OldAcc | Stack], Decode);
-        Fun -> value(Rest, Original, Skip+Len, Fun(OldAcc), [?ARRAY, OldAcc | Stack], Decode)
+        undefined -> value(Rest, Original, Skip+Len, [], [OldAcc | Stack], Decode);
+        Fun -> value(Rest, Original, Skip+Len, Fun(OldAcc), [OldAcc | Stack], Decode)
     end.
 
 array_push(<<Byte, Rest/bits>>, Original, Skip, Acc, Stack, Decode, Value) when ?is_ws(Byte) ->
@@ -1361,7 +1368,7 @@ array_push(<<"]", Rest/bits>>, Original, Skip, Acc0, Stack0, Decode, Value) ->
             undefined -> [Value | Acc0];
             Push -> Push(Value, Acc0)
         end,
-    [_, OldAcc | Stack] = Stack0,
+    [OldAcc | Stack] = Stack0,
     {ArrayValue, NewAcc} =
         case Decode#decode.array_finish of
             undefined -> {lists:reverse(Acc), OldAcc};
@@ -1377,7 +1384,6 @@ array_push(<<$,, Rest/bits>>, Original, Skip0, Acc, Stack, Decode, Value) ->
 array_push(_, Original, Skip, Acc, Stack, Decode, Value) ->
     unexpected(Original, Skip, Acc, Stack, Decode, 0, 0, {?FUNCTION_NAME, Value}).
 
-
 object_start(<<Byte, Rest/bits>>, Original, Skip, Acc, Stack, Decode, Len) when ?is_ws(Byte) ->
     object_start(Rest, Original, Skip, Acc, Stack, Decode, Len+1);
 object_start(<<"}", Rest/bits>>, Original, Skip, Acc, Stack, Decode, Len) ->
@@ -1390,7 +1396,7 @@ object_start(<<"}", Rest/bits>>, Original, Skip, Acc, Stack, Decode, Len) ->
         end,
     continue(Rest, Original, Skip+Len+1, NewAcc, Stack, Decode, Value);
 object_start(<<$", Rest/bits>>, Original, Skip0, OldAcc, Stack0, Decode, Len) ->
-    Stack = [?OBJECT, OldAcc | Stack0],
+    Stack = {OldAcc, Stack0},
     Skip = Skip0 + Len + 1,
     case Decode#decode.object_start of
         undefined ->
@@ -1417,7 +1423,7 @@ object_push(<<"}", Rest/bits>>, Original, Skip, Acc0, Stack0, Decode, Value, Key
             undefined -> [{Key, Value} | Acc0];
             Fun -> Fun(Key, Value, Acc0)
         end,
-    [_, OldAcc | Stack] = Stack0,
+    {OldAcc, Stack} = Stack0,
     {ObjectValue, NewAcc} =
         case Decode#decode.object_finish of
             undefined -> {maps:from_list(Acc), OldAcc};
@@ -1442,9 +1448,11 @@ object_key(_, Original, Skip, Acc, Stack, Decode) ->
 continue(<<Rest/bits>>, Original, Skip, Acc, Stack0, Decode, Value) ->
     case Stack0 of
         [] -> terminate(Rest, Original, Skip, Acc, Value);
-        [?ARRAY | _] -> array_push(Rest, Original, Skip, Acc, Stack0, Decode, Value);
-        [?OBJECT | _] -> object_value(Rest, Original, Skip, Acc, Stack0, Decode, Value);
-        [Key | Stack] -> object_push(Rest, Original, Skip, Acc, Stack, Decode, Value, Key)
+        [_ | Stack] when is_list(Stack) ->
+            array_push(Rest, Original, Skip, Acc, Stack0, Decode, Value);
+        [Key | Stack] ->
+            object_push(Rest, Original, Skip, Acc, Stack, Decode, Value, Key);
+        {_, _} -> object_value(Rest, Original, Skip, Acc, Stack0, Decode, Value)
     end.
 
 terminate(<<Byte, Rest/bits>>, Original, Skip, Acc, Value) when ?is_ws(Byte) ->

@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -141,9 +141,9 @@ new() ->
 -doc "Copy constructor, uses overview\_refcount.".
 %%  Style = ?wxPENSTYLE_INVALID | ?wxPENSTYLE_SOLID | ?wxPENSTYLE_DOT | ?wxPENSTYLE_LONG_DASH | ?wxPENSTYLE_SHORT_DASH | ?wxPENSTYLE_DOT_DASH | ?wxPENSTYLE_USER_DASH | ?wxPENSTYLE_TRANSPARENT | ?wxPENSTYLE_STIPPLE_MASK_OPAQUE | ?wxPENSTYLE_STIPPLE_MASK | ?wxPENSTYLE_STIPPLE | ?wxPENSTYLE_BDIAGONAL_HATCH | ?wxPENSTYLE_CROSSDIAG_HATCH | ?wxPENSTYLE_FDIAGONAL_HATCH | ?wxPENSTYLE_CROSS_HATCH | ?wxPENSTYLE_HORIZONTAL_HATCH | ?wxPENSTYLE_VERTICAL_HATCH | ?wxPENSTYLE_FIRST_HATCH | ?wxPENSTYLE_LAST_HATCH
 -spec new(Colour) -> wxPen() when
-	Colour::wx:wx_colour();
+        Colour::wx:wx_colour();
       (Pen) -> wxPen() when
-	Pen::wxPen().
+        Pen::wxPen().
 
 new(Colour)
  when ?is_colordata(Colour) ->
@@ -189,7 +189,7 @@ See: `setCap/2`
 """.
 %%  Res = ?wxCAP_INVALID | ?wxCAP_ROUND | ?wxCAP_PROJECTING | ?wxCAP_BUTT
 -spec getCap(This) -> wx:wx_enum() when
-	This::wxPen().
+        This::wxPen().
 getCap(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPen),
   wxe_util:queue_cmd(This,?get_env(),?wxPen_GetCap),
@@ -201,7 +201,7 @@ Returns a reference to the pen colour.
 See: `setColour/4`
 """.
 -spec getColour(This) -> wx:wx_colour4() when
-	This::wxPen().
+        This::wxPen().
 getColour(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPen),
   wxe_util:queue_cmd(This,?get_env(),?wxPen_GetColour),
@@ -216,7 +216,7 @@ See: `setJoin/2`
 """.
 %%  Res = ?wxJOIN_INVALID | ?wxJOIN_BEVEL | ?wxJOIN_MITER | ?wxJOIN_ROUND
 -spec getJoin(This) -> wx:wx_enum() when
-	This::wxPen().
+        This::wxPen().
 getJoin(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPen),
   wxe_util:queue_cmd(This,?get_env(),?wxPen_GetJoin),
@@ -232,7 +232,7 @@ See:
 """.
 %%  Res = ?wxPENSTYLE_INVALID | ?wxPENSTYLE_SOLID | ?wxPENSTYLE_DOT | ?wxPENSTYLE_LONG_DASH | ?wxPENSTYLE_SHORT_DASH | ?wxPENSTYLE_DOT_DASH | ?wxPENSTYLE_USER_DASH | ?wxPENSTYLE_TRANSPARENT | ?wxPENSTYLE_STIPPLE_MASK_OPAQUE | ?wxPENSTYLE_STIPPLE_MASK | ?wxPENSTYLE_STIPPLE | ?wxPENSTYLE_BDIAGONAL_HATCH | ?wxPENSTYLE_CROSSDIAG_HATCH | ?wxPENSTYLE_FDIAGONAL_HATCH | ?wxPENSTYLE_CROSS_HATCH | ?wxPENSTYLE_HORIZONTAL_HATCH | ?wxPENSTYLE_VERTICAL_HATCH | ?wxPENSTYLE_FIRST_HATCH | ?wxPENSTYLE_LAST_HATCH
 -spec getStyle(This) -> wx:wx_enum() when
-	This::wxPen().
+        This::wxPen().
 getStyle(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPen),
   wxe_util:queue_cmd(This,?get_env(),?wxPen_GetStyle),
@@ -244,7 +244,7 @@ Returns the pen width.
 See: `setWidth/2`
 """.
 -spec getWidth(This) -> integer() when
-	This::wxPen().
+        This::wxPen().
 getWidth(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPen),
   wxe_util:queue_cmd(This,?get_env(),?wxPen_GetWidth),
@@ -257,7 +257,7 @@ Notice that an uninitialized pen object can't be queried for any pen properties 
 calls to the accessor methods on it will result in an assert failure.
 """.
 -spec isOk(This) -> boolean() when
-	This::wxPen().
+        This::wxPen().
 isOk(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPen),
   wxe_util:queue_cmd(This,?get_env(),?wxPen_IsOk),
@@ -272,7 +272,7 @@ See: `getCap/1`
 """.
 %%  CapStyle = ?wxCAP_INVALID | ?wxCAP_ROUND | ?wxCAP_PROJECTING | ?wxCAP_BUTT
 -spec setCap(This, CapStyle) -> 'ok' when
-	This::wxPen(), CapStyle::wx:wx_enum().
+        This::wxPen(), CapStyle::wx:wx_enum().
 setCap(#wx_ref{type=ThisT}=This,CapStyle)
  when is_integer(CapStyle) ->
   ?CLASS(ThisT,wxPen),
@@ -284,7 +284,7 @@ The pen's colour is changed to the given colour.
 See: `getColour/1`
 """.
 -spec setColour(This, Colour) -> 'ok' when
-	This::wxPen(), Colour::wx:wx_colour().
+        This::wxPen(), Colour::wx:wx_colour().
 setColour(#wx_ref{type=ThisT}=This,Colour)
  when ?is_colordata(Colour) ->
   ?CLASS(ThisT,wxPen),
@@ -292,7 +292,7 @@ setColour(#wx_ref{type=ThisT}=This,Colour)
 
 -doc "".
 -spec setColour(This, Red, Green, Blue) -> 'ok' when
-	This::wxPen(), Red::integer(), Green::integer(), Blue::integer().
+        This::wxPen(), Red::integer(), Green::integer(), Blue::integer().
 setColour(#wx_ref{type=ThisT}=This,Red,Green,Blue)
  when is_integer(Red),is_integer(Green),is_integer(Blue) ->
   ?CLASS(ThisT,wxPen),
@@ -307,7 +307,7 @@ See: `getJoin/1`
 """.
 %%  Join_style = ?wxJOIN_INVALID | ?wxJOIN_BEVEL | ?wxJOIN_MITER | ?wxJOIN_ROUND
 -spec setJoin(This, Join_style) -> 'ok' when
-	This::wxPen(), Join_style::wx:wx_enum().
+        This::wxPen(), Join_style::wx:wx_enum().
 setJoin(#wx_ref{type=ThisT}=This,Join_style)
  when is_integer(Join_style) ->
   ?CLASS(ThisT,wxPen),
@@ -320,7 +320,7 @@ See: `new/2`
 """.
 %%  Style = ?wxPENSTYLE_INVALID | ?wxPENSTYLE_SOLID | ?wxPENSTYLE_DOT | ?wxPENSTYLE_LONG_DASH | ?wxPENSTYLE_SHORT_DASH | ?wxPENSTYLE_DOT_DASH | ?wxPENSTYLE_USER_DASH | ?wxPENSTYLE_TRANSPARENT | ?wxPENSTYLE_STIPPLE_MASK_OPAQUE | ?wxPENSTYLE_STIPPLE_MASK | ?wxPENSTYLE_STIPPLE | ?wxPENSTYLE_BDIAGONAL_HATCH | ?wxPENSTYLE_CROSSDIAG_HATCH | ?wxPENSTYLE_FDIAGONAL_HATCH | ?wxPENSTYLE_CROSS_HATCH | ?wxPENSTYLE_HORIZONTAL_HATCH | ?wxPENSTYLE_VERTICAL_HATCH | ?wxPENSTYLE_FIRST_HATCH | ?wxPENSTYLE_LAST_HATCH
 -spec setStyle(This, Style) -> 'ok' when
-	This::wxPen(), Style::wx:wx_enum().
+        This::wxPen(), Style::wx:wx_enum().
 setStyle(#wx_ref{type=ThisT}=This,Style)
  when is_integer(Style) ->
   ?CLASS(ThisT,wxPen),
@@ -332,7 +332,7 @@ Sets the pen width.
 See: `getWidth/1`
 """.
 -spec setWidth(This, Width) -> 'ok' when
-	This::wxPen(), Width::integer().
+        This::wxPen(), Width::integer().
 setWidth(#wx_ref{type=ThisT}=This,Width)
  when is_integer(Width) ->
   ?CLASS(ThisT,wxPen),

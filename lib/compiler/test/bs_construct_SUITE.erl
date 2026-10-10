@@ -755,6 +755,14 @@ private_append(_Config) ->
     {ok,<<>>} = private_append_3(id(<<>>)),
     {error,<<"wrong parity">>} = private_append_3(id(<<1>>)),
 
+    [{<<1,3>>,<<2,4>>}] =
+        private_append_4([{<<1>>,<<2>>},{<<3>>,<<4>>}]),
+    [{<<1,4>>,<<2,5>>,<<3,6>>}] =
+        private_append_5([{<<1>>,<<2>>,<<3>>},{<<4>>,<<5>>,<<6>>}]),
+
+    [{<<1,4>>,{<<2,5>>,<<3,6>>}}] =
+          private_append_6([{<<1>>,<<2>>,<<3>>},{<<4>>,<<5>>,<<6>>}]),
+
     ok.
 
 %% GH-7121: Alias analysis would not mark fun arguments as aliased,
@@ -787,3 +795,49 @@ private_append_3(<<B/bitstring>>, {ok, Acc}) ->
             %% The compiler would fail to patch this tuple.
             private_append_3(<<>>, {error, <<"wrong parity">>})
     end.
+
+%% Two appendable binaries tracked through the head of a *returned* list
+%% would cause the private append pass to crash when it tried to patch the
+%% {hd,...} tuple.
+private_append_4(L) ->
+    private_append_4(L, private_append_4_seed()).
+
+private_append_4_seed() ->
+    [{<<>>, <<>>}].
+
+private_append_4([{X,Y}|T], [{A,B}]) ->
+    private_append_4(T, [{<<A/binary, X/binary>>, <<B/binary, Y/binary>>}]);
+private_append_4([], Acc) ->
+    Acc.
+
+%% As above, but three accumulators -> three {hd,...} patches, so the
+%% aggregate_ret_patches/1 fix has to fold an arbitrary number of them,
+%% not just two.
+private_append_5(L) ->
+    private_append_5(L, private_append_5_seed()).
+
+private_append_5_seed() ->
+    [{<<>>, <<>>, <<>>}].
+
+private_append_5([{X,Y,Z}|T], [{A,B,C}]) ->
+    private_append_5(T, [{<<A/binary, X/binary>>,
+                          <<B/binary, Y/binary>>,
+                          <<C/binary, Z/binary>>}]);
+private_append_5([], Acc) ->
+    Acc.
+
+
+%% A nested tuple in the list head ({B,C} both at outer index 1) made
+%% merge_patches build a {tuple_elements,...} with a duplicate index,
+%% which patch_literal_tuple could not apply.
+private_append_6(L) ->
+    private_append_6(L, private_append_6_seed()).
+
+private_append_6_seed() ->
+    [{<<>>, {<<>>, <<>>}}].
+
+private_append_6([{X,Y,Z}|T], [{A,{B,C}}]) ->
+    private_append_6(T, [{<<A/binary, X/binary>>,
+                          {<<B/binary, Y/binary>>, <<C/binary, Z/binary>>}}]);
+private_append_6([], Acc) ->
+    Acc.

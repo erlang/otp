@@ -20,6 +20,9 @@
 %% %CopyrightEnd%
 %%
 -module(etop).
+
+-compile([{nowarn_deprecated_function, [{erlang,exit,2}]}]).
+
 -moduledoc """
 Erlang Top is a tool for presenting information about Erlang processes similar
 to the information presented by "top" in UNIX.

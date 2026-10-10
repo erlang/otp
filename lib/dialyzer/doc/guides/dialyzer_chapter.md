@@ -95,7 +95,7 @@ dialyzer --plt_info
 
 To specify which PLT, use option `--plt`.
 
-To get the output printed to a file, use option `--output_file`.
+To get the output printed to a file, use option `--output`.
 
 Note that no warnings are emitted when manipulating the PLT. To turn on
 warnings during (re)analysis of the PLT, use option `--get_warnings`.
@@ -236,7 +236,7 @@ Dialyzer will generate the following warnings:
 
 ```text
 some_module.erl:30:1: Function call_baz2/0 has no local return
-some_module.erl:31:9: The call t:baz
+some_module.erl:31:9: The call some_module:baz
          ('a') will never return since it differs in the 1st argument
                from the success typing arguments:
          ('b' | 'c' | 'd')

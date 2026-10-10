@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 1997-2025. All Rights Reserved.
+%% Copyright Ericsson AB 1997-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -41,7 +41,8 @@
          sanity_checks/1,
          tuple_inplace_checks/1,
          non_throwing_bifs/1,
-         phis_checks/1]).
+         phis_checks/1,
+         nifs_checks/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -60,7 +61,8 @@ groups() ->
        sanity_checks,
        tuple_inplace_checks,
        non_throwing_bifs,
-       phis_checks]},
+       phis_checks,
+       nifs_checks]},
      {post_ssa_opt_dynamic,test_lib:parallel(),
       [bs_size_unit_checks]}].
 
@@ -137,6 +139,10 @@ non_throwing_bifs(Config) when is_list(Config) ->
 phis_checks(Config) when is_list(Config) ->
     run_pre_ssa_opt(phis, Config),
     run_post_ssa_opt(phis, Config).
+
+nifs_checks(Config) when is_list(Config) ->
+    run_post_ssa_opt(nifs, Config),
+    run_post_ssa_opt(nifs_many_blocks, Config).
 
 dynamic_workdir(Config) ->
     PrivDir = proplists:get_value(priv_dir, Config),

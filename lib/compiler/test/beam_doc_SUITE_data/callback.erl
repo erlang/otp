@@ -5,7 +5,7 @@
 %% ".
 %% -behaviour(gen_server).
 
--export([all_ok/0, main/0, main2/0]).
+-export([all_ok/0, main/0, main2/0, foo/1]).
 
 -doc "
 Callback fn that always returns ok.
@@ -40,6 +40,9 @@ A multiclause callback with slogan docs".
 -compile({nowarn_hidden_doc, nowarn/1}).
 -callback nowarn(Arg :: atom()) -> ok.
 
+-doc "Foos the module foo".
+-callback foo(CallbackParam :: term()) -> term().
+
 
 -doc #{equiv => ok/0}.
 -doc "
@@ -67,3 +70,29 @@ Second main
 -spec main2() -> ok.
 main2() ->
     ok.
+
+-doc "Foos a generic foo".
+-spec foo(FuncParam :: term()) -> term().
+foo(_FuncParam) -> ok.
+
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+%%

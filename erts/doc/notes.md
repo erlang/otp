@@ -23,6 +23,236 @@ limitations under the License.
 
 This document describes the changes made to the ERTS application.
 
+## Erts 17.1
+
+### Fixed Bugs and Malfunctions
+
+- Fixed bug in `ets:member/2` for `set`, `bag` and `duplicate_bag`. The bug could (maybe) lead to `ets:member` spuriously returning false for a value which is actually a member for a table that faces high insert load.
+
+  Own Id: OTP-20152 Aux Id: [PR-11115]
+
+- Fixed crashing bug caused by race between timer creating process and suspending receiver of the timer. Only seen to cause crash one time by extremely provoking test case. Bug exists only since OTP 29.0.
+
+  Own Id: OTP-20175 Aux Id: [PR-11196]
+
+- Fixed bug in `enif_realloc_binary` when called with a read-only binary. Instead of returning false at out-of-memory failure, it returned true and did nothing.
+
+  Own Id: OTP-20187 Aux Id: [PR-11133]
+
+- Fixed alternate signal stack sizing on musl (Alpine) running on CPUs whose Linux kernel reports large signal frames (AVX-512/AMX). It caused emulator to abort during startup with "Failed to set alternate signal stack".
+
+  Own Id: OTP-20213 Aux Id: [PR-11249], [GH-11248]
+
+- For `socket:recvmmsg/6`, the buffer length was not handled correctly when the OS network stack truncated the received message, so garbage data with incorrect length could be delivered to the calling process.  This bug has been corrected.
+
+  Own Id: OTP-20246 Aux Id: [PR-11335]
+
+- `binary_to_term/1` will now reject an external native record with duplicated fields.
+
+  Own Id: OTP-20276 Aux Id: [GH-11398], [PR-11410]
+
+- Fixed a crash upon starting the emulator on systems with a very large minimum signal stack size.
+
+  Own Id: OTP-20292 Aux Id: [PR-11376], [GH-11349]
+
+- Fixed lock order violation during crash dump due to export table exhaustion. Only problem for debug emulator.
+
+  Own Id: OTP-20305 Aux Id: [PR-11460]
+
+- Fixed rounding errors when converting large integers to floating point numbers, explicitly with `float/1` or implicitly in arithmetic such as `1.0 * N`. Integers with absolute values larger than 64 bits that could not be represented exactly as a float could be rounded to the second nearest float instead of the nearest. For example, `float(428654966685883400000)` returned `4.2865496668588343e20` instead of the correct `4.286549666858834e20`, which is what `binary_to_float/1` returns for the same number.
+
+  Own Id: OTP-20317 Aux Id: [PR-11391]
+
+- An error check in `prim_inet` has been fixed.  This manifested itself as `file:sendfile/*` sometimes crashing instead of returning an error when the remote end closes the socket during initialization.
+
+  Own Id: OTP-20356 Aux Id: [PR-11438]
+
+[PR-11115]: https://github.com/erlang/otp/pull/11115
+[PR-11196]: https://github.com/erlang/otp/pull/11196
+[PR-11133]: https://github.com/erlang/otp/pull/11133
+[PR-11249]: https://github.com/erlang/otp/pull/11249
+[GH-11248]: https://github.com/erlang/otp/issues/11248
+[PR-11335]: https://github.com/erlang/otp/pull/11335
+[GH-11398]: https://github.com/erlang/otp/issues/11398
+[PR-11410]: https://github.com/erlang/otp/pull/11410
+[PR-11376]: https://github.com/erlang/otp/pull/11376
+[GH-11349]: https://github.com/erlang/otp/issues/11349
+[PR-11460]: https://github.com/erlang/otp/pull/11460
+[PR-11391]: https://github.com/erlang/otp/pull/11391
+[PR-11438]: https://github.com/erlang/otp/pull/11438
+
+### Improvements and New Features
+
+- Fairness of code permission locks have been improved to avoid long latencies for code loading and trace operations.
+
+  Own Id: OTP-20188 Aux Id: [PR-11144]
+
+- The BIFs that convert strings to integers (for example [`binary_to_integer/1`](https://www.erlang.org/doc/apps/erts/erlang.html#binary_to_integer/1)) are now much faster for huge input strings. On a modern computer, even a string with more than a million decimal digits should finish in less than a second.
+  
+  The `div` and `rem` operators are now also much faster for large operands.
+
+  Own Id: OTP-20209 Aux Id: [PR-11074], [PR-11324]
+
+- Arithmetic operations on large integers will now increase the reduction count for the process, causing context switches to occur more frequently when doing arithmetic on large integers.
+
+  Own Id: OTP-20211 Aux Id: [PR-11274]
+
+[PR-11144]: https://github.com/erlang/otp/pull/11144
+[PR-11074]: https://github.com/erlang/otp/pull/11074
+[PR-11324]: https://github.com/erlang/otp/pull/11324
+[PR-11274]: https://github.com/erlang/otp/pull/11274
+
+## Erts 17.0.6
+
+### Fixed Bugs and Malfunctions
+
+- No-suspend port command signals (i.e. port command signals sent using the `erlang:port_command/3` BIF or the `erlang:send/3` BIF with the `nosuspend` option) were not aborted properly in all scenarios which could leave the port queue in a busy state indefinitely. Also asynchronously sent no-suspend command signals (i.e, port command signals sent using the `erlang:send/3` BIF with the `nosuspend` option) could sometimes be delivered even though the port was busy.
+
+  Own Id: OTP-20135 Aux Id: [GH-11052], [PR-11463]
+
+- erts: Fix missing exit_status caused by SIGCHLD race
+
+  Own Id: OTP-20274 Aux Id: [GH-11278], [PR-11298]
+
+- erts: Fix bug in `is_in_range` instruction for x86 JIT
+
+  Own Id: OTP-20278 Aux Id: [GH-11419], [PR-11429]
+
+- Fixed bug in `binary_to_term` that could cause emulator crash for specific terms in specific process states (reductions left).
+
+  Own Id: OTP-20281 Aux Id: [GH-11404], [PR-11425]
+
+- erts: Fix crash with `term_to_iovec/2` for large binary
+
+  Own Id: OTP-20282 Aux Id: [PR-11428]
+
+- A distributed `priority` send larger than 32 KiB to a process alias caused the receiving  runtime system to crash.
+
+  Own Id: OTP-20286 Aux Id: [GH-11416], [PR-11417]
+
+- Priority message queue markers were sometimes installed in the message queue even when no priority messages could be received. As a result, the two markers had to be traversed unnecessarily when scanning the message queue, introducing a small but avoidable overhead.
+
+  Own Id: OTP-20300 Aux Id: [PR-11485]
+
+- A monitor of `time_offset` co-created with a process alias (`monitor(time_offset, clock_service, [{alias, UnaliasOpt}])`) either crashed the runtime system or did not work. This bug was introduced in OTP 25.0.
+
+  Own Id: OTP-20319 Aux Id: [PR-11509]
+
+- A process alias was erroneously created when a remote `spawn_request()` operation with a `{monitor, [{alias, explicit_unalias}]}` option failed with `noconnection` reason.
+
+  Own Id: OTP-20330 Aux Id: [PR-11521]
+
+- A `gen_tcp` socket using the inet driver and `{packet,4}` had a bug if receiving a packet with size just below INT_MAX.
+  
+  That packet size wrapped in size calculations and made the received data overwrite its allocation and trash allocator metadata and subsequent block(s), causing the VM to crash.
+  
+  This made it possible for anyone to remotely crash an Erlang node that used `{packet,4}` on a reachable socket.
+  
+  This bug has been corrected.
+
+  Own Id: OTP-20334 Aux Id: [CVE-2026-75538], [PR-11533]
+
+[GH-11052]: https://github.com/erlang/otp/issues/11052
+[PR-11463]: https://github.com/erlang/otp/pull/11463
+[GH-11278]: https://github.com/erlang/otp/issues/11278
+[PR-11298]: https://github.com/erlang/otp/pull/11298
+[GH-11419]: https://github.com/erlang/otp/issues/11419
+[PR-11429]: https://github.com/erlang/otp/pull/11429
+[GH-11404]: https://github.com/erlang/otp/issues/11404
+[PR-11425]: https://github.com/erlang/otp/pull/11425
+[PR-11428]: https://github.com/erlang/otp/pull/11428
+[GH-11416]: https://github.com/erlang/otp/issues/11416
+[PR-11417]: https://github.com/erlang/otp/pull/11417
+[PR-11485]: https://github.com/erlang/otp/pull/11485
+[PR-11509]: https://github.com/erlang/otp/pull/11509
+[PR-11521]: https://github.com/erlang/otp/pull/11521
+[CVE-2026-75538]: https://nvd.nist.gov/vuln/detail/2026-75538
+[PR-11533]: https://github.com/erlang/otp/pull/11533
+
+## Erts 17.0.5
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a regression in the previous patch release that prevented epmd from binding to localhost.
+
+  Own Id: OTP-20275 Aux Id: [PR-11409], [GH-11402]
+
+[PR-11409]: https://github.com/erlang/otp/pull/11409
+[GH-11402]: https://github.com/erlang/otp/issues/11402
+
+## Erts 17.0.4
+
+### Fixed Bugs and Malfunctions
+
+- Mitigated a denial of service attack in epmd.
+  
+  Thanks to Ryan Moore for finding and responsibly disclosing this vulnerability to the Erlang/OTP project.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-20136 Aux Id: [CVE-2026-42792], [PR-11386]
+
+- Fixed heap corruption when an invalidly encoded tuple with an arity of 2^31 or larger is decoded from Erlang's External Term Format (binary_to_term).
+
+  Own Id: OTP-20214 Aux Id: [PR-11297], [CVE-2026-55737]
+
+- When send_timeout is set and send_timeout_close is set to true, a 'tcp_closed' message is expected when the timeout occurs, but that (message) was not delivered.
+  This has now been fixed.
+
+  Own Id: OTP-20257 Aux Id: [GH-11319]
+
+- A crafted External Term Format (ETF) payload could crash the runtime system.
+  
+  Thanks to Paul Guyot for finding and responsibly disclosing this vulnerability to the Erlang/OTP project.
+
+  Own Id: OTP-20259 Aux Id: [CVE-2026-54890], [PR-11386]
+
+- Fixed a rounding error in 16-bit float conversion.
+
+  Own Id: OTP-20260 Aux Id: [GH-11332], [PR-11334]
+
+[CVE-2026-42792]: https://nvd.nist.gov/vuln/detail/2026-42792
+[PR-11386]: https://github.com/erlang/otp/pull/11386
+[PR-11297]: https://github.com/erlang/otp/pull/11297
+[CVE-2026-55737]: https://nvd.nist.gov/vuln/detail/2026-55737
+[GH-11319]: https://github.com/erlang/otp/issues/11319
+[CVE-2026-54890]: https://nvd.nist.gov/vuln/detail/2026-54890
+[PR-11386]: https://github.com/erlang/otp/pull/11386
+[GH-11332]: https://github.com/erlang/otp/issues/11332
+[PR-11334]: https://github.com/erlang/otp/pull/11334
+
+## Erts 17.0.3
+
+### Fixed Bugs and Malfunctions
+
+- Fixed an undefined behavior in the internal `erts_qsort()` function, which could have been the cause of a beam crash seen when updating large maps.
+
+  Own Id: OTP-20185 Aux Id: [PR-11215]
+
+- Calculating `bxor` of the largest supported positive integer (`erlang:system_info(max_integer)`) and `-1` would return `[]` instead of a raising a `system_limit` exception.
+
+  Own Id: OTP-20208 Aux Id: [PR-11269]
+
+- Fix possible race between `ets:delete/1` and terminating process with a fixation on the same table.
+
+  Own Id: OTP-20217 Aux Id: [PR-11283]
+
+- A few code generation issues for the JIT on AArch64 (ARM64) have been fixed.
+  
+  For all platforms, the loader will reject some invalid BEAM files earlier.
+
+  Own Id: OTP-20226 Aux Id: [PR-11299]
+
+- On 32-bit computers, the `md5` BIFs would return an incorrect MD5 checksum for data of size 4GiB or more.
+
+  Own Id: OTP-20227 Aux Id: [PR-11289]
+
+[PR-11215]: https://github.com/erlang/otp/pull/11215
+[PR-11269]: https://github.com/erlang/otp/pull/11269
+[PR-11283]: https://github.com/erlang/otp/pull/11283
+[PR-11299]: https://github.com/erlang/otp/pull/11299
+[PR-11289]: https://github.com/erlang/otp/pull/11289
+
 ## Erts 17.0.2
 
 ### Fixed Bugs and Malfunctions
@@ -319,6 +549,160 @@ This document describes the changes made to the ERTS application.
 [PR-10619]: https://github.com/erlang/otp/pull/10619
 [PR-11004]: https://github.com/erlang/otp/pull/11004
 [PR-10929]: https://github.com/erlang/otp/pull/10929
+
+## Erts 16.4.0.6
+
+### Fixed Bugs and Malfunctions
+
+- No-suspend port command signals (i.e. port command signals sent using the `erlang:port_command/3` BIF or the `erlang:send/3` BIF with the `nosuspend` option) were not aborted properly in all scenarios which could leave the port queue in a busy state indefinitely. Also asynchronously sent no-suspend command signals (i.e, port command signals sent using the `erlang:send/3` BIF with the `nosuspend` option) could sometimes be delivered even though the port was busy.
+
+  Own Id: OTP-20135 Aux Id: [GH-11052], [PR-11463]
+
+- erts: Fix missing exit_status caused by SIGCHLD race
+
+  Own Id: OTP-20274 Aux Id: [GH-11278], [PR-11298]
+
+- erts: Fix bug in `is_in_range` instruction for x86 JIT
+
+  Own Id: OTP-20278 Aux Id: [GH-11419], [PR-11429]
+
+- Fixed bug in `binary_to_term` that could cause emulator crash for specific terms in specific process states (reductions left).
+
+  Own Id: OTP-20281 Aux Id: [GH-11404], [PR-11425]
+
+- erts: Fix crash with `term_to_iovec/2` for large binary
+
+  Own Id: OTP-20282 Aux Id: [PR-11428]
+
+- A distributed `priority` send larger than 32 KiB to a process alias caused the receiving  runtime system to crash.
+
+  Own Id: OTP-20286 Aux Id: [GH-11416], [PR-11417]
+
+- Priority message queue markers were sometimes installed in the message queue even when no priority messages could be received. As a result, the two markers had to be traversed unnecessarily when scanning the message queue, introducing a small but avoidable overhead.
+
+  Own Id: OTP-20300 Aux Id: [PR-11485]
+
+- A monitor of `time_offset` co-created with a process alias (`monitor(time_offset, clock_service, [{alias, UnaliasOpt}])`) either crashed the runtime system or did not work. This bug was introduced in OTP 25.0.
+
+  Own Id: OTP-20319 Aux Id: [PR-11509]
+
+- A process alias was erroneously created when a remote `spawn_request()` operation with a `{monitor, [{alias, explicit_unalias}]}` option failed with `noconnection` reason.
+
+  Own Id: OTP-20330 Aux Id: [PR-11521]
+
+- A `gen_tcp` socket using the inet driver and `{packet,4}` had a bug if receiving a packet with size just below INT_MAX.
+  
+  That packet size wrapped in size calculations and made the received data overwrite its allocation and trash allocator metadata and subsequent block(s), causing the VM to crash.
+  
+  This made it possible for anyone to remotely crash an Erlang node that used `{packet,4}` on a reachable socket.
+  
+  This bug has been corrected.
+
+  Own Id: OTP-20334 Aux Id: [CVE-2026-75538], [PR-11533]
+
+[GH-11052]: https://github.com/erlang/otp/issues/11052
+[PR-11463]: https://github.com/erlang/otp/pull/11463
+[GH-11278]: https://github.com/erlang/otp/issues/11278
+[PR-11298]: https://github.com/erlang/otp/pull/11298
+[GH-11419]: https://github.com/erlang/otp/issues/11419
+[PR-11429]: https://github.com/erlang/otp/pull/11429
+[GH-11404]: https://github.com/erlang/otp/issues/11404
+[PR-11425]: https://github.com/erlang/otp/pull/11425
+[PR-11428]: https://github.com/erlang/otp/pull/11428
+[GH-11416]: https://github.com/erlang/otp/issues/11416
+[PR-11417]: https://github.com/erlang/otp/pull/11417
+[PR-11485]: https://github.com/erlang/otp/pull/11485
+[PR-11509]: https://github.com/erlang/otp/pull/11509
+[PR-11521]: https://github.com/erlang/otp/pull/11521
+[CVE-2026-75538]: https://nvd.nist.gov/vuln/detail/2026-75538
+[PR-11533]: https://github.com/erlang/otp/pull/11533
+
+## Erts 16.4.0.5
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a regression in the previous patch release that prevented epmd from binding to localhost.
+
+  Own Id: OTP-20275 Aux Id: [PR-11409], [GH-11402]
+
+[PR-11409]: https://github.com/erlang/otp/pull/11409
+[GH-11402]: https://github.com/erlang/otp/issues/11402
+
+## Erts 16.4.0.4
+
+### Fixed Bugs and Malfunctions
+
+- Mitigated a denial of service attack in epmd.
+  
+  Thanks to Ryan Moore for finding and responsibly disclosing this vulnerability to the Erlang/OTP project.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-20136 Aux Id: [CVE-2026-42792], [PR-11386]
+
+- Fixed heap corruption when an invalidly encoded tuple with an arity of 2^31 or larger is decoded from Erlang's External Term Format (binary_to_term).
+
+  Own Id: OTP-20214 Aux Id: [PR-11297], [CVE-2026-55737]
+
+- When send_timeout is set and send_timeout_close is set to true, a 'tcp_closed' message is expected when the timeout occurs, but that (message) was not delivered.
+  This has now been fixed.
+
+  Own Id: OTP-20257 Aux Id: [GH-11319]
+
+- A crafted External Term Format (ETF) payload could crash the runtime system.
+  
+  Thanks to Paul Guyot for finding and responsibly disclosing this vulnerability to the Erlang/OTP project.
+
+  Own Id: OTP-20259 Aux Id: [CVE-2026-54890], [PR-11386]
+
+- Fixed a rounding error in 16-bit float conversion.
+
+  Own Id: OTP-20260 Aux Id: [GH-11332], [PR-11334]
+
+[CVE-2026-42792]: https://nvd.nist.gov/vuln/detail/2026-42792
+[PR-11386]: https://github.com/erlang/otp/pull/11386
+[PR-11297]: https://github.com/erlang/otp/pull/11297
+[CVE-2026-55737]: https://nvd.nist.gov/vuln/detail/2026-55737
+[GH-11319]: https://github.com/erlang/otp/issues/11319
+[CVE-2026-54890]: https://nvd.nist.gov/vuln/detail/2026-54890
+[PR-11386]: https://github.com/erlang/otp/pull/11386
+[GH-11332]: https://github.com/erlang/otp/issues/11332
+[PR-11334]: https://github.com/erlang/otp/pull/11334
+
+## Erts 16.4.0.3
+
+### Fixed Bugs and Malfunctions
+
+- Fixed an undefined behavior in the internal `erts_qsort()` function, which could have been the cause of a beam crash seen when updating large maps.
+
+  Own Id: OTP-20185 Aux Id: [PR-11215]
+
+- Calculating `bxor` of the largest supported positive integer (`erlang:system_info(max_integer)`) and `-1` would return `[]` instead of a raising a `system_limit` exception.
+
+  Own Id: OTP-20208 Aux Id: [PR-11269]
+
+- Fix possible race between `ets:delete/1` and terminating process with a fixation on the same table.
+
+  Own Id: OTP-20217 Aux Id: [PR-11283]
+
+- A few code generation issues for the JIT on AArch64 (ARM64) have been fixed.
+  
+  For all platforms, the loader will reject some invalid BEAM files earlier.
+
+  Own Id: OTP-20226 Aux Id: [PR-11299]
+
+[PR-11215]: https://github.com/erlang/otp/pull/11215
+[PR-11269]: https://github.com/erlang/otp/pull/11269
+[PR-11283]: https://github.com/erlang/otp/pull/11283
+[PR-11299]: https://github.com/erlang/otp/pull/11299
+
+### Improvements and New Features
+
+- Arithmetic operations on large integers will now increase the reduction count for the process, causing context switches to occur more frequently when doing arithmetic on large integers.
+
+  Own Id: OTP-20211 Aux Id: [PR-11274]
+
+[PR-11274]: https://github.com/erlang/otp/pull/11274
 
 ## Erts 16.4.0.2
 
@@ -1088,6 +1472,143 @@ This document describes the changes made to the ERTS application.
 [PR-9775]: https://github.com/erlang/otp/pull/9775
 [PR-9759]: https://github.com/erlang/otp/pull/9759
 [PR-9809]: https://github.com/erlang/otp/pull/9809
+
+## Erts 15.2.7.13
+
+### Fixed Bugs and Malfunctions
+
+- No-suspend port command signals (i.e. port command signals sent using the `erlang:port_command/3` BIF or the `erlang:send/3` BIF with the `nosuspend` option) were not aborted properly in all scenarios which could leave the port queue in a busy state indefinitely. Also asynchronously sent no-suspend command signals (i.e, port command signals sent using the `erlang:send/3` BIF with the `nosuspend` option) could sometimes be delivered even though the port was busy.
+
+  Own Id: OTP-20135 Aux Id: [GH-11052], [PR-11463]
+
+- erts: Fix missing exit_status caused by SIGCHLD race
+
+  Own Id: OTP-20273 Aux Id: [GH-11278], [PR-11285]
+
+- erts: Fix bug in `is_in_range` instruction for x86 JIT
+
+  Own Id: OTP-20278 Aux Id: [GH-11419], [PR-11429]
+
+- Fixed bug in `binary_to_term` that could cause emulator crash for specific terms in specific process states (reductions left).
+
+  Own Id: OTP-20281 Aux Id: [GH-11404], [PR-11425]
+
+- erts: Fix crash with `term_to_iovec/2` for large binary
+
+  Own Id: OTP-20282 Aux Id: [PR-11428]
+
+- A monitor of `time_offset` co-created with a process alias (`monitor(time_offset, clock_service, [{alias, UnaliasOpt}])`) either crashed the runtime system or did not work. This bug was introduced in OTP 25.0.
+
+  Own Id: OTP-20319 Aux Id: [PR-11509]
+
+- A process alias was erroneously created when a remote `spawn_request()` operation with a `{monitor, [{alias, explicit_unalias}]}` option failed with `noconnection` reason.
+
+  Own Id: OTP-20330 Aux Id: [PR-11521]
+
+- A `gen_tcp` socket using the inet driver and `{packet,4}` had a bug if receiving a packet with size just below INT_MAX.
+  
+  That packet size wrapped in size calculations and made the received data overwrite its allocation and trash allocator metadata and subsequent block(s), causing the VM to crash.
+  
+  This made it possible for anyone to remotely crash an Erlang node that used `{packet,4}` on a reachable socket.
+  
+  This bug has been corrected.
+
+  Own Id: OTP-20334 Aux Id: [CVE-2026-75538], [PR-11533]
+
+[GH-11052]: https://github.com/erlang/otp/issues/11052
+[PR-11463]: https://github.com/erlang/otp/pull/11463
+[GH-11278]: https://github.com/erlang/otp/issues/11278
+[PR-11285]: https://github.com/erlang/otp/pull/11285
+[GH-11419]: https://github.com/erlang/otp/issues/11419
+[PR-11429]: https://github.com/erlang/otp/pull/11429
+[GH-11404]: https://github.com/erlang/otp/issues/11404
+[PR-11425]: https://github.com/erlang/otp/pull/11425
+[PR-11428]: https://github.com/erlang/otp/pull/11428
+[PR-11509]: https://github.com/erlang/otp/pull/11509
+[PR-11521]: https://github.com/erlang/otp/pull/11521
+[CVE-2026-75538]: https://nvd.nist.gov/vuln/detail/2026-75538
+[PR-11533]: https://github.com/erlang/otp/pull/11533
+
+## Erts 15.2.7.12
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a regression in the previous patch release that prevented epmd from binding to localhost.
+
+  Own Id: OTP-20275 Aux Id: [PR-11409], [GH-11402]
+
+[PR-11409]: https://github.com/erlang/otp/pull/11409
+[GH-11402]: https://github.com/erlang/otp/issues/11402
+
+## Erts 15.2.7.11
+
+### Fixed Bugs and Malfunctions
+
+- Mitigated a denial of service attack in epmd.
+  
+  Thanks to Ryan Moore for finding and responsibly disclosing this vulnerability to the Erlang/OTP project.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-20136 Aux Id: [CVE-2026-42792], [PR-11386]
+
+- Fixed heap corruption when an invalidly encoded tuple with an arity of 2^31 or larger is decoded from Erlang's External Term Format (binary_to_term).
+
+  Own Id: OTP-20214 Aux Id: [PR-11297], [CVE-2026-55737]
+
+- When send_timeout is set and send_timeout_close is set to true, a 'tcp_closed' message is expected when the timeout occurs, but that (message) was not delivered.
+  This has now been fixed.
+
+  Own Id: OTP-20257 Aux Id: [GH-11319]
+
+- A crafted External Term Format (ETF) payload could crash the runtime system.
+  
+  Thanks to Paul Guyot for finding and responsibly disclosing this vulnerability to the Erlang/OTP project.
+
+  Own Id: OTP-20259 Aux Id: [CVE-2026-54890], [PR-11386]
+
+[CVE-2026-42792]: https://nvd.nist.gov/vuln/detail/2026-42792
+[PR-11386]: https://github.com/erlang/otp/pull/11386
+[PR-11297]: https://github.com/erlang/otp/pull/11297
+[CVE-2026-55737]: https://nvd.nist.gov/vuln/detail/2026-55737
+[GH-11319]: https://github.com/erlang/otp/issues/11319
+[CVE-2026-54890]: https://nvd.nist.gov/vuln/detail/2026-54890
+[PR-11386]: https://github.com/erlang/otp/pull/11386
+
+## Erts 15.2.7.10
+
+### Fixed Bugs and Malfunctions
+
+- Fixed an undefined behavior in the internal `erts_qsort()` function, which could have been the cause of a beam crash seen when updating large maps.
+
+  Own Id: OTP-20185 Aux Id: [PR-11215]
+
+- Calculating `bxor` of the largest supported positive integer (`erlang:system_info(max_integer)`) and `-1` would return `[]` instead of a raising a `system_limit` exception.
+
+  Own Id: OTP-20208 Aux Id: [PR-11269]
+
+- Fix possible race between `ets:delete/1` and terminating process with a fixation on the same table.
+
+  Own Id: OTP-20217 Aux Id: [PR-11283]
+
+- A few code generation issues for the JIT on AArch64 (ARM64) have been fixed.
+  
+  For all platforms, the loader will reject some invalid BEAM files earlier.
+
+  Own Id: OTP-20226 Aux Id: [PR-11299]
+
+[PR-11215]: https://github.com/erlang/otp/pull/11215
+[PR-11269]: https://github.com/erlang/otp/pull/11269
+[PR-11283]: https://github.com/erlang/otp/pull/11283
+[PR-11299]: https://github.com/erlang/otp/pull/11299
+
+### Improvements and New Features
+
+- Arithmetic operations on large integers will now increase the reduction count for the process, causing context switches to occur more frequently when doing arithmetic on large integers.
+
+  Own Id: OTP-20211 Aux Id: [PR-11274]
+
+[PR-11274]: https://github.com/erlang/otp/pull/11274
 
 ## Erts 15.2.7.9
 

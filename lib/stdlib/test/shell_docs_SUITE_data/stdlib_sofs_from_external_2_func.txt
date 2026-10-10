@@ -2,18 +2,18 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  from_external(ExternalSet, Type)[0m
+[1m  from_external(ExternalSet, Type)[0m
 
-  Creates a set from the external set [;;4mExternalSet[0m and the type [;;4m[0m
-  [;;4mType[0m.
+  Creates a set from the external set [4mExternalSet[0m and the type [4m[0m
+  [4mType[0m.
 
-  It is assumed that [;;4mType[0m is a valid type of [;;4mExternalSet[0m.
+  It is assumed that [4mType[0m is a valid type of [4mExternalSet[0m.
 
-[;1mExamples[0m
+[1mExamples[0m
 
     1> S0 = sofs:from_external([{1,[a,b]},{2,[c]}], [{x,[y]}]).
     2> sofs:to_external(sofs:family_to_relation(S0)).

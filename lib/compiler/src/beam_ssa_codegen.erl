@@ -26,7 +26,7 @@
 
 -export([module/2]).
 -export([is_original_variable/1]).  %Called from beam_core_to_ssa.
--export([classify_heap_need/2]).    %Called from beam_ssa_pre_codegen.
+-export([classify_heap_need/3]).    %Called from beam_ssa_pre_codegen.
 
 -export_type([ssa_register/0]).
 
@@ -37,17 +37,18 @@
                 member/2,reverse/1,reverse/2,sort/1,
                 splitwith/2,takewhile/2]).
 
--record(cg, {lcount=1 :: beam_label(),          %Label counter
-             vcount=1 :: pos_integer(),         %Variable counter
-	     functable=#{} :: #{fa() => beam_label()},
-             labels=#{} :: #{ssa_label() => 0|beam_label()},
-             used_labels=gb_sets:empty() :: gb_sets:set(ssa_label()),
-             regs=#{} :: #{beam_ssa:b_var() => ssa_register()},
-             ultimate_fail=1 :: beam_label(),
-             catches=gb_sets:empty() :: gb_sets:set(ssa_label()),
-             fc_label=1 :: beam_label(),
-             debug_info=false :: boolean()
-            }).
+-record #cg{lcount=1 :: beam_label(),          %Label counter
+            vcount=1 :: pos_integer(),         %Variable counter
+            functable=#{} :: #{fa() => beam_label()},
+            labels=#{} :: #{ssa_label() => 0|beam_label()},
+            used_labels :: gb_sets:set(ssa_label()),
+            regs=#{} :: #{beam_ssa:b_var() => ssa_register()},
+            ultimate_fail=1 :: beam_label(),
+            catches :: gb_sets:set(ssa_label()),
+            fc_label=1 :: beam_label(),
+            debug_info=false :: boolean(),
+            module :: module()
+           }.
 
 -spec module(beam_ssa:b_module(), [compile:option()]) ->
           {'ok',beam_asm:module_code()}.
@@ -57,38 +58,40 @@ module(#b_module{anno=Anno,name=Mod,exports=Es,attributes=Attrs,body=Fs}, Opts) 
     {Asm,St} = functions(Fs, {atom,Mod}, DebugInfo),
     {ok,{Mod,Es,Attrs,Anno,Asm,St#cg.lcount}}.
 
--record(need, {h=0 :: non_neg_integer(),   % heap words
-               l=0 :: non_neg_integer(),   % lambdas (funs)
-               f=0 :: non_neg_integer()}). % floats
+-record #need{h=0 :: non_neg_integer(),   % heap words
+              l=0 :: non_neg_integer(),   % lambdas (funs)
+              f=0 :: non_neg_integer(),   % floats
+              nr=0 :: non_neg_integer()   % native records
+             }.
 
--record(cg_blk, {anno=#{} :: anno(),
-                 is=[] :: [instruction()],
-                 last :: terminator()}).
+-record #cg_blk{anno=#{} :: anno(),
+                is=[] :: [instruction()],
+                last :: terminator()}.
 
--record(cg_set, {anno=#{} :: anno(),
-                 dst :: b_var(),
-                 op :: beam_ssa:op() | 'nop',
-                 args :: [beam_ssa:argument()]}).
+-record #cg_set{anno=#{} :: anno(),
+                dst :: b_var(),
+                op :: beam_ssa:op() | 'nop',
+                args :: [beam_ssa:argument()]}.
 
--record(cg_alloc, {anno=#{} :: anno(),
+-record #cg_alloc {anno=#{}   :: anno(),
                    stack=none :: 'none' | pos_integer(),
-                   words=#need{} :: #need{},
-                   live :: 'undefined' | pos_integer(),
+                   words      :: #need{},
+                   live=unknown :: 'unknown' | pos_integer(),
                    def_yregs=[] :: [b_var()]
-                  }).
+                  }.
 
--record(cg_br, {bool :: beam_ssa:value(),
-                succ :: ssa_label(),
-                fail :: ssa_label()
-               }).
--record(cg_ret, {arg :: cg_value(),
-                 dealloc=none :: 'none' | pos_integer()
-                }).
--record(cg_switch, {anno=#{} :: anno(),
-                    arg :: cg_value(),
-                    fail :: ssa_label(),
-                    list :: [sw_list_item()]
-                   }).
+-record #cg_br{bool :: beam_ssa:value(),
+               succ :: ssa_label(),
+               fail :: ssa_label()
+              }.
+-record #cg_ret{arg :: cg_value(),
+                dealloc=none :: 'none' | pos_integer()
+               }.
+-record #cg_switch{anno=#{} :: anno(),
+                   arg :: cg_value(),
+                   fail :: ssa_label(),
+                   list :: [sw_list_item()]
+                  }.
 
 -type fa() :: {beam_asm:function_name(),arity()}.
 -type ssa_label() :: beam_ssa:label().
@@ -115,9 +118,14 @@ module(#b_module{anno=Anno,name=Mod,exports=Es,attributes=Attrs,body=Fs}, Opts) 
 
 -type ssa_register() :: xreg() | yreg() | freg() | zreg().
 
-functions(Forms, AtomMod, DebugInfo) ->
+functions(Forms, {atom,Mod}=AtomMod, DebugInfo) ->
+    Empty = gb_sets:empty(),
     mapfoldl(fun (F, St) -> function(F, AtomMod, St) end,
-             #cg{lcount=1,debug_info=DebugInfo}, Forms).
+             #cg{lcount=1,
+                 used_labels=Empty,
+                 catches=Empty,
+                 debug_info=DebugInfo,
+                 module=Mod}, Forms).
 
 function(#b_function{anno=Anno,bs=Blocks,args=Args,cnt=Count},
          AtomMod, St0) ->
@@ -203,7 +211,7 @@ add_parameter_annos([{label, _}=Entry | Body], Anno) ->
     [Entry | sort(Annos)] ++ Body.
 
 cg_fun(Blocks, Args, NoBsMatch, St0) ->
-    Linear0 = linearize(Blocks),
+    Linear0 = linearize(Blocks, St0),
     St1 = collect_catch_labels(Linear0, St0),
     Linear1 = need_heap(Linear0),
     {Linear2,St2} = prefer_xregs(Linear1, St1),
@@ -238,7 +246,8 @@ collect_catch_labels_1([]) -> [].
 
 need_heap(Bs0) ->
     Bs1 = need_heap_allocs(Bs0, #{}),
-    {Bs,#need{h=0,l=0,f=0}} = need_heap_blks(reverse(Bs1), #need{}, []),
+    {Bs,Need} = need_heap_blks(reverse(Bs1), #need{}, []),
+    true = is_empty_need(Need),                 %Assertion.
     Bs.
 
 need_heap_allocs([{L,#cg_blk{is=Is0,last=Terminator}=Blk0}|Bs], Counts0) ->
@@ -260,7 +269,7 @@ need_heap_allocs([{L,#cg_blk{is=Is0,last=Terminator}=Blk0}|Bs], Counts0) ->
             %% an allocation on behalf of this block.
             Is = case need_heap_never(Is0) of
                      true -> Is0;
-                     false -> [#cg_alloc{}|Is0]
+                     false -> [#cg_alloc{words=#need{}}|Is0]
                  end,
             Blk = Blk0#cg_blk{is=Is},
             [{L,Blk}|need_heap_allocs(Bs, Counts)];
@@ -303,13 +312,15 @@ need_heap_is([#cg_set{anno=Anno,op=bs_create_bin}=I0|Is], N, Acc) ->
             end,
     I = I0#cg_set{anno=Anno#{alloc=>Alloc}},
     need_heap_is(Is, #need{}, [I|Acc]);
-need_heap_is([#cg_set{op=Op,args=Args}=I|Is], N, Acc) ->
-    case classify_heap_need(Op, Args) of
+need_heap_is([#cg_set{anno=Anno, op=Op,args=Args}=I|Is], N, Acc) ->
+    case classify_heap_need(Anno, Op, Args) of
         {put,Words} ->
             %% Pass through adding to needed heap.
             need_heap_is(Is, add_heap_words(N, Words), [I|Acc]);
         {put_fun,NArgs} ->
             need_heap_is(Is, add_heap_fun(N, NArgs), [I|Acc]);
+        {put_native_record,NFields} ->
+            need_heap_is(Is, add_heap_record(N, NFields), [I|Acc]);
         put_float ->
             need_heap_is(Is, add_heap_float(N), [I|Acc]);
         neutral ->
@@ -345,11 +356,17 @@ need_heap_terminator([{_,#cg_blk{}}|_], _, N) ->
 need_heap_terminator([], _, H) ->
     {need_heap_need(H),#need{}}.
 
-need_heap_need(#need{h=0,l=0,f=0}) -> [];
-need_heap_need(#need{}=N) -> [#cg_alloc{words=N}].
+need_heap_need(Need) ->
+    case is_empty_need(Need) of
+        true -> [];
+        false -> [#cg_alloc{words=Need}]
+    end.
 
-add_heap_words(#need{h=H1,l=L1,f=F1}, #need{h=H2,l=L2,f=F2}) ->
-    #need{h=H1+H2,l=L1+L2,f=F1+F2};
+is_empty_need(#need{h=0,l=0,f=0,nr=0}) -> true;
+is_empty_need(#need{}) -> false.
+
+add_heap_words(#need{h=H1,l=L1,f=F1,nr=R1}, #need{h=H2,l=L2,f=F2,nr=R2}) ->
+    #need{h=H1+H2,l=L1+L2,f=F1+F2,nr=R1+R2};
 add_heap_words(#need{h=Heap}=N, Words) when is_integer(Words) ->
     N#need{h=Heap+Words}.
 
@@ -359,8 +376,10 @@ add_heap_fun(#need{h=Heap, l=Lambdas}=N, NArgs) ->
 add_heap_float(#need{f=F}=N) ->
     N#need{f=F+1}.
 
-%% classify_heap_need(Operation, Arguments) ->
-%%        gc | neutral | {put,Words} | put_float.
+add_heap_record(#need{h=Heap, nr=NR}=N, NFields) when is_integer(NFields) ->
+    N#need{h=Heap+NFields, nr=NR+1}.
+
+%% classify_heap_need(Anno, Operation, Arguments) ->
 %%  Classify the heap need for this instruction. The return
 %%  values have the following meaning.
 %%
@@ -370,17 +389,36 @@ add_heap_float(#need{f=F}=N) ->
 %%  'put_float' means that the instruction will build one floating point
 %%  number on the heap.
 %%
+%%  {put_fun,NumArgs} means that the instruction will build one fun
+%%  having NumArgs arguments.
+%%
+%%  {`put_native_record`,NumFields} means that the instruction will build one
+%%  native record having NumFields fields.
+%%
 %%  'gc' means that that the instruction can potentially do a GC or throw an
 %%  exception. That means that an allocation instruction for any building
 %%  must be placed after this instruction.
 %%
 %%  'neutral' means that the instruction does nothing to disturb the heap.
 
--spec classify_heap_need(beam_ssa:op(), [beam_ssa:value()]) ->
-                                'gc' | 'neutral' |
-                                {'put',non_neg_integer()} |
-                                {'put_fun', non_neg_integer()} |
-                                'put_float'.
+-spec classify_heap_need(beam_ssa:anno(), beam_ssa:op(), [beam_ssa:value()]) ->
+          'gc' | 'neutral' |
+          {'put',non_neg_integer()} |
+          {'put_fun', non_neg_integer()} |
+          {'put_native_record', non_neg_integer()} |
+          'put_float'.
+
+classify_heap_need(Anno, Op, _Args)
+  when Op =:= put_record; Op =:= update_record_id ->
+    %% Native record.
+    case Anno of
+        #{record_num_fields := NumFields} ->
+            {put_native_record,NumFields};
+        _ ->
+            gc
+    end;
+classify_heap_need(_Anno, Op, Args) ->
+    classify_heap_need(Op, Args).
 
 classify_heap_need(put_list, _) ->
     {put,2};
@@ -399,6 +437,7 @@ classify_heap_need({float,Op}, _Args) ->
         _ -> neutral
     end;
 classify_heap_need(update_record, [_Flag, #b_literal{val=Size} |_ ]) ->
+    %% Tuple or tuple record.
     {put, Size + 1};
 classify_heap_need(Name, _Args) ->
     classify_heap_need(Name).
@@ -439,6 +478,7 @@ classify_heap_need(extract) -> gc;
 classify_heap_need(get_hd) -> neutral;
 classify_heap_need(get_map_element) -> neutral;
 classify_heap_need(get_record_element) -> neutral;
+classify_heap_need(get_record_element_id) -> neutral;
 classify_heap_need(get_tl) -> neutral;
 classify_heap_need(get_tuple_element) -> neutral;
 classify_heap_need(has_map_field) -> neutral;
@@ -453,7 +493,6 @@ classify_heap_need(nop) -> neutral;
 classify_heap_need(new_try_tag) -> neutral;
 classify_heap_need(peek_message) -> gc;
 classify_heap_need(put_map) -> gc;
-classify_heap_need(put_record) -> gc;
 classify_heap_need(raw_raise) -> gc;
 classify_heap_need(recv_marker_bind) -> neutral;
 classify_heap_need(recv_marker_clear) -> neutral;
@@ -751,6 +790,7 @@ need_live_anno(Op) ->
         put_map -> true;
         put_record -> true;
         update_record -> true;
+        update_record_id -> true;
         _ -> false
     end.
 
@@ -880,6 +920,7 @@ need_y_init(#cg_set{op=debug_line}) -> true;
 need_y_init(#cg_set{op=put_map}) -> true;
 need_y_init(#cg_set{op=put_record}) -> true;
 need_y_init(#cg_set{op=update_record}) -> true;
+need_y_init(#cg_set{op=update_record_id}) -> true;
 need_y_init(#cg_set{}) -> false.
 
 %% opt_allocate([{BlockLabel,Block}], #st{}) -> [BeamInstruction].
@@ -1725,12 +1766,21 @@ cg_block([#cg_set{op=get_map_element,dst=Dst0,args=Args0,anno=Anno},
     Dst = beam_arg(Dst0, St),
     Fail = ensure_label(Fail0, St),
     {[{get_map_elements,Fail,Map,{list,[Key,Dst]}}],St};
-cg_block([#cg_set{op=get_record_element,dst=Dst0,args=Args0,anno=Anno},
+cg_block([#cg_set{op=get_record_element,dst=Dst0,args=Args0},
           #cg_set{op=succeeded,dst=Bool}], {Bool,Fail0}, St) ->
-    [Str,Key] = typed_args(Args0, Anno, St),
-    Dst = beam_arg(Dst0, St),
+    %% Generated by Erlang/OTP 29.
+    [Dst,Str,Key] = beam_args([Dst0|Args0], St),
     Fail = ensure_label(Fail0, St),
     {[{get_record_elements,Fail,Str,{list,[Key,Dst]}}],St};
+cg_block([#cg_set{op=get_record_element_id,dst=Dst0,args=Args0},
+          #cg_set{op=succeeded,dst=Bool}], {Bool,Fail0}, St) ->
+    %% Generated by Erlang/OTP 30.
+    [Dst,Id,Src,Key] = beam_args([Dst0|Args0], St),
+    Fail = case Id of
+               {atom,_} -> {f,0};
+               _ -> bif_fail(Fail0)
+           end,
+    {[{get_record_elements_id,Fail,Id,Src,{list,[Key,Dst]}}],St};
 cg_block([#cg_set{op={float,convert},dst=Dst0,args=Args0,anno=Anno},
           #cg_set{op=succeeded,dst=Bool}], {Bool,Fail}, St) ->
     {f,0} = bif_fail(Fail),                     %Assertion.
@@ -1741,6 +1791,15 @@ cg_block([#cg_set{op=bs_skip,args=Args0,anno=Anno}=I,
           #cg_set{op=succeeded,dst=Bool}], {Bool,Fail}, St) ->
     Args = typed_args(Args0, Anno, St),
     {cg_bs_skip(bif_fail(Fail), Args, I),St};
+cg_block([#cg_set{op=update_record_id,dst=Dst0,args=Args0}=Set,
+          #cg_set{op=succeeded,dst=Bool}], {Bool,Fail0}, St) ->
+    %% Update a native record.
+    Fail = bif_fail(Fail0),
+    Hint = {atom,reuse},
+    Live = get_live(Set),
+    [Dst,Id,Src|List] = beam_args([Dst0|Args0], St),
+    I = {update_record_id,Fail,Hint,Id,Src,Dst,Live,{list,List}},
+    {[I],St};
 cg_block([#cg_set{op=Op,dst=Dst0,args=Args0}=I,
           #cg_set{op=succeeded,dst=Bool}], {Bool,Fail}, St) ->
     [Dst|Args] = beam_args([Dst0|Args0], St),
@@ -2098,10 +2157,11 @@ is_killed({x,_}=R, [{init_yregs,_}|Is], Arity) ->
 is_killed({x,X}, [], Arity) ->
     X >= Arity.
 
-cg_alloc(#cg_alloc{stack=none,words=#need{h=0,l=0,f=0}}, _St) ->
-    [];
 cg_alloc(#cg_alloc{stack=none,words=Need,live=Live}, _St) ->
-    [{test_heap,alloc(Need),Live}];
+    case is_empty_need(Need) of
+        true -> [];
+        false -> [{test_heap,alloc(Need),Live}]
+    end;
 cg_alloc(#cg_alloc{stack=Stk,words=Need,live=Live,def_yregs=DefYregs},
          #cg{regs=Regs}) when is_integer(Stk) ->
     Alloc = alloc(Need),
@@ -2118,10 +2178,13 @@ init_yregs([_|_]=Yregs) ->
     [{init_yregs,{list,Yregs}}];
 init_yregs([]) -> [].
 
-alloc(#need{h=Words,l=0,f=0}) ->
+alloc(#need{h=Words,l=0,f=0,nr=0}) ->
     Words;
-alloc(#need{h=Words,l=Lambdas,f=Floats}) ->
-    {alloc,[{words,Words},{floats,Floats},{funs,Lambdas}]}.
+alloc(#need{h=Words,l=Lambdas,f=Floats,nr=Recs}) ->
+    AllocList0 = [{words,Words},{floats,Floats},
+                  {funs,Lambdas},{records,Recs}],
+    AllocList = [{Tag,N} || {Tag,N} <- AllocList0, N =/= 0],
+    {alloc,AllocList}.
 
 is_call([#cg_set{op=call,args=[#b_var{}|Args]}|_]) ->
     {yes,1+length(Args)};
@@ -2355,6 +2418,10 @@ cg_instr(is_nonempty_list, Ss, Dst, Set) ->
     %% is_nonempty_list instruction that will return a boolean, so
     %% we must revert it to an is_list/1 call.
     [{bif,is_list,{f,0},Ss,Dst}];
+cg_instr(put_record, [{atom,empty},Id|Ss], Dst, #cg_set{anno=Anno}=Set) ->
+    %% Local record creation, which can't fail.
+    Live = get_live(Set),
+    [line(Anno),{put_record,{f,0},Id,nil,Dst,Live,{list,Ss}}];
 cg_instr(Op, Args, Dst, _Set) ->
     cg_instr(Op, Args, Dst).
 
@@ -2537,34 +2604,34 @@ successors(#cg_switch{fail=Fail,list=List}) ->
     ordsets:from_list([Fail|[Lbl || {_,Lbl} <:- List]]);
 successors(#cg_ret{}) -> [].
 
-%% linearize(Blocks) -> [{BlockLabel,#cg_blk{}}].
+%% linearize(Blocks, St) -> [{BlockLabel,#cg_blk{}}].
 %%  Linearize the intermediate representation of the code. Also
 %%  translate blocks from the SSA records to internal record types
 %%  used only in this module.
 
-linearize(Blocks) ->
+linearize(Blocks, St) ->
     Linear = beam_ssa:linearize_only(Blocks),
-    linearize_1(Linear, Blocks).
+    linearize_1(Linear, Blocks, St).
 
-linearize_1([{?EXCEPTION_BLOCK,_}|Ls], Blocks) ->
-    linearize_1(Ls, Blocks);
-linearize_1([{L,Block0}|Ls], Blocks) ->
-    Block = translate_block(L, Block0, Blocks),
-    [{L,Block}|linearize_1(Ls, Blocks)];
-linearize_1([], _Blocks) -> [].
+linearize_1([{?EXCEPTION_BLOCK,_}|Ls], Blocks, St) ->
+    linearize_1(Ls, Blocks, St);
+linearize_1([{L,Block0}|Ls], Blocks, St) ->
+    Block = translate_block(L, Block0, Blocks, St),
+    [{L,Block}|linearize_1(Ls, Blocks, St)];
+linearize_1([], _Blocks, _St) -> [].
 
-%% translate_block(BlockLabel, #b_blk{}, Blocks) -> #cg_blk{}.
+%% translate_block(BlockLabel, #b_blk{}, Blocks, St) -> #cg_blk{}.
 %%  Translate a block to the internal records used in this module.
 %%  Also eliminate phi nodes, replacing them with 'copy' instructions
 %%  in the predecessor blocks.
 
-translate_block(L, #b_blk{anno=Anno,is=Is0,last=Last0}, Blocks) ->
+translate_block(L, #b_blk{anno=Anno,is=Is0,last=Last0}, Blocks, St) ->
     Last = translate_terminator(Last0),
-    PhiCopies = translate_phis(L, Last, Blocks),
+    PhiCopies = translate_phis(L, Last, Blocks, St),
     Is1 = translate_is(Is0, PhiCopies),
     Is = case Anno of
              #{frame_size:=Size} ->
-                 Alloc = #cg_alloc{stack=Size},
+                 Alloc = #cg_alloc{words=#need{},stack=Size},
                  [Alloc|Is1];
              #{} -> Is1
          end,
@@ -2610,7 +2677,7 @@ translate_terminator(#b_br{bool=Bool,succ=Succ,fail=Fail}) ->
 translate_terminator(#b_switch{anno=Anno,arg=Bool,fail=Fail,list=List}) ->
     #cg_switch{anno=Anno,arg=Bool,fail=Fail,list=List}.
 
-translate_phis(L, #cg_br{succ=Target,fail=Target}, Blocks) ->
+translate_phis(L, #cg_br{succ=Target,fail=Target}, Blocks, St) ->
     #b_blk{is=Is} = maps:get(Target, Blocks),
     Phis = takewhile(fun(#b_set{op=phi}) -> true;
                         (#b_set{}) -> false
@@ -2635,15 +2702,23 @@ translate_phis(L, #cg_br{succ=Target,fail=Target}, Blocks) ->
             %%     x0/xreg_1 = copy y0/yreg_0
             %%
             Nop = #cg_set{op=nop,dst=NopDst,args=[]},
-            [Nop|phi_copies(Phis, L)]
+            [Nop|phi_copies(Phis, L, St)]
     end;
-translate_phis(_, _, _) -> [].
+translate_phis(_, _, _, _) -> [].
 
-phi_copies([#b_set{anno=Anno0,dst=Dst,args=PhiArgs}|Sets], L) ->
-    CopyArgs = [V || {V,Target} <- PhiArgs, Target =:= L],
-    Anno = Anno0#{was_phi => true},
-    [#cg_set{anno=Anno,op=copy,dst=Dst,args=CopyArgs}|phi_copies(Sets, L)];
-phi_copies([], _) -> [].
+phi_copies([#b_set{anno=Anno0,dst=Dst,args=PhiArgs}|Sets], L, St) ->
+    case beam_arg(Dst, St) of
+        {z,_} ->
+            %% This value is never used. (Only happens with
+            %% unoptimized code.)
+            phi_copies(Sets, L, St);
+        _ ->
+            CopyArgs = [V || {V,Target} <- PhiArgs, Target =:= L],
+            Anno = Anno0#{was_phi => true},
+            [#cg_set{anno=Anno,op=copy,dst=Dst,args=CopyArgs} |
+             phi_copies(Sets, L, St)]
+    end;
+phi_copies([], _, _) -> [].
 
 %% opt_move_to_x0([Instruction]) -> [Instruction].
 %%  Simple peep-hole optimization to move a {move,Any,{x,0}} past

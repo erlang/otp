@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright Ericsson AB 2008-2025. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2026. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -43,6 +43,25 @@
 #include "wxe_events.h"
 #include "wxe_return.h"
 #include "wxe_gl.h"
+
+// Non-fatal X error handler (GLX/X11 backend only).
+// GDK installs an X error handler that escalates asynchronous X protocol
+// errors to a fatal g_log() -> G_BREAKPOINT() -> SIGTRAP, killing the whole
+// process. Some GL stacks (e.g. Mesa GLX with wxGLCanvas on wx 3.0) emit a
+// benign asynchronous GLX BadMatch on SwapBuffers during GL window teardown;
+// that must not abort the emulator. Install our own handler that logs the
+// error and returns 0 (non-fatal), matching how robust GTK GL apps behave.
+//
+// This only applies to the GLX/X11 GL canvas backend. wxWidgets 3.2+ has an
+// EGL GL canvas backend (Wayland) that does not use Xlib; there is no X error
+// path to guard there. wxUSE_GLCANVAS_EGL is defined (to 0/1) on wx builds
+// that know about EGL and is absent on older (GLX-only) wx, so treat "absent
+// or 0" as the GLX/X11 case. Include Xlib explicitly rather than relying on
+// the GL canvas header to pull it in transitively.
+#if defined(__WXGTK__) && (!defined(wxUSE_GLCANVAS_EGL) || !wxUSE_GLCANVAS_EGL)
+#define WXE_INSTALL_X_ERROR_HANDLER 1
+#include <X11/Xlib.h>
+#endif
 
 IMPLEMENT_APP_NO_MAIN(WxeApp)
 
@@ -91,7 +110,7 @@ void push_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[], int op, wxe_m
     int wakeup = wxe_needs_wakeup;
     wxe_needs_wakeup = 0;
     enif_mutex_unlock(wxe_batch_locker_m);
-    if(n < 2 || wakeup || WXE_DEBUG_PING) {
+    if(n < 2 || wakeup || op == WXE_DEBUG_PING) {
       wxWakeUpIdle();
     }
   }
@@ -177,6 +196,31 @@ static GLogWriterOutput wxe_log_glib(GLogLevelFlags log_level,
 }
 #endif
 
+#if defined(WXE_INSTALL_X_ERROR_HANDLER)
+// Non-fatal X error handler; see the comment at the top of this file where
+// WXE_INSTALL_X_ERROR_HANDLER is defined. Reports the error to Erlang (like
+// wxe_log_glib does for GTK messages) and returns 0 so an asynchronous GLX/X
+// protocol error cannot abort the emulator.
+static int wxe_x_error_handler(Display *dpy, XErrorEvent *ev)
+{
+  (void) dpy;
+  // Report the first few occurrences only, to avoid flooding if it repeats.
+  static int wxe_x_error_count = 0;
+  if(wxe_x_error_count < 10) {
+    wxe_x_error_count++;
+    wxString msg;
+    msg.Printf(wxT("non-fatal X error ignored: "
+                   "error_code=%u request_code=%u minor_code=%u "
+                   "resource=0x%lx serial=%lu"),
+               (unsigned) ev->error_code, (unsigned) ev->request_code,
+               (unsigned) ev->minor_code, (unsigned long) ev->resourceid,
+               (unsigned long) ev->serial);
+    send_msg("warning", &msg);
+  }
+  return 0; // non-fatal: do not let the error abort the process
+}
+#endif
+
 bool WxeApp::OnInit()
 {
 
@@ -211,6 +255,16 @@ bool WxeApp::OnInit()
 
 #ifdef HAVE_GLIB
   g_log_set_writer_func(wxe_log_glib, NULL, NULL);
+#endif
+
+#if defined(WXE_INSTALL_X_ERROR_HANDLER)
+  // Only meaningful under X11/XWayland. wxGetDisplay() returns the X Display*
+  // on the GTK/X11 backend and NULL on a native Wayland backend (where this
+  // class of asynchronous X protocol error cannot occur), so use it as a
+  // runtime gate.
+  if(wxGetDisplay() != NULL) {
+    XSetErrorHandler(wxe_x_error_handler);
+  }
 #endif
 
   SetExitOnFrameDelete(false);
@@ -415,11 +469,11 @@ int WxeApp::dispatch(wxeFifo * batch)
         enif_mutex_lock(wxe_batch_locker_m);
 	break;
       }
+      batch->DeleteCmd(event);
       if(wait > CHECK_EVENTS) {
         enif_mutex_unlock(wxe_batch_locker_m);
         return 1; // Let wx check for events
       }
-      batch->DeleteCmd(event);
     }
     if(blevel <= 0) {
       enif_mutex_unlock(wxe_batch_locker_m);
@@ -571,7 +625,6 @@ void * newMemEnv(ErlNifEnv* env, wxe_me_ref *mr)
   WxeApp * app = (WxeApp *) wxTheApp;
   wxeMemEnv* global_me = app->global_me;
   wxeMemEnv* memenv = new wxeMemEnv();
-  memenv->create();
 
   for(int i = 0; i < global_me->next; i++) {
     memenv->ref2ptr[i] = global_me->ref2ptr[i];
@@ -710,8 +763,9 @@ void WxeApp::destroyMemEnv(wxeMetaCommand &Ecmd)
 //  fflush(stderr);
   enif_free(memenv->ref2ptr);
   enif_free_env(memenv->tmp_env);
-  if(wxe_debug) enif_fprintf(stderr, "Deleting memenv %d\r\n", memenv);
+  if(wxe_debug) enif_fprintf(stderr, "Deleting memenv %p\r\n", memenv);
   Ecmd.me_ref->memenv = NULL;
+  delete memenv;
   enif_release_resource(Ecmd.me_ref);
 }
 
@@ -732,7 +786,7 @@ wxeRefData * WxeApp::getRefData(void *ptr) {
 
 int WxeApp::newPtr(void * ptr, int type, wxeMemEnv *memenv) {
   int ref;
-  intList free = memenv->free;
+  intList &free = memenv->free;
 
   if(free.IsEmpty()) {
     ref = memenv->next++;
@@ -770,11 +824,16 @@ int WxeApp::getRef(void * ptr, wxeMemEnv *memenv, int type) {
       // Found it return
       return refd->ref;
     } // else
-    // Old reference to deleted object, release old and recreate in current memenv.
+    // Stale reference to an object whose address has been recycled after its
+    // owning memenv was torn down (memenv is deleted in destroyMemEnv, so
+    // refd->memenv is now a dangling pointer and must not be dereferenced).
+    // Just drop the stale entry and recreate the reference in the current
+    // memenv below.
+    delete refd;
     ptr2ref.erase(it);
   }
   int ref;
-  intList free = memenv->free;
+  intList &free = memenv->free;
 
   if(free.IsEmpty()) {
     ref = memenv->next++;
@@ -798,7 +857,7 @@ void WxeApp::clearPtr(void * ptr) {
 
   if(it != ptr2ref.end()) {
     wxeRefData *refd = it->second;
-    intList free = refd->memenv->free;
+    intList &free = refd->memenv->free;
     int ref = refd->ref;
     refd->memenv->ref2ptr[ref] = NULL;
     free.Append(ref);
@@ -814,27 +873,32 @@ void WxeApp::clearPtr(void * ptr) {
     if(refd->type == 1 && ((wxObject*)ptr)->IsKindOf(CLASSINFO(wxSizer))) {
       wxSizerItemList list = ((wxSizer*)ptr)->GetChildren();
       for(wxSizerItemList::compatibility_iterator node = list.GetFirst();
-	  node; node = node->GetNext()) {
-	wxSizerItem *item = node->GetData();
-	wxObject *content=NULL;
-	if((content = item->GetWindow()))
-	  if(ptr2ref.end() == ptr2ref.find(content)) {
-	    wxString msg;
-	    wxClassInfo *cinfo = ((wxObject *)ptr)->GetClassInfo();
-	    msg.Printf(wxT("Double usage detected of window at %p in sizer {wx_ref, %d, %s}"),
-		       content, ref, cinfo->GetClassName());
-	    send_msg("error", &msg);
-	    ((wxSizer*)ptr)->Detach((wxWindow*)content);
-	  }
-	if((content = item->GetSizer()))
-	  if(ptr2ref.end() == ptr2ref.find(content)) {
-	    wxString msg;
-	    wxClassInfo *cinfo = ((wxObject *)ptr)->GetClassInfo();
-	    msg.Printf(wxT("Double usage detected of sizer at %p in sizer {wx_ref, %d, %s}"),
-		       content, ref, cinfo->GetClassName());
-	    send_msg("error", &msg);
-	    ((wxSizer*)ptr)->Detach((wxSizer*)content);
-	  }
+          node; node = node->GetNext()) {
+        wxSizerItem *item = node->GetData();
+        // wxSizer::Detach() deletes the wxSizerItem, so read both members
+        // before any Detach and use else-if: a sizer item holds a window XOR
+        // a sizer, and re-reading item after a Detach would be use-after-free.
+        wxObject *win = item->GetWindow();
+        wxObject *childSizer = item->GetSizer();
+        if(win) {
+          if(ptr2ref.end() == ptr2ref.find(win)) {
+            wxString msg;
+            wxClassInfo *cinfo = ((wxObject *)ptr)->GetClassInfo();
+            msg.Printf(wxT("Double usage detected of window at %p in sizer {wx_ref, %d, %s}"),
+                       win, ref, cinfo->GetClassName());
+            send_msg("error", &msg);
+            ((wxSizer*)ptr)->Detach((wxWindow*)win);
+          }
+        } else if(childSizer) {
+          if(ptr2ref.end() == ptr2ref.find(childSizer)) {
+            wxString msg;
+            wxClassInfo *cinfo = ((wxObject *)ptr)->GetClassInfo();
+            msg.Printf(wxT("Double usage detected of sizer at %p in sizer {wx_ref, %d, %s}"),
+                       childSizer, ref, cinfo->GetClassName());
+            send_msg("error", &msg);
+            ((wxSizer*)ptr)->Detach((wxSizer*)childSizer);
+          }
+        }
       }
     }
 

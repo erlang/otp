@@ -458,7 +458,7 @@ format_error_1({unknown_phi_variable, Name, {From, _To}, I}) ->
                   [format_var(Name), format_instr(I), From]);
 format_error_1({unknown_block, Label, I}) ->
     io_lib:format("Unknown block ~p referenced in ~ts",
-                  [Label, I]);
+                  [Label, format_instr(I)]);
 format_error_1({unknown_variable, Name, I}) ->
     io_lib:format("Unbound variable ~ts used in ~ts",
                   [format_var(Name), format_instr(I)]);

@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -109,7 +109,7 @@ wxWidgets docs: [wxFontDialog](https://docs.wxwidgets.org/3.2/classwx_font_dialo
   moveBeforeInTabOrder/2,navigate/1,navigate/2,pageDown/1,pageUp/1,parent_class/1,
   popupMenu/2,popupMenu/3,popupMenu/4,raise/1,refresh/1,refresh/2,refreshRect/2,
   refreshRect/3,releaseMouse/1,removeChild/2,reparent/2,requestUserAttention/1,
-  requestUserAttention/2,screenToClient/1,screenToClient/2,scrollLines/2,
+  requestUserAttention/2,screenToClient/2,screenToClient/3,scrollLines/2,
   scrollPages/2,scrollWindow/3,scrollWindow/4,setAcceleratorTable/2,
   setAffirmativeId/2,setAutoLayout/2,setBackgroundColour/2,setBackgroundStyle/2,
   setCaret/2,setClientSize/2,setClientSize/3,setContainingSizer/2,setCursor/2,
@@ -152,7 +152,7 @@ Pass a parent window, and the `m:wxFontData` object to be used to initialize the
 controls.
 """.
 -spec new(Parent, Data) -> wxFontDialog() when
-	Parent::wxWindow:wxWindow(), Data::wxFontData:wxFontData().
+        Parent::wxWindow:wxWindow(), Data::wxFontData:wxFontData().
 new(#wx_ref{type=ParentT}=Parent,#wx_ref{type=DataT}=Data) ->
   ?CLASS(ParentT,wxWindow),
   ?CLASS(DataT,wxFontData),
@@ -166,7 +166,7 @@ constructor.
 Return: true on success and false if an error occurred.
 """.
 -spec create(This, Parent, Data) -> boolean() when
-	This::wxFontDialog(), Parent::wxWindow:wxWindow(), Data::wxFontData:wxFontData().
+        This::wxFontDialog(), Parent::wxWindow:wxWindow(), Data::wxFontData:wxFontData().
 create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,#wx_ref{type=DataT}=Data) ->
   ?CLASS(ThisT,wxFontDialog),
   ?CLASS(ParentT,wxWindow),
@@ -176,7 +176,7 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent,#wx_ref{type=DataT}
 
 -doc "Returns the `m:wxFontData` associated with the font dialog.".
 -spec getFontData(This) -> wxFontData:wxFontData() when
-	This::wxFontDialog().
+        This::wxFontDialog().
 getFontData(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxFontDialog),
   wxe_util:queue_cmd(This,?get_env(),?wxFontDialog_GetFontData),
@@ -392,9 +392,9 @@ scrollPages(This,Pages) -> wxWindow:scrollPages(This,Pages).
 -doc false.
 scrollLines(This,Lines) -> wxWindow:scrollLines(This,Lines).
 -doc false.
-screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
+screenToClient(This,X,Y) -> wxWindow:screenToClient(This,X,Y).
 -doc false.
-screenToClient(This) -> wxWindow:screenToClient(This).
+screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
 -doc false.
 reparent(This,NewParent) -> wxWindow:reparent(This,NewParent).
 -doc false.

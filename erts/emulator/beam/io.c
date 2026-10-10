@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright Ericsson AB 1996-2025. All Rights Reserved.
+ * Copyright Ericsson AB 1996-2026. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -93,7 +93,7 @@ static erts_atomic64_t bytes_in;
 static erts_atomic64_t bytes_out;
 
 static void deliver_result(Port *p, Eterm sender, Eterm pid, Eterm res);
-static int init_driver(erts_driver_t *, ErlDrvEntry *, DE_Handle *);
+static int init_driver(erts_driver_t *, ErlDrvEntry *, DE_Handle *, bool);
 static void terminate_port(Port *p);
 static void pdl_init(void);
 static int driver_failure_term(ErlDrvPort ix, Eterm term, int eof);
@@ -498,7 +498,7 @@ erts_port_free(Port *prt)
 static void initq(Port* prt)
 {
     ERTS_LC_ASSERT(!prt->port_data_lock);
-    erts_ioq_init(&prt->ioq, ERTS_ALC_T_IOQ, 1);
+    erts_ioq_init(&prt->ioq, ERTS_ALC_T_IOQ, true);
 }
 
 static void stopq(Port* prt)
@@ -685,7 +685,7 @@ erts_open_driver(erts_driver_t* driver,	/* Pointer to driver. */
                                  &opts->high_msgq_watermark);
 
     error_number = error_type = 0;
-    if (driver->start) {
+    if (driver->start || driver->start_sys_drv) {
         ERTS_MSACC_PUSH_STATE_M();
 	if (ERTS_IS_P_TRACED_FL(port, F_TRACE_SCHED_PORTS)) {
 	    trace_sched_ports_where(port, am_in, am_open);
@@ -710,7 +710,13 @@ erts_open_driver(erts_driver_t* driver,	/* Pointer to driver. */
         }
 #endif
 
-	drv_data = (*driver->start)(ERTS_Port2ErlDrvPort(port), name, opts);
+        if (driver->start_sys_drv) {
+            drv_data = (*driver->start_sys_drv)(ERTS_Port2ErlDrvPort(port),
+                                                name, opts);
+        }
+        else {
+            drv_data = (*driver->start)(ERTS_Port2ErlDrvPort(port), name);
+        }
 	if (((SWord) drv_data) == -1)
 	    error_type = -1;
 	else if (((SWord) drv_data) == -2) {
@@ -2112,6 +2118,8 @@ erts_port_output(Process *c_p,
 	    ASSERT(esdp);
 	    ns_pthp = &esdp->nosuspend_port_task_handle;
 	    sigdp->flags &= ~ERTS_P2P_SIG_DATA_FLG_NOSUSPEND;
+            sigdp->flags |= ERTS_P2P_SIG_DATA_FLG_ASYNC_NOSUSPEND;
+            task_flags = ERTS_PT_FLG_WAIT_BUSY|ERTS_PT_FLG_ASYNC_NOSUSPEND;
 	}
 	else if (flags & ERTS_P2P_SIG_DATA_FLG_NOSUSPEND)
 	    task_flags = ERTS_PT_FLG_NOSUSPEND;
@@ -2143,7 +2151,7 @@ erts_port_output(Process *c_p,
 	    if (!async_nosuspend)
 		return ERTS_PORT_OP_BUSY_SCHEDULED;
 	    else {
-		if (erts_port_task_abort(ns_pthp) == 0)
+                if (erts_port_task_abort(prt, ns_pthp) == 0)
 		    return ERTS_PORT_OP_BUSY;
 		else
 		    erts_port_task_tmp_handle_detach(ns_pthp);
@@ -2932,16 +2940,16 @@ erl_drv_init_ack(ErlDrvPort ix, ErlDrvData res) {
 
     if (port->async_open_port) {
         switch(err_type) {
-        case -3:
+        case ERL_DRV_ERROR_BADARG_INT_:
             resp = am_badarg;
             break;
-        case -2: {
+        case ERL_DRV_ERROR_ERRNO_INT_: {
             char *str = erl_errno_id(errno);
             resp = erts_atom_put((byte *) str, sys_strlen(str),
                                  ERTS_ATOM_ENC_LATIN1, 1);
             break;
         }
-        case -1:
+        case ERL_DRV_ERROR_GENERAL_INT_:
             resp = am_einval;
             break;
         default:
@@ -2951,7 +2959,9 @@ erl_drv_init_ack(ErlDrvPort ix, ErlDrvData res) {
 
         init_ack_send_reply(port, resp);
 
-        if (err_type == -1 || err_type == -2 || err_type == -3)
+        if (res == ERL_DRV_ERROR_BADARG ||
+            res == ERL_DRV_ERROR_ERRNO ||
+            res == ERL_DRV_ERROR_GENERAL)
             driver_failure_term(ix, am_normal, 0);
         port->drv_data = err_type;
     }
@@ -3024,10 +3034,10 @@ void erts_init_io(int port_tab_size,
     erts_tsd_set(driver_list_lock_status_key, (void *) 1);
     erts_rwmtx_rwlock(&erts_driver_list_lock);
 
-    init_driver(&fd_driver, &fd_driver_entry, NULL);
-    init_driver(&spawn_driver, &spawn_driver_entry, NULL);
+    init_driver(&fd_driver, &fd_driver_entry, NULL, true);
+    init_driver(&spawn_driver, &spawn_driver_entry, NULL, true);
 #ifndef __WIN32__
-    init_driver(&forker_driver, &forker_driver_entry, NULL);
+    init_driver(&forker_driver, &forker_driver_entry, NULL, true);
 #endif
     erts_init_static_drivers();
     for (dp = driver_tab; dp->de != NULL; dp++)
@@ -3142,9 +3152,9 @@ void erts_lcnt_update_port_locks(int enable) {
  * Parameters:
  * bufsiz - The (maximum) size of the line buffer.
  */
-LineBuf *allocate_linebuf(int bufsiz)
+LineBuf *allocate_linebuf(Sint bufsiz)
 {
-    int ovsiz = (bufsiz < LINEBUF_INITIAL) ? bufsiz : LINEBUF_INITIAL;
+    Sint ovsiz = (bufsiz < LINEBUF_INITIAL) ? bufsiz : LINEBUF_INITIAL;
     LineBuf *lb = (LineBuf *) erts_alloc(ERTS_ALC_T_LINEBUF,
 					 sizeof(LineBuf)+ovsiz);
     lb->ovsiz = ovsiz;
@@ -7547,7 +7557,8 @@ no_stop_select_callback(ErlDrvEvent event, void* private)
      ((DE)->major_version == (MAJOR) && (DE)->minor_version >= (MINOR)))
 
 static int
-init_driver(erts_driver_t *drv, ErlDrvEntry *de, DE_Handle *handle)
+init_driver(erts_driver_t *drv, ErlDrvEntry *de, DE_Handle *handle,
+            bool is_system_driver)
 {
     drv->name_atom = erts_atom_put((byte*)de->driver_name,
                                    sys_strlen(de->driver_name),
@@ -7570,7 +7581,14 @@ init_driver(erts_driver_t *drv, ErlDrvEntry *de, DE_Handle *handle)
     }
     drv->entry = de;
 
-    drv->start = de->start;
+    if (is_system_driver) {
+        drv->start = NULL;
+        drv->start_sys_drv = de->start;
+    }
+    else {
+        drv->start = (ErlDrvData (*)(ErlDrvPort, char *)) de->start;
+        drv->start_sys_drv = NULL;
+    }
     drv->stop = de->stop;
     drv->finish = de->finish;
     drv->flush = de->flush;
@@ -7651,7 +7669,7 @@ int erts_add_driver_entry(ErlDrvEntry *de, DE_Handle *handle,
     }
 
     if (!err) {
-        err = init_driver(dp, de, handle);
+        err = init_driver(dp, de, handle, false);
 
         if (taint) {
             erts_add_taint(dp->name_atom);

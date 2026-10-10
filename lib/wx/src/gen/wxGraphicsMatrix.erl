@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -89,7 +89,7 @@ The effect of the resulting transformation is to first apply the transformation 
 the coordinates and then apply the transformation in the current matrix to the coordinates.
 """.
 -spec concat(This, T) -> 'ok' when
-	This::wxGraphicsMatrix(), T::wxGraphicsMatrix().
+        This::wxGraphicsMatrix(), T::wxGraphicsMatrix().
 concat(#wx_ref{type=ThisT}=This,#wx_ref{type=TT}=T) ->
   ?CLASS(ThisT,wxGraphicsMatrix),
   ?CLASS(TT,wxGraphicsMatrix),
@@ -106,14 +106,14 @@ get(#wx_ref{type=ThisT}=This) ->
 
 -doc "Inverts the matrix.".
 -spec invert(This) -> 'ok' when
-	This::wxGraphicsMatrix().
+        This::wxGraphicsMatrix().
 invert(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGraphicsMatrix),
   wxe_util:queue_cmd(This,?get_env(),?wxGraphicsMatrix_Invert).
 
 -doc "Returns true if the elements of the transformation matrix are equal.".
 -spec isEqual(This, T) -> boolean() when
-	This::wxGraphicsMatrix(), T::wxGraphicsMatrix().
+        This::wxGraphicsMatrix(), T::wxGraphicsMatrix().
 isEqual(#wx_ref{type=ThisT}=This,#wx_ref{type=TT}=T) ->
   ?CLASS(ThisT,wxGraphicsMatrix),
   ?CLASS(TT,wxGraphicsMatrix),
@@ -122,7 +122,7 @@ isEqual(#wx_ref{type=ThisT}=This,#wx_ref{type=TT}=T) ->
 
 -doc "Return true if this is the identity matrix.".
 -spec isIdentity(This) -> boolean() when
-	This::wxGraphicsMatrix().
+        This::wxGraphicsMatrix().
 isIdentity(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGraphicsMatrix),
   wxe_util:queue_cmd(This,?get_env(),?wxGraphicsMatrix_IsIdentity),
@@ -130,7 +130,7 @@ isIdentity(#wx_ref{type=ThisT}=This) ->
 
 -doc "Rotates this matrix clockwise (in radians).".
 -spec rotate(This, Angle) -> 'ok' when
-	This::wxGraphicsMatrix(), Angle::number().
+        This::wxGraphicsMatrix(), Angle::number().
 rotate(#wx_ref{type=ThisT}=This,Angle)
  when is_number(Angle) ->
   ?CLASS(ThisT,wxGraphicsMatrix),
@@ -138,7 +138,7 @@ rotate(#wx_ref{type=ThisT}=This,Angle)
 
 -doc "Scales this matrix.".
 -spec scale(This, XScale, YScale) -> 'ok' when
-	This::wxGraphicsMatrix(), XScale::number(), YScale::number().
+        This::wxGraphicsMatrix(), XScale::number(), YScale::number().
 scale(#wx_ref{type=ThisT}=This,XScale,YScale)
  when is_number(XScale),is_number(YScale) ->
   ?CLASS(ThisT,wxGraphicsMatrix),
@@ -146,7 +146,7 @@ scale(#wx_ref{type=ThisT}=This,XScale,YScale)
 
 -doc "Translates this matrix.".
 -spec translate(This, Dx, Dy) -> 'ok' when
-	This::wxGraphicsMatrix(), Dx::number(), Dy::number().
+        This::wxGraphicsMatrix(), Dx::number(), Dy::number().
 translate(#wx_ref{type=ThisT}=This,Dx,Dy)
  when is_number(Dx),is_number(Dy) ->
   ?CLASS(ThisT,wxGraphicsMatrix),
@@ -154,7 +154,7 @@ translate(#wx_ref{type=ThisT}=This,Dx,Dy)
 
 -doc(#{equiv => set(This, [])}).
 -spec set(This) -> 'ok' when
-	This::wxGraphicsMatrix().
+        This::wxGraphicsMatrix().
 
 set(This)
  when is_record(This, wx_ref) ->
@@ -184,7 +184,7 @@ set(#wx_ref{type=ThisT}=This, Options)
 
 -doc "Applies this matrix to a point.".
 -spec transformPoint(This) -> {X::number(), Y::number()} when
-	This::wxGraphicsMatrix().
+        This::wxGraphicsMatrix().
 transformPoint(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGraphicsMatrix),
   wxe_util:queue_cmd(This,?get_env(),?wxGraphicsMatrix_TransformPoint),
@@ -196,7 +196,7 @@ Applies this matrix to a distance (ie.
 performs all transforms except translations).
 """.
 -spec transformDistance(This) -> {Dx::number(), Dy::number()} when
-	This::wxGraphicsMatrix().
+        This::wxGraphicsMatrix().
 transformDistance(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGraphicsMatrix),
   wxe_util:queue_cmd(This,?get_env(),?wxGraphicsMatrix_TransformDistance),

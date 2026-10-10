@@ -293,7 +293,7 @@ to_file_custom_vsn(
       {error, Msg}
   end.
 
--spec merge_warnings(none | [raw_warning], [{module(), raw_warning()}], none | warning_map()) -> none | warning_map().
+-spec merge_warnings(none | [raw_warning()], [{module(), raw_warning()}], none | warning_map()) -> none | warning_map().
 merge_warnings(none, _, OldWarningMap) -> OldWarningMap;
 merge_warnings(NewWarnings, UnknownWarnings, none) ->
   convert_to_warning_map(NewWarnings, UnknownWarnings);

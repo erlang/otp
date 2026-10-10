@@ -22,23 +22,29 @@
 %%
 -module(array).
 -moduledoc """
-Functional, extendible arrays.
+Functional, extendable arrays.
 
-Arrays can have fixed size, or can grow automatically as needed. A default value
-is used for entries that have not been explicitly set.
+Arrays can have fixed size, or can grow automatically as needed, so called
+extendable arrays.
+A default value is used for entries that have not been explicitly set.
 
 Arrays uses _zero_-based indexing. This is a deliberate design choice and
 differs from other Erlang data structures, for example, tuples.
 
-Unless specified by the user when the array is created, the default value is the
-atom `undefined`. There is no difference between an unset entry and an entry
-that has been explicitly set to the same value as the default one (compare
-`reset/2`). If you need to differentiate between unset and set entries, ensure
-that the default value cannot be confused with the values of set entries.
+An extendable array grows automatically when you set an entry outside its currently defined part, but it never shrinks automatically afterwards. Once an index I has been used to successfully set an entry, all indices in `[0,I]` stay accessible until the size is explicitly changed with resize/2.
 
-The array never shrinks automatically. If an index `I` has been used to set an
-entry successfully, all indices in the range `[0,I]` stay accessible unless the
-array size is explicitly changed by calling `resize/2`.
+Unless specified by the user when the array is created, the default value is the
+atom `undefined`. An unset entry and an entry
+that has been explicitly set compare equal. If you need to differentiate between
+unset and set entries, ensure
+that the default value cannot be confused with the values of set entries.
+The only subtle difference
+is that for extendable arrays, setting an entry to a default value may make the
+array grow, but unsetting it (with `reset/2`) will not make it shrink.
+
+Functions like `concat/1` that create arrays from other arrays can mix fixed size
+arrays with extendable arrays. Carefully read the documentation in order to understand
+what results to expect when arrays have different defaults or are of different kind.
 
 ## Examples
 
@@ -49,7 +55,7 @@ A0 = array:new(10).
 10 = array:size(A0).
 ```
 
-Create an extendible array and set entry 17 to `true`, causing the array to grow
+Create an extendable array and set entry 17 to `true`, causing the array to grow
 automatically:
 
 ```
@@ -509,7 +515,7 @@ Change the array size.
 If `Size` is not a non-negative integer, the call fails with reason `badarg`. If
 the specified array has fixed size, also the resulting array has fixed size.
 
-Note: As of OTP 29, resizing ensures that entries outside the new range are
+Note: As of OTP 29, resizing ensures that entries outside the array are
 pruned so that garbage collection can recover the memory.
 
 ## Examples
@@ -527,29 +533,25 @@ See also `shift/2`.
 -spec resize(Size :: non_neg_integer(), Array :: array(Type)) ->
                     array(Type).
 
-resize(Size, #array{size = N, zero = Z, cache = C, cache_index = CI, elements = E, default = D, bits = S}=A)
+resize(Size, #array{size = N, zero = Z, cache = C, cache_index = CI,
+                    elements = E, default = D, bits = S}=A)
   when is_integer(Size), Size >= 0, is_integer(N), N >= 0,
        is_integer(CI), is_integer(S) ->
     if Size > N ->
-            case Z > 0 of
-                true ->
-                    E1 = set_leaf(CI, S, E, C),
-                    %% Reset everything left of Z and maybe shrink tree
-                    {E2, Z2, S2} = shrink(Z, N, S, E1, D),
-                    {E3, S3} = grow(Z2 + Size-1, E2, S2),
-                    CI1 = 0,
-                    C1 = get_leaf(CI1, S3, E3, D),
-                    A#array{size = Size, zero = Z2, elements = E3, cache = C1, cache_index = CI1, bits = S3};
-                false ->
-                    {E1, S1} = grow(Z + Size-1, E, S),
-                    A#array{size = Size, elements = E1, bits = S1}
-            end;
-       Size < N; Z > 0 ->
+            E1 = set_leaf(CI, S, E, C),
+            {E2, Z2, S2} = shrink(Z, N, S, E1, D),
+            {E3, S3} = grow(Z2 + Size-1, E2, S2),
+            CI1 = 0,
+            C1 = get_leaf(CI1, S3, E3, D),
+            A#array{size = Size, zero = Z2, elements = E3,
+                    cache = C1, cache_index = CI1, bits = S3};
+       Size < N; Z > 0; (Z + Size) < ?SIZE(S) ->
             E1 = set_leaf(CI, S, E, C),
             {E2, Z2, S1} = shrink(Z, Size, S, E1, D),
             CI1 = 0,
             C1 = get_leaf(CI1, S1, E2, D),
-            A#array{size = Size, zero = Z2, elements = E2, cache = C1, cache_index = CI1, bits = S1};
+            A#array{size = Size, zero = Z2, elements = E2,
+                    cache = C1, cache_index = CI1, bits = S1};
        true ->
             A
     end;
@@ -772,6 +774,9 @@ that a subsequent shift or similar operation can bring back the values that
 were shifted out. Use `resize/2` or `resize/1` if you want to ensure that
 values outside the range get pruned.
 
+The call fails with a badarg if array is shifted to the left more
+than its size (even for non fixed arrays).
+
 ## Examples
 
 ```erlang
@@ -788,16 +793,27 @@ values outside the range get pruned.
 -spec shift(Steps :: integer(), Array :: array(Type)) -> array(Type).
 shift(0, A=#array{}) ->
     A;
-shift(Steps, #array{size = N, zero = Z}=A)
+shift(Steps, #array{size = N, zero = Z, cache_index = CI0}=A)
   when is_integer(Steps), is_integer(N), Steps =< N, is_integer(Z) ->
     Z1 = Z + Steps,
     N1 = N - Steps,
     if Z1 >= 0 ->
-            A#array{size = N1, zero = Z1};
+            if CI0 >= N1 ->
+                    %% We need to move the cache
+                    #array{elements = E, bits = S, cache = C, default = D} = A,
+                    E1 = set_leaf(CI0, S, E, C),
+                    CI1 = Z1 band (bnot ?MASK),
+                    C1 = get_leaf(CI1, S, E1, D),
+                    A#array{size = N1, zero = Z1,
+                            cache_index = CI1, cache = C1,
+                            elements = E1};
+               true ->
+                    A#array{size = N1, zero = Z1}
+            end;
        true ->
-            #array{cache_index = CI, elements = E, bits = S} = A,
+            #array{elements = E, bits = S} = A,
             {E1, S1, Z2} = grow_left(Z1, E, S),
-            CI1 = CI + (Z2-Z1),
+            CI1 = CI0 + (Z2-Z1),
             A#array{size = N1, zero = Z2, cache_index = CI1, elements = E1, bits = S1}
     end;
 shift(_Steps, _A) ->
@@ -849,14 +865,24 @@ values outside the range get pruned.
 """.
 -doc #{ since => ~"OTP 29.0" }.
 -spec slice(I :: array_indx(), Length :: non_neg_integer(), Array :: array(Type)) -> array(Type).
-slice(I, Length, #array{size = N}=A)
+slice(I, Length, #array{size = N}=A0)
   when is_integer(I), I >= 0,
        is_integer(N), N >= 0,
        is_integer(Length), Length >= 0,
        I + Length =< N ->
     %% eqwalizer:ignore ambiguous_union
-    A1 = shift(I, A),
-    A1#array{size = Length};
+    case shift(I, A0) of
+        #array{zero = Z, cache_index = CI0}=A
+          when CI0 > (Z + Length) ->
+            %% We need to move the cache
+            #array{elements = E, bits = S, cache = C, default = D} = A,
+            E1 = set_leaf(CI0, S, E, C),
+            CI1 = I band (bnot ?MASK),
+            C1 = get_leaf(CI1, S, E1, D),
+            A#array{size = Length, cache_index = CI1, cache = C1, elements = E1};
+        A ->
+            A#array{size = Length}
+    end;
 slice(_I, _N, _A) ->
     erlang:error(badarg).
 
@@ -865,6 +891,7 @@ slice(_I, _N, _A) ->
 Append a single value to the right side of the array.
 
 The operation is always allowed even if the array is fixed.
+The size of the array increases by one.
 
 ## Examples
 
@@ -914,6 +941,7 @@ append(_V, _A) ->
 Prepend a single value to the left side of the array.
 
 The operation is always allowed even if the array is fixed.
+The size of the array increases by one.
 
 ## Examples
 
@@ -1047,6 +1075,12 @@ Concatenates two arrays.
 
 Adds the elements of `B` onto `A`.
 
+This means that `A` determines the default element and whether or not the result is
+a fixed size array or an extendable array. If `A` is fixed size, its size will increase,
+but still be fixed after the concatenation.
+For arrays where `B`'s default differs from `A`'s default, the `B` entries up to `B`'s
+size are added to `A`.
+
 ## Examples
 
 ```erlang
@@ -1055,6 +1089,14 @@ Adds the elements of `B` onto `A`.
 3> AB = array:concat(A,B).
 4> array:to_list(AB).
 [xa,a,xa,xb,xb,b,xb]
+```
+
+```erlang
+1> A = array:new([{default, 0}]).
+2> B = array:set(2, 0, array:new([{default, 1}])).
+3> AB = array:concat(A,B).
+4> array:to_list(AB).
+[1,1,0]
 ```
 
 See also `concat/1`, `append/2`, `prepend/2`.
@@ -1076,6 +1118,9 @@ concat(_, _) ->
 
 -doc """
 Concatenates a nonempty list of arrays.
+
+The first array in the list determines the default value of the result
+and whether or not the array is fixed size.
 
 ## Examples
 
@@ -1139,7 +1184,7 @@ sparse_to_list(Array) ->
     sparse_foldr(fun (_I, V, A) -> [V|A] end, [], Array).
 
 
--doc "Equivalent to [`from_list(List, undefined)`](`from_list/2`).".
+-doc #{ equiv => from_list(List, undefined) }.
 -spec from_list(List :: list(Value :: Type)) -> array(Type).
 
 from_list(List) ->
@@ -1243,7 +1288,7 @@ push_n(N, E, L) ->
     push_n(N - 1, E, [E | L]).
 
 
--doc "Equivalent to [`from(Fun, State, undefined)`](`from/3`).".
+-doc #{ equiv => from(Fun, State, undefined) }.
 -doc(#{since => <<"OTP 29.0">>}).
 -spec from(Function, State :: term()) -> array(Type) when
       Function :: fun((State0 :: term()) -> {Type, State1 :: term()} | done).
@@ -1367,7 +1412,7 @@ sparse_to_orddict(Array) ->
     sparse_foldr(fun (I, V, A) -> [{I,V}|A] end, [], Array).
 
 
--doc "Equivalent to [`from_orddict(Orddict, undefined)`](`from_orddict/2`).".
+-doc #{ equiv => from_orddict(Orddict, undefined) }.
 -spec from_orddict(Orddict :: indx_pairs(Value :: Type)) -> array(Type).
 
 from_orddict(Orddict) ->
@@ -1380,7 +1425,7 @@ array.
 `Default` is used as the value for uninitialized entries of the array.
 
 If `Orddict` is not a proper, ordered list of pairs whose first elements are
-non-negative integers, the call fails with reason `badarg`.
+non-negative integers, the call fails with reason `badarg` or `{badarg, term()}`.
 
 Note: Use `fix/1` on the resulting array if you want to prevent accesses
 outside the size range.

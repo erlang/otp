@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -93,7 +93,7 @@ getDefaultRenderer() ->
 
 -doc "Creates a `m:wxGraphicsContext` from a `m:wxWindowDC`.".
 -spec createContext(This, WindowDC) -> wxGraphicsContext:wxGraphicsContext() when
-	This::wxGraphicsRenderer(), WindowDC::wxWindowDC:wxWindowDC() | wxWindow:wxWindow() | wxMemoryDC:wxMemoryDC().
+        This::wxGraphicsRenderer(), WindowDC::wxWindowDC:wxWindowDC() | wxWindow:wxWindow() | wxMemoryDC:wxMemoryDC().
 createContext(#wx_ref{type=ThisT}=This,#wx_ref{type=WindowDCT}=WindowDC) ->
   ?CLASS(ThisT,wxGraphicsRenderer),
   IswxWindowDC = ?CLASS_T(WindowDCT,wxWindowDC),
@@ -110,7 +110,7 @@ createContext(#wx_ref{type=ThisT}=This,#wx_ref{type=WindowDCT}=WindowDC) ->
 
 -doc "Creates a native brush from a `m:wxBrush`.".
 -spec createBrush(This, Brush) -> wxGraphicsBrush:wxGraphicsBrush() when
-	This::wxGraphicsRenderer(), Brush::wxBrush:wxBrush().
+        This::wxGraphicsRenderer(), Brush::wxBrush:wxBrush().
 createBrush(#wx_ref{type=ThisT}=This,#wx_ref{type=BrushT}=Brush) ->
   ?CLASS(ThisT,wxGraphicsRenderer),
   ?CLASS(BrushT,wxBrush),
@@ -126,7 +126,7 @@ could be specified.
 The ability to apply a transformation matrix to the gradient was added in 3.1.3
 """.
 -spec createLinearGradientBrush(This, X1, Y1, X2, Y2, Stops) -> wxGraphicsBrush:wxGraphicsBrush() when
-	This::wxGraphicsRenderer(), X1::number(), Y1::number(), X2::number(), Y2::number(), Stops::wxGraphicsGradientStops:wxGraphicsGradientStops().
+        This::wxGraphicsRenderer(), X1::number(), Y1::number(), X2::number(), Y2::number(), Stops::wxGraphicsGradientStops:wxGraphicsGradientStops().
 createLinearGradientBrush(#wx_ref{type=ThisT}=This,X1,Y1,X2,Y2,#wx_ref{type=StopsT}=Stops)
  when is_number(X1),is_number(Y1),is_number(X2),is_number(Y2) ->
   ?CLASS(ThisT,wxGraphicsRenderer),
@@ -143,7 +143,7 @@ could be specified.
 The ability to apply a transformation matrix to the gradient was added in 3.1.3
 """.
 -spec createRadialGradientBrush(This, StartX, StartY, EndX, EndY, Radius, Stops) -> wxGraphicsBrush:wxGraphicsBrush() when
-	This::wxGraphicsRenderer(), StartX::number(), StartY::number(), EndX::number(), EndY::number(), Radius::number(), Stops::wxGraphicsGradientStops:wxGraphicsGradientStops().
+        This::wxGraphicsRenderer(), StartX::number(), StartY::number(), EndX::number(), EndY::number(), Radius::number(), Stops::wxGraphicsGradientStops:wxGraphicsGradientStops().
 createRadialGradientBrush(#wx_ref{type=ThisT}=This,StartX,StartY,EndX,EndY,Radius,#wx_ref{type=StopsT}=Stops)
  when is_number(StartX),is_number(StartY),is_number(EndX),is_number(EndY),is_number(Radius) ->
   ?CLASS(ThisT,wxGraphicsRenderer),
@@ -153,7 +153,7 @@ createRadialGradientBrush(#wx_ref{type=ThisT}=This,StartX,StartY,EndX,EndY,Radiu
 
 -doc(#{equiv => createFont(This,Font, [])}).
 -spec createFont(This, Font) -> wxGraphicsFont:wxGraphicsFont() when
-	This::wxGraphicsRenderer(), Font::wxFont:wxFont().
+        This::wxGraphicsRenderer(), Font::wxFont:wxFont().
 
 createFont(This,Font)
  when is_record(This, wx_ref),is_record(Font, wx_ref) ->
@@ -161,7 +161,7 @@ createFont(This,Font)
 
 -doc "Creates a native graphics font from a `m:wxFont` and a text colour.".
 -spec createFont(This, SizeInPixels, Facename) -> wxGraphicsFont:wxGraphicsFont() when
-	This::wxGraphicsRenderer(), SizeInPixels::number(), Facename::unicode:chardata();
+        This::wxGraphicsRenderer(), SizeInPixels::number(), Facename::unicode:chardata();
       (This, Font, [Option]) -> wxGraphicsFont:wxGraphicsFont() when
 	This::wxGraphicsRenderer(), Font::wxFont:wxFont(),
 	Option :: {'col', wx:wx_colour()}.
@@ -204,7 +204,7 @@ createFont(#wx_ref{type=ThisT}=This,SizeInPixels,Facename, Options)
 
 -doc(#{equiv => createMatrix(This, [])}).
 -spec createMatrix(This) -> wxGraphicsMatrix:wxGraphicsMatrix() when
-	This::wxGraphicsRenderer().
+        This::wxGraphicsRenderer().
 
 createMatrix(This)
  when is_record(This, wx_ref) ->
@@ -239,7 +239,7 @@ createMatrix(#wx_ref{type=ThisT}=This, Options)
 
 -doc "Creates a native graphics path which is initially empty.".
 -spec createPath(This) -> wxGraphicsPath:wxGraphicsPath() when
-	This::wxGraphicsRenderer().
+        This::wxGraphicsRenderer().
 createPath(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGraphicsRenderer),
   wxe_util:queue_cmd(This,?get_env(),?wxGraphicsRenderer_CreatePath),

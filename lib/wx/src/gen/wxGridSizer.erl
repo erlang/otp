@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -97,7 +97,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -doc(#{equiv => new(Cols, [])}).
 -spec new(Cols) -> wxGridSizer() when
-	Cols::integer().
+        Cols::integer().
 
 new(Cols)
  when is_integer(Cols) ->
@@ -117,9 +117,9 @@ new(Cols, Options)
 
 -doc "".
 -spec new(Cols, Vgap, Hgap) -> wxGridSizer() when
-	Cols::integer(), Vgap::integer(), Hgap::integer();
+        Cols::integer(), Vgap::integer(), Hgap::integer();
       (Rows, Cols, Gap) -> wxGridSizer() when
-	Rows::integer(), Cols::integer(), Gap::{W::integer(), H::integer()}.
+        Rows::integer(), Cols::integer(), Gap::{W::integer(), H::integer()}.
 new(Cols,Vgap,Hgap)
  when is_integer(Cols),is_integer(Vgap),is_integer(Hgap) ->
   wxe_util:queue_cmd(Cols,Vgap,Hgap,?get_env(),?wxGridSizer_new_3_0),
@@ -131,7 +131,7 @@ new(Rows,Cols,{GapW,GapH} = Gap)
 
 -doc "".
 -spec new(Rows, Cols, Vgap, Hgap) -> wxGridSizer() when
-	Rows::integer(), Cols::integer(), Vgap::integer(), Hgap::integer().
+        Rows::integer(), Cols::integer(), Vgap::integer(), Hgap::integer().
 new(Rows,Cols,Vgap,Hgap)
  when is_integer(Rows),is_integer(Cols),is_integer(Vgap),is_integer(Hgap) ->
   wxe_util:queue_cmd(Rows,Cols,Vgap,Hgap,?get_env(),?wxGridSizer_new_4),
@@ -145,7 +145,7 @@ number of its children. To get the effective number of columns or rows being cur
 used, see `GetEffectiveColsCount()` (not implemented in wx)
 """.
 -spec getCols(This) -> integer() when
-	This::wxGridSizer().
+        This::wxGridSizer().
 getCols(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGridSizer),
   wxe_util:queue_cmd(This,?get_env(),?wxGridSizer_GetCols),
@@ -153,7 +153,7 @@ getCols(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the horizontal gap (in pixels) between cells in the sizer.".
 -spec getHGap(This) -> integer() when
-	This::wxGridSizer().
+        This::wxGridSizer().
 getHGap(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGridSizer),
   wxe_util:queue_cmd(This,?get_env(),?wxGridSizer_GetHGap),
@@ -167,7 +167,7 @@ number of its children. To get the effective number of columns or rows being cur
 used, see `GetEffectiveRowsCount()` (not implemented in wx).
 """.
 -spec getRows(This) -> integer() when
-	This::wxGridSizer().
+        This::wxGridSizer().
 getRows(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGridSizer),
   wxe_util:queue_cmd(This,?get_env(),?wxGridSizer_GetRows),
@@ -175,7 +175,7 @@ getRows(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the vertical gap (in pixels) between the cells in the sizer.".
 -spec getVGap(This) -> integer() when
-	This::wxGridSizer().
+        This::wxGridSizer().
 getVGap(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGridSizer),
   wxe_util:queue_cmd(This,?get_env(),?wxGridSizer_GetVGap),
@@ -183,7 +183,7 @@ getVGap(#wx_ref{type=ThisT}=This) ->
 
 -doc "Sets the number of columns in the sizer.".
 -spec setCols(This, Cols) -> 'ok' when
-	This::wxGridSizer(), Cols::integer().
+        This::wxGridSizer(), Cols::integer().
 setCols(#wx_ref{type=ThisT}=This,Cols)
  when is_integer(Cols) ->
   ?CLASS(ThisT,wxGridSizer),
@@ -191,7 +191,7 @@ setCols(#wx_ref{type=ThisT}=This,Cols)
 
 -doc "Sets the horizontal gap (in pixels) between cells in the sizer.".
 -spec setHGap(This, Gap) -> 'ok' when
-	This::wxGridSizer(), Gap::integer().
+        This::wxGridSizer(), Gap::integer().
 setHGap(#wx_ref{type=ThisT}=This,Gap)
  when is_integer(Gap) ->
   ?CLASS(ThisT,wxGridSizer),
@@ -199,7 +199,7 @@ setHGap(#wx_ref{type=ThisT}=This,Gap)
 
 -doc "Sets the number of rows in the sizer.".
 -spec setRows(This, Rows) -> 'ok' when
-	This::wxGridSizer(), Rows::integer().
+        This::wxGridSizer(), Rows::integer().
 setRows(#wx_ref{type=ThisT}=This,Rows)
  when is_integer(Rows) ->
   ?CLASS(ThisT,wxGridSizer),
@@ -207,7 +207,7 @@ setRows(#wx_ref{type=ThisT}=This,Rows)
 
 -doc "Sets the vertical gap (in pixels) between the cells in the sizer.".
 -spec setVGap(This, Gap) -> 'ok' when
-	This::wxGridSizer(), Gap::integer().
+        This::wxGridSizer(), Gap::integer().
 setVGap(#wx_ref{type=ThisT}=This,Gap)
  when is_integer(Gap) ->
   ?CLASS(ThisT,wxGridSizer),

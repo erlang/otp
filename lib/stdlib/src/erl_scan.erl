@@ -231,6 +231,9 @@ is represented by a two-tuple. Three-tuples have one of the following forms:
 - `{integer, Anno, integer()}`
 - `{var, Anno, atom()}`
 - `{white_space, Anno, string()}`
+- `{string, Anno, string()}`
+- `{sigil_prefix, Anno, atom()}`
+- `{sigil_suffix, Anno, string()}`
 
 Valid options:
 
@@ -1251,7 +1254,7 @@ scan_tqstring_lines(Cs0, Tqs, Line, Col, Str, Qn, ContentR, Acc) ->
                 C =:= $\\, not Tqs#tqs.verbatim ->
                     case scan_escape(Cs, Col) of
                         more ->
-                            {more,Cs,Line,Col,Str,Qn,ContentR,Acc};
+                            {more,Cs0,Line,Col,Str,Qn,ContentR,Acc};
                         {error,Ncs,Error,Ncol} ->
                             {error,Ncs,Line,Ncol,Line,Ncol+1,Error};
                         {eof,Ncol} ->

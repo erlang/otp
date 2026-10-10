@@ -84,7 +84,7 @@
 -type contracts()     :: #{mfa() => dialyzer_contracts:file_contract()}.
 
 %% A property-list of data compiled from -compile and -dialyzer attributes.
--type meta_info()     :: [{{'nowarn_function' | dial_warn_tag()},
+-type meta_info()     :: [{'nowarn_function' | dial_warn_tag(),
                            'mod' | 'func'}].
 -type fun_meta_info() :: [{mfa(), meta_info()}
                           | {module(), [dial_warn_tag()]}].

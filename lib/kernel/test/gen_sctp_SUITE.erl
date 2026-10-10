@@ -2135,6 +2135,34 @@ open_multihoming_ipv4_socket(Config) when is_list(Config) ->
 %% non-working ipv6 setup.  Test opening a unihoming (non-multihoming)
 %% ipv6 socket.
 open_unihoming_ipv6_socket(Config) when is_list(Config) ->
+    Cond = fun() ->
+                   case os:type() of
+                       {unix, freebsd} ->
+                           %% There is some issue on FreeBSD 14.4
+                           %% (it did not use to a problem before 14.4).
+                           case os:version() of
+                               {14,4,_} = Version ->
+                                   skip({bad_version, Version});
+                               _ ->
+                                   ok
+                           end;
+                       _ ->
+                           ok
+                   end
+           end,
+    Pre  = fun() ->
+                   #{config => Config}
+           end,
+    TC   = fun(C) ->
+                   do_open_unihoming_ipv6_socket(C)
+           end,
+    Post = fun(_) ->
+                   ok
+           end,
+    ?TC_TRY(?FUNCTION_NAME,
+            Cond, Pre, TC, Post).
+
+do_open_unihoming_ipv6_socket(#{config := _}) ->
     ?P("~s -> get addrs by family (inet6, 1)", [?FUNCTION_NAME]),
     case get_addrs_by_family(inet6, 1) of
 	{ok, [Addr]} ->
@@ -2148,6 +2176,35 @@ open_unihoming_ipv6_socket(Config) when is_list(Config) ->
 
 %% Test opening a multihoming ipv6 socket.
 open_multihoming_ipv6_socket(Config) when is_list(Config) ->
+    Cond = fun() ->
+                   case os:type() of
+                       {unix, freebsd} ->
+                           %% There is some issue on FreeBSD 14.4
+                           %% (it did not use to a problem before 14.4).
+                           case os:version() of
+                               {14,4,_} = Version ->
+                                   skip({bad_version, Version});
+                               _ ->
+                                   ok
+                           end;
+                       _ ->
+                           ok
+                   end
+           end,
+    Pre  = fun() ->
+                   #{config => Config}
+           end,
+    TC   = fun(C) ->
+                   do_open_multihoming_ipv6_socket(C)
+           end,
+    Post = fun(_) ->
+                   ok
+           end,
+    ?TC_TRY(?FUNCTION_NAME,
+            Cond, Pre, TC, Post).
+
+do_open_multihoming_ipv6_socket(#{config := _}) ->
+    ?P("~s -> get addrs by family (inet6, 1)", [?FUNCTION_NAME]),
     case get_addrs_by_family(inet6, 2) of
 	{ok, [Addr1, Addr2]} ->
 	    do_open_and_connect([Addr1, Addr2], Addr1);
@@ -2157,6 +2214,34 @@ open_multihoming_ipv6_socket(Config) when is_list(Config) ->
 
 %% Test opening a multihoming ipv6 socket with ipv4 and ipv6 addresses.
 open_multihoming_ipv4_and_ipv6_socket(Config) when is_list(Config) ->
+    Cond = fun() ->
+                   case os:type() of
+                       {unix, freebsd} ->
+                           %% There is some issue on FreeBSD 14.4
+                           %% (it did not use to a problem before 14.4).
+                           case os:version() of
+                               {14,4,_} = Version ->
+                                   skip({bad_version, Version});
+                               _ ->
+                                   ok
+                           end;
+                       _ ->
+                           ok
+                   end
+           end,
+    Pre  = fun() ->
+                   #{config => Config}
+           end,
+    TC   = fun(C) ->
+                   do_open_multihoming_ipv4_and_ipv6_socket(C)
+           end,
+    Post = fun(_) ->
+                   ok
+           end,
+    ?TC_TRY(?FUNCTION_NAME,
+            Cond, Pre, TC, Post).
+
+do_open_multihoming_ipv4_and_ipv6_socket(#{config := _}) ->
     case get_addrs_by_family(inet_and_inet6, 2) of
 	{ok, [[InetAddr1, InetAddr2], [Inet6Addr1, Inet6Addr2]]} ->
 	    %% Connect to the first address to test bind
@@ -2177,23 +2262,81 @@ open_multihoming_ipv4_and_ipv6_socket(Config) when is_list(Config) ->
 
 %% Test inet:socknames/peernames on unihoming IPv4 sockets.
 names_unihoming_ipv4(Config) when is_list(Config) ->
-    do_names(Config, inet, 1).
+    do_names(#{config      => Config,
+               family      => inet,
+               addrs_count => 1}).
 
 %% Test inet:socknames/peernames on unihoming IPv6 sockets.
 names_unihoming_ipv6(Config) when is_list(Config) ->
-    do_names(Config, inet6, 1).
+    Cond = fun() ->
+                   case os:type() of
+                       {unix, freebsd} ->
+                           %% There is some issue on FreeBSD 14.4
+                           %% (it did not use to a problem before 14.4).
+                           case os:version() of
+                               {14,4,_} = Version ->
+                                   skip({bad_version, Version});
+                               _ ->
+                                   ok
+                           end;
+                       _ ->
+                           ok
+                   end
+           end,
+    Pre  = fun() ->
+                   #{config      => Config,
+                     family      => inet6,
+                     addrs_count => 1}
+           end,
+    TC   = fun(C) ->
+                   do_names(C)
+           end,
+    Post = fun(_) ->
+                   ok
+           end,
+    ?TC_TRY(?FUNCTION_NAME,
+            Cond, Pre, TC, Post).
+
 
 %% Test inet:socknames/peernames on multihoming IPv4 sockets.
 names_multihoming_ipv4(Config) when is_list(Config) ->
-    do_names(Config, inet, 2).
+    do_names(#{config      => Config,
+               family      => inet,
+               addrs_count => 2}).
 
 %% Test inet:socknames/peernames on multihoming IPv6 sockets.
 names_multihoming_ipv6(Config) when is_list(Config) ->
-    do_names(Config, inet6, 2).
+    Cond = fun() ->
+                   case os:type() of
+                       {unix, freebsd} ->
+                           %% There is some issue on FreeBSD 14.4
+                           %% (it did not use to a problem before 14.4).
+                           case os:version() of
+                               {14,4,_} = Version ->
+                                   skip({bad_version, Version});
+                               _ ->
+                                   ok
+                           end;
+                       _ ->
+                           ok
+                   end
+           end,
+    Pre  = fun() ->
+                   #{config      => Config,
+                     family      => inet6,
+                     addrs_count => 2}
+           end,
+    TC   = fun(C) ->
+                   do_names(C)
+           end,
+    Post = fun(_) ->
+                   ok
+           end,
+    ?TC_TRY(?FUNCTION_NAME,
+            Cond, Pre, TC, Post).
 
 
-
-do_names(_, FamilySpec, AddressCount) ->
+do_names(#{family := FamilySpec, addrs_count := AddressCount}) ->
     Fun =
 	fun (ServerSocket, _, ServerAssoc, ClientSocket, _, ClientAssoc) ->
 		ServerSocknamesNoassoc =

@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -113,7 +113,7 @@ it were called now. Use `wxWindow:getClientSize/1` if you catch this event in a 
 to find the size available for the window contents.
 """.
 -spec getSize(This) -> {W::integer(), H::integer()} when
-	This::wxSizeEvent().
+        This::wxSizeEvent().
 getSize(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSizeEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxSizeEvent_GetSize),
@@ -121,7 +121,7 @@ getSize(#wx_ref{type=ThisT}=This) ->
 
 -doc "".
 -spec getRect(This) -> {X::integer(), Y::integer(), W::integer(), H::integer()} when
-	This::wxSizeEvent().
+        This::wxSizeEvent().
 getRect(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSizeEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxSizeEvent_GetRect),

@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -125,7 +125,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -doc "Returns wxHORIZONTAL or wxVERTICAL, depending on the orientation of the scrollbar.".
 -spec getOrientation(This) -> integer() when
-	This::wxScrollEvent().
+        This::wxScrollEvent().
 getOrientation(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxScrollEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxScrollEvent_GetOrientation),
@@ -133,7 +133,7 @@ getOrientation(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the position of the scrollbar.".
 -spec getPosition(This) -> integer() when
-	This::wxScrollEvent().
+        This::wxScrollEvent().
 getPosition(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxScrollEvent),
   wxe_util:queue_cmd(This,?get_env(),?wxScrollEvent_GetPosition),

@@ -34,7 +34,7 @@
 
 %% Allowed lists and their ways to capture them
 -define(IS_BULLET(X), (X =:= $* orelse X =:= $- orelse X =:= $+)).
--define(IS_NUMBERED(X), (is_integer(X) andalso min(0, X) =:= 0)).
+-define(IS_NUMBERED(X), ((X) >= $0 andalso (X) =< $9)).
 
 %% Parsing format symbols and symbols separators between formats
 -define(VALID_BREAK(Symb), (Symb =:= $\s orelse Symb =:= $\n orelse Symb =:= <<>>)).
@@ -81,6 +81,8 @@ format_line(Ls) ->
       OmissionSet :: sets:set(atom()).
 format_line([], _BlockSet0) ->
     [];
+format_line([{br, _, _}=Br | Rest], BlockSet0) ->
+    [Br | format_line(Rest, BlockSet0)];
 format_line([{Tag, Attrs, List} | Rest], BlockSet0) ->
     case format_line(List, sets:add_element(Tag, BlockSet0)) of
         [] ->
@@ -435,12 +437,38 @@ is_html(Line) ->
             false
     end.
 
+process_paragraph([P | Rest], [Bin | RestBlock]=Block, Opts) when is_binary(Bin), is_binary(P) ->
+    case hard_line_break(Bin) of
+        {true, StrippedBin} ->
+            [StrippedBin | RestBlock] ++ [{br, [], []}] ++
+                parse_md_lines([P | Rest], [], Opts);
+        false ->
+            do_process_paragraph([P | Rest], Block, Opts)
+    end;
 process_paragraph([P | Rest], Block, Opts) ->
+    do_process_paragraph([P | Rest], Block, Opts).
+
+do_process_paragraph([P | Rest], Block, Opts) ->
     case process_p([P | Rest], Block) of
         {[_ | _]=Rest1, Block1} ->
             process_setext_header({Rest1, Block1}, Opts);
         {Rest2, Block2} ->
             parse_md_lines(Rest2, Block2, Opts)
+    end.
+
+hard_line_break(<<>>) ->
+    false;
+hard_line_break(Bin) ->
+    case binary:last(Bin) of
+        $\\ ->
+            {true, binary:part(Bin, 0, byte_size(Bin) - 1)};
+        $\s when byte_size(Bin) >= 2 ->
+            case binary:at(Bin, byte_size(Bin) - 2) of
+                $\s -> {true, trim_trailing_spaces(Bin)};
+                _ -> false
+            end;
+        _ ->
+            false
     end.
 
 process_setext_header({[Line | Remaining]=Rest1, [H]=Block1}, Opts) ->
@@ -488,6 +516,13 @@ process_p([P | Rest], [Bin | RestBlock]) when is_binary(Bin), is_binary(P) ->
             {Rest, [<<Bin/binary, P/binary>> | RestBlock]};
         _ ->
             {Rest, [<<Bin/binary, $\s, P/binary>> | RestBlock]}
+    end.
+
+trim_trailing_spaces(<<>>) -> <<>>;
+trim_trailing_spaces(Bin) ->
+    case binary:last(Bin) of
+        $\s -> trim_trailing_spaces(binary:part(Bin, 0, byte_size(Bin) - 1));
+        _ -> Bin
     end.
 
 strip_spaces(<<" ", Rest/binary>>, Acc, Max) when Max =:= infinity; Acc < Max ->
@@ -731,12 +766,49 @@ process_format(<<Format, Continuation/binary>>, Fs, Buffer)
 %%
 %% Handle non-formatting characters
 %%
-process_format(<<Char, Rest/binary>>, Format, Buffer) ->
-    process_format(Rest, Format, merge_buffers([<<Char>>],  Buffer));
+process_format(<<Char, Rest0/binary>> = Bin, Format, Buffer) ->
+    %% The leading byte reached this clause, so it is plain text. Append
+    %% a maximal run of following plain bytes in one go; if the very next
+    %% byte must be handled per-clause (e.g. it is a format symbol), fall
+    %% back to appending just this character, exactly as before.
+    case plain_run_length(Bin, 0) of
+        0 ->
+            process_format(Rest0, Format, merge_buffers([<<Char>>], Buffer));
+        RunLen ->
+            <<Run:RunLen/binary, Rest/binary>> = Bin,
+            process_format(Rest, Format, merge_buffers([Run], Buffer))
+    end;
 process_format(<<>>, [], Buffer) ->
     {ok, Buffer};
 process_format(<<>>, _Format, Buffer) ->
     {not_closed, Buffer}.
+
+%% Length (in bytes) of the leading run of plain-text bytes that can be
+%% appended in one go without changing how the remaining bytes are
+%% parsed. A byte is part of the run only if:
+%%   * it cannot itself begin an earlier clause -- not a format symbol
+%%     ($*, $_), inline code ($`), escape ($\\) or $\r; and
+%%   * the byte that follows it is not a format symbol. Several clauses
+%%     (e.g. the "ssh_added_here" mid-word clause and the opening-format
+%%     clauses) match on a character immediately preceding a $* or $_,
+%%     so that preceding character must reach the per-clause dispatch as
+%%     the leading byte rather than being swallowed into the run.
+plain_run_length(<<Char, Next, _/binary>> = Bin, N)
+  when Char =/= $* andalso Char =/= $_ andalso Char =/= $` andalso
+       Char =/= $\\ andalso Char =/= $\r ->
+    case ?VALID_FORMAT(Next) of
+        true ->
+            N;
+        false ->
+            <<_, Rest/binary>> = Bin,
+            plain_run_length(Rest, N + 1)
+    end;
+plain_run_length(<<Char>>, N)
+  when Char =/= $* andalso Char =/= $_ andalso Char =/= $` andalso
+       Char =/= $\\ andalso Char =/= $\r ->
+    N + 1;
+plain_run_length(_, N) ->
+    N.
 
 %%
 %% Parses text until it finds a closing $`

@@ -477,7 +477,7 @@ trace_profiles() ->
        {ssl_handshake, [{path_validate, 11}, {path_validation, 10},
                         {select_hashsign, 5}, {get_cert_params, 1},
                         {cert_curve, 3},
-                        {maybe_check_hostname, 4}]},
+                        {tls_verify_fun, 4}]},
        {ssl_pkix_db, [{decode_cert, 2}]},
        {tls_handshake_1_3, [{path_validation, 10}]},
        {tls_server_connection_1_3, [{init,1}]},

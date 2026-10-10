@@ -2,15 +2,15 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  pre_loaded()[0m
+[1m  pre_loaded()[0m
 
   Returns a list of Erlang modules that are preloaded in the
   run-time system.
 
   Pre-loaded modules are Erlang modules that are needed to bootstrap
   the system to load the first Erlang modules from either disk or by
-  using [;;4merl_boot_server[0m.
+  using [4merl_boot_server[0m.

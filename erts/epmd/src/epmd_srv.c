@@ -4,7 +4,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright Ericsson AB 1998-2025. All Rights Reserved.
+ * Copyright Ericsson AB 1998-2026. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -294,24 +294,17 @@ void run(EpmdVars *g)
   if (g->addresses != NULL && /* String contains non-separator characters if: */
       g->addresses[strspn(g->addresses," ,")] != '\000')
     {
+      enum {
+        EPMD_SPECIAL_ADDRESS_V4_LOOPBACK = 1 << 0,
+        EPMD_SPECIAL_ADDRESS_V4_ANY = 1 << 1,
+#if defined(EPMD6)
+        EPMD_SPECIAL_ADDRESS_V6_LOOPBACK = 1 << 2,
+        EPMD_SPECIAL_ADDRESS_V6_ANY = 1 << 3,
+#endif
+      } special_addresses = 0;
+
       char *tmp = NULL;
       char *token = NULL;
-
-      /* Always listen on the loopback. */
-      SET_ADDR(iserv_addr[num_sockets],htonl(INADDR_LOOPBACK),sport);
-      num_sockets++;
-#if defined(EPMD6)
-      SET_ADDR6(iserv_addr[num_sockets],in6addr_loopback,sport);
-      num_sockets++;
-#endif
-
-      /* IPv4 and/or IPv6 loopback may not be present, for example if
-       * the protocol stack is explicitly disabled in the kernel.  If
-       * any sockets to this point fail, log the error but do not exit
-       * with failure.  If any socket after this (explicitly
-       * configured via addresses) fails, then consider the error
-       * fatal. */
-      nonfatal_sockets = num_sockets;
 
 	  if ((tmp = strdup(g->addresses)) == NULL)
 	{
@@ -350,23 +343,57 @@ void run(EpmdVars *g)
 	    }
 
 #if defined(EPMD6)
-	  if (sa->ss_family == AF_INET6 && IN6_IS_ADDR_LOOPBACK(&addr6))
-	      continue;
-
-	  if (sa->ss_family == AF_INET)
+          if (sa->ss_family == AF_INET6) {
+            if (IN6_IS_ADDR_LOOPBACK(&addr6)) {
+              special_addresses |= EPMD_SPECIAL_ADDRESS_V6_LOOPBACK;
+            } else if (IN6_ARE_ADDR_EQUAL(&addr6, &in6addr_any)) {
+              special_addresses |= EPMD_SPECIAL_ADDRESS_V6_ANY;
+            }
+          } else if (sa->ss_family == AF_INET)
 #endif
-	  if (IS_ADDR_LOOPBACK(addr))
-	    continue;
+          {
+            if (IS_ADDR_LOOPBACK(addr)) {
+                special_addresses |= EPMD_SPECIAL_ADDRESS_V4_LOOPBACK;
+            } else if (IS_ADDR_ANY(addr)) {
+                special_addresses |= EPMD_SPECIAL_ADDRESS_V4_ANY;
+            }
+          }
 
 	  num_sockets++;
 
-	  if (num_sockets >= MAX_LISTEN_SOCKETS)
+	  if (num_sockets >= (MAX_LISTEN_SOCKETS - 2))
 	    {
 	      dbg_tty_printf(g,0,"cannot listen on more than %d IP addresses",
-			     MAX_LISTEN_SOCKETS);
+			     (MAX_LISTEN_SOCKETS - 2));
 	      epmd_cleanup_exit(g,1);
 	    }
 	}
+
+        /* Always listen on the loopback address, taking care not to clash with
+         * INADDR_ANY if specified. */
+        if (!(special_addresses & (EPMD_SPECIAL_ADDRESS_V4_LOOPBACK |
+                                   EPMD_SPECIAL_ADDRESS_V4_ANY))) {
+          /* IPv4 and/or IPv6 loopback may not be present, for example if
+           * the protocol stack is explicitly disabled in the kernel. If
+           * any implicitly enabled sockets fail, log the error but do not exit
+           * with failure. */
+          ASSERT(MAX_LISTEN_SOCKETS <= 16);
+          nonfatal_sockets |= (1 << num_sockets);
+
+          SET_ADDR(iserv_addr[num_sockets],htonl(INADDR_LOOPBACK),sport);
+          num_sockets++;
+        }
+
+#if defined(EPMD6)
+        if (!(special_addresses & (EPMD_SPECIAL_ADDRESS_V6_LOOPBACK |
+                                   EPMD_SPECIAL_ADDRESS_V6_ANY))) {
+          ASSERT(MAX_LISTEN_SOCKETS <= 16);
+          nonfatal_sockets |= (1 << num_sockets);
+
+          SET_ADDR6(iserv_addr[num_sockets],in6addr_loopback,sport);
+          num_sockets++;
+        }
+#endif
 
       free(tmp);
     }
@@ -485,10 +512,9 @@ void run(EpmdVars *g)
               dbg_perror(g,"failed to bind on ipaddr %s",
                          epmd_ntop(&iserv_addr[i],
                                    socknamebuf, sizeof(socknamebuf)));
-              if (i >= nonfatal_sockets)
+              if (!(nonfatal_sockets & (1 << i))) {
                   epmd_cleanup_exit(g,1);
-              else
-              {
+              } else {
                   close(listensock[i]);
                   continue;
               }
@@ -689,18 +715,19 @@ static void do_read(EpmdVars *g,Connection *s)
 	  return;
 	}
     }
-  
-  s->mod_time = current_time(g); /* Note activity */
-  
-  if (s->want == s->got)
-    {
-      /* Do action and close up */
-      /* Skip header bytes */
 
+    if (s->want == s->got)
+    {
+      /* Note activity. */
+      s->mod_time = current_time(g);
+
+      /* Do action and close up. +/- 2 is to skip the length prefix. */
       do_request(g, s->fd, s, s->buf + 2, s->got - 2);
 
-      if (!s->keep)
-	epmd_conn_close(g,s);		/* Normal close */
+      if (!s->keep) {
+        /* Normal close */
+        epmd_conn_close(g,s);
+      }
     }
 }
 
@@ -721,9 +748,11 @@ static int do_accept(EpmdVars *g,int listensock)
             case EAGAIN:
             case ECONNABORTED:
             case EINTR:
-	            return EPMD_FALSE;
+            case EMFILE:
+            case ENFILE:
+                return EPMD_FALSE;
             default:
-	            epmd_cleanup_exit(g,1);
+                epmd_cleanup_exit(g,1);
         }
     }
 

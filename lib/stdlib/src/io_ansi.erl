@@ -106,6 +106,7 @@ that should handle it. `io_ansi:fwrite/4` works across nodes and will use the
          light_cyan_underline/0, light_white_underline/0]).
 -export([modify_color/4]).
 -export([bold/0, bold_off/0, blink/0, blink_off/0, dim/0, dim_off/0,
+         bright/0, faint/0, normal/0,
          invisible/0, invisible_off/0, italic/0, italic_off/0, inverse/0, inverse_off/0]).
 -export([strikethrough/0, strikethrough_off/0]).
 -export([underline/0, underline_off/0]).
@@ -138,33 +139,33 @@ that should handle it. `io_ansi:fwrite/4` works across nodes and will use the
 -doc "The format string that can be passed to `format/3` and `fwrite/4`".
 -type format() :: [string() | vts()].
 
--type color_atom() :: black | blue | cyan | green | magenta | red | white | yellow |
-                      light_black | light_blue | light_cyan | light_green |
-                      light_magenta | light_red | light_white | light_yellow.
+-type color_atom() :: black | red | green | yellow | blue | magenta | cyan | white |
+                      light_black | light_red | light_green | light_yellow |
+                      light_blue | light_magenta | light_cyan | light_white.
 
 -doc "Virtual terminal sequences that control the foreground (aka text) color.".
 -type foreground_color() :: color_atom() |
                             {color, 0..255} | {color, R :: 0..255, G :: 0..255, B :: 0..255} |
                             default_color.
 -doc "Virtual terminal sequences that control the background color.".
--type background_color() :: black_background | blue_background | cyan_background |
-                            green_background | magenta_background | red_background |
-                            white_background | yellow_background | default_background |
-                            light_black_background | light_blue_background |
-                            light_cyan_background | light_green_background |
-                            light_magenta_background | light_red_background |
-                            light_white_background | light_yellow_background |
+-type background_color() :: black_background | red_background | green_background |
+                            yellow_background | blue_background | magenta_background |
+                            cyan_background | white_background | default_background |
+                            light_black_background | light_red_background |
+                            light_green_background | light_yellow_background |
+                            light_blue_background | light_magenta_background |
+                            light_cyan_background | light_white_background |
                             {background, 0..255} |
                             {background, R :: 0..255, G :: 0..255, B :: 0..255}.
 
 -doc "Virtual terminal sequences that control underline color.".
--type underline_color() :: black_underline | blue_underline | cyan_underline |
-                           green_underline | magenta_underline | red_underline |
-                           white_underline | yellow_underline | default_underline |
-                           light_black_underline | light_blue_underline |
-                           light_cyan_underline | light_green_underline |
-                           light_magenta_underline | light_red_underline |
-                           light_white_underline | light_yellow_underline |
+-type underline_color() :: black_underline | red_underline | green_underline |
+                           yellow_underline | blue_underline | magenta_underline |
+                           cyan_underline | white_underline | default_underline |
+                           light_black_underline | light_red_underline |
+                           light_green_underline | light_yellow_underline |
+                           light_blue_underline | light_magenta_underline |
+                           light_cyan_underline | light_white_underline |
                            {underline_color, 0..255} |
                            {underline_color, R :: 0..255, G :: 0..255, B :: 0..255}.
 
@@ -178,8 +179,8 @@ that should handle it. `io_ansi:fwrite/4` works across nodes and will use the
 
 -doc "Virtual terminal sequences that control text style.".
 -type style() :: bold | bold_off | blink | blink_off | dim | dim_off | invisible | invisible_off |
-                 italic | italic_off | inverse | inverse_off | overline | overline_off |
-                 strikethrough | strikethrough_off | underline_style().
+                 bright | faint | normal | italic | italic_off | inverse | inverse_off |
+                 overline | overline_off | strikethrough | strikethrough_off | underline_style().
 
 -type hyperlink_params() :: [{Key :: unicode:chardata(), Value :: unicode:chardata()}].
 
@@ -194,8 +195,12 @@ that should handle it. `io_ansi:fwrite/4` works across nodes and will use the
 -type text_formatting() :: color() | style() | hyperlink().
 -doc "Virtual terminal sequences that can erase or overwrite text.".
 -type text_modification() :: clear | erase_display |
-                             insert_character | delete_character | erase_character |
-                             insert_line | delete_line | erase_line.
+                             {insert_character, Chars :: non_neg_integer()} |
+                             {erase_character, Chars :: non_neg_integer()} |
+                             delete_character | {delete_character, Chars :: non_neg_integer()} |
+                             insert_line | {insert_line, Lines :: non_neg_integer()} |
+                             delete_line | {delete_line, Lines :: non_neg_integer()} |
+                             erase_line.
 -doc "Virtual terminal sequences that works on text.".
 -type text() :: text_formatting() | text_modification() |
                 alternate_character_set_mode | alternate_character_set_mode_off.
@@ -207,11 +212,16 @@ that should handle it. `io_ansi:fwrite/4` works across nodes and will use the
         {cursor_down | cursor_backward | cursor_forward | cursor_up, N :: non_neg_integer()} |
         cursor_home | reverse_index | cursor_save | cursor_restore |
         cursor_show | cursor_hide |
-        cursor_next_line | cursor_previous_line | cursor_horizontal_absolute |
-        cursor_vertical_absolute | cursor_horizontal_vertical | cursor_report_position.
+        cursor_next_line | cursor_previous_line |
+        {cursor_horizontal_absolute, Column :: non_neg_integer()} |
+        {cursor_vertical_absolute, Line :: non_neg_integer()} |
+        {cursor_horizontal_vertical, Line :: non_neg_integer(), Column :: non_neg_integer()} |
+        cursor_report_position.
 -doc "Virtual terminal sequences that controls the screen.".
 -type window() :: alternate_screen | alternate_screen_off |
-                  scroll_forward | scroll_backward | scroll_change_region.
+                  scroll_forward | {scroll_forward, N :: non_neg_integer()} |
+                  scroll_backward | {scroll_backward, N :: non_neg_integer()} |
+                  {scroll_change_region, Top :: non_neg_integer(), Bottom :: non_neg_integer()}.
 -doc "Virtual terminal sequences that works with tabs.".
 -type tab() :: tab | tab_backward | tab_set | tab_clear | tab_clear_all.
 -doc "Virtual terminal sequences for cursor input.".
@@ -242,7 +252,7 @@ associated with the `TERM` environment variable when the Erlang VM is started.
 It is not possible to change after startup.
 
 If the given capability is not defined in the terminfo database an `enotsup`
-error is generated, if the given capability is invalid a `badarg` error is 
+error is generated, if the given capability is invalid a `einval` error is 
 generated.
 
 This function does not work on Windows and will always generate a `badarg`
@@ -355,8 +365,9 @@ Example:
 ```
 """.
 -doc #{ group => ~"Functions: terminfo" }.
--spec tinfo() -> #{ bool := [#{ code := string(), name := string(), full_name := string()}]}.
-tinfo() -> 
+-spec tinfo() -> #{ bool := [Cap], str := [Cap], num := [Cap]} when
+        Cap :: #{ code := string(), name := string(), full_name := string()}.
+tinfo() ->
     prim_tty:tinfo().
 
 -define(FUNCTION(NAME),
@@ -502,7 +513,9 @@ Example:
 
 -doc """
 Change foreground (aka text) color to index color. `Index` 0-15 are equivalent to
-the named colors in `t:foreground_color/0` in the order that they are listed.
+the named colors in `t:color_atom/0` in the order that they are listed.
+
+You can also use `atom_color_to_index/1` to convert a color atom to its corresponding index (0-15).
 
 Example:
 ```erlang
@@ -640,6 +653,8 @@ Example:
 -doc """
 Change background color to index color. `Index` 0-15 are equivilant to
 the named colors in `t:background_color/0` in the order that they are listed.
+
+You can also use `atom_color_to_index/1` to convert a color atom to its corresponding index (0-15).
 
 Example:
 ```erlang
@@ -889,6 +904,8 @@ Example:
 -doc """
 Turn off bold text style.
 
+Alias for `normal/0`.
+
 Example:
 ```erlang
 1> io_ansi:bold_off().
@@ -897,6 +914,34 @@ Example:
 """.
 ?SPEC(bold_off).
 ?FUNCTION(bold_off).
+
+-doc """
+Turn on bold text style.
+
+Use `normal/0` to turn bold/bright off.
+
+Alias for `bold/0`.
+
+Example:
+```erlang
+1> io_ansi:bright().
+<<"\e[1m">>
+```
+""".
+?SPEC(bright).
+?FUNCTION(bright).
+
+-doc """
+Turn off [bold](`bold/0`)/[dim](`dim/0`) text style.
+
+Example:
+```erlang
+1> io_ansi:normal().
+<<"\e[22m">>
+```
+""".
+?SPEC(normal).
+?FUNCTION(normal).
 
 -doc """
 Turn on underline text style.
@@ -1034,6 +1079,8 @@ Example:
 -doc """
 Turn off dim text style.
 
+Alias for `normal/0`.
+
 Example:
 ```erlang
 1> io_ansi:dim_off().
@@ -1043,6 +1090,21 @@ Example:
 ?SPEC(dim_off).
 ?FUNCTION(dim_off).
 
+-doc """
+Turn on dim text style. Not widely supported.
+
+Use `normal/0` to turn faint/dim off.
+
+Alias for `dim/0`.
+
+Example:
+```erlang
+1> io_ansi:faint().
+<<"\e[2m">>
+```
+""".
+?SPEC(faint).
+?FUNCTION(faint).
 
 -doc """
 Turn on invisible text style. Not widely supported.
@@ -1440,7 +1502,8 @@ Example:
 ?FUNCTION(delete_character, Chars).
 
 -doc """
-Erase `Chars` characters at cursor by making `Chars` characters before the cursor blank.
+Erase `Chars` characters at cursor by making `Chars` characters at and
+to the right of the cursor blank.
 
 Example:
 ```erlang
@@ -1645,15 +1708,15 @@ Move the cursor forward `N` characters.
 
 Example:
 ```erlang
-1> io_ansi:cursor_forward().
-<<"\e[C">>
+1> io_ansi:cursor_forward(42).
+<<"\e[42C">>
 ```
 """.
 ?SPEC(cursor_forward, N).
 ?FUNCTION(cursor_forward, N).
 
 -doc """
-Move the cursor backward `N` characters.
+Move the cursor backward one character.
 
 Example:
 ```erlang
@@ -1774,7 +1837,7 @@ Example:
 ?FUNCTION(cursor_previous_line).
 
 -doc """
-Move the cursor to column `X`.
+Move the cursor to column `X`. Column 0 is the leftmost column of the terminal.
 
 Example:
 ```erlang
@@ -1786,7 +1849,7 @@ Example:
 ?FUNCTION(cursor_horizontal_absolute, X).
 
 -doc """
-Move the cursor to line `X`.
+Move the cursor to line `X`. Line 0 is the top line of the terminal.
 
 Example:
 ```erlang
@@ -2193,8 +2256,8 @@ Example:
 [kcursor_up]
 2> io_ansi:scan("\eOB").
 [kcursor_down]
-3> io_ansi:scan(io_ansi:format([bold, "text"])).
-[bold, ~"text", reset]
+3> io_ansi:scan(io_ansi:format([italic, "text"])).
+[italic, ~"text", reset]
 4> io_ansi:scan(io_ansi:format([{cursor, 0, 0}])).
 [{csi, ~"\e[1;1H"}, reset]
 ```
@@ -2223,26 +2286,27 @@ scan_binary(<<>>, Bin, Acc) ->
     [NonEmpty || NonEmpty <- lists:reverse([Bin | Acc]), NonEmpty =/= <<>>]. 
 
 lookup_vts(Data) ->
-    try
-        %% Check that data starts with a known VTS sequence e.g. \e[34m for blue
-        %% throws {blue, <<\e[34m>>, Rest} on success.
-        F = fun(<<VTSCSI, VtsPrefixedData/binary>>, Key, <<CSI, Value/binary>>) -> 
-                case VtsPrefixedData of
-                    <<Value:(byte_size(Value))/binary, Rest/binary>> when CSI =:= $\e; CSI =:= 155 ->
-                        [{Key, <<VTSCSI, Value/binary>>, Rest}];
-                    _ ->
-                        []
-                end
-            end,
-        %% There may be multiple matches since some VTSs are prefixes of other VTSs
-        %% e.g. `reset` is a prefix of `reset_underline_color`.
-        %% We want to find the longest match, so we take the last one after sorting by length.
-        case lists:flatten([F(Data, Key, Value) || Key := Values <- get_vts_mappings(), Value <- Values]) of
-            [] -> undefined;
-            Result -> lists:last(lists:keysort(2, Result))
-        end
-    catch throw:KeyValueRest ->
-        KeyValueRest
+    %% Check that data starts with a known VTS sequence e.g. \e[34m for blue
+    F = fun(<<VTSCSI, VtsPrefixedData/binary>>, Key, <<CSI, Value/binary>>) -> 
+            case VtsPrefixedData of
+                <<Value:(byte_size(Value))/binary, Rest/binary>> when CSI =:= $\e; CSI =:= 155 ->
+                    [{Key, <<VTSCSI, Value/binary>>, Rest}];
+                _ ->
+                    []
+            end
+        end,
+    %% We use `maps:iterator/1` to get the mappings in a deterministic order, so that we can
+    %% if there are multiple mappings to the same VTS, we always return the same one. For example
+    %% `bold` and `bright`.
+    case lists:flatten([F(Data, Key, Value) ||
+                Key := Values <- maps:iterator(get_vts_mappings(), ordered), Value <- Values]) of
+        [] -> undefined;
+        Result ->
+            %% There may be multiple matches since some VTSs are prefixes of other VTSs
+            %% e.g. `alternate_character_set_mode_off` ("\e(B") is a prefix of
+            %% `reset` ("\e(B\e[m"). We want to find the longest match, so we take the last
+            %% one after sorting by length.
+            lists:last(lists:keysort(2, Result))
     end.
 
 -doc #{ equiv => render(Data, []) }.
@@ -2351,8 +2415,7 @@ format(Format, Data) ->
     format(Format, Data, []).
 
 -doc """
-Returns a character list that represents `Data` formatted in accordance with
-`Format`.
+Returns a utf-8 binary that represents `Data` formatted in accordance with `Format`.
 
 This function works just as `io_lib:bformat/2`, where `Data` is a list of strings
 as well as atoms and tuples representing virtual terminal sequences as part of the
@@ -2749,8 +2812,11 @@ default_mappings() ->
 
        bold => { "bold", "\e[1m" },
        bold_off => { undefined, "\e[22m" },
-       dim => { undefined, "\e[2m" },
+       dim => { "dim", "\e[2m" },
        dim_off => { undefined, "\e[22m" },
+       bright => { "bold", "\e[1m" },
+       faint => { "dim", "\e[2m" },
+       normal => { undefined, "\e[22m" },
        italic => { "sitm", "\e[3m" },
        italic_off => { "ritm", "\e[23m" },
        blink => { "blink", "\e[5m" },

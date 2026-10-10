@@ -2,21 +2,21 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  iolist_to_iovec(IoListOrBinary)[0m
+[1m  iolist_to_iovec(IoListOrBinary)[0m
 
-[;;4mSince[0m:
+[4mSince[0m:
   OTP 20.1
 
-  Returns an iovec that is made from the integers and binaries in [;;4m[0m
-  [;;4mIoListOrBinary[0m. This function is useful when you want to flatten
+  Returns an iovec that is made from the integers and binaries in [4m[0m
+  [4mIoListOrBinary[0m. This function is useful when you want to flatten
   an iolist but you do not need a single binary. This can be useful
-  for passing the data to nif functions such as [;;4menif_inspect_iovec[0m
+  for passing the data to nif functions such as [4menif_inspect_iovec[0m
   or do more efficient message passing. The advantage of using this
-  function over [;;4miolist_to_binary/1[0m is that it does not have to
+  function over [4miolist_to_binary/1[0m is that it does not have to
   copy off-heap binaries.
 
   For example:

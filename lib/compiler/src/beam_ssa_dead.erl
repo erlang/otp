@@ -30,8 +30,8 @@
 -export([opt/1]).
 
 -include("beam_ssa.hrl").
--import(lists, [append/1,foldl/3,keymember/3,last/1,member/2,
-                reverse/1,reverse/2,takewhile/2]).
+-import(lists, [append/1,foldl/3,last/1,member/2,
+                reverse/1,reverse/2,search/2,takewhile/2]).
 
 -type used_vars() :: #{beam_ssa:label():=sets:set(beam_ssa:b_var())}.
 
@@ -43,13 +43,13 @@
 -type test() :: {op_name(),beam_ssa:b_var(),beam_ssa:value()} |
                 {type_test(),beam_ssa:value()}.
 
--record(st,
-        {bs :: beam_ssa:block_map(),
-         us :: used_vars(),
-         skippable :: #{beam_ssa:label():='true'},
-         test=none :: 'none' | test(),
-         target=any :: 'any' | 'one_way' | beam_ssa:label()
-        }).
+-record #st{
+   bs :: beam_ssa:block_map(),
+   us :: used_vars(),
+   skippable :: #{beam_ssa:label():='true'},
+   test=none :: 'none' | test(),
+   target=any :: 'any' | 'one_way' | beam_ssa:label()
+  }.
 
 -spec opt([{Label0,Block0}]) -> [{Label,Block}] when
       Label0 :: beam_ssa:label(),
@@ -371,8 +371,11 @@ update_unset_vars(L, Is, Br, UnsetVars, #st{skippable=Skippable}) ->
             %% variables to the set of unset variables.
             case Br of
                 #b_br{bool=#b_var{}=Bool} ->
-                    case keymember(Bool, #b_set.dst, Is) of
-                        true ->
+                    IsExpected = fun(#b_set{dst=Dst}) ->
+                                         Dst =:= Bool
+                                 end,
+                    case search(IsExpected, Is) of
+                        {value,_} ->
                             %% Bool is a variable defined in this
                             %% block. Using the br instruction from
                             %% this block (and skipping the body of

@@ -2,22 +2,22 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  pread(IoDevice, Location, Number)[0m
+[1m  pread(IoDevice, Location, Number)[0m
 
-  Combines [;;4mposition/2[0m and [;;4mread/2[0m in one operation, which is more
+  Combines [4mposition/2[0m and [4mread/2[0m in one operation, which is more
   efficient than calling them one at a time.
 
-  [;;4mLocation[0m is only allowed to be an integer for [;;4mraw[0m and [;;4mram[0m
+  [4mLocation[0m is only allowed to be an integer for [4mraw[0m and [4mram[0m
   modes.
 
   The current position of the file after the operation is undefined
-  for [;;4mraw[0m mode and unchanged for [;;4mram[0m mode.
+  for [4mraw[0m mode and unchanged for [4mram[0m mode.
 
   As the position is specified as a byte-offset, take special
-  caution when working with files where [;;4mencoding[0m is set to
-  something else than [;;4mlatin1[0m, as not every byte position is a
+  caution when working with files where [4mencoding[0m is set to
+  something else than [4mlatin1[0m, as not every byte position is a
   valid character boundary on such a file.

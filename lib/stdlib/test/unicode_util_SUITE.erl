@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2017-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2017-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -131,6 +131,12 @@ gc(Config) ->
     "hejsan" = fetch(["hej"|<<"san">>], Get),
     {error, <<128>>} = Get(<<128>>),
     {error, [<<128>>, 0]} = Get([<<128>>, 0]),
+    [$\r, <<>>, []] = Get([<<$\r>>, []]),
+    [$\r|<<$a>>] = Get(<<$\r,$a>>),
+    [$\r|<<$a>>] = Get([<<$\r,$a>>]),
+    [$\r, <<$a>>, []] = Get([<<$\r,$a>>, []]),
+    [$\r, <<$a>>, <<>>] = Get([<<$\r,$a>>, <<>>]),
+
 
     ?assertError(_, Get([-1])),
     ?assertError(_, Get([-1, $a])),

@@ -29,7 +29,7 @@
 
 typedef struct {
     uint32_t a, b, c, d;
-    size_t tot_len;
+    uint64_t tot_len;
     size_t len;
     uint8_t buf[64];
 } erts_md5_state;

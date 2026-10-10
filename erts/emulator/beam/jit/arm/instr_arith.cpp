@@ -188,16 +188,16 @@ void BeamModuleAssembler::emit_i_plus(const ArgLabel &Fail,
     mov_var(ARG3, rhs);
 
     if (Fail.get() != 0) {
-        emit_enter_runtime(Live.get());
+        emit_enter_runtime<Update::eReductions>(Live.get());
         a.mov(ARG1, c_p);
         runtime_call<Eterm (*)(Process *, Eterm, Eterm), erts_mixed_plus>();
-        emit_leave_runtime(Live.get());
+        emit_leave_runtime<Update::eReductions>(Live.get());
 
         emit_branch_if_not_value(ARG1, resolve_beam_label(Fail, dispUnknown));
     } else {
-        emit_enter_runtime(Live.get());
+        emit_enter_runtime<Update::eReductions>(Live.get());
         fragment_call(ga->get_plus_body_shared());
-        emit_leave_runtime(Live.get());
+        emit_leave_runtime<Update::eReductions>(Live.get());
     }
 
     a.bind(next);
@@ -275,16 +275,16 @@ void BeamModuleAssembler::emit_i_unary_minus(const ArgLabel &Fail,
 
     mov_var(ARG2, src);
     if (Fail.get() != 0) {
-        emit_enter_runtime(Live.get());
+        emit_enter_runtime<Update::eReductions>(Live.get());
         a.mov(ARG1, c_p);
         runtime_call<Eterm (*)(Process *, Eterm), erts_unary_minus>();
-        emit_leave_runtime(Live.get());
+        emit_leave_runtime<Update::eReductions>(Live.get());
 
         emit_branch_if_not_value(ARG1, resolve_beam_label(Fail, dispUnknown));
     } else {
-        emit_enter_runtime(Live.get());
+        emit_enter_runtime<Update::eReductions>(Live.get());
         fragment_call(ga->get_unary_minus_body_shared());
-        emit_leave_runtime(Live.get());
+        emit_leave_runtime<Update::eReductions>(Live.get());
     }
 
     a.bind(next);
@@ -376,15 +376,15 @@ void BeamModuleAssembler::emit_i_minus(const ArgLabel &Fail,
     mov_var(ARG3, rhs);
 
     if (Fail.get() != 0) {
-        emit_enter_runtime(Live.get());
+        emit_enter_runtime<Update::eReductions>(Live.get());
         a.mov(ARG1, c_p);
         runtime_call<Eterm (*)(Process *, Eterm, Eterm), erts_mixed_minus>();
-        emit_leave_runtime(Live.get());
+        emit_leave_runtime<Update::eReductions>(Live.get());
         emit_branch_if_not_value(ARG1, resolve_beam_label(Fail, dispUnknown));
     } else {
-        emit_enter_runtime(Live.get());
+        emit_enter_runtime<Update::eReductions>(Live.get());
         fragment_call(ga->get_minus_body_shared());
-        emit_leave_runtime(Live.get());
+        emit_leave_runtime<Update::eReductions>(Live.get());
     }
 
     a.bind(next);
@@ -439,7 +439,7 @@ void BeamGlobalAssembler::emit_mul_add_body_shared() {
           mul_error = a.new_label(), do_error = a.new_label();
 
     emit_enter_runtime_frame();
-    emit_enter_runtime();
+    emit_enter_runtime<Update::eReductions>();
 
     /* Save original arguments. */
     a.stp(ARG2, ARG3, TMP_MEM1q);
@@ -452,7 +452,7 @@ void BeamGlobalAssembler::emit_mul_add_body_shared() {
     runtime_call<Eterm (*)(Process *, Eterm, Eterm, Eterm, Eterm *),
                  erts_mul_add>();
 
-    emit_leave_runtime();
+    emit_leave_runtime<Update::eReductions>();
     emit_leave_runtime_frame();
 
     emit_branch_if_not_value(ARG1, error);
@@ -462,7 +462,7 @@ void BeamGlobalAssembler::emit_mul_add_body_shared() {
     {
         runtime_call<Eterm (*)(Process *, Eterm, Eterm), erts_mixed_times>();
 
-        emit_leave_runtime();
+        emit_leave_runtime<Update::eReductions>();
         emit_leave_runtime_frame();
 
         emit_branch_if_not_value(ARG1, mul_error);
@@ -500,7 +500,7 @@ void BeamGlobalAssembler::emit_mul_add_guard_shared() {
     a.str(ARG4, TMP_MEM1q);
 
     emit_enter_runtime_frame();
-    emit_enter_runtime();
+    emit_enter_runtime<Update::eReductions>();
 
     a.mov(ARG1, c_p);
     runtime_call<Eterm (*)(Process *, Eterm, Eterm), erts_mixed_times>();
@@ -512,7 +512,7 @@ void BeamGlobalAssembler::emit_mul_add_guard_shared() {
     runtime_call<Eterm (*)(Process *, Eterm, Eterm), erts_mixed_plus>();
 
     a.bind(mul_failed);
-    emit_leave_runtime();
+    emit_leave_runtime<Update::eReductions>();
     emit_leave_runtime_frame();
 
     a.ret(a64::x30);
@@ -775,7 +775,7 @@ void BeamGlobalAssembler::emit_int_div_rem_guard_shared() {
     a.bind(generic);
     {
         emit_enter_runtime_frame();
-        emit_enter_runtime();
+        emit_enter_runtime<Update::eReductions>();
 
         a.mov(ARG1, c_p);
         lea(ARG4, TMP_MEM4q);
@@ -783,7 +783,7 @@ void BeamGlobalAssembler::emit_int_div_rem_guard_shared() {
         runtime_call<int (*)(Process *, Eterm, Eterm, Eterm *, Eterm *),
                      erts_int_div_rem>();
 
-        emit_leave_runtime();
+        emit_leave_runtime<Update::eReductions>();
         emit_leave_runtime_frame();
 
         a.tst(ARG1, ARG1);
@@ -835,7 +835,7 @@ void BeamGlobalAssembler::emit_int_div_rem_body_shared() {
     a.bind(generic_div);
     {
         emit_enter_runtime_frame();
-        emit_enter_runtime();
+        emit_enter_runtime<Update::eReductions>();
 
         /* Save MFA and original arguments for the error path. */
         a.stp(ARG2, ARG3, TMP_MEM1q);
@@ -847,7 +847,7 @@ void BeamGlobalAssembler::emit_int_div_rem_body_shared() {
         runtime_call<int (*)(Process *, Eterm, Eterm, Eterm *, Eterm *),
                      erts_int_div_rem>();
 
-        emit_leave_runtime();
+        emit_leave_runtime<Update::eReductions>();
         emit_leave_runtime_frame();
 
         a.tst(ARG1, ARG1);
@@ -1231,17 +1231,17 @@ void BeamModuleAssembler::emit_i_band(const ArgLabel &Fail,
         mov_var(ARG3, rhs);
 
         if (Fail.get() != 0) {
-            emit_enter_runtime(Live.get());
+            emit_enter_runtime<Update::eReductions>(Live.get());
             a.mov(ARG1, c_p);
             runtime_call<Eterm (*)(Process *, Eterm, Eterm), erts_band>();
 
-            emit_leave_runtime(Live.get());
+            emit_leave_runtime<Update::eReductions>(Live.get());
             emit_branch_if_not_value(ARG1,
                                      resolve_beam_label(Fail, dispUnknown));
         } else {
-            emit_enter_runtime(Live.get());
+            emit_enter_runtime<Update::eReductions>(Live.get());
             fragment_call(ga->get_i_band_body_shared());
-            emit_leave_runtime(Live.get());
+            emit_leave_runtime<Update::eReductions>(Live.get());
         }
 
         a.bind(next);
@@ -1307,16 +1307,16 @@ void BeamModuleAssembler::emit_i_bor(const ArgLabel &Fail,
         mov_var(ARG3, rhs);
 
         if (Fail.get() != 0) {
-            emit_enter_runtime(Live.get());
+            emit_enter_runtime<Update::eReductions>(Live.get());
             a.mov(ARG1, c_p);
             runtime_call<Eterm (*)(Process *, Eterm, Eterm), erts_bor>();
-            emit_leave_runtime(Live.get());
+            emit_leave_runtime<Update::eReductions>(Live.get());
             emit_branch_if_not_value(ARG1,
                                      resolve_beam_label(Fail, dispUnknown));
         } else {
-            emit_enter_runtime(Live.get());
+            emit_enter_runtime<Update::eReductions>(Live.get());
             fragment_call(ga->get_i_bor_body_shared());
-            emit_leave_runtime(Live.get());
+            emit_leave_runtime<Update::eReductions>(Live.get());
         }
 
         a.bind(next);
@@ -1371,15 +1371,15 @@ void BeamModuleAssembler::emit_i_bxor(const ArgLabel &Fail,
     mov_var(ARG3, rhs);
 
     if (Fail.get() != 0) {
-        emit_enter_runtime(Live.get());
+        emit_enter_runtime<Update::eReductions>(Live.get());
         a.mov(ARG1, c_p);
         runtime_call<Eterm (*)(Process *, Eterm, Eterm), erts_bxor>();
-        emit_leave_runtime(Live.get());
+        emit_leave_runtime<Update::eReductions>(Live.get());
         emit_branch_if_not_value(ARG1, resolve_beam_label(Fail, dispUnknown));
     } else {
-        emit_enter_runtime(Live.get());
+        emit_enter_runtime<Update::eReductions>(Live.get());
         fragment_call(ga->get_i_bxor_body_shared());
-        emit_leave_runtime(Live.get());
+        emit_leave_runtime<Update::eReductions>(Live.get());
     }
 
     a.bind(next);
@@ -1474,14 +1474,14 @@ void BeamModuleAssembler::emit_i_bnot(const ArgLabel &Fail,
     }
 
     if (Fail.get() != 0) {
-        emit_enter_runtime(Live.get());
+        emit_enter_runtime<Update::eReductions>(Live.get());
         fragment_call(ga->get_i_bnot_guard_shared());
-        emit_leave_runtime(Live.get());
+        emit_leave_runtime<Update::eReductions>(Live.get());
         emit_branch_if_not_value(ARG1, resolve_beam_label(Fail, dispUnknown));
     } else {
-        emit_enter_runtime(Live.get());
+        emit_enter_runtime<Update::eReductions>(Live.get());
         fragment_call(ga->get_i_bnot_body_shared());
-        emit_leave_runtime(Live.get());
+        emit_leave_runtime<Update::eReductions>(Live.get());
     }
 
     a.bind(next);
@@ -1581,16 +1581,16 @@ void BeamModuleAssembler::emit_i_bsr(const ArgLabel &Fail,
         mov_arg(ARG3, RHS);
 
         if (Fail.get() != 0) {
-            emit_enter_runtime(Live.get());
+            emit_enter_runtime<Update::eReductions>(Live.get());
             a.mov(ARG1, c_p);
             runtime_call<Eterm (*)(Process *, Eterm, Eterm), erts_bsr>();
-            emit_leave_runtime(Live.get());
+            emit_leave_runtime<Update::eReductions>(Live.get());
             emit_branch_if_not_value(ARG1,
                                      resolve_beam_label(Fail, dispUnknown));
         } else {
-            emit_enter_runtime(Live.get());
+            emit_enter_runtime<Update::eReductions>(Live.get());
             fragment_call(ga->get_i_bsr_body_shared());
-            emit_leave_runtime(Live.get());
+            emit_leave_runtime<Update::eReductions>(Live.get());
         }
 
         mov_var(dst, ARG1);
@@ -1751,16 +1751,16 @@ void BeamModuleAssembler::emit_i_bsl(const ArgLabel &Fail,
         mov_var(ARG3, rhs);
 
         if (Fail.get() != 0) {
-            emit_enter_runtime(Live.get());
+            emit_enter_runtime<Update::eReductions>(Live.get());
             a.mov(ARG1, c_p);
             runtime_call<Eterm (*)(Process *, Eterm, Eterm), erts_bsl>();
-            emit_leave_runtime(Live.get());
+            emit_leave_runtime<Update::eReductions>(Live.get());
             emit_branch_if_not_value(ARG1,
                                      resolve_beam_label(Fail, dispUnknown));
         } else {
-            emit_enter_runtime(Live.get());
+            emit_enter_runtime<Update::eReductions>(Live.get());
             fragment_call(ga->get_i_bsl_body_shared());
-            emit_leave_runtime(Live.get());
+            emit_leave_runtime<Update::eReductions>(Live.get());
         }
 
         mov_var(dst, ARG1);

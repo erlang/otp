@@ -558,7 +558,7 @@ default(server) ->
            },
 
       dh_gex_limits =>
-          #{default => {0, infinity},
+          #{default => {2047, infinity},
             chk => fun({I1,I2}) ->
                            check_pos_integer(I1) andalso
                                check_pos_integer(I2) andalso
@@ -594,14 +594,14 @@ default(server) ->
            },
 
       max_sessions =>
-          #{default => infinity,
-            chk => fun(V) -> check_pos_integer(V) end,
+          #{default => 1024,
+            chk => fun(V) -> check_max_sessions(V) end,
             class => user_option
            },
 
       max_channels =>
-          #{default => infinity,
-            chk => fun(V) -> check_pos_integer(V) end,
+          #{default => 256,
+            chk => fun(V) -> check_max_channels(V) end,
             class => user_option
            },
 
@@ -634,6 +634,20 @@ default(server) ->
       bannerfun =>
           #{default => fun(_) -> <<>> end,
             chk => fun(V) -> check_function1(V) end,
+            class => user_option
+           },
+
+      max_auth_request_size =>
+          #{default => ?SSH_MAX_PACKET_SIZE,
+            chk => fun(V) -> check_pos_integer(V) end,
+            class => user_option
+           },
+
+      max_auth_tries =>
+          #{default => 6,
+            chk => fun(V) ->
+                           check_pos_integer(V) orelse V =:= infinity
+                   end,
             class => user_option
            },
 
@@ -699,7 +713,7 @@ default(client) ->
            },
 
       dh_gex_limits =>
-          #{default => {1024, 6144, 8192},      % FIXME: Is this true nowadays?
+          #{default => {2047, 6144, 8192},
             chk => fun({Min,I,Max}) ->
                            lists:all(fun check_pos_integer/1,
                                      [Min,I,Max]);
@@ -990,6 +1004,14 @@ error_in_check(BadValue, Extra) -> error({check,{BadValue,Extra}}).
 %%%----------------------------------------------------------------
 check_timeout(infinity) -> true;
 check_timeout(I) -> check_pos_integer(I).
+
+%%%----------------------------------------------------------------
+check_max_sessions(infinity) -> true;
+check_max_sessions(I) -> check_pos_integer(I).
+
+%%%----------------------------------------------------------------
+check_max_channels(infinity) -> true;
+check_max_channels(I) -> check_pos_integer(I).
 
 %%%----------------------------------------------------------------
 check_pos_integer(I) -> is_integer(I) andalso I>0.

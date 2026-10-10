@@ -70,7 +70,7 @@
 #define D0 0x10325476
 
 static size_t pad(const uint8_t* last_part, size_t size, uint8_t pad_buf[],
-                  size_t tot_size);
+                  uint64_t tot_size);
 static void hash_part(const uint8_t* msg_part, erts_md5_state*);
 
 void erts_md5_init(erts_md5_state* state)
@@ -220,7 +220,7 @@ static void hash_part(const uint8_t* msg_part, erts_md5_state *state)
 
 
 static size_t pad(const uint8_t* last_part, size_t size, uint8_t pad_buf[],
-                  size_t tot_size)
+                  uint64_t tot_size)
 {
     size_t filled = (size + 1) % 64;
     size_t zeroes;

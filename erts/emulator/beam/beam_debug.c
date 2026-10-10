@@ -604,9 +604,6 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
         addr++;
         ap = addr;
     } else {
-#if defined(ARCH_64) && defined(CODE_MODEL_SMALL)
-        BeamInstr instr_word = addr[0];
-#endif
         addr++;
 
 	/*
@@ -659,16 +656,6 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
 	    case 'P':
 		packed = *--sp;
 		break;
-#if defined(ARCH_64) && defined(CODE_MODEL_SMALL)
-            case '#':       /* -1 */
-            case '$':       /* -2 */
-            case '%':       /* -3 */
-            case '&':       /* -4 */
-            case '\'':      /* -5 */
-            case '(':       /* -6 */
-                packed = (packed << BEAM_WIDE_SHIFT) | BeamExtraData(instr_word);
-		break;
-#endif
 	    default:
                 erts_exit(ERTS_ERROR_EXIT, "beam_debug: invalid packing op: %c\n", *prog);
 	    }
@@ -964,11 +951,11 @@ print_op(fmtfn_t to, void *to_arg, int op, int size, BeamInstr* addr)
     case op_update_map_assoc_cdtI:
     case op_update_map_exact_xjdtI:
     case op_update_map_exact_yjdtI:
-    case op_i_create_native_record_cdtI:
+    case op_i_create_native_record_jctI:
     case op_i_create_local_native_record_qdtI:
-    case op_i_update_native_record_sdtI:
-    case op_i_get_record_elements_fxI:
-    case op_i_get_record_elements_fyI:
+    case op_i_update_native_record_jsdtI:
+    case op_i_get_record_elements_jxI:
+    case op_i_get_record_elements_jyI:
 	{
 	    int n = unpacked[-1];
 

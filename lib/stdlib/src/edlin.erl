@@ -133,7 +133,7 @@ supports multiple lines.
 - **`new_line_finish`** - Add a newline at the end of the line and try to
   evaluate the current expression.
 
-- **`newline`** - Add a newline at the cursor position.
+- **`new_line`** - Add a newline at the cursor position.
 
 - **`open_editor`** - Open the current line in an editor e.g. EDITOR="code -w"
   opens a buffer in vs code. Note that you need to pass a flag to the editor so

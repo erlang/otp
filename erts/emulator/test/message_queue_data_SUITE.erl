@@ -30,6 +30,7 @@
 -export([basic_test/1, id/1]).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -90,7 +91,7 @@ basic_test(Default) ->
     {message_queue_data, off_heap} = process_info(self(), message_queue_data),
     off_heap = process_flag(message_queue_data, on_heap),
     {message_queue_data, on_heap} = process_info(self(), message_queue_data),
-    {'EXIT', _} = (catch process_flag(message_queue_data, blupp)),
+    ?assertError(_, process_flag(message_queue_data, blupp)),
 
     P1 = spawn_opt(fun () -> receive after infinity -> ok end end,
 		   [link]),
@@ -110,8 +111,8 @@ basic_test(Default) ->
     unlink(P3),
     exit(P3, bye),
 
-    {'EXIT', _} = (catch spawn_opt(fun () -> receive after infinity -> ok end end,
-		   [link, {message_queue_data, blapp}])),
+    ?assertError(_, spawn_opt(fun () -> receive after infinity -> ok end end,
+                              [link, {message_queue_data, blapp}])),
 
     ok.
 

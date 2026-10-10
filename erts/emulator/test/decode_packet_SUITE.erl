@@ -25,6 +25,7 @@
 -module(decode_packet_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 -export([all/0, suite/0,groups/0,
          init_per_testcase/2,end_per_testcase/2,
@@ -281,7 +282,7 @@ neg(Config) when is_list(Config) ->
     Bin = <<"dummy">>,
     Fun = fun()->dummy end,
 
-    BadargF = fun(T,B,Opts)-> {'EXIT',{badarg,_}} = (catch decode_pkt(T,B,Opts)) end,
+    BadargF = fun(T,B,Opts)-> ?assertError(badarg, decode_pkt(T,B,Opts)) end,
 
     %% Invalid Type args
     lists:foreach(fun(T)-> BadargF(T,Bin,[]) end, 

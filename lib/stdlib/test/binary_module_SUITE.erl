@@ -22,7 +22,7 @@
 -module(binary_module_SUITE).
 
 -export([all/0, suite/0,
-	 interesting/1,scope_return/1,random_ref_comp/1,random_ref_sr_comp/1,
+         interesting/1,ac_simd_root_skip/1,scope_return/1,random_ref_comp/1,random_ref_sr_comp/1,
 	 random_ref_fla_comp/1,parts/1, bin_to_list/1, list_to_bin/1,
 	 copy/1, referenced/1,guard/1,encode_decode/1,badargs/1,longest_common_trap/1,
          check_no_invalid_read_bug/1,error_info/1, hex_encoding/1, join/1, doctests/1]).
@@ -36,7 +36,8 @@ suite() ->
      {timetrap,{minutes,10}}].
 
 all() ->
-    [scope_return,interesting, random_ref_fla_comp, random_ref_sr_comp,
+    [scope_return,interesting, ac_simd_root_skip,
+     random_ref_fla_comp, random_ref_sr_comp,
      random_ref_comp, parts, bin_to_list, list_to_bin, copy,
      referenced, guard, encode_decode, badargs,
      longest_common_trap, check_no_invalid_read_bug,
@@ -382,6 +383,59 @@ scope_loop(Bin,N,M) ->
 interesting(Config) when is_list(Config) ->
     X = do_interesting(binary),
     X = do_interesting(binref).
+
+%% Exercise the SIMD filter used to skip 16-byte subject blocks while an
+%% Aho-Corasick search is at its root by covering lengths of 3 and 9.
+ac_simd_root_skip(Config) when is_list(Config) ->
+    ThreeRoots = binary:compile_pattern([<<Byte>> || Byte <- lists:seq(1, 3)]),
+    {31, 1} = binary:match(<<0:248, 3>>, ThreeRoots),
+
+    NineRoots = binary:compile_pattern([<<Byte>> || Byte <- lists:seq(1, 9)]),
+    {31, 1} = binary:match(<<0:248, 9>>, NineRoots),
+
+    Patterns = [<<Byte>> || Byte <- lists:seq(1, 16)],
+    Compiled = binary:compile_pattern(Patterns),
+    {ac, _} = Compiled,
+
+    nomatch = binary:match(<<0, 0, 0>>, Compiled),
+    {3, 1} = binary:match(<<0, 0, 0, 16>>, Compiled),
+    {31, 1} = binary:match(<<0:248, 16>>, Compiled),
+    {2, 1} = binary:match(<<0, 0, 1, 16>>, Compiled,
+                          [{scope, {2, 2}}]),
+    [{1, 1}, {3, 1}] = binary:matches(<<0, 1, 0, 16>>, Compiled),
+    [{15, 1}, {32, 1}] = binary:matches(<<0:120, 1, 0:128, 2>>,
+                                        Compiled),
+    [<<0>>, <<0, 16>>] = binary:split(<<0, 1, 0, 16>>, Compiled),
+    [<<0>>, <<0>>, <<>>] = binary:split(<<0, 1, 0, 16>>, Compiled,
+                                           [global]),
+
+    Duplicate = binary:compile_pattern([<<7>>, <<7>>, <<9>>]),
+    {1, 1} = binary:match(<<0, 9, 7>>, Duplicate),
+    {ac, _} = binary:compile_pattern([<<7>>, <<7>>]),
+
+    UnalignedPatterns = [make_unaligned2(Pattern) || Pattern <- Patterns],
+    {2, 1} = binary:match(make_unaligned(<<0, 0, 8>>),
+                          binary:compile_pattern(UnalignedPatterns)),
+
+    %% The root filter is also used for ordinary multi-byte AC tries. Match
+    %% selection remains AC's leftmost-longest result after the skipped data.
+    Mixed = binary:compile_pattern([<<"ab">>, <<"abc">>, <<"bc">>]),
+    {32, 3} = binary:match(<<0:256, "abc">>, Mixed),
+    [{16, 3}, {36, 2}] = binary:matches(<<0:128, "abc", 0:136, "bc">>,
+                                         Mixed),
+
+    %% Multiple patterns may share a single unique root transition.
+    SingleRoot = binary:compile_pattern([<<"ab">>, <<"abc">>, <<"ad">>]),
+    {32, 3} = binary:match(<<0:256, "abc">>, SingleRoot),
+    [{16, 3}, {36, 2}] = binary:matches(<<0:128, "abc", 0:136, "ad">>,
+                                         SingleRoot),
+
+    %% More unique root bytes than fit in the SIMD filter continue to use
+    %% the scalar Aho-Corasick search loop.
+    Fallback = binary:compile_pattern([<<Byte>> || Byte <- lists:seq(1, 17)]),
+    {ac, _} = Fallback,
+    {2, 1} = binary:match(<<0, 0, 17>>, Fallback),
+    ok.
 
 do_interesting(Module) ->
     {0,4} = Module:match(<<"123456">>,

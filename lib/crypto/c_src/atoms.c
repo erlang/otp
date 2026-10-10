@@ -40,6 +40,9 @@ ERL_NIF_TERM atom_undefined;
 ERL_NIF_TERM atom_hmac;
 ERL_NIF_TERM atom_cmac;
 ERL_NIF_TERM atom_poly1305;
+ERL_NIF_TERM atom_siphash;
+ERL_NIF_TERM atom_c_rounds;
+ERL_NIF_TERM atom_d_rounds;
 
 ERL_NIF_TERM atom_ok;
 ERL_NIF_TERM atom_none;
@@ -160,6 +163,27 @@ ERL_NIF_TERM atom_mlkem768;
 ERL_NIF_TERM atom_mlkem1024;
 #endif
 
+#ifdef HAVE_KDF
+ERL_NIF_TERM atom_salt;
+ERL_NIF_TERM atom_info;
+ERL_NIF_TERM atom_iterations;
+ERL_NIF_TERM atom_n;
+ERL_NIF_TERM atom_r;
+ERL_NIF_TERM atom_p;
+ERL_NIF_TERM atom_maxmem;
+ERL_NIF_TERM atom_mac;
+ERL_NIF_TERM atom_extract_and_expand;
+ERL_NIF_TERM atom_extract_only;
+ERL_NIF_TERM atom_expand_only;
+#endif
+
+#ifdef HAVE_ARGON2
+ERL_NIF_TERM atom_memory;
+ERL_NIF_TERM atom_parallelism;
+ERL_NIF_TERM atom_secret;
+ERL_NIF_TERM atom_ad;
+#endif
+
 int init_atoms(ErlNifEnv *env) {
     atom_true  = enif_make_atom(env,"true");
     atom_false = enif_make_atom(env,"false");
@@ -180,6 +204,9 @@ int init_atoms(ErlNifEnv *env) {
     atom_hmac = enif_make_atom(env,"hmac");
     atom_cmac = enif_make_atom(env,"cmac");
     atom_poly1305 = enif_make_atom(env,"poly1305");
+    atom_siphash = enif_make_atom(env,"siphash");
+    atom_c_rounds = enif_make_atom(env,"c_rounds");
+    atom_d_rounds = enif_make_atom(env,"d_rounds");
 
     atom_ok = enif_make_atom(env,"ok");
     atom_none = enif_make_atom(env,"none");
@@ -289,6 +316,27 @@ int init_atoms(ErlNifEnv *env) {
     atom_mlkem512  = enif_make_atom(env,"mlkem512");
     atom_mlkem768  = enif_make_atom(env,"mlkem768");
     atom_mlkem1024 = enif_make_atom(env,"mlkem1024");
+#endif
+
+#ifdef HAVE_KDF
+    atom_salt = enif_make_atom(env,"salt");
+    atom_info = enif_make_atom(env,"info");
+    atom_iterations = enif_make_atom(env,"iterations");
+    atom_n = enif_make_atom(env,"n");
+    atom_r = enif_make_atom(env,"r");
+    atom_p = enif_make_atom(env,"p");
+    atom_maxmem = enif_make_atom(env,"maxmem");
+    atom_mac = enif_make_atom(env,"mac");
+    atom_extract_and_expand = enif_make_atom(env,"extract_and_expand");
+    atom_extract_only = enif_make_atom(env,"extract_only");
+    atom_expand_only = enif_make_atom(env,"expand_only");
+#endif
+
+#ifdef HAVE_ARGON2
+    atom_memory = enif_make_atom(env,"memory");
+    atom_parallelism = enif_make_atom(env,"parallelism");
+    atom_secret = enif_make_atom(env,"secret");
+    atom_ad = enif_make_atom(env,"ad");
 #endif
     return 1;
 }

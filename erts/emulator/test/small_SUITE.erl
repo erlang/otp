@@ -34,6 +34,8 @@
 -export([mul_add/0, division/0]).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
+-include("erts_test_utils.hrl").
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -237,7 +239,7 @@ test_addition([], _) ->
     ok.
 
 bad_arith(F, A, B) ->
-    {'EXIT',{badarith,_}} = catch F(number1, A, B),
+    ?assertError(badarith, F(number1, A, B)),
     ok.
 
 %% Test that the JIT only omits the overflow check when it's safe.
@@ -714,11 +716,11 @@ test_mul_add_exceptions() ->
     error = madd(id(7), id(b), id(3), id(whatever)),
     error = madd(id(7), id(15), id(c), id(whatever)),
 
-    {'EXIT',{badarith,[{erlang,'*',[a,2],_}|_]}} = catch madd(id(a), id(2), id(0)),
-    {'EXIT',{badarith,[{erlang,'*',[a,2],_}|_]}} = catch madd(id(a), id(2), id(42)),
-    {'EXIT',{badarith,[{erlang,'*',[a,2],_}|_]}} = catch madd(id(a), id(2), id(c)),
-    {'EXIT',{badarith,[{erlang,'*',[3,b],_}|_]}} = catch madd(id(3), id(b), id(c)),
-    {'EXIT',{badarith,[{erlang,'+',[6,c],_}|_]}} = catch madd(id(2), id(3), id(c)),
+    ?AssertErrorStack(badarith, [{erlang,'*',[a,2],_}|_], madd(id(a), id(2), id(0))),
+    ?AssertErrorStack(badarith, [{erlang,'*',[a,2],_}|_], madd(id(a), id(2), id(42))),
+    ?AssertErrorStack(badarith, [{erlang,'*',[a,2],_}|_], madd(id(a), id(2), id(c))),
+    ?AssertErrorStack(badarith, [{erlang,'*',[3,b],_}|_], madd(id(3), id(b), id(c))),
+    ?AssertErrorStack(badarith, [{erlang,'+',[6,c],_}|_], madd(id(2), id(3), id(c))),
 
     ok.
 
@@ -1102,11 +1104,11 @@ test_bitwise(_Config) ->
     ok.
 
 expect_fc(Fun) ->
-    {'EXIT',{function_clause,_}} = catch Fun(id(bad)),
+    ?assertError(function_clause, Fun(id(bad))),
     ok.
 
 expect_badarith(Fun) ->
-    {'EXIT',{badarith,_}} = catch Fun(id(bad)),
+    ?assertError(badarith, Fun(id(bad))),
     ok.
 
 bitwise_gen_pairs() ->
@@ -1262,7 +1264,7 @@ test_bsl([{Name,{N,S}}|T], Mod) ->
                         ok
                 end;
             S < 0 ->
-                {'EXIT', {function_clause,_}} = catch Mod:Name(N, S)
+                ?assertError(function_clause, Mod:Name(N, S))
         end
     catch
         C:R:Stk ->
@@ -1375,7 +1377,7 @@ element(_Config) ->
     zero = element_1(0+4),
     one = element_1(1+4),
 
-    {'EXIT',{badarith,_}} = catch element_1(id(a)),
+    ?assertError(badarith, element_1(id(a))),
 
     %% Test element_2: Test that it fails for 0.
     one = element_2(1),
@@ -1386,9 +1388,9 @@ element(_Config) ->
     two = element_2(2+4),
     three = element_2(3+4),
 
-    {'EXIT',{badarg,[{erlang,element,[0,{one,two,three}],_}|_]}} =
-        catch element_2(id(0)),
-    {'EXIT',{badarith,_}} = catch element_2(id(b)),
+    ?AssertErrorStack(badarg, [{erlang,element,[0,{one,two,three}],_}|_],
+                      element_2(id(0))),
+    ?assertError(badarith, element_2(id(b))),
 
     %% Test element_3: Test that if fails for integers less than 1.
     one = element_3(1),
@@ -1399,11 +1401,11 @@ element(_Config) ->
     two = element_3(2+4),
     three = element_3(3+4),
 
-    {'EXIT',{badarg,[{erlang,element,[0,{one,two,three}],_}|_]}} =
-        catch element_3(id(0)),
-    {'EXIT',{badarg,_}} = catch element_3(id(-1)),
-    {'EXIT',{badarg,_}} = catch element_3(id(-999)),
-    {'EXIT',{badarith,_}} = catch element_3(id(c)),
+    ?AssertErrorStack(badarg, [{erlang,element,[0,{one,two,three}],_}|_],
+                      element_3(id(0))),
+    ?assertError(badarg, element_3(id(-1))),
+    ?assertError(badarg, element_3(id(-999))),
+    ?assertError(badarith, element_3(id(c))),
 
     %% Test element_4: Test that it fails for integers outside of the range 1..3.
     one = element_4(1),
@@ -1414,14 +1416,14 @@ element(_Config) ->
     two = element_4(2+8),
     three = element_4(3+8),
 
-    {'EXIT',{badarg,[{erlang,element,[0,{one,two,three}],_}|_]}} =
-        catch element_4(id(0)),
-    {'EXIT',{badarg,[{erlang,element,[5,{one,two,three}],_}|_]}} =
-        catch element_4(id(5)),
-    {'EXIT',{badarg,_}} = catch element_4(id(-1)),
-    {'EXIT',{badarg,[{erlang,element,[-7,{one,two,three}],_}|_]}} =
-        catch element_4(id(-999)),
-    {'EXIT',{badarith,_}} = catch element_4(id(d)),
+    ?AssertErrorStack(badarg, [{erlang,element,[0,{one,two,three}],_}|_],
+                      element_4(id(0))),
+    ?AssertErrorStack(badarg, [{erlang,element,[5,{one,two,three}],_}|_],
+                      element_4(id(5))),
+    ?assertError(badarg, element_4(id(-1))),
+    ?AssertErrorStack(badarg, [{erlang,element,[-7,{one,two,three}],_}|_],
+                      element_4(id(-999))),
+    ?assertError(badarith, element_4(id(d))),
 
     %% Test element_5: Test that it fails for integers outside of the
     %% range 0..3.
@@ -1435,11 +1437,11 @@ element(_Config) ->
     two = element_5(2+8),
     three = element_5(3+8),
 
-    {'EXIT',{badarg,[{erlang,element,[5,{zero,one,two,three}],_}|_]}} =
-        catch element_5(id(4)),
-    {'EXIT',{badarg,[{erlang,element,[0,{zero,one,two,three}],_}|_]}} =
-        catch element_5(id(-1)),
-    {'EXIT',{badarith,_}} = catch element_5(id(e)),
+    ?AssertErrorStack(badarg, [{erlang,element,[5,{zero,one,two,three}],_}|_],
+                      element_5(id(4))),
+    ?AssertErrorStack(badarg, [{erlang,element,[0,{zero,one,two,three}],_}|_],
+                      element_5(id(-1))),
+    ?assertError(badarith, element_5(id(e))),
 
     %% element_6: Test that it fails for values outside of 0..3.
     zero = element_6(0),
@@ -1447,10 +1449,10 @@ element(_Config) ->
     two = element_6(2),
     three = element_6(3),
 
-    {'EXIT',{badarg,[{erlang,element,[5,{zero,one,two,three}],_}|_]}} =
-        catch element_6(id(4)),
-    {'EXIT',{badarg,[{erlang,element,[0,{zero,one,two,three}],_}|_]}} =
-        catch element_6(id(-1)),
+    ?AssertErrorStack(badarg, [{erlang,element,[5,{zero,one,two,three}],_}|_],
+                      element_6(id(4))),
+    ?AssertErrorStack(badarg, [{erlang,element,[0,{zero,one,two,three}],_}|_],
+                      element_6(id(-1))),
 
     %% Test element_7: Test that it fails for values outside of 1..3.
     one = element_7(1),
@@ -1461,11 +1463,11 @@ element(_Config) ->
     two = element_7(2+5),
     three = element_7(3+5),
 
-    {'EXIT',{badarg,[{erlang,element,[0,{one,two,three}],_}|_]}} =
-        catch element_7(id(0)),
-    {'EXIT',{badarg,[{erlang,element,[4,{one,two,three}],_}|_]}} =
-        catch element_7(id(4)),
-    {'EXIT',{badarith,_}} = catch element_7(id(f)),
+    ?AssertErrorStack(badarg, [{erlang,element,[0,{one,two,three}],_}|_],
+                      element_7(id(0))),
+    ?AssertErrorStack(badarg, [{erlang,element,[4,{one,two,three}],_}|_],
+                      element_7(id(4))),
+    ?assertError(badarith, element_7(id(f))),
 
     %% element_8: Test that it works in a guard.
     ok = element_8(id(1), id(a)),

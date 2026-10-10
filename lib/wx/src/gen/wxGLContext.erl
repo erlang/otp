@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -111,7 +111,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -doc(#{equiv => new(Win, [])}).
 -spec new(Win) -> wxGLContext() when
-	Win::wxGLCanvas:wxGLCanvas().
+        Win::wxGLCanvas:wxGLCanvas().
 
 new(Win)
  when is_record(Win, wx_ref) ->
@@ -139,7 +139,7 @@ constructor of this rendering context. If `RC` is an object of type `m:wxGLConte
 statements `"RC.SetCurrent(win);"` and `"win.SetCurrent(RC);"` are equivalent, see `wxGLCanvas:setCurrent/2`.
 """.
 -spec setCurrent(This, Win) -> boolean() when
-	This::wxGLContext(), Win::wxGLCanvas:wxGLCanvas().
+        This::wxGLContext(), Win::wxGLCanvas:wxGLCanvas().
 setCurrent(#wx_ref{type=ThisT}=This,#wx_ref{type=WinT}=Win) ->
   ?CLASS(ThisT,wxGLContext),
   ?CLASS(WinT,wxGLCanvas),
@@ -156,7 +156,7 @@ deleted and recreated with different attributes.
 Since: 3.1.0
 """.
 -spec isOK(This) -> boolean() when
-	This::wxGLContext().
+        This::wxGLContext().
 isOK(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxGLContext),
   wxe_util:queue_cmd(This,?get_env(),?wxGLContext_IsOK),

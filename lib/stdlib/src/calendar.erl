@@ -434,17 +434,20 @@ local_time() ->
 
 -doc(#{equiv => local_time_to_system_time(LocalTime, [])}).
 -doc(#{since => <<"OTP 28.0">>}).
--spec local_time_to_system_time(datetime1970()) -> pos_integer().
+-spec local_time_to_system_time(datetime1970()) -> non_neg_integer().
 local_time_to_system_time(LocalTime) ->
     local_time_to_system_time(LocalTime, []).
 
 -doc(#{since => <<"OTP 28.0">>}).
 -doc """
 Converts local time into system time.
+
+`LocalTime` must be a datetime that results in a system time at or after Jan 1, 1970.
+
 Error will occur if the local time is non existing or ambiguous due to DST,
 see [`calendar:local_time_to_universal_time_dst/1`](`local_time_to_universal_time_dst/1`).
 """.
--spec local_time_to_system_time(datetime1970(), Options) -> pos_integer() when
+-spec local_time_to_system_time(LocalTime :: datetime1970(), Options) -> non_neg_integer() when
       Options :: [Option],
       Option :: {unit, erlang:time_unit()}.
 local_time_to_system_time(LocalTime, Options) ->
@@ -461,8 +464,9 @@ local_time_to_system_time(LocalTime, Options) ->
 %% local_time_to_universal_time(DateTime)
 %%
 -doc """
-Converts from local time to Universal Coordinated Time (UTC). `DateTime1` must
-refer to a local date after Jan 1, 1970.
+Converts from local time to Universal Coordinated Time (UTC).
+
+`DateTime1` must be a datetime that results in a UTC date at or after Jan 1, 1970.
 
 > #### Warning {: .warning }
 >
@@ -485,8 +489,9 @@ local_time_to_universal_time(DateTime, IsDst) ->
     erlang:localtime_to_universaltime(DateTime, IsDst).
 
 -doc """
-Converts from local time to Universal Coordinated Time (UTC). `DateTime1` must
-refer to a local date after Jan 1, 1970.
+Converts from local time to Universal Coordinated Time (UTC).
+
+`DateTime1` must be a datetime that results in a UTC date at or after Jan 1, 1970.
 
 The return value is a list of 0, 1, or 2 possible UTC times:
 
@@ -695,8 +700,7 @@ seconds_to_daystime(Secs) ->
 %%
 -type secs_per_day() :: 0..86399.
 -doc """
-Computes the time from the specified number of seconds. `Seconds` must be less
-than the number of seconds per day (86400).
+Computes the time from the specified number of seconds.
 """.
 -spec seconds_to_time(Seconds) -> time() when
       Seconds :: secs_per_day().
@@ -932,9 +936,9 @@ valid_date1(Y, M, D) when is_integer(Y), M > 0, M < 13, D > 0 ->
 valid_date1(_, _, _) ->
     false.
 
--doc "This function checks if a date is a valid.".
+-doc "This function checks if a date is valid.".
 -spec valid_date(Date) -> boolean() when
-      Date :: date().
+      Date :: {Year :: integer(), Month :: integer(), Day :: integer()}.
 valid_date({Y, M, D}) ->
     valid_date(Y, M, D).
 

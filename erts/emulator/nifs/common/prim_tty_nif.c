@@ -45,17 +45,20 @@
 #include <signal.h>
 #include <locale.h>
 #if defined(HAVE_TERMCAP)
-#include <termios.h>
-#if defined(HAVE_NCURSES_CURSES_H)
-#include <ncurses/curses.h>
-#include <ncurses/term.h>
-#elif defined(HAVE_CURSES_H) && defined(HAVE_TERM_H)
-#include <curses.h>
-#include <term.h>
-#else
+#  include <termios.h>
+#  if defined(HAVE_NCURSES_CURSES_H)
+#    include <ncurses/curses.h>
+#    include <ncurses/term.h>
+#  elif defined(HAVE_CURSES_H) && defined(HAVE_TERM_H)
+#    include <curses.h>
+#    include <term.h>
+#  else
 /* We detected TERMCAP support, but could not find the correct headers to include */
-#undef HAVE_TERMCAP
-#endif
+#    undef HAVE_TERMCAP
+#  endif
+#  if !defined(NCURSES_CONST)
+#    define NCURSES_CONST
+#  endif
 #endif
 #ifndef __WIN32__
 #include <unistd.h>
@@ -127,6 +130,10 @@ static FILE *logFile = NULL;
 #endif
 
 static ErlNifResourceType *tty_rt;
+
+#ifdef HAVE_TERMCAP
+static ErlNifMutex *prim_tty_global_mutex = NULL;
+#endif
 
 /* The NIFs: */
 static ERL_NIF_TERM isatty_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
@@ -777,13 +784,16 @@ static TERMINAL *saved_term = NULL;
 static ERL_NIF_TERM tty_setupterm_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
 #ifdef HAVE_TERMCAP
     int errret;
+    enif_mutex_lock(prim_tty_global_mutex);
     if (setupterm(NULL, -1, &errret) < 0) {
+        enif_mutex_unlock(prim_tty_global_mutex);
         return make_errno_error(env, "setupterm");
     }
     if (saved_term) {
         del_curterm(saved_term);
     }
     saved_term = cur_term;
+    enif_mutex_unlock(prim_tty_global_mutex);
     return atom_ok;
 #else
     return make_enotsup(env);
@@ -882,7 +892,6 @@ static ERL_NIF_TERM tty_tigetstr_nif(ErlNifEnv* env, int argc, const ERL_NIF_TER
 
 static int library_refc = 0;
 #ifdef HAVE_TERMCAP
-static ErlNifMutex *tputs_mutex;
 static int tputs_buffer_index;
 static int tputs_buffer_size;
 #ifdef DEBUG
@@ -945,7 +954,7 @@ static ERL_NIF_TERM tty_tputs_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     }
 
     /* Neither tparm nor tputs are thread safe.. */
-    enif_mutex_lock(tputs_mutex);
+    enif_mutex_lock(prim_tty_global_mutex);
 
     /* If the capability has arguments, we call tparm */
     if (slot) {
@@ -957,7 +966,7 @@ static ERL_NIF_TERM tty_tputs_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
                     params[4], params[5], params[6], params[7], params[8]);
             
         if (!ent) {
-            enif_mutex_unlock(tputs_mutex);
+            enif_mutex_unlock(prim_tty_global_mutex);
             return make_errno_error(env, "tparm");
         }
     } else {
@@ -977,7 +986,7 @@ static ERL_NIF_TERM tty_tputs_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
         enif_free(tputs_buffer);
     }
 
-    enif_mutex_unlock(tputs_mutex);
+    enif_mutex_unlock(prim_tty_global_mutex);
 
     return enif_make_tuple2(env, atom_ok, ret);
 #else
@@ -1073,7 +1082,7 @@ static ERL_NIF_TERM tty_create_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM 
 
 static ERL_NIF_TERM tty_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]) {
 
-    ERL_NIF_TERM input;
+    ERL_NIF_TERM input, signals;
     TTYResource *tty;
 
     debug("tty_init_nif(%T,%T)\r\n", argv[0], argv[1]);
@@ -1087,6 +1096,14 @@ static ERL_NIF_TERM tty_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 
     if (!enif_get_map_value(env, argv[1], enif_make_atom(env, "input"), &input))
         return enif_make_badarg(env);
+
+    /* Whether signal and flow-control handling should stay enabled in
+       raw mode. Defaults to true to preserve the shell's ctrl+c break
+       behavior. When false, ISIG, IEXTEN and IXON are disabled so that
+       control bytes such as ctrl+o, ctrl+c and ctrl+s/ctrl+q reach the
+       application. */
+    if (!enif_get_map_value(env, argv[1], enif_make_atom(env, "signals"), &signals))
+        signals = atom_true;
 
     if (tty->tty == unavailable) {
         if (enif_is_identical(input, atom_raw))
@@ -1126,6 +1143,15 @@ static ERL_NIF_TERM tty_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
             /* erts_fprintf(stderr,"echo %T\r\n", echo); */
             tty->tty_smode.c_lflag &= ~ECHO;
 
+            if (enif_is_identical(signals, atom_false)) {
+                /* Also disable signal and flow-control handling so that
+                   control bytes are passed through to the application.
+                   This restores the sig => false behavior that the
+                   prim_tty API had before the OTP 28 shell improvements. */
+                tty->tty_smode.c_iflag &= ~(BRKINT|IGNPAR|IXON|IXANY);
+                tty->tty_smode.c_lflag &= ~(ISIG|IEXTEN);
+            }
+
         }
 
         if (tcsetattr(tty->ofd, TCSANOW, &tty->tty_smode) < 0) {
@@ -1143,6 +1169,11 @@ static ERL_NIF_TERM tty_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     if (tty->tty == enabled) {
         dwOutMode  |= DISABLE_NEWLINE_AUTO_RETURN;
         dwInMode &= ~(ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT);
+        if (enif_is_identical(signals, atom_false)) {
+            /* Pass ctrl+c through to the application instead of
+               generating a console event for it. */
+            dwInMode &= ~ENABLE_PROCESSED_INPUT;
+        }
     }
 
     if (tty->ifd != INVALID_HANDLE_VALUE && !SetConsoleMode(tty->ifd, dwInMode))
@@ -1262,7 +1293,7 @@ static void init(ErlNifEnv* env, ErlNifResourceFlags rt_flags) {
 
     if (library_refc == 0) {
 #ifdef HAVE_TERMCAP
-        tputs_mutex = enif_mutex_create("tputs_muex");
+        prim_tty_global_mutex = enif_mutex_create("tty_global_mutex");
 #endif
 #define ATOM_DECL(A) atom_##A = enif_make_atom(env, #A)
         ATOMS
@@ -1283,8 +1314,8 @@ static void unload(ErlNifEnv* env, void* priv_data)
     --library_refc;
 #ifdef HAVE_TERMCAP
     if (library_refc == 0) {
-        enif_mutex_destroy(tputs_mutex);
-        tputs_mutex = NULL;
+        enif_mutex_destroy(prim_tty_global_mutex);
+        prim_tty_global_mutex = NULL;
 
         if (saved_term) {
             del_curterm(saved_term);

@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2004-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2004-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -102,6 +102,9 @@ listen({ssl, SSLConfig}, Addr, Port, Fd, IpFamily) ->
 
 listen(ip_comm, Addr, Port, IpFamily) ->
     listen_ip_comm(Addr, Port, [], undefined, IpFamily);
+
+listen({ip_comm, SockOpts}, Addr, Port, IpFamily) ->
+    listen_ip_comm(Addr, Port, SockOpts, undefined, IpFamily);
 
 listen({ssl, SSLConfig}, Addr, Port, IpFamily) ->
     {SSLConfig2, ExtraOpts} = case proplists:get_value(log_alert, SSLConfig, undefined) of

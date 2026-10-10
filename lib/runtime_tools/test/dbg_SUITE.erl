@@ -30,7 +30,8 @@
          ip_port_busy/1, wrap_port/1, wrap_port_time/1,
          with_seq_trace/1, dead_suspend/1, local_trace/1,
          saved_patterns/1, tracer_exit_on_stop/1,
-         erl_tracer/1, distributed_erl_tracer/1]).
+         erl_tracer/1, distributed_erl_tracer/1,
+         session_parent_down/1]).
 -export([tracee1/1, tracee2/1]).
 -export([dummy/0, exported/1]).
 -export([enabled/3, trace/5, load_nif/1]).
@@ -52,7 +53,9 @@ groups() ->
                 file_port, file_port2, file_tracer, ip_port_busy,
                 wrap_port, wrap_port_time, with_seq_trace, dead_suspend,
                 local_trace, saved_patterns, tracer_exit_on_stop,
-                erl_tracer, distributed_erl_tracer]}].
+                erl_tracer, distributed_erl_tracer,
+                session_parent_down
+               ]}].
 
 init_per_suite(Config) ->
     Config.
@@ -472,7 +475,7 @@ local_trace(Config) when is_list(Config) ->
         4 = ?MODULE:exported(2),
         [] = flush(),
         {ok, _} = dbg:tpl(?MODULE,not_exported,x),
-        catch ?MODULE:exported(x),
+        try ?MODULE:exported(x) catch error:badarith -> ok end,
         [{trace,S,call,{dbg_SUITE,not_exported,[x]}},
          {trace,S,exception_from,
           {dbg_SUITE,not_exported,1},
@@ -498,7 +501,13 @@ port(Config) when is_list(Config) ->
         port_close(Port),
         stop(),
 
-        TraceFileDrv = list_to_atom(lists:flatten(["trace_file_drv n ",TestFile])),
+        TraceFileDrv = list_to_atom(
+                         %% priv_dir may be long on some sytems where tests are
+                         %% being run, and result in a large port command. This
+                         %% will get truncated so it doesn't exceed max atom
+                         %% size (255 chars)
+                         lists:sublist( lists:flatten(["trace_file_drv n ",TestFile]), 255)
+                        ),
         [{trace,Port,open,S,TraceFileDrv},
          {trace,Port,getting_linked,S},
          {trace,Port,closed,normal}] = flush()
@@ -942,6 +951,46 @@ distributed_erl_tracer(Config) ->
     [{RCall, call, RNifProxy, RCall, {?MODULE, dummy, []}, #{}}] = flush(),
 
     peer:stop(Peer),
+    ok.
+
+session_parent_down(_Config) ->
+    stop(),
+    S = self(),
+    spawn_link(
+      fun() ->
+              DbgSession = dbg:session_create(session_parent_down),
+              Pid = self(),
+              dbg:session(DbgSession,
+                          fun() ->
+                                  {ok, _} = dbg:tracer(process, {fun(Event, ok) -> S ! Event end, ok}),
+                                  {ok, Tracer} = dbg:get_tracer(),
+                                  {ok, _} = dbg:p(Pid, [call]),
+                                  {ok, _} = dbg:tp(?MODULE, dummy, []),
+                                  S ! {DbgSession, Pid, Tracer}
+                          end),
+              %% wait for monitors to be set up
+              receive go -> ok end,
+              ?MODULE:dummy()
+      end),
+
+    {DbgSession, Pid, Tracer} = receive {_, _, _} = Pids -> Pids end,
+    DbgSessionMref = erlang:monitor(process, DbgSession),
+    PidMref = erlang:monitor(process, Pid),
+    TracerMref = erlang:monitor(process, Tracer),
+    Pid ! go,
+
+    %% we don't care about order, and race conditions mean we can't rely on
+    %% order in test. We just care that all expected messages are received.
+    ExpectedMessages =
+    lists:sort(
+      [
+       {trace, Pid, call, {?MODULE, dummy, []}},
+       {'DOWN', PidMref, process, Pid, normal},
+       {'DOWN', DbgSessionMref, process, DbgSession, shutdown},
+       {'DOWN', TracerMref, process, Tracer, normal}
+      ]),
+    ExpectedMessages = lists:sort(flush()),
+
     ok.
 
 load_nif(Config) ->

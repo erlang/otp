@@ -609,8 +609,8 @@ erts_iov_block_hash(Uint32 *hashp, Uint *sizep, ErtsIovBlockHashState *state)
     ErtsBlockHashHelperCtx *hctx = &state->hctx;
     SysIOVec *iov = state->iov;
     Uint vlen = state->vlen;
-    int vix = state->vix;
-    int ix = state->ix;
+    Uint vix = state->vix;
+    Uint ix = state->ix;
     Uint cix = 0;
     byte *final_bytes;
     Uint no_final_bytes;
@@ -620,7 +620,7 @@ erts_iov_block_hash(Uint32 *hashp, Uint *sizep, ErtsIovBlockHashState *state)
 
     do {
         Uint bsz, csz;
-        int left;
+        Uint left;
         byte *ptr;
 
         ASSERT((cix % BLOCK_HASH_BYTES_PER_ITER) == 0);
@@ -996,8 +996,8 @@ make_hash2_helper(Eterm term_param, const int can_trap, Eterm* state_mref_write_
     };
     {
     Eterm tmp;
-    long max_iterations = 0;
-    long iterations_until_trap = 0;
+    SWord max_iterations = 0;
+    SWord iterations_until_trap = 0;
     Eterm state_mref = THE_NON_VALUE;
     ErtsMakeHash2Context* context = NULL;
     DECLARE_ESTACK(s);
@@ -1267,7 +1267,7 @@ make_hash2_helper(Eterm term_param, const int can_trap, Eterm* state_mref_write_
                 ErtsMakeHash2Context_SUB_BINARY_SUBTAG ctx = {0};
                 Uint32 con = HCONST_13 + hash;
                 Uint offset, size;
-                Uint iters_for_bin;
+                SWord iters_for_bin;
 
                 ERTS_GET_BITSTRING(term, ctx.bptr, offset, size);
 

@@ -12,11 +12,11 @@ void wxEvtHandler_Connect(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
   if(!enif_get_int(env, argv[1], &winid)) Badarg("Winid");
   if(!enif_get_int(env, argv[2], &lastid)) Badarg("LastId");
   skip = enif_is_identical(argv[3], WXE_ATOM_true);
-  userData = new wxeErlTerm(argv[4]);
   if(!enif_get_int(env, argv[5], &fun_cb)) Badarg("FunId");
   if(!enif_is_atom(env, argv[6])) Badarg("EvType");
   int eventType = wxeEventTypeFromAtom(argv[6]);
   if(!enif_is_atom(env, argv[7])) Badarg("ClassName");
+  userData = new wxeErlTerm(argv[4]);
 
   wxeReturn rt = wxeReturn(memenv, Ecmd.caller, true);
   if(eventType > 0 ) {
@@ -29,6 +29,7 @@ void wxEvtHandler_Connect(WxeApp *app, wxeMemEnv *memenv, wxeCommand& Ecmd)
 			     rt.make_ref(app->getRef((void *)Evt_cb,memenv),
 					 "wxeEvtListener")));
   } else {
+    delete userData;
     rt.send(enif_make_tuple2(rt.env, WXE_ATOM_badarg, rt.make_atom("event_type")));
   }
 }

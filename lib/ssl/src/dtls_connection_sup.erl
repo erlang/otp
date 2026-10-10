@@ -64,7 +64,7 @@ start_child(Module, SslOpts, Args) ->
 %%%=========================================================================
 %%%  Supervisor callback
 %%%=========================================================================
-init(_) ->    
+init(_) ->
     SupFlags = #{strategy  => simple_one_for_one,
                  intensity =>   0,
                  period    => 3600
@@ -76,5 +76,5 @@ init(_) ->
                     modules  => [ssl_gen_statem, dtls_connection],
                     type     => worker
                    }
-                 ], 
+                 ],
     {ok, {SupFlags, ChildSpecs}}.

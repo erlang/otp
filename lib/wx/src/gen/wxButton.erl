@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -183,7 +183,7 @@ Event types emitted from this class:
   move/2,move/3,move/4,moveAfterInTabOrder/2,moveBeforeInTabOrder/2,
   navigate/1,navigate/2,pageDown/1,pageUp/1,parent_class/1,popupMenu/2,
   popupMenu/3,popupMenu/4,raise/1,refresh/1,refresh/2,refreshRect/2,refreshRect/3,
-  releaseMouse/1,removeChild/2,reparent/2,screenToClient/1,screenToClient/2,
+  releaseMouse/1,removeChild/2,reparent/2,screenToClient/2,screenToClient/3,
   scrollLines/2,scrollPages/2,scrollWindow/3,scrollWindow/4,setAcceleratorTable/2,
   setAutoLayout/2,setBackgroundColour/2,setBackgroundStyle/2,setCaret/2,
   setClientSize/2,setClientSize/3,setContainingSizer/2,setCursor/2,
@@ -215,7 +215,7 @@ new() ->
 
 -doc(#{equiv => new(Parent,Id, [])}).
 -spec new(Parent, Id) -> wxButton() when
-	Parent::wxWindow:wxWindow(), Id::integer().
+        Parent::wxWindow:wxWindow(), Id::integer().
 
 new(Parent,Id)
  when is_record(Parent, wx_ref),is_integer(Id) ->
@@ -258,7 +258,7 @@ new(#wx_ref{type=ParentT}=Parent,Id, Options)
 
 -doc(#{equiv => create(This,Parent,Id, [])}).
 -spec create(This, Parent, Id) -> boolean() when
-	This::wxButton(), Parent::wxWindow:wxWindow(), Id::integer().
+        This::wxButton(), Parent::wxWindow:wxWindow(), Id::integer().
 
 create(This,Parent,Id)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id) ->
@@ -307,7 +307,7 @@ getDefaultSize() ->
 
 -doc "".
 -spec getDefaultSize(Win) -> {W::integer(), H::integer()} when
-	Win::wxWindow:wxWindow().
+        Win::wxWindow:wxWindow().
 getDefaultSize(#wx_ref{type=WinT}=Win) ->
   ?CLASS(WinT,wxWindow),
   wxe_util:queue_cmd(Win,?get_env(),?wxButton_GetDefaultSize_STAT_1),
@@ -329,7 +329,7 @@ Remark: Under Windows, only dialog box buttons respond to this function.
 Return: the old default item (possibly NULL)
 """.
 -spec setDefault(This) -> wxWindow:wxWindow() when
-	This::wxButton().
+        This::wxButton().
 setDefault(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxButton),
   wxe_util:queue_cmd(This,?get_env(),?wxButton_SetDefault),
@@ -337,7 +337,7 @@ setDefault(#wx_ref{type=ThisT}=This) ->
 
 -doc "Sets the string label for the button.".
 -spec setLabel(This, Label) -> 'ok' when
-	This::wxButton(), Label::unicode:chardata().
+        This::wxButton(), Label::unicode:chardata().
 setLabel(#wx_ref{type=ThisT}=This,Label)
  when ?is_chardata(Label) ->
   ?CLASS(ThisT,wxButton),
@@ -352,7 +352,7 @@ See: `setBitmapDisabled/2`
 Since: 2.9.1 (available in `m:wxBitmapButton` only in previous versions)
 """.
 -spec getBitmapDisabled(This) -> wxBitmap:wxBitmap() when
-	This::wxButton().
+        This::wxButton().
 getBitmapDisabled(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxButton),
   wxe_util:queue_cmd(This,?get_env(),?wxButton_GetBitmapDisabled),
@@ -366,7 +366,7 @@ See: `setBitmapFocus/2`
 Since: 2.9.1 (available in `m:wxBitmapButton` only in previous versions)
 """.
 -spec getBitmapFocus(This) -> wxBitmap:wxBitmap() when
-	This::wxButton().
+        This::wxButton().
 getBitmapFocus(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxButton),
   wxe_util:queue_cmd(This,?get_env(),?wxButton_GetBitmapFocus),
@@ -383,7 +383,7 @@ See: `setBitmapLabel/2`
 Since: 2.9.1 (available in `m:wxBitmapButton` only in previous versions)
 """.
 -spec getBitmapLabel(This) -> wxBitmap:wxBitmap() when
-	This::wxButton().
+        This::wxButton().
 getBitmapLabel(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxButton),
   wxe_util:queue_cmd(This,?get_env(),?wxButton_GetBitmapLabel),
@@ -407,7 +407,7 @@ See:
 Since: 2.9.1 (available in `m:wxBitmapButton` only in previous versions)
 """.
 -spec setBitmapDisabled(This, Bitmap) -> 'ok' when
-	This::wxButton(), Bitmap::wxBitmap:wxBitmap().
+        This::wxButton(), Bitmap::wxBitmap:wxBitmap().
 setBitmapDisabled(#wx_ref{type=ThisT}=This,#wx_ref{type=BitmapT}=Bitmap) ->
   ?CLASS(ThisT,wxButton),
   ?CLASS(BitmapT,wxBitmap),
@@ -428,7 +428,7 @@ See:
 Since: 2.9.1 (available in `m:wxBitmapButton` only in previous versions)
 """.
 -spec setBitmapFocus(This, Bitmap) -> 'ok' when
-	This::wxButton(), Bitmap::wxBitmap:wxBitmap().
+        This::wxButton(), Bitmap::wxBitmap:wxBitmap().
 setBitmapFocus(#wx_ref{type=ThisT}=This,#wx_ref{type=BitmapT}=Bitmap) ->
   ?CLASS(ThisT,wxButton),
   ?CLASS(BitmapT,wxBitmap),
@@ -445,7 +445,7 @@ See: `getBitmapLabel/1`
 Since: 2.9.1 (available in `m:wxBitmapButton` only in previous versions)
 """.
 -spec setBitmapLabel(This, Bitmap) -> 'ok' when
-	This::wxButton(), Bitmap::wxBitmap:wxBitmap().
+        This::wxButton(), Bitmap::wxBitmap:wxBitmap().
 setBitmapLabel(#wx_ref{type=ThisT}=This,#wx_ref{type=BitmapT}=Bitmap) ->
   ?CLASS(ThisT,wxButton),
   ?CLASS(BitmapT,wxBitmap),
@@ -596,9 +596,9 @@ scrollPages(This,Pages) -> wxWindow:scrollPages(This,Pages).
 -doc false.
 scrollLines(This,Lines) -> wxWindow:scrollLines(This,Lines).
 -doc false.
-screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
+screenToClient(This,X,Y) -> wxWindow:screenToClient(This,X,Y).
 -doc false.
-screenToClient(This) -> wxWindow:screenToClient(This).
+screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
 -doc false.
 reparent(This,NewParent) -> wxWindow:reparent(This,NewParent).
 -doc false.

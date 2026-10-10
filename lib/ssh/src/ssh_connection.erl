@@ -777,11 +777,9 @@ handle_msg(#ssh_msg_channel_open_confirmation{recipient_channel = ChannelId,
 					      initial_window_size = WindowSz,
 					      maximum_packet_size = PacketSz}, 
 	   #connection{channel_cache = Cache} = Connection0, _, _SSH) ->
-    
-    #channel{remote_id = undefined, user = U} = Channel =
-	ssh_client_channel:cache_lookup(Cache, ChannelId), 
-    
-    if U /= undefined ->
+
+    case ssh_client_channel:cache_lookup(Cache, ChannelId) of
+        #channel{remote_id = undefined, user = U} = Channel when U /= undefined ->
             ssh_client_channel:cache_update(Cache, Channel#channel{
                                              remote_id = RemoteId,
                                              recv_packet_size = max(32768, % rfc4254/5.2
@@ -790,12 +788,19 @@ handle_msg(#ssh_msg_channel_open_confirmation{recipient_channel = ChannelId,
                                              send_window_size = WindowSz,
                                              send_packet_size = PacketSz}),
             reply_msg(Channel, Connection0, {open, ChannelId});
-        true ->
-            %% There is no user process so nobody cares about the channel
-            %% close it and remove from the cache, reply from the peer will be
-            %% ignored
+        #channel{remote_id = undefined} ->
+            %% Channel exists but has no user process (the guard above
+            %% failed, so user == undefined): nobody owns it. Tell the
+            %% peer to close its side and drop the channel from the
+            %% cache so any later message for it is discarded.
             CloseMsg = channel_close_msg(RemoteId),
             ssh_client_channel:cache_delete(Cache, ChannelId),
+            {[{connection_reply, CloseMsg}], Connection0};
+        undefined ->
+            %% Cache miss: the local channel was already torn down (e.g.
+            %% a forwarded-socket RST) before this confirmation arrived.
+            %% Tell the peer to close its side.
+            CloseMsg = channel_close_msg(RemoteId),
             {[{connection_reply, CloseMsg}], Connection0}
     end;
  
@@ -893,8 +898,9 @@ handle_msg(#ssh_msg_channel_open{channel_type = "session" = Type,
     
     if 
 	MinAcceptedPackSz =< PacketSz ->
-	    try setup_session(Connection0, RemoteId,
-			      Type, WindowSz, PacketSz) of
+            Limit = ?GET_OPT(max_channels, SSHopts),
+            try setup_session(Connection0, RemoteId,
+                              Type, WindowSz, PacketSz, Limit) of
 		Result ->
 		    Result
 	    catch _:_ ->
@@ -924,7 +930,6 @@ handle_msg(#ssh_msg_channel_open{channel_type = "forwarded-tcpip",
                        channel_id_seed = ChId,
                        suggest_window_size = WinSz,
                        suggest_packet_size = PktSz,
-                       options = Options,
                        connection_supervisor = ConnectionSup
                       } = C,
 	   client, _SSH) ->
@@ -934,20 +939,20 @@ handle_msg(#ssh_msg_channel_open{channel_type = "forwarded-tcpip",
                 case gen_tcp:connect(ConnectToHost, ConnectToPort, [{active,false}, binary]) of
                     {ok,Sock} ->
                         {ok,Pid} = ssh_connection_sup:start_channel(client, ConnectionSup, self(),
-                                                                   ssh_tcpip_forward_client, ChId,
-                                                                   [Sock], undefined, Options),
-                        ssh_client_channel:cache_update(Cache,
-                                                        #channel{type = "forwarded-tcpip",
-                                                                 sys = "none",
-                                                                 local_id = ChId,
-                                                                 remote_id = RemoteId,
-                                                                 user = Pid,
-                                                                 recv_window_size = WinSz,
-                                                                 recv_packet_size = PktSz,
-                                                                 send_window_size = WindowSize,
-                                                                 send_packet_size = PacketSize,
-                                                                 send_buf = queue:new()
-                                                                }),
+                                                                    ssh_tcpip_forward_client, ChId,
+                                                                    [Sock], undefined),
+                        Channel = #channel{type = "forwarded-tcpip",
+                                           sys = "none",
+                                           local_id = ChId,
+                                           remote_id = RemoteId,
+                                           user = Pid,
+                                           recv_window_size = WinSz,
+                                           recv_packet_size = PktSz,
+                                           send_window_size = WindowSize,
+                                           send_packet_size = PacketSize,
+                                           send_buf = queue:new()
+                                          },
+                        ok = ssh_client_channel:cache_insert(Cache, Channel, infinity),
                         gen_tcp:controlling_process(Sock, Pid),
                         inet:setopts(Sock, [{active,once}]),
                         {channel_open_confirmation_msg(RemoteId, ChId, WinSz, PktSz),
@@ -971,27 +976,27 @@ handle_msg(#ssh_msg_channel_open{channel_type = "forwarded-tcpip",
     {[{connection_reply, ReplyMsg}], C#connection{channel_id_seed = NextChId}};
 
 handle_msg(#ssh_msg_channel_open{channel_type = "direct-tcpip",
-				 sender_channel = RemoteId,
+                                 sender_channel = RemoteId,
                                  initial_window_size = WindowSize,
                                  maximum_packet_size = PacketSize,
                                  data = <<?DEC_BIN(HostToConnect,_L1),        ?UINT32(PortToConnect),
                                           ?DEC_BIN(_OriginatorIPaddress,_L2), ?UINT32(_OrignatorPort)
                                         >>
-                                }, 
-	   #connection{channel_cache = Cache,
+                                } = _Msg,
+           #connection{channel_cache = Cache,
                        channel_id_seed = ChId,
                        suggest_window_size = WinSz,
                        suggest_packet_size = PktSz,
                        options = Options,
                        connection_supervisor = ConnectionSup
                       } = C,
-	   server, _SSH) ->
+           server, _SSH) ->
     Allowed = case ?GET_OPT(tcpip_tunnel_in, Options) of
                   T when is_boolean(T) -> T;
                   AllowedFun when is_function(AllowedFun, 2) ->
                       AllowedFun(binary_to_list(HostToConnect), PortToConnect)
               end,
-    {ReplyMsg, NextChId} =
+    Result =
         case Allowed of
             denied ->
                 {channel_open_failure_msg(RemoteId,
@@ -1000,7 +1005,7 @@ handle_msg(#ssh_msg_channel_open{channel_type = "direct-tcpip",
                  ChId};
 
             false ->
-                {channel_open_failure_msg(RemoteId, 
+                {channel_open_failure_msg(RemoteId,
                                           ?SSH_OPEN_CONNECT_FAILED,
                                           "Forwarding disabled", "en"),
                  ChId};
@@ -1009,35 +1014,59 @@ handle_msg(#ssh_msg_channel_open{channel_type = "direct-tcpip",
                 case gen_tcp:connect(binary_to_list(HostToConnect), PortToConnect,
                                      [{active,false}, binary]) of
                     {ok,Sock} ->
-                        {ok,Pid} = ssh_connection_sup:start_channel(server, ConnectionSup, self(),
-                                                                   ssh_tcpip_forward_srv, ChId,
-                                                                   [Sock], undefined, Options),
-                        ssh_client_channel:cache_update(Cache,
-                                                        #channel{type = "direct-tcpip",
-                                                                 sys = "none",
-                                                                 local_id = ChId,
-                                                                 remote_id = RemoteId,
-                                                                 user = Pid,
-                                                                 recv_window_size = WinSz,
-                                                                 recv_packet_size = PktSz,
-                                                                 send_window_size = WindowSize,
-                                                                 send_packet_size = PacketSize,
-                                                                 send_buf = queue:new()
-                                                                }),
-                        gen_tcp:controlling_process(Sock, Pid),
-                        inet:setopts(Sock, [{active,once}]),
+                        Limit = ?GET_OPT(max_channels, Options),
+                        Channel = #channel{type = "direct-tcpip",
+                                           sys = "none",
+                                           local_id = ChId,
+                                           remote_id = RemoteId,
+                                           recv_window_size = WinSz,
+                                           recv_packet_size = PktSz,
+                                           send_window_size = WindowSize,
+                                           send_packet_size = PacketSize,
+                                           send_buf = queue:new()
+                                          },
+                        case ssh_client_channel:cache_insert(Cache, Channel, Limit) of
+                            ok ->
+                                case ssh_connection_sup:start_channel(server, ConnectionSup, self(),
+                                                                      ssh_tcpip_forward_srv, ChId,
+                                                                      [Sock], undefined) of
+                                    {ok,Pid} ->
+                                        ssh_client_channel:cache_update(Cache, Channel#channel{user = Pid}),
+                                        gen_tcp:controlling_process(Sock, Pid),
+                                        inet:setopts(Sock, [{active,once}]),
 
-                        {channel_open_confirmation_msg(RemoteId, ChId, WinSz, PktSz),
-                         ChId + 1};
+                                        {channel_open_confirmation_msg(RemoteId, ChId, WinSz, PktSz),
+                                         ChId + 1};
+                                    {error, _Reason} ->
+                                        %% Roll back cache, refuse channel.
+                                        ssh_client_channel:cache_delete(Cache, ChId),
+                                        gen_tcp:close(Sock),
+                                        {channel_open_failure_msg(RemoteId,
+                                                                  ?SSH_OPEN_RESOURCE_SHORTAGE,
+                                                                  "Could not start forwarding channel",
+                                                                  "en"),
+                                         ChId}
+                                end;
+                            {error, max_num_channels_exceeded} ->
+                                %% Refuse this channel, keep connection.
+                                %% Same reason as the session channel.
+                                gen_tcp:close(Sock),
+                                {channel_open_failure_msg(RemoteId,
+                                                          ?SSH_OPEN_CONNECT_FAILED,
+                                                          "Connection refused",
+                                                          "en"),
+                                 ChId}
+                        end;
 
                     {error,Error} ->
-                        {channel_open_failure_msg(RemoteId, 
+                        {channel_open_failure_msg(RemoteId,
                                                   ?SSH_OPEN_CONNECT_FAILED,
                                                   io_lib:format("Forwarded connection refused: ~p",[Error]),
                                                   "en"),
                          ChId}
                 end
         end,
+    {ReplyMsg, NextChId} = Result,
     {[{connection_reply, ReplyMsg}], C#connection{channel_id_seed = NextChId}};
 
 handle_msg(#ssh_msg_channel_open{channel_type = "session",
@@ -1126,21 +1155,29 @@ handle_msg(#ssh_msg_channel_request{recipient_channel = ChannelId,
                                        binary_to_list(SigName)});
 
 handle_msg(#ssh_msg_channel_request{recipient_channel = ChannelId,
-				    request_type = "subsystem",
-				    want_reply = WantReply,
-				    data = Data},
-	   #connection{channel_cache = Cache} = Connection, server, _SSH) ->
+                                    request_type = "subsystem",
+                                    want_reply = WantReply,
+                                    data = Data},
+           #connection{channel_cache = Cache} = Connection, server, _SSH) ->
     <<?DEC_BIN(SsName,_SsLen)>> = Data,
-    #channel{remote_id=RemoteId} = Channel = 
-	ssh_client_channel:cache_lookup(Cache, ChannelId), 
+    #channel{remote_id=RemoteId,user=User} = Channel =
+        ssh_client_channel:cache_lookup(Cache, ChannelId),
     Reply =
-        case start_subsystem(SsName, Connection, Channel,
-                             {subsystem, ChannelId, WantReply, binary_to_list(SsName)}) of
-            {ok, Pid} ->
-                erlang:monitor(process, Pid),
-                ssh_client_channel:cache_update(Cache, Channel#channel{user=Pid}),
-                channel_success_msg(RemoteId);
-            {error,_Error} ->
+        case session_started(Channel) of
+            false ->
+                case start_subsystem(SsName, Connection, Channel,
+                                     {subsystem, ChannelId, WantReply, binary_to_list(SsName)}) of
+                    {ok, Pid} ->
+                        erlang:monitor(process, Pid),
+                        ssh_client_channel:cache_update(Cache, Channel#channel{user=Pid,sys="subsystem"}),
+                        stop_old_channel_handler(User, self()),
+                        channel_success_msg(RemoteId);
+                    {error,_Error} ->
+                        channel_failure_msg(RemoteId)
+                end;
+            true ->
+                %% If shell, exec or any subsystem is active on the channel, starting another
+                %% subsystem must fail. See RFC 4254 6.5
                 channel_failure_msg(RemoteId)
         end,
     {[{connection_reply,Reply}], Connection};
@@ -1469,15 +1506,15 @@ encode_ip(Addr) when is_list(Addr) ->
 
 %%%----------------------------------------------------------------
 %%% Create the channel data when an ssh_msg_open_channel message
-%%% of "session" typ is handled
+%%% of "session" type is handled
 %%%
 setup_session(#connection{channel_cache = Cache,
                           channel_id_seed = NewChannelID,
                           suggest_window_size = WinSz,
                           suggest_packet_size = PktSz
-			 } = C,
-	      RemoteId, Type, WindowSize, PacketSize) when is_integer(WinSz),
-                                                           is_integer(PktSz) ->
+                         } = C,
+              RemoteId, Type, WindowSize, PacketSize, ChannelLimit) when is_integer(WinSz),
+                                                                         is_integer(PktSz) ->
     NextChannelID = NewChannelID + 1,
     Channel =
         #channel{type = Type,
@@ -1490,7 +1527,7 @@ setup_session(#connection{channel_cache = Cache,
                  send_buf = queue:new(),
                  remote_id = RemoteId
                 },
-    ssh_client_channel:cache_update(Cache, Channel),
+    ok = ssh_client_channel:cache_insert(Cache, Channel, ChannelLimit),
     OpenConfMsg = channel_open_confirmation_msg(RemoteId, NewChannelID,
 						WinSz, 
 						PktSz),
@@ -1501,8 +1538,7 @@ setup_session(#connection{channel_cache = Cache,
 %%%----------------------------------------------------------------
 %%% Start a cli or subsystem
 %%%
-start_cli(#connection{options = Options, 
-		      cli_spec = CliSpec,
+start_cli(#connection{cli_spec = CliSpec,
 		      exec = Exec,
 		      connection_supervisor = ConnectionSup}, ChannelId) ->
     case CliSpec of
@@ -1510,7 +1546,7 @@ start_cli(#connection{options = Options,
             {error, cli_disabled};
         {CbModule, Args} ->
             ssh_connection_sup:start_channel(server, ConnectionSup, self(),
-                                             CbModule, ChannelId, Args, Exec, Options)
+                                             CbModule, ChannelId, Args, Exec)
     end.
 
 
@@ -1525,7 +1561,7 @@ start_subsystem(BinName, #connection{options = Options,
             %% out by channel_cb_init_args/1 so it won't be appended
             %% to the callback's init args.
             ssh_connection_sup:start_channel(server, ConnectionSup, self(),
-                                             Callback, ChannelId, Opts, undefined, Options);
+                                             Callback, ChannelId, Opts, undefined);
         {none, _} ->
             {error, bad_subsystem};
 	{_, _} ->
@@ -1858,20 +1894,22 @@ backwards_compatible([Value| Rest], Acc) ->
 handle_cli_msg(C0, ChId, Reply0) ->
     Cache = C0#connection.channel_cache,
     Ch0 = ssh_client_channel:cache_lookup(Cache, ChId),
+    NewSys = update_sys(Reply0, Ch0#channel.sys),
     case Ch0#channel.user of
         undefined ->
             case start_cli(C0, ChId) of
                 {ok, Pid} ->
                     erlang:monitor(process, Pid),
-                    Ch = Ch0#channel{user = Pid},
+                    Ch = Ch0#channel{user = Pid, sys = NewSys},
                     ssh_client_channel:cache_update(Cache, Ch),
                     reply_msg(Ch, C0, Reply0);
                 {error, _Error} ->
                     Reply = {connection_reply, channel_failure_msg(Ch0#channel.remote_id)},
                     {[Reply], C0}
             end;
-        
         _ ->
+            Ch = Ch0#channel{sys = NewSys},
+            ssh_client_channel:cache_update(Cache, Ch),
             reply_msg(Ch0, C0, Reply0)
     end.
 
@@ -1943,3 +1981,37 @@ send_environment_vars(ConnectionRef, Channel, VarNames) ->
                              Var, Value, infinity)
               end
       end, success, VarNames).
+
+%%%----------------------------------------------------------------
+session_started(#channel{sys = "ssh"}) ->
+    %% No handler started yet
+    false;
+session_started(#channel{sys = Sys}) when Sys =:= "env"; Sys =:= "pty" ->
+    %% cli_handler was started by implicit:
+    %%  - 'env' (RFC 4254 6.6) or
+    %%  - 'pty-req' (RFC 4254 6.2)
+    %% we don't consider this a started session
+    false;
+session_started(#channel{}) ->
+    %% Some handler is started
+    true.
+
+%%%----------------------------------------------------------------
+stop_old_channel_handler(Pid, ConnectionManager) when is_pid(Pid) ->
+    Pid ! {ssh_channel_handler_replaced, ConnectionManager};
+stop_old_channel_handler(_Other, _ConnectionManager) ->
+    ok.
+
+%%%----------------------------------------------------------------
+update_sys(Reply, "ssh") ->
+    %% No handler started yet
+    atom_to_list(element(1, Reply));
+update_sys(Reply, Sys) when Sys =:= "pty"; Sys =:= "env" ->
+    %% cli_handler was started by implicit:
+    %%  - 'env' (RFC 4254 6.6) or
+    %%  - 'pty-req' (RFC 4254 6.2)
+    %% we don't consider this a started session
+    atom_to_list(element(1, Reply));
+update_sys(_Reply, Sys) ->
+    %% Some handler is started
+    Sys.

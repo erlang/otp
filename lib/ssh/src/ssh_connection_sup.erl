@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@
 -include("ssh.hrl").
 
 -export([start_link/4,
-         start_channel/8,
+         start_channel/7,
          tcpip_fwd_supervisor/1
 	]).
 
@@ -50,9 +50,9 @@ start_link(Role, Id, Socket, Options) ->
             Other
     end.
 
-start_channel(Role, SupPid, ConnRef, Callback, Id, Args, Exec, Opts) ->
+start_channel(Role, SupPid, ConnRef, Callback, Id, Args, Exec) ->
     ChannelSup = channel_supervisor(SupPid),
-    ssh_channel_sup:start_child(Role, ChannelSup, ConnRef, Callback, Id, Args, Exec, Opts).
+    ssh_channel_sup:start_child(Role, ChannelSup, ConnRef, Callback, Id, Args, Exec).
 
 tcpip_fwd_supervisor(ConnectionSup) ->
     find_child(tcpip_forward_acceptor_sup, ConnectionSup).

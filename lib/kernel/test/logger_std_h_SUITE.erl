@@ -299,6 +299,9 @@ errors(Config) ->
                 erofs ->
                     %% Happens on OS X
                     ok;
+                eperm ->
+                    %% Returned on macOS.
+                    ok;
                 eacces ->
                     ok
             end

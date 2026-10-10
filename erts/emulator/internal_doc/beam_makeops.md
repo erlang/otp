@@ -138,33 +138,35 @@ make the code easier to understand, let's first look at the memory
 layout for the instruction `{move,{atom,id},{x,5}}`:
 
          +--------------------+--------------------+
-    I -> |                 40 |       &&lb_move_cx |
+    I -> |                            &&lb_move_cx |
          +--------------------+--------------------+
          |                        Tagged atom 'id' |
          +--------------------+--------------------+
+         |                                      40 |
+         +--------------------+--------------------+
 
-This example and all other examples in the document assumes a 64-bit
-architecture, and furthermore that pointers to C code fit in 32 bits.
+This example and all other examples in the document assume a 64-bit
+architecture unless otherwise noted.
 
 `I` in the BEAM virtual machine is the instruction pointer.  When BEAM
 executes an instruction, `I` points to the first word of the
 instruction.
 
-`&&lb_move_cx` is the address to C code that implements `move_cx`.  It
-is stored in the lower 32 bits of the word.  In the upper 32 bits is
-the byte offset to the X register; the register number 5 has been
-multiplied by the word size size 8.
+`&&lb_move_cx` is the address to C code that implements `move_cx`.
 
-In the next word the tagged atom `id` is stored.
+In next word the tagged atom `id` is stored.
+
+It is followed by a word containing the byte offset of the X register;
+the register number 5 has been multiplied by the word size size 8.
 
 With that background, we can look at the generated code for `move_cx`
 in `beam_hot.h`:
 
     OpCase(move_cx):
     {
-      BeamInstr next_pf = BeamCodeAddr(I[2]);
-      xb(BeamExtraData(I[0])) = I[1];
-      I += 2;
+      BeamInstr next_pf = BeamCodeAddr(I[3]);
+      xb(I[2]) = I[1];
+      I += 3;
       ASSERT(VALID_INSTR(next_pf));
       GotoPF(next_pf);
     }
@@ -175,20 +177,15 @@ We will go through each line in turn.
 `OpCase()` macro is defined in `beam_emu.c`.  It will expand this line
 to `lb_move_cx:`.
 
-* `BeamInstr next_pf = BeamCodeAddr(I[2]);` fetches the pointer to
-code for the next instruction to be executed.  The `BeamCodeAddr()`
-macro extracts the pointer from the lower 32 bits of the instruction
-word.
+* `BeamInstr next_pf = BeamCodeAddr(I[3]);` fetches the pointer to
+code for the next instruction to be executed.
 
-* `xb(BeamExtraData(I[0])) = I[1];` is the expansion of `$Dst = $Src`.
-`BeamExtraData()` is a macro that will extract the upper 32 bits from
-the instruction word.  In this example, it will return 40 which is the
-byte offset for X register 5.  The `xb()` macro will cast a byte
-pointer to an `Eterm` pointer and dereference it.  The `I[1]` on
-the right-hand side of the `=` fetches an Erlang term (the atom `id` in
-this case).
+* `xb(I[2]) = I[1];` is the expansion of `$Dst = $Src`.  The `xb()`
+macro will cast a byte pointer to an `Eterm` pointer and dereference
+it.  The `I[1]` on the right-hand side of the `=` fetches an Erlang
+term (the atom `id` in this case).
 
-* `I += 2` advances the instruction pointer to the next
+* `I += 3` advances the instruction pointer to the next
 instruction.
 
 * In a debug-compiled emulator, `ASSERT(VALID_INSTR(next_pf));` makes
@@ -197,14 +194,23 @@ within the `process_main()` function in `beam_emu.c`).
 
 * `GotoPF(next_pf);` transfers control to the next instruction.
 
-Now let's look at the implementation of `move_xx`:
+Let's move on to the memory layout for the `{move,{x,0},{x,3}}`
+instruction:
+
+         +----------+---------+----------+---------+
+    I -> |                            &&lb_move_xx |
+         +----------+---------+----------+---------+
+         |                             0 |      24 |
+         +----------+---------+----------+---------+
+
+and to its implementation:
 
     OpCase(move_xx):
     {
-      Eterm tmp_packed1 = BeamExtraData(I[0]);
-      BeamInstr next_pf = BeamCodeAddr(I[1]);
-      xb((tmp_packed1>>BEAM_TIGHT_SHIFT)) = xb(tmp_packed1&BEAM_TIGHT_MASK);
-      I += 1;
+      Eterm tmp_packed1 = I[1];
+      BeamInstr next_pf = BeamCodeAddr(I[2]);
+      xb((tmp_packed1>>BEAM_LOOSE_SHIFT)) = xb(tmp_packed1&BEAM_LOOSE_MASK);
+      I += 2;
       ASSERT(VALID_INSTR(next_pf));
       GotoPF(next_pf);
     }
@@ -212,19 +218,17 @@ Now let's look at the implementation of `move_xx`:
 We will go through the lines that are new or have changed compared to
 `move_cx`.
 
-* `Eterm tmp_packed1 = BeamExtraData(I[0]);` picks up both X register
-numbers packed into the upper 32 bits of the instruction word.
+* `Eterm tmp_packed1 = I[1];` picks up both X register numbers packed
+into a single word.
 
-* `BeamInstr next_pf = BeamCodeAddr(I[1]);` pre-fetches the address of
-the next instruction. Note that because both X registers operands fits
-into the instruction word, the next instruction is in the very next
-word.
+* `BeamInstr next_pf = BeamCodeAddr(I[2]);` pre-fetches the address of
+the next instruction.
 
-* `xb((tmp_packed1>>BEAM_TIGHT_SHIFT)) = xb(tmp_packed1&BEAM_TIGHT_MASK);`
+* `xb((tmp_packed1>>BEAM_LOOSE_SHIFT)) = xb(tmp_packed1&BEAM_LOOSE_MASK);`
 copies the source to the destination.  (For a 64-bit architecture,
-`BEAM_TIGHT_SHIFT` is 16 and `BEAM_TIGHT_MASK` is `0xFFFF`.)
+`BEAM_LOOSE_SHIFT` is 16 and `BEAM_LOOSE_MASK` is `0xFFFF`.)
 
-* `I += 1;` advances the instruction pointer to the next instruction.
+* `I += 2;` advances the instruction pointer to the next instruction.
 
 `move_xy` is almost identical to `move_xx`.  The only difference is
 the use of the `yb()` macro instead of `xb()` to reference the
@@ -232,10 +236,10 @@ destination register:
 
     OpCase(move_xy):
     {
-      Eterm tmp_packed1 = BeamExtraData(I[0]);
-      BeamInstr next_pf = BeamCodeAddr(I[1]);
-      yb((tmp_packed1>>BEAM_TIGHT_SHIFT)) = xb(tmp_packed1&BEAM_TIGHT_MASK);
-      I += 1;
+      Eterm tmp_packed1 = I[1];
+      BeamInstr next_pf = BeamCodeAddr(I[2]);
+      yb((tmp_packed1>>BEAM_LOOSE_SHIFT)) = xb(tmp_packed1&BEAM_LOOSE_MASK);
+      I += 2;
       ASSERT(VALID_INSTR(next_pf));
       GotoPF(next_pf);
     }
@@ -274,6 +278,24 @@ We will also need to define a specific instruction and an implementation:
         $D1 = V1;
         $D2 = V2;
     }
+
+The memory layout for the `move2_xyxy 1 2 3 0` instruction will be:
+
+         +----------+---------+----------+---------+
+    I -> |                          &lb_move2_xyxy |
+         +----------+---------+----------+---------+
+         |        0 |      24 |       16 |       8 |
+         +----------+---------+----------+---------+
+
+On a 32-bit system, the memory layout will be:
+
+         +----------+---------+
+    I -> |     &lb_move2_xyxy |
+         +----------+---------+
+         |       16 |       8 |
+         +----------+---------+
+         |        0 |      24 |
+         +----------+---------+
 
 When the loader has found a match and replaced the matched instructions,
 it will match the new instructions against the transformation rules.
@@ -353,9 +375,9 @@ register will be multiplied by the word size to produce a byte offset.
 * The loader runs the packing engine to pack multiple operands into a
 single word.  The packing engine is controlled by a small program,
 which is a string where each character is an instruction.  For
-example, the code to pack the operands for `move_xy` is `"22#"` (on a
+example, the code to pack the operands for `move_xy` is `"33Pp"` (on a
 64-bit machine).  That program will pack the byte offsets for both
-registers into the same word as the pointer to C code.
+registers into a single word.
 
 Short overview of instruction loading for BeamAsm
 -------------------------------------------------
@@ -423,11 +445,6 @@ For BeamAsm, the following files are also generated:
 The following options can be given:
 
 * `wordsize 32|64` - Defines the word size.  Default is 32.
-
-* `code-model Model` - The code model as given to `-mcmodel` option
-for GCC.  Default is `unknown`.  If the code model is `small` (and
-the word size is 64 bits), **beam\_makeops** will pack operands
-into the upper 32 bits of the instruction word.
 
 * `DSymbol=0|1` - Defines the value for a symbol.  The symbol can be
 used in `%if` and `%unless` directives.
@@ -511,7 +528,7 @@ Default is `%hot`.  The directives will be applied to declarations
 of the specific instruction that follow.  Here is an example:
 
     %cold
-    is_number f? xy
+    is_number f xy
     %hot
 
 #### Conditional compilation directives ####
@@ -520,7 +537,7 @@ The `%if` directive includes a range of lines if a condition is
 true.  For example:
 
     %if ARCH_64
-    i_bs_get_integer_32 x f? x
+    i_bs_get_integer_32 x f x
     %endif
 
 The specific instruction `i_bs_get_integer_32` will only be defined
@@ -839,49 +856,6 @@ On the other hand, `move c d` is a single instruction.  At runtime,
 the `d` operand will be tested to see whether it refers to an X
 register or a Y register, and a pointer to the register will be set
 up.
-
-#### The '?' type modifier ####
-
-The character `?` can be added to the end of an operand to indicate
-that the operand will not be used every time the instruction is executed.
-For example:
-
-    allocate_heap t I t?
-    is_eq_exact f? x xy
-
-In `allocate_heap`, the last operand is the number of live registers.
-It will only be used if there is not enough heap space and a garbage
-collection must be performed.
-
-In `is_eq_exact`, the failure address (the first operand) will only be
-used if the two register operands are not equal.
-
-Knowing that an operand is not always used can improve how packing
-is done for some instructions.
-
-For the `allocate_heap` instruction, without the `?` the packing would
-be done like this:
-
-         +--------------------+--------------------+
-    I -> |       Stack needed | &&lb_allocate_heap +
-         +--------------------+--------------------+
-         |        Heap needed | Live registers     +
-         +--------------------+--------------------+
-
-"Stack needed" and "Heap needed" are always used, but they are in
-different words.  Thus, at runtime the `allocate_heap` instruction
-must read both words from memory even though it will not always use
-"Live registers".
-
-With the `?`, the operands will be packed like this:
-
-         +--------------------+--------------------+
-    I -> |     Live registers | &&lb_allocate_heap +
-         +--------------------+--------------------+
-         |        Heap needed |       Stack needed +
-         +--------------------+--------------------+
-
-Now "Stack needed" and "Heap needed" are in the same word.
 
 ### Defining transformation rules ###
 
@@ -1251,8 +1225,8 @@ to the maximum tuple size, the instruction `i_fast_element/2` will be
 produced, otherwise the instruction `i_element/4` will be produced.
 The corresponding specific instructions are:
 
-    i_fast_element xy j? I d
-    i_element xy j? s d
+    i_fast_element xy j I d
+    i_element xy j s d
 
 The `i_fast_element/2` instruction is faster because the tuple is
 already an untagged integer.  It also knows that the index is at least
@@ -1360,50 +1334,14 @@ A macro definition whose name and arity matches a family of
 specific instructions is assumed to be the implementation of that
 instruction.
 
-A macro can also be invoked from within another macro.  For example,
-`move_deallocate_return/2` avoids repeating code by invoking
-`$deallocate_return()` as a macro:
-
-    move_deallocate_return(Src, Deallocate) {
-        x(0) = $Src;
-        $deallocate_return($Deallocate);
-    }
-
-Here is the definition of `deallocate_return/1`:
-
-    deallocate_return(Deallocate) {
-        //| -no_next
-        int words_to_pop = $Deallocate;
-        SET_I((BeamInstr *) cp_val(*E));
-        E = ADD_BYTE_OFFSET(E, words_to_pop);
-        CHECK_TERM(x(0));
-        DispatchReturn;
-    }
-
-The expanded code for `move_deallocate_return` will look this:
-
-    OpCase(move_deallocate_return_cQ):
-    {
-      x(0) = I[1];
-      do {
-        int words_to_pop = Qb(BeamExtraData(I[0]));
-        SET_I((BeamInstr *) cp_val(*E));
-        E = ADD_BYTE_OFFSET(E, words_to_pop);
-        CHECK_TERM(x(0));
-        DispatchReturn;
-      } while (0);
-    }
+A macro can also be invoked from within another macro.
 
 When expanding macros, **beam\_makeops** wraps the expansion in a
 `do`/`while` wrapper unless **beam\_makeops** can clearly see that no
-wrapper is needed.  In this case, the wrapper is needed.
+wrapper is needed.
 
 Note that arguments for macros cannot be complex expressions, because
-the arguments are split on `,`.  For example, the following would
-not work because **beam\_makeops** would split the expression into
-two arguments:
-
-    $deallocate_return(get_deallocation(y, $Deallocate));
+the arguments are split on `,`.
 
 #### Code generation directives ####
 
@@ -1427,13 +1365,11 @@ To see what `-no_prefetch` does, let's first look at the default code
 generation.  Here is the code generated for `move_cx`:
 
     OpCase(move_cx):
-    {
-      BeamInstr next_pf = BeamCodeAddr(I[2]);
-      xb(BeamExtraData(I[0])) = I[1];
-      I += 2;
-      ASSERT(VALID_INSTR(next_pf));
-      GotoPF(next_pf);
-    }
+    BeamInstr next_pf = BeamCodeAddr(I[3]);
+    xb(I[2]) = I[1];
+    I += 3;
+    ASSERT(VALID_INSTR(next_pf));
+    GotoPF(next_pf);
 
 Note that the very first thing done is to fetch the address to the
 next instruction.  The reason is that it usually improves performance.
@@ -1450,8 +1386,8 @@ We can see that the prefetch is no longer done:
 
     OpCase(move_cx):
     {
-      xb(BeamExtraData(I[0])) = I[1];
-      I += 2;
+      xb(I[2]) = I[1];
+      I += 3;
       ASSERT(VALID_INSTR(*I));
       Goto(*I);
     }
@@ -1481,9 +1417,10 @@ The generated code looks like this:
 
     OpCase(is_atom_fx):
     {
-      if (is_not_atom(xb(I[1]))) {
-        ASSERT(VALID_INSTR(*(I + (fb(BeamExtraData(I[0]))) + 0)));
-        I += fb(BeamExtraData(I[0])) + 0;;
+      Eterm tmp_packed1 = I[1];
+      if (is_not_atom(xb((tmp_packed1>>BEAM_WIDE_SHIFT)))) {
+        ASSERT(VALID_INSTR(*(I + (fb(tmp_packed1&BEAM_WIDE_MASK)) + 0)));
+        I += fb(tmp_packed1&BEAM_WIDE_MASK) + 0;;
         Goto(*I);;
       }
       I += 2;
@@ -1511,27 +1448,27 @@ The generated code looks like this:
 
     OpCase(jump_f):
     {
-      ASSERT(VALID_INSTR(*(I + (fb(BeamExtraData(I[0]))) + 0)));
-      I += fb(BeamExtraData(I[0])) + 0;;
-      Goto(*I);;
+      ASSERT(VALID_INSTR(*(I + (I[1]) + 0)));
+      I += I[1] + 0;;
+      Goto(*I);;ASSERT(!"Fell through 'jump' (-no_next)");
     }
 
 If we remove the `-no_next` directive, the code would look like this:
 
     OpCase(jump_f):
     {
-      BeamInstr next_pf = BeamCodeAddr(I[1]);
-      ASSERT(VALID_INSTR(*(I + (fb(BeamExtraData(I[0]))) + 0)));
-      I += fb(BeamExtraData(I[0])) + 0;;
+      BeamInstr next_pf = BeamCodeAddr(I[2]);
+      ASSERT(VALID_INSTR(*(I + (I[1]) + 0)));
+      I += I[1] + 0;;
       Goto(*I);;
-      I += 1;
+      I += 2;
       ASSERT(VALID_INSTR(next_pf));
       GotoPF(next_pf);
     }
 
 In the end, the C compiler will probably optimize this code to the
 same native code as the first version, but the first version is certainly
-much easier to read for human readers.
+somewhat easier for human readers to understand.
 
 #### Macros in the macros.tab file ####
 
@@ -1950,16 +1887,16 @@ the specific instruction.
 As an example, the following specific instructions cannot be
 implemented as a combined instruction:
 
-    i_times j? t x x d
-    i_times j? t x y d
-    i_times j? t s s d
+    i_times j t x x d
+    i_times j t x y d
+    i_times j t s s d
 
 We would have to change the order of the operands so that the
 two operands that are different are placed first:
 
-    i_times x x j? t d
-    i_times x y j? t d
-    i_times s s j? t d
+    i_times x x j t d
+    i_times x y j t d
+    i_times s s j t d
 
 We can then define:
 
@@ -1985,10 +1922,10 @@ Several instructions can share a group.  As an example, the following
 instructions have different names, but in the end they all create a
 binary.  The last two operands are common for all of them:
 
-    i_bs_init_fail       xy j? t? x
-    i_bs_init_fail_heap s I j? t? x
-    i_bs_init                W t? x
-    i_bs_init_heap         W I t? x
+    i_bs_init_fail       xy j t x
+    i_bs_init_fail_heap s I j t x
+    i_bs_init               W t x
+    i_bs_init_heap        W I t x
 
 The instructions are defined like this (formatted with extra
 spaces for clarity):

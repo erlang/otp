@@ -28,8 +28,8 @@
 
 %% Generic file contents operations
 -export([open/2, close/1]).
--export([write/2, read/2, copy/3,
-	 pread/2, pread/3, pwrite/2, pwrite/3, 
+-export([write/2, read/2, read_line/1, copy/3,
+         pread/2, pread/3, pwrite/2, pwrite/3,
 	 position/2, truncate/1, datasync/1, sync/1]).
 
 %% Specialized file operations
@@ -145,7 +145,42 @@ read(#file_descriptor{module = ?MODULE, data = Port}, Sz)
 	    {error, einval}
     end.
 
-write(#file_descriptor{module = ?MODULE, data = Port}, Bytes) -> 
+read_line(#file_descriptor{module = ?MODULE} = Fd) ->
+    read_line(Fd, []).
+
+read_line(Fd, Acc) ->
+    case read(Fd, 256) of
+        {ok, Data} ->
+            case binary:match(Data, <<"\n">>) of
+                {Pos, 1} ->
+                    %% Check for \r\n: replace with just \n.
+                    Before =
+                        case binary:part(Data, 0, Pos + 1) of
+                            <<CRNLData:(Pos - 1)/binary, "\r\n">> ->
+                                <<CRNLData:(Pos - 1)/binary, "\n">>;
+                            NLData ->
+                                NLData
+                        end,
+                    %% Seek back the unread portion after the \n.
+                    AfterSize = byte_size(Data) - Pos - 1,
+                    {ok, _} = position(Fd, {cur, -AfterSize}),
+
+                    if
+                       Acc =:= [] ->
+                            {ok, Before};
+                       Acc =/= [] ->
+                            {ok, iolist_to_binary(lists:reverse(Acc, [Before]))}
+                    end;
+                nomatch ->
+                    read_line(Fd, [Data | Acc])
+            end;
+        eof when Acc =:= [] ->
+            eof;
+        eof ->
+            {ok, iolist_to_binary(lists:reverse(Acc))}
+    end.
+
+write(#file_descriptor{module = ?MODULE, data = Port}, Bytes) ->
     case call_port(Port, [?RAM_FILE_WRITE | Bytes]) of
 	{ok, _Sz} ->
 	    ok;

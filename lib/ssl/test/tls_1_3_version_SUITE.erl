@@ -87,8 +87,11 @@
          keylog_on_alert/0,
          keylog_on_alert/1,
          client_keylog_on_alert/0,
-         client_keylog_on_alert/1
-        ]).
+         client_keylog_on_alert/1,
+         keylog_hs_secret_order/0,
+         keylog_hs_secret_order/1,
+         tls13_supported_group_brainpool/0,
+         tls13_supported_group_brainpool/1]).
 
 
 %% Test callback
@@ -127,7 +130,9 @@ tls_1_3_1_2_tests() ->
      client_cert_fail_alert_active,
      client_cert_fail_alert_passive,
      keylog_on_alert,
-     client_keylog_on_alert
+     client_keylog_on_alert,
+     keylog_hs_secret_order,
+     tls13_supported_group_brainpool
     ].
 legacy_tests() ->
     [tls_client_tls10_server,
@@ -335,6 +340,25 @@ tls12_client_tls_server(Config) when is_list(Config) ->
                    {verify, verify_peer}, {fail_if_no_peer_cert, true} |
                    ssl_test_lib:ssl_options(server_cert_opts, Config)],
     ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
+
+tls13_supported_group_brainpool() ->
+    [{doc, "TLS-1.3 handshake completes when both peers pin supported_groups "
+      "to a brainpool group. Regression test: brainpoolP{256,384,512}r1tls13 "
+      "are advertised in supported_groups but had no generate_kex_keys/1 "
+      "clause, so a selected brainpool group fell into the FFDHE catch-all "
+      "and crashed in ssl_dh_groups:dh_params/1 "
+      "(CSCAN client_willing_to_use_offered_group)."}].
+tls13_supported_group_brainpool(Config) when is_list(Config) ->
+    lists:foreach(
+      fun(Group) ->
+              ClientOpts = [{versions, ['tlsv1.3']}, {supported_groups, [Group]}
+                            | ssl_test_lib:ssl_options(client_cert_opts, Config)],
+              ServerOpts = [{versions, ['tlsv1.3']}, {supported_groups, [Group]},
+                            {verify, verify_peer}, {fail_if_no_peer_cert, true}
+                            | ssl_test_lib:ssl_options(server_cert_opts, Config)],
+              ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config)
+      end,
+      [brainpoolP256r1tls13, brainpoolP384r1tls13, brainpoolP512r1tls13]).
 
 legacy_tls12_client_tls_server() ->
     [{doc,"Test that a TLS 1.2 client can connect to a TLS 1.3 server."}].
@@ -668,7 +692,18 @@ receive_client_keylog_for_server_cert_alert() ->
                                   "CLIENT_TRAFFIC_SECRET_0",
                                   "SERVER_TRAFFIC_SECRET_0"], CKeyLog) of
                 true ->
-                    ok;
+                    CTS = extract_secret("CLIENT_TRAFFIC_SECRET_0",  CKeyLog),
+                    STS = extract_secret("SERVER_TRAFFIC_SECRET_0",  CKeyLog),
+                    %% Before the fix, both were identical
+                    %% After the fix, they must be distinct.
+                    case CTS =/= STS of
+                        true ->
+                            ok;
+                        false ->
+                            ct:fail({traffic_secrets_identical,
+                                             [{client_traffic_secret_0, CTS},
+                                              {server_traffic_secret_0, STS}]})
+                    end;
                 false ->
                     ct:fail({client_received, CKeyLog})
             end
@@ -732,9 +767,101 @@ client_keylog_on_alert(Config) when is_list(Config) ->
     %% Execute in other process and let test case detect key-log message.
     spawn_link(ClientFun),
     receive_client_keylog_for_client_cert_alert().
+
+keylog_hs_secret_order() ->
+    [{doc, "Verify that keylog_hs callback on the server reports "
+      "CLIENT/SERVER_HANDSHAKE_TRAFFIC_SECRET under the correct "
+      "labels by cross-checking with the client's keylog output"}].
+
+keylog_hs_secret_order(Config) when is_list(Config) ->
+    ssl:clear_pem_cache(),
+    {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    ClientOpts0 = ssl_test_lib:ssl_options(extra_client, client_cert_opts, Config),
+    ServerOpts0 = ssl_test_lib:ssl_options(extra_server, server_cert_opts, Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
+
+    %% Create a bad client cert — the server will reject it after
+    %% handshake traffic secrets have been derived on both sides.
+    NewClientCertFile = filename:join(PrivDir, "client_invalid_cert_order.pem"),
+    create_bad_client_certfile(NewClientCertFile, ClientOpts0),
+
+    register(test_case, self()),
+
+    ServerHsFun = fun(Info) -> test_case ! {server_hs_keylog, Info} end,
+    ClientHsFun = fun(Info) -> test_case ! {client_hs_keylog, Info} end,
+
+    ServerOpts = [{versions, ['tlsv1.3']},
+                  {verify, verify_peer},
+                  {fail_if_no_peer_cert, true},
+                  {keep_secrets, {keylog_hs, ServerHsFun}}
+                  | ServerOpts0],
+    ClientOpts = [{versions, ['tlsv1.3']},
+                  {active, false},
+                  {certfile, NewClientCertFile},
+                  {keep_secrets, {keylog, ClientHsFun}}
+                  | proplists:delete(certfile, ClientOpts0)],
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+                                        {from, self()},
+                                        {mfa, {ssl_test_lib, no_result, []}},
+                                        {options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+
+    spawn(fun() ->
+                  ssl:connect(Hostname, Port, ClientOpts)
+          end),
+
+
+    %% Both sides fire keylog_hs on the alert. Collect both.
+    ServerKeyLog = receive
+                       {server_hs_keylog, #{items := S}} -> S
+                   after 5000 ->
+                           ct:fail(server_keylog_timeout)
+                   end,
+
+    ssl_test_lib:check_server_alert(Server, unknown_ca),
+    ClientKeyLog = receive
+                       {client_hs_keylog, #{items := C}} -> C
+                   after 5000 ->
+                           ct:fail(server_keylog_timeout)
+                   end,
+
+    %% Extract the secret value from each label on each side.
+    %% The client-side path is known correct; the server-side
+    %% had a swap bug — this cross-check detects it.
+    ServerCHS = extract_secret("CLIENT_HANDSHAKE_TRAFFIC_SECRET", ServerKeyLog),
+    ServerSHS = extract_secret("SERVER_HANDSHAKE_TRAFFIC_SECRET", ServerKeyLog),
+    ClientCHS = extract_secret("CLIENT_HANDSHAKE_TRAFFIC_SECRET", ClientKeyLog),
+    ClientSHS = extract_secret("SERVER_HANDSHAKE_TRAFFIC_SECRET", ClientKeyLog),
+
+    %% The two secrets must be different (sanity) and both sides
+    %% must agree on which secret belongs to which label.
+    true = (ClientCHS =/= ClientSHS),
+    case {ServerCHS =:= ClientCHS, ServerSHS =:= ClientSHS} of
+        {true, true} ->
+            ok;
+        _ ->
+            ct:fail({handshake_secrets_swapped,
+                     [{server_client_hs_secret, ServerCHS},
+                      {client_client_hs_secret, ClientCHS},
+                      {server_server_hs_secret, ServerSHS},
+                      {client_server_hs_secret, ClientSHS}]})
+    end.
+
 %%--------------------------------------------------------------------
 %% Internal functions and callbacks -----------------------------------
 %%--------------------------------------------------------------------
+
+extract_secret(Prefix, KeyLog) ->
+    Flat = [lists:flatten(L) || L <- KeyLog],
+    case [L || L <- Flat, lists:prefix(Prefix, L)] of
+        [Line] ->
+            %% Format: "LABEL <hex_random> <hex_secret>"
+            Tokens = string:tokens(Line, " "),
+            lists:last(Tokens);
+        [] ->
+            ct:fail({keylog_prefix_not_found, Prefix, Flat})
+    end.
 
 middlebox_test(Mode, Expected, ClientOpts, ServerOpts, Config) ->
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),

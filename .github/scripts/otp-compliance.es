@@ -98,22 +98,28 @@
 %% VEX MACROS
 %%
 -define(VexPath, ~"vex/").
--define(OpenVEXTablePath, "make/openvex.table").
+-define(OpenVEXTablePath, "openvex.table").
 -define(ErlangPURL, "pkg:github/erlang/otp").
 
 -define(FOUND_VENDOR_VULNERABILITY_TITLE, "Vendor vulnerability found").
 -define(FOUND_VENDOR_VULNERABILITY, lists:append(string:replace(?FOUND_VENDOR_VULNERABILITY_TITLE, " ", "+", all))).
 
--define(OTP_GH_URI, "https://raw.githubusercontent.com/" ++ ?GH_ACCOUNT ++ "/refs/heads/master/").
+-define(OTP_GH_URI, "https://raw.githubusercontent.com/" ++ ?GH_ACCOUNT ++ "/refs/heads/openvex/").
 
 %% GH default options
--define(GH_ADVISORIES_OPTIONS, "state=published&direction=desc&per_page=100&sort=updated").
+%%
+%% Sort by `created` (descending) so advisories are returned
+%% newest-first by a monotonic publication-time proxy. paginate_years/2
+%% stops paginating once a page contains no advisory within the last
+%% ?GH_ADVISORIES_FROM_LAST_X_YEARS years; that early-stop is only sound
+%% if the sort key decreases monotonically with the date used for
+%% filtering (published_at). `sort=updated` broke this: a re-edited old
+%% advisory sorts near the top, so a page could look "out of range"
+%% while newer-published advisories remain on later pages.
+-define(GH_ADVISORIES_OPTIONS, "state=published&direction=desc&per_page=100&sort=created").
 
 %% Advisories to download from last X years.
 -define(GH_ADVISORIES_FROM_LAST_X_YEARS, 5).
-
-%% Defines path of script to create PRs for missing openvex/vulnerabilities
--define(CREATE_OPENVEX_PR_SCRIPT_FILE, ".github/scripts/create-openvex-pr.sh").
 
 %% Sets end point account to fetch information from GH
 %% used by `gh` command-line tool.
@@ -121,6 +127,8 @@
 -define(GH_ACCOUNT, "erlang/otp").
 %%
 %%
+
+-define(DEBUG, false).
 
 %% Add more relations if necessary.
 -type spdx_relations() :: #{ 'DOCUMENTATION_OF' => [],
@@ -292,16 +300,25 @@ cli() ->
                        #{"init" =>
                              #{ help =>
                                     """
-                                    Initialise an openvex file.
+                                    Initialise an openvex file. Detailed steps in HOWTO/SBOM.md#gh-advisories-sync.
+
+                                    1. Update the `openvex.table`
+                                    2. Run the command:
+
+                                       > .github/scripts/otp-compliance.es vex init -b otp-33
+
                                     """,
-                                arguments => [ input_option(~"make/openvex.table"), branch_option(), vex_path_option()],
+                                arguments => [ input_option(~"openvex.table"), branch_option()],
                                 handler => fun init_openvex/1},
                          "run" =>
                              #{ help =>
                                     """
-                                    Updates an openvex file.
+                                    Updates OpenVEX files. Detailed steps in HOWTO/SBOM.md#gh-advisories-sync.
+
+                                      > .github/scripts/otp-compliance.es vex run -b otp-33
+
                                     """,
-                                arguments => [ input_option(~"make/openvex.table"), branch_option(), vex_path_option()],
+                                arguments => [ input_option(~"openvex.table"), branch_option()],
                                 handler => fun run_openvex/1},
 
                          "verify" =>
@@ -311,8 +328,10 @@ cli() ->
                                     Download OpenVEX statement from erlang/otp for the selected branch.
                                     Checks that those Advisories are present in OpenVEX statements.
                                     Creates PR for any non-present Github Advisory.
+                                    Detailed steps in HOWTO/SBOM.md#gh-advisories-sync.
 
                                     Example:
+
                                     > .github/scripts/otp-compliance.es vex verify -p
 
                                     """,
@@ -489,14 +508,6 @@ branch_option() ->
       required => true,
       short => $b,
       long => "-branch"}.
-
-vex_path_option() ->
-    #{name => vex_path,
-      type => binary,
-      required => false,
-      default => ?VexPath,
-      help => "Path to folder containing openvex statements, e.g., `vex/`",
-      long => "-vex-path"}.
 
 create_pr() ->
     #{name => create_pr,
@@ -815,7 +826,7 @@ path_to_license(Input) ->
 
 -spec path_to_copyright(Input :: map()) -> #{Path :: binary() => License :: binary()}.
 path_to_copyright(Input) ->
-    match_path_to(Input, fun group_by_copyrights/3).
+    group_by_copyrights(Input).
 
 -spec match_path_to(Input :: map(), GroupFun :: fun()) -> #{ Path :: binary() => Result :: binary() }.
 match_path_to(Json, GroupFun) ->
@@ -875,12 +886,18 @@ group_by_licenses(Json, ApplyExclude, ApplyCuration) ->
                             group_by_license(Excludes, Curations, License, Acc)
                     end, #{}, Licenses).
 
-group_by_copyrights(Json, ApplyExclude, _ApplyCuration) ->
-    Excludes = apply_excludes(Json, ApplyExclude),
+group_by_copyrights(Json) ->
     Copyrights = copyrights(scan_results(Json)),
-    lists:foldl(fun (Copyright, Acc) ->
-                            group_by_copyright(Excludes, Copyright, Acc)
-                    end, #{}, Copyrights).
+    R = lists:foldl(fun (#{~"statement" := St,
+                           ~"location" := #{~"path" := Path}}, Acc) ->
+                            case maps:get(Path, Acc, none) of
+                                none ->
+                                    Acc#{Path => [St]};
+                                Ls ->
+                                    Acc#{Path => [St | Ls]}
+                            end
+                    end, #{}, Copyrights),
+    maps:map(fun (_K, Ls) -> iolist_to_binary(lists:join(~"\n", lists:reverse(Ls))) end, R).
 
 
 apply_excludes(Json, ApplyExclude) ->
@@ -1031,26 +1048,6 @@ group_by_license(ExcludeRegexes, Curations, License, Acc) ->
                           _ -> Ls
                       end,
                 Acc#{LicenseName1 => Ls1}
-        end
-    else
-        _ ->
-            Acc
-    end.
-
-group_by_copyright(ExcludeRegexes, Copyright, Acc) ->
-    #{<<"statement">> := CopyrightSt, <<"location">> := Location} = Copyright,
-    #{<<"path">> := Path, <<"start_line">> := _StartLine, <<"end_line">> := _EndLine} = Location,
-    maybe
-        false ?= exclude_path(Path, ExcludeRegexes),
-        case maps:get(CopyrightSt, Acc, []) of
-            [] ->
-                Acc#{CopyrightSt => [Path]};
-            Ls ->
-                Ls1 = case lists:search(fun(X) -> X == Path end, Ls) of
-                          false -> [Path | Ls];
-                          _ -> Ls
-                      end,
-                Acc#{CopyrightSt => Ls1}
         end
     else
         _ ->
@@ -1391,9 +1388,33 @@ generate_spdx_mappings(AppSrcPath) ->
 generate_vendor_info_package(VendorSrcPath) ->
     lists:flatmap(fun decode_without_spdx_license/1, VendorSrcPath).
 
+create_annotation(Package) ->
+    Date = format_spdx_annotation_date(),
+    Ann =
+        case Package of
+            #{~"annotation" := Comment} ->
+                #{~"annotator" => ~"Person: Kiko Fernandez-Reyes (kiko@erlang.org)",
+                  ~"annotationType" => ~"REVIEW",
+                  ~"annotationDate" => iolist_to_binary(Date),
+                  ~"comment" => Comment
+                 };
+            _ ->
+                #{~"annotator" => ~"Person: Kiko Fernandez-Reyes (kiko@erlang.org)",
+                  ~"annotationType" => ~"REVIEW",
+                  ~"annotationDate" => iolist_to_binary(Date),
+                  ~"comment" => ~"Non-modified vendor package in Erlang/OTP"
+                 }
+        end,
+    #{~"annotations" => [Ann]}.
+
+format_spdx_annotation_date() ->
+    {{Y, Mo, D}, {H, Mi, S}} = calendar:universal_time(),
+    io_lib:format("~4..0B-~2..0B-~2..0BT~2..0B:~2..0B:~2..0BZ",
+                  [Y, Mo, D, H, Mi, S]).
+
 -spec generate_spdx_vendor_packages(VendorInfoPackage :: map(), map()) -> map().
 generate_spdx_vendor_packages(VendorInfoPackages, #{~"files" := SpdxFiles}=_SPDX) ->
-    RemoveVendorInfoFields = [~"purl", ~"ID", ~"path", ~"update", ~"exclude", ~"sha"],
+    RemoveVendorInfoFields = [~"purl", ~"ID", ~"path", ~"update", ~"exclude", ~"sha", ~"annotation"],
     lists:map(fun
                   (#{~"ID" := Id, ~"path" := [_ | _]=ExplicitFiles}=Package) when is_list(ExplicitFiles) ->
                       %% Deals with the cases of creating a package out of specific files
@@ -1413,19 +1434,22 @@ generate_spdx_vendor_packages(VendorInfoPackages, #{~"files" := SpdxFiles}=_SPDX
                         lists:foldl(fun(#{~"licenseInfoInFiles" := Licenses}, Acc) ->
                                             Licenses ++ Acc
                                     end, [], Files)),
+                      AnnotationMap = create_annotation(Package),
 
                       PackageVerificationCodeValue = generate_verification_code_value(Files),
                       ExternalRefs = generate_vendor_purl(Package),
-                      Package1#{
-                                ~"SPDXID" => generate_spdxid_name(Id),
-                                ~"filesAnalyzed" => true,
-                                ~"hasFiles" => lists:map(fun (#{~"SPDXID":=Id0}) -> Id0 end, Files),
-                                ~"licenseConcluded" => ~"NOASSERTION",
-                                ~"licenseInfoFromFiles" => lists:uniq(LicenseInfoInFiles),
-                                ~"packageVerificationCode" => #{~"packageVerificationCodeValue" => PackageVerificationCodeValue},
-                                ~"comment" => ~"vendor package",
-                                ~"externalRefs" => ExternalRefs
-                       };
+                      Package2 =
+                          Package1#{
+                                    ~"SPDXID" => generate_spdxid_name(Id),
+                                    ~"filesAnalyzed" => true,
+                                    ~"hasFiles" => lists:map(fun (#{~"SPDXID":=Id0}) -> Id0 end, Files),
+                                    ~"licenseConcluded" => ~"NOASSERTION",
+                                    ~"licenseInfoFromFiles" => lists:uniq(LicenseInfoInFiles),
+                                    ~"packageVerificationCode" => #{~"packageVerificationCodeValue" => PackageVerificationCodeValue},
+                                    ~"comment" => ~"vendor package",
+                                    ~"externalRefs" => ExternalRefs
+                                   },
+                      maps:merge(Package2, AnnotationMap);
                   (#{~"ID" := Id, ~"path" := DirtyPath}=Package) when is_binary(DirtyPath) ->
                       %% Deals with the case of creating a package out of a path
                       Path = ensure_trailing_slash(cleanup_path(DirtyPath)),
@@ -1444,19 +1468,22 @@ generate_spdx_vendor_packages(VendorInfoPackages, #{~"files" := SpdxFiles}=_SPDX
                         lists:foldl(fun(#{~"licenseInfoInFiles" := Licenses}, Acc) ->
                                             Licenses ++ Acc
                                     end, [], Files)),
+                      AnnotationMap = create_annotation(Package),
 
                       PackageVerificationCodeValue = generate_verification_code_value(Files),
                       ExternalRefs = generate_vendor_purl(Package),
-                      Package1#{
-                                ~"SPDXID" => generate_spdxid_name(Id),
-                                ~"filesAnalyzed" => true,
-                                ~"hasFiles" => lists:map(fun (#{~"SPDXID":=Id0}) -> Id0 end, Files),
-                                ~"licenseConcluded" => ~"NOASSERTION",
-                                ~"licenseInfoFromFiles" => lists:uniq(LicenseInfoInFiles),
-                                ~"packageVerificationCode" => #{~"packageVerificationCodeValue" => PackageVerificationCodeValue},
-                                ~"comment" => ~"vendor package",
-                                ~"externalRefs" => ExternalRefs
-                       }
+                      Package2 =
+                          Package1#{
+                                    ~"SPDXID" => generate_spdxid_name(Id),
+                                    ~"filesAnalyzed" => true,
+                                    ~"hasFiles" => lists:map(fun (#{~"SPDXID":=Id0}) -> Id0 end, Files),
+                                    ~"licenseConcluded" => ~"NOASSERTION",
+                                    ~"licenseInfoFromFiles" => lists:uniq(LicenseInfoInFiles),
+                                    ~"packageVerificationCode" => #{~"packageVerificationCodeValue" => PackageVerificationCodeValue},
+                                    ~"comment" => ~"vendor package",
+                                    ~"externalRefs" => ExternalRefs
+                                   },
+                      maps:merge(Package2, AnnotationMap)
               end, VendorInfoPackages).
 
 get_vendor_excludes(Package) ->
@@ -1633,10 +1660,18 @@ format_vex_statements(OpenVex) ->
               end, [], Stmts).
 
 read_openvex_file(Branch) ->
-    _ = create_dir(?VexPath),
+    _ = download_otp_openvex_file(Branch),
     OpenVexPath = path_to_openvex_filename(Branch),
     OpenVexStr = erlang:binary_to_list(OpenVexPath),
     decode(OpenVexStr).
+
+dbg(Text, Args) ->
+    case ?DEBUG of
+        true ->
+            io:format(Text, Args);
+        false ->
+            ok
+    end.
 
 -spec download_otp_openvex_file(Branch :: binary()) -> Json :: map() | EmptyMap :: #{} | no_return().
 download_otp_openvex_file(Branch) ->
@@ -1645,19 +1680,19 @@ download_otp_openvex_file(Branch) ->
     OpenVexStr = erlang:binary_to_list(OpenVexPath),
     GithubURI = get_gh_download_uri(OpenVexStr),
 
-    io:format("Checking OpenVex statements in '~s' from~n'~s'...~n", [OpenVexPath, GithubURI]),
+    dbg("Checking OpenVex statements in '~s' from~n'~s'...~n", [OpenVexPath, GithubURI]),
 
     ValidURI = "curl -I -Lj --silent " ++ GithubURI ++ " | head -n1 | cut -d' ' -f2",
     case string:trim(os:cmd(ValidURI)) of
         "200" ->
             %% Overrides existing file.
-            io:format("OpenVex file found.~n~n"),
+            dbg("OpenVex file found.~n~n", []),
             Command = "curl -LJ " ++ GithubURI ++ " --output " ++ OpenVexStr,
-            io:format("Proceed to download:~n~s~n~n", [Command]),
+            dbg("Proceed to download:~n~s~n~n", [Command]),
             os:cmd(Command, #{ exception_on_failure => true }),
             decode(OpenVexStr);
         E ->
-            io:format("[~p] No OpenVex statements found for file '~s'.~n~n", [E, OpenVexStr]),
+            dbg("[~p] No OpenVex statements found for file '~s'.~n~n", [E, OpenVexStr]),
             #{}
     end.
 
@@ -1670,7 +1705,7 @@ create_dir(DirName) ->
     case file:make_dir(DirName) of
         Result when Result == ok;
                     Result == {error, eexist} ->
-            io:format("Directory ~s created successfully.~n", [DirName]);
+            dbg("Directory ~s created successfully.~n", [DirName]);
         {error, Reason} ->
             fail("Failed to create directory ~s: ~p~n", [DirName, Reason])
     end.
@@ -2801,14 +2836,12 @@ extracted_license_info() ->
 %% Documentation in HOWTO/SBOM.md
 %%
 
-vex_path(Branch) ->
-    VexPath = ?VexPath,
-    vex_path(VexPath, Branch).
-vex_path(VexPath, Branch) ->
-    <<VexPath/binary, Branch/binary, ".openvex.json">>.
 
-init_openvex(#{input_file := File, branch := Branch, vex_path := VexPath}) ->
-    InitVex = vex_path(VexPath, Branch),
+vex_path(Branch) ->
+    <<Branch/binary, ".openvex.json">>.
+
+init_openvex(#{input_file := File, branch := Branch}) ->
+    InitVex = vex_path(Branch),
     VexStmts = case filelib:is_file(InitVex) of
                    true -> % file exists
                        maps:get(~"statements", decode(InitVex));
@@ -2817,15 +2850,17 @@ init_openvex(#{input_file := File, branch := Branch, vex_path := VexPath}) ->
                        file:write_file(InitVex, json:format(Init)),
                        maps:get(~"statements", Init)
                end,
-    run_openvex1(VexStmts, File, Branch, VexPath).
+    run_openvex1(VexStmts, File, Branch).
 
-run_openvex(#{input_file := File, branch := Branch, vex_path := VexPath}) ->
-    InitVex = vex_path(VexPath, Branch),
+run_openvex(#{input_file := File, branch := Branch}) ->
+    %% Download files from orphan branch into VexPath Folder.
+    _ = download_otp_openvex_file(Branch),
+    InitVex = vex_path(Branch),
     VexStmts = maps:get(~"statements", decode(InitVex)),
-    run_openvex1(VexStmts, File, Branch, VexPath).
+    run_openvex1(VexStmts, File, Branch).
 
-run_openvex1(VexStmts, VexTableFile, Branch, VexPath) ->
-    Statements = calculate_statements(VexStmts, VexTableFile, Branch, VexPath),
+run_openvex1(VexStmts, VexTableFile, Branch) ->
+    Statements = calculate_statements(VexStmts, VexTableFile, Branch),
     lists:foreach(fun (St) -> io:format("~ts", [St]) end, Statements).
 
 verify_openvex(#{create_pr := PR}) ->
@@ -2953,9 +2988,21 @@ paginate_years(Branch, Cmd) when is_list(Cmd) ->
     end.
 
 process_gh_page(Year, Branch, Body) ->
+    %% Advisories older than the year cutoff are filtered out by
+    %% filter_gh_cve_by({year, _}, _), which returns #{}. Such entries
+    %% must be dropped here: forwarding #{} to the {otp, _} filter (or
+    %% later to extract_advisory_info/1) would fail with a function_clause
+    %% because those clauses require a #{~"vulnerabilities" := _} shape.
+    %% Dropping them also lets paginate_years/2 correctly stop when a
+    %% whole page is older than the cutoff (it treats an empty result as
+    %% "nothing more in range").
     lists:foldl(fun (Vuln0, Acc0) ->
-                        Vuln1 = filter_gh_cve_by({year, Year}, Vuln0),
-                        [filter_gh_cve_by({otp, Branch}, Vuln1) | Acc0]
+                        case filter_gh_cve_by({year, Year}, Vuln0) of
+                            EmptyMap when map_size(EmptyMap) =:= 0 ->
+                                Acc0;
+                            Vuln1 ->
+                                [filter_gh_cve_by({otp, Branch}, Vuln1) | Acc0]
+                        end
                 end, [], Body).
 
 filter_gh_cve_by({year, Year},
@@ -2992,7 +3039,12 @@ filter_gh_cve_by({otp, <<"otp-", Version/binary>>},
                                       get_otp_app_version_from_gh_vulnerability(Version, VulnerableVersion, AppName, AppVersions),
                                   [Pkg#{~"patched_versions" := A,
                                         ~"vulnerable_version_range" := V} ||  {A, V} <- AppVersions1] ++ Acc
-                          end, [], Vulns)}.
+                          end, [], Vulns)};
+filter_gh_cve_by({otp, _}, Map) when map_size(Map) =:= 0 ->
+    %% Defensive: an advisory that was filtered out by the year filter
+    %% yields #{}. process_gh_page/3 already drops these, but keep the
+    %% pipeline crash-safe if an empty map ever reaches here.
+    Map.
 
 %% Input: <<"27">> and <<">= 3.2">> and <<"ssl">>, and <<"4.15.3, 5.1.5, 5.2.9">>
 %% Output: [{~"27.3.3", ~"4.15.3"}]
@@ -3173,14 +3225,14 @@ openvex_filter_product(Products) ->
 vex_set_inclusion(AdvVEX, OpenVEX) ->
     [VEX || VEX <- AdvVEX, not lists:member(VEX, OpenVEX)].
 
-calculate_statements(VexStmts, VexTableFile, Branch, VexPath) ->
+calculate_statements(VexStmts, VexTableFile, Branch) ->
     VexTable = decode(VexTableFile),
     case maps:get(Branch, VexTable, error) of
         error ->
             fail("Could not find '~ts' in file '~ts'.~nDid you forget to add an entry with name '~ts' into 'openvex.table'?",
                  [Branch, VexTableFile, Branch]);
         CVEs ->
-            calculate_statements_from_cves(VexStmts, CVEs, Branch, VexPath)
+            calculate_statements_from_cves(VexStmts, CVEs, Branch)
     end.
 
 exists_cve_in_openvex(VexStmts, CVE, StatusCVE, Purl) ->
@@ -3214,7 +3266,7 @@ fetch_openvex_status(M) when is_map(M) ->
 fetch_openvex_status(_) ->
     {false, false}.
 
-calculate_statements_from_cves(VexStmts, CVEs, Branch, VexPath) ->
+calculate_statements_from_cves(VexStmts, CVEs, Branch) ->
     %% make the function idempotent, i.e., can be called consecutive times producing the same input
     lists:foldl(
       fun (#{~"status" := Status}=M, Acc) ->
@@ -3224,7 +3276,7 @@ calculate_statements_from_cves(VexStmts, CVEs, Branch, VexPath) ->
                   true -> %% entry exists, ignore to make operation idempotent
                       Acc;
                   false ->
-                      InitVex = vex_path(VexPath, Branch),
+                      InitVex = vex_path(Branch),
                       {FixedStatus, AffectedStatus} = fetch_openvex_status(Status),
                       case Purl of
                           <<?ErlangPURL, _/binary>> ->
@@ -3551,9 +3603,9 @@ test_openvex(_) ->
 
 
 test_openvex_branched_otp_tree() ->
-    {VexPath,  Branch, VexStmts} = setup_openvex_test(),
+    {_VexPath,  Branch, VexStmts} = setup_openvex_test(),
     CVEs = fixup_openvex_branched_otp_tree(),
-    Result = calculate_statements_from_cves(VexStmts, CVEs, Branch, VexPath),
+    Result = calculate_statements_from_cves(VexStmts, CVEs, Branch),
     Expected = [~"vexctl add --in-place otp-23.openvex.json --product='pkg:github/erlang/otp@OTP-23.0,pkg:github/erlang/otp@OTP-23.0.1,pkg:github/erlang/otp@OTP-23.0.2,pkg:github/erlang/otp@OTP-23.0.3,pkg:github/erlang/otp@OTP-23.0.4,pkg:otp/ssl@10.0,pkg:github/erlang/otp@OTP-23.1,pkg:github/erlang/otp@OTP-23.1.1,pkg:github/erlang/otp@OTP-23.1.2,pkg:github/erlang/otp@OTP-23.1.3,pkg:github/erlang/otp@OTP-23.1.4,pkg:github/erlang/otp@OTP-23.1.4.1,pkg:github/erlang/otp@OTP-23.1.5,pkg:otp/ssl@10.1,pkg:github/erlang/otp@OTP-23.2,pkg:github/erlang/otp@OTP-23.2.1,pkg:otp/ssl@10.2,pkg:github/erlang/otp@OTP-23.2.2,pkg:github/erlang/otp@OTP-23.2.3,pkg:otp/ssl@10.2.1,pkg:github/erlang/otp@OTP-23.2.4,pkg:otp/ssl@10.2.2,pkg:github/erlang/otp@OTP-23.2.5,pkg:github/erlang/otp@OTP-23.2.6,pkg:otp/ssl@10.2.3,pkg:github/erlang/otp@OTP-23.2.7,pkg:otp/ssl@10.2.4,pkg:github/erlang/otp@OTP-23.2.7.1,pkg:otp/ssl@10.2.4.1,pkg:github/erlang/otp@OTP-23.2.7.2,pkg:github/erlang/otp@OTP-23.2.7.3,pkg:otp/ssl@10.2.4.2,pkg:github/erlang/otp@OTP-23.2.7.4,pkg:otp/ssl@10.2.4.3,pkg:github/erlang/otp@OTP-23.2.7.5,pkg:otp/ssl@10.2.4.4,pkg:github/erlang/otp@OTP-23.3,pkg:github/erlang/otp@OTP-23.3.1,pkg:otp/ssl@10.3,pkg:github/erlang/otp@OTP-23.3.2,pkg:github/erlang/otp@OTP-23.3.3,pkg:github/erlang/otp@OTP-23.3.4,pkg:github/erlang/otp@OTP-23.3.4.1,pkg:otp/ssl@10.3.1,pkg:github/erlang/otp@OTP-23.3.4.2,pkg:github/erlang/otp@OTP-23.3.4.3,pkg:github/erlang/otp@OTP-23.3.4.4,pkg:otp/ssl@10.3.1.1,pkg:github/erlang/otp@OTP-23.3.4.5,pkg:github/erlang/otp@OTP-23.3.4.6,pkg:github/erlang/otp@OTP-23.3.4.7,pkg:github/erlang/otp@OTP-23.3.4.8,pkg:github/erlang/otp@OTP-23.3.4.9,pkg:github/erlang/otp@OTP-23.3.4.10,pkg:github/erlang/otp@OTP-23.3.4.11,pkg:github/erlang/otp@OTP-23.3.4.12,pkg:github/erlang/otp@OTP-23.3.4.13,pkg:github/erlang/otp@OTP-23.3.4.14,pkg:otp/ssl@10.3.1.2,pkg:github/erlang/otp@OTP-23.3.4.15,pkg:otp/ssl@10.3.1.3,pkg:github/erlang/otp@OTP-23.3.4.16,pkg:otp/ssl@10.3.1.4,pkg:github/erlang/otp@OTP-23.3.4.17,pkg:github/erlang/otp@OTP-23.3.4.18,pkg:github/erlang/otp@OTP-23.3.4.19,pkg:github/erlang/otp@OTP-23.3.4.20,pkg:otp/ssl@10.3.1.5' --vuln='F00' --status='under_investigation'\n",
 
                 ~"vexctl add --in-place otp-23.openvex.json --product='pkg:github/erlang/otp@OTP-26.0,pkg:otp/erts@14.0,pkg:github/erlang/otp@OTP-26.0.1,pkg:otp/erts@14.0.1,pkg:github/erlang/otp@OTP-26.0.2,pkg:otp/erts@14.0.2,pkg:github/erlang/otp@OTP-26.1,pkg:github/erlang/otp@OTP-26.1.1,pkg:otp/erts@14.1,pkg:github/erlang/otp@OTP-26.1.2,pkg:otp/erts@14.1.1,pkg:github/erlang/otp@OTP-26.2,pkg:otp/erts@14.2,pkg:github/erlang/otp@OTP-26.2.1,pkg:otp/erts@14.2.1,pkg:github/erlang/otp@OTP-26.2.2,pkg:otp/erts@14.2.2,pkg:github/erlang/otp@OTP-26.2.3,pkg:otp/erts@14.2.3,pkg:github/erlang/otp@OTP-26.2.4,pkg:otp/erts@14.2.4,pkg:github/erlang/otp@OTP-26.2.5,pkg:otp/erts@14.2.5,pkg:github/erlang/otp@OTP-26.2.5.1,pkg:otp/erts@14.2.5.1,pkg:github/erlang/otp@OTP-26.2.5.2,pkg:otp/erts@14.2.5.2,pkg:github/erlang/otp@OTP-26.2.5.3,pkg:otp/erts@14.2.5.3,pkg:github/erlang/otp@OTP-26.2.5.4,pkg:github/erlang/otp@OTP-26.2.5.5,pkg:otp/erts@14.2.5.4,pkg:github/erlang/otp@OTP-26.2.5.6,pkg:otp/erts@14.2.5.5,pkg:github/erlang/otp@OTP-26.2.5.7,pkg:otp/erts@14.2.5.6,pkg:github/erlang/otp@OTP-26.2.5.8,pkg:otp/erts@14.2.5.7,pkg:github/erlang/otp@OTP-26.2.5.9,pkg:otp/erts@14.2.5.8,pkg:github/erlang/otp@OTP-26.2.5.10,pkg:github/erlang/otp@OTP-26.2.5.11,pkg:otp/erts@14.2.5.9,pkg:github/erlang/otp@OTP-26.2.5.12,pkg:github/erlang/otp@OTP-26.2.5.13,pkg:otp/erts@14.2.5.10,pkg:github/erlang/otp@OTP-26.2.5.14,pkg:github/erlang/otp@OTP-26.2.5.15,pkg:otp/erts@14.2.5.11' --vuln='CVE-2024-4444' --status='not_affected' --justification='vulnerable_code_not_present'\n",
@@ -3579,9 +3631,9 @@ test_openvex_branched_otp_tree() ->
 %% idempotent: script runs once. if run again, no new vex statements are introduced,
 %% because there was no change.
 test_openvex_branched_otp_tree_idempotent() ->
-    {VexPath,  Branch, VexStmts} = setup_openvex_test(fixup_openvex_branched_otp_tree_stmts()),
+    {_VexPath,  Branch, VexStmts} = setup_openvex_test(fixup_openvex_branched_otp_tree_stmts()),
     CVEs = fixup_openvex_branched_otp_tree(),
-    Result = calculate_statements_from_cves(VexStmts, CVEs, Branch, VexPath),
+    Result = calculate_statements_from_cves(VexStmts, CVEs, Branch),
     true = Result == [],
     ok.
 

@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2023-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2023-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -129,7 +129,7 @@
 -export([callback_mode/0,
          terminate/3,
          code_change/4,
-         format_status/2]).
+         format_status/1]).
 
 %% Tracing
 -export([handle_trace/3]).
@@ -179,7 +179,6 @@ initial_hello({call, From}, {start, Timeout},
     end;
 initial_hello({call, From}, {start, {Opts, EmOpts}, Timeout},
      #state{static_env = #static_env{role = Role},
-            handshake_env = #handshake_env{} = Env,
             ssl_options = OrigSSLOptions,
             socket_options = SockOpts} = State0) ->
     try
@@ -191,13 +190,18 @@ initial_hello({call, From}, {start, {Opts, EmOpts}, Timeout},
                               Other ->
                                   Other
                           end,
+        HsEnv = State#state.handshake_env,
         initial_hello({call, From}, {start, Timeout},
 	     State#state{ssl_options = SslOpts,
-                         handshake_env = Env#handshake_env{continue_status = CountinueStatus},
+                         handshake_env = HsEnv#handshake_env{continue_status = CountinueStatus},
                          socket_options = ssl_config:new_emulated(EmOpts, SockOpts)})
     catch throw:Error ->
 	   {stop_and_reply, {shutdown, normal}, {reply, From, {error, Error}}, State0}
     end;
+initial_hello(internal, {protocol_record, #ssl_tls{type = ?APPLICATION_DATA}},
+              #state{handshake_env = #handshake_env{renegotiation = {false, first}}} = State) ->
+    Alert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE, application_data_before_initial_handshake),
+    ssl_gen_statem:handle_own_alert(Alert, ?STATE(initial_hello), State);
 initial_hello(Type, Event, State) ->
     tls_dtls_server_connection:initial_hello(Type, Event, State).
 
@@ -241,6 +245,10 @@ hello(internal, #client_hello{client_version = ClientVersion} = Hello,
                 State0#state{connection_env = NewCenv},
             ssl_gen_statem:handle_own_alert(Alert, ?STATE(hello), AlertState)
     end;
+hello(internal, {protocol_record, #ssl_tls{type = ?APPLICATION_DATA}},
+              #state{handshake_env = #handshake_env{renegotiation = {false, first}}} = State) ->
+    Alert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE, application_data_before_initial_handshake),
+    ssl_gen_statem:handle_own_alert(Alert, ?STATE(hello), State);
 hello(info, Event, State) ->
     tls_gen_connection:gen_info(Event, ?STATE(hello), State);
 hello(Type, Event, State) ->
@@ -259,6 +267,10 @@ user_hello(Type, Event, State) ->
 %%--------------------------------------------------------------------
 abbreviated(info, Event, State) ->
     tls_gen_connection:gen_info(Event, ?STATE(abbreviated), State);
+abbreviated(internal, {protocol_record, #ssl_tls{type = ?APPLICATION_DATA}},
+              #state{handshake_env = #handshake_env{renegotiation = {false, first}}} = State) ->
+    Alert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE, application_data_before_initial_handshake),
+    ssl_gen_statem:handle_own_alert(Alert, ?STATE(abbreviated), State);
 abbreviated(Type, Event, State) ->
     gen_state(?STATE(abbreviated), Type, Event, State).
 
@@ -268,6 +280,10 @@ abbreviated(Type, Event, State) ->
 %%--------------------------------------------------------------------
 certify(info, Event, State) ->
     tls_gen_connection:gen_info(Event, ?STATE(certify), State);
+certify(internal, {protocol_record, #ssl_tls{type = ?APPLICATION_DATA}},
+              #state{handshake_env = #handshake_env{renegotiation = {false, first}}} = State) ->
+    Alert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE, application_data_before_initial_handshake),
+    ssl_gen_statem:handle_own_alert(Alert, ?STATE(certify), State);
 certify(Type, Event, State) ->
     gen_state(?STATE(certify), Type, Event, State).
 
@@ -285,6 +301,7 @@ wait_cert_verify(internal, #certificate_verify{signature = Signature,
                                                        client_certificate_status = needs_verifying,
                                                        public_key_info = PubKeyInfo} = HsEnv0,
                         connection_env = #connection_env{negotiated_version = Version},
+                        ssl_options = SslOpts,
                         session = #session{master_secret = MasterSecret} = Session0
                        } = State) ->
 
@@ -292,8 +309,20 @@ wait_cert_verify(internal, #certificate_verify{signature = Signature,
     %% Use negotiated value if TLS-1.2 otherwise return default
     HashSign = tls_dtls_gen_connection:negotiated_hashsign(CertHashSign, KexAlg,
                                                            PubKeyInfo, TLSVersion),
-    case ssl_handshake:certificate_verify(Signature, PubKeyInfo,
-					  TLSVersion, HashSign, MasterSecret, Hist) of
+    %% RFC 9155 §5: reject a CertificateVerify that uses a signature
+    %% algorithm the server did not offer (e.g. MD5/SHA-1 by default).
+    SupportedHashSigns = maps:get(signature_algs, SslOpts, undefined),
+    Result =
+        case ssl_handshake:certificate_verify_signature_algorithm(HashSign,
+                                                                  SupportedHashSigns,
+                                                                  TLSVersion) of
+            valid ->
+                ssl_handshake:certificate_verify(Signature, PubKeyInfo,
+                                                 TLSVersion, HashSign, MasterSecret, Hist);
+            #alert{} = SignAlgAlert ->
+                SignAlgAlert
+        end,
+    case Result of
 	valid ->
             HsEnv = HsEnv0#handshake_env{client_certificate_status = verified},
 	    Connection:next_event(cipher, no_record,
@@ -302,6 +331,10 @@ wait_cert_verify(internal, #certificate_verify{signature = Signature,
 	#alert{} = Alert ->
             ssl_gen_statem:handle_own_alert(Alert, ?STATE(wait_cert_verify), State)
     end;
+wait_cert_verify(internal, {protocol_record, #ssl_tls{type = ?APPLICATION_DATA}},
+              #state{handshake_env = #handshake_env{renegotiation = {false, first}}} = State) ->
+    Alert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE, application_data_before_initial_handshake),
+    ssl_gen_statem:handle_own_alert(Alert, ?STATE(wait_cert_verify), State);
 wait_cert_verify(Type, Event, State) ->
     ssl_gen_statem:handle_common_event(Type, Event, ?STATE(wait_cert_verify), State).
 
@@ -311,6 +344,10 @@ wait_cert_verify(Type, Event, State) ->
 %%--------------------------------------------------------------------
 cipher(info, Event, State) ->
     tls_gen_connection:gen_info(Event, ?STATE(cipher), State);
+cipher(internal, {protocol_record, #ssl_tls{type = ?APPLICATION_DATA}},
+       #state{handshake_env = #handshake_env{renegotiation = {false, first}}} = State) ->
+    Alert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE, application_data_before_initial_handshake),
+    ssl_gen_statem:handle_own_alert(Alert, ?STATE(cipher), State);
 cipher(Type, Event, State) ->
     gen_state(?STATE(cipher), Type, Event, State).
 
@@ -393,8 +430,8 @@ callback_mode() ->
 terminate(Reason, StateName, State) ->
     ssl_gen_statem:terminate(Reason, StateName, State).
 
-format_status(Type, Data) ->
-    ssl_gen_statem:format_status(Type, Data).
+format_status(Data) ->
+    ssl_gen_statem:format_status(Data).
 
 code_change(_OldVsn, StateName, State, _) ->
     {ok, StateName, State}.

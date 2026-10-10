@@ -603,12 +603,11 @@ extract_seq_1(_, _) -> no.
 %%% (3) (4) (5) (6) Jump and unreachable code optimizations.
 %%%
 
--record(st,
-	{
-	  entry :: beam_asm:label(), %Entry label (must not be moved).
-	  replace :: #{beam_asm:label() := beam_asm:label()}, %Labels to replace.
-	  labels :: sets:set()         %Set of referenced labels.
-	}).
+-record #st{
+   entry :: beam_asm:label(), %Entry label (must not be moved).
+   replace :: #{beam_asm:label() := beam_asm:label()}, %Labels to replace.
+   labels :: sets:set()         %Set of referenced labels.
+  }.
 
 opt(Is0, CLabel) ->
     find_fixpoint(fun(Is) ->
@@ -943,7 +942,13 @@ instr_labels({put_map,Lbl,_Op,_Src,_Dst,_Live,_List}) ->
     do_instr_labels(Lbl);
 instr_labels({get_map_elements,Lbl,_Src,_List}) ->
     do_instr_labels(Lbl);
+instr_labels({put_record,Lbl,_,_Src,_,_,_}) ->
+    do_instr_labels(Lbl);
+instr_labels({update_record_id,Lbl,_,_,_Src,_,_,_}) ->
+    do_instr_labels(Lbl);
 instr_labels({get_record_elements,Lbl,_Src,_List}) ->
+    do_instr_labels(Lbl);
+instr_labels({get_record_elements_id,{f,_}=Lbl,_Id,_Src,_List}) ->
     do_instr_labels(Lbl);
 instr_labels({bs_start_match4,Fail,_,_,_}) ->
     case Fail of

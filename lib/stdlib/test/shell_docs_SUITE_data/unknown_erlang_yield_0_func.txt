@@ -2,22 +2,22 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  yield()[0m
+[1m  yield()[0m
 
   Tries to give other processes with the same or higher priority (if
   any) a chance to execute before returning. There is no guarantee
-  that any other process runs between the invocation and return of [;;4m[0m
-  [;;4merlang:yield/0[0m.
+  that any other process runs between the invocation and return of [4m[0m
+  [4merlang:yield/0[0m.
 
-  See the documentation for [;;4mreceive-after[0m expressions for how to
+  See the documentation for [4mreceive-after[0m expressions for how to
   make the current process sleep for a specific number of
   milliseconds.
 
-  [;;4mWarning[0m
+  [4mWarning[0m
 
     There is seldom or never any need to use this BIF. Using this
     BIF without a thorough grasp of how the scheduler works can

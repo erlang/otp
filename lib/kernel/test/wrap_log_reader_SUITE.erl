@@ -162,7 +162,7 @@ test_one(File) ->
 %% Two filled index files.
 two_filled(Conf) when is_list(Conf) ->
     Dir = ?privdir(Conf),
-    File = list_to_atom(join(Dir, "sune.LOG")),
+    File = join(Dir, "sune.LOG"),
     delete_files(File),
     start(),
 

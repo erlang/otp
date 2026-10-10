@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -213,7 +213,7 @@ wxWidgets docs: [wxStyledTextCtrl](https://docs.wxwidgets.org/3.2/classwx_styled
   moveAfterInTabOrder/2,moveBeforeInTabOrder/2,navigate/1,navigate/2,
   parent_class/1,popupMenu/2,popupMenu/3,popupMenu/4,raise/1,refresh/1,
   refresh/2,refreshRect/2,refreshRect/3,releaseMouse/1,removeChild/2,
-  reparent/2,screenToClient/1,screenToClient/2,scrollLines/2,scrollPages/2,
+  reparent/2,screenToClient/2,screenToClient/3,scrollLines/2,scrollPages/2,
   scrollWindow/3,scrollWindow/4,setAcceleratorTable/2,setAutoLayout/2,
   setBackgroundColour/2,setBackgroundStyle/2,setCaret/2,setClientSize/2,
   setClientSize/3,setContainingSizer/2,setCursor/2,setDoubleBuffered/2,
@@ -245,7 +245,7 @@ new() ->
 
 -doc(#{equiv => new(Parent, [])}).
 -spec new(Parent) -> wxStyledTextCtrl() when
-	Parent::wxWindow:wxWindow().
+        Parent::wxWindow:wxWindow().
 
 new(Parent)
  when is_record(Parent, wx_ref) ->
@@ -272,7 +272,7 @@ new(#wx_ref{type=ParentT}=Parent, Options)
 
 -doc(#{equiv => create(This,Parent, [])}).
 -spec create(This, Parent) -> boolean() when
-	This::wxStyledTextCtrl(), Parent::wxWindow:wxWindow().
+        This::wxStyledTextCtrl(), Parent::wxWindow:wxWindow().
 
 create(This,Parent)
  when is_record(This, wx_ref),is_record(Parent, wx_ref) ->
@@ -304,7 +304,7 @@ create(#wx_ref{type=ThisT}=This,#wx_ref{type=ParentT}=Parent, Options)
 
 -doc "Add text to the document at current position.".
 -spec addText(This, Text) -> 'ok' when
-	This::wxStyledTextCtrl(), Text::unicode:chardata().
+        This::wxStyledTextCtrl(), Text::unicode:chardata().
 addText(#wx_ref{type=ThisT}=This,Text)
  when ?is_chardata(Text) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -313,7 +313,7 @@ addText(#wx_ref{type=ThisT}=This,Text)
 
 -doc "Insert string at a position.".
 -spec insertText(This, Pos, Text) -> 'ok' when
-	This::wxStyledTextCtrl(), Pos::integer(), Text::unicode:chardata().
+        This::wxStyledTextCtrl(), Pos::integer(), Text::unicode:chardata().
 insertText(#wx_ref{type=ThisT}=This,Pos,Text)
  when is_integer(Pos),?is_chardata(Text) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -322,21 +322,21 @@ insertText(#wx_ref{type=ThisT}=This,Pos,Text)
 
 -doc "Delete all text in the document.".
 -spec clearAll(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 clearAll(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_ClearAll).
 
 -doc "Set all style bytes to 0, remove all folding information.".
 -spec clearDocumentStyle(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 clearDocumentStyle(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_ClearDocumentStyle).
 
 -doc "Returns the number of bytes in the document.".
 -spec getLength(This) -> integer() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getLength(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetLength),
@@ -344,7 +344,7 @@ getLength(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the character byte at the position.".
 -spec getCharAt(This, Pos) -> integer() when
-	This::wxStyledTextCtrl(), Pos::integer().
+        This::wxStyledTextCtrl(), Pos::integer().
 getCharAt(#wx_ref{type=ThisT}=This,Pos)
  when is_integer(Pos) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -353,7 +353,7 @@ getCharAt(#wx_ref{type=ThisT}=This,Pos)
 
 -doc "Returns the position of the caret.".
 -spec getCurrentPos(This) -> integer() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getCurrentPos(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetCurrentPos),
@@ -361,7 +361,7 @@ getCurrentPos(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the position of the opposite end of the selection to the caret.".
 -spec getAnchor(This) -> integer() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getAnchor(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetAnchor),
@@ -369,7 +369,7 @@ getAnchor(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the style byte at the position.".
 -spec getStyleAt(This, Pos) -> integer() when
-	This::wxStyledTextCtrl(), Pos::integer().
+        This::wxStyledTextCtrl(), Pos::integer().
 getStyleAt(#wx_ref{type=ThisT}=This,Pos)
  when is_integer(Pos) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -378,14 +378,14 @@ getStyleAt(#wx_ref{type=ThisT}=This,Pos)
 
 -doc "Redoes the next action on the undo history.".
 -spec redo(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 redo(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_Redo).
 
 -doc "Choose between collecting actions into the undo history and discarding them.".
 -spec setUndoCollection(This, CollectUndo) -> 'ok' when
-	This::wxStyledTextCtrl(), CollectUndo::boolean().
+        This::wxStyledTextCtrl(), CollectUndo::boolean().
 setUndoCollection(#wx_ref{type=ThisT}=This,CollectUndo)
  when is_boolean(CollectUndo) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -393,7 +393,7 @@ setUndoCollection(#wx_ref{type=ThisT}=This,CollectUndo)
 
 -doc "Select all the text in the document.".
 -spec selectAll(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 selectAll(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_SelectAll).
@@ -403,14 +403,14 @@ Remember the current position in the undo history as the position at which the d
 was saved.
 """.
 -spec setSavePoint(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 setSavePoint(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_SetSavePoint).
 
 -doc "Are there any redoable actions in the undo history?".
 -spec canRedo(This) -> boolean() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 canRedo(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_CanRedo),
@@ -418,7 +418,7 @@ canRedo(#wx_ref{type=ThisT}=This) ->
 
 -doc "Retrieve the line number at which a particular marker is located.".
 -spec markerLineFromHandle(This, MarkerHandle) -> integer() when
-	This::wxStyledTextCtrl(), MarkerHandle::integer().
+        This::wxStyledTextCtrl(), MarkerHandle::integer().
 markerLineFromHandle(#wx_ref{type=ThisT}=This,MarkerHandle)
  when is_integer(MarkerHandle) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -427,7 +427,7 @@ markerLineFromHandle(#wx_ref{type=ThisT}=This,MarkerHandle)
 
 -doc "Delete a marker.".
 -spec markerDeleteHandle(This, MarkerHandle) -> 'ok' when
-	This::wxStyledTextCtrl(), MarkerHandle::integer().
+        This::wxStyledTextCtrl(), MarkerHandle::integer().
 markerDeleteHandle(#wx_ref{type=ThisT}=This,MarkerHandle)
  when is_integer(MarkerHandle) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -435,7 +435,7 @@ markerDeleteHandle(#wx_ref{type=ThisT}=This,MarkerHandle)
 
 -doc "Is undo history being collected?".
 -spec getUndoCollection(This) -> boolean() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getUndoCollection(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetUndoCollection),
@@ -443,7 +443,7 @@ getUndoCollection(#wx_ref{type=ThisT}=This) ->
 
 -doc "Are white space characters currently visible? Returns one of wxSTC\_WS\_\* constants.".
 -spec getViewWhiteSpace(This) -> integer() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getViewWhiteSpace(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetViewWhiteSpace),
@@ -455,7 +455,7 @@ Make white space characters invisible, always visible or visible outside indenta
 The input should be one of the ?wxSTC\_WS\_\* constants.
 """.
 -spec setViewWhiteSpace(This, ViewWS) -> 'ok' when
-	This::wxStyledTextCtrl(), ViewWS::integer().
+        This::wxStyledTextCtrl(), ViewWS::integer().
 setViewWhiteSpace(#wx_ref{type=ThisT}=This,ViewWS)
  when is_integer(ViewWS) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -463,7 +463,7 @@ setViewWhiteSpace(#wx_ref{type=ThisT}=This,ViewWS)
 
 -doc "Find the position from a point within the window.".
 -spec positionFromPoint(This, Pt) -> integer() when
-	This::wxStyledTextCtrl(), Pt::{X::integer(), Y::integer()}.
+        This::wxStyledTextCtrl(), Pt::{X::integer(), Y::integer()}.
 positionFromPoint(#wx_ref{type=ThisT}=This,{PtX,PtY} = Pt)
  when is_integer(PtX),is_integer(PtY) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -475,7 +475,7 @@ Find the position from a point within the window but return wxSTC\_INVALID\_POSI
 not close to text.
 """.
 -spec positionFromPointClose(This, X, Y) -> integer() when
-	This::wxStyledTextCtrl(), X::integer(), Y::integer().
+        This::wxStyledTextCtrl(), X::integer(), Y::integer().
 positionFromPointClose(#wx_ref{type=ThisT}=This,X,Y)
  when is_integer(X),is_integer(Y) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -484,7 +484,7 @@ positionFromPointClose(#wx_ref{type=ThisT}=This,X,Y)
 
 -doc "Set caret to start of a line and ensure it is visible.".
 -spec gotoLine(This, Line) -> 'ok' when
-	This::wxStyledTextCtrl(), Line::integer().
+        This::wxStyledTextCtrl(), Line::integer().
 gotoLine(#wx_ref{type=ThisT}=This,Line)
  when is_integer(Line) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -492,7 +492,7 @@ gotoLine(#wx_ref{type=ThisT}=This,Line)
 
 -doc "Set caret to a position and ensure it is visible.".
 -spec gotoPos(This, Caret) -> 'ok' when
-	This::wxStyledTextCtrl(), Caret::integer().
+        This::wxStyledTextCtrl(), Caret::integer().
 gotoPos(#wx_ref{type=ThisT}=This,Caret)
  when is_integer(Caret) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -504,7 +504,7 @@ Set the selection anchor to a position.
 The anchor is the opposite end of the selection from the caret.
 """.
 -spec setAnchor(This, Anchor) -> 'ok' when
-	This::wxStyledTextCtrl(), Anchor::integer().
+        This::wxStyledTextCtrl(), Anchor::integer().
 setAnchor(#wx_ref{type=ThisT}=This,Anchor)
  when is_integer(Anchor) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -525,7 +525,7 @@ getCurLine(#wx_ref{type=ThisT}=This) ->
 
 -doc "Retrieve the position of the last correctly styled character.".
 -spec getEndStyled(This) -> integer() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getEndStyled(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetEndStyled),
@@ -533,7 +533,7 @@ getEndStyled(#wx_ref{type=ThisT}=This) ->
 
 -doc "Convert all line endings in the document to one mode.".
 -spec convertEOLs(This, EolMode) -> 'ok' when
-	This::wxStyledTextCtrl(), EolMode::integer().
+        This::wxStyledTextCtrl(), EolMode::integer().
 convertEOLs(#wx_ref{type=ThisT}=This,EolMode)
  when is_integer(EolMode) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -544,7 +544,7 @@ Retrieve the current end of line mode - one of wxSTC\_EOL\_CRLF, wxSTC\_EOL\_CR,
 wxSTC\_EOL\_LF.
 """.
 -spec getEOLMode(This) -> integer() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getEOLMode(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetEOLMode),
@@ -556,7 +556,7 @@ Set the current end of line mode.
 The input should be one of the ?wxSTC\_EOL\_\* constants.
 """.
 -spec setEOLMode(This, EolMode) -> 'ok' when
-	This::wxStyledTextCtrl(), EolMode::integer().
+        This::wxStyledTextCtrl(), EolMode::integer().
 setEOLMode(#wx_ref{type=ThisT}=This,EolMode)
  when is_integer(EolMode) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -564,7 +564,7 @@ setEOLMode(#wx_ref{type=ThisT}=This,EolMode)
 
 -doc "Set the current styling position to start.".
 -spec startStyling(This, Start) -> 'ok' when
-	This::wxStyledTextCtrl(), Start::integer().
+        This::wxStyledTextCtrl(), Start::integer().
 startStyling(#wx_ref{type=ThisT}=This,Start)
  when is_integer(Start) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -575,7 +575,7 @@ Change style from current styling position for length characters to a style and 
 current styling position to after this newly styled segment.
 """.
 -spec setStyling(This, Length, Style) -> 'ok' when
-	This::wxStyledTextCtrl(), Length::integer(), Style::integer().
+        This::wxStyledTextCtrl(), Length::integer(), Style::integer().
 setStyling(#wx_ref{type=ThisT}=This,Length,Style)
  when is_integer(Length),is_integer(Style) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -583,7 +583,7 @@ setStyling(#wx_ref{type=ThisT}=This,Length,Style)
 
 -doc "Is drawing done first into a buffer or direct to the screen?".
 -spec getBufferedDraw(This) -> boolean() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getBufferedDraw(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetBufferedDraw),
@@ -594,7 +594,7 @@ If drawing is buffered then each line of text is drawn into a bitmap buffer befo
 drawing it to the screen to avoid flicker.
 """.
 -spec setBufferedDraw(This, Buffered) -> 'ok' when
-	This::wxStyledTextCtrl(), Buffered::boolean().
+        This::wxStyledTextCtrl(), Buffered::boolean().
 setBufferedDraw(#wx_ref{type=ThisT}=This,Buffered)
  when is_boolean(Buffered) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -602,7 +602,7 @@ setBufferedDraw(#wx_ref{type=ThisT}=This,Buffered)
 
 -doc "Change the visible size of a tab to be a multiple of the width of a space character.".
 -spec setTabWidth(This, TabWidth) -> 'ok' when
-	This::wxStyledTextCtrl(), TabWidth::integer().
+        This::wxStyledTextCtrl(), TabWidth::integer().
 setTabWidth(#wx_ref{type=ThisT}=This,TabWidth)
  when is_integer(TabWidth) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -610,7 +610,7 @@ setTabWidth(#wx_ref{type=ThisT}=This,TabWidth)
 
 -doc "Retrieve the visible size of a tab.".
 -spec getTabWidth(This) -> integer() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getTabWidth(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetTabWidth),
@@ -618,7 +618,7 @@ getTabWidth(#wx_ref{type=ThisT}=This) ->
 
 -doc "Set the code page used to interpret the bytes of the document as characters.".
 -spec setCodePage(This, CodePage) -> 'ok' when
-	This::wxStyledTextCtrl(), CodePage::integer().
+        This::wxStyledTextCtrl(), CodePage::integer().
 setCodePage(#wx_ref{type=ThisT}=This,CodePage)
  when is_integer(CodePage) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -626,7 +626,7 @@ setCodePage(#wx_ref{type=ThisT}=This,CodePage)
 
 -doc(#{equiv => markerDefine(This,MarkerNumber,MarkerSymbol, [])}).
 -spec markerDefine(This, MarkerNumber, MarkerSymbol) -> 'ok' when
-	This::wxStyledTextCtrl(), MarkerNumber::integer(), MarkerSymbol::integer().
+        This::wxStyledTextCtrl(), MarkerNumber::integer(), MarkerSymbol::integer().
 
 markerDefine(This,MarkerNumber,MarkerSymbol)
  when is_record(This, wx_ref),is_integer(MarkerNumber),is_integer(MarkerSymbol) ->
@@ -653,7 +653,7 @@ markerDefine(#wx_ref{type=ThisT}=This,MarkerNumber,MarkerSymbol, Options)
 
 -doc "Set the foreground colour used for a particular marker number.".
 -spec markerSetForeground(This, MarkerNumber, Fore) -> 'ok' when
-	This::wxStyledTextCtrl(), MarkerNumber::integer(), Fore::wx:wx_colour().
+        This::wxStyledTextCtrl(), MarkerNumber::integer(), Fore::wx:wx_colour().
 markerSetForeground(#wx_ref{type=ThisT}=This,MarkerNumber,Fore)
  when is_integer(MarkerNumber),?is_colordata(Fore) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -661,7 +661,7 @@ markerSetForeground(#wx_ref{type=ThisT}=This,MarkerNumber,Fore)
 
 -doc "Set the background colour used for a particular marker number.".
 -spec markerSetBackground(This, MarkerNumber, Back) -> 'ok' when
-	This::wxStyledTextCtrl(), MarkerNumber::integer(), Back::wx:wx_colour().
+        This::wxStyledTextCtrl(), MarkerNumber::integer(), Back::wx:wx_colour().
 markerSetBackground(#wx_ref{type=ThisT}=This,MarkerNumber,Back)
  when is_integer(MarkerNumber),?is_colordata(Back) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -669,7 +669,7 @@ markerSetBackground(#wx_ref{type=ThisT}=This,MarkerNumber,Back)
 
 -doc "Add a marker to a line, returning an ID which can be used to find or delete the marker.".
 -spec markerAdd(This, Line, MarkerNumber) -> integer() when
-	This::wxStyledTextCtrl(), Line::integer(), MarkerNumber::integer().
+        This::wxStyledTextCtrl(), Line::integer(), MarkerNumber::integer().
 markerAdd(#wx_ref{type=ThisT}=This,Line,MarkerNumber)
  when is_integer(Line),is_integer(MarkerNumber) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -678,7 +678,7 @@ markerAdd(#wx_ref{type=ThisT}=This,Line,MarkerNumber)
 
 -doc "Delete a marker from a line.".
 -spec markerDelete(This, Line, MarkerNumber) -> 'ok' when
-	This::wxStyledTextCtrl(), Line::integer(), MarkerNumber::integer().
+        This::wxStyledTextCtrl(), Line::integer(), MarkerNumber::integer().
 markerDelete(#wx_ref{type=ThisT}=This,Line,MarkerNumber)
  when is_integer(Line),is_integer(MarkerNumber) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -686,7 +686,7 @@ markerDelete(#wx_ref{type=ThisT}=This,Line,MarkerNumber)
 
 -doc "Delete all markers with a particular number from all lines.".
 -spec markerDeleteAll(This, MarkerNumber) -> 'ok' when
-	This::wxStyledTextCtrl(), MarkerNumber::integer().
+        This::wxStyledTextCtrl(), MarkerNumber::integer().
 markerDeleteAll(#wx_ref{type=ThisT}=This,MarkerNumber)
  when is_integer(MarkerNumber) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -694,7 +694,7 @@ markerDeleteAll(#wx_ref{type=ThisT}=This,MarkerNumber)
 
 -doc "Get a bit mask of all the markers set on a line.".
 -spec markerGet(This, Line) -> integer() when
-	This::wxStyledTextCtrl(), Line::integer().
+        This::wxStyledTextCtrl(), Line::integer().
 markerGet(#wx_ref{type=ThisT}=This,Line)
  when is_integer(Line) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -707,7 +707,7 @@ Find the next line at or after lineStart that includes a marker in mask.
 Return -1 when no more lines.
 """.
 -spec markerNext(This, LineStart, MarkerMask) -> integer() when
-	This::wxStyledTextCtrl(), LineStart::integer(), MarkerMask::integer().
+        This::wxStyledTextCtrl(), LineStart::integer(), MarkerMask::integer().
 markerNext(#wx_ref{type=ThisT}=This,LineStart,MarkerMask)
  when is_integer(LineStart),is_integer(MarkerMask) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -716,7 +716,7 @@ markerNext(#wx_ref{type=ThisT}=This,LineStart,MarkerMask)
 
 -doc "Find the previous line before lineStart that includes a marker in mask.".
 -spec markerPrevious(This, LineStart, MarkerMask) -> integer() when
-	This::wxStyledTextCtrl(), LineStart::integer(), MarkerMask::integer().
+        This::wxStyledTextCtrl(), LineStart::integer(), MarkerMask::integer().
 markerPrevious(#wx_ref{type=ThisT}=This,LineStart,MarkerMask)
  when is_integer(LineStart),is_integer(MarkerMask) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -725,7 +725,7 @@ markerPrevious(#wx_ref{type=ThisT}=This,LineStart,MarkerMask)
 
 -doc "Define a marker with a `m:wxBitmap`.".
 -spec markerDefineBitmap(This, MarkerNumber, Bmp) -> 'ok' when
-	This::wxStyledTextCtrl(), MarkerNumber::integer(), Bmp::wxBitmap:wxBitmap().
+        This::wxStyledTextCtrl(), MarkerNumber::integer(), Bmp::wxBitmap:wxBitmap().
 markerDefineBitmap(#wx_ref{type=ThisT}=This,MarkerNumber,#wx_ref{type=BmpT}=Bmp)
  when is_integer(MarkerNumber) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -734,7 +734,7 @@ markerDefineBitmap(#wx_ref{type=ThisT}=This,MarkerNumber,#wx_ref{type=BmpT}=Bmp)
 
 -doc "Add a set of markers to a line.".
 -spec markerAddSet(This, Line, MarkerSet) -> 'ok' when
-	This::wxStyledTextCtrl(), Line::integer(), MarkerSet::integer().
+        This::wxStyledTextCtrl(), Line::integer(), MarkerSet::integer().
 markerAddSet(#wx_ref{type=ThisT}=This,Line,MarkerSet)
  when is_integer(Line),is_integer(MarkerSet) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -742,7 +742,7 @@ markerAddSet(#wx_ref{type=ThisT}=This,Line,MarkerSet)
 
 -doc "Set the alpha used for a marker that is drawn in the text area, not the margin.".
 -spec markerSetAlpha(This, MarkerNumber, Alpha) -> 'ok' when
-	This::wxStyledTextCtrl(), MarkerNumber::integer(), Alpha::integer().
+        This::wxStyledTextCtrl(), MarkerNumber::integer(), Alpha::integer().
 markerSetAlpha(#wx_ref{type=ThisT}=This,MarkerNumber,Alpha)
  when is_integer(MarkerNumber),is_integer(Alpha) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -754,7 +754,7 @@ Set a margin to be either numeric or symbolic.
 The second argument should be one of the ?wxSTC\_MARGIN\_\* constants.
 """.
 -spec setMarginType(This, Margin, MarginType) -> 'ok' when
-	This::wxStyledTextCtrl(), Margin::integer(), MarginType::integer().
+        This::wxStyledTextCtrl(), Margin::integer(), MarginType::integer().
 setMarginType(#wx_ref{type=ThisT}=This,Margin,MarginType)
  when is_integer(Margin),is_integer(MarginType) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -766,7 +766,7 @@ Retrieve the type of a margin.
 The return value will be one of the ?wxSTC\_MARGIN\_\* constants.
 """.
 -spec getMarginType(This, Margin) -> integer() when
-	This::wxStyledTextCtrl(), Margin::integer().
+        This::wxStyledTextCtrl(), Margin::integer().
 getMarginType(#wx_ref{type=ThisT}=This,Margin)
  when is_integer(Margin) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -775,7 +775,7 @@ getMarginType(#wx_ref{type=ThisT}=This,Margin)
 
 -doc "Set the width of a margin to a width expressed in pixels.".
 -spec setMarginWidth(This, Margin, PixelWidth) -> 'ok' when
-	This::wxStyledTextCtrl(), Margin::integer(), PixelWidth::integer().
+        This::wxStyledTextCtrl(), Margin::integer(), PixelWidth::integer().
 setMarginWidth(#wx_ref{type=ThisT}=This,Margin,PixelWidth)
  when is_integer(Margin),is_integer(PixelWidth) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -783,7 +783,7 @@ setMarginWidth(#wx_ref{type=ThisT}=This,Margin,PixelWidth)
 
 -doc "Retrieve the width of a margin in pixels.".
 -spec getMarginWidth(This, Margin) -> integer() when
-	This::wxStyledTextCtrl(), Margin::integer().
+        This::wxStyledTextCtrl(), Margin::integer().
 getMarginWidth(#wx_ref{type=ThisT}=This,Margin)
  when is_integer(Margin) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -792,7 +792,7 @@ getMarginWidth(#wx_ref{type=ThisT}=This,Margin)
 
 -doc "Set a mask that determines which markers are displayed in a margin.".
 -spec setMarginMask(This, Margin, Mask) -> 'ok' when
-	This::wxStyledTextCtrl(), Margin::integer(), Mask::integer().
+        This::wxStyledTextCtrl(), Margin::integer(), Mask::integer().
 setMarginMask(#wx_ref{type=ThisT}=This,Margin,Mask)
  when is_integer(Margin),is_integer(Mask) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -800,7 +800,7 @@ setMarginMask(#wx_ref{type=ThisT}=This,Margin,Mask)
 
 -doc "Retrieve the marker mask of a margin.".
 -spec getMarginMask(This, Margin) -> integer() when
-	This::wxStyledTextCtrl(), Margin::integer().
+        This::wxStyledTextCtrl(), Margin::integer().
 getMarginMask(#wx_ref{type=ThisT}=This,Margin)
  when is_integer(Margin) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -809,7 +809,7 @@ getMarginMask(#wx_ref{type=ThisT}=This,Margin)
 
 -doc "Make a margin sensitive or insensitive to mouse clicks.".
 -spec setMarginSensitive(This, Margin, Sensitive) -> 'ok' when
-	This::wxStyledTextCtrl(), Margin::integer(), Sensitive::boolean().
+        This::wxStyledTextCtrl(), Margin::integer(), Sensitive::boolean().
 setMarginSensitive(#wx_ref{type=ThisT}=This,Margin,Sensitive)
  when is_integer(Margin),is_boolean(Sensitive) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -817,7 +817,7 @@ setMarginSensitive(#wx_ref{type=ThisT}=This,Margin,Sensitive)
 
 -doc "Retrieve the mouse click sensitivity of a margin.".
 -spec getMarginSensitive(This, Margin) -> boolean() when
-	This::wxStyledTextCtrl(), Margin::integer().
+        This::wxStyledTextCtrl(), Margin::integer().
 getMarginSensitive(#wx_ref{type=ThisT}=This,Margin)
  when is_integer(Margin) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -826,14 +826,14 @@ getMarginSensitive(#wx_ref{type=ThisT}=This,Margin)
 
 -doc "Clear all the styles and make equivalent to the global default style.".
 -spec styleClearAll(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 styleClearAll(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_StyleClearAll).
 
 -doc "Set the foreground colour of a style.".
 -spec styleSetForeground(This, Style, Fore) -> 'ok' when
-	This::wxStyledTextCtrl(), Style::integer(), Fore::wx:wx_colour().
+        This::wxStyledTextCtrl(), Style::integer(), Fore::wx:wx_colour().
 styleSetForeground(#wx_ref{type=ThisT}=This,Style,Fore)
  when is_integer(Style),?is_colordata(Fore) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -841,7 +841,7 @@ styleSetForeground(#wx_ref{type=ThisT}=This,Style,Fore)
 
 -doc "Set the background colour of a style.".
 -spec styleSetBackground(This, Style, Back) -> 'ok' when
-	This::wxStyledTextCtrl(), Style::integer(), Back::wx:wx_colour().
+        This::wxStyledTextCtrl(), Style::integer(), Back::wx:wx_colour().
 styleSetBackground(#wx_ref{type=ThisT}=This,Style,Back)
  when is_integer(Style),?is_colordata(Back) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -849,7 +849,7 @@ styleSetBackground(#wx_ref{type=ThisT}=This,Style,Back)
 
 -doc "Set a style to be bold or not.".
 -spec styleSetBold(This, Style, Bold) -> 'ok' when
-	This::wxStyledTextCtrl(), Style::integer(), Bold::boolean().
+        This::wxStyledTextCtrl(), Style::integer(), Bold::boolean().
 styleSetBold(#wx_ref{type=ThisT}=This,Style,Bold)
  when is_integer(Style),is_boolean(Bold) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -857,7 +857,7 @@ styleSetBold(#wx_ref{type=ThisT}=This,Style,Bold)
 
 -doc "Set a style to be italic or not.".
 -spec styleSetItalic(This, Style, Italic) -> 'ok' when
-	This::wxStyledTextCtrl(), Style::integer(), Italic::boolean().
+        This::wxStyledTextCtrl(), Style::integer(), Italic::boolean().
 styleSetItalic(#wx_ref{type=ThisT}=This,Style,Italic)
  when is_integer(Style),is_boolean(Italic) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -865,7 +865,7 @@ styleSetItalic(#wx_ref{type=ThisT}=This,Style,Italic)
 
 -doc "Set the size of characters of a style.".
 -spec styleSetSize(This, Style, SizePoints) -> 'ok' when
-	This::wxStyledTextCtrl(), Style::integer(), SizePoints::integer().
+        This::wxStyledTextCtrl(), Style::integer(), SizePoints::integer().
 styleSetSize(#wx_ref{type=ThisT}=This,Style,SizePoints)
  when is_integer(Style),is_integer(SizePoints) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -873,7 +873,7 @@ styleSetSize(#wx_ref{type=ThisT}=This,Style,SizePoints)
 
 -doc "Set the font of a style.".
 -spec styleSetFaceName(This, Style, FontName) -> 'ok' when
-	This::wxStyledTextCtrl(), Style::integer(), FontName::unicode:chardata().
+        This::wxStyledTextCtrl(), Style::integer(), FontName::unicode:chardata().
 styleSetFaceName(#wx_ref{type=ThisT}=This,Style,FontName)
  when is_integer(Style),?is_chardata(FontName) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -882,7 +882,7 @@ styleSetFaceName(#wx_ref{type=ThisT}=This,Style,FontName)
 
 -doc "Set a style to have its end of line filled or not.".
 -spec styleSetEOLFilled(This, Style, EolFilled) -> 'ok' when
-	This::wxStyledTextCtrl(), Style::integer(), EolFilled::boolean().
+        This::wxStyledTextCtrl(), Style::integer(), EolFilled::boolean().
 styleSetEOLFilled(#wx_ref{type=ThisT}=This,Style,EolFilled)
  when is_integer(Style),is_boolean(EolFilled) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -890,14 +890,14 @@ styleSetEOLFilled(#wx_ref{type=ThisT}=This,Style,EolFilled)
 
 -doc "Reset the default style to its state at startup.".
 -spec styleResetDefault(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 styleResetDefault(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_StyleResetDefault).
 
 -doc "Set a style to be underlined or not.".
 -spec styleSetUnderline(This, Style, Underline) -> 'ok' when
-	This::wxStyledTextCtrl(), Style::integer(), Underline::boolean().
+        This::wxStyledTextCtrl(), Style::integer(), Underline::boolean().
 styleSetUnderline(#wx_ref{type=ThisT}=This,Style,Underline)
  when is_integer(Style),is_boolean(Underline) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -909,7 +909,7 @@ Set a style to be mixed case, or to force upper or lower case.
 The second argument should be one of the ?wxSTC\_CASE\_\* constants.
 """.
 -spec styleSetCase(This, Style, CaseVisible) -> 'ok' when
-	This::wxStyledTextCtrl(), Style::integer(), CaseVisible::integer().
+        This::wxStyledTextCtrl(), Style::integer(), CaseVisible::integer().
 styleSetCase(#wx_ref{type=ThisT}=This,Style,CaseVisible)
  when is_integer(Style),is_integer(CaseVisible) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -917,7 +917,7 @@ styleSetCase(#wx_ref{type=ThisT}=This,Style,CaseVisible)
 
 -doc "Set a style to be a hotspot or not.".
 -spec styleSetHotSpot(This, Style, Hotspot) -> 'ok' when
-	This::wxStyledTextCtrl(), Style::integer(), Hotspot::boolean().
+        This::wxStyledTextCtrl(), Style::integer(), Hotspot::boolean().
 styleSetHotSpot(#wx_ref{type=ThisT}=This,Style,Hotspot)
  when is_integer(Style),is_boolean(Hotspot) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -928,7 +928,7 @@ Set the foreground colour of the main and additional selections and whether to u
 setting.
 """.
 -spec setSelForeground(This, UseSetting, Fore) -> 'ok' when
-	This::wxStyledTextCtrl(), UseSetting::boolean(), Fore::wx:wx_colour().
+        This::wxStyledTextCtrl(), UseSetting::boolean(), Fore::wx:wx_colour().
 setSelForeground(#wx_ref{type=ThisT}=This,UseSetting,Fore)
  when is_boolean(UseSetting),?is_colordata(Fore) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -939,7 +939,7 @@ Set the background colour of the main and additional selections and whether to u
 setting.
 """.
 -spec setSelBackground(This, UseSetting, Back) -> 'ok' when
-	This::wxStyledTextCtrl(), UseSetting::boolean(), Back::wx:wx_colour().
+        This::wxStyledTextCtrl(), UseSetting::boolean(), Back::wx:wx_colour().
 setSelBackground(#wx_ref{type=ThisT}=This,UseSetting,Back)
  when is_boolean(UseSetting),?is_colordata(Back) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -947,7 +947,7 @@ setSelBackground(#wx_ref{type=ThisT}=This,UseSetting,Back)
 
 -doc "Get the alpha of the selection.".
 -spec getSelAlpha(This) -> integer() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getSelAlpha(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetSelAlpha),
@@ -955,7 +955,7 @@ getSelAlpha(#wx_ref{type=ThisT}=This) ->
 
 -doc "Set the alpha of the selection.".
 -spec setSelAlpha(This, Alpha) -> 'ok' when
-	This::wxStyledTextCtrl(), Alpha::integer().
+        This::wxStyledTextCtrl(), Alpha::integer().
 setSelAlpha(#wx_ref{type=ThisT}=This,Alpha)
  when is_integer(Alpha) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -963,7 +963,7 @@ setSelAlpha(#wx_ref{type=ThisT}=This,Alpha)
 
 -doc "Set the foreground colour of the caret.".
 -spec setCaretForeground(This, Fore) -> 'ok' when
-	This::wxStyledTextCtrl(), Fore::wx:wx_colour().
+        This::wxStyledTextCtrl(), Fore::wx:wx_colour().
 setCaretForeground(#wx_ref{type=ThisT}=This,Fore)
  when ?is_colordata(Fore) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -976,7 +976,7 @@ The second argument should be a bit list containing one or more of the ?wxSTC\_K
 constants and the third argument should be one of the ?wxSTC\_CMD\_\* constants.
 """.
 -spec cmdKeyAssign(This, Key, Modifiers, Cmd) -> 'ok' when
-	This::wxStyledTextCtrl(), Key::integer(), Modifiers::integer(), Cmd::integer().
+        This::wxStyledTextCtrl(), Key::integer(), Modifiers::integer(), Cmd::integer().
 cmdKeyAssign(#wx_ref{type=ThisT}=This,Key,Modifiers,Cmd)
  when is_integer(Key),is_integer(Modifiers),is_integer(Cmd) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -989,7 +989,7 @@ The second argument should be a bit list containing one or more of the ?wxSTC\_K
 constants.
 """.
 -spec cmdKeyClear(This, Key, Modifiers) -> 'ok' when
-	This::wxStyledTextCtrl(), Key::integer(), Modifiers::integer().
+        This::wxStyledTextCtrl(), Key::integer(), Modifiers::integer().
 cmdKeyClear(#wx_ref{type=ThisT}=This,Key,Modifiers)
  when is_integer(Key),is_integer(Modifiers) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -997,14 +997,14 @@ cmdKeyClear(#wx_ref{type=ThisT}=This,Key,Modifiers)
 
 -doc "Drop all key mappings.".
 -spec cmdKeyClearAll(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 cmdKeyClearAll(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_CmdKeyClearAll).
 
 -doc "Set the styles for a segment of the document.".
 -spec setStyleBytes(This, Length) -> integer() when
-	This::wxStyledTextCtrl(), Length::integer().
+        This::wxStyledTextCtrl(), Length::integer().
 setStyleBytes(#wx_ref{type=ThisT}=This,Length)
  when is_integer(Length) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -1013,7 +1013,7 @@ setStyleBytes(#wx_ref{type=ThisT}=This,Length)
 
 -doc "Set a style to be visible or not.".
 -spec styleSetVisible(This, Style, Visible) -> 'ok' when
-	This::wxStyledTextCtrl(), Style::integer(), Visible::boolean().
+        This::wxStyledTextCtrl(), Style::integer(), Visible::boolean().
 styleSetVisible(#wx_ref{type=ThisT}=This,Style,Visible)
  when is_integer(Style),is_boolean(Visible) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -1021,7 +1021,7 @@ styleSetVisible(#wx_ref{type=ThisT}=This,Style,Visible)
 
 -doc "Get the time in milliseconds that the caret is on and off.".
 -spec getCaretPeriod(This) -> integer() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getCaretPeriod(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetCaretPeriod),
@@ -1033,7 +1033,7 @@ Get the time in milliseconds that the caret is on and off.
 0 = steady on.
 """.
 -spec setCaretPeriod(This, PeriodMilliseconds) -> 'ok' when
-	This::wxStyledTextCtrl(), PeriodMilliseconds::integer().
+        This::wxStyledTextCtrl(), PeriodMilliseconds::integer().
 setCaretPeriod(#wx_ref{type=ThisT}=This,PeriodMilliseconds)
  when is_integer(PeriodMilliseconds) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -1045,7 +1045,7 @@ Set the set of characters making up words for when moving or selecting by word.
 First sets defaults like SetCharsDefault.
 """.
 -spec setWordChars(This, Characters) -> 'ok' when
-	This::wxStyledTextCtrl(), Characters::unicode:chardata().
+        This::wxStyledTextCtrl(), Characters::unicode:chardata().
 setWordChars(#wx_ref{type=ThisT}=This,Characters)
  when ?is_chardata(Characters) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -1058,14 +1058,14 @@ Start a sequence of actions that is undone and redone as a unit.
 May be nested.
 """.
 -spec beginUndoAction(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 beginUndoAction(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_BeginUndoAction).
 
 -doc "End a sequence of actions that is undone and redone as a unit.".
 -spec endUndoAction(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 endUndoAction(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_EndUndoAction).
@@ -1076,7 +1076,7 @@ Set an indicator to plain, squiggle or TT.
 The second argument should be one of the ?wxSTC\_INDIC\_\* constants.
 """.
 -spec indicatorSetStyle(This, Indicator, IndicatorStyle) -> 'ok' when
-	This::wxStyledTextCtrl(), Indicator::integer(), IndicatorStyle::integer().
+        This::wxStyledTextCtrl(), Indicator::integer(), IndicatorStyle::integer().
 indicatorSetStyle(#wx_ref{type=ThisT}=This,Indicator,IndicatorStyle)
  when is_integer(Indicator),is_integer(IndicatorStyle) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -1088,7 +1088,7 @@ Retrieve the style of an indicator.
 The return value will be one of the ?wxSTC\_INDIC\_\* constants.
 """.
 -spec indicatorGetStyle(This, Indicator) -> integer() when
-	This::wxStyledTextCtrl(), Indicator::integer().
+        This::wxStyledTextCtrl(), Indicator::integer().
 indicatorGetStyle(#wx_ref{type=ThisT}=This,Indicator)
  when is_integer(Indicator) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -1097,7 +1097,7 @@ indicatorGetStyle(#wx_ref{type=ThisT}=This,Indicator)
 
 -doc "Set the foreground colour of an indicator.".
 -spec indicatorSetForeground(This, Indicator, Fore) -> 'ok' when
-	This::wxStyledTextCtrl(), Indicator::integer(), Fore::wx:wx_colour().
+        This::wxStyledTextCtrl(), Indicator::integer(), Fore::wx:wx_colour().
 indicatorSetForeground(#wx_ref{type=ThisT}=This,Indicator,Fore)
  when is_integer(Indicator),?is_colordata(Fore) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -1105,7 +1105,7 @@ indicatorSetForeground(#wx_ref{type=ThisT}=This,Indicator,Fore)
 
 -doc "Retrieve the foreground colour of an indicator.".
 -spec indicatorGetForeground(This, Indicator) -> wx:wx_colour4() when
-	This::wxStyledTextCtrl(), Indicator::integer().
+        This::wxStyledTextCtrl(), Indicator::integer().
 indicatorGetForeground(#wx_ref{type=ThisT}=This,Indicator)
  when is_integer(Indicator) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -1114,7 +1114,7 @@ indicatorGetForeground(#wx_ref{type=ThisT}=This,Indicator)
 
 -doc "Set the foreground colour of all whitespace and whether to use this setting.".
 -spec setWhitespaceForeground(This, UseSetting, Fore) -> 'ok' when
-	This::wxStyledTextCtrl(), UseSetting::boolean(), Fore::wx:wx_colour().
+        This::wxStyledTextCtrl(), UseSetting::boolean(), Fore::wx:wx_colour().
 setWhitespaceForeground(#wx_ref{type=ThisT}=This,UseSetting,Fore)
  when is_boolean(UseSetting),?is_colordata(Fore) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -1122,7 +1122,7 @@ setWhitespaceForeground(#wx_ref{type=ThisT}=This,UseSetting,Fore)
 
 -doc "Set the background colour of all whitespace and whether to use this setting.".
 -spec setWhitespaceBackground(This, UseSetting, Back) -> 'ok' when
-	This::wxStyledTextCtrl(), UseSetting::boolean(), Back::wx:wx_colour().
+        This::wxStyledTextCtrl(), UseSetting::boolean(), Back::wx:wx_colour().
 setWhitespaceBackground(#wx_ref{type=ThisT}=This,UseSetting,Back)
  when is_boolean(UseSetting),?is_colordata(Back) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -1134,7 +1134,7 @@ Retrieve number of bits in style bytes used to hold the lexical state.
 Deprecated:
 """.
 -spec getStyleBits(This) -> integer() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getStyleBits(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetStyleBits),
@@ -1142,7 +1142,7 @@ getStyleBits(#wx_ref{type=ThisT}=This) ->
 
 -doc "Used to hold extra styling information for each line.".
 -spec setLineState(This, Line, State) -> 'ok' when
-	This::wxStyledTextCtrl(), Line::integer(), State::integer().
+        This::wxStyledTextCtrl(), Line::integer(), State::integer().
 setLineState(#wx_ref{type=ThisT}=This,Line,State)
  when is_integer(Line),is_integer(State) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -1150,7 +1150,7 @@ setLineState(#wx_ref{type=ThisT}=This,Line,State)
 
 -doc "Retrieve the extra styling information for a line.".
 -spec getLineState(This, Line) -> integer() when
-	This::wxStyledTextCtrl(), Line::integer().
+        This::wxStyledTextCtrl(), Line::integer().
 getLineState(#wx_ref{type=ThisT}=This,Line)
  when is_integer(Line) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -1159,7 +1159,7 @@ getLineState(#wx_ref{type=ThisT}=This,Line)
 
 -doc "Retrieve the last line number that has line state.".
 -spec getMaxLineState(This) -> integer() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getMaxLineState(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetMaxLineState),
@@ -1167,7 +1167,7 @@ getMaxLineState(#wx_ref{type=ThisT}=This) ->
 
 -doc "Is the background of the line containing the caret in a different colour?".
 -spec getCaretLineVisible(This) -> boolean() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getCaretLineVisible(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetCaretLineVisible),
@@ -1175,7 +1175,7 @@ getCaretLineVisible(#wx_ref{type=ThisT}=This) ->
 
 -doc "Display the background of the line containing the caret in a different colour.".
 -spec setCaretLineVisible(This, Show) -> 'ok' when
-	This::wxStyledTextCtrl(), Show::boolean().
+        This::wxStyledTextCtrl(), Show::boolean().
 setCaretLineVisible(#wx_ref{type=ThisT}=This,Show)
  when is_boolean(Show) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -1183,7 +1183,7 @@ setCaretLineVisible(#wx_ref{type=ThisT}=This,Show)
 
 -doc "Get the colour of the background of the line containing the caret.".
 -spec getCaretLineBackground(This) -> wx:wx_colour4() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getCaretLineBackground(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetCaretLineBackground),
@@ -1191,7 +1191,7 @@ getCaretLineBackground(#wx_ref{type=ThisT}=This) ->
 
 -doc "Set the colour of the background of the line containing the caret.".
 -spec setCaretLineBackground(This, Back) -> 'ok' when
-	This::wxStyledTextCtrl(), Back::wx:wx_colour().
+        This::wxStyledTextCtrl(), Back::wx:wx_colour().
 setCaretLineBackground(#wx_ref{type=ThisT}=This,Back)
  when ?is_colordata(Back) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -1204,7 +1204,7 @@ The lengthEntered parameter indicates how many characters before the caret shoul
 to provide context.
 """.
 -spec autoCompShow(This, LengthEntered, ItemList) -> 'ok' when
-	This::wxStyledTextCtrl(), LengthEntered::integer(), ItemList::unicode:chardata().
+        This::wxStyledTextCtrl(), LengthEntered::integer(), ItemList::unicode:chardata().
 autoCompShow(#wx_ref{type=ThisT}=This,LengthEntered,ItemList)
  when is_integer(LengthEntered),?is_chardata(ItemList) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -1213,14 +1213,14 @@ autoCompShow(#wx_ref{type=ThisT}=This,LengthEntered,ItemList)
 
 -doc "Remove the auto-completion list from the screen.".
 -spec autoCompCancel(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 autoCompCancel(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_AutoCompCancel).
 
 -doc "Is there an auto-completion list visible?".
 -spec autoCompActive(This) -> boolean() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 autoCompActive(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_AutoCompActive),
@@ -1228,7 +1228,7 @@ autoCompActive(#wx_ref{type=ThisT}=This) ->
 
 -doc "Retrieve the position of the caret when the auto-completion list was displayed.".
 -spec autoCompPosStart(This) -> integer() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 autoCompPosStart(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_AutoCompPosStart),
@@ -1236,14 +1236,14 @@ autoCompPosStart(#wx_ref{type=ThisT}=This) ->
 
 -doc "User has selected an item so remove the list and insert the selection.".
 -spec autoCompComplete(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 autoCompComplete(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_AutoCompComplete).
 
 -doc "Define a set of character that when typed cancel the auto-completion list.".
 -spec autoCompStops(This, CharacterSet) -> 'ok' when
-	This::wxStyledTextCtrl(), CharacterSet::unicode:chardata().
+        This::wxStyledTextCtrl(), CharacterSet::unicode:chardata().
 autoCompStops(#wx_ref{type=ThisT}=This,CharacterSet)
  when ?is_chardata(CharacterSet) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -1256,7 +1256,7 @@ Change the separator character in the string setting up an auto-completion list.
 Default is space but can be changed if items contain space.
 """.
 -spec autoCompSetSeparator(This, SeparatorCharacter) -> 'ok' when
-	This::wxStyledTextCtrl(), SeparatorCharacter::integer().
+        This::wxStyledTextCtrl(), SeparatorCharacter::integer().
 autoCompSetSeparator(#wx_ref{type=ThisT}=This,SeparatorCharacter)
  when is_integer(SeparatorCharacter) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -1264,7 +1264,7 @@ autoCompSetSeparator(#wx_ref{type=ThisT}=This,SeparatorCharacter)
 
 -doc "Retrieve the auto-completion list separator character.".
 -spec autoCompGetSeparator(This) -> integer() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 autoCompGetSeparator(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_AutoCompGetSeparator),
@@ -1272,7 +1272,7 @@ autoCompGetSeparator(#wx_ref{type=ThisT}=This) ->
 
 -doc "Select the item in the auto-completion list that starts with a string.".
 -spec autoCompSelect(This, Select) -> 'ok' when
-	This::wxStyledTextCtrl(), Select::unicode:chardata().
+        This::wxStyledTextCtrl(), Select::unicode:chardata().
 autoCompSelect(#wx_ref{type=ThisT}=This,Select)
  when ?is_chardata(Select) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -1284,7 +1284,7 @@ Should the auto-completion list be cancelled if the user backspaces to a positio
 where the box was created.
 """.
 -spec autoCompSetCancelAtStart(This, Cancel) -> 'ok' when
-	This::wxStyledTextCtrl(), Cancel::boolean().
+        This::wxStyledTextCtrl(), Cancel::boolean().
 autoCompSetCancelAtStart(#wx_ref{type=ThisT}=This,Cancel)
  when is_boolean(Cancel) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -1292,7 +1292,7 @@ autoCompSetCancelAtStart(#wx_ref{type=ThisT}=This,Cancel)
 
 -doc "Retrieve whether auto-completion cancelled by backspacing before start.".
 -spec autoCompGetCancelAtStart(This) -> boolean() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 autoCompGetCancelAtStart(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_AutoCompGetCancelAtStart),
@@ -1303,7 +1303,7 @@ Define a set of characters that when typed will cause the autocompletion to choo
 selected item.
 """.
 -spec autoCompSetFillUps(This, CharacterSet) -> 'ok' when
-	This::wxStyledTextCtrl(), CharacterSet::unicode:chardata().
+        This::wxStyledTextCtrl(), CharacterSet::unicode:chardata().
 autoCompSetFillUps(#wx_ref{type=ThisT}=This,CharacterSet)
  when ?is_chardata(CharacterSet) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -1312,7 +1312,7 @@ autoCompSetFillUps(#wx_ref{type=ThisT}=This,CharacterSet)
 
 -doc "Should a single item auto-completion list automatically choose the item.".
 -spec autoCompSetChooseSingle(This, ChooseSingle) -> 'ok' when
-	This::wxStyledTextCtrl(), ChooseSingle::boolean().
+        This::wxStyledTextCtrl(), ChooseSingle::boolean().
 autoCompSetChooseSingle(#wx_ref{type=ThisT}=This,ChooseSingle)
  when is_boolean(ChooseSingle) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -1320,7 +1320,7 @@ autoCompSetChooseSingle(#wx_ref{type=ThisT}=This,ChooseSingle)
 
 -doc "Retrieve whether a single item auto-completion list automatically choose the item.".
 -spec autoCompGetChooseSingle(This) -> boolean() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 autoCompGetChooseSingle(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_AutoCompGetChooseSingle),
@@ -1328,7 +1328,7 @@ autoCompGetChooseSingle(#wx_ref{type=ThisT}=This) ->
 
 -doc "Set whether case is significant when performing auto-completion searches.".
 -spec autoCompSetIgnoreCase(This, IgnoreCase) -> 'ok' when
-	This::wxStyledTextCtrl(), IgnoreCase::boolean().
+        This::wxStyledTextCtrl(), IgnoreCase::boolean().
 autoCompSetIgnoreCase(#wx_ref{type=ThisT}=This,IgnoreCase)
  when is_boolean(IgnoreCase) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -1336,7 +1336,7 @@ autoCompSetIgnoreCase(#wx_ref{type=ThisT}=This,IgnoreCase)
 
 -doc "Retrieve state of ignore case flag.".
 -spec autoCompGetIgnoreCase(This) -> boolean() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 autoCompGetIgnoreCase(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_AutoCompGetIgnoreCase),
@@ -1344,7 +1344,7 @@ autoCompGetIgnoreCase(#wx_ref{type=ThisT}=This) ->
 
 -doc "Display a list of strings and send notification when user chooses one.".
 -spec userListShow(This, ListType, ItemList) -> 'ok' when
-	This::wxStyledTextCtrl(), ListType::integer(), ItemList::unicode:chardata().
+        This::wxStyledTextCtrl(), ListType::integer(), ItemList::unicode:chardata().
 userListShow(#wx_ref{type=ThisT}=This,ListType,ItemList)
  when is_integer(ListType),?is_chardata(ItemList) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -1353,7 +1353,7 @@ userListShow(#wx_ref{type=ThisT}=This,ListType,ItemList)
 
 -doc "Set whether or not autocompletion is hidden automatically when nothing matches.".
 -spec autoCompSetAutoHide(This, AutoHide) -> 'ok' when
-	This::wxStyledTextCtrl(), AutoHide::boolean().
+        This::wxStyledTextCtrl(), AutoHide::boolean().
 autoCompSetAutoHide(#wx_ref{type=ThisT}=This,AutoHide)
  when is_boolean(AutoHide) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -1361,7 +1361,7 @@ autoCompSetAutoHide(#wx_ref{type=ThisT}=This,AutoHide)
 
 -doc "Retrieve whether or not autocompletion is hidden automatically when nothing matches.".
 -spec autoCompGetAutoHide(This) -> boolean() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 autoCompGetAutoHide(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_AutoCompGetAutoHide),
@@ -1372,7 +1372,7 @@ Set whether or not autocompletion deletes any word characters after the inserted
 upon completion.
 """.
 -spec autoCompSetDropRestOfWord(This, DropRestOfWord) -> 'ok' when
-	This::wxStyledTextCtrl(), DropRestOfWord::boolean().
+        This::wxStyledTextCtrl(), DropRestOfWord::boolean().
 autoCompSetDropRestOfWord(#wx_ref{type=ThisT}=This,DropRestOfWord)
  when is_boolean(DropRestOfWord) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -1383,7 +1383,7 @@ Retrieve whether or not autocompletion deletes any word characters after the ins
 text upon completion.
 """.
 -spec autoCompGetDropRestOfWord(This) -> boolean() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 autoCompGetDropRestOfWord(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_AutoCompGetDropRestOfWord),
@@ -1391,7 +1391,7 @@ autoCompGetDropRestOfWord(#wx_ref{type=ThisT}=This) ->
 
 -doc "Register an image for use in autocompletion lists.".
 -spec registerImage(This, Type, Bmp) -> 'ok' when
-	This::wxStyledTextCtrl(), Type::integer(), Bmp::wxBitmap:wxBitmap().
+        This::wxStyledTextCtrl(), Type::integer(), Bmp::wxBitmap:wxBitmap().
 registerImage(#wx_ref{type=ThisT}=This,Type,#wx_ref{type=BmpT}=Bmp)
  when is_integer(Type) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -1400,14 +1400,14 @@ registerImage(#wx_ref{type=ThisT}=This,Type,#wx_ref{type=BmpT}=Bmp)
 
 -doc "Clear all the registered images.".
 -spec clearRegisteredImages(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 clearRegisteredImages(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_ClearRegisteredImages).
 
 -doc "Retrieve the auto-completion list type-separator character.".
 -spec autoCompGetTypeSeparator(This) -> integer() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 autoCompGetTypeSeparator(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_AutoCompGetTypeSeparator),
@@ -1419,7 +1419,7 @@ Change the type-separator character in the string setting up an auto-completion 
 Default is '?' but can be changed if items contain '?'.
 """.
 -spec autoCompSetTypeSeparator(This, SeparatorCharacter) -> 'ok' when
-	This::wxStyledTextCtrl(), SeparatorCharacter::integer().
+        This::wxStyledTextCtrl(), SeparatorCharacter::integer().
 autoCompSetTypeSeparator(#wx_ref{type=ThisT}=This,SeparatorCharacter)
  when is_integer(SeparatorCharacter) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -1431,7 +1431,7 @@ Set the maximum width, in characters, of auto-completion and user lists.
 Set to 0 to autosize to fit longest item, which is the default.
 """.
 -spec autoCompSetMaxWidth(This, CharacterCount) -> 'ok' when
-	This::wxStyledTextCtrl(), CharacterCount::integer().
+        This::wxStyledTextCtrl(), CharacterCount::integer().
 autoCompSetMaxWidth(#wx_ref{type=ThisT}=This,CharacterCount)
  when is_integer(CharacterCount) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -1439,7 +1439,7 @@ autoCompSetMaxWidth(#wx_ref{type=ThisT}=This,CharacterCount)
 
 -doc "Get the maximum width, in characters, of auto-completion and user lists.".
 -spec autoCompGetMaxWidth(This) -> integer() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 autoCompGetMaxWidth(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_AutoCompGetMaxWidth),
@@ -1451,7 +1451,7 @@ Set the maximum height, in rows, of auto-completion and user lists.
 The default is 5 rows.
 """.
 -spec autoCompSetMaxHeight(This, RowCount) -> 'ok' when
-	This::wxStyledTextCtrl(), RowCount::integer().
+        This::wxStyledTextCtrl(), RowCount::integer().
 autoCompSetMaxHeight(#wx_ref{type=ThisT}=This,RowCount)
  when is_integer(RowCount) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -1459,7 +1459,7 @@ autoCompSetMaxHeight(#wx_ref{type=ThisT}=This,RowCount)
 
 -doc "Set the maximum height, in rows, of auto-completion and user lists.".
 -spec autoCompGetMaxHeight(This) -> integer() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 autoCompGetMaxHeight(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_AutoCompGetMaxHeight),
@@ -1467,7 +1467,7 @@ autoCompGetMaxHeight(#wx_ref{type=ThisT}=This) ->
 
 -doc "Set the number of spaces used for one level of indentation.".
 -spec setIndent(This, IndentSize) -> 'ok' when
-	This::wxStyledTextCtrl(), IndentSize::integer().
+        This::wxStyledTextCtrl(), IndentSize::integer().
 setIndent(#wx_ref{type=ThisT}=This,IndentSize)
  when is_integer(IndentSize) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -1475,7 +1475,7 @@ setIndent(#wx_ref{type=ThisT}=This,IndentSize)
 
 -doc "Retrieve indentation size.".
 -spec getIndent(This) -> integer() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getIndent(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetIndent),
@@ -1486,7 +1486,7 @@ Indentation will only use space characters if useTabs is false, otherwise it wil
 combination of tabs and spaces.
 """.
 -spec setUseTabs(This, UseTabs) -> 'ok' when
-	This::wxStyledTextCtrl(), UseTabs::boolean().
+        This::wxStyledTextCtrl(), UseTabs::boolean().
 setUseTabs(#wx_ref{type=ThisT}=This,UseTabs)
  when is_boolean(UseTabs) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -1494,7 +1494,7 @@ setUseTabs(#wx_ref{type=ThisT}=This,UseTabs)
 
 -doc "Retrieve whether tabs will be used in indentation.".
 -spec getUseTabs(This) -> boolean() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getUseTabs(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetUseTabs),
@@ -1502,7 +1502,7 @@ getUseTabs(#wx_ref{type=ThisT}=This) ->
 
 -doc "Change the indentation of a line to a number of columns.".
 -spec setLineIndentation(This, Line, Indentation) -> 'ok' when
-	This::wxStyledTextCtrl(), Line::integer(), Indentation::integer().
+        This::wxStyledTextCtrl(), Line::integer(), Indentation::integer().
 setLineIndentation(#wx_ref{type=ThisT}=This,Line,Indentation)
  when is_integer(Line),is_integer(Indentation) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -1510,7 +1510,7 @@ setLineIndentation(#wx_ref{type=ThisT}=This,Line,Indentation)
 
 -doc "Retrieve the number of columns that a line is indented.".
 -spec getLineIndentation(This, Line) -> integer() when
-	This::wxStyledTextCtrl(), Line::integer().
+        This::wxStyledTextCtrl(), Line::integer().
 getLineIndentation(#wx_ref{type=ThisT}=This,Line)
  when is_integer(Line) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -1519,7 +1519,7 @@ getLineIndentation(#wx_ref{type=ThisT}=This,Line)
 
 -doc "Retrieve the position before the first non indentation character on a line.".
 -spec getLineIndentPosition(This, Line) -> integer() when
-	This::wxStyledTextCtrl(), Line::integer().
+        This::wxStyledTextCtrl(), Line::integer().
 getLineIndentPosition(#wx_ref{type=ThisT}=This,Line)
  when is_integer(Line) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -1528,7 +1528,7 @@ getLineIndentPosition(#wx_ref{type=ThisT}=This,Line)
 
 -doc "Retrieve the column number of a position, taking tab width into account.".
 -spec getColumn(This, Pos) -> integer() when
-	This::wxStyledTextCtrl(), Pos::integer().
+        This::wxStyledTextCtrl(), Pos::integer().
 getColumn(#wx_ref{type=ThisT}=This,Pos)
  when is_integer(Pos) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -1537,7 +1537,7 @@ getColumn(#wx_ref{type=ThisT}=This,Pos)
 
 -doc "Show or hide the horizontal scroll bar.".
 -spec setUseHorizontalScrollBar(This, Visible) -> 'ok' when
-	This::wxStyledTextCtrl(), Visible::boolean().
+        This::wxStyledTextCtrl(), Visible::boolean().
 setUseHorizontalScrollBar(#wx_ref{type=ThisT}=This,Visible)
  when is_boolean(Visible) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -1545,7 +1545,7 @@ setUseHorizontalScrollBar(#wx_ref{type=ThisT}=This,Visible)
 
 -doc "Is the horizontal scroll bar visible?".
 -spec getUseHorizontalScrollBar(This) -> boolean() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getUseHorizontalScrollBar(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetUseHorizontalScrollBar),
@@ -1557,7 +1557,7 @@ Show or hide indentation guides.
 The input should be one of the ?wxSTC\_IV\_\* constants.
 """.
 -spec setIndentationGuides(This, IndentView) -> 'ok' when
-	This::wxStyledTextCtrl(), IndentView::integer().
+        This::wxStyledTextCtrl(), IndentView::integer().
 setIndentationGuides(#wx_ref{type=ThisT}=This,IndentView)
  when is_integer(IndentView) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -1569,7 +1569,7 @@ Are the indentation guides visible?
 The return value will be one of the ?wxSTC\_IV\_\* constants.
 """.
 -spec getIndentationGuides(This) -> integer() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getIndentationGuides(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetIndentationGuides),
@@ -1581,7 +1581,7 @@ Set the highlighted indentation guide column.
 0 = no highlighted guide.
 """.
 -spec setHighlightGuide(This, Column) -> 'ok' when
-	This::wxStyledTextCtrl(), Column::integer().
+        This::wxStyledTextCtrl(), Column::integer().
 setHighlightGuide(#wx_ref{type=ThisT}=This,Column)
  when is_integer(Column) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -1589,7 +1589,7 @@ setHighlightGuide(#wx_ref{type=ThisT}=This,Column)
 
 -doc "Get the highlighted indentation guide column.".
 -spec getHighlightGuide(This) -> integer() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getHighlightGuide(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetHighlightGuide),
@@ -1597,7 +1597,7 @@ getHighlightGuide(#wx_ref{type=ThisT}=This) ->
 
 -doc "Get the position after the last visible characters on a line.".
 -spec getLineEndPosition(This, Line) -> integer() when
-	This::wxStyledTextCtrl(), Line::integer().
+        This::wxStyledTextCtrl(), Line::integer().
 getLineEndPosition(#wx_ref{type=ThisT}=This,Line)
  when is_integer(Line) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -1606,7 +1606,7 @@ getLineEndPosition(#wx_ref{type=ThisT}=This,Line)
 
 -doc "Get the code page used to interpret the bytes of the document as characters.".
 -spec getCodePage(This) -> integer() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getCodePage(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetCodePage),
@@ -1614,7 +1614,7 @@ getCodePage(#wx_ref{type=ThisT}=This) ->
 
 -doc "Get the foreground colour of the caret.".
 -spec getCaretForeground(This) -> wx:wx_colour4() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getCaretForeground(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetCaretForeground),
@@ -1622,7 +1622,7 @@ getCaretForeground(#wx_ref{type=ThisT}=This) ->
 
 -doc "In read-only mode?".
 -spec getReadOnly(This) -> boolean() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getReadOnly(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetReadOnly),
@@ -1630,7 +1630,7 @@ getReadOnly(#wx_ref{type=ThisT}=This) ->
 
 -doc "Sets the position of the caret.".
 -spec setCurrentPos(This, Caret) -> 'ok' when
-	This::wxStyledTextCtrl(), Caret::integer().
+        This::wxStyledTextCtrl(), Caret::integer().
 setCurrentPos(#wx_ref{type=ThisT}=This,Caret)
  when is_integer(Caret) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -1638,7 +1638,7 @@ setCurrentPos(#wx_ref{type=ThisT}=This,Caret)
 
 -doc "Sets the position that starts the selection - this becomes the anchor.".
 -spec setSelectionStart(This, Anchor) -> 'ok' when
-	This::wxStyledTextCtrl(), Anchor::integer().
+        This::wxStyledTextCtrl(), Anchor::integer().
 setSelectionStart(#wx_ref{type=ThisT}=This,Anchor)
  when is_integer(Anchor) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -1646,7 +1646,7 @@ setSelectionStart(#wx_ref{type=ThisT}=This,Anchor)
 
 -doc "Returns the position at the start of the selection.".
 -spec getSelectionStart(This) -> integer() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getSelectionStart(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetSelectionStart),
@@ -1654,7 +1654,7 @@ getSelectionStart(#wx_ref{type=ThisT}=This) ->
 
 -doc "Sets the position that ends the selection - this becomes the caret.".
 -spec setSelectionEnd(This, Caret) -> 'ok' when
-	This::wxStyledTextCtrl(), Caret::integer().
+        This::wxStyledTextCtrl(), Caret::integer().
 setSelectionEnd(#wx_ref{type=ThisT}=This,Caret)
  when is_integer(Caret) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -1662,7 +1662,7 @@ setSelectionEnd(#wx_ref{type=ThisT}=This,Caret)
 
 -doc "Returns the position at the end of the selection.".
 -spec getSelectionEnd(This) -> integer() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getSelectionEnd(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetSelectionEnd),
@@ -1670,7 +1670,7 @@ getSelectionEnd(#wx_ref{type=ThisT}=This) ->
 
 -doc "Sets the print magnification added to the point size of each style for printing.".
 -spec setPrintMagnification(This, Magnification) -> 'ok' when
-	This::wxStyledTextCtrl(), Magnification::integer().
+        This::wxStyledTextCtrl(), Magnification::integer().
 setPrintMagnification(#wx_ref{type=ThisT}=This,Magnification)
  when is_integer(Magnification) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -1678,7 +1678,7 @@ setPrintMagnification(#wx_ref{type=ThisT}=This,Magnification)
 
 -doc "Returns the print magnification.".
 -spec getPrintMagnification(This) -> integer() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getPrintMagnification(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetPrintMagnification),
@@ -1690,7 +1690,7 @@ Modify colours when printing for clearer printed text.
 The input should be one of the ?wxSTC\_PRINT\_\* constants.
 """.
 -spec setPrintColourMode(This, Mode) -> 'ok' when
-	This::wxStyledTextCtrl(), Mode::integer().
+        This::wxStyledTextCtrl(), Mode::integer().
 setPrintColourMode(#wx_ref{type=ThisT}=This,Mode)
  when is_integer(Mode) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -1702,7 +1702,7 @@ Returns the print colour mode.
 The return value will be one of the ?wxSTC\_PRINT\_\* constants.
 """.
 -spec getPrintColourMode(This) -> integer() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getPrintColourMode(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetPrintColourMode),
@@ -1710,7 +1710,7 @@ getPrintColourMode(#wx_ref{type=ThisT}=This) ->
 
 -doc(#{equiv => findText(This,MinPos,MaxPos,Text, [])}).
 -spec findText(This, MinPos, MaxPos, Text) -> integer() when
-	This::wxStyledTextCtrl(), MinPos::integer(), MaxPos::integer(), Text::unicode:chardata().
+        This::wxStyledTextCtrl(), MinPos::integer(), MaxPos::integer(), Text::unicode:chardata().
 
 findText(This,MinPos,MaxPos,Text)
  when is_record(This, wx_ref),is_integer(MinPos),is_integer(MaxPos),?is_chardata(Text) ->
@@ -1743,7 +1743,7 @@ findText(#wx_ref{type=ThisT}=This,MinPos,MaxPos,Text, Options)
 
 -doc "On Windows, will draw the document into a display context such as a printer.".
 -spec formatRange(This, DoDraw, StartPos, EndPos, Draw, Target, RenderRect, PageRect) -> integer() when
-	This::wxStyledTextCtrl(), DoDraw::boolean(), StartPos::integer(), EndPos::integer(), Draw::wxDC:wxDC(), Target::wxDC:wxDC(), RenderRect::{X::integer(), Y::integer(), W::integer(), H::integer()}, PageRect::{X::integer(), Y::integer(), W::integer(), H::integer()}.
+        This::wxStyledTextCtrl(), DoDraw::boolean(), StartPos::integer(), EndPos::integer(), Draw::wxDC:wxDC(), Target::wxDC:wxDC(), RenderRect::{X::integer(), Y::integer(), W::integer(), H::integer()}, PageRect::{X::integer(), Y::integer(), W::integer(), H::integer()}.
 formatRange(#wx_ref{type=ThisT}=This,DoDraw,StartPos,EndPos,#wx_ref{type=DrawT}=Draw,#wx_ref{type=TargetT}=Target,{RenderRectX,RenderRectY,RenderRectW,RenderRectH} = RenderRect,{PageRectX,PageRectY,PageRectW,PageRectH} = PageRect)
  when is_boolean(DoDraw),is_integer(StartPos),is_integer(EndPos),is_integer(RenderRectX),is_integer(RenderRectY),is_integer(RenderRectW),is_integer(RenderRectH),is_integer(PageRectX),is_integer(PageRectY),is_integer(PageRectW),is_integer(PageRectH) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -1754,7 +1754,7 @@ formatRange(#wx_ref{type=ThisT}=This,DoDraw,StartPos,EndPos,#wx_ref{type=DrawT}=
 
 -doc "Retrieve the display line at the top of the display.".
 -spec getFirstVisibleLine(This) -> integer() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getFirstVisibleLine(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetFirstVisibleLine),
@@ -1762,7 +1762,7 @@ getFirstVisibleLine(#wx_ref{type=ThisT}=This) ->
 
 -doc "Retrieve the contents of a line.".
 -spec getLine(This, Line) -> unicode:charlist() when
-	This::wxStyledTextCtrl(), Line::integer().
+        This::wxStyledTextCtrl(), Line::integer().
 getLine(#wx_ref{type=ThisT}=This,Line)
  when is_integer(Line) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -1775,7 +1775,7 @@ Returns the number of lines in the document.
 There is always at least one.
 """.
 -spec getLineCount(This) -> integer() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getLineCount(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetLineCount),
@@ -1783,7 +1783,7 @@ getLineCount(#wx_ref{type=ThisT}=This) ->
 
 -doc "Sets the size in pixels of the left margin.".
 -spec setMarginLeft(This, PixelWidth) -> 'ok' when
-	This::wxStyledTextCtrl(), PixelWidth::integer().
+        This::wxStyledTextCtrl(), PixelWidth::integer().
 setMarginLeft(#wx_ref{type=ThisT}=This,PixelWidth)
  when is_integer(PixelWidth) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -1791,7 +1791,7 @@ setMarginLeft(#wx_ref{type=ThisT}=This,PixelWidth)
 
 -doc "Returns the size in pixels of the left margin.".
 -spec getMarginLeft(This) -> integer() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getMarginLeft(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetMarginLeft),
@@ -1799,7 +1799,7 @@ getMarginLeft(#wx_ref{type=ThisT}=This) ->
 
 -doc "Sets the size in pixels of the right margin.".
 -spec setMarginRight(This, PixelWidth) -> 'ok' when
-	This::wxStyledTextCtrl(), PixelWidth::integer().
+        This::wxStyledTextCtrl(), PixelWidth::integer().
 setMarginRight(#wx_ref{type=ThisT}=This,PixelWidth)
  when is_integer(PixelWidth) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -1807,7 +1807,7 @@ setMarginRight(#wx_ref{type=ThisT}=This,PixelWidth)
 
 -doc "Returns the size in pixels of the right margin.".
 -spec getMarginRight(This) -> integer() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getMarginRight(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetMarginRight),
@@ -1815,7 +1815,7 @@ getMarginRight(#wx_ref{type=ThisT}=This) ->
 
 -doc "Is the document different from when it was last saved?".
 -spec getModify(This) -> boolean() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getModify(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetModify),
@@ -1832,7 +1832,7 @@ Notice that the insertion point will be moved to `from` by this function.
 See: `selectAll/1`
 """.
 -spec setSelection(This, From, To) -> 'ok' when
-	This::wxStyledTextCtrl(), From::integer(), To::integer().
+        This::wxStyledTextCtrl(), From::integer(), To::integer().
 setSelection(#wx_ref{type=ThisT}=This,From,To)
  when is_integer(From),is_integer(To) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -1840,7 +1840,7 @@ setSelection(#wx_ref{type=ThisT}=This,From,To)
 
 -doc "Retrieve the selected text.".
 -spec getSelectedText(This) -> unicode:charlist() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getSelectedText(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetSelectedText),
@@ -1848,7 +1848,7 @@ getSelectedText(#wx_ref{type=ThisT}=This) ->
 
 -doc "Retrieve a range of text.".
 -spec getTextRange(This, StartPos, EndPos) -> unicode:charlist() when
-	This::wxStyledTextCtrl(), StartPos::integer(), EndPos::integer().
+        This::wxStyledTextCtrl(), StartPos::integer(), EndPos::integer().
 getTextRange(#wx_ref{type=ThisT}=This,StartPos,EndPos)
  when is_integer(StartPos),is_integer(EndPos) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -1857,7 +1857,7 @@ getTextRange(#wx_ref{type=ThisT}=This,StartPos,EndPos)
 
 -doc "Draw the selection in normal style or with selection highlighted.".
 -spec hideSelection(This, Hide) -> 'ok' when
-	This::wxStyledTextCtrl(), Hide::boolean().
+        This::wxStyledTextCtrl(), Hide::boolean().
 hideSelection(#wx_ref{type=ThisT}=This,Hide)
  when is_boolean(Hide) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -1865,7 +1865,7 @@ hideSelection(#wx_ref{type=ThisT}=This,Hide)
 
 -doc "Retrieve the line containing a position.".
 -spec lineFromPosition(This, Pos) -> integer() when
-	This::wxStyledTextCtrl(), Pos::integer().
+        This::wxStyledTextCtrl(), Pos::integer().
 lineFromPosition(#wx_ref{type=ThisT}=This,Pos)
  when is_integer(Pos) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -1874,7 +1874,7 @@ lineFromPosition(#wx_ref{type=ThisT}=This,Pos)
 
 -doc "Retrieve the position at the start of a line.".
 -spec positionFromLine(This, Line) -> integer() when
-	This::wxStyledTextCtrl(), Line::integer().
+        This::wxStyledTextCtrl(), Line::integer().
 positionFromLine(#wx_ref{type=ThisT}=This,Line)
  when is_integer(Line) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -1883,7 +1883,7 @@ positionFromLine(#wx_ref{type=ThisT}=This,Line)
 
 -doc "Scroll horizontally and vertically.".
 -spec lineScroll(This, Columns, Lines) -> 'ok' when
-	This::wxStyledTextCtrl(), Columns::integer(), Lines::integer().
+        This::wxStyledTextCtrl(), Columns::integer(), Lines::integer().
 lineScroll(#wx_ref{type=ThisT}=This,Columns,Lines)
  when is_integer(Columns),is_integer(Lines) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -1891,14 +1891,14 @@ lineScroll(#wx_ref{type=ThisT}=This,Columns,Lines)
 
 -doc "Ensure the caret is visible.".
 -spec ensureCaretVisible(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 ensureCaretVisible(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_EnsureCaretVisible).
 
 -doc "Replace the selected text with the argument text.".
 -spec replaceSelection(This, Text) -> 'ok' when
-	This::wxStyledTextCtrl(), Text::unicode:chardata().
+        This::wxStyledTextCtrl(), Text::unicode:chardata().
 replaceSelection(#wx_ref{type=ThisT}=This,Text)
  when ?is_chardata(Text) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -1907,7 +1907,7 @@ replaceSelection(#wx_ref{type=ThisT}=This,Text)
 
 -doc "Set to read only or read write.".
 -spec setReadOnly(This, ReadOnly) -> 'ok' when
-	This::wxStyledTextCtrl(), ReadOnly::boolean().
+        This::wxStyledTextCtrl(), ReadOnly::boolean().
 setReadOnly(#wx_ref{type=ThisT}=This,ReadOnly)
  when is_boolean(ReadOnly) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -1915,7 +1915,7 @@ setReadOnly(#wx_ref{type=ThisT}=This,ReadOnly)
 
 -doc "Will a paste succeed?".
 -spec canPaste(This) -> boolean() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 canPaste(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_CanPaste),
@@ -1923,7 +1923,7 @@ canPaste(#wx_ref{type=ThisT}=This) ->
 
 -doc "Are there any undoable actions in the undo history?".
 -spec canUndo(This) -> boolean() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 canUndo(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_CanUndo),
@@ -1931,49 +1931,49 @@ canUndo(#wx_ref{type=ThisT}=This) ->
 
 -doc "Delete the undo history.".
 -spec emptyUndoBuffer(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 emptyUndoBuffer(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_EmptyUndoBuffer).
 
 -doc "Undo one action in the undo history.".
 -spec undo(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 undo(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_Undo).
 
 -doc "Cut the selection to the clipboard.".
 -spec cut(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 cut(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_Cut).
 
 -doc "Copy the selection to the clipboard.".
 -spec copy(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 copy(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_Copy).
 
 -doc "Paste the contents of the clipboard into the document replacing the selection.".
 -spec paste(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 paste(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_Paste).
 
 -doc "Clear the selection.".
 -spec clear(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 clear(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_Clear).
 
 -doc "Replace the contents of the document with the argument text.".
 -spec setText(This, Text) -> 'ok' when
-	This::wxStyledTextCtrl(), Text::unicode:chardata().
+        This::wxStyledTextCtrl(), Text::unicode:chardata().
 setText(#wx_ref{type=ThisT}=This,Text)
  when ?is_chardata(Text) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -1982,7 +1982,7 @@ setText(#wx_ref{type=ThisT}=This,Text)
 
 -doc "Retrieve all the text in the document.".
 -spec getText(This) -> unicode:charlist() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getText(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetText),
@@ -1990,7 +1990,7 @@ getText(#wx_ref{type=ThisT}=This) ->
 
 -doc "Retrieve the number of characters in the document.".
 -spec getTextLength(This) -> integer() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getTextLength(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetTextLength),
@@ -1998,7 +1998,7 @@ getTextLength(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns true if overtype mode is active otherwise false is returned.".
 -spec getOvertype(This) -> boolean() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getOvertype(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetOvertype),
@@ -2006,7 +2006,7 @@ getOvertype(#wx_ref{type=ThisT}=This) ->
 
 -doc "Set the width of the insert mode caret.".
 -spec setCaretWidth(This, PixelWidth) -> 'ok' when
-	This::wxStyledTextCtrl(), PixelWidth::integer().
+        This::wxStyledTextCtrl(), PixelWidth::integer().
 setCaretWidth(#wx_ref{type=ThisT}=This,PixelWidth)
  when is_integer(PixelWidth) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -2014,7 +2014,7 @@ setCaretWidth(#wx_ref{type=ThisT}=This,PixelWidth)
 
 -doc "Returns the width of the insert mode caret.".
 -spec getCaretWidth(This) -> integer() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getCaretWidth(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetCaretWidth),
@@ -2025,7 +2025,7 @@ Sets the position that starts the target which is used for updating the document
 affecting the scroll position.
 """.
 -spec setTargetStart(This, Start) -> 'ok' when
-	This::wxStyledTextCtrl(), Start::integer().
+        This::wxStyledTextCtrl(), Start::integer().
 setTargetStart(#wx_ref{type=ThisT}=This,Start)
  when is_integer(Start) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -2033,7 +2033,7 @@ setTargetStart(#wx_ref{type=ThisT}=This,Start)
 
 -doc "Get the position that starts the target.".
 -spec getTargetStart(This) -> integer() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getTargetStart(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetTargetStart),
@@ -2044,7 +2044,7 @@ Sets the position that ends the target which is used for updating the document w
 affecting the scroll position.
 """.
 -spec setTargetEnd(This, End) -> 'ok' when
-	This::wxStyledTextCtrl(), End::integer().
+        This::wxStyledTextCtrl(), End::integer().
 setTargetEnd(#wx_ref{type=ThisT}=This,End)
  when is_integer(End) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -2052,7 +2052,7 @@ setTargetEnd(#wx_ref{type=ThisT}=This,End)
 
 -doc "Get the position that ends the target.".
 -spec getTargetEnd(This) -> integer() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getTargetEnd(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetTargetEnd),
@@ -2064,7 +2064,7 @@ Replace the target text with the argument text.
 Text is counted so it can contain NULs. Returns the length of the replacement text.
 """.
 -spec replaceTarget(This, Text) -> integer() when
-	This::wxStyledTextCtrl(), Text::unicode:chardata().
+        This::wxStyledTextCtrl(), Text::unicode:chardata().
 replaceTarget(#wx_ref{type=ThisT}=This,Text)
  when ?is_chardata(Text) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -2079,7 +2079,7 @@ Text is counted so it can contain NULs. Returns length of range or -1 for failur
 which case target is not moved.
 """.
 -spec searchInTarget(This, Text) -> integer() when
-	This::wxStyledTextCtrl(), Text::unicode:chardata().
+        This::wxStyledTextCtrl(), Text::unicode:chardata().
 searchInTarget(#wx_ref{type=ThisT}=This,Text)
  when ?is_chardata(Text) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -2093,7 +2093,7 @@ Set the search flags used by SearchInTarget.
 The input should be a bit list containing one or more of the ?wxSTC\_FIND\_\* constants.
 """.
 -spec setSearchFlags(This, SearchFlags) -> 'ok' when
-	This::wxStyledTextCtrl(), SearchFlags::integer().
+        This::wxStyledTextCtrl(), SearchFlags::integer().
 setSearchFlags(#wx_ref{type=ThisT}=This,SearchFlags)
  when is_integer(SearchFlags) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -2106,7 +2106,7 @@ The return value will be a bit list containing one or more of the ?wxSTC\_FIND\_
 constants.
 """.
 -spec getSearchFlags(This) -> integer() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getSearchFlags(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetSearchFlags),
@@ -2114,7 +2114,7 @@ getSearchFlags(#wx_ref{type=ThisT}=This) ->
 
 -doc "Show a call tip containing a definition near position pos.".
 -spec callTipShow(This, Pos, Definition) -> 'ok' when
-	This::wxStyledTextCtrl(), Pos::integer(), Definition::unicode:chardata().
+        This::wxStyledTextCtrl(), Pos::integer(), Definition::unicode:chardata().
 callTipShow(#wx_ref{type=ThisT}=This,Pos,Definition)
  when is_integer(Pos),?is_chardata(Definition) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -2123,14 +2123,14 @@ callTipShow(#wx_ref{type=ThisT}=This,Pos,Definition)
 
 -doc "Remove the call tip from the screen.".
 -spec callTipCancel(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 callTipCancel(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_CallTipCancel).
 
 -doc "Is there an active call tip?".
 -spec callTipActive(This) -> boolean() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 callTipActive(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_CallTipActive),
@@ -2142,7 +2142,7 @@ Retrieve the position where the caret was before displaying the call tip.
 Since: 3.1.0
 """.
 -spec callTipPosAtStart(This) -> integer() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 callTipPosAtStart(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_CallTipPosAtStart),
@@ -2150,7 +2150,7 @@ callTipPosAtStart(#wx_ref{type=ThisT}=This) ->
 
 -doc "Highlight a segment of the definition.".
 -spec callTipSetHighlight(This, HighlightStart, HighlightEnd) -> 'ok' when
-	This::wxStyledTextCtrl(), HighlightStart::integer(), HighlightEnd::integer().
+        This::wxStyledTextCtrl(), HighlightStart::integer(), HighlightEnd::integer().
 callTipSetHighlight(#wx_ref{type=ThisT}=This,HighlightStart,HighlightEnd)
  when is_integer(HighlightStart),is_integer(HighlightEnd) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -2158,7 +2158,7 @@ callTipSetHighlight(#wx_ref{type=ThisT}=This,HighlightStart,HighlightEnd)
 
 -doc "Set the background colour for the call tip.".
 -spec callTipSetBackground(This, Back) -> 'ok' when
-	This::wxStyledTextCtrl(), Back::wx:wx_colour().
+        This::wxStyledTextCtrl(), Back::wx:wx_colour().
 callTipSetBackground(#wx_ref{type=ThisT}=This,Back)
  when ?is_colordata(Back) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -2166,7 +2166,7 @@ callTipSetBackground(#wx_ref{type=ThisT}=This,Back)
 
 -doc "Set the foreground colour for the call tip.".
 -spec callTipSetForeground(This, Fore) -> 'ok' when
-	This::wxStyledTextCtrl(), Fore::wx:wx_colour().
+        This::wxStyledTextCtrl(), Fore::wx:wx_colour().
 callTipSetForeground(#wx_ref{type=ThisT}=This,Fore)
  when ?is_colordata(Fore) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -2174,7 +2174,7 @@ callTipSetForeground(#wx_ref{type=ThisT}=This,Fore)
 
 -doc "Set the foreground colour for the highlighted part of the call tip.".
 -spec callTipSetForegroundHighlight(This, Fore) -> 'ok' when
-	This::wxStyledTextCtrl(), Fore::wx:wx_colour().
+        This::wxStyledTextCtrl(), Fore::wx:wx_colour().
 callTipSetForegroundHighlight(#wx_ref{type=ThisT}=This,Fore)
  when ?is_colordata(Fore) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -2182,7 +2182,7 @@ callTipSetForegroundHighlight(#wx_ref{type=ThisT}=This,Fore)
 
 -doc "Enable use of wxSTC\_STYLE\_CALLTIP and set call tip tab size in pixels.".
 -spec callTipUseStyle(This, TabSize) -> 'ok' when
-	This::wxStyledTextCtrl(), TabSize::integer().
+        This::wxStyledTextCtrl(), TabSize::integer().
 callTipUseStyle(#wx_ref{type=ThisT}=This,TabSize)
  when is_integer(TabSize) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -2190,7 +2190,7 @@ callTipUseStyle(#wx_ref{type=ThisT}=This,TabSize)
 
 -doc "Find the display line of a document line taking hidden lines into account.".
 -spec visibleFromDocLine(This, DocLine) -> integer() when
-	This::wxStyledTextCtrl(), DocLine::integer().
+        This::wxStyledTextCtrl(), DocLine::integer().
 visibleFromDocLine(#wx_ref{type=ThisT}=This,DocLine)
  when is_integer(DocLine) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -2199,7 +2199,7 @@ visibleFromDocLine(#wx_ref{type=ThisT}=This,DocLine)
 
 -doc "Find the document line of a display line taking hidden lines into account.".
 -spec docLineFromVisible(This, DisplayLine) -> integer() when
-	This::wxStyledTextCtrl(), DisplayLine::integer().
+        This::wxStyledTextCtrl(), DisplayLine::integer().
 docLineFromVisible(#wx_ref{type=ThisT}=This,DisplayLine)
  when is_integer(DisplayLine) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -2208,7 +2208,7 @@ docLineFromVisible(#wx_ref{type=ThisT}=This,DisplayLine)
 
 -doc "The number of display lines needed to wrap a document line.".
 -spec wrapCount(This, DocLine) -> integer() when
-	This::wxStyledTextCtrl(), DocLine::integer().
+        This::wxStyledTextCtrl(), DocLine::integer().
 wrapCount(#wx_ref{type=ThisT}=This,DocLine)
  when is_integer(DocLine) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -2222,7 +2222,7 @@ This encodes an integer level along with flags indicating whether the line is a 
 and whether it is effectively white space.
 """.
 -spec setFoldLevel(This, Line, Level) -> 'ok' when
-	This::wxStyledTextCtrl(), Line::integer(), Level::integer().
+        This::wxStyledTextCtrl(), Line::integer(), Level::integer().
 setFoldLevel(#wx_ref{type=ThisT}=This,Line,Level)
  when is_integer(Line),is_integer(Level) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -2230,7 +2230,7 @@ setFoldLevel(#wx_ref{type=ThisT}=This,Line,Level)
 
 -doc "Retrieve the fold level of a line.".
 -spec getFoldLevel(This, Line) -> integer() when
-	This::wxStyledTextCtrl(), Line::integer().
+        This::wxStyledTextCtrl(), Line::integer().
 getFoldLevel(#wx_ref{type=ThisT}=This,Line)
  when is_integer(Line) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -2239,7 +2239,7 @@ getFoldLevel(#wx_ref{type=ThisT}=This,Line)
 
 -doc "Find the last child line of a header line.".
 -spec getLastChild(This, Line, Level) -> integer() when
-	This::wxStyledTextCtrl(), Line::integer(), Level::integer().
+        This::wxStyledTextCtrl(), Line::integer(), Level::integer().
 getLastChild(#wx_ref{type=ThisT}=This,Line,Level)
  when is_integer(Line),is_integer(Level) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -2248,7 +2248,7 @@ getLastChild(#wx_ref{type=ThisT}=This,Line,Level)
 
 -doc "Find the parent line of a child line.".
 -spec getFoldParent(This, Line) -> integer() when
-	This::wxStyledTextCtrl(), Line::integer().
+        This::wxStyledTextCtrl(), Line::integer().
 getFoldParent(#wx_ref{type=ThisT}=This,Line)
  when is_integer(Line) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -2257,7 +2257,7 @@ getFoldParent(#wx_ref{type=ThisT}=This,Line)
 
 -doc "Make a range of lines visible.".
 -spec showLines(This, LineStart, LineEnd) -> 'ok' when
-	This::wxStyledTextCtrl(), LineStart::integer(), LineEnd::integer().
+        This::wxStyledTextCtrl(), LineStart::integer(), LineEnd::integer().
 showLines(#wx_ref{type=ThisT}=This,LineStart,LineEnd)
  when is_integer(LineStart),is_integer(LineEnd) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -2265,7 +2265,7 @@ showLines(#wx_ref{type=ThisT}=This,LineStart,LineEnd)
 
 -doc "Make a range of lines invisible.".
 -spec hideLines(This, LineStart, LineEnd) -> 'ok' when
-	This::wxStyledTextCtrl(), LineStart::integer(), LineEnd::integer().
+        This::wxStyledTextCtrl(), LineStart::integer(), LineEnd::integer().
 hideLines(#wx_ref{type=ThisT}=This,LineStart,LineEnd)
  when is_integer(LineStart),is_integer(LineEnd) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -2273,7 +2273,7 @@ hideLines(#wx_ref{type=ThisT}=This,LineStart,LineEnd)
 
 -doc "Is a line visible?".
 -spec getLineVisible(This, Line) -> boolean() when
-	This::wxStyledTextCtrl(), Line::integer().
+        This::wxStyledTextCtrl(), Line::integer().
 getLineVisible(#wx_ref{type=ThisT}=This,Line)
  when is_integer(Line) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -2282,7 +2282,7 @@ getLineVisible(#wx_ref{type=ThisT}=This,Line)
 
 -doc "Show the children of a header line.".
 -spec setFoldExpanded(This, Line, Expanded) -> 'ok' when
-	This::wxStyledTextCtrl(), Line::integer(), Expanded::boolean().
+        This::wxStyledTextCtrl(), Line::integer(), Expanded::boolean().
 setFoldExpanded(#wx_ref{type=ThisT}=This,Line,Expanded)
  when is_integer(Line),is_boolean(Expanded) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -2290,7 +2290,7 @@ setFoldExpanded(#wx_ref{type=ThisT}=This,Line,Expanded)
 
 -doc "Is a header line expanded?".
 -spec getFoldExpanded(This, Line) -> boolean() when
-	This::wxStyledTextCtrl(), Line::integer().
+        This::wxStyledTextCtrl(), Line::integer().
 getFoldExpanded(#wx_ref{type=ThisT}=This,Line)
  when is_integer(Line) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -2299,7 +2299,7 @@ getFoldExpanded(#wx_ref{type=ThisT}=This,Line)
 
 -doc "Switch a header line between expanded and contracted.".
 -spec toggleFold(This, Line) -> 'ok' when
-	This::wxStyledTextCtrl(), Line::integer().
+        This::wxStyledTextCtrl(), Line::integer().
 toggleFold(#wx_ref{type=ThisT}=This,Line)
  when is_integer(Line) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -2307,7 +2307,7 @@ toggleFold(#wx_ref{type=ThisT}=This,Line)
 
 -doc "Ensure a particular line is visible by expanding any header line hiding it.".
 -spec ensureVisible(This, Line) -> 'ok' when
-	This::wxStyledTextCtrl(), Line::integer().
+        This::wxStyledTextCtrl(), Line::integer().
 ensureVisible(#wx_ref{type=ThisT}=This,Line)
  when is_integer(Line) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -2320,7 +2320,7 @@ The second argument should be a bit list containing one or more of the
 ?wxSTC\_FOLDFLAG\_\* constants.
 """.
 -spec setFoldFlags(This, Flags) -> 'ok' when
-	This::wxStyledTextCtrl(), Flags::integer().
+        This::wxStyledTextCtrl(), Flags::integer().
 setFoldFlags(#wx_ref{type=ThisT}=This,Flags)
  when is_integer(Flags) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -2332,7 +2332,7 @@ Ensure a particular line is visible by expanding any header line hiding it.
 Use the currently set visibility policy to determine which range to display.
 """.
 -spec ensureVisibleEnforcePolicy(This, Line) -> 'ok' when
-	This::wxStyledTextCtrl(), Line::integer().
+        This::wxStyledTextCtrl(), Line::integer().
 ensureVisibleEnforcePolicy(#wx_ref{type=ThisT}=This,Line)
  when is_integer(Line) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -2340,7 +2340,7 @@ ensureVisibleEnforcePolicy(#wx_ref{type=ThisT}=This,Line)
 
 -doc "Sets whether a tab pressed when caret is within indentation indents.".
 -spec setTabIndents(This, TabIndents) -> 'ok' when
-	This::wxStyledTextCtrl(), TabIndents::boolean().
+        This::wxStyledTextCtrl(), TabIndents::boolean().
 setTabIndents(#wx_ref{type=ThisT}=This,TabIndents)
  when is_boolean(TabIndents) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -2348,7 +2348,7 @@ setTabIndents(#wx_ref{type=ThisT}=This,TabIndents)
 
 -doc "Does a tab pressed when caret is within indentation indent?".
 -spec getTabIndents(This) -> boolean() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getTabIndents(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetTabIndents),
@@ -2356,7 +2356,7 @@ getTabIndents(#wx_ref{type=ThisT}=This) ->
 
 -doc "Sets whether a backspace pressed when caret is within indentation unindents.".
 -spec setBackSpaceUnIndents(This, BsUnIndents) -> 'ok' when
-	This::wxStyledTextCtrl(), BsUnIndents::boolean().
+        This::wxStyledTextCtrl(), BsUnIndents::boolean().
 setBackSpaceUnIndents(#wx_ref{type=ThisT}=This,BsUnIndents)
  when is_boolean(BsUnIndents) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -2364,7 +2364,7 @@ setBackSpaceUnIndents(#wx_ref{type=ThisT}=This,BsUnIndents)
 
 -doc "Does a backspace pressed when caret is within indentation unindent?".
 -spec getBackSpaceUnIndents(This) -> boolean() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getBackSpaceUnIndents(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetBackSpaceUnIndents),
@@ -2376,7 +2376,7 @@ Sets the time the mouse must sit still to generate a mouse dwell event.
 The input should be a time in milliseconds or wxSTC_TIME_FOREVER.
 """.
 -spec setMouseDwellTime(This, PeriodMilliseconds) -> 'ok' when
-	This::wxStyledTextCtrl(), PeriodMilliseconds::integer().
+        This::wxStyledTextCtrl(), PeriodMilliseconds::integer().
 setMouseDwellTime(#wx_ref{type=ThisT}=This,PeriodMilliseconds)
  when is_integer(PeriodMilliseconds) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -2388,7 +2388,7 @@ Retrieve the time the mouse must sit still to generate a mouse dwell event.
 The return value will be a time in milliseconds or wxSTC_TIME_FOREVER.
 """.
 -spec getMouseDwellTime(This) -> integer() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getMouseDwellTime(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetMouseDwellTime),
@@ -2396,7 +2396,7 @@ getMouseDwellTime(#wx_ref{type=ThisT}=This) ->
 
 -doc "Get position of start of word.".
 -spec wordStartPosition(This, Pos, OnlyWordCharacters) -> integer() when
-	This::wxStyledTextCtrl(), Pos::integer(), OnlyWordCharacters::boolean().
+        This::wxStyledTextCtrl(), Pos::integer(), OnlyWordCharacters::boolean().
 wordStartPosition(#wx_ref{type=ThisT}=This,Pos,OnlyWordCharacters)
  when is_integer(Pos),is_boolean(OnlyWordCharacters) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -2405,7 +2405,7 @@ wordStartPosition(#wx_ref{type=ThisT}=This,Pos,OnlyWordCharacters)
 
 -doc "Get position of end of word.".
 -spec wordEndPosition(This, Pos, OnlyWordCharacters) -> integer() when
-	This::wxStyledTextCtrl(), Pos::integer(), OnlyWordCharacters::boolean().
+        This::wxStyledTextCtrl(), Pos::integer(), OnlyWordCharacters::boolean().
 wordEndPosition(#wx_ref{type=ThisT}=This,Pos,OnlyWordCharacters)
  when is_integer(Pos),is_boolean(OnlyWordCharacters) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -2418,7 +2418,7 @@ Sets whether text is word wrapped.
 The input should be one of the ?wxSTC\_WRAP\_\* constants.
 """.
 -spec setWrapMode(This, WrapMode) -> 'ok' when
-	This::wxStyledTextCtrl(), WrapMode::integer().
+        This::wxStyledTextCtrl(), WrapMode::integer().
 setWrapMode(#wx_ref{type=ThisT}=This,WrapMode)
  when is_integer(WrapMode) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -2430,7 +2430,7 @@ Retrieve whether text is word wrapped.
 The return value will be one of the ?wxSTC\_WRAP\_\* constants.
 """.
 -spec getWrapMode(This) -> integer() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getWrapMode(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetWrapMode),
@@ -2443,7 +2443,7 @@ The input should be a bit list containing one or more of the ?wxSTC\_WRAPVISUALF
 constants.
 """.
 -spec setWrapVisualFlags(This, WrapVisualFlags) -> 'ok' when
-	This::wxStyledTextCtrl(), WrapVisualFlags::integer().
+        This::wxStyledTextCtrl(), WrapVisualFlags::integer().
 setWrapVisualFlags(#wx_ref{type=ThisT}=This,WrapVisualFlags)
  when is_integer(WrapVisualFlags) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -2456,7 +2456,7 @@ The return value will be a bit list containing one or more of the
 ?wxSTC\_WRAPVISUALFLAG\_\* constants.
 """.
 -spec getWrapVisualFlags(This) -> integer() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getWrapVisualFlags(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetWrapVisualFlags),
@@ -2469,7 +2469,7 @@ The input should be a bit list containing one or more of the
 ?wxSTC\_WRAPVISUALFLAGLOC\_\* constants.
 """.
 -spec setWrapVisualFlagsLocation(This, WrapVisualFlagsLocation) -> 'ok' when
-	This::wxStyledTextCtrl(), WrapVisualFlagsLocation::integer().
+        This::wxStyledTextCtrl(), WrapVisualFlagsLocation::integer().
 setWrapVisualFlagsLocation(#wx_ref{type=ThisT}=This,WrapVisualFlagsLocation)
  when is_integer(WrapVisualFlagsLocation) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -2482,7 +2482,7 @@ The return value will be a bit list containing one or more of the
 ?wxSTC\_WRAPVISUALFLAGLOC\_\* constants.
 """.
 -spec getWrapVisualFlagsLocation(This) -> integer() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getWrapVisualFlagsLocation(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetWrapVisualFlagsLocation),
@@ -2490,7 +2490,7 @@ getWrapVisualFlagsLocation(#wx_ref{type=ThisT}=This) ->
 
 -doc "Set the start indent for wrapped lines.".
 -spec setWrapStartIndent(This, Indent) -> 'ok' when
-	This::wxStyledTextCtrl(), Indent::integer().
+        This::wxStyledTextCtrl(), Indent::integer().
 setWrapStartIndent(#wx_ref{type=ThisT}=This,Indent)
  when is_integer(Indent) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -2498,7 +2498,7 @@ setWrapStartIndent(#wx_ref{type=ThisT}=This,Indent)
 
 -doc "Retrieve the start indent for wrapped lines.".
 -spec getWrapStartIndent(This) -> integer() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getWrapStartIndent(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetWrapStartIndent),
@@ -2510,7 +2510,7 @@ Sets the degree of caching of layout information.
 The input should be one of the ?wxSTC\_CACHE\_\* constants.
 """.
 -spec setLayoutCache(This, CacheMode) -> 'ok' when
-	This::wxStyledTextCtrl(), CacheMode::integer().
+        This::wxStyledTextCtrl(), CacheMode::integer().
 setLayoutCache(#wx_ref{type=ThisT}=This,CacheMode)
  when is_integer(CacheMode) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -2522,7 +2522,7 @@ Retrieve the degree of caching of layout information.
 The return value will be one of the ?wxSTC\_CACHE\_\* constants.
 """.
 -spec getLayoutCache(This) -> integer() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getLayoutCache(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetLayoutCache),
@@ -2530,7 +2530,7 @@ getLayoutCache(#wx_ref{type=ThisT}=This) ->
 
 -doc "Sets the document width assumed for scrolling.".
 -spec setScrollWidth(This, PixelWidth) -> 'ok' when
-	This::wxStyledTextCtrl(), PixelWidth::integer().
+        This::wxStyledTextCtrl(), PixelWidth::integer().
 setScrollWidth(#wx_ref{type=ThisT}=This,PixelWidth)
  when is_integer(PixelWidth) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -2538,7 +2538,7 @@ setScrollWidth(#wx_ref{type=ThisT}=This,PixelWidth)
 
 -doc "Retrieve the document width assumed for scrolling.".
 -spec getScrollWidth(This) -> integer() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getScrollWidth(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetScrollWidth),
@@ -2550,7 +2550,7 @@ Measure the pixel width of some text in a particular style.
 Does not handle tab or control characters.
 """.
 -spec textWidth(This, Style, Text) -> integer() when
-	This::wxStyledTextCtrl(), Style::integer(), Text::unicode:chardata().
+        This::wxStyledTextCtrl(), Style::integer(), Text::unicode:chardata().
 textWidth(#wx_ref{type=ThisT}=This,Style,Text)
  when is_integer(Style),?is_chardata(Text) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -2560,7 +2560,7 @@ textWidth(#wx_ref{type=ThisT}=This,Style,Text)
 
 -doc "Retrieve whether the maximum scroll position has the last line at the bottom of the view.".
 -spec getEndAtLastLine(This) -> boolean() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getEndAtLastLine(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetEndAtLastLine),
@@ -2568,7 +2568,7 @@ getEndAtLastLine(#wx_ref{type=ThisT}=This) ->
 
 -doc "Retrieve the height of a particular line of text in pixels.".
 -spec textHeight(This, Line) -> integer() when
-	This::wxStyledTextCtrl(), Line::integer().
+        This::wxStyledTextCtrl(), Line::integer().
 textHeight(#wx_ref{type=ThisT}=This,Line)
  when is_integer(Line) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -2577,7 +2577,7 @@ textHeight(#wx_ref{type=ThisT}=This,Line)
 
 -doc "Show or hide the vertical scroll bar.".
 -spec setUseVerticalScrollBar(This, Visible) -> 'ok' when
-	This::wxStyledTextCtrl(), Visible::boolean().
+        This::wxStyledTextCtrl(), Visible::boolean().
 setUseVerticalScrollBar(#wx_ref{type=ThisT}=This,Visible)
  when is_boolean(Visible) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -2585,7 +2585,7 @@ setUseVerticalScrollBar(#wx_ref{type=ThisT}=This,Visible)
 
 -doc "Is the vertical scroll bar visible?".
 -spec getUseVerticalScrollBar(This) -> boolean() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getUseVerticalScrollBar(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetUseVerticalScrollBar),
@@ -2593,7 +2593,7 @@ getUseVerticalScrollBar(#wx_ref{type=ThisT}=This) ->
 
 -doc "Append a string to the end of the document without changing the selection.".
 -spec appendText(This, Text) -> 'ok' when
-	This::wxStyledTextCtrl(), Text::unicode:chardata().
+        This::wxStyledTextCtrl(), Text::unicode:chardata().
 appendText(#wx_ref{type=ThisT}=This,Text)
  when ?is_chardata(Text) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -2602,7 +2602,7 @@ appendText(#wx_ref{type=ThisT}=This,Text)
 
 -doc "Is drawing done in two phases with backgrounds drawn before foregrounds?".
 -spec getTwoPhaseDraw(This) -> boolean() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getTwoPhaseDraw(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetTwoPhaseDraw),
@@ -2615,7 +2615,7 @@ the foreground.
 This avoids chopping off characters that overlap the next run.
 """.
 -spec setTwoPhaseDraw(This, TwoPhase) -> 'ok' when
-	This::wxStyledTextCtrl(), TwoPhase::boolean().
+        This::wxStyledTextCtrl(), TwoPhase::boolean().
 setTwoPhaseDraw(#wx_ref{type=ThisT}=This,TwoPhase)
  when is_boolean(TwoPhase) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -2623,14 +2623,14 @@ setTwoPhaseDraw(#wx_ref{type=ThisT}=This,TwoPhase)
 
 -doc "Make the target range start and end be the same as the selection range start and end.".
 -spec targetFromSelection(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 targetFromSelection(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_TargetFromSelection).
 
 -doc "Join the lines in the target.".
 -spec linesJoin(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 linesJoin(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_LinesJoin).
@@ -2640,7 +2640,7 @@ Split the lines in the target into lines that are less wide than pixelWidth wher
 possible.
 """.
 -spec linesSplit(This, PixelWidth) -> 'ok' when
-	This::wxStyledTextCtrl(), PixelWidth::integer().
+        This::wxStyledTextCtrl(), PixelWidth::integer().
 linesSplit(#wx_ref{type=ThisT}=This,PixelWidth)
  when is_integer(PixelWidth) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -2648,7 +2648,7 @@ linesSplit(#wx_ref{type=ThisT}=This,PixelWidth)
 
 -doc "Set one of the colours used as a chequerboard pattern in the fold margin.".
 -spec setFoldMarginColour(This, UseSetting, Back) -> 'ok' when
-	This::wxStyledTextCtrl(), UseSetting::boolean(), Back::wx:wx_colour().
+        This::wxStyledTextCtrl(), UseSetting::boolean(), Back::wx:wx_colour().
 setFoldMarginColour(#wx_ref{type=ThisT}=This,UseSetting,Back)
  when is_boolean(UseSetting),?is_colordata(Back) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -2656,7 +2656,7 @@ setFoldMarginColour(#wx_ref{type=ThisT}=This,UseSetting,Back)
 
 -doc "Set the other colour used as a chequerboard pattern in the fold margin.".
 -spec setFoldMarginHiColour(This, UseSetting, Fore) -> 'ok' when
-	This::wxStyledTextCtrl(), UseSetting::boolean(), Fore::wx:wx_colour().
+        This::wxStyledTextCtrl(), UseSetting::boolean(), Fore::wx:wx_colour().
 setFoldMarginHiColour(#wx_ref{type=ThisT}=This,UseSetting,Fore)
  when is_boolean(UseSetting),?is_colordata(Fore) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -2664,189 +2664,189 @@ setFoldMarginHiColour(#wx_ref{type=ThisT}=This,UseSetting,Fore)
 
 -doc "Move caret down one line.".
 -spec lineDown(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 lineDown(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_LineDown).
 
 -doc "Move caret down one line extending selection to new caret position.".
 -spec lineDownExtend(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 lineDownExtend(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_LineDownExtend).
 
 -doc "Move caret up one line.".
 -spec lineUp(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 lineUp(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_LineUp).
 
 -doc "Move caret up one line extending selection to new caret position.".
 -spec lineUpExtend(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 lineUpExtend(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_LineUpExtend).
 
 -doc "Move caret left one character.".
 -spec charLeft(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 charLeft(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_CharLeft).
 
 -doc "Move caret left one character extending selection to new caret position.".
 -spec charLeftExtend(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 charLeftExtend(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_CharLeftExtend).
 
 -doc "Move caret right one character.".
 -spec charRight(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 charRight(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_CharRight).
 
 -doc "Move caret right one character extending selection to new caret position.".
 -spec charRightExtend(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 charRightExtend(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_CharRightExtend).
 
 -doc "Move caret left one word.".
 -spec wordLeft(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 wordLeft(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_WordLeft).
 
 -doc "Move caret left one word extending selection to new caret position.".
 -spec wordLeftExtend(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 wordLeftExtend(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_WordLeftExtend).
 
 -doc "Move caret right one word.".
 -spec wordRight(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 wordRight(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_WordRight).
 
 -doc "Move caret right one word extending selection to new caret position.".
 -spec wordRightExtend(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 wordRightExtend(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_WordRightExtend).
 
 -doc "Move caret to first position on line.".
 -spec home(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 home(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_Home).
 
 -doc "Move caret to first position on line extending selection to new caret position.".
 -spec homeExtend(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 homeExtend(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_HomeExtend).
 
 -doc "Move caret to last position on line.".
 -spec lineEnd(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 lineEnd(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_LineEnd).
 
 -doc "Move caret to last position on line extending selection to new caret position.".
 -spec lineEndExtend(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 lineEndExtend(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_LineEndExtend).
 
 -doc "Move caret to first position in document.".
 -spec documentStart(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 documentStart(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_DocumentStart).
 
 -doc "Move caret to first position in document extending selection to new caret position.".
 -spec documentStartExtend(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 documentStartExtend(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_DocumentStartExtend).
 
 -doc "Move caret to last position in document.".
 -spec documentEnd(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 documentEnd(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_DocumentEnd).
 
 -doc "Move caret to last position in document extending selection to new caret position.".
 -spec documentEndExtend(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 documentEndExtend(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_DocumentEndExtend).
 
 -doc "Move caret one page up.".
 -spec pageUp(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 pageUp(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_PageUp).
 
 -doc "Move caret one page up extending selection to new caret position.".
 -spec pageUpExtend(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 pageUpExtend(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_PageUpExtend).
 
 -doc "Move caret one page down.".
 -spec pageDown(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 pageDown(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_PageDown).
 
 -doc "Move caret one page down extending selection to new caret position.".
 -spec pageDownExtend(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 pageDownExtend(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_PageDownExtend).
 
 -doc "Switch from insert to overtype mode or the reverse.".
 -spec editToggleOvertype(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 editToggleOvertype(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_EditToggleOvertype).
 
 -doc "Cancel any modes such as call tip or auto-completion list display.".
 -spec cancel(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 cancel(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_Cancel).
 
 -doc "Delete the selection or if no selection, the character before the caret.".
 -spec deleteBack(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 deleteBack(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_DeleteBack).
@@ -2857,28 +2857,28 @@ If selection is empty or all on one line replace the selection with a tab charac
 If more than one line selected, indent the lines.
 """.
 -spec tab(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 tab(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_Tab).
 
 -doc "Dedent the selected lines.".
 -spec backTab(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 backTab(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_BackTab).
 
 -doc "Insert a new line, may use a CRLF, CR or LF depending on EOL mode.".
 -spec newLine(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 newLine(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_NewLine).
 
 -doc "Insert a Form Feed character.".
 -spec formFeed(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 formFeed(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_FormFeed).
@@ -2889,98 +2889,98 @@ Move caret to before first visible character on line.
 If already there move to first character on line.
 """.
 -spec vCHome(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 vCHome(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_VCHome).
 
 -doc "Like VCHome but extending selection to new caret position.".
 -spec vCHomeExtend(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 vCHomeExtend(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_VCHomeExtend).
 
 -doc "Magnify the displayed text by increasing the sizes by 1 point.".
 -spec zoomIn(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 zoomIn(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_ZoomIn).
 
 -doc "Make the displayed text smaller by decreasing the sizes by 1 point.".
 -spec zoomOut(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 zoomOut(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_ZoomOut).
 
 -doc "Delete the word to the left of the caret.".
 -spec delWordLeft(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 delWordLeft(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_DelWordLeft).
 
 -doc "Delete the word to the right of the caret.".
 -spec delWordRight(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 delWordRight(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_DelWordRight).
 
 -doc "Cut the line containing the caret.".
 -spec lineCut(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 lineCut(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_LineCut).
 
 -doc "Delete the line containing the caret.".
 -spec lineDelete(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 lineDelete(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_LineDelete).
 
 -doc "Switch the current line with the previous.".
 -spec lineTranspose(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 lineTranspose(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_LineTranspose).
 
 -doc "Duplicate the current line.".
 -spec lineDuplicate(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 lineDuplicate(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_LineDuplicate).
 
 -doc "Transform the selection to lower case.".
 -spec lowerCase(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 lowerCase(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_LowerCase).
 
 -doc "Transform the selection to upper case.".
 -spec upperCase(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 upperCase(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_UpperCase).
 
 -doc "Scroll the document down, keeping the caret visible.".
 -spec lineScrollDown(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 lineScrollDown(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_LineScrollDown).
 
 -doc "Scroll the document up, keeping the caret visible.".
 -spec lineScrollUp(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 lineScrollUp(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_LineScrollUp).
@@ -2991,35 +2991,35 @@ Delete the selection or if no selection, the character before the caret.
 Will not delete the character before at the start of a line.
 """.
 -spec deleteBackNotLine(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 deleteBackNotLine(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_DeleteBackNotLine).
 
 -doc "Move caret to first position on display line.".
 -spec homeDisplay(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 homeDisplay(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_HomeDisplay).
 
 -doc "Move caret to first position on display line extending selection to new caret position.".
 -spec homeDisplayExtend(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 homeDisplayExtend(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_HomeDisplayExtend).
 
 -doc "Move caret to last position on display line.".
 -spec lineEndDisplay(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 lineEndDisplay(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_LineEndDisplay).
 
 -doc "Move caret to last position on display line extending selection to new caret position.".
 -spec lineEndDisplayExtend(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 lineEndDisplayExtend(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_LineEndDisplayExtend).
@@ -3029,7 +3029,7 @@ Like HomeExtend but when word-wrap is enabled extends first to start of display 
 HomeDisplayExtend, then to start of document line HomeExtend.
 """.
 -spec homeWrapExtend(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 homeWrapExtend(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_HomeWrapExtend).
@@ -3039,7 +3039,7 @@ Like LineEnd but when word-wrap is enabled goes first to end of display line
 LineEndDisplay, then to start of document line LineEnd.
 """.
 -spec lineEndWrap(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 lineEndWrap(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_LineEndWrap).
@@ -3049,7 +3049,7 @@ Like LineEndExtend but when word-wrap is enabled extends first to end of display
 LineEndDisplayExtend, then to start of document line LineEndExtend.
 """.
 -spec lineEndWrapExtend(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 lineEndWrapExtend(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_LineEndWrapExtend).
@@ -3059,7 +3059,7 @@ Like VCHome but when word-wrap is enabled goes first to start of display line
 VCHomeDisplay, then behaves like VCHome.
 """.
 -spec vCHomeWrap(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 vCHomeWrap(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_VCHomeWrap).
@@ -3069,28 +3069,28 @@ Like VCHomeExtend but when word-wrap is enabled extends first to start of displa
 VCHomeDisplayExtend, then behaves like VCHomeExtend.
 """.
 -spec vCHomeWrapExtend(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 vCHomeWrapExtend(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_VCHomeWrapExtend).
 
 -doc "Copy the line containing the caret.".
 -spec lineCopy(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 lineCopy(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_LineCopy).
 
 -doc "Move the caret inside current view if it's not there already.".
 -spec moveCaretInsideView(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 moveCaretInsideView(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_MoveCaretInsideView).
 
 -doc "How many characters are on a line, including end of line characters?".
 -spec lineLength(This, Line) -> integer() when
-	This::wxStyledTextCtrl(), Line::integer().
+        This::wxStyledTextCtrl(), Line::integer().
 lineLength(#wx_ref{type=ThisT}=This,Line)
  when is_integer(Line) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -3099,7 +3099,7 @@ lineLength(#wx_ref{type=ThisT}=This,Line)
 
 -doc "Highlight the characters at two positions.".
 -spec braceHighlight(This, PosA, PosB) -> 'ok' when
-	This::wxStyledTextCtrl(), PosA::integer(), PosB::integer().
+        This::wxStyledTextCtrl(), PosA::integer(), PosB::integer().
 braceHighlight(#wx_ref{type=ThisT}=This,PosA,PosB)
  when is_integer(PosA),is_integer(PosB) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -3107,7 +3107,7 @@ braceHighlight(#wx_ref{type=ThisT}=This,PosA,PosB)
 
 -doc "Highlight the character at a position indicating there is no matching brace.".
 -spec braceBadLight(This, Pos) -> 'ok' when
-	This::wxStyledTextCtrl(), Pos::integer().
+        This::wxStyledTextCtrl(), Pos::integer().
 braceBadLight(#wx_ref{type=ThisT}=This,Pos)
  when is_integer(Pos) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -3115,7 +3115,7 @@ braceBadLight(#wx_ref{type=ThisT}=This,Pos)
 
 -doc "Find the position of a matching brace or wxSTC\_INVALID\_POSITION if no match.".
 -spec braceMatch(This, Pos) -> integer() when
-	This::wxStyledTextCtrl(), Pos::integer().
+        This::wxStyledTextCtrl(), Pos::integer().
 braceMatch(#wx_ref{type=ThisT}=This,Pos)
  when is_integer(Pos) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -3124,7 +3124,7 @@ braceMatch(#wx_ref{type=ThisT}=This,Pos)
 
 -doc "Are the end of line characters visible?".
 -spec getViewEOL(This) -> boolean() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getViewEOL(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetViewEOL),
@@ -3132,7 +3132,7 @@ getViewEOL(#wx_ref{type=ThisT}=This) ->
 
 -doc "Make the end of line characters visible or invisible.".
 -spec setViewEOL(This, Visible) -> 'ok' when
-	This::wxStyledTextCtrl(), Visible::boolean().
+        This::wxStyledTextCtrl(), Visible::boolean().
 setViewEOL(#wx_ref{type=ThisT}=This,Visible)
  when is_boolean(Visible) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -3147,7 +3147,7 @@ wxSTC_MULTISTEPUNDOREDO, and wxSTC_LASTSTEPINUNDOREDO. The input can also be
 wxSTC_MODEVENTMASKALL to indicate that all changes should generate events.
 """.
 -spec setModEventMask(This, EventMask) -> 'ok' when
-	This::wxStyledTextCtrl(), EventMask::integer().
+        This::wxStyledTextCtrl(), EventMask::integer().
 setModEventMask(#wx_ref{type=ThisT}=This,EventMask)
  when is_integer(EventMask) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -3155,7 +3155,7 @@ setModEventMask(#wx_ref{type=ThisT}=This,EventMask)
 
 -doc "Retrieve the column number which text should be kept within.".
 -spec getEdgeColumn(This) -> integer() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getEdgeColumn(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetEdgeColumn),
@@ -3167,7 +3167,7 @@ Set the column number of the edge.
 If text goes past the edge then it is highlighted.
 """.
 -spec setEdgeColumn(This, Column) -> 'ok' when
-	This::wxStyledTextCtrl(), Column::integer().
+        This::wxStyledTextCtrl(), Column::integer().
 setEdgeColumn(#wx_ref{type=ThisT}=This,Column)
  when is_integer(Column) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -3181,7 +3181,7 @@ highlighting text that goes beyond it (wxSTC\_EDGE\_BACKGROUND) or not displayed
 The input should be one of the ?wxSTC\_EDGE\_\* constants.
 """.
 -spec setEdgeMode(This, EdgeMode) -> 'ok' when
-	This::wxStyledTextCtrl(), EdgeMode::integer().
+        This::wxStyledTextCtrl(), EdgeMode::integer().
 setEdgeMode(#wx_ref{type=ThisT}=This,EdgeMode)
  when is_integer(EdgeMode) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -3193,7 +3193,7 @@ Retrieve the edge highlight mode.
 The return value will be one of the ?wxSTC\_EDGE\_\* constants.
 """.
 -spec getEdgeMode(This) -> integer() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getEdgeMode(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetEdgeMode),
@@ -3201,7 +3201,7 @@ getEdgeMode(#wx_ref{type=ThisT}=This) ->
 
 -doc "Retrieve the colour used in edge indication.".
 -spec getEdgeColour(This) -> wx:wx_colour4() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getEdgeColour(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetEdgeColour),
@@ -3209,7 +3209,7 @@ getEdgeColour(#wx_ref{type=ThisT}=This) ->
 
 -doc "Change the colour used in edge indication.".
 -spec setEdgeColour(This, EdgeColour) -> 'ok' when
-	This::wxStyledTextCtrl(), EdgeColour::wx:wx_colour().
+        This::wxStyledTextCtrl(), EdgeColour::wx:wx_colour().
 setEdgeColour(#wx_ref{type=ThisT}=This,EdgeColour)
  when ?is_colordata(EdgeColour) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -3217,7 +3217,7 @@ setEdgeColour(#wx_ref{type=ThisT}=This,EdgeColour)
 
 -doc "Sets the current caret position to be the search anchor.".
 -spec searchAnchor(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 searchAnchor(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_SearchAnchor).
@@ -3228,7 +3228,7 @@ Find some text starting at the search anchor.
 Does not ensure the selection is visible.
 """.
 -spec searchNext(This, SearchFlags, Text) -> integer() when
-	This::wxStyledTextCtrl(), SearchFlags::integer(), Text::unicode:chardata().
+        This::wxStyledTextCtrl(), SearchFlags::integer(), Text::unicode:chardata().
 searchNext(#wx_ref{type=ThisT}=This,SearchFlags,Text)
  when is_integer(SearchFlags),?is_chardata(Text) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -3242,7 +3242,7 @@ Find some text starting at the search anchor and moving backwards.
 Does not ensure the selection is visible.
 """.
 -spec searchPrev(This, SearchFlags, Text) -> integer() when
-	This::wxStyledTextCtrl(), SearchFlags::integer(), Text::unicode:chardata().
+        This::wxStyledTextCtrl(), SearchFlags::integer(), Text::unicode:chardata().
 searchPrev(#wx_ref{type=ThisT}=This,SearchFlags,Text)
  when is_integer(SearchFlags),?is_chardata(Text) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -3252,7 +3252,7 @@ searchPrev(#wx_ref{type=ThisT}=This,SearchFlags,Text)
 
 -doc "Retrieves the number of lines completely visible.".
 -spec linesOnScreen(This) -> integer() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 linesOnScreen(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_LinesOnScreen),
@@ -3269,7 +3269,7 @@ should be called with wxSTC_POPUP_NEVER. Otherwise the default menu will be show
 of the custom one.
 """.
 -spec usePopUp(This, PopUpMode) -> 'ok' when
-	This::wxStyledTextCtrl(), PopUpMode::integer().
+        This::wxStyledTextCtrl(), PopUpMode::integer().
 usePopUp(#wx_ref{type=ThisT}=This,PopUpMode)
  when is_integer(PopUpMode) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -3277,7 +3277,7 @@ usePopUp(#wx_ref{type=ThisT}=This,PopUpMode)
 
 -doc "Is the selection rectangular? The alternative is the more common stream selection.".
 -spec selectionIsRectangle(This) -> boolean() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 selectionIsRectangle(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_SelectionIsRectangle),
@@ -3290,7 +3290,7 @@ This number of points is added to the size of all fonts. It may be positive to m
 negative to reduce.
 """.
 -spec setZoom(This, ZoomInPoints) -> 'ok' when
-	This::wxStyledTextCtrl(), ZoomInPoints::integer().
+        This::wxStyledTextCtrl(), ZoomInPoints::integer().
 setZoom(#wx_ref{type=ThisT}=This,ZoomInPoints)
  when is_integer(ZoomInPoints) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -3298,7 +3298,7 @@ setZoom(#wx_ref{type=ThisT}=This,ZoomInPoints)
 
 -doc "Retrieve the zoom level.".
 -spec getZoom(This) -> integer() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getZoom(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetZoom),
@@ -3313,7 +3313,7 @@ will be a bit list containing one or more of the ?wxSTC\_MOD\_\* constants, the
 wxSTC_MULTISTEPUNDOREDO, and wxSTC_LASTSTEPINUNDOREDO.
 """.
 -spec getModEventMask(This) -> integer() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getModEventMask(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetModEventMask),
@@ -3321,7 +3321,7 @@ getModEventMask(#wx_ref{type=ThisT}=This) ->
 
 -doc "Change internal focus flag.".
 -spec setSTCFocus(This, Focus) -> 'ok' when
-	This::wxStyledTextCtrl(), Focus::boolean().
+        This::wxStyledTextCtrl(), Focus::boolean().
 setSTCFocus(#wx_ref{type=ThisT}=This,Focus)
  when is_boolean(Focus) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -3329,7 +3329,7 @@ setSTCFocus(#wx_ref{type=ThisT}=This,Focus)
 
 -doc "Get internal focus flag.".
 -spec getSTCFocus(This) -> boolean() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getSTCFocus(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetSTCFocus),
@@ -3341,7 +3341,7 @@ Change error status - 0 = OK.
 The input should be one of the ?wxSTC\_STATUS\_\* constants.
 """.
 -spec setStatus(This, Status) -> 'ok' when
-	This::wxStyledTextCtrl(), Status::integer().
+        This::wxStyledTextCtrl(), Status::integer().
 setStatus(#wx_ref{type=ThisT}=This,Status)
  when is_integer(Status) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -3353,7 +3353,7 @@ Get error status.
 The return value will be one of the ?wxSTC\_STATUS\_\* constants.
 """.
 -spec getStatus(This) -> integer() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getStatus(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetStatus),
@@ -3361,7 +3361,7 @@ getStatus(#wx_ref{type=ThisT}=This) ->
 
 -doc "Set whether the mouse is captured when its button is pressed.".
 -spec setMouseDownCaptures(This, Captures) -> 'ok' when
-	This::wxStyledTextCtrl(), Captures::boolean().
+        This::wxStyledTextCtrl(), Captures::boolean().
 setMouseDownCaptures(#wx_ref{type=ThisT}=This,Captures)
  when is_boolean(Captures) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -3369,7 +3369,7 @@ setMouseDownCaptures(#wx_ref{type=ThisT}=This,Captures)
 
 -doc "Get whether mouse gets captured.".
 -spec getMouseDownCaptures(This) -> boolean() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getMouseDownCaptures(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetMouseDownCaptures),
@@ -3377,7 +3377,7 @@ getMouseDownCaptures(#wx_ref{type=ThisT}=This) ->
 
 -doc "Sets the cursor to one of the wxSTC\_CURSOR\* values.".
 -spec setSTCCursor(This, CursorType) -> 'ok' when
-	This::wxStyledTextCtrl(), CursorType::integer().
+        This::wxStyledTextCtrl(), CursorType::integer().
 setSTCCursor(#wx_ref{type=ThisT}=This,CursorType)
  when is_integer(CursorType) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -3389,7 +3389,7 @@ Get cursor type.
 The return value will be one of the ?wxSTC\_CURSOR\* constants.
 """.
 -spec getSTCCursor(This) -> integer() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getSTCCursor(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetSTCCursor),
@@ -3400,7 +3400,7 @@ Change the way control characters are displayed: If symbol is *< 32, keep the dr
 else, use the given character.
 """.
 -spec setControlCharSymbol(This, Symbol) -> 'ok' when
-	This::wxStyledTextCtrl(), Symbol::integer().
+        This::wxStyledTextCtrl(), Symbol::integer().
 setControlCharSymbol(#wx_ref{type=ThisT}=This,Symbol)
  when is_integer(Symbol) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -3408,7 +3408,7 @@ setControlCharSymbol(#wx_ref{type=ThisT}=This,Symbol)
 
 -doc "Get the way control characters are displayed.".
 -spec getControlCharSymbol(This) -> integer() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getControlCharSymbol(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetControlCharSymbol),
@@ -3416,28 +3416,28 @@ getControlCharSymbol(#wx_ref{type=ThisT}=This) ->
 
 -doc "Move to the previous change in capitalisation.".
 -spec wordPartLeft(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 wordPartLeft(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_WordPartLeft).
 
 -doc "Move to the previous change in capitalisation extending selection to new caret position.".
 -spec wordPartLeftExtend(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 wordPartLeftExtend(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_WordPartLeftExtend).
 
 -doc "Move to the change next in capitalisation.".
 -spec wordPartRight(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 wordPartRight(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_WordPartRight).
 
 -doc "Move to the next change in capitalisation extending selection to new caret position.".
 -spec wordPartRightExtend(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 wordPartRightExtend(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_WordPartRightExtend).
@@ -3450,7 +3450,7 @@ The first argument should be a bit list containing one or more of the ?wxSTC\_VI
 constants.
 """.
 -spec setVisiblePolicy(This, VisiblePolicy, VisibleSlop) -> 'ok' when
-	This::wxStyledTextCtrl(), VisiblePolicy::integer(), VisibleSlop::integer().
+        This::wxStyledTextCtrl(), VisiblePolicy::integer(), VisibleSlop::integer().
 setVisiblePolicy(#wx_ref{type=ThisT}=This,VisiblePolicy,VisibleSlop)
  when is_integer(VisiblePolicy),is_integer(VisibleSlop) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -3458,21 +3458,21 @@ setVisiblePolicy(#wx_ref{type=ThisT}=This,VisiblePolicy,VisibleSlop)
 
 -doc "Delete back from the current position to the start of the line.".
 -spec delLineLeft(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 delLineLeft(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_DelLineLeft).
 
 -doc "Delete forwards from the current position to the end of the line.".
 -spec delLineRight(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 delLineRight(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_DelLineRight).
 
 -doc "Get the xOffset (ie, horizontal scroll position).".
 -spec getXOffset(This) -> integer() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getXOffset(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetXOffset),
@@ -3480,7 +3480,7 @@ getXOffset(#wx_ref{type=ThisT}=This) ->
 
 -doc "Set the last x chosen value to be the caret x position.".
 -spec chooseCaretX(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 chooseCaretX(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_ChooseCaretX).
@@ -3494,7 +3494,7 @@ The first argument should be a bit list containing one or more of the ?wxSTC\_CA
 constants.
 """.
 -spec setXCaretPolicy(This, CaretPolicy, CaretSlop) -> 'ok' when
-	This::wxStyledTextCtrl(), CaretPolicy::integer(), CaretSlop::integer().
+        This::wxStyledTextCtrl(), CaretPolicy::integer(), CaretSlop::integer().
 setXCaretPolicy(#wx_ref{type=ThisT}=This,CaretPolicy,CaretSlop)
  when is_integer(CaretPolicy),is_integer(CaretSlop) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -3509,7 +3509,7 @@ The first argument should be a bit list containing one or more of the ?wxSTC\_CA
 constants.
 """.
 -spec setYCaretPolicy(This, CaretPolicy, CaretSlop) -> 'ok' when
-	This::wxStyledTextCtrl(), CaretPolicy::integer(), CaretSlop::integer().
+        This::wxStyledTextCtrl(), CaretPolicy::integer(), CaretSlop::integer().
 setYCaretPolicy(#wx_ref{type=ThisT}=This,CaretPolicy,CaretSlop)
  when is_integer(CaretPolicy),is_integer(CaretSlop) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -3521,7 +3521,7 @@ Is printing line wrapped?
 The return value will be one of the ?wxSTC\_WRAP\_\* constants.
 """.
 -spec getPrintWrapMode(This) -> integer() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getPrintWrapMode(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetPrintWrapMode),
@@ -3529,7 +3529,7 @@ getPrintWrapMode(#wx_ref{type=ThisT}=This) ->
 
 -doc "Set a fore colour for active hotspots.".
 -spec setHotspotActiveForeground(This, UseSetting, Fore) -> 'ok' when
-	This::wxStyledTextCtrl(), UseSetting::boolean(), Fore::wx:wx_colour().
+        This::wxStyledTextCtrl(), UseSetting::boolean(), Fore::wx:wx_colour().
 setHotspotActiveForeground(#wx_ref{type=ThisT}=This,UseSetting,Fore)
  when is_boolean(UseSetting),?is_colordata(Fore) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -3537,7 +3537,7 @@ setHotspotActiveForeground(#wx_ref{type=ThisT}=This,UseSetting,Fore)
 
 -doc "Set a back colour for active hotspots.".
 -spec setHotspotActiveBackground(This, UseSetting, Back) -> 'ok' when
-	This::wxStyledTextCtrl(), UseSetting::boolean(), Back::wx:wx_colour().
+        This::wxStyledTextCtrl(), UseSetting::boolean(), Back::wx:wx_colour().
 setHotspotActiveBackground(#wx_ref{type=ThisT}=This,UseSetting,Back)
  when is_boolean(UseSetting),?is_colordata(Back) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -3545,7 +3545,7 @@ setHotspotActiveBackground(#wx_ref{type=ThisT}=This,UseSetting,Back)
 
 -doc "Enable / Disable underlining active hotspots.".
 -spec setHotspotActiveUnderline(This, Underline) -> 'ok' when
-	This::wxStyledTextCtrl(), Underline::boolean().
+        This::wxStyledTextCtrl(), Underline::boolean().
 setHotspotActiveUnderline(#wx_ref{type=ThisT}=This,Underline)
  when is_boolean(Underline) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -3553,7 +3553,7 @@ setHotspotActiveUnderline(#wx_ref{type=ThisT}=This,Underline)
 
 -doc "Limit hotspots to single line so hotspots on two lines don't merge.".
 -spec setHotspotSingleLine(This, SingleLine) -> 'ok' when
-	This::wxStyledTextCtrl(), SingleLine::boolean().
+        This::wxStyledTextCtrl(), SingleLine::boolean().
 setHotspotSingleLine(#wx_ref{type=ThisT}=This,SingleLine)
  when is_boolean(SingleLine) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -3561,21 +3561,21 @@ setHotspotSingleLine(#wx_ref{type=ThisT}=This,SingleLine)
 
 -doc "Extend selection down one paragraph (delimited by empty lines).".
 -spec paraDownExtend(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 paraDownExtend(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_ParaDownExtend).
 
 -doc "Move caret up one paragraph (delimited by empty lines).".
 -spec paraUp(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 paraUp(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_ParaUp).
 
 -doc "Extend selection up one paragraph (delimited by empty lines).".
 -spec paraUpExtend(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 paraUpExtend(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_ParaUpExtend).
@@ -3587,7 +3587,7 @@ account.
 Returns 0 if passed 0.
 """.
 -spec positionBefore(This, Pos) -> integer() when
-	This::wxStyledTextCtrl(), Pos::integer().
+        This::wxStyledTextCtrl(), Pos::integer().
 positionBefore(#wx_ref{type=ThisT}=This,Pos)
  when is_integer(Pos) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -3600,7 +3600,7 @@ Given a valid document position, return the next position taking code page into 
 Maximum value returned is the last position in the document.
 """.
 -spec positionAfter(This, Pos) -> integer() when
-	This::wxStyledTextCtrl(), Pos::integer().
+        This::wxStyledTextCtrl(), Pos::integer().
 positionAfter(#wx_ref{type=ThisT}=This,Pos)
  when is_integer(Pos) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -3613,7 +3613,7 @@ Copy a range of text to the clipboard.
 Positions are clipped into the document.
 """.
 -spec copyRange(This, Start, End) -> 'ok' when
-	This::wxStyledTextCtrl(), Start::integer(), End::integer().
+        This::wxStyledTextCtrl(), Start::integer(), End::integer().
 copyRange(#wx_ref{type=ThisT}=This,Start,End)
  when is_integer(Start),is_integer(End) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -3621,7 +3621,7 @@ copyRange(#wx_ref{type=ThisT}=This,Start,End)
 
 -doc "Copy argument text to the clipboard.".
 -spec copyText(This, Length, Text) -> 'ok' when
-	This::wxStyledTextCtrl(), Length::integer(), Text::unicode:chardata().
+        This::wxStyledTextCtrl(), Length::integer(), Text::unicode:chardata().
 copyText(#wx_ref{type=ThisT}=This,Length,Text)
  when is_integer(Length),?is_chardata(Text) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -3633,7 +3633,7 @@ Set the selection mode to stream (wxSTC\_SEL\_STREAM) or rectangular
 (wxSTC\_SEL\_RECTANGLE/wxSTC\_SEL\_THIN) or by lines (wxSTC\_SEL\_LINES).
 """.
 -spec setSelectionMode(This, SelectionMode) -> 'ok' when
-	This::wxStyledTextCtrl(), SelectionMode::integer().
+        This::wxStyledTextCtrl(), SelectionMode::integer().
 setSelectionMode(#wx_ref{type=ThisT}=This,SelectionMode)
  when is_integer(SelectionMode) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -3645,7 +3645,7 @@ Get the mode of the current selection.
 The return value will be one of the ?wxSTC\_SEL\_\* constants.
 """.
 -spec getSelectionMode(This) -> integer() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getSelectionMode(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetSelectionMode),
@@ -3653,28 +3653,28 @@ getSelectionMode(#wx_ref{type=ThisT}=This) ->
 
 -doc "Move caret down one line, extending rectangular selection to new caret position.".
 -spec lineDownRectExtend(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 lineDownRectExtend(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_LineDownRectExtend).
 
 -doc "Move caret up one line, extending rectangular selection to new caret position.".
 -spec lineUpRectExtend(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 lineUpRectExtend(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_LineUpRectExtend).
 
 -doc "Move caret left one character, extending rectangular selection to new caret position.".
 -spec charLeftRectExtend(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 charLeftRectExtend(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_CharLeftRectExtend).
 
 -doc "Move caret right one character, extending rectangular selection to new caret position.".
 -spec charRightRectExtend(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 charRightRectExtend(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_CharRightRectExtend).
@@ -3684,7 +3684,7 @@ Move caret to first position on line, extending rectangular selection to new car
 position.
 """.
 -spec homeRectExtend(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 homeRectExtend(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_HomeRectExtend).
@@ -3696,7 +3696,7 @@ If already there move to first character on line. In either case, extend rectang
 selection to new caret position.
 """.
 -spec vCHomeRectExtend(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 vCHomeRectExtend(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_VCHomeRectExtend).
@@ -3706,28 +3706,28 @@ Move caret to last position on line, extending rectangular selection to new care
 position.
 """.
 -spec lineEndRectExtend(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 lineEndRectExtend(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_LineEndRectExtend).
 
 -doc "Move caret one page up, extending rectangular selection to new caret position.".
 -spec pageUpRectExtend(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 pageUpRectExtend(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_PageUpRectExtend).
 
 -doc "Move caret one page down, extending rectangular selection to new caret position.".
 -spec pageDownRectExtend(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 pageDownRectExtend(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_PageDownRectExtend).
 
 -doc "Move caret to top of page, or one page up if already at top of page.".
 -spec stutteredPageUp(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 stutteredPageUp(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_StutteredPageUp).
@@ -3737,14 +3737,14 @@ Move caret to top of page, or one page up if already at top of page, extending s
 to new caret position.
 """.
 -spec stutteredPageUpExtend(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 stutteredPageUpExtend(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_StutteredPageUpExtend).
 
 -doc "Move caret to bottom of page, or one page down if already at bottom of page.".
 -spec stutteredPageDown(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 stutteredPageDown(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_StutteredPageDown).
@@ -3754,14 +3754,14 @@ Move caret to bottom of page, or one page down if already at bottom of page, ext
 selection to new caret position.
 """.
 -spec stutteredPageDownExtend(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 stutteredPageDownExtend(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_StutteredPageDownExtend).
 
 -doc "Move caret left one word, position cursor at end of word.".
 -spec wordLeftEnd(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 wordLeftEnd(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_WordLeftEnd).
@@ -3771,14 +3771,14 @@ Move caret left one word, position cursor at end of word, extending selection to
 caret position.
 """.
 -spec wordLeftEndExtend(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 wordLeftEndExtend(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_WordLeftEndExtend).
 
 -doc "Move caret right one word, position cursor at end of word.".
 -spec wordRightEnd(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 wordRightEnd(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_WordRightEnd).
@@ -3788,7 +3788,7 @@ Move caret right one word, position cursor at end of word, extending selection t
 caret position.
 """.
 -spec wordRightEndExtend(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 wordRightEndExtend(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_WordRightEndExtend).
@@ -3799,7 +3799,7 @@ Set the set of characters making up whitespace for when moving or selecting by w
 Should be called after SetWordChars.
 """.
 -spec setWhitespaceChars(This, Characters) -> 'ok' when
-	This::wxStyledTextCtrl(), Characters::unicode:chardata().
+        This::wxStyledTextCtrl(), Characters::unicode:chardata().
 setWhitespaceChars(#wx_ref{type=ThisT}=This,Characters)
  when ?is_chardata(Characters) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -3808,14 +3808,14 @@ setWhitespaceChars(#wx_ref{type=ThisT}=This,Characters)
 
 -doc "Reset the set of characters for whitespace and word characters to the defaults.".
 -spec setCharsDefault(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 setCharsDefault(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_SetCharsDefault).
 
 -doc "Get currently selected item position in the auto-completion list.".
 -spec autoCompGetCurrent(This) -> integer() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 autoCompGetCurrent(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_AutoCompGetCurrent),
@@ -3823,7 +3823,7 @@ autoCompGetCurrent(#wx_ref{type=ThisT}=This) ->
 
 -doc "Enlarge the document to a particular size of text bytes.".
 -spec allocate(This, Bytes) -> 'ok' when
-	This::wxStyledTextCtrl(), Bytes::integer().
+        This::wxStyledTextCtrl(), Bytes::integer().
 allocate(#wx_ref{type=ThisT}=This,Bytes)
  when is_integer(Bytes) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -3836,7 +3836,7 @@ characters.
 If beyond end of line, return line end position.
 """.
 -spec findColumn(This, Line, Column) -> integer() when
-	This::wxStyledTextCtrl(), Line::integer(), Column::integer().
+        This::wxStyledTextCtrl(), Line::integer(), Column::integer().
 findColumn(#wx_ref{type=ThisT}=This,Line,Column)
  when is_integer(Line),is_integer(Column) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -3849,7 +3849,7 @@ Can the caret preferred x position only be changed by explicit movement commands
 The return value will be one of the ?wxSTC\_CARETSTICKY\_\* constants.
 """.
 -spec getCaretSticky(This) -> integer() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getCaretSticky(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetCaretSticky),
@@ -3861,7 +3861,7 @@ Stop the caret preferred x position changing when the user types.
 The input should be one of the ?wxSTC\_CARETSTICKY\_\* constants.
 """.
 -spec setCaretSticky(This, UseCaretStickyBehaviour) -> 'ok' when
-	This::wxStyledTextCtrl(), UseCaretStickyBehaviour::integer().
+        This::wxStyledTextCtrl(), UseCaretStickyBehaviour::integer().
 setCaretSticky(#wx_ref{type=ThisT}=This,UseCaretStickyBehaviour)
  when is_integer(UseCaretStickyBehaviour) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -3869,14 +3869,14 @@ setCaretSticky(#wx_ref{type=ThisT}=This,UseCaretStickyBehaviour)
 
 -doc "Switch between sticky and non-sticky: meant to be bound to a key.".
 -spec toggleCaretSticky(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 toggleCaretSticky(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_ToggleCaretSticky).
 
 -doc "Enable/Disable convert-on-paste for line endings.".
 -spec setPasteConvertEndings(This, Convert) -> 'ok' when
-	This::wxStyledTextCtrl(), Convert::boolean().
+        This::wxStyledTextCtrl(), Convert::boolean().
 setPasteConvertEndings(#wx_ref{type=ThisT}=This,Convert)
  when is_boolean(Convert) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -3884,7 +3884,7 @@ setPasteConvertEndings(#wx_ref{type=ThisT}=This,Convert)
 
 -doc "Get convert-on-paste setting.".
 -spec getPasteConvertEndings(This) -> boolean() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getPasteConvertEndings(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetPasteConvertEndings),
@@ -3896,14 +3896,14 @@ Duplicate the selection.
 If selection empty duplicate the line containing the caret.
 """.
 -spec selectionDuplicate(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 selectionDuplicate(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_SelectionDuplicate).
 
 -doc "Set background alpha of the caret line.".
 -spec setCaretLineBackAlpha(This, Alpha) -> 'ok' when
-	This::wxStyledTextCtrl(), Alpha::integer().
+        This::wxStyledTextCtrl(), Alpha::integer().
 setCaretLineBackAlpha(#wx_ref{type=ThisT}=This,Alpha)
  when is_integer(Alpha) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -3911,7 +3911,7 @@ setCaretLineBackAlpha(#wx_ref{type=ThisT}=This,Alpha)
 
 -doc "Get the background alpha of the caret line.".
 -spec getCaretLineBackAlpha(This) -> integer() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getCaretLineBackAlpha(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetCaretLineBackAlpha),
@@ -3919,14 +3919,14 @@ getCaretLineBackAlpha(#wx_ref{type=ThisT}=This) ->
 
 -doc "Start notifying the container of all key presses and commands.".
 -spec startRecord(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 startRecord(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_StartRecord).
 
 -doc "Stop notifying the container of all key presses and commands.".
 -spec stopRecord(This) -> 'ok' when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 stopRecord(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_StopRecord).
@@ -3937,7 +3937,7 @@ Set the lexing language of the document.
 The input should be one of the ?wxSTC\_LEX\_\* constants.
 """.
 -spec setLexer(This, Lexer) -> 'ok' when
-	This::wxStyledTextCtrl(), Lexer::integer().
+        This::wxStyledTextCtrl(), Lexer::integer().
 setLexer(#wx_ref{type=ThisT}=This,Lexer)
  when is_integer(Lexer) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -3949,7 +3949,7 @@ Retrieve the lexing language of the document.
 The return value will be one of the ?wxSTC\_LEX\_\* constants.
 """.
 -spec getLexer(This) -> integer() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getLexer(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetLexer),
@@ -3957,7 +3957,7 @@ getLexer(#wx_ref{type=ThisT}=This) ->
 
 -doc "Colourise a segment of the document using the current lexing language.".
 -spec colourise(This, Start, End) -> 'ok' when
-	This::wxStyledTextCtrl(), Start::integer(), End::integer().
+        This::wxStyledTextCtrl(), Start::integer(), End::integer().
 colourise(#wx_ref{type=ThisT}=This,Start,End)
  when is_integer(Start),is_integer(End) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -3965,7 +3965,7 @@ colourise(#wx_ref{type=ThisT}=This,Start,End)
 
 -doc "Set up a value that may be used by a lexer for some optional feature.".
 -spec setProperty(This, Key, Value) -> 'ok' when
-	This::wxStyledTextCtrl(), Key::unicode:chardata(), Value::unicode:chardata().
+        This::wxStyledTextCtrl(), Key::unicode:chardata(), Value::unicode:chardata().
 setProperty(#wx_ref{type=ThisT}=This,Key,Value)
  when ?is_chardata(Key),?is_chardata(Value) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -3975,7 +3975,7 @@ setProperty(#wx_ref{type=ThisT}=This,Key,Value)
 
 -doc "Set up the key words used by the lexer.".
 -spec setKeyWords(This, KeyWordSet, KeyWords) -> 'ok' when
-	This::wxStyledTextCtrl(), KeyWordSet::integer(), KeyWords::unicode:chardata().
+        This::wxStyledTextCtrl(), KeyWordSet::integer(), KeyWords::unicode:chardata().
 setKeyWords(#wx_ref{type=ThisT}=This,KeyWordSet,KeyWords)
  when is_integer(KeyWordSet),?is_chardata(KeyWords) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -3984,7 +3984,7 @@ setKeyWords(#wx_ref{type=ThisT}=This,KeyWordSet,KeyWords)
 
 -doc "Set the lexing language of the document based on string name.".
 -spec setLexerLanguage(This, Language) -> 'ok' when
-	This::wxStyledTextCtrl(), Language::unicode:chardata().
+        This::wxStyledTextCtrl(), Language::unicode:chardata().
 setLexerLanguage(#wx_ref{type=ThisT}=This,Language)
  when ?is_chardata(Language) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -3995,7 +3995,7 @@ setLexerLanguage(#wx_ref{type=ThisT}=This,Language)
 Retrieve a "property" value previously set with SetProperty.
 """.
 -spec getProperty(This, Key) -> unicode:charlist() when
-	This::wxStyledTextCtrl(), Key::unicode:chardata().
+        This::wxStyledTextCtrl(), Key::unicode:chardata().
 getProperty(#wx_ref{type=ThisT}=This,Key)
  when ?is_chardata(Key) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -4009,7 +4009,7 @@ Retrieve the number of bits the current lexer needs for styling.
 Deprecated:
 """.
 -spec getStyleBitsNeeded(This) -> integer() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getStyleBitsNeeded(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetStyleBitsNeeded),
@@ -4017,7 +4017,7 @@ getStyleBitsNeeded(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the line number of the line with the caret.".
 -spec getCurrentLine(This) -> integer() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getCurrentLine(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetCurrentLine),
@@ -4033,7 +4033,7 @@ face name to use size:[num] sets the font size in points eol turns on eol fillin
 underline turns on underlining
 """.
 -spec styleSetSpec(This, StyleNum, Spec) -> 'ok' when
-	This::wxStyledTextCtrl(), StyleNum::integer(), Spec::unicode:chardata().
+        This::wxStyledTextCtrl(), StyleNum::integer(), Spec::unicode:chardata().
 styleSetSpec(#wx_ref{type=ThisT}=This,StyleNum,Spec)
  when is_integer(StyleNum),?is_chardata(Spec) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -4045,7 +4045,7 @@ Set style size, face, bold, italic, and underline attributes from a `m:wxFont`'s
 attributes.
 """.
 -spec styleSetFont(This, StyleNum, Font) -> 'ok' when
-	This::wxStyledTextCtrl(), StyleNum::integer(), Font::wxFont:wxFont().
+        This::wxStyledTextCtrl(), StyleNum::integer(), Font::wxFont:wxFont().
 styleSetFont(#wx_ref{type=ThisT}=This,StyleNum,#wx_ref{type=FontT}=Font)
  when is_integer(StyleNum) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -4054,7 +4054,7 @@ styleSetFont(#wx_ref{type=ThisT}=This,StyleNum,#wx_ref{type=FontT}=Font)
 
 -doc(#{equiv => styleSetFontAttr(This,StyleNum,Size,FaceName,Bold,Italic,Underline, [])}).
 -spec styleSetFontAttr(This, StyleNum, Size, FaceName, Bold, Italic, Underline) -> 'ok' when
-	This::wxStyledTextCtrl(), StyleNum::integer(), Size::integer(), FaceName::unicode:chardata(), Bold::boolean(), Italic::boolean(), Underline::boolean().
+        This::wxStyledTextCtrl(), StyleNum::integer(), Size::integer(), FaceName::unicode:chardata(), Bold::boolean(), Italic::boolean(), Underline::boolean().
 
 styleSetFontAttr(This,StyleNum,Size,FaceName,Bold,Italic,Underline)
  when is_record(This, wx_ref),is_integer(StyleNum),is_integer(Size),?is_chardata(FaceName),is_boolean(Bold),is_boolean(Italic),is_boolean(Underline) ->
@@ -4080,7 +4080,7 @@ Set the character set of the font in a style.
 Converts the Scintilla character set values to a wxFontEncoding.
 """.
 -spec styleSetCharacterSet(This, Style, CharacterSet) -> 'ok' when
-	This::wxStyledTextCtrl(), Style::integer(), CharacterSet::integer().
+        This::wxStyledTextCtrl(), Style::integer(), CharacterSet::integer().
 styleSetCharacterSet(#wx_ref{type=ThisT}=This,Style,CharacterSet)
  when is_integer(Style),is_integer(CharacterSet) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -4089,7 +4089,7 @@ styleSetCharacterSet(#wx_ref{type=ThisT}=This,Style,CharacterSet)
 -doc "Set the font encoding to be used by a style.".
 %%  Encoding = ?wxFONTENCODING_SYSTEM | ?wxFONTENCODING_DEFAULT | ?wxFONTENCODING_ISO8859_1 | ?wxFONTENCODING_ISO8859_2 | ?wxFONTENCODING_ISO8859_3 | ?wxFONTENCODING_ISO8859_4 | ?wxFONTENCODING_ISO8859_5 | ?wxFONTENCODING_ISO8859_6 | ?wxFONTENCODING_ISO8859_7 | ?wxFONTENCODING_ISO8859_8 | ?wxFONTENCODING_ISO8859_9 | ?wxFONTENCODING_ISO8859_10 | ?wxFONTENCODING_ISO8859_11 | ?wxFONTENCODING_ISO8859_12 | ?wxFONTENCODING_ISO8859_13 | ?wxFONTENCODING_ISO8859_14 | ?wxFONTENCODING_ISO8859_15 | ?wxFONTENCODING_ISO8859_MAX | ?wxFONTENCODING_KOI8 | ?wxFONTENCODING_KOI8_U | ?wxFONTENCODING_ALTERNATIVE | ?wxFONTENCODING_BULGARIAN | ?wxFONTENCODING_CP437 | ?wxFONTENCODING_CP850 | ?wxFONTENCODING_CP852 | ?wxFONTENCODING_CP855 | ?wxFONTENCODING_CP866 | ?wxFONTENCODING_CP874 | ?wxFONTENCODING_CP932 | ?wxFONTENCODING_CP936 | ?wxFONTENCODING_CP949 | ?wxFONTENCODING_CP950 | ?wxFONTENCODING_CP1250 | ?wxFONTENCODING_CP1251 | ?wxFONTENCODING_CP1252 | ?wxFONTENCODING_CP1253 | ?wxFONTENCODING_CP1254 | ?wxFONTENCODING_CP1255 | ?wxFONTENCODING_CP1256 | ?wxFONTENCODING_CP1257 | ?wxFONTENCODING_CP1258 | ?wxFONTENCODING_CP1361 | ?wxFONTENCODING_CP12_MAX | ?wxFONTENCODING_UTF7 | ?wxFONTENCODING_UTF8 | ?wxFONTENCODING_EUC_JP | ?wxFONTENCODING_UTF16BE | ?wxFONTENCODING_UTF16LE | ?wxFONTENCODING_UTF32BE | ?wxFONTENCODING_UTF32LE | ?wxFONTENCODING_MACROMAN | ?wxFONTENCODING_MACJAPANESE | ?wxFONTENCODING_MACCHINESETRAD | ?wxFONTENCODING_MACKOREAN | ?wxFONTENCODING_MACARABIC | ?wxFONTENCODING_MACHEBREW | ?wxFONTENCODING_MACGREEK | ?wxFONTENCODING_MACCYRILLIC | ?wxFONTENCODING_MACDEVANAGARI | ?wxFONTENCODING_MACGURMUKHI | ?wxFONTENCODING_MACGUJARATI | ?wxFONTENCODING_MACORIYA | ?wxFONTENCODING_MACBENGALI | ?wxFONTENCODING_MACTAMIL | ?wxFONTENCODING_MACTELUGU | ?wxFONTENCODING_MACKANNADA | ?wxFONTENCODING_MACMALAJALAM | ?wxFONTENCODING_MACSINHALESE | ?wxFONTENCODING_MACBURMESE | ?wxFONTENCODING_MACKHMER | ?wxFONTENCODING_MACTHAI | ?wxFONTENCODING_MACLAOTIAN | ?wxFONTENCODING_MACGEORGIAN | ?wxFONTENCODING_MACARMENIAN | ?wxFONTENCODING_MACCHINESESIMP | ?wxFONTENCODING_MACTIBETAN | ?wxFONTENCODING_MACMONGOLIAN | ?wxFONTENCODING_MACETHIOPIC | ?wxFONTENCODING_MACCENTRALEUR | ?wxFONTENCODING_MACVIATNAMESE | ?wxFONTENCODING_MACARABICEXT | ?wxFONTENCODING_MACSYMBOL | ?wxFONTENCODING_MACDINGBATS | ?wxFONTENCODING_MACTURKISH | ?wxFONTENCODING_MACCROATIAN | ?wxFONTENCODING_MACICELANDIC | ?wxFONTENCODING_MACROMANIAN | ?wxFONTENCODING_MACCELTIC | ?wxFONTENCODING_MACGAELIC | ?wxFONTENCODING_MACKEYBOARD | ?wxFONTENCODING_ISO2022_JP | ?wxFONTENCODING_MAX | ?wxFONTENCODING_MACMIN | ?wxFONTENCODING_MACMAX | ?wxFONTENCODING_UTF16 | ?wxFONTENCODING_UTF32 | ?wxFONTENCODING_UNICODE | ?wxFONTENCODING_GB2312 | ?wxFONTENCODING_BIG5 | ?wxFONTENCODING_SHIFT_JIS | ?wxFONTENCODING_EUC_KR | ?wxFONTENCODING_JOHAB | ?wxFONTENCODING_VIETNAMESE
 -spec styleSetFontEncoding(This, Style, Encoding) -> 'ok' when
-	This::wxStyledTextCtrl(), Style::integer(), Encoding::wx:wx_enum().
+        This::wxStyledTextCtrl(), Style::integer(), Encoding::wx:wx_enum().
 styleSetFontEncoding(#wx_ref{type=ThisT}=This,Style,Encoding)
  when is_integer(Style),is_integer(Encoding) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -4097,7 +4097,7 @@ styleSetFontEncoding(#wx_ref{type=ThisT}=This,Style,Encoding)
 
 -doc "Perform one of the operations defined by the wxSTC\_CMD\_\* constants.".
 -spec cmdKeyExecute(This, Cmd) -> 'ok' when
-	This::wxStyledTextCtrl(), Cmd::integer().
+        This::wxStyledTextCtrl(), Cmd::integer().
 cmdKeyExecute(#wx_ref{type=ThisT}=This,Cmd)
  when is_integer(Cmd) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -4105,7 +4105,7 @@ cmdKeyExecute(#wx_ref{type=ThisT}=This,Cmd)
 
 -doc "Set the left and right margin in the edit area, measured in pixels.".
 -spec setMargins(This, Left, Right) -> 'ok' when
-	This::wxStyledTextCtrl(), Left::integer(), Right::integer().
+        This::wxStyledTextCtrl(), Left::integer(), Right::integer().
 setMargins(#wx_ref{type=ThisT}=This,Left,Right)
  when is_integer(Left),is_integer(Right) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -4120,7 +4120,7 @@ the correct indices into the string returned by `wxComboBox:getValue/1` for mult
 least,) you should use `wxTextCtrl:getStringSelection/1` to get the selected text.
 """.
 -spec getSelection(This) -> {From::integer(), To::integer()} when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getSelection(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetSelection),
@@ -4128,7 +4128,7 @@ getSelection(#wx_ref{type=ThisT}=This) ->
 
 -doc "Retrieve the point in the window where a position is displayed.".
 -spec pointFromPosition(This, Pos) -> {X::integer(), Y::integer()} when
-	This::wxStyledTextCtrl(), Pos::integer().
+        This::wxStyledTextCtrl(), Pos::integer().
 pointFromPosition(#wx_ref{type=ThisT}=This,Pos)
  when is_integer(Pos) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -4137,7 +4137,7 @@ pointFromPosition(#wx_ref{type=ThisT}=This,Pos)
 
 -doc "Scroll enough to make the given line visible.".
 -spec scrollToLine(This, Line) -> 'ok' when
-	This::wxStyledTextCtrl(), Line::integer().
+        This::wxStyledTextCtrl(), Line::integer().
 scrollToLine(#wx_ref{type=ThisT}=This,Line)
  when is_integer(Line) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -4145,7 +4145,7 @@ scrollToLine(#wx_ref{type=ThisT}=This,Line)
 
 -doc "Scroll enough to make the given column visible.".
 -spec scrollToColumn(This, Column) -> 'ok' when
-	This::wxStyledTextCtrl(), Column::integer().
+        This::wxStyledTextCtrl(), Column::integer().
 scrollToColumn(#wx_ref{type=ThisT}=This,Column)
  when is_integer(Column) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -4153,7 +4153,7 @@ scrollToColumn(#wx_ref{type=ThisT}=This,Column)
 
 -doc "Set the vertical scrollbar to use instead of the one that's built-in.".
 -spec setVScrollBar(This, Bar) -> 'ok' when
-	This::wxStyledTextCtrl(), Bar::wxScrollBar:wxScrollBar().
+        This::wxStyledTextCtrl(), Bar::wxScrollBar:wxScrollBar().
 setVScrollBar(#wx_ref{type=ThisT}=This,#wx_ref{type=BarT}=Bar) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   ?CLASS(BarT,wxScrollBar),
@@ -4161,7 +4161,7 @@ setVScrollBar(#wx_ref{type=ThisT}=This,#wx_ref{type=BarT}=Bar) ->
 
 -doc "Set the horizontal scrollbar to use instead of the one that's built-in.".
 -spec setHScrollBar(This, Bar) -> 'ok' when
-	This::wxStyledTextCtrl(), Bar::wxScrollBar:wxScrollBar().
+        This::wxStyledTextCtrl(), Bar::wxScrollBar:wxScrollBar().
 setHScrollBar(#wx_ref{type=ThisT}=This,#wx_ref{type=BarT}=Bar) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   ?CLASS(BarT,wxScrollBar),
@@ -4169,7 +4169,7 @@ setHScrollBar(#wx_ref{type=ThisT}=This,#wx_ref{type=BarT}=Bar) ->
 
 -doc "Can be used to prevent the EVT\_CHAR handler from adding the char.".
 -spec getLastKeydownProcessed(This) -> boolean() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getLastKeydownProcessed(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetLastKeydownProcessed),
@@ -4177,7 +4177,7 @@ getLastKeydownProcessed(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the line number of the line with the caret.".
 -spec setLastKeydownProcessed(This, Val) -> 'ok' when
-	This::wxStyledTextCtrl(), Val::boolean().
+        This::wxStyledTextCtrl(), Val::boolean().
 setLastKeydownProcessed(#wx_ref{type=ThisT}=This,Val)
  when is_boolean(Val) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -4185,7 +4185,7 @@ setLastKeydownProcessed(#wx_ref{type=ThisT}=This,Val)
 
 -doc "Write the contents of the editor to filename.".
 -spec saveFile(This, Filename) -> boolean() when
-	This::wxStyledTextCtrl(), Filename::unicode:chardata().
+        This::wxStyledTextCtrl(), Filename::unicode:chardata().
 saveFile(#wx_ref{type=ThisT}=This,Filename)
  when ?is_chardata(Filename) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -4195,7 +4195,7 @@ saveFile(#wx_ref{type=ThisT}=This,Filename)
 
 -doc "Load the contents of filename into the editor.".
 -spec loadFile(This, Filename) -> boolean() when
-	This::wxStyledTextCtrl(), Filename::unicode:chardata().
+        This::wxStyledTextCtrl(), Filename::unicode:chardata().
 loadFile(#wx_ref{type=ThisT}=This,Filename)
  when ?is_chardata(Filename) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -4207,7 +4207,7 @@ loadFile(#wx_ref{type=ThisT}=This,Filename)
 %%  DefaultRes = ?wxDragError | ?wxDragNone | ?wxDragCopy | ?wxDragMove | ?wxDragLink | ?wxDragCancel
 %%  Res = ?wxDragError | ?wxDragNone | ?wxDragCopy | ?wxDragMove | ?wxDragLink | ?wxDragCancel
 -spec doDragOver(This, X, Y, DefaultRes) -> wx:wx_enum() when
-	This::wxStyledTextCtrl(), X::integer(), Y::integer(), DefaultRes::wx:wx_enum().
+        This::wxStyledTextCtrl(), X::integer(), Y::integer(), DefaultRes::wx:wx_enum().
 doDragOver(#wx_ref{type=ThisT}=This,X,Y,DefaultRes)
  when is_integer(X),is_integer(Y),is_integer(DefaultRes) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -4216,7 +4216,7 @@ doDragOver(#wx_ref{type=ThisT}=This,X,Y,DefaultRes)
 
 -doc "Allow for simulating a DnD DropText.".
 -spec doDropText(This, X, Y, Data) -> boolean() when
-	This::wxStyledTextCtrl(), X::integer(), Y::integer(), Data::unicode:chardata().
+        This::wxStyledTextCtrl(), X::integer(), Y::integer(), Data::unicode:chardata().
 doDropText(#wx_ref{type=ThisT}=This,X,Y,Data)
  when is_integer(X),is_integer(Y),?is_chardata(Data) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -4226,7 +4226,7 @@ doDropText(#wx_ref{type=ThisT}=This,X,Y,Data)
 
 -doc "Returns the current UseAntiAliasing setting.".
 -spec getUseAntiAliasing(This) -> boolean() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getUseAntiAliasing(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetUseAntiAliasing),
@@ -4234,7 +4234,7 @@ getUseAntiAliasing(#wx_ref{type=ThisT}=This) ->
 
 -doc(#{equiv => addTextRaw(This,Text, [])}).
 -spec addTextRaw(This, Text) -> 'ok' when
-	This::wxStyledTextCtrl(), Text::binary().
+        This::wxStyledTextCtrl(), Text::binary().
 
 addTextRaw(This,Text)
  when is_record(This, wx_ref),is_binary(Text) ->
@@ -4254,7 +4254,7 @@ addTextRaw(#wx_ref{type=ThisT}=This,Text, Options)
 
 -doc "Insert string at a position.".
 -spec insertTextRaw(This, Pos, Text) -> 'ok' when
-	This::wxStyledTextCtrl(), Pos::integer(), Text::binary().
+        This::wxStyledTextCtrl(), Pos::integer(), Text::binary().
 insertTextRaw(#wx_ref{type=ThisT}=This,Pos,Text)
  when is_integer(Pos),is_binary(Text) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -4275,7 +4275,7 @@ getCurLineRaw(#wx_ref{type=ThisT}=This) ->
 
 -doc "Retrieve the contents of a line.".
 -spec getLineRaw(This, Line) -> binary() when
-	This::wxStyledTextCtrl(), Line::integer().
+        This::wxStyledTextCtrl(), Line::integer().
 getLineRaw(#wx_ref{type=ThisT}=This,Line)
  when is_integer(Line) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -4284,7 +4284,7 @@ getLineRaw(#wx_ref{type=ThisT}=This,Line)
 
 -doc "Retrieve the selected text.".
 -spec getSelectedTextRaw(This) -> binary() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getSelectedTextRaw(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetSelectedTextRaw),
@@ -4292,7 +4292,7 @@ getSelectedTextRaw(#wx_ref{type=ThisT}=This) ->
 
 -doc "Retrieve a range of text.".
 -spec getTextRangeRaw(This, StartPos, EndPos) -> binary() when
-	This::wxStyledTextCtrl(), StartPos::integer(), EndPos::integer().
+        This::wxStyledTextCtrl(), StartPos::integer(), EndPos::integer().
 getTextRangeRaw(#wx_ref{type=ThisT}=This,StartPos,EndPos)
  when is_integer(StartPos),is_integer(EndPos) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -4301,7 +4301,7 @@ getTextRangeRaw(#wx_ref{type=ThisT}=This,StartPos,EndPos)
 
 -doc "Replace the contents of the document with the argument text.".
 -spec setTextRaw(This, Text) -> 'ok' when
-	This::wxStyledTextCtrl(), Text::binary().
+        This::wxStyledTextCtrl(), Text::binary().
 setTextRaw(#wx_ref{type=ThisT}=This,Text)
  when is_binary(Text) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
@@ -4309,7 +4309,7 @@ setTextRaw(#wx_ref{type=ThisT}=This,Text)
 
 -doc "Retrieve all the text in the document.".
 -spec getTextRaw(This) -> binary() when
-	This::wxStyledTextCtrl().
+        This::wxStyledTextCtrl().
 getTextRaw(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxStyledTextCtrl),
   wxe_util:queue_cmd(This,?get_env(),?wxStyledTextCtrl_GetTextRaw),
@@ -4317,7 +4317,7 @@ getTextRaw(#wx_ref{type=ThisT}=This) ->
 
 -doc(#{equiv => appendTextRaw(This,Text, [])}).
 -spec appendTextRaw(This, Text) -> 'ok' when
-	This::wxStyledTextCtrl(), Text::binary().
+        This::wxStyledTextCtrl(), Text::binary().
 
 appendTextRaw(This,Text)
  when is_record(This, wx_ref),is_binary(Text) ->
@@ -4482,9 +4482,9 @@ scrollPages(This,Pages) -> wxWindow:scrollPages(This,Pages).
 -doc false.
 scrollLines(This,Lines) -> wxWindow:scrollLines(This,Lines).
 -doc false.
-screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
+screenToClient(This,X,Y) -> wxWindow:screenToClient(This,X,Y).
 -doc false.
-screenToClient(This) -> wxWindow:screenToClient(This).
+screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
 -doc false.
 reparent(This,NewParent) -> wxWindow:reparent(This,NewParent).
 -doc false.

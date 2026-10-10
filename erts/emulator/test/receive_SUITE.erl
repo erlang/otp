@@ -25,6 +25,7 @@
 %% Tests receive after.
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 -export([all/0, suite/0, init_per_testcase/2, end_per_testcase/2,
          groups/0, init_per_group/2, end_per_group/2,
@@ -227,7 +228,7 @@ receive_opt_exception(Config) ->
                       %% Overwrite with the same mark,
                       %% and never consume it.
                       ThrowFun = fun() -> throw(aborted) end,
-                      aborted = (catch do_receive_opt_exception(Ctx, ThrowFun)),
+                      ?assertThrow(aborted, do_receive_opt_exception(Ctx, ThrowFun)),
                       ok
               end,
     do_receive_opt_exception(Ctx, Recurse),
@@ -867,10 +868,13 @@ flush_msgq(N) ->
     end.
 
 wait_until_busy(Fun) ->
-    case catch Fun() of
+    try Fun() of
         true ->
             ok;
         _ ->
+            wait_until_busy(Fun)
+    catch
+        _:_ ->
             wait_until_busy(Fun)
     end.
 

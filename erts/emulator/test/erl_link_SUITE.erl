@@ -87,9 +87,11 @@ all() ->
      otp_17127_local_random, otp_17127_dist_random].
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
-    case catch erts_debug:get_internal_state(available_internal_state) of
+    try erts_debug:get_internal_state(available_internal_state) of
         true -> ok;
         _ -> erts_debug:set_internal_state(available_internal_state, true)
+    catch
+        _:_ -> erts_debug:set_internal_state(available_internal_state, true)
     end,
     Config.
 
@@ -100,7 +102,9 @@ init_per_suite(Config) ->
     Config.
 
 end_per_suite(_Config) ->
-    catch erts_debug:set_internal_state(available_internal_state, false).
+    try erts_debug:set_internal_state(available_internal_state, false)
+    catch _:_ -> ok
+    end.
 
 
 %% Tests node local links
@@ -297,7 +301,7 @@ run_common_process_monitors(TP1, TP2) ->
     R1 = tp_call(TP1, fun () -> erlang:monitor(process, TP2) end),
     check_process_monitor(TP1, TP2, R1),
 
-    tp_call(TP2, fun () -> catch erlang:demonitor(R1) end),
+    tp_call(TP2, fun () -> try erlang:demonitor(R1) catch _:_ -> ok end end),
     check_process_monitor(TP1, TP2, R1),
 
     true = tp_call(TP1, fun () -> erlang:demonitor(R1) end),
@@ -771,10 +775,13 @@ is_proc_dead(P) ->
 is_proc_alive(Pid) when is_pid(Pid), node(Pid) == node() ->
     is_process_alive(Pid);
 is_proc_alive(Name) when is_atom(Name) ->
-    case catch whereis(Name) of
+    try whereis(Name) of
         Pid when is_pid(Pid) ->
             is_proc_alive(Pid);
         _ ->
+            false
+    catch
+        _:_ ->
             false
     end;
 is_proc_alive({Name, Node}) when is_atom(Name), Node == node() ->
@@ -845,19 +852,25 @@ test_proc() ->
     test_proc().
 
 get_local_link_list(Obj) ->
-    case catch erts_debug:get_internal_state({link_list, Obj}) of
+    try erts_debug:get_internal_state({link_list, Obj}) of
         LL when is_list(LL) ->
             LL;
         _ ->
             []
+    catch
+        _:_ ->
+            []
     end.
 
 get_remote_link_list(Node, Obj) ->
-    case catch rpc:call(Node, erts_debug, get_internal_state,
+    try rpc:call(Node, erts_debug, get_internal_state,
                         [{link_list, Obj}]) of
         LL when is_list(LL) ->
             LL;
         _ ->
+            []
+    catch
+        _:_ ->
             []
     end.
 
@@ -877,19 +890,25 @@ get_link_list(undefined) ->
     [].
 
 get_local_monitor_list(Obj) ->
-    case catch erts_debug:get_internal_state({monitor_list, Obj}) of
+    try erts_debug:get_internal_state({monitor_list, Obj}) of
         LL when is_list(LL) ->
             LL;
         _ ->
             []
+    catch
+        _:_ ->
+            []
     end.
 
 get_remote_monitor_list(Node, Obj) ->
-    case catch rpc:call(Node, erts_debug, get_internal_state,
+    try rpc:call(Node, erts_debug, get_internal_state,
                         [{monitor_list, Obj}]) of
         LL when is_list(LL) ->
             LL;
         _ ->
+            []
+    catch
+        _:_ ->
             []
     end.
 
@@ -1268,9 +1287,11 @@ dctrl_dop_reg_send(Node, Name, Msg) ->
                 dmsg_ext(Msg)]).
 
 dctrl(Node) when is_atom(Node) ->
-    case catch erts_debug:get_internal_state(available_internal_state) of
+    try erts_debug:get_internal_state(available_internal_state) of
         true -> true;
         _ -> erts_debug:set_internal_state(available_internal_state, true)
+    catch
+        _:_ -> erts_debug:set_internal_state(available_internal_state, true)
     end,
     erts_debug:get_internal_state({dist_ctrl, Node}).
 

@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright Ericsson AB 2014-2025. All Rights Reserved.
+ * Copyright Ericsson AB 2014-2026. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -81,7 +81,7 @@ class wxeFifo {
 class wxeErlTerm : public wxClientData
 {
  public:
-    wxeErlTerm(ERL_NIF_TERM in_term)
+    explicit wxeErlTerm(ERL_NIF_TERM in_term)
     {
         env = enif_alloc_env();
         term = enif_make_copy(env, in_term);
@@ -95,7 +95,7 @@ class wxeErlTerm : public wxClientData
 class wxETreeItemData : public wxTreeItemData
 {
  public:
-    wxETreeItemData(ERL_NIF_TERM in_term)
+    explicit wxETreeItemData(ERL_NIF_TERM in_term)
     {
         env = enif_alloc_env();
         term = enif_make_copy(env, in_term);

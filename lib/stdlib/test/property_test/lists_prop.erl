@@ -147,7 +147,7 @@ prop_dropwhile() ->
         {Pred, InList, ExpList},
         ?LET(
             Fn,
-            function1(bool()),
+            ?CT_FUNCTION1(bool()),
             ?LET(
                 {L, {_, DL}},
                 gen_list_fold(
@@ -246,7 +246,7 @@ prop_filter() ->
         {Pred, InList, ExpList},
         ?LET(
             P,
-            function1(bool()),
+            ?CT_FUNCTION1(bool()),
             ?LET(
                 {L, F},
                 gen_list_fold(
@@ -271,7 +271,7 @@ prop_filtermap() ->
         {FilterMapFn, InList, ExpList},
         ?LET(
             Fn,
-            function1(oneof([true, false, {true, ?CT_SAFE_ANY()}])),
+            ?CT_FUNCTION1(oneof([true, false, {true, ?CT_SAFE_ANY()}])),
             ?LET(
                 {L, FM},
                 gen_list_fold(
@@ -305,7 +305,7 @@ prop_flatmap() ->
         {MapFn, InList, ExpList},
         ?LET(
             Fn,
-            function1(?CT_SAFE_LIST()),
+            ?CT_FUNCTION1(?CT_SAFE_LIST()),
             ?LET(
                 {L, FlatMapped},
                 gen_list_fold(
@@ -344,7 +344,7 @@ prop_foldl() ->
         {FoldFn, InList, Acc0, Exp},
         ?LET(
             {Fn, Acc0},
-            {function2(?CT_SAFE_ANY()), ?CT_SAFE_ANY()},
+            {?CT_FUNCTION2(?CT_SAFE_ANY()), ?CT_SAFE_ANY()},
             ?LET(
                 {L, V},
                 gen_list_fold(?CT_SAFE_ANY(), Fn, Acc0),
@@ -360,7 +360,7 @@ prop_foldr() ->
         {FoldFn, InList, Acc0, Exp},
         ?LET(
             {Fn, Acc0},
-            {function2(?CT_SAFE_ANY()), ?CT_SAFE_ANY()},
+            {?CT_FUNCTION2(?CT_SAFE_ANY()), ?CT_SAFE_ANY()},
             ?LET(
                 {L, V},
                 gen_list_fold(?CT_SAFE_ANY(), Fn, Acc0),
@@ -455,7 +455,7 @@ prop_keymap() ->
         {MapFn, N, InList, ExpList},
         ?LET(
             Fn,
-            function1(?CT_SAFE_ANY()),
+            ?CT_FUNCTION1(?CT_SAFE_ANY()),
             ?LET(
                 N,
                 choose(1, 5),
@@ -679,7 +679,7 @@ prop_map() ->
         {MapFn, InList, ExpList},
         ?LET(
             Fn,
-            function1(?CT_SAFE_ANY()),
+            ?CT_FUNCTION1(?CT_SAFE_ANY()),
             ?LET(
                 {L, M},
                 gen_list_fold(
@@ -701,8 +701,8 @@ prop_mapfoldl() ->
         {MapFoldFn, InList, Acc0, Exp},
         ?LET(
             {MapFn, FoldFn, Acc0},
-            {function1(?CT_SAFE_ANY()),
-             function2(?CT_SAFE_ANY()),
+            {?CT_FUNCTION1(?CT_SAFE_ANY()),
+             ?CT_FUNCTION2(?CT_SAFE_ANY()),
              ?CT_SAFE_ANY()},
             ?LET(
                 {L, MV},
@@ -725,8 +725,8 @@ prop_mapfoldr() ->
         {MapFoldFn, InList, Acc0, Exp},
         ?LET(
             {MapFn, FoldFn, Acc0},
-            {function1(?CT_SAFE_ANY()),
-             function2(?CT_SAFE_ANY()),
+            {?CT_FUNCTION1(?CT_SAFE_ANY()),
+             ?CT_FUNCTION2(?CT_SAFE_ANY()),
              ?CT_SAFE_ANY()},
             ?LET(
                 {L, MV},
@@ -952,7 +952,7 @@ prop_nthtail_outofrange() ->
 prop_partition() ->
     ?FORALL(
         {Pred, InList},
-        {function1(bool()), ?CT_SAFE_LIST()},
+        {?CT_FUNCTION1(bool()), ?CT_SAFE_LIST()},
         begin
             {Group1, Group2} = lists:partition(Pred, InList),
             check_partitioned(Pred, InList, Group1, Group2)
@@ -1115,7 +1115,7 @@ prop_split_outofrange() ->
 prop_splitwith() ->
     ?FORALL(
         {Pred, InList},
-        {function1(bool()), ?CT_SAFE_LIST()},
+        {?CT_FUNCTION1(bool()), ?CT_SAFE_LIST()},
         begin
             {Part1, Part2} = lists:splitwith(Pred, InList),
             check_splitwithed(Pred, InList, Part1, Part2)
@@ -1191,7 +1191,7 @@ prop_takewhile() ->
         {Pred, InList, ExpList},
         ?LET(
             Fn,
-            function1(bool()),
+            ?CT_FUNCTION1(bool()),
             ?LET(
                 {L, {_, TL}},
                 gen_list_fold(
@@ -1378,7 +1378,7 @@ prop_uniq_1() ->
 prop_uniq_2() ->
     ?FORALL(
         {UniqFn, InList},
-        {function1(oneof([a, b, c])), ?CT_SAFE_LIST()},
+        {?CT_FUNCTION1(oneof([a, b, c])), ?CT_SAFE_LIST()},
         check_uniqed(UniqFn, InList, lists:uniq(UniqFn, InList))
     ).
 
@@ -1562,7 +1562,7 @@ prop_zipwith_3() ->
         {ZipFn, InList1, InList2, ExpList},
         ?LET(
             Fn,
-            function2(?CT_SAFE_ANY()),
+            ?CT_FUNCTION2(?CT_SAFE_ANY()),
             ?LET(
                 {_, {L1, L2, Z}},
                 gen_list_fold(
@@ -1585,7 +1585,7 @@ prop_zipwith_4() ->
 		?LET(
 			{Extra, Fn},
 			{non_empty(?CT_SAFE_LIST()),
-			 function2(?CT_SAFE_ANY())},
+                         ?CT_FUNCTION2(?CT_SAFE_ANY())},
 			?LET(
 				{_, {L1, L2, Z}},
 				gen_list_fold(
@@ -1626,7 +1626,7 @@ prop_zipwith3_4() ->
         {ZipFn, InList1, InList2, InList3, ExpList},
         ?LET(
             Fn,
-            function3(?CT_SAFE_ANY()),
+            ?CT_FUNCTION3(?CT_SAFE_ANY()),
             ?LET(
                 {_, {L1, L2, L3, Z}},
                 gen_list_fold(
@@ -1651,7 +1651,7 @@ prop_zipwith3_5() ->
 		?LET(
 			{Extra, Fn},
 			{non_empty(?CT_SAFE_LIST()),
-			 function3(?CT_SAFE_ANY())},
+                         ?CT_FUNCTION3(?CT_SAFE_ANY())},
 			?LET(
 				{_, {L1, L2, L3, Z}},
 				gen_list_fold(
@@ -1833,7 +1833,7 @@ gen_list_deepfold(N, Level, L, FoldFn, Acc) ->
 gen_ordering_fun() ->
     ?LET(
         F,
-        function1(choose(1, 3)),
+        ?CT_FUNCTION1(choose(1, 3)),
         fun(T1, T2) ->
             F(T1) =< F(T2)
         end

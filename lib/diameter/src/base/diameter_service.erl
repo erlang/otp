@@ -27,6 +27,9 @@
 -module(diameter_service).
 %% -moduledoc false.
 -moduledoc(#{since => "OTP 27.1"}).
+
+-compile([{nowarn_deprecated_function, [{erlang,exit,2}]}]).
+
 -behaviour(gen_server).
 
 %% towards diameter_service_sup

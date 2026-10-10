@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright Ericsson AB 2014-2025. All Rights Reserved.
+ * Copyright Ericsson AB 2014-2026. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -140,4 +140,5 @@ void wxeFifo::Append(wxeCommand *orig)
   curr->me_ref = orig->me_ref;
   orig->op = -1; // Assert: will crash if op is negative
   m_q.push_back(curr);
+  size++;
 }

@@ -3,8 +3,8 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 OR LGPL-2.1-or-later
 %%
+%% Copyright Ericsson AB 2009-2026. All Rights Reserved.
 %% Copyright 1997-2006 Richard Carlsson
-%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -123,9 +123,7 @@ recomment_forms(Tree, Cs, Insert) ->
 					  [set_node_subtrees(Node1,
 							     List1)]));
 	_ ->
-	    %% Not a form list - just call `recomment_tree' and
-	    %% append any leftover comments.
-	    {Tree1, Cs1} = recomment_tree(Tree, Cs),
+        {Tree1, Cs1} = insert_comments(Cs, build_tree(Tree)),
 	    revert_tree(append_comments(Cs1, Tree1))
     end.
 

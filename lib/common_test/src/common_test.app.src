@@ -82,7 +82,7 @@
   {applications, [kernel,stdlib]},
   {env, []},
   {runtime_dependencies,
-   ["compiler-10.0",
+   ["compiler-@OTP-20337@",
     "crypto-4.5",
     "debugger-4.1",
     "erts-7.0",

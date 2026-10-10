@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -138,7 +138,7 @@ new() ->
 
 -doc "".
 -spec new(Item) -> wxListItem() when
-	Item::wxListItem().
+        Item::wxListItem().
 new(#wx_ref{type=ItemT}=Item) ->
   ?CLASS(ItemT,wxListItem),
   wxe_util:queue_cmd(Item,?get_env(),?wxListItem_new_1),
@@ -146,7 +146,7 @@ new(#wx_ref{type=ItemT}=Item) ->
 
 -doc "Resets the item state to the default.".
 -spec clear(This) -> 'ok' when
-	This::wxListItem().
+        This::wxListItem().
 clear(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxListItem),
   wxe_util:queue_cmd(This,?get_env(),?wxListItem_Clear).
@@ -158,7 +158,7 @@ Can be one of `wxLIST_FORMAT_LEFT`, `wxLIST_FORMAT_RIGHT` or `wxLIST_FORMAT_CENT
 """.
 %%  Res = ?wxLIST_FORMAT_LEFT | ?wxLIST_FORMAT_RIGHT | ?wxLIST_FORMAT_CENTRE | ?wxLIST_FORMAT_CENTER
 -spec getAlign(This) -> wx:wx_enum() when
-	This::wxListItem().
+        This::wxListItem().
 getAlign(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxListItem),
   wxe_util:queue_cmd(This,?get_env(),?wxListItem_GetAlign),
@@ -166,7 +166,7 @@ getAlign(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the background colour for this item.".
 -spec getBackgroundColour(This) -> wx:wx_colour4() when
-	This::wxListItem().
+        This::wxListItem().
 getBackgroundColour(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxListItem),
   wxe_util:queue_cmd(This,?get_env(),?wxListItem_GetBackgroundColour),
@@ -174,7 +174,7 @@ getBackgroundColour(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the zero-based column; meaningful only in report mode.".
 -spec getColumn(This) -> integer() when
-	This::wxListItem().
+        This::wxListItem().
 getColumn(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxListItem),
   wxe_util:queue_cmd(This,?get_env(),?wxListItem_GetColumn),
@@ -182,7 +182,7 @@ getColumn(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the font used to display the item.".
 -spec getFont(This) -> wxFont:wxFont() when
-	This::wxListItem().
+        This::wxListItem().
 getFont(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxListItem),
   wxe_util:queue_cmd(This,?get_env(),?wxListItem_GetFont),
@@ -190,7 +190,7 @@ getFont(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the zero-based item position.".
 -spec getId(This) -> integer() when
-	This::wxListItem().
+        This::wxListItem().
 getId(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxListItem),
   wxe_util:queue_cmd(This,?get_env(),?wxListItem_GetId),
@@ -198,7 +198,7 @@ getId(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the zero-based index of the image associated with the item into the image list.".
 -spec getImage(This) -> integer() when
-	This::wxListItem().
+        This::wxListItem().
 getImage(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxListItem),
   wxe_util:queue_cmd(This,?get_env(),?wxListItem_GetImage),
@@ -222,7 +222,7 @@ Can be any combination of the following values:
 * wxLIST_MASK_FORMAT: `GetFormat` is valid.
 """.
 -spec getMask(This) -> integer() when
-	This::wxListItem().
+        This::wxListItem().
 getMask(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxListItem),
   wxe_util:queue_cmd(This,?get_env(),?wxListItem_GetMask),
@@ -244,7 +244,7 @@ Can be any combination of:
 * wxLIST_STATE_CUT: The item is in the cut state. Win32 only.
 """.
 -spec getState(This) -> integer() when
-	This::wxListItem().
+        This::wxListItem().
 getState(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxListItem),
   wxe_util:queue_cmd(This,?get_env(),?wxListItem_GetState),
@@ -252,7 +252,7 @@ getState(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the label/header text.".
 -spec getText(This) -> unicode:charlist() when
-	This::wxListItem().
+        This::wxListItem().
 getText(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxListItem),
   wxe_util:queue_cmd(This,?get_env(),?wxListItem_GetText),
@@ -260,7 +260,7 @@ getText(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the text colour.".
 -spec getTextColour(This) -> wx:wx_colour4() when
-	This::wxListItem().
+        This::wxListItem().
 getTextColour(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxListItem),
   wxe_util:queue_cmd(This,?get_env(),?wxListItem_GetTextColour),
@@ -272,7 +272,7 @@ Meaningful only for column headers in report mode.
 Returns the column width.
 """.
 -spec getWidth(This) -> integer() when
-	This::wxListItem().
+        This::wxListItem().
 getWidth(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxListItem),
   wxe_util:queue_cmd(This,?get_env(),?wxListItem_GetWidth),
@@ -285,7 +285,7 @@ See also `getAlign/1`
 """.
 %%  Align = ?wxLIST_FORMAT_LEFT | ?wxLIST_FORMAT_RIGHT | ?wxLIST_FORMAT_CENTRE | ?wxLIST_FORMAT_CENTER
 -spec setAlign(This, Align) -> 'ok' when
-	This::wxListItem(), Align::wx:wx_enum().
+        This::wxListItem(), Align::wx:wx_enum().
 setAlign(#wx_ref{type=ThisT}=This,Align)
  when is_integer(Align) ->
   ?CLASS(ThisT,wxListItem),
@@ -293,7 +293,7 @@ setAlign(#wx_ref{type=ThisT}=This,Align)
 
 -doc "Sets the background colour for the item.".
 -spec setBackgroundColour(This, ColBack) -> 'ok' when
-	This::wxListItem(), ColBack::wx:wx_colour().
+        This::wxListItem(), ColBack::wx:wx_colour().
 setBackgroundColour(#wx_ref{type=ThisT}=This,ColBack)
  when ?is_colordata(ColBack) ->
   ?CLASS(ThisT,wxListItem),
@@ -305,7 +305,7 @@ Sets the zero-based column.
 Meaningful only in report mode.
 """.
 -spec setColumn(This, Col) -> 'ok' when
-	This::wxListItem(), Col::integer().
+        This::wxListItem(), Col::integer().
 setColumn(#wx_ref{type=ThisT}=This,Col)
  when is_integer(Col) ->
   ?CLASS(ThisT,wxListItem),
@@ -313,7 +313,7 @@ setColumn(#wx_ref{type=ThisT}=This,Col)
 
 -doc "Sets the font for the item.".
 -spec setFont(This, Font) -> 'ok' when
-	This::wxListItem(), Font::wxFont:wxFont().
+        This::wxListItem(), Font::wxFont:wxFont().
 setFont(#wx_ref{type=ThisT}=This,#wx_ref{type=FontT}=Font) ->
   ?CLASS(ThisT,wxListItem),
   ?CLASS(FontT,wxFont),
@@ -321,7 +321,7 @@ setFont(#wx_ref{type=ThisT}=This,#wx_ref{type=FontT}=Font) ->
 
 -doc "Sets the zero-based item position.".
 -spec setId(This, Id) -> 'ok' when
-	This::wxListItem(), Id::integer().
+        This::wxListItem(), Id::integer().
 setId(#wx_ref{type=ThisT}=This,Id)
  when is_integer(Id) ->
   ?CLASS(ThisT,wxListItem),
@@ -329,7 +329,7 @@ setId(#wx_ref{type=ThisT}=This,Id)
 
 -doc "Sets the zero-based index of the image associated with the item into the image list.".
 -spec setImage(This, Image) -> 'ok' when
-	This::wxListItem(), Image::integer().
+        This::wxListItem(), Image::integer().
 setImage(#wx_ref{type=ThisT}=This,Image)
  when is_integer(Image) ->
   ?CLASS(ThisT,wxListItem),
@@ -341,7 +341,7 @@ Sets the mask of valid fields.
 See `getMask/1`.
 """.
 -spec setMask(This, Mask) -> 'ok' when
-	This::wxListItem(), Mask::integer().
+        This::wxListItem(), Mask::integer().
 setMask(#wx_ref{type=ThisT}=This,Mask)
  when is_integer(Mask) ->
   ?CLASS(ThisT,wxListItem),
@@ -354,7 +354,7 @@ the state mask, see `setStateMask/2`).
 See `getState/1` for valid flag values.
 """.
 -spec setState(This, State) -> 'ok' when
-	This::wxListItem(), State::integer().
+        This::wxListItem(), State::integer().
 setState(#wx_ref{type=ThisT}=This,State)
  when is_integer(State) ->
   ?CLASS(ThisT,wxListItem),
@@ -366,7 +366,7 @@ Sets the bitmask that is used to determine which of the state flags are to be se
 See also `setState/2`.
 """.
 -spec setStateMask(This, StateMask) -> 'ok' when
-	This::wxListItem(), StateMask::integer().
+        This::wxListItem(), StateMask::integer().
 setStateMask(#wx_ref{type=ThisT}=This,StateMask)
  when is_integer(StateMask) ->
   ?CLASS(ThisT,wxListItem),
@@ -374,7 +374,7 @@ setStateMask(#wx_ref{type=ThisT}=This,StateMask)
 
 -doc "Sets the text label for the item.".
 -spec setText(This, Text) -> 'ok' when
-	This::wxListItem(), Text::unicode:chardata().
+        This::wxListItem(), Text::unicode:chardata().
 setText(#wx_ref{type=ThisT}=This,Text)
  when ?is_chardata(Text) ->
   ?CLASS(ThisT,wxListItem),
@@ -383,7 +383,7 @@ setText(#wx_ref{type=ThisT}=This,Text)
 
 -doc "Sets the text colour for the item.".
 -spec setTextColour(This, ColText) -> 'ok' when
-	This::wxListItem(), ColText::wx:wx_colour().
+        This::wxListItem(), ColText::wx:wx_colour().
 setTextColour(#wx_ref{type=ThisT}=This,ColText)
  when ?is_colordata(ColText) ->
   ?CLASS(ThisT,wxListItem),
@@ -395,7 +395,7 @@ Meaningful only for column headers in report mode.
 Sets the column width.
 """.
 -spec setWidth(This, Width) -> 'ok' when
-	This::wxListItem(), Width::integer().
+        This::wxListItem(), Width::integer().
 setWidth(#wx_ref{type=ThisT}=This,Width)
  when is_integer(Width) ->
   ?CLASS(ThisT,wxListItem),

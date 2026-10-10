@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright Ericsson AB 2012-2025. All Rights Reserved.
+ * Copyright Ericsson AB 2012-2026. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -873,6 +873,7 @@ enum {
 #define ERTS_P2P_SIG_DATA_FLG_BROKEN_LINK	ERTS_P2P_SIG_DATA_FLG(5)
 #define ERTS_P2P_SIG_DATA_FLG_SCHED		ERTS_P2P_SIG_DATA_FLG(6)
 #define ERTS_P2P_SIG_DATA_FLG_ASYNC		ERTS_P2P_SIG_DATA_FLG(7)
+#define ERTS_P2P_SIG_DATA_FLG_ASYNC_NOSUSPEND	ERTS_P2P_SIG_DATA_FLG(8)
 
 struct ErtsProc2PortSigData_ {
     int flags;

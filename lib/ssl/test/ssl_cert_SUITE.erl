@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2019-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2019-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -79,6 +79,8 @@
          verify_fun_always_run_server/1,
          incomplete_chain_auth/0,
          incomplete_chain_auth/1,
+         incomplete_chain_unrelated_ca_auth/0,
+         incomplete_chain_unrelated_ca_auth/1,
          no_chain_client_auth/0,
          no_chain_client_auth/1,
          invalid_signature_client/0,
@@ -123,6 +125,12 @@
          cross_signed_chain/1,
          expired_root_with_cross_signed_root/0,
          expired_root_with_cross_signed_root/1,
+         malicious_cycle_in_peer_chain/0,
+         malicious_cycle_in_peer_chain/1,
+         max_chain_depth_buildup/0,
+         max_chain_depth_buildup/1,
+         duplicate_issuer_in_trust_store/0,
+         duplicate_issuer_in_trust_store/1,
          key_auth_ext_sign_only/0,
          key_auth_ext_sign_only/1,
          hello_retry_request/0,
@@ -247,7 +255,10 @@ rsa_tests() ->
    [
     longer_chain,
     cross_signed_chain,
-    expired_root_with_cross_signed_root
+    expired_root_with_cross_signed_root,
+    malicious_cycle_in_peer_chain,
+    max_chain_depth_buildup,
+    duplicate_issuer_in_trust_store
    ].
 
 tls_1_3_rsa_tests() ->
@@ -278,6 +289,7 @@ all_version_tests() ->
      verify_fun_always_run_client,
      verify_fun_always_run_server,
      incomplete_chain_auth,
+     incomplete_chain_unrelated_ca_auth,
      no_chain_client_auth,
      invalid_signature_client,
      invalid_signature_server,
@@ -593,6 +605,42 @@ incomplete_chain_auth(Config) when is_list(Config) ->
         ssl_test_lib:ssl_options(extra_server, [{verify, verify_peer},
                                                 {cacerts, [ServerRoot]} |
                                                 proplists:delete(cacerts, ServerOpts0)], Config),
+    ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
+
+%%--------------------------------------------------------------------
+incomplete_chain_unrelated_ca_auth() ->
+    [{doc, "The server sends [Peer, UnrelatedCA] where no sent certificate "
+      "is the issuer of the peer cert, but the real issuer chain is in the "
+      "client's trust store. The client should complete the chain from the "
+      "trust store instead of failing with unknown_ca (GH-11620, OTP-20394)."}].
+incomplete_chain_unrelated_ca_auth(Config) when is_list(Config) ->
+    Prop = proplists:get_value(tc_group_properties, Config),
+    Group = proplists:get_value(name, Prop),
+    DefaultCertConf = ssl_test_lib:default_ecc_cert_chain_conf(Group),
+    Alg = proplists:get_value(cert_key_alg, Config),
+    %% server and client chains are generated independently, so the
+    %% client's self-signed root is completely unrelated to the server
+    %% leaf's issuer and serves as the "unrelated CA".
+    #{client_config := ClientOpts0,
+      server_config := ServerOpts0} =
+        ssl_test_lib:make_cert_chains_der(Alg,
+                                          [{server_chain, DefaultCertConf},
+                                           {client_chain, DefaultCertConf}]),
+    Leaf = proplists:get_value(cert, ServerOpts0),
+    ServerCas = proplists:get_value(cacerts, ServerOpts0),
+    [UnrelatedRoot | _] = ClientCas = proplists:get_value(cacerts, ClientOpts0),
+    %% Server sends [Leaf, UnrelatedRoot]: no sent cert issues the leaf.
+    ServerOpts =
+        ssl_test_lib:ssl_options(extra_server,
+                                 [{verify, verify_peer},
+                                  {cert, [Leaf, UnrelatedRoot]} |
+                                  proplists:delete(cert, ServerOpts0)], Config),
+    %% Client trusts the real issuer chain (server root + intermediate).
+    ClientOpts =
+        ssl_test_lib:ssl_options(extra_client,
+                                 [{verify, verify_peer},
+                                  {cacerts, ServerCas ++ ClientCas} |
+                                  proplists:delete(cacerts, ClientOpts0)], Config),
     ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
 
 %%--------------------------------------------------------------------
@@ -1264,6 +1312,120 @@ expired_root_with_cross_signed_root(Config) when is_list(Config) ->
                              {cacerts, [AltCrossRoot | ClientCas0]} |
                              proplists:delete(cacerts, ClientOpts)],
                             ServerOpts, Config).
+
+%%--------------------------------------------------------------------
+malicious_cycle_in_peer_chain() ->
+    [{doc, "A malicious client sends an unordered chain to a server. "
+      "The server processes it through unorded_or_extraneous/2 which "
+      "uses an acyclic digraph. Verify that path construction from "
+      "the unordered chain terminates and does not loop."}].
+malicious_cycle_in_peer_chain(Config) when is_list(Config) ->
+    Key1 = ssl_test_lib:hardcode_rsa_key(1),
+    Key2 = ssl_test_lib:hardcode_rsa_key(2),
+    Key3 = ssl_test_lib:hardcode_rsa_key(3),
+    Key4 = ssl_test_lib:hardcode_rsa_key(4),
+    Key5 = ssl_test_lib:hardcode_rsa_key(5),
+
+    %% Client chain with cross-key intermediates
+    #{client_config := ClientOpts0} =
+        public_key:pkix_test_data(
+          #{server_chain => #{root => [{key, Key4}],
+                              peer => [{key, Key5}]},
+            client_chain => #{root => [{key, Key1}],
+                              intermediates => [[{key, Key2}], [{key, Key1}]],
+                              peer => [{key, Key3}]}}),
+
+    %% Build the client's ordered chain
+    ClientCert = proplists:get_value(cert, ClientOpts0),
+    ClientCAs = proplists:get_value(cacerts, ClientOpts0),
+    {ok, ExtractedCAs} = ssl_pkix_db:extract_trusted_certs({der, ClientCAs}),
+    {ok, _, [Peer, CA1, CA2, Root]} =
+        ssl_certificate:certificate_chain(ClientCert, ets:new(foo, []),
+                                          ExtractedCAs, [], encoded),
+
+    %% Shuffle chain so it's unordered — triggers unorded_or_extraneous
+    MaliciousChain = [Peer, Root, CA2, CA1],
+    CertRecs = [#cert{der=D, otp=public_key:pkix_decode_cert(D, otp)}
+                || D <- MaliciousChain],
+
+    %% Call trusted_cert_and_paths directly — this is the code path
+    %% that would hang without the digraph fix
+    %% Use empty trust store so no path can be validated
+    Result = ssl_certificate:trusted_cert_and_paths(
+               CertRecs, ets:new(foo, []), {extracted, []},
+               fun(_) -> unknown_ca end),
+
+    %% Must return (not hang) with unknown_ca for all paths
+    lists:foreach(fun({unknown_ca, _}) -> ok;
+                     ({#cert{}, _}) -> ok
+                  end, Result).
+
+%%--------------------------------------------------------------------
+max_chain_depth_buildup() ->
+    [{doc, "Chain building stops at MAX_CHAIN (12) even when the trust "
+      "store contains a longer valid chain. Guards against resource "
+      "exhaustion from very deep chains."}].
+max_chain_depth_buildup(Config) when is_list(Config) ->
+    %% Create chain with 15 intermediates — exceeds MAX_CHAIN (12)
+    Keys = [ssl_test_lib:hardcode_rsa_key((N rem 6) + 1)
+            || N <- lists:seq(1, 17)],
+    [RootKey, PeerKey | CAKeys] = Keys,
+    IntermediateOpts = [[{key, K}] || K <- CAKeys],
+
+    #{server_config := ServerOpts} =
+        public_key:pkix_test_data(
+          #{server_chain => #{root => [{key, RootKey}],
+                              intermediates => IntermediateOpts,
+                              peer => [{key, PeerKey}]},
+            client_chain => #{root => [{key, RootKey}],
+                              peer => [{key, PeerKey}]}}),
+
+    SCert = proplists:get_value(cert, ServerOpts),
+    SCerts = proplists:get_value(cacerts, ServerOpts),
+    {ok, ExtractedCAs} = ssl_pkix_db:extract_trusted_certs({der, SCerts}),
+
+    %% Build chain — must terminate and respect the MAX_CHAIN limit
+    {ok, _Root, Chain} =
+        ssl_certificate:certificate_chain(SCert, ets:new(foo, []),
+                                          ExtractedCAs, [], encoded),
+    %% MAX_CHAIN is 12: chain must not exceed that
+    true = (length(Chain) =< 12).
+
+%%--------------------------------------------------------------------
+duplicate_issuer_in_trust_store() ->
+    [{doc, "Trust store lookup returns a cert already in the chain. "
+      "The duplicate check in do_certificate_chain must detect this "
+      "and terminate instead of looping. Tests the DER-based "
+      "duplicate guard added in OTP-20245."}].
+duplicate_issuer_in_trust_store(Config) when is_list(Config) ->
+    Key1 = ssl_test_lib:hardcode_rsa_key(1),
+    Key2 = ssl_test_lib:hardcode_rsa_key(2),
+    Key3 = ssl_test_lib:hardcode_rsa_key(3),
+
+    #{server_config := ServerOpts0} =
+        public_key:pkix_test_data(
+          #{server_chain => #{root => [{key, Key1}],
+                              intermediates => [[{key, Key2}]],
+                              peer => [{key, Key3}]},
+            client_chain => #{root => [{key, Key1}],
+                              peer => [{key, Key3}]}}),
+
+    SCert = proplists:get_value(cert, ServerOpts0),
+    SCerts = proplists:get_value(cacerts, ServerOpts0),
+
+    %% Add peer cert to trust store — creates potential for
+    %% lookup_trusted_cert to return a cert already in chain
+    PoisonedCAs = [SCert | SCerts],
+    {ok, ExtractedCAs} = ssl_pkix_db:extract_trusted_certs({der, PoisonedCAs}),
+
+    %% Must terminate (not hang) and produce a valid chain
+    {ok, _Root, Chain} =
+        ssl_certificate:certificate_chain(SCert, ets:new(foo, []),
+                                          ExtractedCAs, [], encoded),
+    %% No duplicates in result
+    true = (length(Chain) =:= length(lists:usort(Chain))),
+    %% Reasonable length (normal: peer + CA + root = 3)
+    true = (length(Chain) =< 4).
 
 %%--------------------------------------------------------------------
 %% TLS 1.3 Test cases  -----------------------------------------------

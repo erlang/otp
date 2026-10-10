@@ -2,21 +2,21 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  del_dir_r(File)[0m
+[1m  del_dir_r(File)[0m
 
-[;;4mSince[0m:
+[4mSince[0m:
   OTP 23.0
 
-  Deletes file or directory [;;4mFile[0m. If [;;4mFile[0m is a directory, its
+  Deletes file or directory [4mFile[0m. If [4mFile[0m is a directory, its
   contents is first recursively deleted. Returns:
 
-   • [;;4mok[0m - The operation completed without errors.
+   • [4mok[0m - The operation completed without errors.
 
-   • [;;4m{error, posix()}[0m - An error occurred when accessing or
-     deleting [;;4mFile[0m. If some file or directory under [;;4mFile[0m
-     could not be deleted, [;;4mFile[0m cannot be deleted as it is
-     non-empty, and [;;4m{error, eexist}[0m is returned.
+   • [4m{error, posix()}[0m - An error occurred when accessing or
+     deleting [4mFile[0m. If some file or directory under [4mFile[0m
+     could not be deleted, [4mFile[0m cannot be deleted as it is
+     non-empty, and [4m{error, eexist}[0m is returned.

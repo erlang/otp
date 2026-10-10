@@ -21,7 +21,7 @@
 %%
 -module(code_b_test).
 
--export([do_spawn/0, loop/0, check_exit/1, call/2, call/3]).
+-export([do_spawn/0, loop/0, check_exit/1, check_all_exit/1, call/2, call/3]).
 
 do_spawn() ->
     spawn_link(code_b_test, loop, []).
@@ -39,6 +39,19 @@ check_exit(Pid) ->
 	    %% We used to wait 1 ms. That is not always enough when
 	    %% running the SMP emulator on a slow computer.
 	    false
+    end.
+
+check_all_exit(Pids) ->
+    check_all_exit(Pids, none).
+
+check_all_exit(Pids, _) when map_size(Pids) =:= 0 ->
+    all;
+check_all_exit(Pids, Result) ->
+    receive
+        {'EXIT',Pid,_} when is_map_key(Pid, Pids) ->
+            check_all_exit(maps:remove(Pid, Pids), some)
+    after 10 ->
+            Result
     end.
 
 call({M,F}=Fun, Arg) when is_atom(M), is_atom(F) ->

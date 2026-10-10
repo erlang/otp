@@ -65,13 +65,11 @@ sup_name(dist) ->
 %%%  Supervisor callback
 %%%=========================================================================
 init(_) ->
-    SupFlags = #{strategy  => simple_one_for_one,
-                 intensity =>   0,
-                 period    => 3600
+    SupFlags = #{strategy  => simple_one_for_one
                 },
     ChildSpecs = [#{id       => undefined,
                     start    => {tls_server_session_ticket, start_link, []},
-                    restart  => transient,
+                    restart  => temporary,
                     shutdown => 4000,
                     modules  => [tls_server_session_ticket],
                     type     => worker

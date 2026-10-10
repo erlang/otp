@@ -26,8 +26,8 @@ File utilities, such as wildcard matching of filenames.
 This module contains utilities on a higher level than the `m:file` module.
 
 This module does not support "raw" filenames (that is, files whose names do not
-comply with the expected encoding). Such files are ignored by the functions in
-this module.
+comply with the expected encoding). Such files are ignored by the functions
+in this module unless explicitly stated otherwise.
 
 For more information about raw filenames, see the `m:file` module.
 
@@ -232,7 +232,7 @@ For more information about raw filenames, see the `m:file` module.
       Dir :: dirname(),
       RegExp :: string(),
       Recursive :: boolean(),
-      Fun :: fun((F :: file:filename(), AccIn) -> AccOut),
+      Fun :: fun((F :: file:filename() | file:filename_all(), AccIn) -> AccOut),
       AccIn :: term(),
       AccOut :: term().
 fold_files(Dir, RegExp, Recursive, Fun, Acc) ->
@@ -257,8 +257,8 @@ last_modified(File) ->
 last_modified(File, Mod) when is_atom(Mod) ->
     do_last_modified(File, Mod).
 
--doc "Returns the size of the specified file.".
--spec file_size(Filename) -> non_neg_integer() when
+-doc "Returns the size of the specified file, or `0` if the file does not exist.".
+-spec file_size(Filename) -> pos_integer() | 0 when
       Filename :: filename_all().
 file_size(File) ->
     do_file_size(File, file).

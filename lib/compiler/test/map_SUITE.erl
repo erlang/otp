@@ -95,7 +95,8 @@
          t_cse_assoc/1,
          shared_key_tuples/1,
          map_aliases/1,
-         coverage/1
+         coverage/1,
+         cerl_update_tree/1
         ]).
 
 -define(BADMAP(V, F, Args, Expr),
@@ -177,7 +178,8 @@ all() ->
      t_cse_assoc,
      shared_key_tuples,
      map_aliases,
-     coverage
+     coverage,
+     cerl_update_tree
     ].
 
 groups() -> [].
@@ -2689,6 +2691,15 @@ do_badmap(Test) ->
 	     <<0:1024>>,<<1:1>>,<<>>,<<1,2,3>>,
 	     [],{a,b,c},[a,b],atom,10.0,42,(1 bsl 65) + 3],
     [Test(T) || T <- Terms].
+
+%% cerl:update_tree/2 did not preserve the map argument for update maps.
+
+cerl_update_tree(_Config) ->
+    V = cerl:c_var('M'),
+    Pair = cerl:c_map_pair(cerl:c_atom(k), cerl:c_int(1)),
+    Upd = cerl:ann_c_map([], V, [Pair]),
+    Upd = cerl:update_tree(Upd, cerl:subtrees(Upd)),
+    ok.
 
 %% Use this function to avoid compile-time evaluation of an expression.
 id(I) -> I.

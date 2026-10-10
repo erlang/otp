@@ -97,13 +97,16 @@ test([{RE0,Line,Options0,Tests}|T],PreCompile,XMode,REAsList) ->
            end,
     case Cres of
 	{ok,P} ->
-	    case (catch testrun(RE,P,Tests,ExecOptions,PreCompile,CompOpts,XMode)) of
+            try
+                testrun(RE,P,Tests,ExecOptions,PreCompile,CompOpts,XMode)
+            of
 		N when is_integer(N) ->
-		    N + test(T,PreCompile,XMode,REAsList);
-		limit ->
+                    N + test(T,PreCompile,XMode,REAsList)
+            catch
+                throw:limit ->
 		    io:format("Error limit reached.~n"),
 		    1;
-		skip ->
+                throw:skip ->
 		    case get(skipped) of
 			N when is_integer(N) ->
 			    put(skipped,N+1);
@@ -581,7 +584,9 @@ backslash_end(<<_,R/binary>>) ->
 
 stru2([{Line,<<$ ,Rest/binary>>} | T],U) ->
     %% A challenge
-    case  (catch responses(T,U)) of
+    try
+        responses(T,U)
+    of
 	{NewT,Rlist} ->
 	    {NewNewT,StrList} = stru2(NewT,U),
 	    %% Hack...
@@ -609,8 +614,9 @@ stru2([{Line,<<$ ,Rest/binary>>} | T],U) ->
 		UList ->
 		    info("WARNING(~w): the exec-option(s) ~p are unsupported, skipping challenge.~n",[Line,UList]),
 		    {NewNewT,StrList}
-	    end;
-	fail ->
+            end
+    catch
+        throw:fail ->
 	    NewT = skip_until_empty(T),
 	    {NewT,[]}
     end;
@@ -971,7 +977,9 @@ dumponesplit(F,{RE,Line,O,TS}) ->
 	 {NO,_} = pick_exec_options(O++Op),
 	 SSS = opt_to_string(NO),
 	 LLL = unicode:characters_to_list(RE),
-	 case (catch iolist_to_binary(LLL)) of
+         try
+             iolist_to_binary(LLL)
+         of
 	     X when is_binary(X) -> 
 		 io:format(F,"perl -e '$x = join(\":\",split(/~s/~s,\"~s\")); "
 			   "$x =~~ s/\\\\/\\\\\\\\/g; $x =~~ s/\\\"/\\\\\"/g; "
@@ -1007,6 +1015,8 @@ dumponesplit(F,{RE,Line,O,TS}) ->
 			    dsafe2(safe(RE)),
 			    NO]);
 	     _ -> io:format("Found fishy character at line ~w~n",[Line])
+         catch
+             _:_ -> io:format("Found fishy character at line ~w~n",[Line])
 	 end
      end ||
 	{Str,_,Op,_} <- TS].
@@ -1058,10 +1068,14 @@ dumpone(F,{RE,Line,O,TS}) ->
 	 SSS = opt_to_string(NO),
 	 RS = ranstring(),
 	 LLL = unicode:characters_to_list(RE),
-	 case (catch iolist_to_binary(LLL)) of
+         try
+             iolist_to_binary(LLL)
+         of
 	     X when is_binary(X) -> io:format(F,"perl -e '$x = \"~s\"; $x =~~ s/~s/~s/~s; $x =~~ s/\\\\/\\\\\\\\/g; $x =~~ s/\\\"/\\\\\"/g; print \"    <<\\\"$x\\\">> = iolist_to_binary(re:replace(\\\"~s\\\",\\\"~s\\\",\\\"~s\\\",~p)), \\n\";'~n",[ysafe(safe(Str)),zsafe(safe(RE)),perlify(binary_to_list(RS)),SSS,dsafe(safe(Str)),dsafe(safe(RE)),xsafe(RS),NO]),
 	 io:format(F,"perl -e '$x = \"~s\"; $x =~~ s/~s/~s/g~s; $x =~~ s/\\\\/\\\\\\\\/g; $x =~~ s/\\\"/\\\\\"/g; print \"    <<\\\"$x\\\">> = iolist_to_binary(re:replace(\\\"~s\\\",\\\"~s\\\",\\\"~s\\\",~p)), \\n\";'~n",[ysafe(safe(Str)),zsafe(safe(RE)),perlify(binary_to_list(RS)),SSS,dsafe(safe(Str)),dsafe(safe(RE)),xsafe(RS),NO++[global]]);
 	     _ -> io:format("Found fishy character at line ~w~n",[Line])
+         catch
+             _:_ -> io:format("Found fishy character at line ~w~n",[Line])
 	 end
      end ||
 	{Str,_,Op,_} <- TS].

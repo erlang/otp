@@ -1470,7 +1470,7 @@ server_read_opts() ->
         deliver => term,
         start_opts => [], % Just to make it settable
         line_delimiter => $\n,
-        read_ahead => false},
+        read_ahead => true},
       server_read_write_opts()).
 -compile({inline, [server_write_opts/0]}).
 server_write_opts() ->

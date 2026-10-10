@@ -59,7 +59,8 @@
 	 sha/1,
          get_host_key/2,
          call_KeyCb/3,
-         public_algo/1]).
+         public_algo/1,
+         finish_packet_discard/2]).
 
 -behaviour(ssh_dbg).
 -export([ssh_dbg_trace_points/0, ssh_dbg_flags/1, ssh_dbg_on/1, ssh_dbg_off/1, ssh_dbg_format/2]).
@@ -67,7 +68,7 @@
 -define(MIN_DH_KEY_SIZE, 400).
 
 %%% For test suites
--export([pack/3, adjust_algs_for_peer_version/2]).
+-export([pack/3, adjust_algs_for_peer_version/2, hybrid_common/4]).
 
 %%%----------------------------------------------------------------------------
 %%%
@@ -624,28 +625,34 @@ handle_kexdh_init(#ssh_msg_kexdh_init{e = E},
     %% server
     {G, P} = dh_group(Kex),
     if
-	1=<E, E=<(P-1) ->
+        1<E, E<(P-1) ->
             Sz = dh_bits(Algs),
 	    {Public, Private} = generate_key(dh, [P,G,2*Sz]),
 	    K = compute_key(dh, E, Private, [P,G]),
-	    MyPrivHostKey = get_host_key(SignAlg, Opts),
-	    MyPubHostKey = ssh_file:extract_public_key(MyPrivHostKey),
-            H = kex_hash(Ssh0, MyPubHostKey, sha(Kex), {E,Public,K}),
-            case sign(H, SignAlg, MyPrivHostKey, Ssh0) of
-                {ok,H_SIG} ->
-                    {SshPacket, Ssh1} =
-                        ssh_packet(#ssh_msg_kexdh_reply{public_host_key = {MyPubHostKey,SignAlg},
-                                                        f = Public,
-                                                        h_sig = H_SIG
-                                                       }, Ssh0),
-                    {ok, SshPacket, Ssh1#ssh{keyex_key = {{Private, Public}, {G, P}},
-                                             shared_secret = ssh_bits:mpint(K),
-                                             exchanged_hash = H,
-                                             session_id = sid(Ssh1, H)}};
-                {error,unsupported_sign_alg} ->
+            if
+                1<K, K<(P-1) ->
+                    MyPrivHostKey = get_host_key(SignAlg, Opts),
+                    MyPubHostKey = ssh_file:extract_public_key(MyPrivHostKey),
+                    H = kex_hash(Ssh0, MyPubHostKey, sha(Kex), {E,Public,K}),
+                    case sign(H, SignAlg, MyPrivHostKey, Ssh0) of
+                        {ok,H_SIG} ->
+                            {SshPacket, Ssh1} =
+                                ssh_packet(#ssh_msg_kexdh_reply{public_host_key = {MyPubHostKey,SignAlg},
+                                                                f = Public,
+                                                                h_sig = H_SIG
+                                                               }, Ssh0),
+                            {ok, SshPacket, Ssh1#ssh{keyex_key = {{Private, Public}, {G, P}},
+                                                     shared_secret = ssh_bits:mpint(K),
+                                                     exchanged_hash = H,
+                                                     session_id = sid(Ssh1, H)}};
+                        {error,unsupported_sign_alg} ->
+                            ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+                                        io_lib:format("Unsupported algorithm ~p", [SignAlg],
+                                                      [{chars_limit, ssh_lib:max_log_len(Opts)}]))
+                    end;
+                true ->
                     ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-                                io_lib:format("Unsupported algorithm ~p", [SignAlg],
-                                              [{chars_limit, ssh_lib:max_log_len(Opts)}]))
+                                "Key exchange failed, 'K' out of bounds")
             end;
 	true ->
             MsgFun =
@@ -665,22 +672,28 @@ handle_kexdh_reply(#ssh_msg_kexdh_reply{public_host_key = PeerPubHostKey,
 		   #ssh{keyex_key = {{Private, Public}, {G, P}},
                         algorithms = #alg{kex=Kex}} = Ssh0) ->
     %% client
-    if 
-	1=<F, F=<(P-1)->
+    if
+        1<F, F<(P-1) ->
 	    K = compute_key(dh, F, Private, [P,G]),
-            H = kex_hash(Ssh0, PeerPubHostKey, sha(Kex), {Public,F,K}),
-	    case verify_host_key(Ssh0, PeerPubHostKey, H, H_SIG) of
-		ok ->
-		    {SshPacket, Ssh} = ssh_packet(#ssh_msg_newkeys{}, Ssh0),
-		    {ok, SshPacket, install_alg(snd, Ssh#ssh{shared_secret  = ssh_bits:mpint(K),
-                                                             exchanged_hash = H,
-                                                             session_id = sid(Ssh, H)})};
-		Error ->
+            if
+                1<K, K<(P-1) ->
+                    H = kex_hash(Ssh0, PeerPubHostKey, sha(Kex), {Public,F,K}),
+                    case verify_host_key(Ssh0, PeerPubHostKey, H, H_SIG) of
+                        ok ->
+                            {SshPacket, Ssh} = ssh_packet(#ssh_msg_newkeys{}, Ssh0),
+                            {ok, SshPacket, install_alg(snd, Ssh#ssh{shared_secret  = ssh_bits:mpint(K),
+                                                                     exchanged_hash = H,
+                                                                     session_id = sid(Ssh, H)})};
+                        Error ->
+                            ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+                                        io_lib:format("Kexdh init failed. Verify host key: ~p",[Error],
+                                                      [{chars_limit, ssh_lib:max_log_len(Ssh0)}])
+                                       )
+                    end;
+                true ->
                     ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
-                                io_lib:format("Kexdh init failed. Verify host key: ~p",[Error],
-                                              [{chars_limit, ssh_lib:max_log_len(Ssh0)}])
-                               )
-	    end;
+                                "Key exchange failed, 'K' out of bounds")
+            end;
 
 	true ->
             ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
@@ -765,14 +778,22 @@ adjust_gex_min_max(Min0, Max0, Opts) ->
     end.
 		    
 
-handle_kex_dh_gex_group(#ssh_msg_kex_dh_gex_group{p = P, g = G}, Ssh0) ->
-    %% client
-    Sz = dh_bits(Ssh0#ssh.algorithms),
-    {Public, Private} = generate_key(dh, [P,G,2*Sz]),
-    {SshPacket, Ssh1} = 
-	ssh_packet(#ssh_msg_kex_dh_gex_init{e = Public}, Ssh0),	% Pub = G^Priv mod P (def)
-    {ok, SshPacket, 
-     Ssh1#ssh{keyex_key = {{Private, Public}, {G, P}}}}.
+handle_kex_dh_gex_group(#ssh_msg_kex_dh_gex_group{p = P, g = G},
+                        #ssh{keyex_info = {Min, _Max, _NBits}} = Ssh0) ->
+    %% client — validate group parameters from server (RFC 4419 §3)
+    PBits = nbits(P),
+    MinBits = max(Min, ?DH_GEX_MIN_BITS),
+    case validate_dh_gex_group(P, G, PBits, MinBits) of
+        ok ->
+            Sz = dh_bits(Ssh0#ssh.algorithms),
+            {Public, Private} = generate_key(dh, [P, G, 2*Sz]),
+            {SshPacket, Ssh1} =
+                ssh_packet(#ssh_msg_kex_dh_gex_init{e = Public}, Ssh0),
+            {ok, SshPacket,
+             Ssh1#ssh{keyex_key = {{Private, Public}, {G, P}}}};
+        {error, Reason} ->
+            ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED, Reason)
+    end.
 
 handle_kex_dh_gex_init(#ssh_msg_kex_dh_gex_init{e = E}, 
 		       #ssh{keyex_key = {{Private, Public}, {G, P}},
@@ -782,7 +803,7 @@ handle_kex_dh_gex_init(#ssh_msg_kex_dh_gex_init{e = E},
                             opts = Opts} = Ssh0) ->
     %% server
     if
-	1=<E, E=<(P-1) ->
+        1<E, E<(P-1) ->
 	    K = compute_key(dh, E, Private, [P,G]),
 	    if
 		1<K, K<(P-1) ->
@@ -827,8 +848,8 @@ handle_kex_dh_gex_reply(#ssh_msg_kex_dh_gex_reply{public_host_key = PeerPubHostK
                              algorithms = #alg{kex=Kex}} = 
 			    Ssh0) ->
     %% client
-    if 
-	1=<F, F=<(P-1)->
+    if
+        1<F, F<(P-1) ->
 	    K = compute_key(dh, F, Private, [P,G]),
 	    if
 		1<K, K<(P-1) ->
@@ -1481,7 +1502,7 @@ pack(Data, Ssh=#ssh{}) ->
     pack(Data, Ssh, 0).
 
 %%% Note: pack/3 is only to be called from tests that wants
-%%% to deliberetly send packets with wrong PacketLength!
+%%% to deliberately send packets with wrong PacketLength!
 %%% Use pack/2 for all other purposes!
 pack(PlainText,
      #ssh{send_sequence = SeqNum,
@@ -1528,23 +1549,55 @@ pack(aead, _, PlainText, DeltaLenTst, Ssh0) ->
 
 %%%================================================================
 handle_packet_part(<<>>, Encrypted0, AEAD0, undefined, #ssh{decrypt = CryptoAlg,
-                                                            recv_mac = MacAlg} = Ssh0) ->
+                                                            recv_mac = MacAlg,
+                                                            recv_mac_size = MacSize,
+                                                            decrypt_block_size = BlockSize0} = Ssh0) ->
     %% New ssh packet
-    case get_length(pkt_type(CryptoAlg), mac_type(MacAlg), Encrypted0, Ssh0) of
-	get_more ->
-	    %% too short to get the length
-	    {get_more, <<>>, Encrypted0, AEAD0, undefined, Ssh0};
+    BlockSize = max(8, BlockSize0),
+    PktType = pkt_type(CryptoAlg),
+    MacType = mac_type(MacAlg),
+    case get_length(PktType, MacType, Encrypted0, Ssh0) of
+        get_more ->
+            %% Too short to get the length
+            {get_more, <<>>, Encrypted0, AEAD0, undefined, Ssh0};
 
-	{ok, PacketLen, _, _, _, _} when PacketLen > ?SSH_MAX_PACKET_SIZE ->
-	    %% far too long message than expected
-	    {error, {exceeds_max_size,PacketLen}};
-	
-	{ok, PacketLen, Decrypted, Encrypted1, AEAD,
-	 #ssh{recv_mac_size = MacSize} = Ssh1} ->
-	    %% enough bytes so we got the length and can calculate how many
-	    %% more bytes to expect for a full packet
-	    TotalNeeded = (4 + PacketLen + MacSize),
-	    handle_packet_part(Decrypted, Encrypted1, AEAD, TotalNeeded, Ssh1)
+        {ok, PacketLen, _, _, _, _} = Result when PacketLen > ?SSH_MAX_PACKET_SIZE ->
+            %% Far too long message
+            start_packet_discard(Result, {error, {exceeds_max_size, PacketLen}});
+
+        {ok, PacketLen, _, _, _, _} = Result when (4 + PacketLen) rem BlockSize /= 0,
+                                                  PktType /= aead,
+                                                  MacType /= enc_then_mac ->
+            %% RFC 4253 section 6, packet_length (including size of packet_length field itself)
+            %% must be divisible by max(8, decrypt_block_size)
+            start_packet_discard(Result, {error, {packet_not_aligned, PacketLen, BlockSize}});
+
+        {ok, PacketLen, _, _, _, _} when PacketLen rem BlockSize /= 0,
+                                         PktType =:= aead ->
+            %% If CryptoAlg is 'AEAD_AES_*_GCM':
+            %% RFC 5647 section 8.2 for AES-GCM packet_length is not encrypted, so it does not count
+            %% towards data that must be divisible by max(8, decrypt_block_size)
+            %% If CryptAlg is 'chacha20-poly1305@openssh.com':
+            %% draft-josefsson-ssh-chacha20-poly1305-openssh-01 section 3 packet length is encrypted
+            %% separately with key K_1 and rest of packet is encrypted with key K_2, so packet_length
+            %% does not count towards data that must be divisible by max(8, decrypt_block_size)
+            %% Packet discard is not needed for aead ciphers.
+            {error, {packet_not_aligned, PacketLen, BlockSize}};
+
+        {ok, PacketLen, _, _, _, _} when PacketLen rem BlockSize /= 0,
+                                         MacType =:= enc_then_mac ->
+            %% For enc_then_mac modes, packet_length is not encrypted, so it does not count
+            %% towards data that must be divisible by max(8, decrypt_block_size)
+            %% See section 1.5 of
+            %% https://github.com/openssh/openssh-portable/blob/8ec21f6274108e93601173ec4e6f7528b90b0003/PROTOCOL
+            %% Packet discard is not needed for enc_then_mac.
+            {error, {packet_not_aligned, PacketLen, BlockSize}};
+
+        {ok, PacketLen, Decrypted, Encrypted1, AEAD, Ssh1} ->
+            %% Enough bytes so we got the length and can calculate how many
+            %% more bytes to expect for a full packet
+            TotalNeeded = (4 + PacketLen + MacSize),
+            handle_packet_part(Decrypted, Encrypted1, AEAD, TotalNeeded, Ssh1)
     end;
 
 handle_packet_part(DecryptedPfx, EncryptedBuffer, AEAD, TotalNeeded, Ssh0) 
@@ -1579,7 +1632,11 @@ unpack(common, rfc4253, DecryptedPfx, EncryptedBuffer, _AEAD, TotalNeeded,
         true ->
             {ok, payload(PlainPkt), NextPacketBytes, Ssh1};
         false ->
-            {bad_mac, Ssh1}
+            %% See explanation in start_packet_discard/2
+            DiscardBytesLeft = ?SSH_MAX_PACKET_SIZE - byte_size(DecryptedPfx) - byte_size(EncryptedBuffer),
+            %% How many bytes were already checked against mac during processing of current packet
+            DiscardMacAlready = byte_size(PlainPkt),
+            start_packet_discard(DiscardBytesLeft, DiscardMacAlready, {bad_mac, Ssh1}, Ssh1)
     end;
 
 unpack(common, enc_then_mac, <<?UINT32(PlainLen)>>, EncryptedBuffer, _AEAD, _TotalNeeded,
@@ -1592,6 +1649,7 @@ unpack(common, enc_then_mac, <<?UINT32(PlainLen)>>, EncryptedBuffer, _AEAD, _Tot
             <<CompressedPlainText:CompressedPlainTextLen/binary, _Padding/binary>> = PlainRest,
             {ok, CompressedPlainText, NextPacketBytes, Ssh1};
         false ->
+            %% Packet discard not needed for enc_then_mac
             {bad_mac, Ssh0}
     end;
                     
@@ -1602,11 +1660,47 @@ unpack(aead, _, DecryptedPfx, EncryptedBuffer, AEAD, TotalNeeded,
     <<EncryptedSfx:MoreNeeded/binary, Mac:MacSize/binary, NextPacketBytes/binary>> = EncryptedBuffer,
     case decrypt(Ssh0, {AEAD,EncryptedSfx,Mac}) of
         {Ssh1, error} ->
+            %% Packet discard not needed for aead
             {bad_mac, Ssh1};
         {Ssh1, DecryptedSfx} ->
             DecryptedPacket = <<DecryptedPfx/binary, DecryptedSfx/binary>>,
             {ok, payload(DecryptedPacket), NextPacketBytes, Ssh1}
     end.
+
+%%%----------------------------------------------------------------
+start_packet_discard({ok, _PacketLen, Decrypted, Encrypted, _AEAD, Ssh}, DiscardReason) ->
+    %% How many bytes missing until we read ?SSH_MAX_PACKET_SIZE from the socket,
+    %% during processing of current packet
+    DiscardBytesLeft = ?SSH_MAX_PACKET_SIZE - byte_size(Decrypted) - byte_size(Encrypted),
+    start_packet_discard(DiscardBytesLeft, 0, DiscardReason, Ssh).
+
+%%%----------------------------------------------------------------
+start_packet_discard(DiscardBytesLeft, DiscardMacAlready, DiscardReason,
+                     Ssh = #ssh{decrypt = CryptoAlg,
+                                recv_mac = MacAlg}) ->
+    CipherIsCbc = cipher_is_cbc(CryptoAlg),
+    MacType = mac_type(MacAlg),
+    case CipherIsCbc =:= true andalso MacType /= enc_then_mac of
+        true ->
+            %% Not safe to return error immediately because of CVE-2008-5161
+            {start_packet_discard, DiscardBytesLeft, DiscardMacAlready, DiscardReason, Ssh};
+        false ->
+            DiscardReason
+    end.
+
+%%%----------------------------------------------------------------
+finish_packet_discard(MacAlready, #ssh{recv_mac = Algorithm,
+                                       recv_mac_size = MacSize,
+                                       recv_mac_key = Key,
+                                       recv_sequence = SeqNum}) when MacSize > 0 ->
+    Data = binary:copy(<<"a">>, ?SSH_MAX_PACKET_SIZE - MacAlready),
+    %% Compute MAC over dummy data for timing camouflage only —
+    %% no comparison needed (no wire MAC exists, result is discarded).
+    %% OpenSSH does the same: (void) mac_compute(...) in ssh_packet_stop_discard.
+    _ = mac(Algorithm, Key, SeqNum, Data),
+    ok;
+finish_packet_discard(_MacAlready, _Ssh) ->
+    ok.
 
 %%%----------------------------------------------------------------
 get_length(common, rfc4253, EncryptedBuffer, #ssh{decrypt_block_size = BlockSize} = Ssh0) ->
@@ -1721,14 +1815,6 @@ do_verify(PlainText, HashAlg, Sig, {#'ECPoint'{},_} = Key, _) when HashAlg =/= u
         _ ->
             false
     end;
-
-do_verify(PlainText, HashAlg, Sig, #'RSAPublicKey'{}=Key, #ssh{role = server,
-                                                               c_version = "SSH-2.0-OpenSSH_7."++_})
-  when HashAlg == sha256; HashAlg == sha512 ->
-    %% Public key signing bug in OpenSSH >= 7.2
-    public_key:verify(PlainText, HashAlg, Sig, Key)
-        orelse public_key:verify(PlainText, sha, Sig, Key);
-
 do_verify(PlainText, HashAlg, Sig, Key, _) ->
     public_key:verify(PlainText, HashAlg, Sig, Key).
 
@@ -1746,7 +1832,8 @@ do_verify(PlainText, HashAlg, Sig, Key, _) ->
                  key_bytes,
                  iv_bytes,
                  block_bytes,
-                 pkt_type = common
+                 pkt_type = common,
+                 is_cbc = false
                 }).
 
 %%% Start of a more parameterized crypto handling.
@@ -1768,25 +1855,29 @@ cipher('3des-cbc') ->
     #cipher{impl = des_ede3_cbc,
             key_bytes = 24,
             iv_bytes = 8,
-            block_bytes = 8};
+            block_bytes = 8,
+            is_cbc = true};
     
 cipher('aes128-cbc') ->
     #cipher{impl = aes_128_cbc,
             key_bytes = 16,
             iv_bytes = 16,
-            block_bytes = 16};
+            block_bytes = 16,
+            is_cbc = true};
 
 cipher('aes192-cbc') ->
     #cipher{impl = aes_192_cbc,
             key_bytes = 24,
             iv_bytes = 16,
-            block_bytes = 16};
+            block_bytes = 16,
+            is_cbc = true};
 
 cipher('aes256-cbc') ->
     #cipher{impl = aes_256_cbc,
             key_bytes = 32,
             iv_bytes = 16,
-            block_bytes = 16};
+            block_bytes = 16,
+            is_cbc = true};
 
 cipher('aes128-ctr') ->
     #cipher{impl = aes_128_ctr,
@@ -1818,6 +1909,8 @@ cipher(_) ->
 
 
 pkt_type(SshCipher) -> (cipher(SshCipher))#cipher.pkt_type.
+
+cipher_is_cbc(SshCipher) -> (cipher(SshCipher))#cipher.is_cbc.
 
 mac_type('hmac-sha2-256-etm@openssh.com') -> enc_then_mac;
 mac_type('hmac-sha2-512-etm@openssh.com') -> enc_then_mac;
@@ -2395,10 +2488,8 @@ compute_key(Algorithm, PeerPublic, MyPrivate, Args) ->
 
 hybrid_common(K_pq_secret, Curve, PeerPublic, MyPrivate) ->
     K_cl_secret = compute_key(ecdh, PeerPublic, MyPrivate, Curve),
-    K_cl_secret_mpint = <<?Empint(K_cl_secret)>>,
-    K_cl_secret_mpint_trim =
-        binary:part(K_cl_secret_mpint, byte_size(K_cl_secret_mpint), -?X25519_PUBLICKEY_SIZE),
-    crypto:hash(sha(Curve), <<K_pq_secret/binary, K_cl_secret_mpint_trim/binary>>).
+    K_cl_secret_fixed = <<K_cl_secret:(?X25519_PUBLICKEY_SIZE*8)/big-unsigned-integer>>,
+    crypto:hash(sha(Curve), <<K_pq_secret/binary, K_cl_secret_fixed/binary>>).
 
 dh_bits(#alg{encrypt = Encrypt,
              send_mac = SendMac}) ->
@@ -2408,6 +2499,24 @@ dh_bits(#alg{encrypt = Encrypt,
                    C#cipher.iv_bytes,
                    mac_key_bytes(SendMac)
                   ]).
+
+%% Validate DH GEX group parameters received from the server.
+%% Checks generator bounds and prime size against requested limits.
+validate_dh_gex_group(P, G, _PBits, _MinBits)
+  when G =< 1;
+       G >= P - 1 ->
+    {error, "DH GEX invalid generator"};
+validate_dh_gex_group(_P, _G, PBits, MinBits) when PBits < MinBits ->
+    {error, io_lib:format("DH GEX group too small: ~p bits (minimum ~p)",
+                          [PBits, MinBits])};
+validate_dh_gex_group(_P, _G, _PBits, _MinBits) ->
+    ok.
+
+%% Number of significant bits in a positive integer.
+nbits(N) when is_integer(N), N > 0 ->
+    bit_size(binary:encode_unsigned(N));
+nbits(_) ->
+    0.
 
 ecdh_curve('ecdh-sha2-nistp256') -> secp256r1;
 ecdh_curve('ecdh-sha2-nistp384') -> secp384r1;

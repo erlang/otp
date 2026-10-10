@@ -17,6 +17,7 @@
       "versionInfo": "2.72",
       "path": ["./lib/common_test/test_server/config.guess", "./lib/common_test/test_server/config.sub", "./lib/common_test/test_server/install-sh"],
       "supplier": "Organization: Free Software Foundation",
-      "purl": "pkg:generic/autoconf"
+      "purl": "pkg:generic/autoconf",
+      "annotation": "Vendor package modified in Erlang/OTP"
     }
 ]

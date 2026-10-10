@@ -102,16 +102,16 @@ functions([], _Ps) -> [].
 -type ssa_register() :: beam_ssa_codegen:ssa_register().
 
 -define(TC(Body), tc(fun() -> Body end, ?FILE, ?LINE)).
--record(st, {ssa :: beam_ssa:block_map(),
-             args :: [b_var()],
-             cnt :: beam_ssa:label(),
-             frames=[] :: [beam_ssa:label()],
-             intervals=[] :: [{b_var(),[range()]}],
-             res=[] :: [{b_var(),reservation()}] | #{b_var():=reservation()},
-             regs=#{} :: #{b_var():=ssa_register()},
-             extra_annos=[] :: [{atom(),term()}],
-             location :: term()
-            }).
+-record #st{ssa :: beam_ssa:block_map(),
+            args :: [b_var()],
+            cnt :: beam_ssa:label(),
+            frames=[] :: [beam_ssa:label()],
+            intervals=[] :: [{b_var(),[range()]}],
+            res=[] :: [{b_var(),reservation()}] | #{b_var():=reservation()},
+            regs=#{} :: #{b_var():=ssa_register()},
+            extra_annos=[] :: [{atom(),term()}],
+            location :: term()
+           }.
 -define(PASS(N), {N,fun N/1}).
 
 passes(Opts) ->
@@ -119,10 +119,15 @@ passes(Opts) ->
     BeamDebugInfo = proplists:get_bool(beam_debug_info, Opts),
     BeamDebugStack = BeamDebugInfo andalso
         is_enabled(Opts, beam_debug_stack, no_beam_debug_stack, false),
+    NoNativeRecOpts = proplists:get_bool(no_native_record_opt, Opts),
 
     Ps = [?PASS(assert_no_critical_edges),
 
           %% Preliminaries.
+          case NoNativeRecOpts of
+              true -> ignore;
+              false -> ?PASS(fix_native_records)
+          end,
           ?PASS(fix_bs),
           ?PASS(sanitize),
           ?PASS(expand_match_fail),
@@ -224,6 +229,87 @@ assert_no_ces(_, #b_blk{is=[#b_set{op=phi,args=[_,_]=Phis}|_]}, Blocks) ->
                end, Phis),                      %Assertion.
     Blocks;
 assert_no_ces(_, _, Blocks) -> Blocks.
+
+%% fix_native_records(St0) -> St.
+%%  Generate the new native record instructions for OTP 30.
+
+fix_native_records(#st{ssa=Blocks0}=St) ->
+    RPO = beam_ssa:rpo(Blocks0),
+    Fun = fun(I, []) -> {fix_native_record(I), []} end,
+    {Blocks, []} = beam_ssa:mapfold_instrs(Fun, RPO, [], Blocks0),
+    St#st{ssa=Blocks}.
+
+fix_native_record(#b_set{op=put_record,anno=Anno0,
+                         args=[#b_var{}|_]=Args0}=I) ->
+    [Src,_Id0|Updates] = Args0,
+    Fs = get_field_names(Updates),
+    {Id, NumFields} = fix_native_record_id(Anno0, Fs),
+    Args = [Id,Src|Updates],
+    Anno1 = maps:remove(arg_types, Anno0),
+    Anno = if
+               is_integer(NumFields) ->
+                   Anno1#{record_num_fields => NumFields};
+               true ->
+                   Anno1
+           end,
+    I#b_set{op=update_record_id,anno=Anno,args=Args};
+fix_native_record(#b_set{op=put_record,anno=Anno0,
+                         args=Args}=I) ->
+    case Args of
+        [_,#b_literal{val=Id}|_] when is_atom(Id) ->
+            %% Create a native record value belonging to the
+            %% current module. The number of fields is known.
+            Anno = Anno0#{record_num_fields => num_fields(I)},
+            I#b_set{anno=Anno};
+        _ ->
+            %% Remote record creation. Nothing is known about fields.
+            I
+    end;
+fix_native_record(#b_set{op=get_record_element,
+                         anno=Anno0,args=Args}=I) ->
+    [_,#b_literal{val=F}] = Args,
+    Fs = [F],
+    {Id, _} = fix_native_record_id(Anno0, Fs),
+    Anno = maps:remove(arg_types, Anno0),
+    I#b_set{op=get_record_element_id,anno=Anno,args=[Id|Args]};
+fix_native_record(I) ->
+    I.
+
+fix_native_record_id(Anno, Fs) ->
+    ArgTypes = maps:get(arg_types, Anno, #{}),
+    case ArgTypes of
+        #{0 := #t_record{name={_,_}=FullName,
+                         type=Type,
+                         local_creation=LC}} ->
+            UseLocal =
+                LC andalso
+                all(fun(F) ->
+                            case Type of
+                                #{F := {present,_}} -> true;
+                                #{} -> false
+                            end
+                    end, Fs),
+            case UseLocal of
+                true ->
+                    NumFields = map_size(Type),
+                    {#b_literal{val=element(2, FullName)}, NumFields};
+                false ->
+                    {#b_literal{val=FullName}, []}
+            end;
+        #{} ->
+            {#b_literal{val=[]}, []}
+    end.
+
+num_fields(#b_set{op=put_record,anno=Anno,args=Args}) ->
+    Fs0 = [F || F := {present,_} <- map_get(record_defaults, Anno)],
+    [_,_|List] = Args,
+    Fs1 = get_field_names(List),
+    ordsets:size(ordsets:from_list(Fs0 ++ Fs1)).
+
+get_field_names([#b_literal{val=F},_|T]) ->
+    [F|get_field_names(T)];
+get_field_names([]) ->
+    [].
 
 %% fix_bs(St0) -> St.
 %%  Combine bs_match and bs_extract instructions to bs_get instructions.
@@ -883,8 +969,11 @@ sanitize_alias(Alias, Values) ->
     sanitize_alias_1(maps:keys(Alias), Values, Alias).
 
 sanitize_alias_1([Old|Vs], Values, Alias0) ->
+    %% FIXME? Note that the expression that creates a key for map
+    %% match is executed in guard context.
+    OldKey = #b_var{name=Old},
     Alias = case Values of
-                #{#b_var{name=Old} := #b_var{name=New}} ->
+                #{OldKey := #b_var{name=New}} ->
                     Alias0#{New => map_get(Old, Alias0)};
                 #{} ->
                     Alias0
@@ -1186,7 +1275,9 @@ expand_update_tuple_is([#b_set{op=update_tuple, args=[Src | Args]}=I0 | Is],
     {SetElement, Sets, Count} = expand_update_tuple_list(Args, I0, Src, Count0),
     case {Sets, Is} of
         {[_ | _], [#b_set{op=succeeded}=I]} ->
-            {reverse(Acc, [SetElement, I]), reverse(Sets), Count};
+            #b_set{dst=Dst} = SetElement,
+            SuccI = I#b_set{args=[Dst]},
+            {reverse(Acc, [SetElement, SuccI]), reverse(Sets), Count};
         {_, _} ->
             expand_update_tuple_is(Is, Count, Sets ++ [SetElement | Acc])
     end;
@@ -1929,9 +2020,10 @@ find_rm_act([]) ->
 %%% Find out which variables need to be stored in Y registers.
 %%%
 
--record(dk, {d :: ordsets:ordset(b_var()),
-             k :: sets:set(b_var())
-            }).
+-record #dk{
+   d :: ordsets:ordset(b_var()),
+   k :: sets:set(b_var())
+  }.
 
 %% find_yregs(St0) -> St.
 %%  Find all variables that must be stored in Y registers. Annotate
@@ -2847,41 +2939,54 @@ reserve_arg_regs([#b_var{}=Arg|Is], N, Acc) ->
 reserve_arg_regs([], _, Acc) -> Acc.
 
 reserve_zregs(RPO, Blocks, Intervals, Res) ->
-    ShortLived0 = [V || {V,[{Start,End}]} <- Intervals, Start+2 =:= End],
-    ShortLived = sets:from_list(ShortLived0),
+    LifeTime = #{V => if
+                          Start =:= End -> unused;
+                          true -> short
+                      end || {V,[{Start,End}]} <- Intervals,
+                             End =< Start+2},
     F = fun(_, #b_blk{is=Is,last=Last}, A) ->
-                reserve_zreg(Is, Last, ShortLived, A)
+                reserve_zreg(Is, Last, LifeTime, A)
         end,
     beam_ssa:fold_blocks(F, RPO, Res, Blocks).
 
 reserve_zreg([#b_set{op={bif,tuple_size},dst=Dst},
               #b_set{op={bif,'=:='},args=[Dst,Val],dst=Bool}],
-             Last, ShortLived, A0) ->
+             Last, LifeTime, A0) ->
     case {Val,Last} of
         {#b_literal{val=Arity},#b_br{bool=Bool}} when Arity bsr 32 =:= 0 ->
             %% These two instructions can be combined to a test_arity
             %% instruction provided that the arity variable is short-lived.
-            A1 = reserve_test_zreg(Dst, ShortLived, A0),
-            reserve_test_zreg(Bool, ShortLived, A1);
+            A1 = reserve_test_zreg(Dst, LifeTime, A0),
+            reserve_test_zreg(Bool, LifeTime, A1);
         {_,_} ->
             %% Either the arity is too big, or the boolean value is not
             %% used in a conditional branch.
             A0
     end;
 reserve_zreg([#b_set{op={bif,tuple_size},dst=Dst}],
-             #b_switch{arg=Dst}, ShortLived, A) ->
-    reserve_test_zreg(Dst, ShortLived, A);
+             #b_switch{arg=Dst}, LifeTime, A) ->
+    reserve_test_zreg(Dst, LifeTime, A);
+reserve_zreg([#b_set{op=phi,dst=Dst}|Is], Last, LifeTime, A0) ->
+    A = case LifeTime of
+            #{Dst := unused} ->
+                %% This value is never used (only happens with
+                %% unoptimized code). Ensure that the value is always
+                %% ignored by assigning it to a z register.
+                [{Dst,z}|A0];
+            #{} -> A0
+        end,
+    reserve_zreg(Is, Last, LifeTime, A);
 reserve_zreg([#b_set{op=Op,dst=Dst,args=Args}],
-             #b_br{bool=Dst}, ShortLived, A) ->
+             #b_br{bool=Dst}, LifeTime, A) ->
     case use_zreg(Op, Args) of
         yes -> [{Dst,z} | A];
         no -> A;
-        'maybe' -> reserve_test_zreg(Dst, ShortLived, A)
+        'maybe' -> reserve_test_zreg(Dst, LifeTime, A)
     end;
-reserve_zreg([#b_set{op=Op,dst=Dst,args=Args} | Is], Last, ShortLived, A) ->
+reserve_zreg([#b_set{op=Op,dst=Dst,args=Args} | Is], Last, LifeTime, A) ->
     case use_zreg(Op, Args) of
-        yes -> reserve_zreg(Is, Last, ShortLived, [{Dst,z} | A]);
-        _Other -> reserve_zreg(Is, Last, ShortLived, A)
+        yes -> reserve_zreg(Is, Last, LifeTime, [{Dst,z} | A]);
+        _Other -> reserve_zreg(Is, Last, LifeTime, A)
     end;
 reserve_zreg([], _, _, A) -> A.
 
@@ -2931,10 +3036,10 @@ use_zreg(_) -> 'maybe'.
 
 %% If V is defined just before a branch, we may be able to combine it into a
 %% test instruction.
-reserve_test_zreg(#b_var{}=V, ShortLived, A) ->
-    case sets:is_element(V, ShortLived) of
-        true -> [{V,z}|A];
-        false -> A
+reserve_test_zreg(#b_var{}=V, LifeTime, A) ->
+    case LifeTime of
+        #{V := short} -> [{V,z}|A];
+        #{} -> A
     end.
 
 reserve_fregs(RPO, Blocks, Res) ->
@@ -3009,8 +3114,8 @@ res_place_gc_instrs([#b_set{op=call}=I|Is], Acc) ->
         [_|_] ->
             res_place_gc_instrs(Is, [I,gc|Acc])
     end;
-res_place_gc_instrs([#b_set{op=Op,args=Args}=I|Is], Acc0) ->
-    case beam_ssa_codegen:classify_heap_need(Op, Args) of
+res_place_gc_instrs([#b_set{anno=Anno,op=Op,args=Args}=I|Is], Acc0) ->
+    case beam_ssa_codegen:classify_heap_need(Anno, Op, Args) of
         neutral ->
             case Acc0 of
                 [test_heap|Acc] ->
@@ -3021,6 +3126,8 @@ res_place_gc_instrs([#b_set{op=Op,args=Args}=I|Is], Acc0) ->
         {put,_} ->
             res_place_gc_instrs(Is, res_place_test_heap(I, Acc0));
         {put_fun,_} ->
+            res_place_gc_instrs(Is, res_place_test_heap(I, Acc0));
+        {put_native_record,_} ->
             res_place_gc_instrs(Is, res_place_test_heap(I, Acc0));
         put_float ->
             res_place_gc_instrs(Is, res_place_test_heap(I, Acc0));
@@ -3233,24 +3340,24 @@ res_xregs_prune(Xs, _Used, _Res) -> Xs.
 %%% Register allocation using linear scan.
 %%%
 
--record(i,
-        {sort=1 :: instr_number(),
-         reg=none :: i_reg(),
-         pool=x :: pool_id(),
-         var=#b_var{} :: b_var(),
-         rs=[] :: [range()]
-        }).
+-record #i{
+   sort=1   :: instr_number(),
+   reg=none :: i_reg(),
+   pool=x   :: pool_id(),
+   var      :: b_var(),
+   rs=[]    :: [range()]
+  }.
 
--record(l,
-        {cur=#i{} :: interval(),
-         unhandled_res=[] :: [interval()],
-         unhandled_any=[] :: [interval()],
-         active=[] :: [interval()],
-         inactive=[] :: [interval()],
-         free=#{} :: #{var_name()=>pool(),
-                       {'next',pool_id()}:=reg_num()},
-         regs=[] :: [{b_var(),ssa_register()}]
-        }).
+-record #l{
+   cur :: interval(),
+   unhandled_res=[] :: [interval()],
+   unhandled_any=[] :: [interval()],
+   active=[] :: [interval()],
+   inactive=[] :: [interval()],
+   free=#{} :: #{var_name()=>pool(),
+                 {'next',pool_id()}:=reg_num()},
+   regs=[] :: [{b_var(),ssa_register()}]
+  }.
 
 -type interval() :: #i{}.
 -type i_reg() :: ssa_register() | {'prefer',xreg()} | 'none'.
@@ -3270,7 +3377,8 @@ linear_scan(#st{intervals=Intervals0,res=Res}=St0) ->
                          end
                  end,
     {UnhandledRes,Unhandled} = partition(IsReserved, Intervals),
-    L = #l{unhandled_res=UnhandledRes,
+    L = #l{cur=#i{var=#b_var{name=any}},
+           unhandled_res=UnhandledRes,
            unhandled_any=Unhandled,free=Free},
     #l{regs=Regs} = do_linear(L),
     St#st{regs=maps:from_list(Regs)}.

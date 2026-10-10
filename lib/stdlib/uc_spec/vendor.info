@@ -19,6 +19,7 @@
       "./lib/stdlib/uc_spec/CaseFolding.txt",
       "./lib/stdlib/uc_spec/CompositionExclusions.txt",
       "./lib/stdlib/uc_spec/EastAsianWidth.txt",
+      "./lib/stdlib/uc_spec/EastAsianWidth.txt.license",
       "./lib/stdlib/uc_spec/emoji-data.txt",
       "./lib/stdlib/uc_spec/GraphemeBreakProperty.txt",
       "./lib/stdlib/uc_spec/IndicSyllabicCategory.txt",

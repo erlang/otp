@@ -38,7 +38,7 @@
 -export([basic_test/0,cmp_test/1,range_test/0,spread_test/1,
 	 phash2_test/0, otp_5292_test/0,
          otp_7127_test/0,
-         test_native_record/1,
+         test_native_record/1, md5_large/1,
          run_phash2_benchmarks/0,
          test_phash2_binary_aligned_and_unaligned_equal/1,
          test_phash2_4GB_plus_bin/1,
@@ -56,7 +56,8 @@
          test_phash2_with_small_unaligned_sub_binary/1,
          test_phash2_with_large_bin/1,
          test_phash2_with_large_unaligned_sub_binary/1,
-         test_phash2_with_super_large_unaligned_sub_binary/1]).
+         test_phash2_with_super_large_unaligned_sub_binary/1,
+         test_iovblockhash/1]).
 
 %%
 %% Define to run outside of test server
@@ -75,6 +76,7 @@
 -else.
 -include_lib("common_test/include/ct.hrl").
 -include_lib("common_test/include/ct_event.hrl").
+-include_lib("stdlib/include/assert.hrl").
 -endif.
 
 -ifdef(debug).
@@ -114,6 +116,8 @@ all() ->
      test_phash2_4GB_plus_bin,
      test_phash2_10MB_plus_bin,
      test_native_record,
+     md5_large,
+     test_iovblockhash,
      {group, phash2_benchmark_tests},
      {group, phash2_benchmark}].
 
@@ -245,12 +249,7 @@ basic_test() ->
                     0,0,0,0,0,97,2,97,1>>,
     25769064 = phash_from_external(ExternalFun),
 
-    case (catch erlang:phash(1,0)) of
-	{'EXIT',{badarg, _}} ->
-	    ok;
-	_ ->
-	    exit(phash_accepted_zero_as_range)
-    end.
+    ?assertError(badarg, erlang:phash(1,0)).
 
 phash_from_external(Ext) ->
     erlang:phash(binary_to_term(Ext), 16#FFFFFFFF).
@@ -639,6 +638,22 @@ duplicate_iolist(IOList, 0) ->
 duplicate_iolist(IOList, NrOfTimes) ->
     duplicate_iolist([IOList, IOList], NrOfTimes - 1).
 
+%% This testcase needs >3 GB of free memory.
+test_iovblockhash(Config) when is_list(Config) ->
+    run_when_enough_resources(
+      fun() ->
+              {ok, Peer, N} = ?CT_PEER(),
+              erpc:call(N,
+                        fun() ->
+                                test_iovblockhash_1()
+                        end),
+              peer:stop(Peer)
+      end).
+
+test_iovblockhash_1() ->
+    BigBin = binary:copy(<<0>>, 3 bsl 30),
+    _ = term_to_iovec(BigBin, [local]),
+    ok.
 
 %% This functions is written very carefully so that the binaries
 %% created are released as quickly as possible. If they are not released
@@ -902,6 +917,21 @@ create_record(Rec) ->
 make_internal_hash(Term) ->
     erts_debug:get_internal_state({internal_hash, Term}).
 
+md5_large(_Config) when is_list(_Config) ->
+    %% A type conversion error in the md5 implementation on binaries
+    %% larger than 512 MB would cause the MD5 be incorrect on
+    %% 32-bit systems.
+
+    Chunk = <<0:(32*1024*1024)/unit:8>>,
+    L1 = [<<0>> | lists:duplicate(16, Chunk)],
+    <<16#EA3B62C6B93CB3625A1FD76777985F5A:128>> = erlang:md5(L1),
+
+    %% 4GB + 1 will not fit in a size_t on 32-bit systems.
+    L2 = [<<0>> | lists:duplicate(8*16, Chunk)],
+    <<16#F18C798FF5D450DFE4D3ACDC12B621FF:128>> = erlang:md5(L2),
+
+    ok.
+
 %%
 %% Reference implementation of integer hashing
 %%
@@ -1023,7 +1053,7 @@ test_fun_1(_,_,_,_,_,_) ->
     ok.
 
 init_table() ->
-    (catch ets:delete(?MODULE)),
+    try ets:delete(?MODULE) catch _:_ -> ok end,
     ets:new(?MODULE,[ordered_set,named_table]).
    
 collect_hits() ->

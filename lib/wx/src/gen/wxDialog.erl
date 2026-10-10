@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -191,7 +191,7 @@ Event types emitted from this class:
   moveBeforeInTabOrder/2,navigate/1,navigate/2,pageDown/1,pageUp/1,parent_class/1,
   popupMenu/2,popupMenu/3,popupMenu/4,raise/1,refresh/1,refresh/2,refreshRect/2,
   refreshRect/3,releaseMouse/1,removeChild/2,reparent/2,requestUserAttention/1,
-  requestUserAttention/2,screenToClient/1,screenToClient/2,scrollLines/2,
+  requestUserAttention/2,screenToClient/2,screenToClient/3,scrollLines/2,
   scrollPages/2,scrollWindow/3,scrollWindow/4,setAcceleratorTable/2,
   setAutoLayout/2,setBackgroundColour/2,setBackgroundStyle/2,setCaret/2,
   setClientSize/2,setClientSize/3,setContainingSizer/2,setCursor/2,
@@ -224,7 +224,7 @@ new() ->
 
 -doc(#{equiv => new(Parent,Id,Title, [])}).
 -spec new(Parent, Id, Title) -> wxDialog() when
-	Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata().
+        Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata().
 
 new(Parent,Id,Title)
  when is_record(Parent, wx_ref),is_integer(Id),?is_chardata(Title) ->
@@ -254,7 +254,7 @@ new(#wx_ref{type=ParentT}=Parent,Id,Title, Options)
 
 -doc(#{equiv => create(This,Parent,Id,Title, [])}).
 -spec create(This, Parent, Id, Title) -> boolean() when
-	This::wxDialog(), Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata().
+        This::wxDialog(), Parent::wxWindow:wxWindow(), Id::integer(), Title::unicode:chardata().
 
 create(This,Parent,Id,Title)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id),?is_chardata(Title) ->
@@ -297,7 +297,7 @@ hardware buttons appropriately and returns NULL, so don't forget to test that th
 value is valid before using it.
 """.
 -spec createButtonSizer(This, Flags) -> wxSizer:wxSizer() when
-	This::wxDialog(), Flags::integer().
+        This::wxDialog(), Flags::integer().
 createButtonSizer(#wx_ref{type=ThisT}=This,Flags)
  when is_integer(Flags) ->
   ?CLASS(ThisT,wxDialog),
@@ -313,7 +313,7 @@ wxCLOSE, wxHELP, wxNO_DEFAULT.
 The sizer lays out the buttons in a manner appropriate to the platform.
 """.
 -spec createStdDialogButtonSizer(This, Flags) -> wxStdDialogButtonSizer:wxStdDialogButtonSizer() when
-	This::wxDialog(), Flags::integer().
+        This::wxDialog(), Flags::integer().
 createStdDialogButtonSizer(#wx_ref{type=ThisT}=This,Flags)
  when is_integer(Flags) ->
   ?CLASS(ThisT,wxDialog),
@@ -331,7 +331,7 @@ See:
 * `setReturnCode/2`
 """.
 -spec endModal(This, RetCode) -> 'ok' when
-	This::wxDialog(), RetCode::integer().
+        This::wxDialog(), RetCode::integer().
 endModal(#wx_ref{type=ThisT}=This,RetCode)
  when is_integer(RetCode) ->
   ?CLASS(ThisT,wxDialog),
@@ -343,7 +343,7 @@ Gets the identifier of the button which works like standard OK button in this di
 See: `setAffirmativeId/2`
 """.
 -spec getAffirmativeId(This) -> integer() when
-	This::wxDialog().
+        This::wxDialog().
 getAffirmativeId(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxDialog),
   wxe_util:queue_cmd(This,?get_env(),?wxDialog_GetAffirmativeId),
@@ -363,7 +363,7 @@ See:
 * `endModal/2`
 """.
 -spec getReturnCode(This) -> integer() when
-	This::wxDialog().
+        This::wxDialog().
 getReturnCode(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxDialog),
   wxe_util:queue_cmd(This,?get_env(),?wxDialog_GetReturnCode),
@@ -371,7 +371,7 @@ getReturnCode(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns true if the dialog box is modal, false otherwise.".
 -spec isModal(This) -> boolean() when
-	This::wxDialog().
+        This::wxDialog().
 isModal(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxDialog),
   wxe_util:queue_cmd(This,?get_env(),?wxDialog_IsModal),
@@ -391,7 +391,7 @@ By default, the affirmative id is wxID_OK.
 See: `getAffirmativeId/1`
 """.
 -spec setAffirmativeId(This, Id) -> 'ok' when
-	This::wxDialog(), Id::integer().
+        This::wxDialog(), Id::integer().
 setAffirmativeId(#wx_ref{type=ThisT}=This,Id)
  when is_integer(Id) ->
   ?CLASS(ThisT,wxDialog),
@@ -411,7 +411,7 @@ See:
 * `endModal/2`
 """.
 -spec setReturnCode(This, RetCode) -> 'ok' when
-	This::wxDialog(), RetCode::integer().
+        This::wxDialog(), RetCode::integer().
 setReturnCode(#wx_ref{type=ThisT}=This,RetCode)
  when is_integer(RetCode) ->
   ?CLASS(ThisT,wxDialog),
@@ -419,7 +419,7 @@ setReturnCode(#wx_ref{type=ThisT}=This,RetCode)
 
 -doc(#{equiv => show(This, [])}).
 -spec show(This) -> boolean() when
-	This::wxDialog().
+        This::wxDialog().
 
 show(This)
  when is_record(This, wx_ref) ->
@@ -466,7 +466,7 @@ See:
 * `setReturnCode/2`
 """.
 -spec showModal(This) -> integer() when
-	This::wxDialog().
+        This::wxDialog().
 showModal(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxDialog),
   wxe_util:queue_cmd(This,?get_env(),?wxDialog_ShowModal),
@@ -659,9 +659,9 @@ scrollPages(This,Pages) -> wxWindow:scrollPages(This,Pages).
 -doc false.
 scrollLines(This,Lines) -> wxWindow:scrollLines(This,Lines).
 -doc false.
-screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
+screenToClient(This,X,Y) -> wxWindow:screenToClient(This,X,Y).
 -doc false.
-screenToClient(This) -> wxWindow:screenToClient(This).
+screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
 -doc false.
 reparent(This,NewParent) -> wxWindow:reparent(This,NewParent).
 -doc false.

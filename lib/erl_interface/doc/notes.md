@@ -3,7 +3,7 @@
 
 SPDX-License-Identifier: Apache-2.0
 
-Copyright Ericsson AB 2023-2025. All Rights Reserved.
+Copyright Ericsson AB 2023-2026. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,6 +22,16 @@ limitations under the License.
 # Erl_interface Release Notes
 
 This document describes the changes made to the Erl_interface application.
+
+## Erl_Interface 5.8.2
+
+### Fixed Bugs and Malfunctions
+
+- erl_interface: Fix buffer leak and state corruption on `ei_x_buff` realloc failure
+
+  Own Id: OTP-20324 Aux Id: [PR-11492]
+
+[PR-11492]: https://github.com/erlang/otp/pull/11492
 
 ## Erl_Interface 5.8.1
 
@@ -55,6 +65,16 @@ This document describes the changes made to the Erl_interface application.
 - The `ei` API for decoding/encoding terms is not fully 64-bit compatible since terms that have a representation on the external term format larger than 2 GB cannot be handled.
 
   Own Id: OTP-16607 Aux Id: OTP-16608
+
+## Erl_Interface 5.7.0.2
+
+### Fixed Bugs and Malfunctions
+
+- erl_interface: Fix buffer leak and state corruption on `ei_x_buff` realloc failure
+
+  Own Id: OTP-20324 Aux Id: [PR-11492]
+
+[PR-11492]: https://github.com/erlang/otp/pull/11492
 
 ## Erl_Interface 5.7.0.1
 
@@ -192,6 +212,16 @@ This document describes the changes made to the Erl_interface application.
 - The `ei` API for decoding/encoding terms is not fully 64-bit compatible since terms that have a representation on the external term format larger than 2 GB cannot be handled.
 
   Own Id: OTP-16607 Aux Id: OTP-16608
+
+## Erl_Interface 5.5.2.2
+
+### Fixed Bugs and Malfunctions
+
+- erl_interface: Fix buffer leak and state corruption on `ei_x_buff` realloc failure
+
+  Own Id: OTP-20324 Aux Id: [PR-11492]
+
+[PR-11492]: https://github.com/erlang/otp/pull/11492
 
 ## Erl_Interface 5.5.2.1
 

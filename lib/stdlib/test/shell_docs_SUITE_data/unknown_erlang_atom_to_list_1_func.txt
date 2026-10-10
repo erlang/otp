@@ -2,14 +2,14 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  atom_to_list(Atom)[0m
+[1m  atom_to_list(Atom)[0m
 
   Returns a list of unicode code points corresponding to the text
-  representation of [;;4mAtom[0m.
+  representation of [4mAtom[0m.
 
   For example:
 
@@ -19,5 +19,5 @@
     > atom_to_list('你好').
     [20320,22909]
 
-  See [;;4municode[0m for how to convert the resulting list to different
+  See [4municode[0m for how to convert the resulting list to different
   formats.

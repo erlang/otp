@@ -51,6 +51,7 @@
          update_cipher_key/2,
          maybe_traffic_keylog_1_3/4,
          maybe_forget_hs_secrets/2,
+         init_max_early_data_size/1,
          do_maybe/0]).
 
 %%--------------------------------------------------------------------

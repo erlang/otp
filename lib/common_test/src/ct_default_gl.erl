@@ -22,6 +22,9 @@
 
 -module(ct_default_gl).
 -moduledoc false.
+
+-compile([{nowarn_deprecated_function, [{erlang,exit,2}]}]).
+
 -export([start_link/1, stop/0]).
 
 -export([init/1,handle_call/3,handle_cast/2,handle_info/2,terminate/2]).

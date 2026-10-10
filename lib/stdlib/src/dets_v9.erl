@@ -1450,19 +1450,14 @@ temp_file(Head, SizeT, N) ->
     {TmpName, Fd}.
 
 %% Does not close Fd.
-fsck_input(Head, Fd, Cntrs, FileHeader) ->
-    MaxSz0 = case FileHeader#fileheader.has_md5 of
-                 true when is_list(FileHeader#fileheader.no_colls) ->
-                     ?POW(max_objsize(FileHeader#fileheader.no_colls));
+fsck_input(Head, Fd, Cntrs, _FileHeader) ->
+    %% The file is not compressed, so the bucket size
+    %% cannot exceed the filesize, for all buckets.
+    MaxSz0 = case file:position(Fd, eof) of
+                 {ok, Pos} ->
+                     Pos;
                  _ ->
-                     %% The file is not compressed, so the bucket size
-                     %% cannot exceed the filesize, for all buckets.
-                     case file:position(Fd, eof) of
-                         {ok, Pos} ->
-                             Pos;
-                         _ ->
-                             1 bsl 32
-                     end
+                     1 bsl 32
              end,
     MaxSz = erlang:max(MaxSz0, ?CHUNK_SIZE),
     State0 = fsck_read(?BASE, Fd, [], 0),

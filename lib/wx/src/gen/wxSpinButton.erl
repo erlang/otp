@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -132,7 +132,7 @@ Event types emitted from this class:
   move/2,move/3,move/4,moveAfterInTabOrder/2,moveBeforeInTabOrder/2,
   navigate/1,navigate/2,pageDown/1,pageUp/1,parent_class/1,popupMenu/2,
   popupMenu/3,popupMenu/4,raise/1,refresh/1,refresh/2,refreshRect/2,refreshRect/3,
-  releaseMouse/1,removeChild/2,reparent/2,screenToClient/1,screenToClient/2,
+  releaseMouse/1,removeChild/2,reparent/2,screenToClient/2,screenToClient/3,
   scrollLines/2,scrollPages/2,scrollWindow/3,scrollWindow/4,setAcceleratorTable/2,
   setAutoLayout/2,setBackgroundColour/2,setBackgroundStyle/2,setCaret/2,
   setClientSize/2,setClientSize/3,setContainingSizer/2,setCursor/2,
@@ -164,7 +164,7 @@ new() ->
 
 -doc(#{equiv => new(Parent, [])}).
 -spec new(Parent) -> wxSpinButton() when
-	Parent::wxWindow:wxWindow().
+        Parent::wxWindow:wxWindow().
 
 new(Parent)
  when is_record(Parent, wx_ref) ->
@@ -195,7 +195,7 @@ new(#wx_ref{type=ParentT}=Parent, Options)
 
 -doc(#{equiv => create(This,Parent, [])}).
 -spec create(This, Parent) -> boolean() when
-	This::wxSpinButton(), Parent::wxWindow:wxWindow().
+        This::wxSpinButton(), Parent::wxWindow:wxWindow().
 
 create(This,Parent)
  when is_record(This, wx_ref),is_record(Parent, wx_ref) ->
@@ -231,7 +231,7 @@ Returns the maximum permissible value.
 See: `setRange/3`
 """.
 -spec getMax(This) -> integer() when
-	This::wxSpinButton().
+        This::wxSpinButton().
 getMax(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSpinButton),
   wxe_util:queue_cmd(This,?get_env(),?wxSpinButton_GetMax),
@@ -243,7 +243,7 @@ Returns the minimum permissible value.
 See: `setRange/3`
 """.
 -spec getMin(This) -> integer() when
-	This::wxSpinButton().
+        This::wxSpinButton().
 getMin(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSpinButton),
   wxe_util:queue_cmd(This,?get_env(),?wxSpinButton_GetMin),
@@ -255,7 +255,7 @@ Returns the current spin button value.
 See: `setValue/2`
 """.
 -spec getValue(This) -> integer() when
-	This::wxSpinButton().
+        This::wxSpinButton().
 getValue(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxSpinButton),
   wxe_util:queue_cmd(This,?get_env(),?wxSpinButton_GetValue),
@@ -275,7 +275,7 @@ See:
 * `getMax/1`
 """.
 -spec setRange(This, Min, Max) -> 'ok' when
-	This::wxSpinButton(), Min::integer(), Max::integer().
+        This::wxSpinButton(), Min::integer(), Max::integer().
 setRange(#wx_ref{type=ThisT}=This,Min,Max)
  when is_integer(Min),is_integer(Max) ->
   ?CLASS(ThisT,wxSpinButton),
@@ -283,7 +283,7 @@ setRange(#wx_ref{type=ThisT}=This,Min,Max)
 
 -doc "Sets the value of the spin button.".
 -spec setValue(This, Value) -> 'ok' when
-	This::wxSpinButton(), Value::integer().
+        This::wxSpinButton(), Value::integer().
 setValue(#wx_ref{type=ThisT}=This,Value)
  when is_integer(Value) ->
   ?CLASS(ThisT,wxSpinButton),
@@ -436,9 +436,9 @@ scrollPages(This,Pages) -> wxWindow:scrollPages(This,Pages).
 -doc false.
 scrollLines(This,Lines) -> wxWindow:scrollLines(This,Lines).
 -doc false.
-screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
+screenToClient(This,X,Y) -> wxWindow:screenToClient(This,X,Y).
 -doc false.
-screenToClient(This) -> wxWindow:screenToClient(This).
+screenToClient(This,Pt) -> wxWindow:screenToClient(This,Pt).
 -doc false.
 reparent(This,NewParent) -> wxWindow:reparent(This,NewParent).
 -doc false.

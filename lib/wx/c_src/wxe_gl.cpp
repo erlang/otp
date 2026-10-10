@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright Ericsson AB 2008-2025. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2026. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -48,7 +48,7 @@ wxeGLC glc;
 typedef void * (*WXE_GL_LOOKUP) (int);
 void * wxe_not_loaded(int x);
 WXE_GL_LOOKUP wxe_gl_lookup_func = (WXE_GL_LOOKUP) wxe_not_loaded;
-typedef void * (*WXE_GL_FUNC) (ErlNifEnv*, ErlNifPid*, const ERL_NIF_TERM argv[]);
+typedef void (*WXE_GL_FUNC) (ErlNifEnv*, ErlNifPid*, ERL_NIF_TERM argv[]);
 
 typedef const char * (*WXE_GL_FUNC_NAME) (int);
 WXE_GL_FUNC_NAME wxe_gl_lookup_func_name;
@@ -82,6 +82,7 @@ void setActiveGL(wxeMemEnv *memenv, ErlNifPid caller, wxGLCanvas *canvas, wxGLCo
   if(!entry) {
     if(canvas && context) {
       entry = (wxe_glc *) malloc(sizeof(wxe_glc));
+      if(!entry) return;
       entry->canvas = NULL;
       entry->context = NULL;
     }
@@ -116,6 +117,22 @@ void deleteActiveGL(wxGLCanvas *canvas)
       it->second = NULL;
       free(temp);
     }
+  }
+}
+
+void deleteActiveGLContext(wxGLContext *context)
+{
+  wxeGLC::iterator it;
+  for(it = glc.begin(); it != glc.end(); ++it) {
+    wxe_glc * temp = it->second;
+    if(temp && temp->context == context) {
+      it->second = NULL;
+      free(temp);
+    }
+  }
+  if(gl_active_index && glc[gl_active_index] == NULL) {
+    gl_active_index = 0;
+    enif_set_pid_undefined(&gl_active_pid);
   }
 }
 

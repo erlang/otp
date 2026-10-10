@@ -255,7 +255,8 @@ error
 """.
 
 -compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}},
-          {nowarn_possibly_unsafe_function, {erlang, binary_to_term, 1}}]).
+          {nowarn_possibly_unsafe_function, {erlang, binary_to_term, 1}},
+          {nowarn_deprecated_function, [{erlang,exit,2}]}]).
 
 -export([restart/1,restart/0,reboot/0,stop/0,stop/1,
 	 get_status/0,boot/1,get_arguments/0,get_plain_arguments/0,

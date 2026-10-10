@@ -71,6 +71,7 @@ in the Erlang Reference Manual.
 """.
 
 -compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}},
+          {nowarn_deprecated_function, [{erlang,exit,2}]},
           nowarn_deprecated_catch]).
 
 -behaviour(gen_server).
@@ -142,7 +143,7 @@ in the Erlang Reference Manual.
 -export([do_spawn/3,
 	 spawn_func/6,
 	 ticker/2,
-	 ticker_loop/2,
+        ticker_loop/2, ticker_loop/3,
 	 aux_ticker/4]).
 
 -export([init/1,handle_call/3,handle_cast/2,handle_info/2,
@@ -2168,13 +2169,24 @@ ticker(Kernel, Tick) when is_integer(Tick) ->
 
 -doc false.
 ticker_loop(Kernel, Tick) ->
+    Now = erlang:monotonic_time(millisecond),
+    ticker_loop(Kernel, Tick, Now + Tick).
+
+-doc false.
+ticker_loop(Kernel, Tick, Deadline0) ->
+    Now = erlang:monotonic_time(millisecond),
+    Deadline =
+        case Deadline0 >= Now of
+            true -> Deadline0;
+            false -> Now + Tick
+        end,
     receive
-	{new_ticktime, NewTick} ->
-	    ?tckr_dbg({ticker_changed_time, Tick, NewTick}),
-	    ?MODULE:ticker_loop(Kernel, NewTick)
-    after Tick ->
-	    Kernel ! tick,
-	    ?MODULE:ticker_loop(Kernel, Tick)
+        {new_ticktime, NewTick} ->
+            ?tckr_dbg({ticker_changed_time, Tick, NewTick}),
+            ?MODULE:ticker_loop(Kernel, NewTick)
+    after Deadline - Now ->
+            Kernel ! tick,
+            ?MODULE:ticker_loop(Kernel, Tick, Deadline + Tick)
     end.
 
 start_aux_ticker(NewTick, OldTick, TransitionPeriod) ->
@@ -2293,8 +2305,8 @@ setup(Node, CheckPid, CheckTimer, CheckRes, State) ->
                                                          address = Addr,
                                                          type = normal}),
                     State2 = delete_owner(CheckPid, State),
-                    Owners = State#state.conn_owners,
-                    State2#state{conn_owners = Owners#{SetupPid => Node}};
+                    Owners2 = State2#state.conn_owners,
+                    State2#state{conn_owners = Owners2#{SetupPid => Node}};
                 CheckError ->
                     Failure = {setup_check_failed, Node, CheckError},
                     verbose(Failure, 2, State),
@@ -2303,7 +2315,7 @@ setup(Node, CheckPid, CheckTimer, CheckRes, State) ->
                                      Conn#connection.type, State)
             end;
         _ ->
-            State
+            delete_owner(CheckPid, State)
     end.
 
 setup_check_timeout(Node, CheckPid, State) ->

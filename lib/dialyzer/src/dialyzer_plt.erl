@@ -346,7 +346,7 @@ get_all_contracts(#plt{contracts = ETSContracts}) ->
   maps:from_list(ets:tab2list(ETSContracts)).
 
 %% Returns all callbacks stored in the PLT
--spec get_all_callbacks(plt()) -> #{mfa() => #contract{}}.
+-spec get_all_callbacks(plt()) -> #{mfa() => dialyzer_contracts:file_contract()}.
 get_all_callbacks(#plt{callbacks = ETSCallbacks}) ->
   #{K => V ||
     {_M, Cbs} <- ets:tab2list(ETSCallbacks),

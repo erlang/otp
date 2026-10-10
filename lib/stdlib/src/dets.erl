@@ -324,7 +324,7 @@ returned, or `{error, Reason}` if an error occurs.
       Name :: tab_name(),
       Continuation :: 'start' | cont(),
       Continuation2 :: cont(),
-      Data :: binary() | tuple(),
+      Data :: [binary() | object()],
       Reason :: term().
 
 bchunk(Tab, start) ->
@@ -676,7 +676,7 @@ are allowed:
       Options :: Option | [Option],
       Option :: {min_no_slots,no_slots()} | {format,term | bchunk},
       Reason :: term(),
-      Data :: binary() | tuple().
+      Data :: [binary() | object()].
 
 init_table(Tab, InitFun, Options) when is_function(InitFun) ->
     case options(Options, [format, min_no_slots]) of
@@ -743,7 +743,12 @@ returns `BchunkFormat`.
 is_compatible_bchunk_format(Tab, Term) ->
     badarg(treq(Tab, {is_compatible_bchunk_format, Term}), [Tab, Term]).
 
--doc "Returns `true` if file `Filename` is a Dets table, otherwise `false`.".
+-doc """
+Returns `true` if file `Filename` is a Dets table, otherwise `false`.
+
+If an error occurs (for example if the file does not exist), the tuple
+`{error, Reason}` is returned.
+""".
 -spec is_dets_file(Filename) -> boolean() | {'error', Reason} when
       Filename :: file:name(),
       Reason :: term().
@@ -805,10 +810,11 @@ lookup_keys(Tab, Keys) ->
 
 -doc """
 Returns for each object of table `Name` that matches `Pattern` a list of
-bindings in some unspecified order. For a description of patterns, see
-`ets:match/2`. If the keypos'th element of `Pattern` is unbound, all table
-objects are matched. If the keypos'th element is bound, only the objects with
-the correct key are matched.
+bindings in some unspecified order.
+
+For a description of patterns, see `ets:match/2`. If the keypos'th element of
+`Pattern` is unbound, all table objects are matched. If the keypos'th element
+is bound, only the objects with the correct key are matched.
 """.
 -spec match(Name, Pattern) -> [Match] | {'error', Reason} when
       Name :: tab_name(),
@@ -828,9 +834,9 @@ A tuple of the bindings and a continuation is returned, unless the table is
 empty, in which case `'$end_of_table'` is returned. The continuation is to be
 used when matching further objects by calling `match/1`.
 
-If the keypos'th element of `Pattern` is bound, all table objects are matched.
-If the keypos'th element is unbound, all table objects are matched, `N` objects
-at a time, until at least one object matches or the end of the table is reached.
+If the keypos'th element of `Pattern` is bound, only the objects with the correct key are matched.
+If the keypos'th element is unbound, all table objects are matched,
+`N` objects at a time, until at least one object matches or the end of the table is reached.
 The default, indicated by giving `N` the value `default`, is to let the number
 of objects vary depending on the sizes of the objects. All objects with the same
 key are always matched at the same time, which implies that more than N objects
@@ -941,9 +947,9 @@ A list of objects and a continuation is returned, unless the table is empty, in
 which case `'$end_of_table'` is returned. The continuation is to be used when
 matching further objects by calling `match_object/1`.
 
-If the keypos'th element of `Pattern` is bound, all table objects are matched.
-If the keypos'th element is unbound, all table objects are matched, `N` objects
-at a time, until at least one object matches or the end of the table is reached.
+If the keypos'th element of `Pattern` is bound, only the objects with the correct key are matched.
+If the keypos'th element is unbound, all table objects are matched,
+`N` objects at a time, until at least one object matches or the end of the table is reached.
 The default, indicated by giving `N` the value `default`, is to let the number
 of objects vary depending on the sizes of the objects. All matching objects with
 the same key are always returned in the same reply, which implies that more than

@@ -3,7 +3,7 @@
 
 SPDX-License-Identifier: Apache-2.0
 
-Copyright Ericsson AB 2023-2025. All Rights Reserved.
+Copyright Ericsson AB 2023-2026. All Rights Reserved.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -22,6 +22,34 @@ limitations under the License.
 # Tools Release Notes
 
 This document describes the changes made to the Tools application.
+
+## Tools 4.2.3
+
+### Fixed Bugs and Malfunctions
+
+- The `tags.erl` module is used to generate `TAGS` files for Emacs. There was a case where single quote items starting in position 0 would crash the scanner. This use case can potentially happen in docstrings, although not too common. This fix makes the scanner to handle such cases instead of crashing.
+
+  Own Id: OTP-20293 Aux Id: [PR-11447]
+
+- Updated the Emacs skeleton to reflect latest `format_status` callback handling.
+
+  Own Id: OTP-20339 Aux Id: [PR-11507]
+
+[PR-11447]: https://github.com/erlang/otp/pull/11447
+[PR-11507]: https://github.com/erlang/otp/pull/11507
+
+## Tools 4.2.2
+
+### Fixed Bugs and Malfunctions
+
+- tools: fixes tprof not stopping tracing
+  
+  A call to `tprof:enable_trace(new|existing)` starts tracing processes.
+  To stop it, one calls `tprof:disable_trace(new|existing)`. However, the guard to stop tracing was matching on `new_processes | existing_processes`. The return happens to say `0` processes are traced now, but the tracing did not stop. This issue has been fixed.
+
+  Own Id: OTP-20302 Aux Id: [PR-11481]
+
+[PR-11481]: https://github.com/erlang/otp/pull/11481
 
 ## Tools 4.2.1
 
@@ -81,6 +109,19 @@ This document describes the changes made to the Tools application.
 [PR-10592]: https://github.com/erlang/otp/pull/10592
 [PR-10839]: https://github.com/erlang/otp/pull/10839
 [PR-10993]: https://github.com/erlang/otp/pull/10993
+
+## Tools 4.1.4.1
+
+### Fixed Bugs and Malfunctions
+
+- tools: fixes tprof not stopping tracing
+  
+  A call to `tprof:enable_trace(new|existing)` starts tracing processes.
+  To stop it, one calls `tprof:disable_trace(new|existing)`. However, the guard to stop tracing was matching on `new_processes | existing_processes`. The return happens to say `0` processes are traced now, but the tracing did not stop. This issue has been fixed.
+
+  Own Id: OTP-20302 Aux Id: [PR-11481]
+
+[PR-11481]: https://github.com/erlang/otp/pull/11481
 
 ## Tools 4.1.4
 
@@ -161,6 +202,19 @@ This document describes the changes made to the Tools application.
   Own Id: OTP-19575 Aux Id: [PR-9670]
 
 [PR-9670]: https://github.com/erlang/otp/pull/9670
+
+## Tools 4.1.1.1
+
+### Fixed Bugs and Malfunctions
+
+- tools: fixes tprof not stopping tracing
+  
+  A call to `tprof:enable_trace(new|existing)` starts tracing processes.
+  To stop it, one calls `tprof:disable_trace(new|existing)`. However, the guard to stop tracing was matching on `new_processes | existing_processes`. The return happens to say `0` processes are traced now, but the tracing did not stop. This issue has been fixed.
+
+  Own Id: OTP-20302 Aux Id: [PR-11481]
+
+[PR-11481]: https://github.com/erlang/otp/pull/11481
 
 ## Tools 4.1.1
 

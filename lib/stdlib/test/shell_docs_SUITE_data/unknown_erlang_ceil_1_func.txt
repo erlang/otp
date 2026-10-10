@@ -2,16 +2,16 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2021-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2021-2026. All Rights Reserved.
 %%
 %% %CopyrightEnd%
 
-[;1m  ceil(Number)[0m
+[1m  ceil(Number)[0m
 
-[;;4mSince[0m:
+[4mSince[0m:
   OTP 20.0
 
-  Returns the smallest integer not less than [;;4mNumber[0m.
+  Returns the smallest integer not less than [4mNumber[0m.
 
   For example:
 

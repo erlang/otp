@@ -450,6 +450,9 @@ edges have different labels.
 If `G` was created with option `acyclic`, then attempting to add an edge that
 would introduce a cycle will raise an error `{bad_edge, {From, To}}`. Note
 that checking for cyclicity slows down the adding of edges.
+
+Both `V1` and `V2` must already be vertices of `G`; otherwise, a
+`{bad_vertex, V}` error is raised.
 """.
 -doc(#{ since => ~"OTP 29.0"}).
 -spec add_edge(G, V1, V2, L) -> graph() when
@@ -965,8 +968,25 @@ is_acyclic(G) ->
     cyclic_strong_components(G) =:= [].
 
 -doc """
-Returns a minimal list of vertices of `G` from which all vertices of `G` can
-be reached.
+Returns a list of vertices of `G` from which all vertices of `G` can be reached.
+
+For performance reasons the returned list is not necessarily minimal, but can
+contain vertices that are redundant. To create a truly minimal list of vertices you
+should iterate through each returned root and check if there is a path between them or not.
+
+For example:
+
+```erlang
+%% G: a -> b, b -> c, c -> b
+1> G = lists:foldl(fun({From, To}, G) -> graph:add_edge(G, From, To) end,
+          lists:foldl(fun(K, G) -> graph:add_vertex(G, K) end, graph:new(), [a,b,c]),
+         [{a,b},{b,c},{c,b}]).
+2> Roots = graph:roots(G).
+[a,b]
+3> FilterFun = fun(OtherRoot) -> Root =/= OtherRoot andalso graph:has_path(G, Root, OtherRoot) end.
+4> [Root || Root <:- Roots, lists:any(FilterFun, Roots)].
+[a]
+```
 """.
 -doc(#{ since => ~"OTP 29.0"}).
 -spec roots(graph()) -> [vertex()].
@@ -1198,7 +1218,7 @@ pretraverse(not_first, V, SF, G, T, LL) ->
 
 %% generic preorder traversal loop; given a starting set Vs of vertices
 %% of G, T tracks seen vertices, the SF function queues up neighbour
-%% vertexes, and the resulting list Rs of reached vertices (in reverse
+%% vertices, and the resulting list Rs of reached vertices (in reverse
 %% preorder) is prepended onto LL unless it is empty
 pretraverse_1([V | Vs], SF, G, T0, Rs, LL) ->
     case sets:is_element(V, T0) of

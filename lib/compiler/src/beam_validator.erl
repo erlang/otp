@@ -44,6 +44,8 @@
 
 -import(lists, [dropwhile/2,foldl/3,member/2,reverse/2,zip/2]).
 
+-type type() :: beam_types:type().
+
 %% To be called by the compiler.
 
 -spec validate(Code, Level) -> Result when
@@ -153,8 +155,8 @@ validate_0([{function, Name, Arity, Entry, Code} | Fs],
 %%   affect the type of another.
 -type validator_type() :: #t_abstract{} | fun((values()) -> type()) | type().
 
--record(value_ref, {id :: index()}).
--record(value, {op :: term(), args :: [argument()], type :: validator_type()}).
+-record #value_ref{id :: index()}.
+-record #value{op :: term(), args :: [argument()], type :: validator_type()}.
 
 -type argument() :: #value_ref{} | beam_literal().
 -type values() :: #{ #value_ref{} => #value{} }.
@@ -188,69 +190,93 @@ validate_0([{function, Name, Arity, Entry, Code} | Fs],
 -type y_regs() :: #{ {y, index()} => tag() | #value_ref{} }.
 
 %% Emulation state
--record(st,
-        {%% All known values.
-         vs=#{} :: values(),
-         %% Register states.
-         xs=#{} :: x_regs(),
-         ys=#{} :: y_regs(),
-         f=init_fregs(),
-         %% A set of all registers containing "fragile" terms. That is, terms
-         %% that don't exist on our process heap and would be destroyed by a
-         %% GC.
-         fragile=sets:new() :: sets:set(),
-         %% Number of Y registers.
-         %%
-         %% Note that this may be 0 if there's a frame without saved values,
-         %% such as on a body-recursive call.
-         numy=none :: none | {undecided,index()} | index(),
-         %% Available heap size.
-         h=0,
-         %% Available heap size for funs (aka lambdas).
-         hl=0,
-         %%Available heap size for floats.
-         hf=0,
-         %% List of hot catch/try tags
-         ct=[],
-         %% Current receive state:
-         %%
-         %%   * 'none'            - Not in a receive loop.
-         %%   * 'marked_position' - We've used a marker prior to loop_rec.
-         %%   * 'entered_loop'    - We're in a receive loop.
-         %%   * 'undecided'
-         recv_state=none :: none | undecided | marked_position | entered_loop,
-         %% Holds the current saved position for each `#t_bs_context{}`, in the
-         %% sense that the position is equal to that of their context. They are
-         %% invalidated whenever their context advances.
-         %%
-         %% These are used to update the unit of saved positions after
-         %% operations that test the incoming unit, such as bs_test_unit and
-         %% bs_get_binary2 with {atom,all}.
-         ms_positions=#{} :: #{ Ctx :: #value_ref{} => Pos :: #value_ref{} }
-        }).
+-record #st{
+   %% All known values.
+   vs=#{} :: values(),
+
+   %% Register states.
+   xs=#{} :: x_regs(),
+   ys=#{} :: y_regs(),
+   f :: non_neg_integer(),
+
+   %% A set of all registers containing "fragile" terms. That is, terms
+   %% that don't exist on our process heap and would be destroyed by a
+   %% GC.
+   fragile :: sets:set(),
+
+   %% Number of Y registers.
+   %%
+   %% Note that this may be 0 if there's a frame without saved values,
+   %% such as on a body-recursive call.
+   numy=none :: none | {undecided,index()} | index(),
+
+   %% Available heap size.
+   h=0,
+
+   %% Available heap size for funs (aka lambdas).
+   hl=0,
+
+   %% Available heap size for floats.
+   hf=0,
+
+   %% Available heap size for native records.
+   hnr=0,
+
+   %% List of hot catch/try tags
+   ct=[],
+
+   %% Current receive state:
+   %%
+   %%   * 'none'            - Not in a receive loop.
+   %%   * 'marked_position' - We've used a marker prior to loop_rec.
+   %%   * 'entered_loop'    - We're in a receive loop.
+   %%   * 'undecided'
+   recv_state=none :: none | undecided | marked_position | entered_loop,
+
+   %% Holds the current saved position for each `#t_bs_context{}`, in the
+   %% sense that the position is equal to that of their context. They are
+   %% invalidated whenever their context advances.
+   %%
+   %% These are used to update the unit of saved positions after
+   %% operations that test the incoming unit, such as bs_test_unit and
+   %% bs_get_binary2 with {atom,all}.
+   ms_positions=#{} :: #{ Ctx :: #value_ref{} => Pos :: #value_ref{} }
+  }.
 
 -type label()        :: integer().
 -type state()        :: #st{} | 'none'.
 
 %% Validator state
--record(vst,
-        {%% Current state
-         current=none              :: state(),
-         %% Validation level
-         level                     :: strong | weak,
-         %% States at labels
-         branched=#{}              :: #{ label() => state() },
-         %% All defined labels
-         labels=sets:new()    :: sets:set(),
-         %% Information of other functions in the module
-         ft=#{}                    :: #{ label() => map() },
-         %% Counter for #value_ref{} creation
-         ref_ctr=0                 :: index(),
-         %% Module name of module being checked
-         module                    :: module(),
-         %% Types for default native records default values
-         rec_defaults              :: #{ atom() => type() }
-        }).
+-record #vst{
+   %% Current state
+   current=none              :: state(),
+
+   %% Validation level
+   level                     :: strong | weak,
+
+   %% States at labels
+   branched=#{}              :: #{ label() => state() },
+
+   %% All defined labels
+   labels                    :: sets:set(),
+
+   %% Information of other functions in the module
+   ft=#{}                    :: #{ label() => map() },
+
+   %% Counter for #value_ref{} creation
+   ref_ctr=0                 :: index(),
+
+   %% Module name of module being checked
+   module                    :: module(),
+
+   %% Types for default native records default values
+   rec_defaults              :: #{ atom() => type() },
+
+   %% True if this module allocates heap space using the `test_heap`
+   %% instruction. (This field and all associated code can be removed
+   %% when OTP 30 becomes the lowest supported version.)
+   otp30_rec_alloc=false     :: boolean()
+  }.
 
 build_function_table([{function,Name,Arity,Entry,Code0}|Fs], Acc) ->
     Code = dropwhile(fun({label,L}) when L =:= Entry ->
@@ -312,7 +338,7 @@ extract_header(_Is, MFA, _Entry, _Offset, _Acc) ->
 
 init_vst({Mod, _, Arity}, RecDefaults, Level, Ft) when is_atom(Mod) ->
     Vst = #vst{branched=#{},
-               current=#st{},
+               current=#st{f=init_fregs(),fragile=sets:new()},
                ft=Ft,
                labels=sets:new(),
                level=Level,
@@ -492,6 +518,8 @@ vi({test,is_any_native_record,{f,Lbl},[Src]}, Vst) ->
     type_test(Lbl, #t_record{}, Src, Vst);
 vi({test,is_native_record,{f,Lbl},[Src,{atom,Mod},{atom,Name}]}, Vst) ->
     type_test(Lbl, #t_record{name={Mod,Name}}, Src, Vst);
+vi({test,is_record_accessible,{f,Lbl},[Src,_]}, Vst) ->
+    type_test(Lbl, #t_record{exported=yes}, Src, Vst);
 vi({test,is_integer,{f,Lbl},[Src]}, Vst) ->
     type_test(Lbl, #t_integer{}, Src, Vst);
 vi({test,is_nonempty_list,{f,Lbl},[Src]}, Vst) ->
@@ -883,10 +911,18 @@ vi({put_map_exact=Op,{f,Fail},Src,Dst,Live,{list,List}}, Vst) ->
 %%
 %% Native record instructions.
 %%
-vi({put_record,{f,Fail},Id,Src,Dst,Live,{list,List}}, Vst) ->
+vi({put_record,{f,Fail},Id,nil=Src,Dst,Live,{list,List}}, Vst) ->
     verify_put_record(Fail, Id, Src, Dst, Live, List, Vst);
-vi({get_record_elements,{f,Fail},Src,{list,List}}, Vst) ->
-    verify_get_record_elements(Fail, Src, List, Vst);
+vi({put_record,{f,Fail},Id,Src,Dst,Live,{list,List}}, Vst) ->
+    %% Update a native record. Generated by OTP 29.
+    verify_update_native_record_r29(Fail, Id, Src, Dst, Live, List, Vst);
+vi({update_record_id,{f,Fail},Hint,Id,Src,Dst,Live,{list,List}}, Vst) ->
+    %% Update a native record. Generated by OTP 30.
+    verify_update_record_id(Fail, Hint, Id, Src, Dst, Live, List, Vst);
+vi({get_record_elements,Fail,Src,{list,List}}, Vst) ->
+    verify_get_record_elements_id(Fail, nil, Src, List, Vst);
+vi({get_record_elements_id,Fail,Id,Src,{list,List}}, Vst) ->
+    verify_get_record_elements_id(Fail, Id, Src, List, Vst);
 
 %%
 %% Bit syntax matching
@@ -1412,22 +1448,83 @@ pmt_1([Key0, Value0 | List], Vst, Acc0) ->
 pmt_1([], _Vst, Acc) ->
     Acc.
 
+%% Verify update of a native record.
+verify_update_native_record_r29(Fail, Id, Src, Dst, Live, List, Vst0) ->
+    assert_term(Src, Vst0),
+    verify_live(Live, Vst0),
+    verify_y_init(Vst0),
+
+    _ = [assert_term(Term, Vst0) || Term <- List],
+
+    Vst = heap_alloc(0, Vst0),
+    SuccFun = fun(SuccVst0) ->
+                      SuccVst = prune_x_regs(Live, SuccVst0),
+                      Keys = extract_keys(List, SuccVst),
+                      verify_keys(only_literals, forbid_empty, Keys),
+
+                      Type = put_record_type(Src, Id, List, Vst),
+                      create_term(Type, put_record, [Src], Dst, Vst, Vst0)
+    end,
+    branch(Fail, Vst, SuccFun).
+
+%% Verify update of a native record.
+verify_update_record_id(Fail, _Hint, Id, Src, Dst, Live, List, Vst0) ->
+    assert_term(Src, Vst0),
+    verify_live(Live, Vst0),
+    verify_y_init(Vst0),
+
+    _ = [assert_term(Term, Vst0) || Term <- List],
+
+    Vst = case Id of
+               {atom,_} ->
+                   %% Update of a native record value created in the
+                   %% current module. The size is known and the
+                   %% previous `test_heap` instruction includes the
+                   %% size for this update instruction.
+                   eat_heap_record(Vst0);
+               _ ->
+                   %% The size of the record is not known at compile
+                   %% time. There will be a garbage collection at
+                   %% runtime.
+                   heap_alloc(0, Vst0)
+           end,
+    SuccFun = fun(SuccVst0) ->
+                      SuccVst = prune_x_regs(Live, SuccVst0),
+                      Keys = extract_keys(List, SuccVst),
+                      verify_keys(only_literals, forbid_empty, Keys),
+
+                      Type = put_record_type(Src, Id, List, Vst),
+                      create_term(Type, put_record, [Src], Dst, Vst, Vst0)
+    end,
+    branch(Fail, Vst, SuccFun).
+
 verify_put_record(Fail, Id, Src, Dst, Live, List, Vst0) ->
     assert_term(Src, Vst0),
     verify_live(Live, Vst0),
     verify_y_init(Vst0),
 
     _ = [assert_term(Term, Vst0) || Term <- List],
-    Vst = heap_alloc(0, Vst0),
+
+    Vst = case {Id, Vst0} of
+              {{atom,_}, #vst{otp30_rec_alloc=true}} ->
+                  %% Create a record value for a record defined
+                  %% in the current module. The size is known
+                  %% and the previous `test_heap` instruction
+                  %% includes the size for this update
+                  %% instruction.
+                  eat_heap_record(Vst0);
+              {_, _} ->
+                  %% The size of the record is not known at compile
+                  %% time or this module was compiled by OTP 29. The
+                  %% instruction itself will doing the GC if
+                  %% necessary.
+                  heap_alloc(0, Vst0)
+          end,
 
     SuccFun = fun(SuccVst0) ->
                       SuccVst = prune_x_regs(Live, SuccVst0),
                       Keys = extract_keys(List, SuccVst),
-                      EmptyHandling = case Src of
-                                          nil -> allow_empty;
-                                          _ -> forbid_empty
-                                      end,
-                      verify_keys(only_literals, EmptyHandling, Keys),
+                      verify_keys(only_literals, allow_empty, Keys),
 
                       Type = put_record_type(Src, Id, List, Vst),
                       create_term(Type, put_record, [Src], Dst, SuccVst, SuccVst0)
@@ -1459,10 +1556,25 @@ put_record_type(Src, Id, Fs0, Vst) ->
         {literal,{Mod,Tag}} when is_atom(Mod), is_atom(Tag) ->
             #t_record{name={Mod,Tag},type=Fs};
         {atom,'_'} ->
+            %% OTP 29 (from the put_record instruction).
+            #t_record{name=nil,type=Fs};
+        nil ->
+            %% OTP 30 (from the update_record_id instruction).
             #t_record{name=nil,type=Fs};
         {atom,Tag} when is_atom(Tag) ->
             Mod = Vst#vst.module,
-            #t_record{name={Mod,Tag},type=Fs}
+            LC = case Src of
+                     nil ->
+                         true;
+                     _ ->
+                         case get_term_type(Src, Vst) of
+                             #t_record{local_creation=LC0} ->
+                                 LC0;
+                             _ ->
+                                 false
+                         end
+                 end,
+            #t_record{name={Mod,Tag},type=Fs,local_creation=LC}
     end.
 
 record_field_types([{atom,Key}, Value0 | Fs], Vst, Acc) ->
@@ -1471,19 +1583,26 @@ record_field_types([{atom,Key}, Value0 | Fs], Vst, Acc) ->
 record_field_types([], _Vst, Acc) ->
     Acc.
 
-verify_get_record_elements(Fail, Src, List, Vst0) ->
+verify_get_record_elements_id({f,0}, _Id, Src, List, Vst0) ->
+    %% In this instruction, `{f,0}` means that it cannot fail.
+    assert_not_literal(Src),
+    verify_successful_gre(Src, List, Vst0);
+verify_get_record_elements_id({f,Fail}, _Id, Src, List, Vst0) ->
     assert_no_exception(Fail),
     assert_not_literal(Src),
     branch(Fail, Vst0,
            fun(FailVst) ->
                    clobber_record_vals(List, Src, FailVst)
            end,
-           fun(SuccVst0) ->
-                   Keys = extract_keys(List, SuccVst0),
-                   verify_keys(only_literals, forbid_empty, Keys),
-                   SuccVst1 = update_native_record_type(List, Src, SuccVst0),
-                   extract_vals(record_get, List, Src, SuccVst1)
+           fun(SuccVst) ->
+                   verify_successful_gre(Src, List, SuccVst)
            end).
+
+verify_successful_gre(Src, List, Vst0) ->
+    Keys = extract_keys(List, Vst0),
+    verify_keys(only_literals, forbid_empty, Keys),
+    SuccVst1 = update_native_record_type(List, Src, Vst0),
+    extract_vals(record_get, List, Src, SuccVst1).
 
 update_native_record_type([_|_]=Updates, Src, Vst) ->
     Es = #{Key => {present, any} || {atom,Key} <- Updates},
@@ -2065,26 +2184,29 @@ test_heap(Heap, Live, Vst0) ->
     Vst = prune_x_regs(Live, Vst0),
     heap_alloc(Heap, Vst).
 
-heap_alloc(Heap, #vst{current=St0}=Vst) ->
-    {HeapWords, Floats, Funs} = heap_alloc_1(Heap),
+heap_alloc(Heap, #vst{current=St0,otp30_rec_alloc=RecAlloc0}=Vst) ->
+    {HeapWords, Floats, Funs, Recs} = heap_alloc_1(Heap),
 
-    St = St0#st{h=HeapWords,hf=Floats,hl=Funs},
+    St = St0#st{h=HeapWords,hf=Floats,hl=Funs,hnr=Recs},
 
-    Vst#vst{current=St}.
+    RecAlloc = RecAlloc0 orelse Recs =/= 0,
+    Vst#vst{current=St,otp30_rec_alloc=RecAlloc}.
 
 heap_alloc_1({alloc, Alloc}) ->
-    heap_alloc_2(Alloc, 0, 0, 0);
+    heap_alloc_2(Alloc, 0, 0, 0, 0);
 heap_alloc_1(HeapWords) when is_integer(HeapWords) ->
-    {HeapWords, 0, 0}.
+    {HeapWords, 0, 0, 0}.
 
-heap_alloc_2([{words, HeapWords} | T], 0, Floats, Funs) ->
-    heap_alloc_2(T, HeapWords, Floats, Funs);
-heap_alloc_2([{floats, Floats} | T], HeapWords, 0, Funs) ->
-    heap_alloc_2(T, HeapWords, Floats, Funs);
-heap_alloc_2([{funs, Funs} | T], HeapWords, Floats, 0) ->
-    heap_alloc_2(T, HeapWords, Floats, Funs);
-heap_alloc_2([], HeapWords, Floats, Funs) ->
-    {HeapWords, Floats, Funs}.
+heap_alloc_2([{words, HeapWords} | T], 0, Floats, Funs, Recs) ->
+    heap_alloc_2(T, HeapWords, Floats, Funs, Recs);
+heap_alloc_2([{floats, Floats} | T], HeapWords, 0, Funs, Recs) ->
+    heap_alloc_2(T, HeapWords, Floats, Funs, Recs);
+heap_alloc_2([{funs, Funs} | T], HeapWords, Floats, 0, Recs) ->
+    heap_alloc_2(T, HeapWords, Floats, Funs, Recs);
+heap_alloc_2([{records, Recs} | T], HeapWords, Floats, Funs, 0) ->
+    heap_alloc_2(T, HeapWords, Floats, Funs, Recs);
+heap_alloc_2([], HeapWords, Floats, Funs, Recs) ->
+    {HeapWords, Floats, Funs, Recs}.
 
 schedule_out(Live, Vst0) when is_integer(Live) ->
     Vst1 = prune_x_regs(Live, Vst0),
@@ -3110,7 +3232,7 @@ merge_states_1(StA, StB, Counter0) ->
     NumY = merge_stk(YsA, YsB, NumYA, NumYB),
     Ct = merge_ct(CtA, CtB),
 
-    St = #st{xs=Xs,ys=Ys,vs=Vs,fragile=Fragile,numy=NumY,
+    St = #st{xs=Xs,ys=Ys,f=init_fregs(),vs=Vs,fragile=Fragile,numy=NumY,
              h=min(HA, HB),ct=Ct,recv_state=RecvSt,
              ms_positions=MsPos},
 
@@ -3369,6 +3491,15 @@ eat_heap_fun(#vst{current=#st{hl=HeapFuns0}=St}=Vst) ->
 	    Vst#vst{current=St#st{hl=HeapFuns}}
     end.
 
+eat_heap_record(#vst{current=#st{hnr=HeapRecs0}=St}=Vst) ->
+    case HeapRecs0-1 of
+        Neg when Neg < 0 ->
+            error({heap_overflow,{left,{HeapRecs0,records}},
+                   {wanted,{1,records}}});
+        HeapRecs ->
+            Vst#vst{current=St#st{hnr=HeapRecs}}
+    end.
+
 eat_heap_float(#vst{current=#st{hf=HeapFloats0}=St}=Vst) ->
     case HeapFloats0-1 of
 	Neg when Neg < 0 ->
@@ -3490,8 +3621,9 @@ bif_types(Op, Ss, Vst) ->
             {Ret0, ArgTypes, SubSafe} = Res0,
 
             %% Match the non-converging range analysis done in
-            %% `beam_ssa_type:opt_ranges/1`. This is safe since the validator
-            %% doesn't have to worry about convergence.
+            %% `beam_ssa_type:update_arith_types/4`. This is safe
+            %% since the validator doesn't have to worry about
+            %% convergence.
             case beam_call_types:arith_type({bif, Op}, Args) of
                 any -> Res0;
                 Ret0 -> Res0;

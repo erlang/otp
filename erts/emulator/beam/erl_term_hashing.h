@@ -3,7 +3,7 @@
  *
  * SPDX-License-Identifier: Apache-2.0
  *
- * Copyright Ericsson AB 2022-2025. All Rights Reserved.
+ * Copyright Ericsson AB 2022-2026. All Rights Reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -61,8 +61,8 @@ typedef struct {
     SysIOVec* iov;
     Uint vlen;
     Uint tot_len;
-    int vix;
-    int ix;
+    Uint vix;
+    Uint ix;
 } ErtsIovBlockHashState;
 
 Uint32 make_hash2(Eterm);

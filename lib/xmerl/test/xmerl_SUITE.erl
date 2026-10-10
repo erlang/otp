@@ -43,7 +43,8 @@
 %% Test groups
 %%----------------------------------------------------------------------
 all() ->
-    [{group, cpd_tests}, xpath_text1, xpath_main,
+    [doctests,
+     {group, cpd_tests}, xpath_text1, xpath_main,
      xpath_abbreviated_syntax, xpath_functions, xpath_namespaces,
      {group, misc}, {group, eventp_tests},
      {group, ticket_tests}, {group, app_test},
@@ -116,6 +117,12 @@ end_per_testcase(_Func,_Config) ->
 %%----------------------------------------------------------------------
 %% Test cases
 %%----------------------------------------------------------------------
+doctests(_Config) ->
+    Options = [{missing_tests, []}],
+    ok = ct_doctest:module(xmerl, Options),
+    ok = ct_doctest:module(xmerl_xpath, Options),
+    ok = ct_doctest:module(xmerl_xs, Options).
+
 cpd_invalid1(Config) ->
     file:set_cwd(datadir(Config)),
     case catch xmerl_scan:file(datadir_join(Config,[cpd,"cpd_test.xml"]),[]) of

@@ -131,6 +131,9 @@ ErtsCodePtr beam_continue_exit;
 static BeamInstr beam_i_line_breakpoint_cleanup_[1];
 ErtsCodePtr beam_i_line_breakpoint_cleanup;
 
+static BeamInstr beam_finish_create_record_[1];
+ErtsCodePtr beam_finish_create_record;
+
 /* NOTE These should be the only variables containing trace instructions.
 **      Sometimes tests are for the instruction value, and sometimes
 **      for the referring variable (one of these), and rogue references
@@ -676,20 +679,6 @@ static void install_bifs(void) {
 static void
 init_emulator_finish(void)
 {
-#if defined(ARCH_64) && defined(CODE_MODEL_SMALL)
-    int i;
-
-    for (i = 0; i < NUMBER_OF_OPCODES; i++) {
-        BeamInstr instr = BeamOpCodeAddr(i);
-        if (instr >= (1ull << 32)) {
-            erts_exit(ERTS_ERROR_EXIT,
-                      "This run-time was supposed be compiled with all code below 2Gb,\n"
-                      "but the instruction '%s' is located at %016lx.\n",
-                      opc[i].name, instr);
-        }
-    }
-#endif
-
     beam_run_process_[0]       = BeamOpCodeAddr(op_i_apply_only);
     beam_run_process = (ErtsCodePtr)&beam_run_process_[0];
 
@@ -701,6 +690,9 @@ init_emulator_finish(void)
 
     beam_continue_exit_[0]     = BeamOpCodeAddr(op_continue_exit);
     beam_continue_exit = (ErtsCodePtr)&beam_continue_exit_[0];
+
+    beam_finish_create_record_[0] = BeamOpCodeAddr(op_finish_create_record);
+    beam_finish_create_record = (ErtsCodePtr)&beam_finish_create_record_[0];
 
     beam_i_line_breakpoint_cleanup_[0] = BeamOpCodeAddr(op_i_line_breakpoint_cleanup);
     beam_i_line_breakpoint_cleanup = (ErtsCodePtr)&beam_i_line_breakpoint_cleanup_[0];

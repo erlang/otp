@@ -22,6 +22,8 @@
 -module(erts_code_purger).
 -moduledoc false.
 
+-compile([{nowarn_deprecated_function, [{erlang,exit,2}]}]).
+
 %% Purpose : Implement system process erts_code_purger
 %%           to handle code module purging.
 

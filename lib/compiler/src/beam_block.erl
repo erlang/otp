@@ -346,8 +346,8 @@ simplify_has_map_fields(_, _, _) -> error.
 opt_records(Is) ->
     opt_records(Is, []).
 
-opt_records([{get_record_elements,Fail,Src,List}=I|Is], Acc0) ->
-    case simplify_get_record_elements(Fail, Src, List, Acc0) of
+opt_records([{get_record_elements_id,Fail,Id,Src,List}=I|Is], Acc0) ->
+    case simplify_get_record_elements_id(Fail, Id, Src, List, Acc0) of
         {ok,Acc} ->
             opt_records(Is, Acc);
         error ->
@@ -357,22 +357,24 @@ opt_records([I|Is], Acc) ->
     opt_records(Is, [I|Acc]);
 opt_records([], Acc) -> reverse(Acc).
 
-simplify_get_record_elements(Fail, Src, {list,[Key,Dst]},
-                          [{get_record_elements,Fail,Src,{list,List1}}|Acc]) ->
-    case not is_reg_overwritten(Src, List1) andalso
-         not is_reg_overwritten(Dst, List1) of
+simplify_get_record_elements_id(Fail, Id, Src, {list,[Key,Dst]},
+                                [{get_record_elements_id,
+                                  Fail,Id,Src,{list,List1}}|Acc]) ->
+    case (not is_reg_overwritten(Src, List1) andalso
+          not is_reg_overwritten(Dst, List1)) of
         true ->
             case member(Key, List1) of
                 true ->
                     %% The key is already in the other list. That is
-                    %% very unusual, because there are optimizations to get
-                    %% rid of duplicate keys. Therefore, don't try to
-                    %% do anything smart here; just keep the
-                    %% get_record_elements instructions separate.
+                    %% very unusual, because there are optimizations
+                    %% to get rid of duplicate keys. Therefore, don't
+                    %% try to do anything smart here; just keep the
+                    %% get_record_elements_id instructions separate.
                     error;
                 false ->
                     List = [Key,Dst|List1],
-                    {ok,[{get_record_elements,Fail,Src,{list,List}}|Acc]}
+                    {ok,[{get_record_elements_id,Fail,Id,
+                          Src,{list,List}}|Acc]}
             end;
         false ->
             %% A destination is used more than once. That should only
@@ -380,7 +382,7 @@ simplify_get_record_elements(Fail, Src, {list,[Key,Dst]},
             %% will not attempt do anything smart here.
             error
     end;
-simplify_get_record_elements(_, _, _, _) -> error.
+simplify_get_record_elements_id(_, _, _, _, _) -> error.
 
 are_keys_literals([#tr{}|_]) -> false;
 are_keys_literals([{x,_}|_]) -> false;

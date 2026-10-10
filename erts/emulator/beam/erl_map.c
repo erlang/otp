@@ -3231,8 +3231,8 @@ void erts_usort_flatmap(flatmap_t* mp)
 	while( jx > 0 && (c = erts_cmp_flatmap_keys(ks[jx],ks[jx-1])) <= 0 ) {
 	    /* identical key -> remove it */
 	    if (c == 0) {
-                sys_memmove(ks+jx-1,ks+jx,(sz-ix)*sizeof(Eterm));
-                sys_memmove(vs+jx-1,vs+jx,(sz-ix)*sizeof(Eterm));
+                sys_memmove(ks+jx-1,ks+jx,(sz-jx)*sizeof(Eterm));
+                sys_memmove(vs+jx-1,vs+jx,(sz-jx)*sizeof(Eterm));
                 sz--;
                 ix--;
                 break;

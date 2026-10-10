@@ -213,7 +213,7 @@ shell.
 - **`ff()`** - Forget locally defined functions (including function specs if
   they exist).
 
-- **`ff({FunName,Arity})`** - Forget a locally defined function (including
+- **`ff(FunName,Arity)`** - Forget a locally defined function (including
   function spec if it exist). Where `FunName` is the name of the function as an
   atom and `Arity` is an integer.
 

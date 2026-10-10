@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -81,7 +81,7 @@ Enable or disable tooltips globally.
 Note: May not be supported on all platforms (eg. wxCocoa).
 """.
 -spec enable(Flag) -> 'ok' when
-	Flag::boolean().
+        Flag::boolean().
 enable(Flag)
  when is_boolean(Flag) ->
   wxe_util:queue_cmd(Flag,?get_env(),?wxToolTip_Enable).
@@ -92,14 +92,14 @@ Set the delay after which the tooltip appears.
 Note: May not be supported on all platforms.
 """.
 -spec setDelay(Msecs) -> 'ok' when
-	Msecs::integer().
+        Msecs::integer().
 setDelay(Msecs)
  when is_integer(Msecs) ->
   wxe_util:queue_cmd(Msecs,?get_env(),?wxToolTip_SetDelay).
 
 -doc "Constructor.".
 -spec new(Tip) -> wxToolTip() when
-	Tip::unicode:chardata().
+        Tip::unicode:chardata().
 new(Tip)
  when ?is_chardata(Tip) ->
   Tip_UC = unicode:characters_to_binary(Tip),
@@ -108,7 +108,7 @@ new(Tip)
 
 -doc "Set the tooltip text.".
 -spec setTip(This, Tip) -> 'ok' when
-	This::wxToolTip(), Tip::unicode:chardata().
+        This::wxToolTip(), Tip::unicode:chardata().
 setTip(#wx_ref{type=ThisT}=This,Tip)
  when ?is_chardata(Tip) ->
   ?CLASS(ThisT,wxToolTip),
@@ -117,7 +117,7 @@ setTip(#wx_ref{type=ThisT}=This,Tip)
 
 -doc "Get the tooltip text.".
 -spec getTip(This) -> unicode:charlist() when
-	This::wxToolTip().
+        This::wxToolTip().
 getTip(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxToolTip),
   wxe_util:queue_cmd(This,?get_env(),?wxToolTip_GetTip),
@@ -125,7 +125,7 @@ getTip(#wx_ref{type=ThisT}=This) ->
 
 -doc "Get the associated window.".
 -spec getWindow(This) -> wxWindow:wxWindow() when
-	This::wxToolTip().
+        This::wxToolTip().
 getWindow(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxToolTip),
   wxe_util:queue_cmd(This,?get_env(),?wxToolTip_GetWindow),

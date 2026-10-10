@@ -389,6 +389,9 @@ start_link(Options) ->
 Starts a peer node with the specified `t:start_options/0`. Returns the
 controlling process and the full peer node name, unless `wait_boot` is not
 requested and the host name is not known in advance.
+
+If the peer node fails to boot this function will raise an `exit` signal
+with the reason of the failure.
 ".
 -doc(#{since => <<"OTP 25.0">>}).
 -endif.
@@ -485,7 +488,7 @@ corresponding value `Result`.
 `Timeout` is an integer representing the timeout in milliseconds or the atom
 `infinity` which prevents the operation from ever timing out.
 
-When an alternative connection is not requested, this function will raise `exit`
+When an alternative connection is not requested, this function will raise `error`
 signal with the `noconnection` reason. Use `m:erpc` module to communicate over
 Erlang distribution.
 ".

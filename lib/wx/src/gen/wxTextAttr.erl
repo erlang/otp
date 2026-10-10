@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -96,9 +96,9 @@ new() ->
 -doc "".
 %%  Alignment = ?wxTEXT_ALIGNMENT_DEFAULT | ?wxTEXT_ALIGNMENT_LEFT | ?wxTEXT_ALIGNMENT_CENTRE | ?wxTEXT_ALIGNMENT_CENTER | ?wxTEXT_ALIGNMENT_RIGHT | ?wxTEXT_ALIGNMENT_JUSTIFIED
 -spec new(ColText) -> wxTextAttr() when
-	ColText::wx:wx_colour();
+        ColText::wx:wx_colour();
       (Attr) -> wxTextAttr() when
-	Attr::wxTextAttr().
+        Attr::wxTextAttr().
 
 new(ColText)
  when ?is_colordata(ColText) ->
@@ -132,7 +132,7 @@ See ?wxTextAttrAlignment for a list of available styles.
 """.
 %%  Res = ?wxTEXT_ALIGNMENT_DEFAULT | ?wxTEXT_ALIGNMENT_LEFT | ?wxTEXT_ALIGNMENT_CENTRE | ?wxTEXT_ALIGNMENT_CENTER | ?wxTEXT_ALIGNMENT_RIGHT | ?wxTEXT_ALIGNMENT_JUSTIFIED
 -spec getAlignment(This) -> wx:wx_enum() when
-	This::wxTextAttr().
+        This::wxTextAttr().
 getAlignment(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTextAttr),
   wxe_util:queue_cmd(This,?get_env(),?wxTextAttr_GetAlignment),
@@ -140,7 +140,7 @@ getAlignment(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the background colour.".
 -spec getBackgroundColour(This) -> wx:wx_colour4() when
-	This::wxTextAttr().
+        This::wxTextAttr().
 getBackgroundColour(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTextAttr),
   wxe_util:queue_cmd(This,?get_env(),?wxTextAttr_GetBackgroundColour),
@@ -154,7 +154,7 @@ Note that `m:wxTextAttr` does not store a `m:wxFont` object, so this is only a t
 For greater efficiency, access the font attributes directly.
 """.
 -spec getFont(This) -> wxFont:wxFont() when
-	This::wxTextAttr().
+        This::wxTextAttr().
 getFont(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTextAttr),
   wxe_util:queue_cmd(This,?get_env(),?wxTextAttr_GetFont),
@@ -163,7 +163,7 @@ getFont(#wx_ref{type=ThisT}=This) ->
 -doc "Returns the font encoding.".
 %%  Res = ?wxFONTENCODING_SYSTEM | ?wxFONTENCODING_DEFAULT | ?wxFONTENCODING_ISO8859_1 | ?wxFONTENCODING_ISO8859_2 | ?wxFONTENCODING_ISO8859_3 | ?wxFONTENCODING_ISO8859_4 | ?wxFONTENCODING_ISO8859_5 | ?wxFONTENCODING_ISO8859_6 | ?wxFONTENCODING_ISO8859_7 | ?wxFONTENCODING_ISO8859_8 | ?wxFONTENCODING_ISO8859_9 | ?wxFONTENCODING_ISO8859_10 | ?wxFONTENCODING_ISO8859_11 | ?wxFONTENCODING_ISO8859_12 | ?wxFONTENCODING_ISO8859_13 | ?wxFONTENCODING_ISO8859_14 | ?wxFONTENCODING_ISO8859_15 | ?wxFONTENCODING_ISO8859_MAX | ?wxFONTENCODING_KOI8 | ?wxFONTENCODING_KOI8_U | ?wxFONTENCODING_ALTERNATIVE | ?wxFONTENCODING_BULGARIAN | ?wxFONTENCODING_CP437 | ?wxFONTENCODING_CP850 | ?wxFONTENCODING_CP852 | ?wxFONTENCODING_CP855 | ?wxFONTENCODING_CP866 | ?wxFONTENCODING_CP874 | ?wxFONTENCODING_CP932 | ?wxFONTENCODING_CP936 | ?wxFONTENCODING_CP949 | ?wxFONTENCODING_CP950 | ?wxFONTENCODING_CP1250 | ?wxFONTENCODING_CP1251 | ?wxFONTENCODING_CP1252 | ?wxFONTENCODING_CP1253 | ?wxFONTENCODING_CP1254 | ?wxFONTENCODING_CP1255 | ?wxFONTENCODING_CP1256 | ?wxFONTENCODING_CP1257 | ?wxFONTENCODING_CP1258 | ?wxFONTENCODING_CP1361 | ?wxFONTENCODING_CP12_MAX | ?wxFONTENCODING_UTF7 | ?wxFONTENCODING_UTF8 | ?wxFONTENCODING_EUC_JP | ?wxFONTENCODING_UTF16BE | ?wxFONTENCODING_UTF16LE | ?wxFONTENCODING_UTF32BE | ?wxFONTENCODING_UTF32LE | ?wxFONTENCODING_MACROMAN | ?wxFONTENCODING_MACJAPANESE | ?wxFONTENCODING_MACCHINESETRAD | ?wxFONTENCODING_MACKOREAN | ?wxFONTENCODING_MACARABIC | ?wxFONTENCODING_MACHEBREW | ?wxFONTENCODING_MACGREEK | ?wxFONTENCODING_MACCYRILLIC | ?wxFONTENCODING_MACDEVANAGARI | ?wxFONTENCODING_MACGURMUKHI | ?wxFONTENCODING_MACGUJARATI | ?wxFONTENCODING_MACORIYA | ?wxFONTENCODING_MACBENGALI | ?wxFONTENCODING_MACTAMIL | ?wxFONTENCODING_MACTELUGU | ?wxFONTENCODING_MACKANNADA | ?wxFONTENCODING_MACMALAJALAM | ?wxFONTENCODING_MACSINHALESE | ?wxFONTENCODING_MACBURMESE | ?wxFONTENCODING_MACKHMER | ?wxFONTENCODING_MACTHAI | ?wxFONTENCODING_MACLAOTIAN | ?wxFONTENCODING_MACGEORGIAN | ?wxFONTENCODING_MACARMENIAN | ?wxFONTENCODING_MACCHINESESIMP | ?wxFONTENCODING_MACTIBETAN | ?wxFONTENCODING_MACMONGOLIAN | ?wxFONTENCODING_MACETHIOPIC | ?wxFONTENCODING_MACCENTRALEUR | ?wxFONTENCODING_MACVIATNAMESE | ?wxFONTENCODING_MACARABICEXT | ?wxFONTENCODING_MACSYMBOL | ?wxFONTENCODING_MACDINGBATS | ?wxFONTENCODING_MACTURKISH | ?wxFONTENCODING_MACCROATIAN | ?wxFONTENCODING_MACICELANDIC | ?wxFONTENCODING_MACROMANIAN | ?wxFONTENCODING_MACCELTIC | ?wxFONTENCODING_MACGAELIC | ?wxFONTENCODING_MACKEYBOARD | ?wxFONTENCODING_ISO2022_JP | ?wxFONTENCODING_MAX | ?wxFONTENCODING_MACMIN | ?wxFONTENCODING_MACMAX | ?wxFONTENCODING_UTF16 | ?wxFONTENCODING_UTF32 | ?wxFONTENCODING_UNICODE | ?wxFONTENCODING_GB2312 | ?wxFONTENCODING_BIG5 | ?wxFONTENCODING_SHIFT_JIS | ?wxFONTENCODING_EUC_KR | ?wxFONTENCODING_JOHAB | ?wxFONTENCODING_VIETNAMESE
 -spec getFontEncoding(This) -> wx:wx_enum() when
-	This::wxTextAttr().
+        This::wxTextAttr().
 getFontEncoding(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTextAttr),
   wxe_util:queue_cmd(This,?get_env(),?wxTextAttr_GetFontEncoding),
@@ -171,7 +171,7 @@ getFontEncoding(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the font face name.".
 -spec getFontFaceName(This) -> unicode:charlist() when
-	This::wxTextAttr().
+        This::wxTextAttr().
 getFontFaceName(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTextAttr),
   wxe_util:queue_cmd(This,?get_env(),?wxTextAttr_GetFontFaceName),
@@ -179,7 +179,7 @@ getFontFaceName(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the font size in points.".
 -spec getFontSize(This) -> integer() when
-	This::wxTextAttr().
+        This::wxTextAttr().
 getFontSize(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTextAttr),
   wxe_util:queue_cmd(This,?get_env(),?wxTextAttr_GetFontSize),
@@ -188,7 +188,7 @@ getFontSize(#wx_ref{type=ThisT}=This) ->
 -doc "Returns the font style.".
 %%  Res = ?wxFONTSTYLE_NORMAL | ?wxFONTSTYLE_ITALIC | ?wxFONTSTYLE_SLANT | ?wxFONTSTYLE_MAX
 -spec getFontStyle(This) -> wx:wx_enum() when
-	This::wxTextAttr().
+        This::wxTextAttr().
 getFontStyle(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTextAttr),
   wxe_util:queue_cmd(This,?get_env(),?wxTextAttr_GetFontStyle),
@@ -196,7 +196,7 @@ getFontStyle(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns true if the font is underlined.".
 -spec getFontUnderlined(This) -> boolean() when
-	This::wxTextAttr().
+        This::wxTextAttr().
 getFontUnderlined(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTextAttr),
   wxe_util:queue_cmd(This,?get_env(),?wxTextAttr_GetFontUnderlined),
@@ -205,7 +205,7 @@ getFontUnderlined(#wx_ref{type=ThisT}=This) ->
 -doc "Returns the font weight.".
 %%  Res = ?wxFONTWEIGHT_INVALID | ?wxFONTWEIGHT_THIN | ?wxFONTWEIGHT_EXTRALIGHT | ?wxFONTWEIGHT_LIGHT | ?wxFONTWEIGHT_NORMAL | ?wxFONTWEIGHT_MEDIUM | ?wxFONTWEIGHT_SEMIBOLD | ?wxFONTWEIGHT_BOLD | ?wxFONTWEIGHT_EXTRABOLD | ?wxFONTWEIGHT_HEAVY | ?wxFONTWEIGHT_EXTRAHEAVY | ?wxFONTWEIGHT_MAX
 -spec getFontWeight(This) -> wx:wx_enum() when
-	This::wxTextAttr().
+        This::wxTextAttr().
 getFontWeight(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTextAttr),
   wxe_util:queue_cmd(This,?get_env(),?wxTextAttr_GetFontWeight),
@@ -213,7 +213,7 @@ getFontWeight(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the left indent in tenths of a millimetre.".
 -spec getLeftIndent(This) -> integer() when
-	This::wxTextAttr().
+        This::wxTextAttr().
 getLeftIndent(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTextAttr),
   wxe_util:queue_cmd(This,?get_env(),?wxTextAttr_GetLeftIndent),
@@ -221,7 +221,7 @@ getLeftIndent(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the left sub-indent in tenths of a millimetre.".
 -spec getLeftSubIndent(This) -> integer() when
-	This::wxTextAttr().
+        This::wxTextAttr().
 getLeftSubIndent(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTextAttr),
   wxe_util:queue_cmd(This,?get_env(),?wxTextAttr_GetLeftSubIndent),
@@ -229,7 +229,7 @@ getLeftSubIndent(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the right indent in tenths of a millimeter.".
 -spec getRightIndent(This) -> integer() when
-	This::wxTextAttr().
+        This::wxTextAttr().
 getRightIndent(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTextAttr),
   wxe_util:queue_cmd(This,?get_env(),?wxTextAttr_GetRightIndent),
@@ -242,7 +242,7 @@ Each stop is measured from the left margin and therefore each value must be larg
 the last.
 """.
 -spec getTabs(This) -> [integer()] when
-	This::wxTextAttr().
+        This::wxTextAttr().
 getTabs(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTextAttr),
   wxe_util:queue_cmd(This,?get_env(),?wxTextAttr_GetTabs),
@@ -250,7 +250,7 @@ getTabs(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the text foreground colour.".
 -spec getTextColour(This) -> wx:wx_colour4() when
-	This::wxTextAttr().
+        This::wxTextAttr().
 getTextColour(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTextAttr),
   wxe_util:queue_cmd(This,?get_env(),?wxTextAttr_GetTextColour),
@@ -258,7 +258,7 @@ getTextColour(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns true if the attribute object specifies a background colour.".
 -spec hasBackgroundColour(This) -> boolean() when
-	This::wxTextAttr().
+        This::wxTextAttr().
 hasBackgroundColour(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTextAttr),
   wxe_util:queue_cmd(This,?get_env(),?wxTextAttr_HasBackgroundColour),
@@ -266,7 +266,7 @@ hasBackgroundColour(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns true if the attribute object specifies any font attributes.".
 -spec hasFont(This) -> boolean() when
-	This::wxTextAttr().
+        This::wxTextAttr().
 hasFont(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTextAttr),
   wxe_util:queue_cmd(This,?get_env(),?wxTextAttr_HasFont),
@@ -274,7 +274,7 @@ hasFont(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns true if the attribute object specifies a text foreground colour.".
 -spec hasTextColour(This) -> boolean() when
-	This::wxTextAttr().
+        This::wxTextAttr().
 hasTextColour(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTextAttr),
   wxe_util:queue_cmd(This,?get_env(),?wxTextAttr_HasTextColour),
@@ -286,7 +286,7 @@ Returns flags indicating which attributes are applicable.
 See `setFlags/2` for a list of available flags.
 """.
 -spec getFlags(This) -> integer() when
-	This::wxTextAttr().
+        This::wxTextAttr().
 getFlags(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTextAttr),
   wxe_util:queue_cmd(This,?get_env(),?wxTextAttr_GetFlags),
@@ -294,7 +294,7 @@ getFlags(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns false if we have any attributes set, true otherwise.".
 -spec isDefault(This) -> boolean() when
-	This::wxTextAttr().
+        This::wxTextAttr().
 isDefault(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxTextAttr),
   wxe_util:queue_cmd(This,?get_env(),?wxTextAttr_IsDefault),
@@ -310,7 +310,7 @@ supported when printing or previewing, only.
 """.
 %%  Alignment = ?wxTEXT_ALIGNMENT_DEFAULT | ?wxTEXT_ALIGNMENT_LEFT | ?wxTEXT_ALIGNMENT_CENTRE | ?wxTEXT_ALIGNMENT_CENTER | ?wxTEXT_ALIGNMENT_RIGHT | ?wxTEXT_ALIGNMENT_JUSTIFIED
 -spec setAlignment(This, Alignment) -> 'ok' when
-	This::wxTextAttr(), Alignment::wx:wx_enum().
+        This::wxTextAttr(), Alignment::wx:wx_enum().
 setAlignment(#wx_ref{type=ThisT}=This,Alignment)
  when is_integer(Alignment) ->
   ?CLASS(ThisT,wxTextAttr),
@@ -318,7 +318,7 @@ setAlignment(#wx_ref{type=ThisT}=This,Alignment)
 
 -doc "Sets the background colour.".
 -spec setBackgroundColour(This, ColBack) -> 'ok' when
-	This::wxTextAttr(), ColBack::wx:wx_colour().
+        This::wxTextAttr(), ColBack::wx:wx_colour().
 setBackgroundColour(#wx_ref{type=ThisT}=This,ColBack)
  when ?is_colordata(ColBack) ->
   ?CLASS(ThisT,wxTextAttr),
@@ -330,7 +330,7 @@ Sets the flags determining which styles are being specified.
 The ?wxTextAttrFlags values can be passed in a bitlist.
 """.
 -spec setFlags(This, Flags) -> 'ok' when
-	This::wxTextAttr(), Flags::integer().
+        This::wxTextAttr(), Flags::integer().
 setFlags(#wx_ref{type=ThisT}=This,Flags)
  when is_integer(Flags) ->
   ?CLASS(ThisT,wxTextAttr),
@@ -338,7 +338,7 @@ setFlags(#wx_ref{type=ThisT}=This,Flags)
 
 -doc(#{equiv => setFont(This,Font, [])}).
 -spec setFont(This, Font) -> 'ok' when
-	This::wxTextAttr(), Font::wxFont:wxFont().
+        This::wxTextAttr(), Font::wxFont:wxFont().
 
 setFont(This,Font)
  when is_record(This, wx_ref),is_record(Font, wx_ref) ->
@@ -364,7 +364,7 @@ setFont(#wx_ref{type=ThisT}=This,#wx_ref{type=FontT}=Font, Options)
 -doc "Sets the font encoding.".
 %%  Encoding = ?wxFONTENCODING_SYSTEM | ?wxFONTENCODING_DEFAULT | ?wxFONTENCODING_ISO8859_1 | ?wxFONTENCODING_ISO8859_2 | ?wxFONTENCODING_ISO8859_3 | ?wxFONTENCODING_ISO8859_4 | ?wxFONTENCODING_ISO8859_5 | ?wxFONTENCODING_ISO8859_6 | ?wxFONTENCODING_ISO8859_7 | ?wxFONTENCODING_ISO8859_8 | ?wxFONTENCODING_ISO8859_9 | ?wxFONTENCODING_ISO8859_10 | ?wxFONTENCODING_ISO8859_11 | ?wxFONTENCODING_ISO8859_12 | ?wxFONTENCODING_ISO8859_13 | ?wxFONTENCODING_ISO8859_14 | ?wxFONTENCODING_ISO8859_15 | ?wxFONTENCODING_ISO8859_MAX | ?wxFONTENCODING_KOI8 | ?wxFONTENCODING_KOI8_U | ?wxFONTENCODING_ALTERNATIVE | ?wxFONTENCODING_BULGARIAN | ?wxFONTENCODING_CP437 | ?wxFONTENCODING_CP850 | ?wxFONTENCODING_CP852 | ?wxFONTENCODING_CP855 | ?wxFONTENCODING_CP866 | ?wxFONTENCODING_CP874 | ?wxFONTENCODING_CP932 | ?wxFONTENCODING_CP936 | ?wxFONTENCODING_CP949 | ?wxFONTENCODING_CP950 | ?wxFONTENCODING_CP1250 | ?wxFONTENCODING_CP1251 | ?wxFONTENCODING_CP1252 | ?wxFONTENCODING_CP1253 | ?wxFONTENCODING_CP1254 | ?wxFONTENCODING_CP1255 | ?wxFONTENCODING_CP1256 | ?wxFONTENCODING_CP1257 | ?wxFONTENCODING_CP1258 | ?wxFONTENCODING_CP1361 | ?wxFONTENCODING_CP12_MAX | ?wxFONTENCODING_UTF7 | ?wxFONTENCODING_UTF8 | ?wxFONTENCODING_EUC_JP | ?wxFONTENCODING_UTF16BE | ?wxFONTENCODING_UTF16LE | ?wxFONTENCODING_UTF32BE | ?wxFONTENCODING_UTF32LE | ?wxFONTENCODING_MACROMAN | ?wxFONTENCODING_MACJAPANESE | ?wxFONTENCODING_MACCHINESETRAD | ?wxFONTENCODING_MACKOREAN | ?wxFONTENCODING_MACARABIC | ?wxFONTENCODING_MACHEBREW | ?wxFONTENCODING_MACGREEK | ?wxFONTENCODING_MACCYRILLIC | ?wxFONTENCODING_MACDEVANAGARI | ?wxFONTENCODING_MACGURMUKHI | ?wxFONTENCODING_MACGUJARATI | ?wxFONTENCODING_MACORIYA | ?wxFONTENCODING_MACBENGALI | ?wxFONTENCODING_MACTAMIL | ?wxFONTENCODING_MACTELUGU | ?wxFONTENCODING_MACKANNADA | ?wxFONTENCODING_MACMALAJALAM | ?wxFONTENCODING_MACSINHALESE | ?wxFONTENCODING_MACBURMESE | ?wxFONTENCODING_MACKHMER | ?wxFONTENCODING_MACTHAI | ?wxFONTENCODING_MACLAOTIAN | ?wxFONTENCODING_MACGEORGIAN | ?wxFONTENCODING_MACARMENIAN | ?wxFONTENCODING_MACCHINESESIMP | ?wxFONTENCODING_MACTIBETAN | ?wxFONTENCODING_MACMONGOLIAN | ?wxFONTENCODING_MACETHIOPIC | ?wxFONTENCODING_MACCENTRALEUR | ?wxFONTENCODING_MACVIATNAMESE | ?wxFONTENCODING_MACARABICEXT | ?wxFONTENCODING_MACSYMBOL | ?wxFONTENCODING_MACDINGBATS | ?wxFONTENCODING_MACTURKISH | ?wxFONTENCODING_MACCROATIAN | ?wxFONTENCODING_MACICELANDIC | ?wxFONTENCODING_MACROMANIAN | ?wxFONTENCODING_MACCELTIC | ?wxFONTENCODING_MACGAELIC | ?wxFONTENCODING_MACKEYBOARD | ?wxFONTENCODING_ISO2022_JP | ?wxFONTENCODING_MAX | ?wxFONTENCODING_MACMIN | ?wxFONTENCODING_MACMAX | ?wxFONTENCODING_UTF16 | ?wxFONTENCODING_UTF32 | ?wxFONTENCODING_UNICODE | ?wxFONTENCODING_GB2312 | ?wxFONTENCODING_BIG5 | ?wxFONTENCODING_SHIFT_JIS | ?wxFONTENCODING_EUC_KR | ?wxFONTENCODING_JOHAB | ?wxFONTENCODING_VIETNAMESE
 -spec setFontEncoding(This, Encoding) -> 'ok' when
-	This::wxTextAttr(), Encoding::wx:wx_enum().
+        This::wxTextAttr(), Encoding::wx:wx_enum().
 setFontEncoding(#wx_ref{type=ThisT}=This,Encoding)
  when is_integer(Encoding) ->
   ?CLASS(ThisT,wxTextAttr),
@@ -372,7 +372,7 @@ setFontEncoding(#wx_ref{type=ThisT}=This,Encoding)
 
 -doc "Sets the font face name.".
 -spec setFontFaceName(This, FaceName) -> 'ok' when
-	This::wxTextAttr(), FaceName::unicode:chardata().
+        This::wxTextAttr(), FaceName::unicode:chardata().
 setFontFaceName(#wx_ref{type=ThisT}=This,FaceName)
  when ?is_chardata(FaceName) ->
   ?CLASS(ThisT,wxTextAttr),
@@ -382,7 +382,7 @@ setFontFaceName(#wx_ref{type=ThisT}=This,FaceName)
 -doc "Sets the font family.".
 %%  Family = ?wxFONTFAMILY_DEFAULT | ?wxFONTFAMILY_DECORATIVE | ?wxFONTFAMILY_ROMAN | ?wxFONTFAMILY_SCRIPT | ?wxFONTFAMILY_SWISS | ?wxFONTFAMILY_MODERN | ?wxFONTFAMILY_TELETYPE | ?wxFONTFAMILY_MAX | ?wxFONTFAMILY_UNKNOWN
 -spec setFontFamily(This, Family) -> 'ok' when
-	This::wxTextAttr(), Family::wx:wx_enum().
+        This::wxTextAttr(), Family::wx:wx_enum().
 setFontFamily(#wx_ref{type=ThisT}=This,Family)
  when is_integer(Family) ->
   ?CLASS(ThisT,wxTextAttr),
@@ -390,7 +390,7 @@ setFontFamily(#wx_ref{type=ThisT}=This,Family)
 
 -doc "Sets the font size in points.".
 -spec setFontSize(This, PointSize) -> 'ok' when
-	This::wxTextAttr(), PointSize::integer().
+        This::wxTextAttr(), PointSize::integer().
 setFontSize(#wx_ref{type=ThisT}=This,PointSize)
  when is_integer(PointSize) ->
   ?CLASS(ThisT,wxTextAttr),
@@ -398,7 +398,7 @@ setFontSize(#wx_ref{type=ThisT}=This,PointSize)
 
 -doc "Sets the font size in points.".
 -spec setFontPointSize(This, PointSize) -> 'ok' when
-	This::wxTextAttr(), PointSize::integer().
+        This::wxTextAttr(), PointSize::integer().
 setFontPointSize(#wx_ref{type=ThisT}=This,PointSize)
  when is_integer(PointSize) ->
   ?CLASS(ThisT,wxTextAttr),
@@ -406,7 +406,7 @@ setFontPointSize(#wx_ref{type=ThisT}=This,PointSize)
 
 -doc "Sets the font size in pixels.".
 -spec setFontPixelSize(This, PixelSize) -> 'ok' when
-	This::wxTextAttr(), PixelSize::integer().
+        This::wxTextAttr(), PixelSize::integer().
 setFontPixelSize(#wx_ref{type=ThisT}=This,PixelSize)
  when is_integer(PixelSize) ->
   ?CLASS(ThisT,wxTextAttr),
@@ -415,7 +415,7 @@ setFontPixelSize(#wx_ref{type=ThisT}=This,PixelSize)
 -doc "Sets the font style (normal, italic or slanted).".
 %%  FontStyle = ?wxFONTSTYLE_NORMAL | ?wxFONTSTYLE_ITALIC | ?wxFONTSTYLE_SLANT | ?wxFONTSTYLE_MAX
 -spec setFontStyle(This, FontStyle) -> 'ok' when
-	This::wxTextAttr(), FontStyle::wx:wx_enum().
+        This::wxTextAttr(), FontStyle::wx:wx_enum().
 setFontStyle(#wx_ref{type=ThisT}=This,FontStyle)
  when is_integer(FontStyle) ->
   ?CLASS(ThisT,wxTextAttr),
@@ -423,7 +423,7 @@ setFontStyle(#wx_ref{type=ThisT}=This,FontStyle)
 
 -doc "Sets the font underlining (solid line, text colour).".
 -spec setFontUnderlined(This, Underlined) -> 'ok' when
-	This::wxTextAttr(), Underlined::boolean().
+        This::wxTextAttr(), Underlined::boolean().
 setFontUnderlined(#wx_ref{type=ThisT}=This,Underlined)
  when is_boolean(Underlined) ->
   ?CLASS(ThisT,wxTextAttr),
@@ -432,7 +432,7 @@ setFontUnderlined(#wx_ref{type=ThisT}=This,Underlined)
 -doc "Sets the font weight.".
 %%  FontWeight = ?wxFONTWEIGHT_INVALID | ?wxFONTWEIGHT_THIN | ?wxFONTWEIGHT_EXTRALIGHT | ?wxFONTWEIGHT_LIGHT | ?wxFONTWEIGHT_NORMAL | ?wxFONTWEIGHT_MEDIUM | ?wxFONTWEIGHT_SEMIBOLD | ?wxFONTWEIGHT_BOLD | ?wxFONTWEIGHT_EXTRABOLD | ?wxFONTWEIGHT_HEAVY | ?wxFONTWEIGHT_EXTRAHEAVY | ?wxFONTWEIGHT_MAX
 -spec setFontWeight(This, FontWeight) -> 'ok' when
-	This::wxTextAttr(), FontWeight::wx:wx_enum().
+        This::wxTextAttr(), FontWeight::wx:wx_enum().
 setFontWeight(#wx_ref{type=ThisT}=This,FontWeight)
  when is_integer(FontWeight) ->
   ?CLASS(ThisT,wxTextAttr),
@@ -440,7 +440,7 @@ setFontWeight(#wx_ref{type=ThisT}=This,FontWeight)
 
 -doc(#{equiv => setLeftIndent(This,Indent, [])}).
 -spec setLeftIndent(This, Indent) -> 'ok' when
-	This::wxTextAttr(), Indent::integer().
+        This::wxTextAttr(), Indent::integer().
 
 setLeftIndent(This,Indent)
  when is_record(This, wx_ref),is_integer(Indent) ->
@@ -473,7 +473,7 @@ setLeftIndent(#wx_ref{type=ThisT}=This,Indent, Options)
 
 -doc "Sets the right indent in tenths of a millimetre.".
 -spec setRightIndent(This, Indent) -> 'ok' when
-	This::wxTextAttr(), Indent::integer().
+        This::wxTextAttr(), Indent::integer().
 setRightIndent(#wx_ref{type=ThisT}=This,Indent)
  when is_integer(Indent) ->
   ?CLASS(ThisT,wxTextAttr),
@@ -486,7 +486,7 @@ Each stop is measured from the left margin and therefore each value must be larg
 the last.
 """.
 -spec setTabs(This, Tabs) -> 'ok' when
-	This::wxTextAttr(), Tabs::[integer()].
+        This::wxTextAttr(), Tabs::[integer()].
 setTabs(#wx_ref{type=ThisT}=This,Tabs)
  when is_list(Tabs) ->
   ?CLASS(ThisT,wxTextAttr),
@@ -494,7 +494,7 @@ setTabs(#wx_ref{type=ThisT}=This,Tabs)
 
 -doc "Sets the text foreground colour.".
 -spec setTextColour(This, ColText) -> 'ok' when
-	This::wxTextAttr(), ColText::wx:wx_colour().
+        This::wxTextAttr(), ColText::wx:wx_colour().
 setTextColour(#wx_ref{type=ThisT}=This,ColText)
  when ?is_colordata(ColText) ->
   ?CLASS(ThisT,wxTextAttr),

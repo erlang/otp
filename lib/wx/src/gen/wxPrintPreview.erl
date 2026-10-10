@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -104,7 +104,7 @@ parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
 -doc(#{equiv => new(Printout, [])}).
 -spec new(Printout) -> wxPrintPreview() when
-	Printout::wxPrintout:wxPrintout().
+        Printout::wxPrintout:wxPrintout().
 
 new(Printout)
  when is_record(Printout, wx_ref) ->
@@ -142,7 +142,7 @@ new(#wx_ref{type=PrintoutT}=Printout, Options)
 
 -doc "".
 -spec new(Printout, PrintoutForPrinting, Data) -> wxPrintPreview() when
-	Printout::wxPrintout:wxPrintout(), PrintoutForPrinting::wxPrintout:wxPrintout(), Data::wxPrintData:wxPrintData().
+        Printout::wxPrintout:wxPrintout(), PrintoutForPrinting::wxPrintout:wxPrintout(), Data::wxPrintData:wxPrintData().
 new(#wx_ref{type=PrintoutT}=Printout,#wx_ref{type=PrintoutForPrintingT}=PrintoutForPrinting,#wx_ref{type=DataT}=Data) ->
   ?CLASS(PrintoutT,wxPrintout),
   ?CLASS(PrintoutForPrintingT,wxPrintout),
@@ -152,7 +152,7 @@ new(#wx_ref{type=PrintoutT}=Printout,#wx_ref{type=PrintoutForPrintingT}=Printout
 
 -doc "Gets the preview window used for displaying the print preview image.".
 -spec getCanvas(This) -> wxPreviewCanvas:wxPreviewCanvas() when
-	This::wxPrintPreview().
+        This::wxPrintPreview().
 getCanvas(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPrintPreview),
   wxe_util:queue_cmd(This,?get_env(),?wxPrintPreview_GetCanvas),
@@ -160,7 +160,7 @@ getCanvas(#wx_ref{type=ThisT}=This) ->
 
 -doc "Gets the page currently being previewed.".
 -spec getCurrentPage(This) -> integer() when
-	This::wxPrintPreview().
+        This::wxPrintPreview().
 getCurrentPage(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPrintPreview),
   wxe_util:queue_cmd(This,?get_env(),?wxPrintPreview_GetCurrentPage),
@@ -168,7 +168,7 @@ getCurrentPage(#wx_ref{type=ThisT}=This) ->
 
 -doc "Gets the frame used for displaying the print preview canvas and control bar.".
 -spec getFrame(This) -> wxFrame:wxFrame() when
-	This::wxPrintPreview().
+        This::wxPrintPreview().
 getFrame(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPrintPreview),
   wxe_util:queue_cmd(This,?get_env(),?wxPrintPreview_GetFrame),
@@ -176,7 +176,7 @@ getFrame(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the maximum page number.".
 -spec getMaxPage(This) -> integer() when
-	This::wxPrintPreview().
+        This::wxPrintPreview().
 getMaxPage(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPrintPreview),
   wxe_util:queue_cmd(This,?get_env(),?wxPrintPreview_GetMaxPage),
@@ -184,7 +184,7 @@ getMaxPage(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the minimum page number.".
 -spec getMinPage(This) -> integer() when
-	This::wxPrintPreview().
+        This::wxPrintPreview().
 getMinPage(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPrintPreview),
   wxe_util:queue_cmd(This,?get_env(),?wxPrintPreview_GetMinPage),
@@ -192,7 +192,7 @@ getMinPage(#wx_ref{type=ThisT}=This) ->
 
 -doc "Gets the preview printout object associated with the `m:wxPrintPreview` object.".
 -spec getPrintout(This) -> wxPrintout:wxPrintout() when
-	This::wxPrintPreview().
+        This::wxPrintPreview().
 getPrintout(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPrintPreview),
   wxe_util:queue_cmd(This,?get_env(),?wxPrintPreview_GetPrintout),
@@ -203,7 +203,7 @@ Gets the printout object to be used for printing from within the preview interfa
 NULL if none exists.
 """.
 -spec getPrintoutForPrinting(This) -> wxPrintout:wxPrintout() when
-	This::wxPrintPreview().
+        This::wxPrintPreview().
 getPrintoutForPrinting(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPrintPreview),
   wxe_util:queue_cmd(This,?get_env(),?wxPrintPreview_GetPrintoutForPrinting),
@@ -216,7 +216,7 @@ It could return false if there was a problem initializing the printer device con
 (current printer not set, for example).
 """.
 -spec isOk(This) -> boolean() when
-	This::wxPrintPreview().
+        This::wxPrintPreview().
 isOk(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxPrintPreview),
   wxe_util:queue_cmd(This,?get_env(),?wxPrintPreview_IsOk),
@@ -231,7 +231,7 @@ The implementation simply blits the preview bitmap onto the canvas, creating a n
 preview bitmap if none exists.
 """.
 -spec paintPage(This, Canvas, Dc) -> boolean() when
-	This::wxPrintPreview(), Canvas::wxPreviewCanvas:wxPreviewCanvas(), Dc::wxDC:wxDC().
+        This::wxPrintPreview(), Canvas::wxPreviewCanvas:wxPreviewCanvas(), Dc::wxDC:wxDC().
 paintPage(#wx_ref{type=ThisT}=This,#wx_ref{type=CanvasT}=Canvas,#wx_ref{type=DcT}=Dc) ->
   ?CLASS(ThisT,wxPrintPreview),
   ?CLASS(CanvasT,wxPreviewCanvas),
@@ -249,7 +249,7 @@ Returns false in case of error - call `wxPrinter:getLastError/0` to get detailed
 error.
 """.
 -spec print(This, Prompt) -> boolean() when
-	This::wxPrintPreview(), Prompt::boolean().
+        This::wxPrintPreview(), Prompt::boolean().
 print(#wx_ref{type=ThisT}=This,Prompt)
  when is_boolean(Prompt) ->
   ?CLASS(ThisT,wxPrintPreview),
@@ -262,7 +262,7 @@ Renders a page into a `m:wxMemoryDC`.
 Used internally by `m:wxPrintPreview`.
 """.
 -spec renderPage(This, PageNum) -> boolean() when
-	This::wxPrintPreview(), PageNum::integer().
+        This::wxPrintPreview(), PageNum::integer().
 renderPage(#wx_ref{type=ThisT}=This,PageNum)
  when is_integer(PageNum) ->
   ?CLASS(ThisT,wxPrintPreview),
@@ -271,7 +271,7 @@ renderPage(#wx_ref{type=ThisT}=This,PageNum)
 
 -doc "Sets the window to be used for displaying the print preview image.".
 -spec setCanvas(This, Window) -> 'ok' when
-	This::wxPrintPreview(), Window::wxPreviewCanvas:wxPreviewCanvas().
+        This::wxPrintPreview(), Window::wxPreviewCanvas:wxPreviewCanvas().
 setCanvas(#wx_ref{type=ThisT}=This,#wx_ref{type=WindowT}=Window) ->
   ?CLASS(ThisT,wxPrintPreview),
   ?CLASS(WindowT,wxPreviewCanvas),
@@ -279,7 +279,7 @@ setCanvas(#wx_ref{type=ThisT}=This,#wx_ref{type=WindowT}=Window) ->
 
 -doc "Sets the current page to be previewed.".
 -spec setCurrentPage(This, PageNum) -> boolean() when
-	This::wxPrintPreview(), PageNum::integer().
+        This::wxPrintPreview(), PageNum::integer().
 setCurrentPage(#wx_ref{type=ThisT}=This,PageNum)
  when is_integer(PageNum) ->
   ?CLASS(ThisT,wxPrintPreview),
@@ -288,7 +288,7 @@ setCurrentPage(#wx_ref{type=ThisT}=This,PageNum)
 
 -doc "Sets the frame to be used for displaying the print preview canvas and control bar.".
 -spec setFrame(This, Frame) -> 'ok' when
-	This::wxPrintPreview(), Frame::wxFrame:wxFrame().
+        This::wxPrintPreview(), Frame::wxFrame:wxFrame().
 setFrame(#wx_ref{type=ThisT}=This,#wx_ref{type=FrameT}=Frame) ->
   ?CLASS(ThisT,wxPrintPreview),
   ?CLASS(FrameT,wxFrame),
@@ -296,7 +296,7 @@ setFrame(#wx_ref{type=ThisT}=This,#wx_ref{type=FrameT}=Frame) ->
 
 -doc "Associates a printout object with the `m:wxPrintPreview` object.".
 -spec setPrintout(This, Printout) -> 'ok' when
-	This::wxPrintPreview(), Printout::wxPrintout:wxPrintout().
+        This::wxPrintPreview(), Printout::wxPrintout:wxPrintout().
 setPrintout(#wx_ref{type=ThisT}=This,#wx_ref{type=PrintoutT}=Printout) ->
   ?CLASS(ThisT,wxPrintPreview),
   ?CLASS(PrintoutT,wxPrintout),
@@ -304,7 +304,7 @@ setPrintout(#wx_ref{type=ThisT}=This,#wx_ref{type=PrintoutT}=Printout) ->
 
 -doc "Sets the percentage preview zoom, and refreshes the preview canvas accordingly.".
 -spec setZoom(This, Percent) -> 'ok' when
-	This::wxPrintPreview(), Percent::integer().
+        This::wxPrintPreview(), Percent::integer().
 setZoom(#wx_ref{type=ThisT}=This,Percent)
  when is_integer(Percent) ->
   ?CLASS(ThisT,wxPrintPreview),

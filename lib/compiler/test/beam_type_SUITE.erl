@@ -36,7 +36,9 @@
          cover_maps_functions/1,min_max_mixed_types/1,
          not_equal/1,infer_relops/1,binary_unit/1,premature_concretization/1,
          funs/1,will_succeed/1,float_confusion/1,
-         cover_convert_ext/1]).
+         cover_convert_ext/1, catch_setelement/1,gh_11368/1,gh_11413/1,
+         rem_bounds/1,
+         gh_11686/1]).
 
 %% Force id/1 to return 'any'.
 -export([id/1]).
@@ -84,7 +86,12 @@ groups() ->
        funs,
        will_succeed,
        float_confusion,
-       cover_convert_ext
+       cover_convert_ext,
+       catch_setelement,
+       gh_11368,
+       gh_11413,
+       rem_bounds,
+       gh_11686
       ]}].
 
 init_per_suite(Config) ->
@@ -1655,6 +1662,91 @@ cover_convert_ext(_Config) ->
     none = beam_types:convert_ext(0, <<>>),
 
     ok.
+
+
+%% This used to cause an exception instead of returning an error.
+catch_setelement(_Config) ->
+    {'EXIT', _} = catch_setelement_2(id(true), id(foo)),
+    ok.
+
+catch_setelement_2(B, V) ->
+    T = if B -> {1}; true -> {1,2} end,
+    catch setelement(2, T, V).
+
+gh_11368(_Config) ->
+    prepare_request(id({0,0,0,0}), id({1,1,1,1})),
+    ok.
+
+prepare_request(Msg0, Seq) ->
+    Flags = element(3, Msg0),
+    Msg1 = setelement(3, Msg0, [request | Flags]),
+    setelement(4, Msg1, Seq).
+
+rem_bounds(_Config) ->
+    %% Don't call the rem_bounds_1/1 function, because it will never
+    %% terminate.
+    case id(ignore) of
+        call -> rem_bounds_1(1);
+        ignore -> ok
+    end,
+
+    ok.
+
+%% GH-11400. beam_validator would reject the following code.
+rem_bounds_1(N) ->
+    rem_bounds_1((1 rem N) - 2).
+
+gh_11413(_Config) ->
+    ?assertError(_, gh_11413_1()).
+
+gh_11413_1() ->
+    {_, _} = lists:keyfind(0, 16777216, lists:zip([], []) ).
+
+%% GH-11686. Recursive use of `bsl` would lead to inconsistent types
+%% that would be rejected by `beam_validator`.
+
+gh_11686(_Config) ->
+    try
+        gh_11686_a(1 bsl 16)
+    catch
+        error:system_limit ->
+            ok
+    end,
+
+    try
+        gh_11686_b(122)
+    catch
+        error:system_limit ->
+            ok
+    end,
+
+    try
+        gh_11686_c(122)
+    catch
+        error:system_limit ->
+            ok
+    end,
+
+    try
+        gh_11686_d(-122)
+    catch
+        error:system_limit ->
+            ok
+    end,
+
+    ok.
+
+gh_11686_a(A) ->
+    gh_11686_a(A * A + 100).
+
+gh_11686_b(A) ->
+    gh_11686_b((A bsl A) + 100).
+
+gh_11686_c(A) ->
+    gh_11686_c((A bsr -A) + 100).
+
+gh_11686_d(A) ->
+    gh_11686_d((A bsr A) - 100).
 
 
 %%%

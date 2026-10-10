@@ -709,9 +709,9 @@ explicit_stop_during_snmp(Config) when is_list(Config) ->
 	    ?error("test case time out~n", [])
     end,
     ?verify_mnesia(Nodes, []),
-    exit(Do_trans_Pid1, kill),
-    exit(Do_trans_Pid2, kill),
-    exit(Start_stop_Pid, kill),
+    erlang:exit_signal(Do_trans_Pid1, kill),
+    erlang:exit_signal(Do_trans_Pid2, kill),
+    erlang:exit_signal(Start_stop_Pid, kill),
     ok.
 
 do_trans_loop(Tab, Father) ->
@@ -788,13 +788,13 @@ coord_dies(Config) when is_list(Config) ->
     erlang:monitor(process, Pid4),erlang:monitor(process, Pid5),erlang:monitor(process, Pid6),
     
     [receive {Pid,continue} -> ok end || Pid <- [Pid4,Pid5,Pid6]],
-    exit(Pid4,crash),    
+    erlang:exit_signal(Pid4,crash),
     ?match_receive({'DOWN',_,_,Pid4, _}),
     ?match({atomic,[{_,key,1}]}, mnesia:transaction(fun() -> mnesia:read({tab1,key}) end)),
-    exit(Pid5,crash),
+    erlang:exit_signal(Pid5,crash),
     ?match_receive({'DOWN',_,_,Pid5, _}),
     ?match({atomic,[{_,key,1}]}, mnesia:transaction(fun() -> mnesia:read({tab2,key}) end)),
-    exit(Pid6,crash),
+    erlang:exit_signal(Pid6,crash),
     ?match_receive({'DOWN',_,_,Pid6, _}),
     ?match({atomic,[{_,key,1}]}, mnesia:transaction(fun() -> mnesia:read({tab3,key}) end)),
     
@@ -1295,7 +1295,7 @@ kill_after_debug_point(Kill, {DebugNode, Debug_Point}, TransFun, TabsAndDefs, No
     case Kill of
 	coord_pid -> 
 	    ?dl("Intentionally killing pid ~p ", [Pid]),
-	    exit(Pid, normal);
+            erlang:exit_signal(Pid, normal);
 	Node -> 		
 	    mnesia_test_lib:kill_mnesia([Node])
     end,

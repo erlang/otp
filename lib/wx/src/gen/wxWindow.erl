@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0 AND LicenseRef-scancode-wxwindows-free-doc-3
 %%
-%% Copyright Ericsson AB 2008-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -309,7 +309,7 @@ Event types emitted from this class:
   lower/1,move/2,move/3,move/4,moveAfterInTabOrder/2,moveBeforeInTabOrder/2,
   navigate/1,navigate/2,new/0,new/2,new/3,pageDown/1,pageUp/1,popupMenu/2,
   popupMenu/3,popupMenu/4,raise/1,refresh/1,refresh/2,refreshRect/2,refreshRect/3,
-  releaseMouse/1,removeChild/2,reparent/2,screenToClient/1,screenToClient/2,
+  releaseMouse/1,removeChild/2,reparent/2,screenToClient/2,screenToClient/3,
   scrollLines/2,scrollPages/2,scrollWindow/3,scrollWindow/4,setAcceleratorTable/2,
   setAutoLayout/2,setBackgroundColour/2,setBackgroundStyle/2,setCaret/2,
   setClientSize/2,setClientSize/3,setContainingSizer/2,setCursor/2,
@@ -342,7 +342,7 @@ new() ->
 
 -doc(#{equiv => new(Parent,Id, [])}).
 -spec new(Parent, Id) -> wxWindow() when
-	Parent::wxWindow(), Id::integer().
+        Parent::wxWindow(), Id::integer().
 
 new(Parent,Id)
  when is_record(Parent, wx_ref),is_integer(Id) ->
@@ -370,7 +370,7 @@ new(#wx_ref{type=ParentT}=Parent,Id, Options)
 
 -doc(#{equiv => create(This,Parent,Id, [])}).
 -spec create(This, Parent, Id) -> boolean() when
-	This::wxWindow(), Parent::wxWindow(), Id::integer().
+        This::wxWindow(), Parent::wxWindow(), Id::integer().
 
 create(This,Parent,Id)
  when is_record(This, wx_ref),is_record(Parent, wx_ref),is_integer(Id) ->
@@ -424,7 +424,7 @@ Sets the cached best size value.
 See: `getBestSize/1`
 """.
 -spec cacheBestSize(This, Size) -> 'ok' when
-	This::wxWindow(), Size::{W::integer(), H::integer()}.
+        This::wxWindow(), Size::{W::integer(), H::integer()}.
 cacheBestSize(#wx_ref{type=ThisT}=This,{SizeW,SizeH} = Size)
  when is_integer(SizeW),is_integer(SizeH) ->
   ?CLASS(ThisT,wxWindow),
@@ -451,14 +451,14 @@ See:
 * `m:wxMouseCaptureLostEvent`
 """.
 -spec captureMouse(This) -> 'ok' when
-	This::wxWindow().
+        This::wxWindow().
 captureMouse(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_CaptureMouse).
 
 -doc(#{equiv => center(This, [])}).
 -spec center(This) -> 'ok' when
-	This::wxWindow().
+        This::wxWindow().
 
 center(This)
  when is_record(This, wx_ref) ->
@@ -466,7 +466,7 @@ center(This)
 
 -doc(#{equiv => centre(This, [])}).
 -spec centre(This) -> 'ok' when
-	This::wxWindow().
+        This::wxWindow().
 
 centre(This)
  when is_record(This, wx_ref) ->
@@ -502,7 +502,7 @@ centre(#wx_ref{type=ThisT}=This, Options)
 
 -doc(#{equiv => centerOnParent(This, [])}).
 -spec centerOnParent(This) -> 'ok' when
-	This::wxWindow().
+        This::wxWindow().
 
 centerOnParent(This)
  when is_record(This, wx_ref) ->
@@ -510,7 +510,7 @@ centerOnParent(This)
 
 -doc(#{equiv => centreOnParent(This, [])}).
 -spec centreOnParent(This) -> 'ok' when
-	This::wxWindow().
+        This::wxWindow().
 
 centreOnParent(This)
  when is_record(This, wx_ref) ->
@@ -558,14 +558,14 @@ shouldn't be used from EVT_PAINT handlers, just use `wxDC:clear/1` on the `m:wxP
 there instead.
 """.
 -spec clearBackground(This) -> 'ok' when
-	This::wxWindow().
+        This::wxWindow().
 clearBackground(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_ClearBackground).
 
 -doc "Converts to screen coordinates from coordinates relative to this window.".
 -spec clientToScreen(This, Pt) -> {X::integer(), Y::integer()} when
-	This::wxWindow(), Pt::{X::integer(), Y::integer()}.
+        This::wxWindow(), Pt::{X::integer(), Y::integer()}.
 clientToScreen(#wx_ref{type=ThisT}=This,{PtX,PtY} = Pt)
  when is_integer(PtX),is_integer(PtY) ->
   ?CLASS(ThisT,wxWindow),
@@ -574,7 +574,7 @@ clientToScreen(#wx_ref{type=ThisT}=This,{PtX,PtY} = Pt)
 
 -doc "Converts to screen coordinates from coordinates relative to this window.".
 -spec clientToScreen(This, X, Y) -> {X::integer(), Y::integer()} when
-	This::wxWindow(), X::integer(), Y::integer().
+        This::wxWindow(), X::integer(), Y::integer().
 clientToScreen(#wx_ref{type=ThisT}=This,X,Y)
  when is_integer(X),is_integer(Y) ->
   ?CLASS(ThisT,wxWindow),
@@ -583,7 +583,7 @@ clientToScreen(#wx_ref{type=ThisT}=This,X,Y)
 
 -doc(#{equiv => close(This, [])}).
 -spec close(This) -> boolean() when
-	This::wxWindow().
+        This::wxWindow().
 
 close(This)
  when is_record(This, wx_ref) ->
@@ -631,7 +631,7 @@ This is an overloaded member function, provided for convenience. It differs from
 above function only in what argument(s) it accepts.
 """.
 -spec convertDialogToPixels(This, Sz) -> {W::integer(), H::integer()} when
-	This::wxWindow(), Sz::{W::integer(), H::integer()}.
+        This::wxWindow(), Sz::{W::integer(), H::integer()}.
 convertDialogToPixels(#wx_ref{type=ThisT}=This,{SzW,SzH} = Sz)
  when is_integer(SzW),is_integer(SzH) ->
   ?CLASS(ThisT,wxWindow),
@@ -643,7 +643,7 @@ This is an overloaded member function, provided for convenience. It differs from
 above function only in what argument(s) it accepts.
 """.
 -spec convertPixelsToDialog(This, Sz) -> {W::integer(), H::integer()} when
-	This::wxWindow(), Sz::{W::integer(), H::integer()}.
+        This::wxWindow(), Sz::{W::integer(), H::integer()}.
 convertPixelsToDialog(#wx_ref{type=ThisT}=This,{SzW,SzH} = Sz)
  when is_integer(SzW),is_integer(SzH) ->
   ?CLASS(ThisT,wxWindow),
@@ -663,7 +663,7 @@ Return: true if the window has either been successfully deleted, or it has been 
 the list of windows pending real deletion.
 """.
 -spec 'Destroy'(This) -> boolean() when
-	This::wxWindow().
+        This::wxWindow().
 'Destroy'(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_Destroy),
@@ -675,7 +675,7 @@ Destroys all children of a window.
 Called automatically by the destructor.
 """.
 -spec destroyChildren(This) -> boolean() when
-	This::wxWindow().
+        This::wxWindow().
 destroyChildren(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_DestroyChildren),
@@ -690,7 +690,7 @@ Return: Returns true if the window has been disabled, false if it had been alrea
 disabled before the call to this function.
 """.
 -spec disable(This) -> boolean() when
-	This::wxWindow().
+        This::wxWindow().
 disable(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_Disable),
@@ -705,7 +705,7 @@ be used together with `setDropTarget/2` on non-Windows platforms.
 See: `setDropTarget/2`
 """.
 -spec dragAcceptFiles(This, Accept) -> 'ok' when
-	This::wxWindow(), Accept::boolean().
+        This::wxWindow(), Accept::boolean().
 dragAcceptFiles(#wx_ref{type=ThisT}=This,Accept)
  when is_boolean(Accept) ->
   ?CLASS(ThisT,wxWindow),
@@ -713,7 +713,7 @@ dragAcceptFiles(#wx_ref{type=ThisT}=This,Accept)
 
 -doc(#{equiv => enable(This, [])}).
 -spec enable(This) -> boolean() when
-	This::wxWindow().
+        This::wxWindow().
 
 enable(This)
  when is_record(This, wx_ref) ->
@@ -772,9 +772,9 @@ Notice that only real children, not top level windows using this window as paren
 searched by this function.
 """.
 -spec findWindow(This, Id) -> wxWindow() when
-	This::wxWindow(), Id::integer();
+        This::wxWindow(), Id::integer();
       (This, Name) -> wxWindow() when
-	This::wxWindow(), Name::unicode:chardata().
+        This::wxWindow(), Name::unicode:chardata().
 findWindow(#wx_ref{type=ThisT}=This,Id)
  when is_integer(Id) ->
   ?CLASS(ThisT,wxWindow),
@@ -789,7 +789,7 @@ findWindow(#wx_ref{type=ThisT}=This,Name)
 
 -doc(#{equiv => findWindowById(Id, [])}).
 -spec findWindowById(Id) -> wxWindow() when
-	Id::integer().
+        Id::integer().
 
 findWindowById(Id)
  when is_integer(Id) ->
@@ -819,7 +819,7 @@ findWindowById(Id, Options)
 
 -doc(#{equiv => findWindowByName(Name, [])}).
 -spec findWindowByName(Name) -> wxWindow() when
-	Name::unicode:chardata().
+        Name::unicode:chardata().
 
 findWindowByName(Name)
  when ?is_chardata(Name) ->
@@ -854,7 +854,7 @@ findWindowByName(Name, Options)
 
 -doc(#{equiv => findWindowByLabel(Label, [])}).
 -spec findWindowByLabel(Label) -> wxWindow() when
-	Label::unicode:chardata().
+        Label::unicode:chardata().
 
 findWindowByLabel(Label)
  when ?is_chardata(Label) ->
@@ -897,7 +897,7 @@ its minimal size.
 See: [Overview windowsizing](https://docs.wxwidgets.org/3.2/overview_windowsizing.html#overview_windowsizing)
 """.
 -spec fit(This) -> 'ok' when
-	This::wxWindow().
+        This::wxWindow().
 fit(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_Fit).
@@ -910,7 +910,7 @@ trigger a size event, and/or scrolled windows without an interior sizer. This fu
 similarly won't do anything if there are no subwindows.
 """.
 -spec fitInside(This) -> 'ok' when
-	This::wxWindow().
+        This::wxWindow().
 fitInside(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_FitInside).
@@ -936,7 +936,7 @@ See:
 * `isFrozen/1`
 """.
 -spec freeze(This) -> 'ok' when
-	This::wxWindow().
+        This::wxWindow().
 freeze(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_Freeze).
@@ -947,7 +947,7 @@ Gets the accelerator table for this window.
 See `m:wxAcceleratorTable`.
 """.
 -spec getAcceleratorTable(This) -> wxAcceleratorTable:wxAcceleratorTable() when
-	This::wxWindow().
+        This::wxWindow().
 getAcceleratorTable(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_GetAcceleratorTable),
@@ -964,7 +964,7 @@ See:
 * `getForegroundColour/1`
 """.
 -spec getBackgroundColour(This) -> wx:wx_colour4() when
-	This::wxWindow().
+        This::wxWindow().
 getBackgroundColour(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_GetBackgroundColour),
@@ -984,7 +984,7 @@ See:
 """.
 %%  Res = ?wxBG_STYLE_ERASE | ?wxBG_STYLE_SYSTEM | ?wxBG_STYLE_PAINT | ?wxBG_STYLE_COLOUR | ?wxBG_STYLE_TRANSPARENT
 -spec getBackgroundStyle(This) -> wx:wx_enum() when
-	This::wxWindow().
+        This::wxWindow().
 getBackgroundStyle(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_GetBackgroundStyle),
@@ -1012,7 +1012,7 @@ See:
 * [Overview windowsizing](https://docs.wxwidgets.org/3.2/overview_windowsizing.html#overview_windowsizing)
 """.
 -spec getBestSize(This) -> {W::integer(), H::integer()} when
-	This::wxWindow().
+        This::wxWindow().
 getBestSize(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_GetBestSize),
@@ -1020,7 +1020,7 @@ getBestSize(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the caret() associated with the window.".
 -spec getCaret(This) -> wxCaret:wxCaret() when
-	This::wxWindow().
+        This::wxWindow().
 getCaret(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_GetCaret),
@@ -1047,7 +1047,7 @@ getCapture() ->
 
 -doc "Returns the character height for this window.".
 -spec getCharHeight(This) -> integer() when
-	This::wxWindow().
+        This::wxWindow().
 getCharHeight(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_GetCharHeight),
@@ -1055,7 +1055,7 @@ getCharHeight(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the average character width for this window.".
 -spec getCharWidth(This) -> integer() when
-	This::wxWindow().
+        This::wxWindow().
 getCharWidth(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_GetCharWidth),
@@ -1067,7 +1067,7 @@ Returns a const reference to the list of the window's children.
 `wxWindowList` is a type-safe wxList-like class whose elements are of type `wxWindow*`.
 """.
 -spec getChildren(This) -> [wxWindow()] when
-	This::wxWindow().
+        This::wxWindow().
 getChildren(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_GetChildren),
@@ -1078,7 +1078,7 @@ This is an overloaded member function, provided for convenience. It differs from
 above function only in what argument(s) it accepts.
 """.
 -spec getClientSize(This) -> {W::integer(), H::integer()} when
-	This::wxWindow().
+        This::wxWindow().
 getClientSize(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_GetClientSize),
@@ -1086,7 +1086,7 @@ getClientSize(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the sizer of which this window is a member, if any, otherwise NULL.".
 -spec getContainingSizer(This) -> wxSizer:wxSizer() when
-	This::wxWindow().
+        This::wxWindow().
 getContainingSizer(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_GetContainingSizer),
@@ -1098,7 +1098,7 @@ Return the cursor associated with this window.
 See: `setCursor/2`
 """.
 -spec getCursor(This) -> wxCursor:wxCursor() when
-	This::wxWindow().
+        This::wxWindow().
 getCursor(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_GetCursor),
@@ -1113,7 +1113,7 @@ See:
 * [Overview dnd](https://docs.wxwidgets.org/3.2/overview_dnd.html#overview_dnd)
 """.
 -spec getDropTarget(This) -> wx:wx_object() when
-	This::wxWindow().
+        This::wxWindow().
 getDropTarget(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_GetDropTarget),
@@ -1138,7 +1138,7 @@ for anything window-related instead.
 Since: 3.1.4
 """.
 -spec getDPIScaleFactor(This) -> number() when
-	This::wxWindow().
+        This::wxWindow().
 getDPIScaleFactor(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_GetDPIScaleFactor),
@@ -1146,7 +1146,7 @@ getDPIScaleFactor(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the extra style bits for the window.".
 -spec getExtraStyle(This) -> integer() when
-	This::wxWindow().
+        This::wxWindow().
 getExtraStyle(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_GetExtraStyle),
@@ -1158,7 +1158,7 @@ Returns the font for this window.
 See: `setFont/2`
 """.
 -spec getFont(This) -> wxFont:wxFont() when
-	This::wxWindow().
+        This::wxWindow().
 getFont(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_GetFont),
@@ -1178,7 +1178,7 @@ See:
 * `getBackgroundColour/1`
 """.
 -spec getForegroundColour(This) -> wx:wx_colour4() when
-	This::wxWindow().
+        This::wxWindow().
 getForegroundColour(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_GetForegroundColour),
@@ -1186,7 +1186,7 @@ getForegroundColour(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the grandparent of a window, or NULL if there isn't one.".
 -spec getGrandParent(This) -> wxWindow() when
-	This::wxWindow().
+        This::wxWindow().
 getGrandParent(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_GetGrandParent),
@@ -1199,7 +1199,7 @@ Cast it to an appropriate handle, such as `HWND` for Windows, `Widget` for Motif
 for GTK.
 """.
 -spec getHandle(This) -> integer() when
-	This::wxWindow().
+        This::wxWindow().
 getHandle(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_GetHandle),
@@ -1214,7 +1214,7 @@ wx) implementation, and not in the window object itself.
 See: `setHelpText/2`
 """.
 -spec getHelpText(This) -> unicode:charlist() when
-	This::wxWindow().
+        This::wxWindow().
 getHelpText(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_GetHelpText),
@@ -1232,7 +1232,7 @@ See:
 * [Overview windowids](https://docs.wxwidgets.org/3.2/overview_windowids.html#overview_windowids)
 """.
 -spec getId(This) -> integer() when
-	This::wxWindow().
+        This::wxWindow().
 getId(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_GetId),
@@ -1247,7 +1247,7 @@ button text. This function can be useful for meta-programs (such as testing tool
 special-needs access programs) which need to identify windows by name.
 """.
 -spec getLabel(This) -> unicode:charlist() when
-	This::wxWindow().
+        This::wxWindow().
 getLabel(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_GetLabel),
@@ -1262,7 +1262,7 @@ size as well as the upper bound on window's size settable using `setSize/6`.
 See: [Overview windowsizing](https://docs.wxwidgets.org/3.2/overview_windowsizing.html#overview_windowsizing)
 """.
 -spec getMaxSize(This) -> {W::integer(), H::integer()} when
-	This::wxWindow().
+        This::wxWindow().
 getMaxSize(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_GetMaxSize),
@@ -1278,7 +1278,7 @@ calculation on demand.
 See: [Overview windowsizing](https://docs.wxwidgets.org/3.2/overview_windowsizing.html#overview_windowsizing)
 """.
 -spec getMinSize(This) -> {W::integer(), H::integer()} when
-	This::wxWindow().
+        This::wxWindow().
 getMinSize(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_GetMinSize),
@@ -1293,7 +1293,7 @@ appropriate name in the window constructor or via `setName/2`.
 See: `setName/2`
 """.
 -spec getName(This) -> unicode:charlist() when
-	This::wxWindow().
+        This::wxWindow().
 getName(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_GetName),
@@ -1301,7 +1301,7 @@ getName(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the parent of the window, or NULL if there is no parent.".
 -spec getParent(This) -> wxWindow() when
-	This::wxWindow().
+        This::wxWindow().
 getParent(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_GetParent),
@@ -1314,7 +1314,7 @@ child windows or relative to the display origin for the top level windows.
 See: `getScreenPosition/1`
 """.
 -spec getPosition(This) -> {X::integer(), Y::integer()} when
-	This::wxWindow().
+        This::wxWindow().
 getPosition(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_GetPosition),
@@ -1326,7 +1326,7 @@ Returns the position and size of the window as a {X,Y,W,H} object.
 See: `getScreenRect/1`
 """.
 -spec getRect(This) -> {X::integer(), Y::integer(), W::integer(), H::integer()} when
-	This::wxWindow().
+        This::wxWindow().
 getRect(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_GetRect),
@@ -1339,7 +1339,7 @@ or a top level one.
 See: `getPosition/1`
 """.
 -spec getScreenPosition(This) -> {X::integer(), Y::integer()} when
-	This::wxWindow().
+        This::wxWindow().
 getScreenPosition(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_GetScreenPosition),
@@ -1351,7 +1351,7 @@ Returns the position and size of the window on the screen as a {X,Y,W,H} object.
 See: `getRect/1`
 """.
 -spec getScreenRect(This) -> {X::integer(), Y::integer(), W::integer(), H::integer()} when
-	This::wxWindow().
+        This::wxWindow().
 getScreenRect(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_GetScreenRect),
@@ -1363,7 +1363,7 @@ Returns the built-in scrollbar position.
 See: `setScrollbar/6`
 """.
 -spec getScrollPos(This, Orientation) -> integer() when
-	This::wxWindow(), Orientation::integer().
+        This::wxWindow(), Orientation::integer().
 getScrollPos(#wx_ref{type=ThisT}=This,Orientation)
  when is_integer(Orientation) ->
   ?CLASS(ThisT,wxWindow),
@@ -1376,7 +1376,7 @@ Returns the built-in scrollbar range.
 See: `setScrollbar/6`
 """.
 -spec getScrollRange(This, Orientation) -> integer() when
-	This::wxWindow(), Orientation::integer().
+        This::wxWindow(), Orientation::integer().
 getScrollRange(#wx_ref{type=ThisT}=This,Orientation)
  when is_integer(Orientation) ->
   ?CLASS(ThisT,wxWindow),
@@ -1389,7 +1389,7 @@ Returns the built-in scrollbar thumb size.
 See: `setScrollbar/6`
 """.
 -spec getScrollThumb(This, Orientation) -> integer() when
-	This::wxWindow(), Orientation::integer().
+        This::wxWindow(), Orientation::integer().
 getScrollThumb(#wx_ref{type=ThisT}=This,Orientation)
  when is_integer(Orientation) ->
   ?CLASS(ThisT,wxWindow),
@@ -1398,7 +1398,7 @@ getScrollThumb(#wx_ref{type=ThisT}=This,Orientation)
 
 -doc "See the GetSize(int\*,int\*) overload for more info.".
 -spec getSize(This) -> {W::integer(), H::integer()} when
-	This::wxWindow().
+        This::wxWindow().
 getSize(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_GetSize),
@@ -1406,7 +1406,7 @@ getSize(#wx_ref{type=ThisT}=This) ->
 
 -doc "Returns the sizer associated with the window by a previous call to `setSizer/3`, or NULL.".
 -spec getSizer(This) -> wxSizer:wxSizer() when
-	This::wxWindow().
+        This::wxWindow().
 getSizer(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_GetSizer),
@@ -1447,7 +1447,7 @@ Returns true if the window uses the system theme for drawing its background.
 See: `setThemeEnabled/2`
 """.
 -spec getThemeEnabled(This) -> boolean() when
-	This::wxWindow().
+        This::wxWindow().
 getThemeEnabled(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_GetThemeEnabled),
@@ -1455,7 +1455,7 @@ getThemeEnabled(#wx_ref{type=ThisT}=This) ->
 
 -doc "Get the associated tooltip or NULL if none.".
 -spec getToolTip(This) -> wxToolTip:wxToolTip() when
-	This::wxWindow().
+        This::wxWindow().
 getToolTip(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_GetToolTip),
@@ -1471,7 +1471,7 @@ called within an `m:wxPaintEvent` handler.
 See: `m:wxRegion`
 """.
 -spec getUpdateRegion(This) -> wxRegion:wxRegion() when
-	This::wxWindow().
+        This::wxWindow().
 getUpdateRegion(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_GetUpdateRegion),
@@ -1486,7 +1486,7 @@ the size set with that method.
 See: [Overview windowsizing](https://docs.wxwidgets.org/3.2/overview_windowsizing.html#overview_windowsizing)
 """.
 -spec getVirtualSize(This) -> {W::integer(), H::integer()} when
-	This::wxWindow().
+        This::wxWindow().
 getVirtualSize(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_GetVirtualSize),
@@ -1498,7 +1498,7 @@ Gets the window style that was passed to the constructor or `create/4` method.
 `GetWindowStyle()` (not implemented in wx) is another name for the same function.
 """.
 -spec getWindowStyleFlag(This) -> integer() when
-	This::wxWindow().
+        This::wxWindow().
 getWindowStyleFlag(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_GetWindowStyleFlag),
@@ -1507,7 +1507,7 @@ getWindowStyleFlag(#wx_ref{type=ThisT}=This) ->
 -doc "Returns the value previously passed to `setWindowVariant/2`.".
 %%  Res = ?wxWINDOW_VARIANT_NORMAL | ?wxWINDOW_VARIANT_SMALL | ?wxWINDOW_VARIANT_MINI | ?wxWINDOW_VARIANT_LARGE | ?wxWINDOW_VARIANT_MAX
 -spec getWindowVariant(This) -> wx:wx_enum() when
-	This::wxWindow().
+        This::wxWindow().
 getWindowVariant(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_GetWindowVariant),
@@ -1526,7 +1526,7 @@ See:
 * `m:wxMouseCaptureChangedEvent`
 """.
 -spec hasCapture(This) -> boolean() when
-	This::wxWindow().
+        This::wxWindow().
 hasCapture(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_HasCapture),
@@ -1540,7 +1540,7 @@ orientation returns true, but if `CanScroll()` (not implemented in wx) returns f
 scrolling in this direction is not enabled at all, `hasScrollbar/2` always returns false as well.
 """.
 -spec hasScrollbar(This, Orient) -> boolean() when
-	This::wxWindow(), Orient::integer().
+        This::wxWindow(), Orient::integer().
 hasScrollbar(#wx_ref{type=ThisT}=This,Orient)
  when is_integer(Orient) ->
   ?CLASS(ThisT,wxWindow),
@@ -1556,7 +1556,7 @@ have to call it. You may, however, have to override it in your wxWindow-derived 
 ensure that background is painted correctly.
 """.
 -spec hasTransparentBackground(This) -> boolean() when
-	This::wxWindow().
+        This::wxWindow().
 hasTransparentBackground(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_HasTransparentBackground),
@@ -1564,7 +1564,7 @@ hasTransparentBackground(#wx_ref{type=ThisT}=This) ->
 
 -doc "Equivalent to calling `show/2`(false).".
 -spec hide(This) -> boolean() when
-	This::wxWindow().
+        This::wxWindow().
 hide(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_Hide),
@@ -1591,7 +1591,7 @@ once by just changing the font or colour of their common parent, hence in this c
 inherit the parents attributes.
 """.
 -spec inheritAttributes(This) -> 'ok' when
-	This::wxWindow().
+        This::wxWindow().
 inheritAttributes(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_InheritAttributes).
@@ -1601,7 +1601,7 @@ Sends an `wxEVT\_INIT\_DIALOG` event, whose handler usually transfers data to th
 via validators.
 """.
 -spec initDialog(This) -> 'ok' when
-	This::wxWindow().
+        This::wxWindow().
 initDialog(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_InitDialog).
@@ -1612,7 +1612,7 @@ Resets the cached best size value so it will be recalculated the next time it is
 See: `cacheBestSize/2`
 """.
 -spec invalidateBestSize(This) -> 'ok' when
-	This::wxWindow().
+        This::wxWindow().
 invalidateBestSize(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_InvalidateBestSize).
@@ -1626,7 +1626,7 @@ See:
 * `thaw/1`
 """.
 -spec isFrozen(This) -> boolean() when
-	This::wxWindow().
+        This::wxWindow().
 isFrozen(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_IsFrozen),
@@ -1642,7 +1642,7 @@ status of this window, use `IsThisEnabled()` (not implemented in wx)
 See: `enable/2`
 """.
 -spec isEnabled(This) -> boolean() when
-	This::wxWindow().
+        This::wxWindow().
 isEnabled(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_IsEnabled),
@@ -1653,9 +1653,9 @@ This is an overloaded member function, provided for convenience. It differs from
 above function only in what argument(s) it accepts.
 """.
 -spec isExposed(This, Pt) -> boolean() when
-	This::wxWindow(), Pt::{X::integer(), Y::integer()};
+        This::wxWindow(), Pt::{X::integer(), Y::integer()};
       (This, Rect) -> boolean() when
-	This::wxWindow(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}.
+        This::wxWindow(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}.
 isExposed(#wx_ref{type=ThisT}=This,{PtX,PtY} = Pt)
  when is_integer(PtX),is_integer(PtY) ->
   ?CLASS(ThisT,wxWindow),
@@ -1675,7 +1675,7 @@ Call this in an paint event handler to optimize redrawing by only redrawing thos
 which have been exposed.
 """.
 -spec isExposed(This, X, Y) -> boolean() when
-	This::wxWindow(), X::integer(), Y::integer().
+        This::wxWindow(), X::integer(), Y::integer().
 isExposed(#wx_ref{type=ThisT}=This,X,Y)
  when is_integer(X),is_integer(Y) ->
   ?CLASS(ThisT,wxWindow),
@@ -1687,7 +1687,7 @@ This is an overloaded member function, provided for convenience. It differs from
 above function only in what argument(s) it accepts.
 """.
 -spec isExposed(This, X, Y, W, H) -> boolean() when
-	This::wxWindow(), X::integer(), Y::integer(), W::integer(), H::integer().
+        This::wxWindow(), X::integer(), Y::integer(), W::integer(), H::integer().
 isExposed(#wx_ref{type=ThisT}=This,X,Y,W,H)
  when is_integer(X),is_integer(Y),is_integer(W),is_integer(H) ->
   ?CLASS(ThisT,wxWindow),
@@ -1700,7 +1700,7 @@ Returns true if the window is retained, false otherwise.
 Remark: Retained windows are only available on X platforms.
 """.
 -spec isRetained(This) -> boolean() when
-	This::wxWindow().
+        This::wxWindow().
 isRetained(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_IsRetained),
@@ -1712,7 +1712,7 @@ Returns true if the window is shown, false if it has been hidden.
 See: `isShownOnScreen/1`
 """.
 -spec isShown(This) -> boolean() when
-	This::wxWindow().
+        This::wxWindow().
 isShown(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_IsShown),
@@ -1725,7 +1725,7 @@ Currently all frames and dialogs are considered to be top-level windows (even if
 have a parent window).
 """.
 -spec isTopLevel(This) -> boolean() when
-	This::wxWindow().
+        This::wxWindow().
 isTopLevel(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_IsTopLevel),
@@ -1738,7 +1738,7 @@ its parents up to the toplevel window are shown as well.
 See: `isShown/1`
 """.
 -spec isShownOnScreen(This) -> boolean() when
-	This::wxWindow().
+        This::wxWindow().
 isShownOnScreen(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_IsShownOnScreen),
@@ -1759,7 +1759,7 @@ See: [Overview windowsizing](https://docs.wxwidgets.org/3.2/overview_windowsizin
 Return: Always returns true, the return value is not useful.
 """.
 -spec layout(This) -> boolean() when
-	This::wxWindow().
+        This::wxWindow().
 layout(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_Layout),
@@ -1767,7 +1767,7 @@ layout(#wx_ref{type=ThisT}=This) ->
 
 -doc "Same as `scrollLines/2` (1).".
 -spec lineDown(This) -> boolean() when
-	This::wxWindow().
+        This::wxWindow().
 lineDown(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_LineDown),
@@ -1775,7 +1775,7 @@ lineDown(#wx_ref{type=ThisT}=This) ->
 
 -doc "Same as `scrollLines/2` (-1).".
 -spec lineUp(This) -> boolean() when
-	This::wxWindow().
+        This::wxWindow().
 lineUp(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_LineUp),
@@ -1789,14 +1789,14 @@ Remark: This function only works for wxTopLevelWindow-derived classes.
 See: `raise/1`
 """.
 -spec lower(This) -> 'ok' when
-	This::wxWindow().
+        This::wxWindow().
 lower(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_Lower).
 
 -doc(#{equiv => move(This,Pt, [])}).
 -spec move(This, Pt) -> 'ok' when
-	This::wxWindow(), Pt::{X::integer(), Y::integer()}.
+        This::wxWindow(), Pt::{X::integer(), Y::integer()}.
 
 move(This,{PtX,PtY} = Pt)
  when is_record(This, wx_ref),is_integer(PtX),is_integer(PtY) ->
@@ -1811,7 +1811,7 @@ in the base `m:wxWindow` class as the call:
 See: `setSize/6`
 """.
 -spec move(This, X, Y) -> 'ok' when
-	This::wxWindow(), X::integer(), Y::integer();
+        This::wxWindow(), X::integer(), Y::integer();
       (This, Pt, [Option]) -> 'ok' when
 	This::wxWindow(), Pt::{X::integer(), Y::integer()},
 	Option :: {'flags', integer()}.
@@ -1856,7 +1856,7 @@ Default tab order is the same as creation order, this function and `moveBeforeIn
 after creating all the windows.
 """.
 -spec moveAfterInTabOrder(This, Win) -> 'ok' when
-	This::wxWindow(), Win::wxWindow().
+        This::wxWindow(), Win::wxWindow().
 moveAfterInTabOrder(#wx_ref{type=ThisT}=This,#wx_ref{type=WinT}=Win) ->
   ?CLASS(ThisT,wxWindow),
   ?CLASS(WinT,wxWindow),
@@ -1867,7 +1867,7 @@ Same as `moveAfterInTabOrder/2` except that it inserts this window just before `
 instead of putting it right after it.
 """.
 -spec moveBeforeInTabOrder(This, Win) -> 'ok' when
-	This::wxWindow(), Win::wxWindow().
+        This::wxWindow(), Win::wxWindow().
 moveBeforeInTabOrder(#wx_ref{type=ThisT}=This,#wx_ref{type=WinT}=Win) ->
   ?CLASS(ThisT,wxWindow),
   ?CLASS(WinT,wxWindow),
@@ -1875,7 +1875,7 @@ moveBeforeInTabOrder(#wx_ref{type=ThisT}=This,#wx_ref{type=WinT}=Win) ->
 
 -doc(#{equiv => navigate(This, [])}).
 -spec navigate(This) -> boolean() when
-	This::wxWindow().
+        This::wxWindow().
 
 navigate(This)
  when is_record(This, wx_ref) ->
@@ -1908,7 +1908,7 @@ navigate(#wx_ref{type=ThisT}=This, Options)
 
 -doc "Same as `scrollPages/2` (1).".
 -spec pageDown(This) -> boolean() when
-	This::wxWindow().
+        This::wxWindow().
 pageDown(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_PageDown),
@@ -1916,7 +1916,7 @@ pageDown(#wx_ref{type=ThisT}=This) ->
 
 -doc "Same as `scrollPages/2` (-1).".
 -spec pageUp(This) -> boolean() when
-	This::wxWindow().
+        This::wxWindow().
 pageUp(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_PageUp),
@@ -1924,7 +1924,7 @@ pageUp(#wx_ref{type=ThisT}=This) ->
 
 -doc(#{equiv => popupMenu(This,Menu, [])}).
 -spec popupMenu(This, Menu) -> boolean() when
-	This::wxWindow(), Menu::wxMenu:wxMenu().
+        This::wxWindow(), Menu::wxMenu:wxMenu().
 
 popupMenu(This,Menu)
  when is_record(This, wx_ref),is_record(Menu, wx_ref) ->
@@ -1970,7 +1970,7 @@ This is an overloaded member function, provided for convenience. It differs from
 above function only in what argument(s) it accepts.
 """.
 -spec popupMenu(This, Menu, X, Y) -> boolean() when
-	This::wxWindow(), Menu::wxMenu:wxMenu(), X::integer(), Y::integer().
+        This::wxWindow(), Menu::wxMenu:wxMenu(), X::integer(), Y::integer().
 popupMenu(#wx_ref{type=ThisT}=This,#wx_ref{type=MenuT}=Menu,X,Y)
  when is_integer(X),is_integer(Y) ->
   ?CLASS(ThisT,wxWindow),
@@ -1991,14 +1991,14 @@ Remark: This function only works for wxTopLevelWindow-derived classes.
 See: `lower/1`
 """.
 -spec raise(This) -> 'ok' when
-	This::wxWindow().
+        This::wxWindow().
 raise(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_Raise).
 
 -doc(#{equiv => refresh(This, [])}).
 -spec refresh(This) -> 'ok' when
-	This::wxWindow().
+        This::wxWindow().
 
 refresh(This)
  when is_record(This, wx_ref) ->
@@ -2028,7 +2028,7 @@ refresh(#wx_ref{type=ThisT}=This, Options)
 
 -doc(#{equiv => refreshRect(This,Rect, [])}).
 -spec refreshRect(This, Rect) -> 'ok' when
-	This::wxWindow(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}.
+        This::wxWindow(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}.
 
 refreshRect(This,{RectX,RectY,RectW,RectH} = Rect)
  when is_record(This, wx_ref),is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH) ->
@@ -2066,7 +2066,7 @@ See:
 * `m:wxMouseCaptureChangedEvent`
 """.
 -spec releaseMouse(This) -> 'ok' when
-	This::wxWindow().
+        This::wxWindow().
 releaseMouse(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_ReleaseMouse).
@@ -2079,7 +2079,7 @@ the application programmer. Notice that this function is mostly internal to wxWi
 shouldn't be called by the user code.
 """.
 -spec removeChild(This, Child) -> 'ok' when
-	This::wxWindow(), Child::wxWindow().
+        This::wxWindow(), Child::wxWindow().
 removeChild(#wx_ref{type=ThisT}=This,#wx_ref{type=ChildT}=Child) ->
   ?CLASS(ThisT,wxWindow),
   ?CLASS(ChildT,wxWindow),
@@ -2094,7 +2094,7 @@ a non-standard toolbar in a `m:wxFrame`) and then re-inserted into another.
 Notice that currently you need to explicitly call `wxBookCtrlBase:removePage/2` before reparenting a notebook page.
 """.
 -spec reparent(This, NewParent) -> boolean() when
-	This::wxWindow(), NewParent::wxWindow().
+        This::wxWindow(), NewParent::wxWindow().
 reparent(#wx_ref{type=ThisT}=This,#wx_ref{type=NewParentT}=NewParent) ->
   ?CLASS(ThisT,wxWindow),
   ?CLASS(NewParentT,wxWindow),
@@ -2102,21 +2102,22 @@ reparent(#wx_ref{type=ThisT}=This,#wx_ref{type=NewParentT}=NewParent) ->
   wxe_util:rec(?wxWindow_Reparent).
 
 -doc "Converts from screen to client window coordinates.".
--spec screenToClient(This) -> {X::integer(), Y::integer()} when
-	This::wxWindow().
-screenToClient(#wx_ref{type=ThisT}=This) ->
-  ?CLASS(ThisT,wxWindow),
-  wxe_util:queue_cmd(This,?get_env(),?wxWindow_ScreenToClient_2),
-  wxe_util:rec(?wxWindow_ScreenToClient_2).
-
--doc "Converts from screen to client window coordinates.".
 -spec screenToClient(This, Pt) -> {X::integer(), Y::integer()} when
-	This::wxWindow(), Pt::{X::integer(), Y::integer()}.
+        This::wxWindow(), Pt::{X::integer(), Y::integer()}.
 screenToClient(#wx_ref{type=ThisT}=This,{PtX,PtY} = Pt)
  when is_integer(PtX),is_integer(PtY) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,Pt,?get_env(),?wxWindow_ScreenToClient_1),
   wxe_util:rec(?wxWindow_ScreenToClient_1).
+
+-doc "Converts from screen to client window coordinates.".
+-spec screenToClient(This, X, Y) -> {X::integer(), Y::integer()} when
+        This::wxWindow(), X::integer(), Y::integer().
+screenToClient(#wx_ref{type=ThisT}=This,X,Y)
+ when is_integer(X),is_integer(Y) ->
+  ?CLASS(ThisT,wxWindow),
+  wxe_util:queue_cmd(This,X,Y,?get_env(),?wxWindow_ScreenToClient_2),
+  wxe_util:rec(?wxWindow_ScreenToClient_2).
 
 -doc """
 Scrolls the window by the given number of lines down (if `lines` is positive) or up.
@@ -2130,7 +2131,7 @@ wxGTK (it also works for `wxScrolled` (not implemented in wx) classes under all 
 See: `scrollPages/2`
 """.
 -spec scrollLines(This, Lines) -> boolean() when
-	This::wxWindow(), Lines::integer().
+        This::wxWindow(), Lines::integer().
 scrollLines(#wx_ref{type=ThisT}=This,Lines)
  when is_integer(Lines) ->
   ?CLASS(ThisT,wxWindow),
@@ -2148,7 +2149,7 @@ Remark: This function is currently only implemented under MSW and wxGTK.
 See: `scrollLines/2`
 """.
 -spec scrollPages(This, Pages) -> boolean() when
-	This::wxWindow(), Pages::integer().
+        This::wxWindow(), Pages::integer().
 scrollPages(#wx_ref{type=ThisT}=This,Pages)
  when is_integer(Pages) ->
   ?CLASS(ThisT,wxWindow),
@@ -2157,7 +2158,7 @@ scrollPages(#wx_ref{type=ThisT}=This,Pages)
 
 -doc(#{equiv => scrollWindow(This,Dx,Dy, [])}).
 -spec scrollWindow(This, Dx, Dy) -> 'ok' when
-	This::wxWindow(), Dx::integer(), Dy::integer().
+        This::wxWindow(), Dx::integer(), Dy::integer().
 
 scrollWindow(This,Dx,Dy)
  when is_record(This, wx_ref),is_integer(Dx),is_integer(Dy) ->
@@ -2186,7 +2187,7 @@ Sets the accelerator table for this window.
 See `m:wxAcceleratorTable`.
 """.
 -spec setAcceleratorTable(This, Accel) -> 'ok' when
-	This::wxWindow(), Accel::wxAcceleratorTable:wxAcceleratorTable().
+        This::wxWindow(), Accel::wxAcceleratorTable:wxAcceleratorTable().
 setAcceleratorTable(#wx_ref{type=ThisT}=This,#wx_ref{type=AccelT}=Accel) ->
   ?CLASS(ThisT,wxWindow),
   ?CLASS(AccelT,wxAcceleratorTable),
@@ -2203,7 +2204,7 @@ updated when its size changes.
 See: `setSizer/3`
 """.
 -spec setAutoLayout(This, AutoLayout) -> 'ok' when
-	This::wxWindow(), AutoLayout::boolean().
+        This::wxWindow(), AutoLayout::boolean().
 setAutoLayout(#wx_ref{type=ThisT}=This,AutoLayout)
  when is_boolean(AutoLayout) ->
   ?CLASS(ThisT,wxWindow),
@@ -2243,7 +2244,7 @@ See:
 * `m:wxSystemSettings`
 """.
 -spec setBackgroundColour(This, Colour) -> boolean() when
-	This::wxWindow(), Colour::wx:wx_colour().
+        This::wxWindow(), Colour::wx:wx_colour().
 setBackgroundColour(#wx_ref{type=ThisT}=This,Colour)
  when ?is_colordata(Colour) ->
   ?CLASS(ThisT,wxWindow),
@@ -2288,7 +2289,7 @@ See:
 """.
 %%  Style = ?wxBG_STYLE_ERASE | ?wxBG_STYLE_SYSTEM | ?wxBG_STYLE_PAINT | ?wxBG_STYLE_COLOUR | ?wxBG_STYLE_TRANSPARENT
 -spec setBackgroundStyle(This, Style) -> boolean() when
-	This::wxWindow(), Style::wx:wx_enum().
+        This::wxWindow(), Style::wx:wx_enum().
 setBackgroundStyle(#wx_ref{type=ThisT}=This,Style)
  when is_integer(Style) ->
   ?CLASS(ThisT,wxWindow),
@@ -2297,7 +2298,7 @@ setBackgroundStyle(#wx_ref{type=ThisT}=This,Style)
 
 -doc "Sets the caret() associated with the window.".
 -spec setCaret(This, Caret) -> 'ok' when
-	This::wxWindow(), Caret::wxCaret:wxCaret().
+        This::wxWindow(), Caret::wxCaret:wxCaret().
 setCaret(#wx_ref{type=ThisT}=This,#wx_ref{type=CaretT}=Caret) ->
   ?CLASS(ThisT,wxWindow),
   ?CLASS(CaretT,wxCaret),
@@ -2308,9 +2309,9 @@ This is an overloaded member function, provided for convenience. It differs from
 above function only in what argument(s) it accepts.
 """.
 -spec setClientSize(This, Size) -> 'ok' when
-	This::wxWindow(), Size::{W::integer(), H::integer()};
+        This::wxWindow(), Size::{W::integer(), H::integer()};
       (This, Rect) -> 'ok' when
-	This::wxWindow(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}.
+        This::wxWindow(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()}.
 setClientSize(#wx_ref{type=ThisT}=This,{SizeW,SizeH} = Size)
  when is_integer(SizeW),is_integer(SizeH) ->
   ?CLASS(ThisT,wxWindow),
@@ -2330,7 +2331,7 @@ to fit the window around panel items, for example.
 See: [Overview windowsizing](https://docs.wxwidgets.org/3.2/overview_windowsizing.html#overview_windowsizing)
 """.
 -spec setClientSize(This, Width, Height) -> 'ok' when
-	This::wxWindow(), Width::integer(), Height::integer().
+        This::wxWindow(), Width::integer(), Height::integer().
 setClientSize(#wx_ref{type=ThisT}=This,Width,Height)
  when is_integer(Width),is_integer(Height) ->
   ?CLASS(ThisT,wxWindow),
@@ -2346,7 +2347,7 @@ the sizer itself whenever a window is added to it and with NULL argument when th
 is removed from it.
 """.
 -spec setContainingSizer(This, Sizer) -> 'ok' when
-	This::wxWindow(), Sizer::wxSizer:wxSizer().
+        This::wxWindow(), Sizer::wxSizer:wxSizer().
 setContainingSizer(#wx_ref{type=ThisT}=This,#wx_ref{type=SizerT}=Sizer) ->
   ?CLASS(ThisT,wxWindow),
   ?CLASS(SizerT,wxSizer),
@@ -2365,7 +2366,7 @@ See:
 * `m:wxCursor`
 """.
 -spec setCursor(This, Cursor) -> boolean() when
-	This::wxWindow(), Cursor::wxCursor:wxCursor().
+        This::wxWindow(), Cursor::wxCursor:wxCursor().
 setCursor(#wx_ref{type=ThisT}=This,#wx_ref{type=CursorT}=Cursor) ->
   ?CLASS(ThisT,wxWindow),
   ?CLASS(CursorT,wxCursor),
@@ -2379,7 +2380,7 @@ is the maximum possible size.
 See: [Overview windowsizing](https://docs.wxwidgets.org/3.2/overview_windowsizing.html#overview_windowsizing)
 """.
 -spec setMaxSize(This, Size) -> 'ok' when
-	This::wxWindow(), Size::{W::integer(), H::integer()}.
+        This::wxWindow(), Size::{W::integer(), H::integer()}.
 setMaxSize(#wx_ref{type=ThisT}=This,{SizeW,SizeH} = Size)
  when is_integer(SizeW),is_integer(SizeH) ->
   ?CLASS(ThisT,wxWindow),
@@ -2399,7 +2400,7 @@ become smaller than this size during the automatic layout.
 See: [Overview windowsizing](https://docs.wxwidgets.org/3.2/overview_windowsizing.html#overview_windowsizing)
 """.
 -spec setMinSize(This, Size) -> 'ok' when
-	This::wxWindow(), Size::{W::integer(), H::integer()}.
+        This::wxWindow(), Size::{W::integer(), H::integer()}.
 setMinSize(#wx_ref{type=ThisT}=This,{SizeW,SizeH} = Size)
  when is_integer(SizeW),is_integer(SizeH) ->
   ?CLASS(ThisT,wxWindow),
@@ -2415,7 +2416,7 @@ See:
 * `inheritAttributes/1`
 """.
 -spec setOwnBackgroundColour(This, Colour) -> 'ok' when
-	This::wxWindow(), Colour::wx:wx_colour().
+        This::wxWindow(), Colour::wx:wx_colour().
 setOwnBackgroundColour(#wx_ref{type=ThisT}=This,Colour)
  when ?is_colordata(Colour) ->
   ?CLASS(ThisT,wxWindow),
@@ -2431,7 +2432,7 @@ See:
 * `inheritAttributes/1`
 """.
 -spec setOwnFont(This, Font) -> 'ok' when
-	This::wxWindow(), Font::wxFont:wxFont().
+        This::wxWindow(), Font::wxFont:wxFont().
 setOwnFont(#wx_ref{type=ThisT}=This,#wx_ref{type=FontT}=Font) ->
   ?CLASS(ThisT,wxWindow),
   ?CLASS(FontT,wxFont),
@@ -2447,7 +2448,7 @@ See:
 * `inheritAttributes/1`
 """.
 -spec setOwnForegroundColour(This, Colour) -> 'ok' when
-	This::wxWindow(), Colour::wx:wx_colour().
+        This::wxWindow(), Colour::wx:wx_colour().
 setOwnForegroundColour(#wx_ref{type=ThisT}=This,Colour)
  when ?is_colordata(Colour) ->
   ?CLASS(ThisT,wxWindow),
@@ -2464,7 +2465,7 @@ See:
 * [Overview dnd](https://docs.wxwidgets.org/3.2/overview_dnd.html#overview_dnd)
 """.
 -spec setDropTarget(This, Target) -> 'ok' when
-	This::wxWindow(), Target::wx:wx_object().
+        This::wxWindow(), Target::wx:wx_object().
 setDropTarget(#wx_ref{type=ThisT}=This,#wx_ref{type=TargetT}=Target) ->
   ?CLASS(ThisT,wxWindow),
   ?CLASS(TargetT,wxDropTarget),
@@ -2476,7 +2477,7 @@ Sets the extra style bits for the window.
 The currently defined extra style bits are reported in the class description.
 """.
 -spec setExtraStyle(This, ExStyle) -> 'ok' when
-	This::wxWindow(), ExStyle::integer().
+        This::wxWindow(), ExStyle::integer().
 setExtraStyle(#wx_ref{type=ThisT}=This,ExStyle)
  when is_integer(ExStyle) ->
   ?CLASS(ThisT,wxWindow),
@@ -2493,7 +2494,7 @@ See:
 * `wxPanel:setFocusIgnoringChildren/1`
 """.
 -spec setFocus(This) -> 'ok' when
-	This::wxWindow().
+        This::wxWindow().
 setFocus(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_SetFocus).
@@ -2506,7 +2507,7 @@ By default this method simply calls `setFocus/1` but can be overridden to do som
 this in the derived classes.
 """.
 -spec setFocusFromKbd(This) -> 'ok' when
-	This::wxWindow().
+        This::wxWindow().
 setFocusFromKbd(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_SetFocusFromKbd).
@@ -2530,7 +2531,7 @@ See:
 * `inheritAttributes/1`
 """.
 -spec setFont(This, Font) -> boolean() when
-	This::wxWindow(), Font::wxFont:wxFont().
+        This::wxWindow(), Font::wxFont:wxFont().
 setFont(#wx_ref{type=ThisT}=This,#wx_ref{type=FontT}=Font) ->
   ?CLASS(ThisT,wxWindow),
   ?CLASS(FontT,wxFont),
@@ -2560,7 +2561,7 @@ See:
 * `shouldInheritColours/1`
 """.
 -spec setForegroundColour(This, Colour) -> boolean() when
-	This::wxWindow(), Colour::wx:wx_colour().
+        This::wxWindow(), Colour::wx:wx_colour().
 setForegroundColour(#wx_ref{type=ThisT}=This,Colour)
  when ?is_colordata(Colour) ->
   ?CLASS(ThisT,wxWindow),
@@ -2576,7 +2577,7 @@ wx) implementation, and not in the window object itself.
 See: `getHelpText/1`
 """.
 -spec setHelpText(This, HelpText) -> 'ok' when
-	This::wxWindow(), HelpText::unicode:chardata().
+        This::wxWindow(), HelpText::unicode:chardata().
 setHelpText(#wx_ref{type=ThisT}=This,HelpText)
  when ?is_chardata(HelpText) ->
   ?CLASS(ThisT,wxWindow),
@@ -2596,7 +2597,7 @@ See:
 * [Overview windowids](https://docs.wxwidgets.org/3.2/overview_windowids.html#overview_windowids)
 """.
 -spec setId(This, Winid) -> 'ok' when
-	This::wxWindow(), Winid::integer().
+        This::wxWindow(), Winid::integer().
 setId(#wx_ref{type=ThisT}=This,Winid)
  when is_integer(Winid) ->
   ?CLASS(ThisT,wxWindow),
@@ -2608,7 +2609,7 @@ Sets the window's label.
 See: `getLabel/1`
 """.
 -spec setLabel(This, Label) -> 'ok' when
-	This::wxWindow(), Label::unicode:chardata().
+        This::wxWindow(), Label::unicode:chardata().
 setLabel(#wx_ref{type=ThisT}=This,Label)
  when ?is_chardata(Label) ->
   ?CLASS(ThisT,wxWindow),
@@ -2621,7 +2622,7 @@ Sets the window's name.
 See: `getName/1`
 """.
 -spec setName(This, Name) -> 'ok' when
-	This::wxWindow(), Name::unicode:chardata().
+        This::wxWindow(), Name::unicode:chardata().
 setName(#wx_ref{type=ThisT}=This,Name)
  when ?is_chardata(Name) ->
   ?CLASS(ThisT,wxWindow),
@@ -2634,7 +2635,7 @@ Deprecated:
 use `wxDC:setPalette/2` instead.
 """.
 -spec setPalette(This, Pal) -> 'ok' when
-	This::wxWindow(), Pal::wxPalette:wxPalette().
+        This::wxWindow(), Pal::wxPalette:wxPalette().
 setPalette(#wx_ref{type=ThisT}=This,#wx_ref{type=PalT}=Pal) ->
   ?CLASS(ThisT,wxWindow),
   ?CLASS(PalT,wxPalette),
@@ -2642,7 +2643,7 @@ setPalette(#wx_ref{type=ThisT}=This,#wx_ref{type=PalT}=Pal) ->
 
 -doc(#{equiv => setScrollbar(This,Orientation,Position,ThumbSize,Range, [])}).
 -spec setScrollbar(This, Orientation, Position, ThumbSize, Range) -> 'ok' when
-	This::wxWindow(), Orientation::integer(), Position::integer(), ThumbSize::integer(), Range::integer().
+        This::wxWindow(), Orientation::integer(), Position::integer(), ThumbSize::integer(), Range::integer().
 
 setScrollbar(This,Orientation,Position,ThumbSize,Range)
  when is_record(This, wx_ref),is_integer(Orientation),is_integer(Position),is_integer(ThumbSize),is_integer(Range) ->
@@ -2680,7 +2681,7 @@ setScrollbar(#wx_ref{type=ThisT}=This,Orientation,Position,ThumbSize,Range, Opti
 
 -doc(#{equiv => setScrollPos(This,Orientation,Pos, [])}).
 -spec setScrollPos(This, Orientation, Pos) -> 'ok' when
-	This::wxWindow(), Orientation::integer(), Pos::integer().
+        This::wxWindow(), Orientation::integer(), Pos::integer().
 
 setScrollPos(This,Orientation,Pos)
  when is_record(This, wx_ref),is_integer(Orientation),is_integer(Pos) ->
@@ -2717,9 +2718,9 @@ This is an overloaded member function, provided for convenience. It differs from
 above function only in what argument(s) it accepts.
 """.
 -spec setSize(This, Rect) -> 'ok' when
-	This::wxWindow(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()};
+        This::wxWindow(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()};
       (This, Size) -> 'ok' when
-	This::wxWindow(), Size::{W::integer(), H::integer()}.
+        This::wxWindow(), Size::{W::integer(), H::integer()}.
 
 setSize(This,{RectX,RectY,RectW,RectH} = Rect)
  when is_record(This, wx_ref),is_integer(RectX),is_integer(RectY),is_integer(RectW),is_integer(RectH) ->
@@ -2742,7 +2743,7 @@ See:
 * [Overview windowsizing](https://docs.wxwidgets.org/3.2/overview_windowsizing.html#overview_windowsizing)
 """.
 -spec setSize(This, Width, Height) -> 'ok' when
-	This::wxWindow(), Width::integer(), Height::integer();
+        This::wxWindow(), Width::integer(), Height::integer();
       (This, Rect, [Option]) -> 'ok' when
 	This::wxWindow(), Rect::{X::integer(), Y::integer(), W::integer(), H::integer()},
 	Option :: {'sizeFlags', integer()}.
@@ -2760,7 +2761,7 @@ setSize(#wx_ref{type=ThisT}=This,{RectX,RectY,RectW,RectH} = Rect, Options)
 
 -doc(#{equiv => setSize(This,X,Y,Width,Height, [])}).
 -spec setSize(This, X, Y, Width, Height) -> 'ok' when
-	This::wxWindow(), X::integer(), Y::integer(), Width::integer(), Height::integer().
+        This::wxWindow(), X::integer(), Y::integer(), Width::integer(), Height::integer().
 
 setSize(This,X,Y,Width,Height)
  when is_record(This, wx_ref),is_integer(X),is_integer(Y),is_integer(Width),is_integer(Height) ->
@@ -2791,7 +2792,7 @@ setSize(#wx_ref{type=ThisT}=This,X,Y,Width,Height, Options)
 
 -doc(#{equiv => setSizeHints(This,MinSize, [])}).
 -spec setSizeHints(This, MinSize) -> 'ok' when
-	This::wxWindow(), MinSize::{W::integer(), H::integer()}.
+        This::wxWindow(), MinSize::{W::integer(), H::integer()}.
 
 setSizeHints(This,{MinSizeW,MinSizeH} = MinSize)
  when is_record(This, wx_ref),is_integer(MinSizeW),is_integer(MinSizeH) ->
@@ -2809,7 +2810,7 @@ See:
 * [Overview windowsizing](https://docs.wxwidgets.org/3.2/overview_windowsizing.html#overview_windowsizing)
 """.
 -spec setSizeHints(This, MinW, MinH) -> 'ok' when
-	This::wxWindow(), MinW::integer(), MinH::integer();
+        This::wxWindow(), MinW::integer(), MinH::integer();
       (This, MinSize, [Option]) -> 'ok' when
 	This::wxWindow(), MinSize::{W::integer(), H::integer()},
 	Option :: {'maxSize', {W::integer(), H::integer()}}
@@ -2850,7 +2851,7 @@ setSizeHints(#wx_ref{type=ThisT}=This,MinW,MinH, Options)
 
 -doc(#{equiv => setSizer(This,Sizer, [])}).
 -spec setSizer(This, Sizer) -> 'ok' when
-	This::wxWindow(), Sizer::wxSizer:wxSizer().
+        This::wxWindow(), Sizer::wxSizer:wxSizer().
 
 setSizer(This,Sizer)
  when is_record(This, wx_ref),is_record(Sizer, wx_ref) ->
@@ -2883,7 +2884,7 @@ setSizer(#wx_ref{type=ThisT}=This,#wx_ref{type=SizerT}=Sizer, Options)
 
 -doc(#{equiv => setSizerAndFit(This,Sizer, [])}).
 -spec setSizerAndFit(This, Sizer) -> 'ok' when
-	This::wxWindow(), Sizer::wxSizer:wxSizer().
+        This::wxWindow(), Sizer::wxSizer:wxSizer().
 
 setSizerAndFit(This,Sizer)
  when is_record(This, wx_ref),is_record(Sizer, wx_ref) ->
@@ -2923,7 +2924,7 @@ the default look and feel is simulated best.
 See: `getThemeEnabled/1`
 """.
 -spec setThemeEnabled(This, Enable) -> 'ok' when
-	This::wxWindow(), Enable::boolean().
+        This::wxWindow(), Enable::boolean().
 setThemeEnabled(#wx_ref{type=ThisT}=This,Enable)
  when is_boolean(Enable) ->
   ?CLASS(ThisT,wxWindow),
@@ -2934,9 +2935,9 @@ This is an overloaded member function, provided for convenience. It differs from
 above function only in what argument(s) it accepts.
 """.
 -spec setToolTip(This, TipString) -> 'ok' when
-	This::wxWindow(), TipString::unicode:chardata();
+        This::wxWindow(), TipString::unicode:chardata();
       (This, Tip) -> 'ok' when
-	This::wxWindow(), Tip::wxToolTip:wxToolTip().
+        This::wxWindow(), Tip::wxToolTip:wxToolTip().
 setToolTip(#wx_ref{type=ThisT}=This,TipString)
  when ?is_chardata(TipString) ->
   ?CLASS(ThisT,wxWindow),
@@ -2952,7 +2953,7 @@ This is an overloaded member function, provided for convenience. It differs from
 above function only in what argument(s) it accepts.
 """.
 -spec setVirtualSize(This, Size) -> 'ok' when
-	This::wxWindow(), Size::{W::integer(), H::integer()}.
+        This::wxWindow(), Size::{W::integer(), H::integer()}.
 setVirtualSize(#wx_ref{type=ThisT}=This,{SizeW,SizeH} = Size)
  when is_integer(SizeW),is_integer(SizeH) ->
   ?CLASS(ThisT,wxWindow),
@@ -2964,7 +2965,7 @@ Sets the virtual size of the window in pixels.
 See: [Overview windowsizing](https://docs.wxwidgets.org/3.2/overview_windowsizing.html#overview_windowsizing)
 """.
 -spec setVirtualSize(This, Width, Height) -> 'ok' when
-	This::wxWindow(), Width::integer(), Height::integer().
+        This::wxWindow(), Width::integer(), Height::integer().
 setVirtualSize(#wx_ref{type=ThisT}=This,Width,Height)
  when is_integer(Width),is_integer(Height) ->
   ?CLASS(ThisT,wxWindow),
@@ -2972,7 +2973,7 @@ setVirtualSize(#wx_ref{type=ThisT}=This,Width,Height)
 
 -doc "See `setWindowStyleFlag/2` for more info.".
 -spec setWindowStyle(This, Style) -> 'ok' when
-	This::wxWindow(), Style::integer().
+        This::wxWindow(), Style::integer().
 setWindowStyle(#wx_ref{type=ThisT}=This,Style)
  when is_integer(Style) ->
   ?CLASS(ThisT,wxWindow),
@@ -2989,7 +2990,7 @@ See Window styles for more information about flags.
 See: `getWindowStyleFlag/1`
 """.
 -spec setWindowStyleFlag(This, Style) -> 'ok' when
-	This::wxWindow(), Style::integer().
+        This::wxWindow(), Style::integer().
 setWindowStyleFlag(#wx_ref{type=ThisT}=This,Style)
  when is_integer(Style) ->
   ?CLASS(ThisT,wxWindow),
@@ -3009,7 +3010,7 @@ By default the controls naturally use the normal variant.
 """.
 %%  Variant = ?wxWINDOW_VARIANT_NORMAL | ?wxWINDOW_VARIANT_SMALL | ?wxWINDOW_VARIANT_MINI | ?wxWINDOW_VARIANT_LARGE | ?wxWINDOW_VARIANT_MAX
 -spec setWindowVariant(This, Variant) -> 'ok' when
-	This::wxWindow(), Variant::wx:wx_enum().
+        This::wxWindow(), Variant::wx:wx_enum().
 setWindowVariant(#wx_ref{type=ThisT}=This,Variant)
  when is_integer(Variant) ->
   ?CLASS(ThisT,wxWindow),
@@ -3024,7 +3025,7 @@ The base class version returns false, but this method is overridden in `m:wxCont
 where it returns true.
 """.
 -spec shouldInheritColours(This) -> boolean() when
-	This::wxWindow().
+        This::wxWindow().
 shouldInheritColours(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_ShouldInheritColours),
@@ -3032,7 +3033,7 @@ shouldInheritColours(#wx_ref{type=ThisT}=This) ->
 
 -doc(#{equiv => show(This, [])}).
 -spec show(This) -> boolean() when
-	This::wxWindow().
+        This::wxWindow().
 
 show(This)
  when is_record(This, wx_ref) ->
@@ -3085,7 +3086,7 @@ See:
 * `isFrozen/1`
 """.
 -spec thaw(This) -> 'ok' when
-	This::wxWindow().
+        This::wxWindow().
 thaw(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_Thaw).
@@ -3103,7 +3104,7 @@ See:
 * `validate/1`
 """.
 -spec transferDataFromWindow(This) -> boolean() when
-	This::wxWindow().
+        This::wxWindow().
 transferDataFromWindow(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_TransferDataFromWindow),
@@ -3122,7 +3123,7 @@ See:
 * `validate/1`
 """.
 -spec transferDataToWindow(This) -> boolean() when
-	This::wxWindow().
+        This::wxWindow().
 transferDataToWindow(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_TransferDataToWindow),
@@ -3138,14 +3139,14 @@ nothing has been invalidated (i.e. marked as requiring a redraw). Use `refresh/2
 to immediately redraw the window unconditionally.
 """.
 -spec update(This) -> 'ok' when
-	This::wxWindow().
+        This::wxWindow().
 update(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_Update).
 
 -doc(#{equiv => updateWindowUI(This, [])}).
 -spec updateWindowUI(This) -> 'ok' when
-	This::wxWindow().
+        This::wxWindow().
 
 updateWindowUI(This)
  when is_record(This, wx_ref) ->
@@ -3196,7 +3197,7 @@ See:
 * `transferDataToWindow/1`
 """.
 -spec validate(This) -> boolean() when
-	This::wxWindow().
+        This::wxWindow().
 validate(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_Validate),
@@ -3210,7 +3211,7 @@ you should avoid using this function in Mac applications (and probably avoid usi
 under the other platforms without good reason as well).
 """.
 -spec warpPointer(This, X, Y) -> 'ok' when
-	This::wxWindow(), X::integer(), Y::integer().
+        This::wxWindow(), X::integer(), Y::integer().
 warpPointer(#wx_ref{type=ThisT}=This,X,Y)
  when is_integer(X),is_integer(Y) ->
   ?CLASS(ThisT,wxWindow),
@@ -3227,7 +3228,7 @@ window and 255 to the fully opaque one. The constants `wxIMAGE_ALPHA_TRANSPARENT
 can be used.
 """.
 -spec setTransparent(This, Alpha) -> boolean() when
-	This::wxWindow(), Alpha::integer().
+        This::wxWindow(), Alpha::integer().
 setTransparent(#wx_ref{type=ThisT}=This,Alpha)
  when is_integer(Alpha) ->
   ?CLASS(ThisT,wxWindow),
@@ -3242,7 +3243,7 @@ If this function returns false, transparent windows are definitely not supported
 current system.
 """.
 -spec canSetTransparent(This) -> boolean() when
-	This::wxWindow().
+        This::wxWindow().
 canSetTransparent(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_CanSetTransparent),
@@ -3256,7 +3257,7 @@ screen all at once later.
 See: `m:wxBufferedDC`
 """.
 -spec isDoubleBuffered(This) -> boolean() when
-	This::wxWindow().
+        This::wxWindow().
 isDoubleBuffered(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_IsDoubleBuffered),
@@ -3264,7 +3265,7 @@ isDoubleBuffered(#wx_ref{type=ThisT}=This) ->
 
 -doc "Turn on or off double buffering of the window if the system supports it.".
 -spec setDoubleBuffered(This, On) -> 'ok' when
-	This::wxWindow(), On::boolean().
+        This::wxWindow(), On::boolean().
 setDoubleBuffered(#wx_ref{type=ThisT}=This,On)
  when is_boolean(On) ->
   ?CLASS(ThisT,wxWindow),
@@ -3293,7 +3294,7 @@ for the platforms without `wxHAVE_DPI_INDEPENDENT_PIXELS`, such as wxMSW.
 Since: 2.9.5
 """.
 -spec getContentScaleFactor(This) -> number() when
-	This::wxWindow().
+        This::wxWindow().
 getContentScaleFactor(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_GetContentScaleFactor),
@@ -3312,7 +3313,7 @@ See: `wxDisplay:getPPI/1`
 Since: 3.1.3
 """.
 -spec getDPI(This) -> {W::integer(), H::integer()} when
-	This::wxWindow().
+        This::wxWindow().
 getDPI(#wx_ref{type=ThisT}=This) ->
   ?CLASS(ThisT,wxWindow),
   wxe_util:queue_cmd(This,?get_env(),?wxWindow_GetDPI),
@@ -3343,13 +3344,13 @@ wxWidgets API (it is often used to mean "unspecified").
 Since: 3.1.0
 """.
 -spec fromDIP(D, W) -> integer() when
-	D::integer(), W::wxWindow();
+        D::integer(), W::wxWindow();
       (Sz, W) -> {W::integer(), H::integer()} when
-	Sz::{W::integer(), H::integer()}, W::wxWindow();
+        Sz::{W::integer(), H::integer()}, W::wxWindow();
       (This, D) -> integer() when
-	This::wxWindow(), D::integer();
+        This::wxWindow(), D::integer();
       (This, Sz) -> {W::integer(), H::integer()} when
-	This::wxWindow(), Sz::{W::integer(), H::integer()}.
+        This::wxWindow(), Sz::{W::integer(), H::integer()}.
 fromDIP(D,#wx_ref{type=WT}=W)
  when is_integer(D) ->
   ?CLASS(WT,wxWindow),
@@ -3388,13 +3389,13 @@ wxWidgets API (it is often used to mean "unspecified").
 Since: 3.1.0
 """.
 -spec toDIP(D, W) -> integer() when
-	D::integer(), W::wxWindow();
+        D::integer(), W::wxWindow();
       (Sz, W) -> {W::integer(), H::integer()} when
-	Sz::{W::integer(), H::integer()}, W::wxWindow();
+        Sz::{W::integer(), H::integer()}, W::wxWindow();
       (This, D) -> integer() when
-	This::wxWindow(), D::integer();
+        This::wxWindow(), D::integer();
       (This, Sz) -> {W::integer(), H::integer()} when
-	This::wxWindow(), Sz::{W::integer(), H::integer()}.
+        This::wxWindow(), Sz::{W::integer(), H::integer()}.
 toDIP(D,#wx_ref{type=WT}=W)
  when is_integer(D) ->
   ?CLASS(WT,wxWindow),

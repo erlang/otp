@@ -37,7 +37,6 @@
 
 %% Handling of incoming data
 -export([get_tls_records/5,
-         init_connection_states/3,
          init_connection_states/4]).
 
 %% Encoding TLS records
@@ -69,20 +68,10 @@
 %% Handling of incoming data
 %%====================================================================
 %%--------------------------------------------------------------------
--spec init_connection_states(Role, Version, BeastMitigation) ->
-          ssl_record:connection_states() when
-      Role :: client | server,
-      Version :: tls_version(),
-      BeastMitigation :: one_n_minus_one | zero_n | disabled.
-
 %%
 %% Description: Creates a connection_states record with appropriate
 %% values for the initial SSL connection setup.
 %%--------------------------------------------------------------------
-init_connection_states(Role, Version, BeastMitigation) ->
-    MaxEarlyDataSize = ssl_config:get_max_early_data_size(),
-    init_connection_states(Role, Version, BeastMitigation, MaxEarlyDataSize).
-%%
 -spec init_connection_states(Role, Version, BeastMitigation,
                              MaxEarlyDataSize) ->
           ssl_record:connection_states() when

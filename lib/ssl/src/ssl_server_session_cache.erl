@@ -3,7 +3,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2020-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2020-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -46,9 +46,9 @@
          handle_call/3,
          handle_cast/2,
          handle_info/2,
-         terminate/2
+         terminate/2,
          %%code_change/3,
-         %%format_status/2
+         format_status/1
         ]).
 
 -record(state, {store_cb,
@@ -106,7 +106,6 @@ reuse_session(Pid, SessionId) ->
 register_session(Pid, Session) ->
     gen_server:cast(Pid, {register_session, Session}).
 
-
 %%%===================================================================
 %%% gen_server callbacks
 %%%===================================================================
@@ -153,7 +152,7 @@ handle_call({reuse_session, SessionId}, _From,  #state{store_cb = Cb,
     end.
 
 -spec handle_cast(Request :: term(), State :: term()) ->
-           {noreply, NewState :: term()}.
+          {noreply, NewState :: term()}.
 handle_cast({register_session, #session{session_id = SessionId, time_stamp = TimeStamp} = Session0},
             #state{store_cb = Cb,
                    db = Store0,
@@ -195,7 +194,8 @@ handle_cast({register_session, #session{session_id = SessionId, time_stamp = Tim
     {noreply, State}.
 
 -spec handle_info(Info :: timeout() | term(), State :: term()) ->
-          {noreply, NewState :: term()}.
+          {noreply, NewState :: term()} |
+          {stop, Reason :: term(), NewState :: term()}.
 handle_info({'DOWN', Monitor, _, _, _}, #state{listener = Monitor} = State) ->
      {stop, normal, State};
 handle_info(_, State) ->
@@ -203,6 +203,15 @@ handle_info(_, State) ->
 
 terminate(_, _) ->
     ok.
+
+-spec format_status(map()) -> map().
+format_status(Status) ->
+    maps:map(
+      fun(state, State) ->
+              State#state{db = ?SECRET_PRINTOUT};
+         (_,Value) ->
+              Value
+      end, Status).
 
 %%%===================================================================
 %%% Internal functions

@@ -108,6 +108,12 @@ endif
 # Targets
 # ----------------------------------------------------
 
+# The RFC 5912 modules import each other cyclically. Whether a sibling
+# module's checked .asn1db exists when a module is compiled changes the
+# numbering of generated internal_object_set_argument_N names, so the
+# compilations must run in a fixed order for reproducible output.
+.NOTPARALLEL:
+
 $(TYPES): $(TARGET_FILES) $(HRL_FILES)
 
 clean:

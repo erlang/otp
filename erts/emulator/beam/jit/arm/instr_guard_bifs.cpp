@@ -322,7 +322,7 @@ void BeamModuleAssembler::emit_bif_and(const ArgLabel &Fail,
         a.b_eq(next);
         mov_var(XREG0, src1);
         mov_var(XREG1, src2);
-        fragment_call(ga->get_handle_or_error());
+        fragment_call(ga->get_handle_and_error());
     }
 
     a.bind(next);
@@ -909,7 +909,15 @@ void BeamModuleAssembler::emit_bif_map_get(const ArgLabel &Fail,
         }
     } else {
         emit_enter_runtime();
-        runtime_call<Eterm (*)(Eterm, Eterm), get_map_element>();
+        if (!Key.isLiteral()) {
+            runtime_call<Eterm (*)(Eterm, Eterm), get_map_element>();
+        } else {
+            auto literal_key =
+                    beamfile_get_literal(beam, Key.as<ArgLiteral>().get());
+            mov_imm(ARG3, hashmap_make_hash(literal_key));
+            runtime_call<Eterm (*)(Eterm, Eterm, erts_ihash_t),
+                         get_map_element_hash>();
+        }
         emit_leave_runtime();
 
         if (Fail.get() == 0) {

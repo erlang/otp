@@ -288,7 +288,7 @@ static int parse_atom_chunk(BeamFile *beam,
         }
 
         LoadAssert(beamreader_read_bytes(&reader, length, &string));
-        atom = erts_atom_put(string, length, ERTS_ATOM_ENC_UTF8, 1);
+        atom = erts_atom_put(string, length, ERTS_ATOM_ENC_UTF8, 0);
         LoadAssert(atom != THE_NON_VALUE);
 
         atoms->entries[i] = atom;
@@ -396,7 +396,10 @@ static int parse_lambda_chunk(BeamFile *beam, IFF_Chunk *chunk) {
     BeamFile_AtomTable *atoms;
     BeamReader reader;
     Sint32 count;
+    Uint label_count;
     int i;
+
+    label_count = beam->code.label_count;
 
     lambdas = &beam->lambdas;
     ASSERT(lambdas->entries == NULL);
@@ -423,7 +426,7 @@ static int parse_lambda_chunk(BeamFile *beam, IFF_Chunk *chunk) {
         LoadAssert(beamreader_read_i32(&reader, &old_uniq));
 
         LoadAssert(atom_index >= 0 && atom_index < atoms->count);
-        LoadAssert(label >= 0);
+        LoadAssert(label > 0 && label < label_count);
 
         lambdas->entries[i].function = atoms->entries[atom_index];
         lambdas->entries[i].num_free = num_free;
@@ -2235,7 +2238,7 @@ static int marshal_allocation_list(BeamReader *reader, Sint *res) {
 
     LoadAssert(beamreader_read_tagged(reader, &count));
     LoadAssert(count.tag == TAG_u);
-    LoadAssert(count.word_value <= 3);
+    LoadAssert(count.word_value <= 4);
 
     sum = 0;
     for (i = 0; i < count.word_value; i++) {
@@ -2265,6 +2268,10 @@ static int marshal_allocation_list(BeamReader *reader, Sint *res) {
         case 2:
             LoadAssert(sum <= (ERTS_SINT32_MAX - ERL_FUN_SIZE * number));
             sum += ERL_FUN_SIZE * number;
+            break;
+        case 3:
+            LoadAssert(sum <= (ERTS_SINT32_MAX - RECORD_INST_SIZE(0) * number));
+            sum += RECORD_INST_SIZE(0) * number;
             break;
         default:
             LoadError("Invalid allocation tag");

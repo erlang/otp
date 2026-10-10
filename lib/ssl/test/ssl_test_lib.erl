@@ -222,7 +222,6 @@
          openssl_ecdsa_suites/0,
          openssl_dsa_suites/0,
          enough_openssl_crl_support/1,
-         openssl_ocsp_support/1,
          openssl_allows_client_renegotiate/1,
          version_flag/1,
          portable_cmd/2,
@@ -429,16 +428,6 @@ end_per_group(GroupName, Config) ->
                   Config
           end
   end.
-
-openssl_ocsp_support(Config) ->
-    case proplists:get_value(openssl_version, Config) of
-        "OpenSSL 1.1.1" ++ _Rest ->
-            true;
-        "OpenSSL 3" ++ _Rest ->
-            true;
-        _ ->
-            false
-    end.
 
 openssl_ciphers() ->
     Str = portable_cmd("openssl", ["ciphers"]),
@@ -4100,7 +4089,7 @@ reuse_session(ClientOpts, ServerOpts, Config) ->
                       {from, self()},
                       {mfa, {ssl_test_lib, no_result, []}},
                       {tcp_options, [{active, false}]},
-                      {options, ServerOpts}]),
+                      {options, [{reuse_sessions, true} | ServerOpts]}]),
     Port0 = inet_port(Server0),
 
     Client0 = start_client([{node, ClientNode},
@@ -4187,7 +4176,7 @@ user_lookup(psk, _Identity, UserState) ->
 user_lookup(srp, Username, _UserState) ->
     Salt = ssl_cipher:random_bytes(16),
     UserPassHash = crypto:hash(sha, [Salt, crypto:hash(sha, [Username, <<$:>>, <<"secret">>])]),
-    {ok, {srp_1024, Salt, UserPassHash}}.
+    {ok, {srp_2048, Salt, UserPassHash}}.
 
 test_cipher(TestCase, Config) ->
     [{name, Group} |_] = proplists:get_value(tc_group_properties, Config),

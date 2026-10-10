@@ -25,6 +25,8 @@
 -module(ssh_shell).
 -moduledoc false.
 
+-compile([{nowarn_deprecated_function, [{erlang,exit,2}]}]).
+
 -include("ssh.hrl").
 -include("ssh_connect.hrl").
 
