@@ -52,6 +52,8 @@
 -export([old_to_integer/1,old_to_float/1]).
 -export([to_upper_to_lower/1]).
 
+-export([doctests/1]).
+
 %% Run tests when debugging them
 -export([debug/0, time_func/4]).
 -compile([nowarn_deprecated_function]).
