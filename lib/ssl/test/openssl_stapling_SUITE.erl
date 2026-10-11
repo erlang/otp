@@ -97,20 +97,27 @@ negative() ->
 
 %%--------------------------------------------------------------------
 init_per_suite(Config0) ->
-    Config = [{debug, ?DEBUG}] ++
-        ssl_test_lib:init_per_suite(Config0, openssl),
-    case ssl_test_lib:openssl_ocsp_support(Config) of
+    {IsGood, Version} =
+        case ssl_test_lib:portable_cmd("openssl", ["version"]) of
+            "OpenSSL 0." ++ _  = OVersion ->
+                {false, OVersion};
+            "OpenSSL 1.0" ++ _  = OVersion ->
+                {false, OVersion};
+            "LibreSSL" ++ _  = OVersion ->
+                {false, OVersion};
+            OVersion ->
+                {true, OVersion}
+        end,
+    case IsGood of
         true ->
-            do_init_per_suite(Config);
-        false ->
-            {skip, "OCSP not well supported in openSSL"}
+            Config = [{debug, ?DEBUG}] ++
+                ssl_test_lib:init_per_suite(Config0, openssl),
+            {ok, _} = make_certs:all(?config(data_dir, Config),
+                                 ?config(priv_dir, Config), [{staple, true}]),
+            ssl_test_lib:cert_options(Config);
+        false  ->
+            {skip, {bad_openssl_version, Version}}
     end.
-
-do_init_per_suite(Config) ->
-    {ok, _} = make_certs:all(?config(data_dir, Config),
-                             ?config(priv_dir, Config), [{staple, true}]),
-    ssl_test_lib:cert_options(Config).
-
 end_per_suite(Config) ->
     ssl_test_lib:end_per_suite(Config).
 
