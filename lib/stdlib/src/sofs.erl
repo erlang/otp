@@ -2899,8 +2899,8 @@ Creating a cycle in an acyclic graph exits the process with a `cyclic` message.
 ```erlang
 1> F1 = sofs:family([{1,[a,b]}, {2,[c,d]}, {3,[d]}, {a,[b]}]).
 2> G = sofs:family_to_digraph(F1, []).
-3> digraph_utils:topsort(G).
-[1,a,b,2,c,3,d]
+3> lists:sort(digraph:out_neighbours(G, 1)).
+[a,b]
 4> F2 = sofs:family([{1,[1]}]).
 5> sofs:family_to_digraph(F2, [acyclic]).
 ** exception error: cyclic

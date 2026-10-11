@@ -272,8 +272,23 @@ traversals(Config) when is_list(Config) ->
     [a,b,c,d,e,0,1,2] = digraph_utils:preorder(G),
     [e,d,c,b,a,2,1,0] = digraph_utils:postorder(G),
     add_edges(G, [{x,0},{y,1},{z,2}]),
-    [z,2,0,1,y,x,a,b,c,d,e] = digraph_utils:preorder(G),
-    [1,0,2,z,y,x,e,d,c,b,a] = digraph_utils:postorder(G),
+    %% The roots a, x, y and z are visited in the unspecified order of
+    %% digraph:vertices/1. The first one of x, y and z also visits the cycle.
+    Pre = digraph_utils:preorder(G),
+    Roots = [V || V <- Pre, lists:member(V, [a,x,y,z])],
+    [First | _] = Roots -- [a],
+    Cycle = #{x => [0,1,2], y => [1,2,0], z => [2,0,1]},
+    PreTree = fun(a) -> [a,b,c,d,e];
+                 (V) when V =:= First -> [V | map_get(V, Cycle)];
+                 (V) -> [V]
+              end,
+    PostTree = fun(a) -> [e,d,c,b,a];
+                  (V) when V =:= First -> lists:reverse(map_get(V, Cycle)) ++ [V];
+                  (V) -> [V]
+               end,
+    Pre = lists:append([PreTree(V) || V <- Roots]),
+    Post = lists:append([PostTree(V) || V <- Roots]),
+    Post = digraph_utils:postorder(G),
     ok.
 
 is_tree(Es) ->
