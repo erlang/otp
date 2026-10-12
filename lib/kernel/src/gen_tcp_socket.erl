@@ -72,9 +72,20 @@
 -define(MODULE_socket(Server, Socket),
         {'$inet', ?MODULE, {Server, Socket}}).
 
-%% Standard length before data header for packet,1|2|3|4
--define(header(Packet, Size),
-        (Size):(Packet)/unit:8-integer-big-unsigned).
+-define(header_size_check(Width, Size),
+        (Size) < (1 bsl (Width * 8))).
+
+%% Standard packet header binary before data header for packet, 1|2|3|4, little|big|native.
+-define(header(Width, Size, Endianness),
+        case (Endianness) of
+            big ->
+                <<(Size):(Width)/unit:8-integer-big-unsigned>>;
+            little ->
+                <<(Size):(Width)/unit:8-integer-little-unsigned>>;
+            native ->
+                <<(Size):(Width)/unit:8-integer-native-unsigned>>
+        end).
+
 
 -define(badarg_exit(Error),
         case begin Error end of
@@ -580,19 +591,16 @@ send(?MODULE_socket(Server, Socket), Data) ->
                     Data2       = iolist_to_binary(Data),
                     Size        = byte_size(Data2),
                     %% ?DBG([{packet, Packet}, {data_size, Size}]),
-                    Header =
-                        case Endianness of
-                            big ->
-                                <<?header(Width, Size)>>;
-                            little ->
-                                <<Size:Width/unit:8-integer-little-unsigned>>;
-                            native ->
-                                <<Size:Width/unit:8-integer-native-unsigned>>
-                        end,
-                    Header_Data = [Header, Data2],
-                    Result      = socket_sendv(Socket,
-                                               Header_Data, SendTimeout),
-                    send_result(Server, Header_Data, Meta, Result);
+                    if
+                        ?header_size_check(Width, Size) ->
+                            Header = ?header(Width, Size, Endianness),
+                            Header_Data = [Header, Data2],
+                            Result      = socket_sendv(Socket,
+                                                       Header_Data, SendTimeout),
+                            send_result(Server, Header_Data, Meta, Result);
+                        true ->
+                            {error, emsgsize}
+                    end;
                 false ->
                     Result = socket_send(Socket, Data, SendTimeout),
                     send_result(Server, Data, Meta, Result)

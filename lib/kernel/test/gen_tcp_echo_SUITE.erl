@@ -316,7 +316,7 @@ packet_endian(Config) when is_list(Config) ->
           fun({Packet, Width}) ->
                   packet_endian(Socket, Peer, Packet, Width)
           end,
-          [{{2, big}, 2}, {{2, little}, 2}, {{2, native}, 2},
+          [{2, 2}, {{2, big}, 2}, {{2, little}, 2}, {{2, native}, 2},
            {{3, big}, 3}, {3, 3}, {{3, little}, 3}, {{3, native}, 3},
            {{4, big}, 4}, {{4, little}, 4}, {{4, native}, 4}]),
         lists:foreach(
@@ -362,6 +362,9 @@ packet_endian(Socket, Peer, Packet, Width) ->
     Inbound = binary:copy(<<$I>>, InboundSize),
     {OutboundWire, InboundWire} =
         case Packet of
+            2 ->
+                {<<OutboundSize:16/big, Outbound/binary>>,
+                 <<InboundSize:16/big, Inbound/binary>>};
             {2, big} ->
                 {<<OutboundSize:16/big, Outbound/binary>>,
                  <<InboundSize:16/big, Inbound/binary>>};
@@ -394,6 +397,19 @@ packet_endian(Socket, Peer, Packet, Width) ->
                  <<InboundSize:32/native, Inbound/binary>>}
         end,
     ok = gen_tcp:send(Socket, Outbound),
+    case Packet of
+        2 ->
+            {error, emsgsize} =
+                gen_tcp:send(Socket, binary:copy(<<0>>, 16#10000));
+        3 ->
+            {error, emsgsize} =
+                gen_tcp:send(Socket, binary:copy(<<0>>, 16#1000000));
+        4 ->
+            {error, emsgsize} =
+                gen_tcp:send(Socket, binary:copy(<<0>>, 16#100000000));
+        _ ->
+            ok
+    end,
     {ok, OutboundWire} =
         gen_tcp:recv(Peer, Width + byte_size(Outbound), 5000),
 
