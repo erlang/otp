@@ -1466,6 +1466,9 @@
 /* Define to 1 if your <sys/time.h> declares 'struct tm'. */
 #undef TM_IN_SYS_TIME
 
+/* Define if tputs callback takes a char argument */
+#undef TPUTS_PUTFUNC_TAKES_CHAR
+
 /* Define if you want to use dtrace for dynamic tracing */
 #undef USE_DTRACE
 

@@ -901,7 +901,7 @@ static unsigned char static_tputs_buffer[1024];
 #endif
 static unsigned char *tputs_buffer;
 
-#if defined(__sun) && defined(__SVR4) /* Solaris */
+#ifdef TPUTS_PUTFUNC_TAKES_CHAR
 static int tty_puts_putc(char c) {
 #else
 static int tty_puts_putc(int c) {

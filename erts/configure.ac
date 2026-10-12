@@ -1257,6 +1257,28 @@ AC_CHECK_HEADERS([termcap.h ncurses/curses.h curses.h term.h])
 if test "x$TERMCAP_LIB" != "x"; then
 
 	AC_DEFINE(HAVE_TERMCAP, 1, [Define if termcap functions exists])
+
+        AC_MSG_CHECKING([whether tputs callback takes a char argument])
+        saved_CFLAGS=$CFLAGS
+        CFLAGS="-Werror $CFLAGS"
+        AC_COMPILE_IFELSE(
+            [AC_LANG_PROGRAM([[
+#if defined(HAVE_NCURSES_CURSES_H)
+#  include <ncurses/curses.h>
+#  include <ncurses/term.h>
+#elif defined(HAVE_CURSES_H) && defined(HAVE_TERM_H)
+#  include <curses.h>
+#  include <term.h>
+#endif
+static int putfunc(char c) { return c; }
+            ]], [[tputs("", 1, putfunc);]])],
+            [tputs_putfunc_takes_char=yes],
+            [tputs_putfunc_takes_char=no])
+        CFLAGS=$saved_CFLAGS
+        AC_MSG_RESULT([$tputs_putfunc_takes_char])
+        AS_IF([test "x$tputs_putfunc_takes_char" = "xyes"],
+              [AC_DEFINE(TPUTS_PUTFUNC_TAKES_CHAR, 1,
+                         [Define if tputs callback takes a char argument])])
 fi
 
 AS_IF([test "X$host" != "Xwin32"],
