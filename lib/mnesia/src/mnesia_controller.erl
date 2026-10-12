@@ -1481,59 +1481,59 @@ orphan_tables([Tab | Tabs], Node, Ns, Local, Remote) ->
 				    orphan_tables(Tabs, Node, Ns, L, Remote);
 				Masters ->
                                     %% Do not disc_load table from RamCopyHolders
-				    R = [{Tab, Masters -- RamCopyHolders} | Remote],
-				    orphan_tables(Tabs, Node, Ns, Local, R)
-			    end;
-			_ ->
-			    orphan_tables(Tabs, Node, Ns, Local, Remote)
-		    end;
-		_ ->
-		    orphan_tables(Tabs, Node, Ns, Local, Remote)
-	    end;
-	false when Active == [], DiscCopyHolders == [],
+                    R = [{Tab, Masters -- RamCopyHolders} | Remote],
+                    orphan_tables(Tabs, Node, Ns, Local, R)
+                end;
+            _ ->
+                orphan_tables(Tabs, Node, Ns, Local, Remote)
+            end;
+        _ ->
+            orphan_tables(Tabs, Node, Ns, Local, Remote)
+        end;
+    false when Active == [], DiscCopyHolders == [],
                RamCopyHolders =/= [], not (LocalContent == true),
                (RamCopyHoldersOnDiscNodes =/= [] orelse DiscNodes == []) ->
-	    %% RAM-only table whose copies live on disc nodes, OR a fully
-	    %% disc-less cluster (DiscNodes == []). In both cases a remote
-	    %% holder may have a better copy, so don't blindly load an empty
-	    %% local copy. Handled before the disc-less special case below;
-	    %% the mixed case (ram copies only on ram nodes while a disc node
-	    %% exists) falls through to that clause and keeps loading directly.
-	    case RamCopyHolders -- Ns of
-		[] ->
-		    %% We're last up and the other nodes have not
-		    %% loaded the table. Lets load it if we are
-		    %% the smallest node.
-		    case lists:min(RamCopyHolders) of
-			Min when Min == node() ->
+        %% RAM-only table whose copies live on disc nodes, OR a fully
+        %% disc-less cluster (DiscNodes == []). In both cases a remote
+        %% holder may have a better copy, so don't blindly load an empty
+        %% local copy. Handled before the disc-less special case below;
+        %% the mixed case (ram copies only on ram nodes while a disc node
+        %% exists) falls through to that clause and keeps loading directly.
+        case RamCopyHolders -- Ns of
+        [] ->
+            %% We're last up and the other nodes have not
+            %% loaded the table. Lets load it if we are
+            %% the smallest node.
+            case lists:min(RamCopyHolders) of
+            Min when Min == node() ->
                 %% This is safe for ram copies because if all nodes are 
                 %% waiting that means the table is empty on all nodes.
                 %% here we just need to elect a bootstrap node to break
                 %% the waiting loop.
-			    case mnesia_recover:get_master_nodes(Tab) of
-				[] ->
-				    L = [Tab | Local],
-				    orphan_tables(Tabs, Node, Ns, L, Remote);
-				Masters ->
-				    R = [{Tab, Masters} | Remote],
-				    orphan_tables(Tabs, Node, Ns, Local, R)
-			    end;
-			_ ->
-			    orphan_tables(Tabs, Node, Ns, Local, Remote)
-		    end;
-		_ ->
-		    %% A non-down remote copy holder may have a better
-		    %% copy. Stay 'nowhere' and net_load it once that
-		    %% holder connects.
-		    orphan_tables(Tabs, Node, Ns, Local, Remote)
-	    end;
-	false when Active == [], DiscCopyHolders == [], RamCopyHoldersOnDiscNodes == [] ->
-	    %% Special case when all replicas resides on disc less nodes
-	    orphan_tables(Tabs, Node, Ns, [Tab | Local], Remote);
-	_ when LocalContent == true ->
-	    orphan_tables(Tabs, Node, Ns, [Tab | Local], Remote);
-	_ ->
-	    orphan_tables(Tabs, Node, Ns, Local, Remote)
+                case mnesia_recover:get_master_nodes(Tab) of
+                [] ->
+                    L = [Tab | Local],
+                    orphan_tables(Tabs, Node, Ns, L, Remote);
+                Masters ->
+                    R = [{Tab, Masters} | Remote],
+                    orphan_tables(Tabs, Node, Ns, Local, R)
+                end;
+            _ ->
+                orphan_tables(Tabs, Node, Ns, Local, Remote)
+            end;
+        _ ->
+            %% A non-down remote copy holder may have a better
+            %% copy. Stay 'nowhere' and net_load it once that
+            %% holder connects.
+            orphan_tables(Tabs, Node, Ns, Local, Remote)
+        end;
+    false when Active == [], DiscCopyHolders == [], RamCopyHoldersOnDiscNodes == [] ->
+        %% Special case when all replicas resides on disc less nodes
+        orphan_tables(Tabs, Node, Ns, [Tab | Local], Remote);
+    _ when LocalContent == true ->
+        orphan_tables(Tabs, Node, Ns, [Tab | Local], Remote);
+    _ ->
+        orphan_tables(Tabs, Node, Ns, Local, Remote)
     end;
 orphan_tables([], _, _, LocalOrphans, RemoteMasters) ->
     {LocalOrphans, RemoteMasters}.
@@ -1571,78 +1571,78 @@ update_whereabouts(Tab, Node, State) ->
     Masters = mnesia_recover:get_master_nodes(Tab),
     ByForce = val({Tab, load_by_force}),
     GoGetIt =
-	if
-	    ByForce == true ->
-		true;
-	    Masters == [] ->
-		true;
-	    true ->
-		lists:member(Node, Masters)
-	end,
+    if
+        ByForce == true ->
+        true;
+        Masters == [] ->
+        true;
+        true ->
+        lists:member(Node, Masters)
+    end,
 
     dbg_out("Table ~w is loaded on ~w. s=~w, r=~w, lc=~w, f=~w, m=~w~n",
-	    [Tab, Node, Storage, Read, LocalC, ByForce, GoGetIt]),
+        [Tab, Node, Storage, Read, LocalC, ByForce, GoGetIt]),
     if
-	LocalC == true ->
-	    %% Local contents, don't care about other node
-	    State;
-	BeingCreated == true ->
-	    %% The table is currently being created
-	    %% It will be handled elsewhere
-	    State;
-	Storage == unknown, Read == nowhere ->
-	    %% No own copy, time to read remotely
-	    %% if the other node is a good node
-	    add_active_replica(Tab, Node),
-	    case GoGetIt of
-		true ->
-		    set({Tab, where_to_read}, Node),
-		    user_sync_tab(Tab),
-		    State;
-		false ->
-		    State
-	    end;
-	Storage == unknown ->
-	    %% No own copy, continue to read remotely
-	    add_active_replica(Tab, Node),
-	    NodeST = mnesia_lib:semantics(mnesia_lib:storage_type_at_node(Node, Tab), storage),
-	    ReadST = mnesia_lib:semantics(mnesia_lib:storage_type_at_node(Read, Tab), storage),
-	    if   %% Avoid reading from disc_only_copies
-		NodeST == disc_only_copies ->
-		    ignore;
-		ReadST == disc_only_copies ->
-		    mnesia_lib:set_remote_where_to_read(Tab);
-		true ->
-		    ignore
-	    end,
-	    user_sync_tab(Tab),
-	    State;
-	Read == nowhere ->
-	    %% Own copy, go and get a copy of the table
-	    %% if the other node is master or if there
-	    %% are no master at all
-	    add_active_replica(Tab, Node),
-	    case GoGetIt of
-		true ->
-		    Worker = #net_load{table = Tab,
-				       reason = {active_remote, Node}},
-		    add_worker(Worker, State);
-		false ->
-		    State
-	    end;
-	true ->
-	    %% We already have an own copy
-	    add_active_replica(Tab, Node),
-	    user_sync_tab(Tab),
-	    State
+    LocalC == true ->
+        %% Local contents, don't care about other node
+        State;
+    BeingCreated == true ->
+        %% The table is currently being created
+        %% It will be handled elsewhere
+        State;
+    Storage == unknown, Read == nowhere ->
+        %% No own copy, time to read remotely
+        %% if the other node is a good node
+        add_active_replica(Tab, Node),
+        case GoGetIt of
+        true ->
+            set({Tab, where_to_read}, Node),
+            user_sync_tab(Tab),
+            State;
+        false ->
+            State
+        end;
+    Storage == unknown ->
+        %% No own copy, continue to read remotely
+        add_active_replica(Tab, Node),
+        NodeST = mnesia_lib:semantics(mnesia_lib:storage_type_at_node(Node, Tab), storage),
+        ReadST = mnesia_lib:semantics(mnesia_lib:storage_type_at_node(Read, Tab), storage),
+        if   %% Avoid reading from disc_only_copies
+        NodeST == disc_only_copies ->
+            ignore;
+        ReadST == disc_only_copies ->
+            mnesia_lib:set_remote_where_to_read(Tab);
+        true ->
+            ignore
+        end,
+        user_sync_tab(Tab),
+        State;
+    Read == nowhere ->
+        %% Own copy, go and get a copy of the table
+        %% if the other node is master or if there
+        %% are no master at all
+        add_active_replica(Tab, Node),
+        case GoGetIt of
+        true ->
+            Worker = #net_load{table = Tab,
+                       reason = {active_remote, Node}},
+            add_worker(Worker, State);
+        false ->
+            State
+        end;
+    true ->
+        %% We already have an own copy
+        add_active_replica(Tab, Node),
+        user_sync_tab(Tab),
+        State
     end.
 
 initial_safe_loads() ->
-	Downs = mnesia_recover:get_mnesia_downs(),
-	dbg_out("mnesia_downs = ~p~n", [Downs]),
-	Tabs = val({schema, local_tables}) -- [schema],
-	LastC = fun(T) -> last_consistent_replica(T, Downs) end,
-	lists:filtermap(LastC, Tabs).
+    Downs = mnesia_recover:get_mnesia_downs(),
+    dbg_out("mnesia_downs = ~p~n", [Downs]),
+    Tabs = val({schema, local_tables}) -- [schema],
+    LastC = fun(T) -> last_consistent_replica(T, Downs) end,
+    lists:filtermap(LastC, Tabs).
 
 last_consistent_replica(Tab, Downs) ->
     case ?catch_val({Tab, cstruct}) of
@@ -1666,37 +1666,37 @@ last_consistent_replica(Cs, Tab, Downs) ->
     LocalMaster0 = lists:member(node(), Masters),
     LocalContent = Cs#cstruct.local_content,
     RemoteMaster =
-	if
-	    Masters == [] -> false;
-	    true -> not LocalMaster0
-	end,
-    LocalMaster =
-	if
-	    Masters == [] -> false;
-	    true -> LocalMaster0
-	end,
     if
-	Copies == [node()]  ->
-	    %% Only one copy holder and it is local.
-	    %% It may also be a local contents table
-	    {true, {Tab, local_only}};
-	LocalContent == true ->
-	    {true, {Tab, local_content}};
-	LocalMaster == true ->
-	    %% We have a local master
-	    {true, {Tab, local_master}};
-	RemoteMaster == true ->
-	    %% Wait for remote master copy
-	    false;
-	Storage == ram_copies ->
+        Masters == [] -> false;
+        true -> not LocalMaster0
+    end,
+    LocalMaster =
+    if
+        Masters == [] -> false;
+        true -> LocalMaster0
+    end,
+    if
+    Copies == [node()]  ->
+        %% Only one copy holder and it is local.
+        %% It may also be a local contents table
+        {true, {Tab, local_only}};
+    LocalContent == true ->
+        {true, {Tab, local_content}};
+    LocalMaster == true ->
+        %% We have a local master
+        {true, {Tab, local_master}};
+    RemoteMaster == true ->
+        %% Wait for remote master copy
+        false;
+    Storage == ram_copies ->
         if
-		Disc == [], DiscOnly == [], Ext == [], BetterCopies0 == [] ->
-		    %% RAM-only table and no non-down remote copy holder.
-		    %% Safe to load locally.
-		    {true, {Tab, ram_only}};
-		true ->
-		    %% Either a disc-resident copy exists or a non-down
-		    %% remote copy holder may have a better copy.
+        Disc == [], DiscOnly == [], Ext == [], BetterCopies0 == [] ->
+            %% RAM-only table and no non-down remote copy holder.
+            %% Safe to load locally.
+            {true, {Tab, ram_only}};
+        true ->
+            %% Either a disc-resident copy exists or a non-down
+            %% remote copy holder may have a better copy.
 		    false
 	    end;
 	AccessMode == read_only ->
