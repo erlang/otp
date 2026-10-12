@@ -2972,7 +2972,7 @@ init([]) ->
 %% just to not leak resources (process, name, ETS table, etc...)
 %%
 init_sup(Result) ->
-    Parent = gen:get_parent(),
+    Parent = gen_gen:get_parent(),
     Statem = self(),
     _Supervisor =
         spawn(

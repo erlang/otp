@@ -193,7 +193,7 @@ Example:
       Options::[{timeout, timeout()} | {debug, [Flag]}].
 start(Mod, Args, Options)
   when is_atom(Mod), is_list(Options) ->
-    gen_response(gen:start(?MODULE, nolink, Mod, Args, [get(?WXE_IDENTIFIER)|Options]));
+    gen_response(gen_gen:start(?MODULE, nolink, Mod, Args, [get(?WXE_IDENTIFIER)|Options]));
 start(Mod, Args, Options) ->
     error(badarg, [Mod, Args, Options]).
 
@@ -209,7 +209,7 @@ Starts a generic wx_object server and invokes Mod:init(Args) in the new process.
       Options::[{timeout, timeout()} | {debug, [Flag]}].
 start(Name, Mod, Args, Options)
   when is_tuple(Name), is_atom(Mod), is_list(Options) ->
-    gen_response(gen:start(?MODULE, nolink, Name, Mod, Args, [get(?WXE_IDENTIFIER)|Options]));
+    gen_response(gen_gen:start(?MODULE, nolink, Name, Mod, Args, [get(?WXE_IDENTIFIER)|Options]));
 start(Name, Mod, Args, Options) ->
     error(badarg, [Name, Mod, Args, Options]).
 
@@ -224,7 +224,7 @@ Starts a generic wx_object server and invokes Mod:init(Args) in the new process.
       Options::[{timeout, timeout()} | {debug, [Flag]}].
 start_link(Mod, Args, Options)
   when is_atom(Mod), is_list(Options) ->
-    gen_response(gen:start(?MODULE, link, Mod, Args, [get(?WXE_IDENTIFIER)|Options]));
+    gen_response(gen_gen:start(?MODULE, link, Mod, Args, [get(?WXE_IDENTIFIER)|Options]));
 start_link(Mod, Args, Options) ->
     error(badarg, [Mod, Args, Options]).
 
