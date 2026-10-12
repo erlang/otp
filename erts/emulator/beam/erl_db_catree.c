@@ -890,8 +890,7 @@ Eterm copy_route_key(DbRouteKey* dst, Eterm key, Uint key_size)
         dst->oh = tmp_offheap.first;
     }
     else {
-        ASSERT(is_immed(key) ||
-               key == ERTS_GLOBAL_LIT_EMPTY_TUPLE);
+        ASSERT(is_zero_sized(key));
         dst->term = key;
         dst->oh = NULL;
     }
