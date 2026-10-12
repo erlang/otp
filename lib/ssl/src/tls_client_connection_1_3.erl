@@ -851,11 +851,14 @@ handle_server_hello(#server_hello{cipher_suite = SelectedCipherSuite,
             Alert
     end.
 
-handle_encrypted_extensions(Extensions, State0) ->
+handle_encrypted_extensions(Extensions, #state{ssl_options = SslOpts} = State0) ->
     {Ref, Maybe} = tls_gen_connection_1_3:do_maybe(),
     try
         ALPNProtocol0 = maps:get(alpn, Extensions, undefined),
         ALPNProtocol = Maybe(decode_alpn(ALPNProtocol0)),
+        AdvertisedALPN = maps:get(alpn_advertised_protocols, SslOpts, undefined),
+        Maybe(validate_alpn_1_3(ALPNProtocol, AdvertisedALPN)),
+
         EarlyDataIndication = maps:get(early_data, Extensions, undefined),
 
         %% RFC 6066: handle received/expected maximum fragment length
@@ -1046,6 +1049,20 @@ decode_alpn(Encoded) ->
             {ok, Decoded};
         _  ->
             {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER, invalid_alpn)}
+    end.
+
+%% RFC 8446 4.2 / 4.4.2.1: a TLS-1.3 client MUST reject an ALPN protocol
+%% in EncryptedExtensions that it did not advertise. Mirrors the <=1.2
+%% check (ssl_handshake:validate_application_protocol/2) which is not on
+%% the 1.3 code path. A server that selected no ALPN (undefined) is fine.
+validate_alpn_1_3(undefined, _Advertised) ->
+    ok;
+validate_alpn_1_3(SelectedALPN, AdvertisedALPN) ->
+    try
+        ssl_handshake:validate_application_protocol(SelectedALPN, AdvertisedALPN)
+    catch
+        throw:#alert{} = Alert ->
+            {error, Alert}
     end.
 
 %% Verify that selected group is offered by the client.

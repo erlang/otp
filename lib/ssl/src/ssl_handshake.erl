@@ -121,6 +121,7 @@
 	 add_alpn/2,
          add_selected_version/1,
          decode_alpn/1,
+         validate_application_protocol/2,
          supported_hashsigns/1,
          max_frag_enum/1,
          psk_secret/3
