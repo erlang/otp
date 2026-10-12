@@ -23,15 +23,18 @@
 -module(float_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
 
 -export([all/0, suite/0, groups/0,
          init_per_testcase/2, end_per_testcase/2,
          fpe/1,fp_drv/1,fp_drv_thread/1,denormalized/1,match/1,
          t_mul_add_ops/1,negative_zero/1,
-         bad_float_unpack/1, write/1, cmp_zero/1, cmp_integer/1, cmp_bignum/1]).
+         bad_float_unpack/1, write/1, cmp_zero/1, cmp_integer/1, cmp_bignum/1,
+         t_mul_neg_zero/1]).
 -export([otp_7178/1]).
 -export([hidden_inf/1]).
 -export([arith/1]).
+-export([id/1]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -41,7 +44,7 @@ all() ->
     [fpe, fp_drv, fp_drv_thread, otp_7178, denormalized,
      match, bad_float_unpack, write, {group, comparison}
      ,hidden_inf, negative_zero
-     ,arith, t_mul_add_ops].
+     ,arith, t_mul_add_ops, t_mul_neg_zero].
 
 groups() -> 
     [{comparison, [parallel], [cmp_zero, cmp_integer, cmp_bignum]}].
@@ -444,3 +447,45 @@ op_mul_add(0, _, _, R) -> R;
 op_mul_add(N, A, B, R) when is_float(A), is_float(B), is_float(R) ->
     op_mul_add(N - 1, A, B, R * A + B).
 
+t_mul_neg_zero(Config) when is_list(Config) ->
+    ?assert(t_mul_neg_zero_guard_fail_test(id(-0.0))),
+    ?assert(t_mul_neg_zero_guard_test(id(-0.0))),
+    ?assert(t_mul_neg_zero_add_guard_fail_test(id(-0.0))),
+    ?assert(t_mul_neg_zero_add_guard_test(id(-0.0))),
+
+    ?assert(t_mul_neg_zero_body_fail_test(id(-0.0))),
+    ?assert(t_mul_neg_zero_body_test(id(-0.0), id(10.0))),
+    ?assert(t_mul_neg_zero_add_body_fail_test(id(-0.0))),
+    ?assert(t_mul_neg_zero_add_body_test(id(-0.0), id(10.0))),
+
+    ok.
+
+%% The arm JIT used to convert the Zero * 10.0 to 0.0 instead of -0.0.
+t_mul_neg_zero_guard_fail_test(Zero) when Zero * 10.0 =:= -0.0 ->
+    true;
+t_mul_neg_zero_guard_fail_test(_Zero) ->
+    false.
+
+t_mul_neg_zero_guard_test(Zero) when Zero * 10.0 =:= -0.0 ->
+    true.
+
+t_mul_neg_zero_body_fail_test(Zero) ->
+    try Zero * 10.0 =:= -0.0 catch _:_ -> false end.
+
+t_mul_neg_zero_body_test(Zero, Mul) ->
+    Zero * Mul =:= -0.0.
+
+%% The JIT used to convert the Zero * 10.0 + 0 to -0.0 instead of +0.0.
+t_mul_neg_zero_add_guard_fail_test(Zero) when Zero * 10.0 + 0 =:= +0.0 ->
+    true;
+t_mul_neg_zero_add_guard_fail_test(_Zero) ->
+    false.
+
+t_mul_neg_zero_add_guard_test(Zero) when Zero * 10.0 + 0 =:= +0.0 ->
+    true.
+
+t_mul_neg_zero_add_body_fail_test(Zero) ->
+    try Zero * 10.0 + 0 =:= +0.0 catch _:_ -> false end.
+
+t_mul_neg_zero_add_body_test(Zero, Mul) ->
+    Zero * Mul + 0 =:= +0.0.

@@ -928,7 +928,7 @@ void BeamGlobalAssembler::emit_mul_add_guard_shared() {
     a.mov(ARG3, TMP_MEM1q);
     a.mov(ARG2, RET);
     a.mov(ARG1, c_p);
-    a.cmp(ARG3, imm(make_small(0)));
+    emit_test_the_non_value(ARG3);
     a.short_().je(done);
     runtime_call<Eterm (*)(Process *, Eterm, Eterm), erts_mixed_plus>();
 
@@ -957,7 +957,7 @@ void BeamGlobalAssembler::emit_mul_add_body_shared() {
     a.mov(TMP_MEM1q, ARG2);
     a.mov(TMP_MEM2q, ARG3);
     a.mov(ARG1, c_p);
-    a.cmp(ARG4, imm(make_small(0)));
+    emit_test_the_non_value(ARG4);
     a.short_().je(mul_only);
     a.mov(TMP_MEM4q, ARG4);
 
@@ -1015,7 +1015,7 @@ void BeamGlobalAssembler::emit_mul_add_body_shared() {
  * The result is returned in RET.
  */
 void BeamGlobalAssembler::emit_mul_body_shared() {
-    mov_imm(ARG4, make_small(0));
+    mov_imm(ARG4, THE_NON_VALUE);
     a.jmp(labels[mul_add_body_shared]);
 }
 
@@ -1025,7 +1025,7 @@ void BeamGlobalAssembler::emit_mul_body_shared() {
  * Result is returned in RET, error is indicated by ZF.
  */
 void BeamGlobalAssembler::emit_mul_guard_shared() {
-    mov_imm(ARG4, make_small(0));
+    mov_imm(ARG4, THE_NON_VALUE);
     a.jmp(labels[mul_add_guard_shared]);
 }
 
@@ -1033,18 +1033,19 @@ void BeamModuleAssembler::emit_i_mul_add(const ArgLabel &Fail,
                                          const ArgSource &Src1,
                                          const ArgSource &Src2,
                                          const ArgSource &Src3,
-                                         const ArgSource &Src4,
+                                         const ArgVal &Src4Arg,
                                          const ArgRegister &Dst) {
+    bool has_increment = !Src4Arg.isWord();
+    ArgVal src4 = has_increment ? Src4Arg : ArgImmed(make_small(0));
+    const ArgSource Src4(src4);
     bool is_product_small = is_product_small_if_args_are_small(Src1, Src2);
     bool is_sum_small = is_sum_small_if_args_are_small(Src3, Src4);
     bool sometimes_small = !(Src2.isLiteral() || Src4.isLiteral());
-    bool is_increment_zero =
-            Src4.isSmall() && Src4.as<ArgSmall>().getSigned() == 0;
     Sint factor = 0;
     int left_shift = -1;
 
-    if (is_increment_zero) {
-        comment("(adding zero)");
+    if (!has_increment) {
+        comment("(no increment)");
     }
 
     if (Src2.isSmall()) {
@@ -1112,7 +1113,7 @@ void BeamModuleAssembler::emit_i_mul_add(const ArgLabel &Fail,
             a.imul(RET, ARG2);
         }
 
-        if (is_increment_zero) {
+        if (!has_increment) {
             a.or_(RET, imm(_TAG_IMMED1_SMALL));
         } else {
             mov_arg(ARG2, Src4);
@@ -1127,7 +1128,7 @@ void BeamModuleAssembler::emit_i_mul_add(const ArgLabel &Fail,
 
     mov_arg(ARG2, Src1);
     mov_arg(ARG3, Src2);
-    if (!is_increment_zero) {
+    if (has_increment) {
         mov_arg(ARG4, Src4);
     }
 
@@ -1139,7 +1140,7 @@ void BeamModuleAssembler::emit_i_mul_add(const ArgLabel &Fail,
         a.mov(RET, ARG2);
         mov_imm(ARG5, val);
     } else {
-        if (is_increment_zero) {
+        if (!has_increment) {
             emit_are_both_small(mixed, Src1, ARG2, Src2, ARG3);
         } else if (always_small(Src1)) {
             emit_are_both_small(mixed, Src2, ARG3, Src4, ARG4);
@@ -1174,7 +1175,7 @@ void BeamModuleAssembler::emit_i_mul_add(const ArgLabel &Fail,
             a.short_().jo(mixed);
         }
 
-        if (is_increment_zero) {
+        if (!has_increment) {
             a.or_(RET, imm(_TAG_IMMED1_SMALL));
         } else {
             a.add(RET, ARG4);
@@ -1192,14 +1193,14 @@ void BeamModuleAssembler::emit_i_mul_add(const ArgLabel &Fail,
     a.bind(mixed);
     {
         if (Fail.get() != 0) {
-            if (is_increment_zero) {
+            if (!has_increment) {
                 safe_fragment_call(ga->get_mul_guard_shared());
             } else {
                 safe_fragment_call(ga->get_mul_add_guard_shared());
             }
             a.je(resolve_beam_label(Fail));
         } else {
-            if (is_increment_zero) {
+            if (!has_increment) {
                 safe_fragment_call(ga->get_mul_body_shared());
             } else {
                 safe_fragment_call(ga->get_mul_add_body_shared());
