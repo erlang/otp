@@ -53,7 +53,7 @@ jobs:
           distribution: Ubuntu-18.04
 
       - name: Install WSL dependencies
-        run: apt update && apt install -y g++-mingw-w64 gcc-mingw-w64 make autoconf unzip
+        run: apt update && apt install -y make autoconf unzip
 
       - name: Install NSIS
         shell: cmd
@@ -187,6 +187,7 @@ jobs:
           ./otp_build boot -a
           ./otp_build release -a
           cp "$WXDIR/3rdparty/webview2/runtimes/win-x64/native/WebView2Loader.dll" $ERL_TOP/release/win32/erts-*/bin/
+          ./otp_build debuginfo_win32
           ./otp_build installer_win32
 
       - name: Upload installer
