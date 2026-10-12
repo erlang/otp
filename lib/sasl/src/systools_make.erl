@@ -1541,39 +1541,75 @@ behave([]) ->
 mandatory_modules() ->
     [error_handler,				%Truly mandatory.
 
-     %% Modules that are almost always needed. Listing them here
-     %% helps the init module to load them faster. Modules not
-     %% listed here will be loaded by the error_handler module.
+     %% Kernel and STDLIB modules needed by both normal startup and the
+     %% minimal startup used by erlc. Listing them here helps the init
+     %% module to load them faster. Modules not listed here will be loaded
+     %% by the error_handler module.
      %%
      %% Keep this list sorted.
      application,
      application_controller,
      application_master,
+     beam_lib,
+     binary,
      code,
      code_server,
+     edlin,
+     edlin_key,
+     erl_anno,
      erl_eval,
+     erl_features,
      erl_lint,
      erl_parse,
+     erl_scan,
+     erl_signal_handler,
      error_logger,
      ets,
      file,
-     filename,
-     file_server,
      file_io_server,
+     file_server,
+     filename,
+     gb_sets,
+     gb_trees,
      gen,
      gen_event,
      gen_server,
+     gen_statem,
+     group,
      heart,
+     io,
+     io_lib,
+     io_lib_format,
      kernel,
+     kernel_config,
+     kernel_refc,
+     lists,
      logger,
-     logger_filters,
-     logger_server,
      logger_backend,
      logger_config,
+     logger_filters,
+     logger_formatter,
+     logger_h_common,
+     logger_handler_watcher,
+     logger_olp,
+     logger_proxy,
+     logger_server,
      logger_simple_h,
-     lists,
+     logger_std_h,
+     logger_sup,
+     maps,
+     os,
+     peer,
+     prim_tty,
      proc_lib,
-     supervisor
+     proplists,
+     queue,
+     standard_error,
+     supervisor,
+     supervisor_bridge,
+     unicode,
+     user_drv,
+     user_sup
     ].
 
 %%______________________________________________________________________
