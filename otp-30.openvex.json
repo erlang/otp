@@ -3,8 +3,8 @@
   "@id": "https://erlang.org/download/vex/otp-30.openvex.json",
   "author": "vexctl",
   "timestamp": "2026-06-17T09:56:01.322434+02:00",
-  "last_updated": "2026-09-22T11:27:11.863512269+02:00",
-  "version": 8,
+  "last_updated": "2026-10-06T16:46:42.362602307+02:00",
+  "version": 9,
   "statements": [
     {
       "vulnerability": {
@@ -96,6 +96,19 @@
       ],
       "status": "not_affected",
       "justification": "vulnerable_code_not_in_execute_path"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-76844"
+      },
+      "timestamp": "2026-10-06T16:46:42.362602727+02:00",
+      "products": [
+        {
+          "@id": "pkg:github/madler/zlib@1a8db63788c34a50e39e273d39b7e1033208aea2"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present"
     }
   ]
 }
