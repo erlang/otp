@@ -310,11 +310,16 @@ numbers(_Config) ->
     Meet1 = id(0) + -10.0,                       %Float.
     10.0 = abs(Meet1),                           %Number.
 
+    true = add_zero_to_negative_zero(id(-0.0), id(10.0)),
+
     %% Cover code in beam_call_types:beam_bounds_type/3.
     ok = fcmp(0.0, 1.0),
     error = fcmp(1.0, 0.0),
 
     ok.
+
+add_zero_to_negative_zero(Zero, Mul) ->
+    Zero * Mul + 0 =:= +0.0.
 
 fcmp(0.0, 0.0) -> ok;
 fcmp(F1, F2) when (F1 - F2) / F2 < 0.0000001 -> ok;
