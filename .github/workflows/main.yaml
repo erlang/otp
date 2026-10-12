@@ -179,7 +179,7 @@ jobs:
   solaris:
     name: Build Erlang/OTP (Solaris)
     needs: pack
-    if: needs.pack.outputs.build-c-code == 'true' && false # Temporarily disable Solaris build as the VM image is currently broken
+    if: needs.pack.outputs.build-c-code == 'true'
     permissions:
       contents: read
       actions: read
