@@ -256,6 +256,11 @@ described in the corresponding application documentation.
   In this example, an Erlang runtime system is started with environment variable
   `DISPLAY` set to `gin:0`.
 
+  [`ERL_AFLAGS`](#ERL_AFLAGS), [`ERL_FLAGS`](#ERL_FLAGS), and [`ERL_ZFLAGS`](#ERL_ZFLAGS)
+  are expanded before command-line options are processed. Therefore, `-env` cannot
+  be used to set, change, or unset these variables for the current invocation; set them
+  in the host OS environment before starting `erl`.
+
 - **`-epmd_module Module`{: #epmd_module }** - This flag is deprecated and has
   been replaced by the `kernel` application parameter
   [`epmd_module`](`e:kernel:kernel_app.md#epmd_module`).
