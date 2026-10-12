@@ -411,13 +411,49 @@ redirect(Response = {_, Headers, _}, Request) ->
                     NewURI = uri_string:normalize(
                                uri_string:recompose(URIMap)),
                     HostPort = http_request:normalize_host(TScheme, THost, TPort),
-                    NewHeaders =
+                    NewHeaders0 =
                         (Request#request.headers)#http_request_h{host = HostPort},
+                    %% RFC 9110 §15.4: strip Authorization, Proxy-Authorization,
+                    %% Cookie, Origin, and Referer on cross-origin redirects
+                    %% (different host or port).
+                    CrossOrigin = Request#request.address =/= {THost, TPort},
+                    NewHeaders =
+                        case CrossOrigin of
+                            false ->
+                                NewHeaders0;
+                            true ->
+                                CrossOriginOther = ["cookie", "origin"],
+                                OtherStripped = lists:filter(
+                                    fun({K, _}) ->
+                                        not lists:member(string:lowercase(K), CrossOriginOther)
+                                    end,
+                                    NewHeaders0#http_request_h.other),
+                                NewHeaders0#http_request_h{
+                                    authorization = undefined,
+                                    'proxy-authorization' = undefined,
+                                    referer = undefined,
+                                    other = OtherStripped}
+                        end,
+                    %% The 'userinfo' field (URL "user:pass@host" credentials)
+                    %% is re-derived into an Authorization header on every
+                    %% send by httpc_request:handle_user_info/2, independent
+                    %% of the 'headers' record above. Without clearing it
+                    %% here, a cross-origin redirect would strip the
+                    %% Authorization header above only to have it
+                    %% immediately reconstructed from the stale userinfo
+                    %% when the redirected request is sent (missed codepath
+                    %% from GHSA-m75x-4vwg-ggjh / CVE-2026-48856).
+                    NewUserInfo =
+                        case CrossOrigin of
+                            false -> Request#request.userinfo;
+                            true  -> ""
+                        end,
                     NewRequest =
                         Request#request{redircount =
                                             Request#request.redircount+1,
                                         scheme = TScheme,
                                         headers = NewHeaders,
+                                        userinfo = NewUserInfo,
                                         address = {THost,TPort},
                                         path = TPath,
                                         pquery = TQuery,
