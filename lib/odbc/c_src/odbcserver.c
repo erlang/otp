@@ -257,6 +257,7 @@ static int num_out_params(int num_of_params, param_array* params);
 /* ------------- Error handling functions --------------------------------*/
 
 static diagnos get_diagnos(SQLSMALLINT handleType, SQLHANDLE handle, Boolean extendedErrors);
+static void append_error_msg(diagnos *diagnosp, const char *str);
 
 /* ------------- Boolean functions ---------------------------------------*/
 
@@ -567,8 +568,8 @@ static db_result_msg db_connect(byte *args, size_t args_len, db_state *state)
   
     if (!sql_success(result)) {
 	diagnos = get_diagnos(SQL_HANDLE_DBC, connection_handle(state), extended_errors(state));
-	strcat((char *)diagnos.error_msg,
-	       " Connection to database failed.");
+        append_error_msg(&diagnos,
+                         " Connection to database failed.");
 	msg = encode_error_message((char *)diagnos.error_msg,
                                    extended_error(state, diagnos.sqlState),
                                    diagnos.nativeError );
@@ -604,7 +605,7 @@ static db_result_msg db_connect(byte *args, size_t args_len, db_state *state)
 				      SQL_ATTR_AUTOCOMMIT,
 				      (SQLPOINTER)auto_commit_mode, 0))) {
 	diagnos = get_diagnos(SQL_HANDLE_DBC, connection_handle(state), extended_errors(state));
-	strcat((char *)diagnos.error_msg, " Set autocommit mode failed.");
+        append_error_msg(&diagnos, " Set autocommit mode failed.");
 
 	msg = encode_error_message((char*)diagnos.error_msg,
                                    extended_error(state, diagnos.sqlState),
@@ -2796,8 +2797,8 @@ static db_result_msg more_result_sets(db_state *state)
 	   sets */
 	exists_more_result_sets(state) = FALSE;
 	diagnos = get_diagnos(SQL_HANDLE_STMT, statement_handle(state), extended_errors(state));
-	strcat((char *)diagnos.error_msg,
-	       "Failed to create on of the result sets");
+        append_error_msg(&diagnos,
+                         "Failed to create on of the result sets");
 	msg = encode_error_message((char*)diagnos.error_msg,
                                    extended_error(state, diagnos.sqlState),
                                    diagnos.nativeError);
@@ -2811,6 +2812,25 @@ static Boolean sql_success(SQLRETURN result)
 }
 
 /* ------------- Error handling functions --------------------------------*/
+
+/* Description: Append <str> to diagnos->error_msg, never writing past the
+   end of the MAX_ERR_MSG-byte buffer. get_diagnos() may fill error_msg
+   completely (up to MAX_ERR_MSG - 1 bytes), leaving no room for the
+   context strings that callers used to append with an unbounded strcat().
+   That overflowed the stack-allocated buffer when a database/driver
+   returned a long diagnostic message. This helper truncates instead,
+   always keeping the buffer NUL-terminated. */
+static void append_error_msg(diagnos *diagnosp, const char *str)
+{
+    size_t used = strlen((char *)diagnosp->error_msg);
+    size_t avail;
+
+    if (used >= MAX_ERR_MSG - 1) {
+        return; /* buffer already full, nothing fits */
+    }
+    avail = (MAX_ERR_MSG - 1) - used; /* space left excluding NUL */
+    strncat((char *)diagnosp->error_msg, str, avail);
+}
 
 /* Description: An ODBC function can post zero or more diagnostic records
    each time it is called. This function loops through the current set of
