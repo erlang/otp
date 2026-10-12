@@ -79,9 +79,7 @@ end_per_suite(Config) ->
 %% Running the netconf server in a remote node, test that the client
 %% process terminates if the remote node goes down.
 remote_crash(Config) ->
-    {ok,Node} = ct_slave:start(nc_remote_crash,[{boot_timeout,15},
-						{init_timeout,15},
-						{startup_timeout,15}]),
+    {ok, _Controller, Node} = ?CT_PEER(#{name => nc_remote_crash, timeout => timer:seconds(15)}),
     Pa = filename:dirname(code:which(?NS)),
     true = rpc:call(Node,code,add_patha,[Pa]),
     rpc:call(Node,code,load_file,[crypto]),
