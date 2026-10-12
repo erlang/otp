@@ -38,6 +38,9 @@ jobs:
       run:
         shell: wsl-bash {0}
     env:
+      # Published by https://github.com/slproweb/opensslhashes.
+      OPENSSL_SHA256: 5fe338c81d62515df7292f16542a0eef2a29db3efc023cd5a8c08ec3c97027ae
+      OPENSSL_VERSION: 3.5.9
       WXWIDGETS_VERSION: 3.2.6
     name: Build Erlang/OTP (Windows)
     runs-on: windows-2025
@@ -57,11 +60,42 @@ jobs:
         run: |
           choco install nsis --version 3.11.0
 
-      - name: Install openssl
-        shell: cmd
+      # Do not use Chocolatey here. The runner already contains OpenSSL and a
+      # package install can leave headers and static libraries from different
+      # versions in C:\OpenSSL-Win64. Downloading the upstream installer lets
+      # us verify its checksum and install into a clean, predictable directory.
+      - name: Install OpenSSL
+        shell: powershell
         run: |
-          choco install openssl --version=3.1.1
-          IF EXIST "c:\\Program Files\\OpenSSL-Win64" (move "c:\\Program Files\\OpenSSL-Win64" "c:\\OpenSSL-Win64") ELSE (move "c:\\Program Files\\OpenSSL" "c:\\OpenSSL-Win64")
+          $version = $env:OPENSSL_VERSION.Replace('.', '_')
+          $installer = Join-Path $env:RUNNER_TEMP "Win64OpenSSL-$version.exe"
+          $ProgressPreference = 'SilentlyContinue'
+          Invoke-WebRequest `
+              "https://slproweb.com/download/Win64OpenSSL-$version.exe" `
+              -OutFile $installer
+          $actualHash = (Get-FileHash $installer -Algorithm SHA256).Hash
+          $actualHash = $actualHash.ToLowerInvariant()
+          if ($actualHash -ne $env:OPENSSL_SHA256) {
+              throw "Unexpected OpenSSL installer hash: $actualHash"
+          }
+          $arguments = @(
+              '/VERYSILENT',
+              '/SUPPRESSMSGBOXES',
+              '/NORESTART',
+              '/SP-',
+              '/DIR=C:\OpenSSL-Win64'
+          )
+          $process = Start-Process $installer -ArgumentList $arguments `
+              -Wait -PassThru
+          if ($process.ExitCode -ne 0) {
+              throw "OpenSSL installer failed with exit code $($process.ExitCode)"
+          }
+          
+          $installedVersion = & C:\OpenSSL-Win64\bin\openssl.exe version
+          $expectedVersion = [regex]::Escape($env:OPENSSL_VERSION)
+          if ($installedVersion -notmatch "^OpenSSL $expectedVersion ") {
+              throw "Unexpected OpenSSL version: $installedVersion"
+          }
 
       - name: Identify the runner image
         id: image
@@ -127,8 +161,8 @@ jobs:
 
       - name: Compile Erlang
         run: |
-          mkdir -p /mnt/c/opt/local64/pgm/
-          cp -R wxWidgets /mnt/c/opt/local64/pgm/wxWidgets-${{ env.WXWIDGETS_VERSION }}
+          set -x
+          WXDIR="$PWD/wxWidgets"
           tar -xzf ./otp_src.tar.gz
           cd otp
           export PATH="/mnt/c/Program Files (x86)/NSIS/bin":$PATH
@@ -137,16 +171,22 @@ jobs:
           export ERLC_USE_SERVER=true
           export ERTS_SKIP_DEPEND=true
           eval `./otp_build env_win32 x64`
-          ./otp_build configure
+          ./otp_build configure --with-wxdir="$WXDIR" \
+             --with-ssl=/mnt/c/OpenSSL-Win64 --disable-dynamic-ssl-lib
+
+          ## Check that the only message from lib/*/CONF_INFO is the static openssl 3 one
           if cat erts/CONF_INFO ||
-             grep -v "Static linking with OpenSSL 3.0" lib/*/CONF_INFO ||
+             grep -v -e '^[[:space:]]*$' \
+                     -e '^Static linking with OpenSSL 3.0 \*MAY\* require special configuring of the cryptolib\.$' \
+                     lib/*/CONF_INFO ||
              cat lib/*/SKIP ||
              cat lib/SKIP-APPLICATIONS; then
              exit 1
           fi
+
           ./otp_build boot -a
           ./otp_build release -a
-          cp /mnt/c/opt/local64/pgm/wxWidgets-${{ env.WXWIDGETS_VERSION }}/3rdparty/webview2/runtimes/win-x64/native/WebView2Loader.dll $ERL_TOP/release/win32/erts-*/bin/
+          cp "$WXDIR/3rdparty/webview2/runtimes/win-x64/native/WebView2Loader.dll" $ERL_TOP/release/win32/erts-*/bin/
           ./otp_build installer_win32
 
       - name: Upload installer
