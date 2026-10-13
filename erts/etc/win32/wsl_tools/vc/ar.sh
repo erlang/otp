@@ -20,6 +20,14 @@
 #
 # %CopyrightEnd%
 #
+if [ "$CONFIG_SUBTYPE" = "arm64" -o "$CONFIG_SUBTYPE" = "x64_arm64" ]; then
+    MACHINE="ARM64"
+elif [ "$CONFIG_SUBTYPE" = "win64" ]; then
+    MACHINE="X64"
+else
+    MACHINE="X86"
+fi
+
 CMD=""
 while test -n "$1" ; do
     x="$1"
@@ -47,4 +55,4 @@ while test -n "$1" ; do
     shift
 done
 
-eval lib.exe /nologo $CMD
+eval lib.exe /nologo /machine:$MACHINE $CMD
