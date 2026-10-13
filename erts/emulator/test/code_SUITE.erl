@@ -42,7 +42,8 @@
          erl_544/1, max_heap_size/1,
          check_process_code_signal_order/1,
          check_process_code_dirty_exec_proc/1,
-         call_fun_before_load/1]).
+         call_fun_before_load/1,
+         export_accelerator/1, export_accelerator_concurrent/1]).
 
 -define(line_trace, 1).
 -include_lib("common_test/include/ct.hrl").
@@ -65,7 +66,8 @@ all() ->
      false_dependency,
      coverage, fun_confusion, t_copy_literals, t_copy_literals_frags,
      erl_544, max_heap_size, check_process_code_signal_order,
-     check_process_code_dirty_exec_proc, call_fun_before_load].
+     check_process_code_dirty_exec_proc, call_fun_before_load,
+     export_accelerator, export_accelerator_concurrent].
 
 init_per_suite(Config) ->
     erts_debug:set_internal_state(available_internal_state, true),
@@ -1550,6 +1552,215 @@ call_fun_before_load(Config) ->
         code:purge(call_fun_before_load)
     end,
     ok.
+
+%% The export table keeps a flat index next to its hash tables. Check that it
+%% agrees with them, and that calls and erlang:function_exported/3 through it
+%% get the right answers, through growth, stubs, reloading, deletion, on_load
+%% and tracing.
+export_accelerator(_Config) ->
+    case erts_debug:get_internal_state(export_accelerator) of
+        false ->
+            {skip, "export accelerator not compiled in"};
+        {Size0, Used0, 0} ->
+            %% Exports are never removed, so use new names on every run. Each
+            %% module adds 4 exports: enough to grow the index.
+            Tag = "_" ++ integer_to_list(erlang:unique_integer([positive])),
+            Late = list_to_atom("export_accel_late" ++ Tag),
+            OnLoad = list_to_atom("export_accel_on_load" ++ Tag),
+            Mods = [list_to_atom("export_accel_" ++ integer_to_list(I) ++ Tag)
+                    || I <- lists:seq(1, (Size0 * 7 div 10 - Used0) div 4 + 100)],
+            try
+                export_accelerator_test(Size0, Mods, Late, OnLoad)
+            after
+                accel_delete([Late, OnLoad | Mods])
+            end
+    end.
+
+export_accelerator_test(Size0, Mods, Late, OnLoad) ->
+    {Bulk, OneByOne} = lists:split(length(Mods) div 2, Mods),
+    ok = code:atomic_load([{M, "", accel_module(M, 1, [])} || M <- Bulk]),
+    [{module, M} = code:load_binary(M, "", accel_module(M, 1, []))
+     || M <- OneByOne],
+    {Size1, _, 0} = erts_debug:get_internal_state(export_accelerator),
+    true = Size1 > Size0,
+    ok = check_accel_calls(Mods, 1),
+
+    %% Stubs, for a missing module and for a missing function of a loaded one.
+    [Some | _] = Mods,
+    {'EXIT', {undef, [{export_accel_missing, f, [], _} | _]}} =
+        (catch apply(id(export_accel_missing), f, [])),
+    {'EXIT', {undef, [{Some, nofun, [], _} | _]}} =
+        (catch apply(Some, id(nofun), [])),
+    Stub = erlang:make_fun(id(export_accel_missing), g, 1),
+    {'EXIT', {undef, [{export_accel_missing, g, [x], _} | _]}} =
+        (catch Stub(x)),
+    false = erlang:function_exported(export_accel_missing, f, 0),
+    false = erlang:function_exported(export_accel_missing, g, 1),
+    false = erlang:function_exported(Some, nofun, 0),
+
+    %% A stub that later gets a definition.
+    {'EXIT', {undef, _}} = (catch apply(id(Late), f, [])),
+    false = erlang:function_exported(Late, f, 0),
+    {module, Late} = code:load_binary(Late, "", accel_module(Late, 7, [])),
+    7 = apply(id(Late), f, []),
+    true = erlang:function_exported(Late, f, 0),
+
+    %% New versions of half of the modules, then delete a quarter.
+    {Reloaded, _} = lists:split(length(Mods) div 2, Mods),
+    [{module, M} = code:load_binary(M, "", accel_module(M, 2, []))
+     || M <- Reloaded],
+    ok = check_accel_calls(Reloaded, 2),
+    {Deleted, _} = lists:split(length(Mods) div 4, Mods),
+    accel_delete(Deleted),
+    [{'EXIT', {undef, _}} = (catch M:f()) || M <- Deleted],
+    [false = erlang:function_exported(M, f, 0) || M <- Deleted],
+
+    %% Nothing is exported until on_load returns. Its init/0 waits for go.
+    Self = self(),
+    true = register(OnLoad, Self),
+    Loader = spawn_link(fun() ->
+                                Bin = accel_module(OnLoad, 3, [on_load]),
+                                Self ! {self(), code:load_binary(OnLoad, "", Bin)}
+                        end),
+    receive {Init, on_load} -> ok end,
+    false = erlang:function_exported(OnLoad, f, 0),
+    Init ! go,
+    receive {Loader, {module, OnLoad}} -> ok end,
+    true = unregister(OnLoad),
+    3 = apply(id(OnLoad), f, []),
+    true = erlang:function_exported(OnLoad, f, 0),
+
+    %% Tracing replaces what the export entry dispatches to.
+    Traced = lists:last(Reloaded),
+    Caller = spawn_link(fun() ->
+                                receive go -> ok end,
+                                Self ! {self(), Traced:f()}
+                        end),
+    1 = erlang:trace_pattern({Traced, f, 0}, true, [global]),
+    true = erlang:function_exported(Traced, f, 0),
+    1 = erlang:trace(Caller, true, [call]),
+    Caller ! go,
+    %% Trace messages aren't ordered with respect to the caller's reply.
+    receive {trace, Caller, call, {Traced, f, []}} -> ok
+    after 10_000 -> ct:fail(no_call_trace)
+    end,
+    receive {Caller, Result} -> 2 = Result
+    after 10_000 -> ct:fail(no_reply)
+    end,
+    1 = erlang:trace_pattern({Traced, f, 0}, false, [global]),
+    true = erlang:function_exported(Traced, f, 0),
+
+    {_, _, 0} = erts_debug:get_internal_state(export_accelerator),
+    ok.
+
+%% The index is read without locks, so it can grow while other schedulers call
+%% through it. Keep calling through it on all schedulers while processes race
+%% to create the same stubs in the same order, enough to make the index grow,
+%% so that most of them find each one just after another published it.
+%% Meanwhile, erlang:function_exported/3 must flip once for a loaded module.
+export_accelerator_concurrent(_Config) ->
+    case erts_debug:get_internal_state(export_accelerator) of
+        false ->
+            {skip, "export accelerator not compiled in"};
+        {Size0, Used0, 0} ->
+            Tag = "_" ++ integer_to_list(erlang:unique_integer([positive])),
+            Mod = list_to_atom("export_accel_concurrent" ++ Tag),
+            Late = list_to_atom("export_accel_late" ++ Tag),
+            {module, Mod} = code:load_binary(Mod, "", accel_module(Mod, 1, [])),
+            try
+                export_accelerator_concurrent_test(Mod, Late, Tag, Size0, Used0)
+            after
+                accel_delete([Mod, Late])
+            end
+    end.
+
+export_accelerator_concurrent_test(Mod, Late, Tag, Size0, Used0) ->
+    Self = self(),
+    Calls = [{Mod, f, [], 1}, {Mod, g, [x], {Mod, x}},
+             {lists, reverse, [[1, 2]], [2, 1]}, {erlang, abs, [-3], 3}],
+    Scheds = erlang:system_info(schedulers_online),
+    Callers = [spawn_link(fun() -> accel_caller(Self, Calls, 0) end)
+               || _ <- lists:seq(1, Scheds)],
+    Watchers = [spawn_link(fun() -> accel_watcher(Self, Late, false, 0) end)
+                || _ <- lists:seq(1, 2)],
+    {module, Late} = code:load_binary(Late, "", accel_module(Late, 1, [])),
+
+    Names = [list_to_atom("s" ++ integer_to_list(I) ++ Tag)
+             || I <- lists:seq(1, Size0 * 7 div 10 - Used0 + 1000)],
+    Racers = [spawn_link(fun() ->
+                                 receive go -> ok end,
+                                 [begin
+                                      Fun = erlang:make_fun(export_accel_missing, N, 1),
+                                      {name, N} = erlang:fun_info(Fun, name),
+                                      false = erlang:function_exported(
+                                                export_accel_missing, N, 1)
+                                  end || N <- Names],
+                                 Self ! {self(), done}
+                         end)
+              || _ <- lists:seq(1, max(4, Scheds))],
+    [Racer ! go || Racer <- Racers],
+    [receive {Racer, done} -> ok end || Racer <- Racers],
+
+    [Pid ! stop || Pid <- Watchers ++ Callers],
+    [receive {Watcher, Flips} -> 1 = Flips end || Watcher <- Watchers],
+    [receive {Caller, Count} -> true = Count > 0 end || Caller <- Callers],
+    {Size1, _, 0} = erts_debug:get_internal_state(export_accelerator),
+    true = Size1 > Size0,
+    ok.
+
+%% Counts the flips of erlang:function_exported(Mod, f, 0).
+accel_watcher(Parent, Mod, Seen, Flips) ->
+    receive
+        stop -> Parent ! {self(), Flips}
+    after 0 ->
+        case erlang:function_exported(Mod, f, 0) of
+            Seen -> accel_watcher(Parent, Mod, Seen, Flips);
+            New -> accel_watcher(Parent, Mod, New, Flips + 1)
+        end
+    end.
+
+accel_caller(Parent, Calls, Count) ->
+    receive
+        stop -> Parent ! {self(), Count}
+    after 0 ->
+        [Result = apply(M, F, A) || {M, F, A, Result} <- Calls],
+        accel_caller(Parent, Calls, Count + 1)
+    end.
+
+check_accel_calls(Mods, Version) ->
+    [begin
+         Version = M:f(),
+         Version = apply(M, id(f), []),
+         {M, x} = M:g(x),
+         Version = (erlang:make_fun(M, f, 0))(),
+         true = erlang:function_exported(M, g, 1),
+         false = erlang:function_exported(M, g, 2)
+     end || M <- Mods],
+    ok.
+
+accel_delete(Mods) ->
+    [begin code:purge(M), code:delete(M), code:purge(M) end || M <- Mods].
+
+%% A module exporting f/0 (returning Version) and g/1, plus module_info/0,1,
+%% optionally with an on_load function that sends {self(), on_load} to the
+%% process registered as Mod and waits for go.
+accel_module(Mod, Version, Opts) ->
+    OnLoad = lists:member(on_load, Opts),
+    Forms = [{attribute, 1, module, Mod},
+             {attribute, 2, export, [{f, 0}, {g, 1}]}] ++
+        [{attribute, 3, on_load, {init, 0}} || OnLoad] ++
+        [{function, 4, f, 0, [{clause, 4, [], [], [{integer, 4, Version}]}]},
+         {function, 5, g, 1,
+          [{clause, 5, [{var, 5, 'X'}], [],
+            [{tuple, 5, [{atom, 5, Mod}, {var, 5, 'X'}]}]}]}] ++
+        [{function, 6, init, 0,
+          [{clause, 6, [], [],
+            [{op, 6, '!', {atom, 6, Mod},
+              {tuple, 6, [{call, 6, {atom, 6, self}, []}, {atom, 6, on_load}]}},
+             {'receive', 6, [{clause, 6, [{atom, 6, go}], [], [{atom, 6, ok}]}]}]}]}
+         || OnLoad],
+    {ok, Mod, Bin} = compile:forms(Forms, [binary, report]),
+    Bin.
 
 %% Utilities.
 
