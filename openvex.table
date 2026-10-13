@@ -2333,6 +2333,15 @@
         ],
         "not_affected": "vulnerable_code_not_present"
       }
+    },
+    {
+      "pkg:github/madler/zlib@da607da739fa6047df13e66a2af6b8bec7c2a498": "CVE-2026-76844",
+      "status": {
+        "apps": [
+          "pkg:otp/erts@16.0"
+        ],
+        "not_affected": "vulnerable_code_not_present"
+      }
     }
   ],
   "otp-29": [
