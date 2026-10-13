@@ -275,7 +275,9 @@ groups() ->
 
 socket_packet_tests() ->
     socket_active_packet_tests() ++ socket_active_once_packet_tests() ++ 
-        socket_passive_packet_tests() ++ [packet_send_to_large, packet_tpkt_decode, packet_tpkt_decode_list].
+        socket_passive_packet_tests() ++ [packet_send_to_large,
+                                         packet_endian_send_to_large,
+                                         packet_tpkt_decode, packet_tpkt_decode_list].
 
 protocol_packet_tests() ->
     protocol_active_packet_tests() ++ protocol_active_once_packet_tests() ++ protocol_passive_packet_tests() ++
@@ -702,6 +704,8 @@ packet_endian_send_to_large(Config) when is_list(Config) ->
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Cases = [{1, 16#ff},
              {3, 16#ffffff},
+             {{2, big}, 16#ffff},
+             {{2, native}, 16#ffff},
              {{2, little}, 16#ffff}],
     lists:foreach(
       fun({Packet, Limit}) ->
@@ -1058,8 +1062,13 @@ packet_endian_switch(Config) when is_list(Config) ->
                   ssl:listen(0, [{packet, Packet} | ServerOpts])
       end, InvalidPackets),
 
-    {ok, ListenSocket} = ssl:listen(0, [{packet, 3} | ServerOpts]),
+    {ok, ListenSocket} = ssl:listen(0, [{packet, {3, native}} | ServerOpts]),
     try
+        assert_packet_opt(ListenSocket, {3, native}),
+        ok = ssl:setopts(ListenSocket, [{packet, {2, big}}]),
+        assert_packet_opt(ListenSocket, {2, big}),
+        ok = ssl:setopts(ListenSocket, [{packet, {4, native}}]),
+        assert_packet_opt(ListenSocket, {4, native}),
         %% Listener packet options are inherited by accepted sockets. Reject
         %% invalid tuple forms before they can replace that shared state.
         ok = ssl:setopts(ListenSocket, [{packet, {2, little}}]),
@@ -1083,7 +1092,7 @@ packet_endian_switch(Config) when is_list(Config) ->
            {mfa, {?MODULE, send_endian_switch_packet,
                   [self(), PacketOpts, InvalidPackets]}},
            {options, [binary, {active, false}, {nodelay, true},
-                      {packet, 3} | ServerOpts]}]),
+                      {packet, {3, native}} | ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
     Client =
         ssl_test_lib:start_client(
@@ -2542,6 +2551,13 @@ active_packet_size(Socket, Data, Size) ->
     active_packet(Socket, Data, 1).
 
 
+assert_packet_opt(Socket, {Width, big}) ->
+    assert_packet_opt(Socket, Width);
+assert_packet_opt(Socket, {Width, native}) ->
+    case erlang:system_info(endian) of
+        big -> assert_packet_opt(Socket, Width);
+        little -> assert_packet_opt(Socket, {Width, little})
+    end;
 assert_packet_opt(Socket, Type) ->
     {ok, [{packet, Type}]} = ssl:getopts(Socket, [packet]).
 
@@ -2715,12 +2731,12 @@ send_switch_packet(SslSocket, Data, NextPacket) ->
     end.
 
 send_endian_switch_packet(SslSocket, Parent, PacketOpts, InvalidPackets) ->
-    assert_packet_opt(SslSocket, 3),
+    assert_packet_opt(SslSocket, {3, native}),
     lists:foreach(
       fun(Packet) ->
               {error, {options, {socket_options, {packet, Packet}}}} =
                   ssl:setopts(SslSocket, [{packet, Packet}]),
-              assert_packet_opt(SslSocket, 3)
+              assert_packet_opt(SslSocket, {3, native})
       end, InvalidPackets),
     Parent ! {self(), ready},
     receive go -> ok end,

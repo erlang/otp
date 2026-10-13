@@ -2135,9 +2135,10 @@ set_socket_opts(tls_gen_connection, Transport, Socket, Tab, [{packet, Packet}| O
        Packet == httph;
        Packet == http_bin;
        Packet == httph_bin ->
-    true = ets:insert(Tab, {{socket_options, packet}, Packet}),
+    NormalizedPacket = tls_socket:normalize_packet(Packet),
+    true = ets:insert(Tab, {{socket_options, packet}, NormalizedPacket}),
     set_socket_opts(tls_gen_connection, Transport, Socket, Tab, Opts,
-		    SockOpts#socket_options{packet = Packet}, Other);
+                    SockOpts#socket_options{packet = NormalizedPacket}, Other);
 
 set_socket_opts(tls_gen_connection, tls_socket_tcp, Socket, Tab,
                 [{high_watermark, Sz}=Opt|Opts], SockOpts, Other) ->
