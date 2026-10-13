@@ -30,6 +30,7 @@
 	 init_per_group/2,end_per_group/2, 
 	 init_per_testcase/2, end_per_testcase/2,
          packet_change_pending_recv/1, packet_endian/1,
+         packet_size_overflow/1,
 	 active_echo/1, passive_echo/1, active_once_echo/1,
 	 slow_active_echo/1, slow_passive_echo/1,
 	 limit_active_echo/1, limit_passive_echo/1,
@@ -37,6 +38,30 @@
 
 -define(TPKT_VRSN, 3).
 -define(LINE_LENGTH, 1023). % (default value of gen_tcp option 'recbuf') - 1
+
+-define(header(Width, Endianness),
+        case (Endianness) of
+            big -> (Width);
+            little -> {(Width), little};
+            native ->
+                case erlang:system_info(endian) of
+                    big -> (Width);
+                    little -> {(Width), little}
+                end
+        end).
+
+-define(header(Width, Endianness, Outbound, Inbound),
+        case (Endianness) of
+            big ->
+                {<<(byte_size(Outbound)):(Width)/unit:8-big, (Outbound)/binary>>,
+                 <<(byte_size(Inbound)):(Width)/unit:8-big, (Inbound)/binary>>};
+            little ->
+                {<<(byte_size(Outbound)):(Width)/unit:8-little, (Outbound)/binary>>,
+                 <<(byte_size(Inbound)):(Width)/unit:8-little, (Inbound)/binary>>};
+            native ->
+                {<<(byte_size(Outbound)):(Width)/unit:8-native, (Outbound)/binary>>,
+                 <<(byte_size(Inbound)):(Width)/unit:8-native, (Inbound)/binary>>}
+        end).
 
 suite() ->
     [{ct_hooks, [ts_install_cth]},
@@ -58,10 +83,12 @@ all() ->
 
 groups() ->
     [{inet_backend_default, [packet_change_pending_recv, packet_endian,
+                             packet_size_overflow,
                              {group, read_ahead}, {group, no_read_ahead}]},
-     {inet_backend_socket,  [packet_endian,
+     {inet_backend_socket,  [packet_endian, packet_size_overflow,
                              {group, read_ahead}, {group, no_read_ahead}]},
      {inet_backend_inet,    [packet_change_pending_recv, packet_endian,
+                             packet_size_overflow,
                              {group, read_ahead}, {group, no_read_ahead}]},
      %%
      {read_ahead,       [{group, no_delay_send}, {group, delay_send}]},
@@ -304,11 +331,7 @@ packet_endian(Config) when is_list(Config) ->
           [binary, {active, false}, {packet, {3, native}}]),
     {ok, Peer} = gen_tcp:accept(Listen),
     try
-        NativePacket3 =
-            case erlang:system_info(endian) of
-                big -> 3;
-                little -> {3, little}
-            end,
+        NativePacket3 = ?header(3, native),
         {ok, [{packet, NativePacket3}]} = inet:getopts(Socket, [packet]),
         {ok, [{packet, NativePacket3}]} = inet:getopts(Peer, [packet]),
         ok = inet:setopts(Peer, [{packet, raw}]),
@@ -316,9 +339,9 @@ packet_endian(Config) when is_list(Config) ->
           fun({Packet, Width}) ->
                   packet_endian(Socket, Peer, Packet, Width)
           end,
-          [{2, 2}, {{2, big}, 2}, {{2, little}, 2}, {{2, native}, 2},
-           {{3, big}, 3}, {3, 3}, {{3, little}, 3}, {{3, native}, 3},
-           {{4, big}, 4}, {{4, little}, 4}, {{4, native}, 4}]),
+          [{Packet, Width} || Width <- [2, 3, 4],
+                              Packet <- [Width, {Width, big},
+                                         {Width, little}, {Width, native}]]),
         lists:foreach(
           fun(BadPacket) ->
                   {error, einval} =
@@ -326,12 +349,6 @@ packet_endian(Config) when is_list(Config) ->
           end,
           [{1, big}, {5, big}, {2, middle}, {2},
            {2, little, extra}, {2.0, big}]),
-        %% A large packet_size must not allow the total frame size to wrap.
-        ok = inet:setopts(
-            Socket, [{packet, {4, little}},
-                {packet_size, 16#ffffffff}]),
-        ok = gen_tcp:send(Peer, <<16#fffffffc:32/little>>),
-        {error, emsgsize} = gen_tcp:recv(Socket, 0, 5000),
         ok
     after
         _ = gen_tcp:close(Peer),
@@ -341,23 +358,13 @@ packet_endian(Config) when is_list(Config) ->
 
 packet_endian(Socket, Peer, Packet, Width) ->
     ok = inet:setopts(Socket, [{packet, Packet}]),
-    case Packet of
-        3 ->
-            {ok, [{packet, 3}]} = inet:getopts(Socket, [packet]);
-        {Width, big} ->
-            {ok, [{packet, Width}]} = inet:getopts(Socket, [packet]);
-        {_, little} ->
-            {ok, [{packet, Packet}]} = inet:getopts(Socket, [packet]);
-        {Width, native} ->
-            Expected =
-                case erlang:system_info(endian) of
-                    big -> Width;
-                    little -> {Width, little}
-                end,
-            {ok, [{packet, Expected}]} = inet:getopts(Socket, [packet]);
-        _ ->
-            ok
-    end,
+    Endianness =
+        case Packet of
+            Width -> big;
+            {Width, Order} -> Order
+        end,
+    Expected = ?header(Width, Endianness),
+    {ok, [{packet, Expected}]} = inet:getopts(Socket, [packet]),
 
     {OutboundSize, InboundSize} =
         case Width of
@@ -367,41 +374,7 @@ packet_endian(Socket, Peer, Packet, Width) ->
     Outbound = binary:copy(<<$O>>, OutboundSize),
     Inbound = binary:copy(<<$I>>, InboundSize),
     {OutboundWire, InboundWire} =
-        case Packet of
-            2 ->
-                {<<OutboundSize:16/big, Outbound/binary>>,
-                 <<InboundSize:16/big, Inbound/binary>>};
-            {2, big} ->
-                {<<OutboundSize:16/big, Outbound/binary>>,
-                 <<InboundSize:16/big, Inbound/binary>>};
-            {2, little} ->
-                {<<OutboundSize:16/little, Outbound/binary>>,
-                 <<InboundSize:16/little, Inbound/binary>>};
-            {2, native} ->
-                {<<OutboundSize:16/native, Outbound/binary>>,
-                 <<InboundSize:16/native, Inbound/binary>>};
-            3 ->
-                {<<OutboundSize:24/big, Outbound/binary>>,
-                 <<InboundSize:24/big, Inbound/binary>>};
-            {3, big} ->
-                {<<OutboundSize:24/big, Outbound/binary>>,
-                 <<InboundSize:24/big, Inbound/binary>>};
-            {3, little} ->
-                {<<OutboundSize:24/little, Outbound/binary>>,
-                 <<InboundSize:24/little, Inbound/binary>>};
-            {3, native} ->
-                {<<OutboundSize:24/native, Outbound/binary>>,
-                 <<InboundSize:24/native, Inbound/binary>>};
-            {4, big} ->
-                {<<OutboundSize:32/big, Outbound/binary>>,
-                 <<InboundSize:32/big, Inbound/binary>>};
-            {4, little} ->
-                {<<OutboundSize:32/little, Outbound/binary>>,
-                 <<InboundSize:32/little, Inbound/binary>>};
-            {4, native} ->
-                {<<OutboundSize:32/native, Outbound/binary>>,
-                 <<InboundSize:32/native, Inbound/binary>>}
-        end,
+        ?header(Width, Endianness, Outbound, Inbound),
     ok = gen_tcp:send(Socket, Outbound),
     case Packet of
         2 ->
@@ -429,6 +402,28 @@ packet_endian(Socket, Peer, Packet, Width) ->
             ok
     end,
     ok.
+
+%% A large packet_size must not allow the total frame size to wrap.
+packet_size_overflow(Config) when is_list(Config) ->
+    {ok, Listen} =
+        kernel_test_lib:listen(Config, 0, [binary, {active, false}]),
+    {ok, {_, Port}} = inet:sockname(Listen),
+    {ok, Socket} =
+        kernel_test_lib:connect(
+          Config, localhost, Port, [binary, {active, false}]),
+    {ok, Peer} = gen_tcp:accept(Listen),
+    try
+        ok = inet:setopts(
+            Socket, [{packet, {4, little}},
+                {packet_size, 16#ffffffff}]),
+        ok = gen_tcp:send(Peer, <<16#fffffffc:32/little>>),
+        {error, emsgsize} = gen_tcp:recv(Socket, 0, 5000),
+        ok
+    after
+        _ = gen_tcp:close(Peer),
+        _ = gen_tcp:close(Socket),
+        _ = gen_tcp:close(Listen)
+    end.
 
 echo_test(Config, SockOpts_0, EchoFun, EchoOpts_0) ->
     SockOpts = SockOpts_0 ++ sockopts(Config),
