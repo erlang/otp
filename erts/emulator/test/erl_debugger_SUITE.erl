@@ -332,7 +332,7 @@ test_register_and_unregister_debugger(_Config) ->
     {ok, Session2} = erl_debugger:register(Me),
     Me = erl_debugger:whereis(),
     BadSession = Session2 + 1,
-    {'EXIT', {badarg, _}} = catch erl_debugger:unregister(Me, BadSession),
+    ?assertError(badarg, erl_debugger:unregister(Me, BadSession)),
     ok = erl_debugger:unregister(Me, Session2),
     undefined = erl_debugger:whereis(),
 
@@ -875,7 +875,9 @@ test_peek_stack_frame_slot_works(Config) ->
     Test = fun test_peek_stack_frame_slot_works/2,
     SubjectFun =
         fun() ->
-                catch Mod:args_as_yvars(foo, [1,2,3,4,5], ~"hellooooooooo")
+                try Mod:args_as_yvars(foo, [1,2,3,4,5], ~"hellooooooooo")
+                catch _:_ -> ok
+                end
         end,
     test_both_creation_orders(Mod, SubjectFun, Test),
 

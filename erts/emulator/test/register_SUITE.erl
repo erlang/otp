@@ -52,14 +52,15 @@ otp_8099_test(0) ->
     ok;
 otp_8099_test(N) ->
     P = spawn(fun () -> otp_8099_proc() end),
-    case catch register(?OTP_8099_NAME, P) of
+    try register(?OTP_8099_NAME, P) of
 	      true ->
-		  ok;
-	      _ ->
+                  ok
+          catch
+              _:_ ->
 		  OP = whereis(?OTP_8099_NAME),
-		  (catch unregister(?OTP_8099_NAME)),
-		  (catch exit(OP, kill)),
-		  true = (catch register(?OTP_8099_NAME, P))
+                  try unregister(?OTP_8099_NAME) catch _:_ -> ok end,
+                  try exit(OP, kill) catch _:_ -> ok end,
+                  true = register(?OTP_8099_NAME, P)
 	  end,
     P = whereis(?OTP_8099_NAME),
     exit(P, kill),

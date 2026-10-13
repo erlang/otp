@@ -24,6 +24,8 @@
 -export([all/0, suite/0, many/1, on_load/1, errors/1]).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("stdlib/include/assert.hrl").
+-include("erts_test_utils.hrl").
 
 suite() ->
     [{ct_hooks,[ts_install_cth]}].
@@ -88,7 +90,7 @@ many_load_par(Ms) ->
     erlang:finish_loading(Ms).
 
 many_purge(Ms) ->
-    _ = [catch erlang:purge_module(M) || {M,_} <- Ms],
+    [try erlang:purge_module(M) catch _:_ -> ok end || {M,_} <- Ms],
     ok.
 
 many_try_call(Ms) ->
@@ -115,18 +117,18 @@ many_worker(L) ->
 on_load(_Config) ->
     On = make_modules(2, fun on_load_module/1),
     OnPrep = prepare_modules(On),
-    {'EXIT',{system_limit,_}} = (catch erlang:finish_loading(OnPrep)),
+    ?assertError(system_limit, erlang:finish_loading(OnPrep)),
 
     Normal = make_modules(1, fun on_load_normal/1),
     Mixed = Normal ++ tl(On),
     MixedPrep = prepare_modules(Mixed),
-    {'EXIT',{system_limit,_}} = (catch erlang:finish_loading(MixedPrep)),
+    ?assertError(system_limit, erlang:finish_loading(MixedPrep)),
 
     [false,true] = [erlang:has_prepared_code_on_load(Code) ||
 		       Code <- MixedPrep],
-    {'EXIT',{badarg,_}} = (catch erlang:has_prepared_code_on_load(<<1,2,3>>)),
+    ?assertError(badarg, erlang:has_prepared_code_on_load(<<1,2,3>>)),
     Magic = ets:match_spec_compile([{'_',[true],['$_']}]),
-    {'EXIT',{badarg,_}} = (catch erlang:has_prepared_code_on_load(Magic)),
+    ?assertError(badarg, erlang:has_prepared_code_on_load(Magic)),
 
     SingleOnPrep = tl(OnPrep),
     {on_load,[OnLoadMod]} = erlang:finish_loading(SingleOnPrep),
@@ -156,8 +158,8 @@ errors(_Config) ->
     ok.
 
 finish_loading_badarg(Arg) ->
-    {'EXIT',{badarg,[{erlang,finish_loading,[Arg],_}|_]}} =
-	(catch erlang:finish_loading(Arg)).
+    ?AssertErrorStack(badarg, [{erlang,finish_loading,[Arg],_}|_],
+                      erlang:finish_loading(Arg)).
 
 errors_module(M) ->
     ["-module("++M++").",

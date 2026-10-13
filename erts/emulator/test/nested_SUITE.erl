@@ -25,6 +25,8 @@
 -export([all/0, suite/0,
          case_in_case/1, case_in_after/1, catch_in_catch/1, bif_in_bif/1]).
 
+-compile([nowarn_deprecated_catch]).
+
 -include_lib("common_test/include/ct.hrl").
 
 suite() ->

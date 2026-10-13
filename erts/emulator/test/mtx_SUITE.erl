@@ -30,6 +30,7 @@
 %%-define(line_trace,true).
 
 -include_lib("common_test/include/ct.hrl").
+-include("erts_test_utils.hrl").
 
 -export([all/0,suite/0, init_per_suite/1, end_per_suite/1,
          init_per_testcase/2, end_per_testcase/2]).
@@ -86,7 +87,7 @@ init_per_suite(Config) when is_list(Config) ->
     Config.
 
 end_per_suite(Config) when is_list(Config) ->
-    catch erts_debug:set_internal_state(available_internal_state, false),
+    erts_debug:set_internal_state(available_internal_state, false),
     Config.
 
 init_per_testcase(_Case, Config) ->
@@ -466,7 +467,7 @@ repeat_list(Fun, N, Acc) ->
 
 
 handicap() ->
-    X0 = case catch (erlang:system_info(logical_processors_available) >=
+    X0 = case ?Catch(erlang:system_info(logical_processors_available) >=
                      erlang:system_info(schedulers_online)) of
              true -> 1;
              _ -> 2

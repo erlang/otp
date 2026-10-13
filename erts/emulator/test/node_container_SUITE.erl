@@ -32,6 +32,7 @@
 
 -include_lib("stdlib/include/assert.hrl").
 -include_lib("common_test/include/ct.hrl").
+-include("erts_test_utils.hrl").
 
 -export([all/0, suite/0, init_per_suite/1, end_per_suite/1,
          init_per_testcase/2, end_per_testcase/2,
@@ -844,34 +845,34 @@ do_pp_creations(port, N) when is_integer(N) ->
 bad_nc(Config) when is_list(Config) ->
     % Make sure emulator don't crash on bad node containers...
     ThisNode = {node(), erlang:system_info(creation)},
-    {'EXIT', {badarg, mk_pid, _}}
-    = (catch mk_pid(ThisNode, max_internal_pid_num() + 1, 17)),
-    {'EXIT', {badarg, mk_pid, _}}
-    = (catch mk_pid(ThisNode, 4711, max_internal_pid_ser() + 1)),
-    {'EXIT', {badarg, mk_port, _}}
-    = (catch mk_port(ThisNode, max_internal_pids_ports() + 1)),
-    {'EXIT', {badarg, mk_ref, _}}
-    = (catch mk_ref(ThisNode,[(1 bsl 18), 4711, 4711])),
-    {'EXIT', {badarg, mk_ref, _}}
-    = (catch mk_ref(ThisNode, [4711, 4711, 4711, 4711, 4711, 4711, 4711])),
+    ?assertException(exit, {badarg, mk_pid, _},
+                     mk_pid(ThisNode, max_internal_pid_num() + 1, 17)),
+    ?assertException(exit, {badarg, mk_pid, _},
+                     mk_pid(ThisNode, 4711, max_internal_pid_ser() + 1)),
+    ?assertException(exit, {badarg, mk_port, _},
+                     mk_port(ThisNode, max_internal_pids_ports() + 1)),
+    ?assertException(exit, {badarg, mk_ref, _},
+                     mk_ref(ThisNode,[(1 bsl 18), 4711, 4711])),
+    ?assertException(exit, {badarg, mk_ref, _},
+                     mk_ref(ThisNode, [4711, 4711, 4711, 4711, 4711, 4711, 4711])),
     RemNode = {x@y, 2},
-    {'EXIT', {badarg, mk_pid, _}}
-    = (catch mk_pid(RemNode, max_pid_num() + 1, 17)),
-    {'EXIT', {badarg, mk_pid, _}}
-    = (catch mk_pid(RemNode, 4711, max_pid_ser() + 1)),
-    {'EXIT', {badarg, mk_port, _}}
-    = (catch mk_port(RemNode, max_pids_ports() + 1)),
-    {'EXIT', {badarg, mk_ref, _}}
-    = (catch mk_ref(RemNode, [(1 bsl 18), 4711, 4711])),
-    {'EXIT', {badarg, mk_ref, _}}
-    = (catch mk_ref(RemNode, [4711, 4711, 4711, 4711, 4711, 4711, 4711])),
+    ?assertException(exit, {badarg, mk_pid, _},
+                     mk_pid(RemNode, max_pid_num() + 1, 17)),
+    ?assertException(exit, {badarg, mk_pid, _},
+                     mk_pid(RemNode, 4711, max_pid_ser() + 1)),
+    ?assertException(exit, {badarg, mk_port, _},
+                     mk_port(RemNode, max_pids_ports() + 1)),
+    ?assertException(exit, {badarg, mk_ref, _},
+                     mk_ref(RemNode, [(1 bsl 18), 4711, 4711])),
+    ?assertException(exit, {badarg, mk_ref, _},
+                     mk_ref(RemNode, [4711, 4711, 4711, 4711, 4711, 4711, 4711])),
     BadNode = {x@y, bad_creation},
-    {'EXIT', {badarg, mk_pid, _}}
-    = (catch mk_pid(BadNode, 4711, 17)),
-    {'EXIT', {badarg, mk_port, _}}
-    = (catch mk_port(BadNode, 4711)),
-    {'EXIT', {badarg, mk_ref, _}}
-    = (catch mk_ref(BadNode, [4711, 4711, 17])),
+    ?assertException(exit, {badarg, mk_pid, _},
+                     mk_pid(BadNode, 4711, 17)),
+    ?assertException(exit, {badarg, mk_port, _},
+                     mk_port(BadNode, 4711)),
+    ?assertException(exit, {badarg, mk_ref, _},
+                     mk_ref(BadNode, [4711, 4711, 17])),
 
 
     %% OTP 24:
@@ -891,7 +892,7 @@ bad_nc(Config) when is_list(Config) ->
 -define(NO_PIDS, 1000000).
 
 unique_pid(Config) when is_list(Config) ->
-    case catch erlang:system_info(modified_timing_level) of
+    case ?Catch(erlang:system_info(modified_timing_level)) of
         Level when is_integer(Level) ->
             {skip,
              "Modified timing (level " ++ integer_to_list(Level)
@@ -937,16 +938,17 @@ iter_max_procs(Config) when is_list(Config) ->
 
 max_proc_line(Root, Parent, N) ->
     Me = self(),
-    case catch spawn_link(fun () -> max_proc_line(Root, Me, N+1) end) of
-        {'EXIT', {system_limit, _}} when Root /= self() ->
-            Root ! {proc_line_length, N, self()},
-            receive remove_proc_line -> Parent ! {exiting, Me} end;
+    try spawn_link(fun () -> max_proc_line(Root, Me, N+1) end) of
         P when is_pid(P), Root =/= self() ->
             receive {exiting, P} -> Parent ! {exiting, Me} end;
         P when is_pid(P) ->
-            P;
-        Unexpected ->
-            exit({unexpected_spawn_result, Unexpected})
+            P
+    catch
+        error:system_limit when Root /= self() ->
+            Root ! {proc_line_length, N, self()},
+            receive remove_proc_line -> Parent ! {exiting, Me} end;
+        Class:Reason ->
+            exit({unexpected_spawn_result, {Class, Reason}})
     end.
 
 chk_max_proc_line() ->
@@ -1063,7 +1065,7 @@ persistent_term(Config) when is_list(Config) ->
 
 
 lost_pending_connection(Node) ->
-    _ = (catch erts_internal:new_connection(Node)),
+    _ = (try erts_internal:new_connection(Node) catch _:_ -> ok end),
     ok.
 
 dist_entry_gc(Config) when is_list(Config) ->

@@ -37,6 +37,7 @@
          sync_nopar_nosuspend_abort_cleanup/1]).
 
 -include_lib("common_test/include/ct.hrl").
+-include("erts_test_utils.hrl").
 
 %% Internal exports.
 -export([init/2,process_init/2,ack/2,call/2,cast/2]).
@@ -182,9 +183,9 @@ message_order(Config) when is_list(Config) ->
 
 send_to_busy_1(Parent) ->
     {_Owner, Slave} = get_slave(),
-    (catch port_command(Slave, "set_me_busy")),
-    (catch port_command(Slave, "hello")),
-    (catch port_command(Slave, "hello again")),
+    ?Catch(port_command(Slave, "set_me_busy")),
+    ?Catch(port_command(Slave, "hello")),
+    ?Catch(port_command(Slave, "hello again")),
     receive
 	Message ->
 	    Parent ! {self(), Message}
@@ -218,10 +219,10 @@ system_monitor(Config) when is_list(Config) ->
     Parent = self(),
     Busy = spawn_link(
              fun() ->
-                     (catch port_command(Slave, "set busy")),
+                     ?Catch(port_command(Slave, "set busy")),
                      receive {Parent,alpha} -> ok end,
-                     (catch port_command(Slave, "busy")),
-                     (catch port_command(Slave, "free")),
+                     ?Catch(port_command(Slave, "busy")),
+                     ?Catch(port_command(Slave, "free")),
                      Parent ! {self(),alpha},
                      command(lock),
                      receive {Parent,beta} -> ok end,
@@ -309,9 +310,9 @@ no_trap_exit_process(ResultTo, Link, Config) ->
         linked -> ok;
         unlink -> unlink(Slave)
     end,
-    (catch port_command(Slave, "lock port")),
+    ?Catch(port_command(Slave, "lock port")),
     ResultTo ! {self(), port_created, Slave},
-    (catch port_command(Slave, "suspend me")),
+    ?Catch(port_command(Slave, "suspend me")),
     ok.
 
 %% Assuming the following scenario,
@@ -350,9 +351,9 @@ busy_port_exit_process(ResultTo, Config) ->
     load_busy_driver(Config),
     _Master = open_port({spawn, "busy_drv master"}, [eof]),
     Slave = open_port({spawn, "busy_drv slave"}, [eof]),
-    (catch port_command(Slave, "lock port")),
+    ?Catch(port_command(Slave, "lock port")),
     ResultTo ! {self(), port_created, Slave},
-    (catch port_command(Slave, "suspend me")),
+    ?Catch(port_command(Slave, "suspend me")),
     receive
 	{'EXIT', Slave, die} ->
 	    ResultTo ! {self(), ok};
@@ -391,8 +392,8 @@ multiple_writers(Config) when is_list(Config) ->
 
 quick_writer() ->
     {_Owner, Port} = get_slave(),
-    (catch port_command(Port, "port to busy")),
-    (catch port_command(Port, "lock me")),
+    ?Catch(port_command(Port, "port to busy")),
+    ?Catch(port_command(Port, "lock me")),
     ok.
 
 hard_busy_driver(Config) when is_list(Config) ->

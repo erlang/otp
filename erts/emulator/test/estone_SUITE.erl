@@ -49,6 +49,7 @@
 -ifndef(PGO).
 -include_lib("common_test/include/ct_event.hrl").
 -endif.
+-include("erts_test_utils.hrl").
 
 %% EStone defines
 -define(TOTAL, (3000 * 1000 * 100)).   %% 300 secs
@@ -121,7 +122,7 @@ pgo() ->
 %%
 get_cpu_speed({win32, _},_DataDir) ->
     RegH =
-	case catch win32reg:open([read]) of
+        case ?Catch(win32reg:open([read])) of
 	    {ok, Handle} ->
 		Handle;
 	    _ ->
@@ -807,7 +808,7 @@ req(Name, Req) ->
 gserv(Name, Mod, State, Debug) ->
     receive
 	{From, Ref, {call, Req}} when Debug == [] ->
-	    case catch apply(Mod, handle_call, [From, State, Req]) of
+            case ?Catch(apply(Mod, handle_call, [From, State, Req])) of
 		{reply, Reply, State2} ->
 		    From ! {Name, Ref, Reply},
 		    gserv(Name, Mod, State2, Debug);

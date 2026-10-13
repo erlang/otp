@@ -258,7 +258,7 @@ long_timers(Config) when is_list(Config) ->
 pollset_size(Config) when is_list(Config) ->
     Name = pollset_size_testcase_initial_state_holder,
     Mon = erlang:monitor(process, Name),
-    (catch Name ! {get_initial_check_io_result, self()}),
+    try Name ! {get_initial_check_io_result, self()} catch _:_ -> ok end,
     InitChkIo = receive
 			  {initial_check_io_result, ICIO} ->
 			      erlang:demonitor(Mon, [flush]),
@@ -383,13 +383,15 @@ literal_area_collector(Config) when is_list(Config) ->
 
 
 display_check_io(ChkIo) ->
-    catch erlang:display('--- CHECK IO INFO ---'),
-    catch erlang:display(ChkIo),
-    catch erts_debug:set_internal_state(available_internal_state, true),
-    NoOfErrorFds = (catch element(1, erts_debug:get_internal_state(check_io_debug))),
-    catch erlang:display({'NoOfErrorFds', NoOfErrorFds}),
-    catch erts_debug:set_internal_state(available_internal_state, false),
-    catch erlang:display('--- CHECK IO INFO ---'),
+    erlang:display('--- CHECK IO INFO ---'),
+    erlang:display(ChkIo),
+    erts_debug:set_internal_state(available_internal_state, true),
+    NoOfErrorFds = try element(1, erts_debug:get_internal_state(check_io_debug))
+                   catch C:R -> {'EXIT', {C, R}}
+                   end,
+    erlang:display({'NoOfErrorFds', NoOfErrorFds}),
+    erts_debug:set_internal_state(available_internal_state, false),
+    erlang:display('--- CHECK IO INFO ---'),
     ok.
 
 get_check_io_info() ->

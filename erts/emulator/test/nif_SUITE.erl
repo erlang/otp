@@ -268,7 +268,7 @@ init_per_suite(Config) ->
     Config.
 
 end_per_suite(_Config) ->
-    catch erts_debug:set_internal_state(available_internal_state, false),
+    erts_debug:set_internal_state(available_internal_state, false),
     ok.
 
 groups() ->
@@ -323,7 +323,8 @@ init_per_testcase(Select, Config) when Select =:= select;
 init_per_testcase(_Case, Config) ->
     %% Clear any resource dtor data before test starts in case another tc
     %% left it in a bad state
-    catch last_resource_dtor_call(),
+    try last_resource_dtor_call()
+    catch _:_ -> ok end,
     Config.
 
 end_per_testcase(t_on_load, _Config) ->
@@ -2439,7 +2440,8 @@ resource_new_do2(Type) ->
 resource_neg(TypeA) ->
     resource_neg_do(TypeA),
 
-    catch exit(42), % dummy exception to purge saved stacktraces from earlier exception
+    try exit(42) % dummy exception to purge saved stacktraces from earlier exception
+    catch _:_ -> ok end,
     erlang:garbage_collect(),
     {_,_,2} = last_resource_dtor_call(),
     ok.
@@ -2448,8 +2450,8 @@ resource_neg_do(TypeA) ->
     TypeB = get_resource_type(1),
     ResA = make_new_resource(TypeA, <<"Arnold">>),
     ResB= make_new_resource(TypeB, <<"Bobo">>),
-    {'EXIT',{badarg,_}} = (catch get_resource(TypeA, ResB)),
-    {'EXIT',{badarg,_}} = (catch get_resource(TypeB, ResA)),
+    ?assertError(badarg, get_resource(TypeA, ResB)),
+    ?assertError(badarg, get_resource(TypeB, ResA)),
 
     %% Test init_resource_type fail outside load/upgrade
     {0, ?RT_CREATE} = init_resource_type("in_vain", ?RT_CREATE),
@@ -3254,7 +3256,7 @@ send3_new_state(State, Blob) ->
 %% Negative testing of load_nif
 neg(Config) when is_list(Config) ->
     TmpMem = tmpmem(),
-    {'EXIT',{badarg,_}} = (catch erlang:load_nif(badarg, 0)),
+    ?assertError(badarg, erlang:load_nif(badarg, 0)),
     
     Data = proplists:get_value(data_dir, Config),
     File = filename:join(Data, "nif_mod"),
@@ -3942,7 +3944,7 @@ nif_port_command(Config) ->
 
     %% Test that invalid arguments correctly returns
     %% badarg and that the port survives.
-    {'EXIT', {badarg, _}} = (catch port_command_nif(Port, [ok])),
+    ?assertError(badarg, port_command_nif(Port, [ok])),
 
     IoList = [lists:duplicate(100,<<"hello">>),"\n"],
     true = port_command_nif(Port, [IoList]),
@@ -3952,7 +3954,7 @@ nif_port_command(Config) ->
 
     port_close(Port),
 
-    {'EXIT', {badarg, _}} = (catch port_command_nif(Port, "hello\n")),
+    ?assertError(badarg, port_command_nif(Port, "hello\n")),
     ok.
 
 nif_snprintf(Config) ->
@@ -4355,29 +4357,29 @@ nif_ioq(Config) ->
 
     false = ioq_nif(peek_head, Q),
 
-    {'EXIT', {badarg, _}} = (catch ioq_nif(deq, Q, 1)),
-    {'EXIT', {badarg, _}} = (catch ioq_nif(enqv, Q, 1, 1234)),
+    ?assertError(badarg, ioq_nif(deq, Q, 1)),
+    ?assertError(badarg, ioq_nif(enqv, Q, 1, 1234)),
 
     false = ioq_nif(peek_head, Q),
 
-    {'EXIT', {badarg, _}} = (catch ioq_nif(enqv, Q, [atom_in_list], 0)),
-    {'EXIT', {badarg, _}} = (catch ioq_nif(enqv, Q, [make_ref()], 0)),
-    {'EXIT', {badarg, _}} = (catch ioq_nif(enqv, Q, [256], 0)),
-    {'EXIT', {badarg, _}} = (catch ioq_nif(enqv, Q, [-1], 0)),
-    {'EXIT', {badarg, _}} = (catch ioq_nif(enqv, Q, [#{}], 0)),
-    {'EXIT', {badarg, _}} = (catch ioq_nif(enqv, Q, [1 bsl 64], 0)),
-    {'EXIT', {badarg, _}} = (catch ioq_nif(enqv, Q, [{tuple}], 0)),
+    ?assertError(badarg, ioq_nif(enqv, Q, [atom_in_list], 0)),
+    ?assertError(badarg, ioq_nif(enqv, Q, [make_ref()], 0)),
+    ?assertError(badarg, ioq_nif(enqv, Q, [256], 0)),
+    ?assertError(badarg, ioq_nif(enqv, Q, [-1], 0)),
+    ?assertError(badarg, ioq_nif(enqv, Q, [#{}], 0)),
+    ?assertError(badarg, ioq_nif(enqv, Q, [1 bsl 64], 0)),
+    ?assertError(badarg, ioq_nif(enqv, Q, [{tuple}], 0)),
 
     false = ioq_nif(peek_head, Q),
 
-    {'EXIT', {badarg, _}} = (catch ioq_nif(inspect,  [atom_in_list], use_stack)),
-    {'EXIT', {badarg, _}} = (catch ioq_nif(inspect,  [make_ref()], no_stack)),
-    {'EXIT', {badarg, _}} = (catch ioq_nif(inspect,  [256], use_stack)),
-    {'EXIT', {badarg, _}} = (catch ioq_nif(inspect,  [-1], no_stack)),
-    {'EXIT', {badarg, _}} = (catch ioq_nif(inspect,  [#{}], use_stack)),
-    {'EXIT', {badarg, _}} = (catch ioq_nif(inspect,  [1 bsl 64], no_stack)),
-    {'EXIT', {badarg, _}} = (catch ioq_nif(inspect,  [{tuple}], use_stack)),
-    {'EXIT', {badarg, _}} = (catch ioq_nif(inspect,  <<"binary">>, use_stack)),
+    ?assertError(badarg, ioq_nif(inspect,  [atom_in_list], use_stack)),
+    ?assertError(badarg, ioq_nif(inspect,  [make_ref()], no_stack)),
+    ?assertError(badarg, ioq_nif(inspect,  [256], use_stack)),
+    ?assertError(badarg, ioq_nif(inspect,  [-1], no_stack)),
+    ?assertError(badarg, ioq_nif(inspect,  [#{}], use_stack)),
+    ?assertError(badarg, ioq_nif(inspect,  [1 bsl 64], no_stack)),
+    ?assertError(badarg, ioq_nif(inspect,  [{tuple}], use_stack)),
+    ?assertError(badarg, ioq_nif(inspect,  <<"binary">>, use_stack)),
 
     ioq_nif(destroy, Q),
 
@@ -4585,7 +4587,7 @@ nif_atom_out_cache_index(Config) ->
       end,
       Atoms),
 
-    {'EXIT', {badarg, _}} = (catch atom_out_cache_index_nif(42)),
+    ?assertError(badarg, atom_out_cache_index_nif(42)),
     ok.
 
 resource_binary_under_reporting(Config) ->
