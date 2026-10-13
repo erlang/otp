@@ -1824,6 +1824,9 @@ returned.
   or `native`. `{N, big}` is equivalent to `N`; `native` uses the native byte
   order of the runtime system.
 
+  For a four-byte header the body length is limited to `2^31 - 5` bytes, since
+  the parser returns the header plus body as a signed integer.
+
 - **`line`** - A packet is a line-terminated by a delimiter byte, default is the
   latin-1 newline character. The delimiter byte is included in the returned
   packet unless the line was truncated according to option `line_length`.

@@ -326,6 +326,12 @@ packet_endian(Config) when is_list(Config) ->
           end,
           [{1, big}, {5, big}, {2, middle}, {2},
            {2, little, extra}, {2.0, big}]),
+        %% A large packet_size must not allow the total frame size to wrap.
+        ok = inet:setopts(
+            Socket, [{packet, {4, little}},
+                {packet_size, 16#ffffffff}]),
+        ok = gen_tcp:send(Peer, <<16#fffffffc:32/little>>),
+        {error, emsgsize} = gen_tcp:recv(Socket, 0, 5000),
         ok
     after
         _ = gen_tcp:close(Peer),

@@ -488,7 +488,8 @@ int packet_get_length(enum PacketParseType htype,
 
 remain:
     ASSERT(INT_MAX >= hlen);
-    if (max_plen == 0) {
+    // guard header overflow wrap-around
+    if (max_plen == 0 || max_plen > INT_MAX - hlen) {
         max_plen = INT_MAX - hlen;
     }
     if (plen > max_plen) {
