@@ -51,6 +51,13 @@
 #  error Missing definition of ERTS_CODE_STAGED_TABLE_LIMIT
 #endif
 
+/* Optional hook for a lookup structure kept alongside the hash tables:
+ * ERTS_CODE_STAGED_ON_INSERT(Object, CodeIx) is called under the write lock
+ * whenever `Object` is put into the table of `CodeIx`, possibly again. */
+#ifndef ERTS_CODE_STAGED_ON_INSERT
+#  define ERTS_CODE_STAGED_ON_INSERT(Object, CodeIx) ((void)0)
+#endif
+
 #undef ERTS_CODE_STAGED_PREFIX_STRING__2
 #define ERTS_CODE_STAGED_PREFIX_STRING__2(x) \
     #x
@@ -250,6 +257,7 @@ ERTS_CODE_STAGED_FUNC__(upsert)(ERTS_CODE_STAGED_TEMPLATE_T__ *template)
                 entry = (ERTS_CODE_STAGED_ENTRY_T__*)
                     index_put_entry(&tables[staging_ix],
                                     &template->entry);
+                ERTS_CODE_STAGED_ON_INSERT(entry->object, staging_ix);
                 ERTS_CODE_STAGED_FUNC__(write_unlock)();
             }
         } else {
@@ -431,6 +439,7 @@ ERTS_CODE_STAGED_FUNC__(start_staging)(void)
 
         if (!in_dst) {
             index_put_entry(dst, src_entry);
+            ERTS_CODE_STAGED_ON_INSERT(src_entry->object, dst_ix);
         }
 #ifdef DEBUG
         {
@@ -492,6 +501,7 @@ ERTS_CODE_STAGED_FUNC__(put)(ERTS_CODE_STAGED_TEMPLATE_T__ *template)
     ERTS_CODE_STAGED_FUNC__(write_lock)();
     entry = (ERTS_CODE_STAGED_ENTRY_T__*)index_put_entry(&tables[code_ix],
                                                     &template->entry);
+    ERTS_CODE_STAGED_ON_INSERT(entry->object, code_ix);
     ERTS_CODE_STAGED_FUNC__(write_unlock)();
 
     return entry->object;
