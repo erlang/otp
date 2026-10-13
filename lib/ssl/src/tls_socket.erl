@@ -345,8 +345,7 @@ set_emulated_opts(TrackerPid, InetValues) ->
 accept_options(TrackerPid) ->
     call(TrackerPid, accept_options).
 
-validate_listener_packet_options([{packet, Value} | Rest])
-  when is_tuple(Value) ->
+validate_listener_packet_options([{packet, Value} | Rest]) ->
     validate_inet_option(packet, Value),
     validate_listener_packet_options(Rest);
 validate_listener_packet_options([_ | Rest]) ->
@@ -610,7 +609,10 @@ validate_inet_option(packet, {N, Endian})
        (Endian =:= big orelse Endian =:= little orelse Endian =:= native) ->
     ok;
 validate_inet_option(packet, Value)
-  when not (is_atom(Value) orelse is_integer(Value)) ->
+  when is_integer(Value), Value >= 0, Value =< 4 ->
+    ok;
+validate_inet_option(packet, Value)
+  when not is_atom(Value) ->
     throw({error, {options, {packet,Value}}});
 validate_inet_option(packet_size, Value)
   when not is_integer(Value) ->

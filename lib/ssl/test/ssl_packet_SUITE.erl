@@ -1054,7 +1054,8 @@ packet_endian_switch(Config) when is_list(Config) ->
                   {{4, big}, 16#0102},
                   {{4, little}, 16#0102},
                   {{4, native}, 16#0102}],
-    InvalidPackets = [{1, big}, {2, middle}, {2}, {2, big, extra}],
+    InvalidPackets = [-1, 5, 6, 7,
+                      {1, big}, {2, middle}, {2}, {2, big, extra}],
 
     lists:foreach(
       fun(Packet) ->
@@ -1070,7 +1071,7 @@ packet_endian_switch(Config) when is_list(Config) ->
         ok = ssl:setopts(ListenSocket, [{packet, {4, native}}]),
         assert_packet_opt(ListenSocket, {4, native}),
         %% Listener packet options are inherited by accepted sockets. Reject
-        %% invalid tuple forms before they can replace that shared state.
+        %% invalid values before they can replace that shared state.
         ok = ssl:setopts(ListenSocket, [{packet, {2, little}}]),
         lists:foreach(
           fun(Packet) ->
