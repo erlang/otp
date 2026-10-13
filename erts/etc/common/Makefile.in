@@ -476,7 +476,7 @@ $(BINDIR)/erlc@EXEEXT@: $(OBJDIR)/erlc.o $(ERTS_LIB)
 	$(ld_verbose) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/erlc.o -L$(OBJDIR) $(LIBS) $(ERTS_INTERNAL_LIBS) $(EI_LIB)
 
 $(OBJDIR)/erlc.o: erlc.c $(RC_GENERATED)
-	$(V_CC) $(CFLAGS) $(THR_DEFS) $(EI_INCL) $(MT_FLAG) -o $@ -c erlc.c
+	$(V_CC) $(CFLAGS) $(THR_DEFS) $(EI_INCL) -o $@ -c erlc.c
 
 $(BINDIR)/dialyzer@EXEEXT@: $(OBJDIR)/dialyzer.o $(ERTS_LIB)
 	$(ld_verbose) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/dialyzer.o -L$(OBJDIR) $(LIBS) $(ERTS_INTERNAL_LIBS)
