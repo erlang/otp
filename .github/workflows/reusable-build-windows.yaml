@@ -159,11 +159,15 @@ jobs:
         with:
           name: otp_prebuilt
 
+      # Extract natively on NTFS. WSL tar is much slower here because every
+      # created file crosses the WSL/Windows filesystem boundary.
+      - name: Extract source archive
+        shell: powershell
+        run: tar.exe -xzf otp_src.tar.gz
+
       - name: Compile Erlang
         run: |
-          set -x
           WXDIR="$PWD/wxWidgets"
-          tar -xzf ./otp_src.tar.gz
           cd otp
           export PATH="/mnt/c/Program Files (x86)/NSIS/bin":$PATH
           export ERL_TOP=`pwd`
