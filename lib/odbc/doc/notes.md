@@ -121,6 +121,16 @@ This document describes the changes made to the odbc application.
 [PR-9441]: https://github.com/erlang/otp/pull/9441
 [PR-9670]: https://github.com/erlang/otp/pull/9670
 
+## ODBC 2.15.0.1
+
+### Fixed Bugs and Malfunctions
+
+- Fix error handling to avoid possible memory issues that could cause odbc port program to fail.
+
+  Own Id: OTP-20439 Aux Id: [PR-11808]
+
+[PR-11808]: https://github.com/erlang/otp/pull/11808
+
 ## ODBC 2.15
 
 ### Improvements and New Features

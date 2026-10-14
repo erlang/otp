@@ -290,6 +290,16 @@ is the version number of Mnesia.
 [PR-9079]: https://github.com/erlang/otp/pull/9079
 [PR-9670]: https://github.com/erlang/otp/pull/9670
 
+## Mnesia 4.23.5.6
+
+### Fixed Bugs and Malfunctions
+
+- Fixed the type specification for `mnesia:restore/2`, which incorrectly listed the operation `restore_tables` instead of `recreate_tables`, causing Dialyzer to reject valid calls and accept invalid ones.
+
+  Own Id: OTP-20442 Aux Id: [PR-11755]
+
+[PR-11755]: https://github.com/erlang/otp/pull/11755
+
 ## Mnesia 4.23.5.5
 
 ### Fixed Bugs and Malfunctions
