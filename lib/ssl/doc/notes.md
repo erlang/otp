@@ -971,6 +971,64 @@ This document describes the changes made to the SSL application.
 [PR-9511]: https://github.com/erlang/otp/pull/9511
 [PR-9670]: https://github.com/erlang/otp/pull/9670
 
+## SSL 11.2.12.14
+
+### Fixed Bugs and Malfunctions
+
+- DoS attack prevention missed corner case, now fall back to the incomplete peer-only chain handling when paths/2
+  yields no path, restoring the OTP 28 behavior and matching OpenSSL,
+  curl and browsers. The digraph and its chain-length limit from
+  PR #11343 are unchanged, so the DoS protection is preserved; the
+  extra cost is one trust-store lookup, as for a leaf-only chain.
+
+  Own Id: OTP-20394 Aux Id: [PR-11662], [GH-11620]
+
+- The equivalent options dh and dhfile where unintentionally ignored and the default value was used instead.
+
+  Own Id: OTP-20408 Aux Id: [PR-11692], ERIERL-1367
+
+- Redesign TLS-1.3 auto client ticket handling to adhere to RFC single-use
+  by consuming a ticket when offered removing it from the client ticket store. This resolves unnecessary connections errors for concurrent client connections that previously could end up trying to use the same ticket, or tickets being evicted form the client store when a client still needed to look it up.
+
+  Own Id: OTP-20418 Aux Id: [GH-11702], [GH-11709], [PR-11707]
+
+- Validate the handshake message type when decoding TLS-1.3 hello extensions (RFC 8446 / RFC 9846). A malicious or man-in-the-middle TLS-1.3 server could send a NewSessionTicket carrying a zero-length early_data extension, which a client with automatic session-ticket management (session_tickets => auto) stored and then crashed on during a later resumption, taking down the node-global client ticket store and disrupting TLS-1.3 resumption for the whole node. Extensions are now decoded only in the handshake messages in which they are permitted, so such a ticket is ignored instead of poisoning the
+  store. This avoids a denial-of-service possibility.
+
+  Own Id: OTP-20426 Aux Id: [PR-11773], [CVE-2026-94200]
+
+- Fix a tls_sender crash during Erlang distribution over TLS (-proto_dist inet_tls). When a distribution peer disappeared while data was still being sent to it, the sender process crashed with a function_clause in gen:reply/2 instead of tearing the connection down cleanly. As a side effect the surviving node reported a nodedown_reason of {function_clause, ...} rather than a normal teardown reason, which could confuse code that distinguishes a planned shutdown from a genuine failure.
+
+  Own Id: OTP-20430 Aux Id: [PR-11751]
+
+- Fixed a TLS/DTLS session resumption flaw ((D)TLS-1.2 abbreviated handshake) where an SNI-aware server could resume a
+  cached session even when the resumption request's server_name differed from the one that established the session,
+  violating RFC 6066 §3. In virtual-hosting deployments where several SNI names share one server certificate but apply
+  different client-authentication trust, a client could resume a session established under one SNI name while connecting
+  under another — bypassing the second virtual service's client-authentication boundary and skipping the certificate
+  exchange.
+  
+  The server now binds the establishing SNI hostname to the session and refuses resumption (falling back to a full
+  handshake) when the requested SNI differs. A request without SNI only matches a session established without SNI, so
+  ordinary non-SNI resumption is unaffected.
+  
+  As a related correction, a listener's derived reuse_sessions default (enabled under verify_none) is no longer carried
+  into an SNI virtual service that switches to verify_peer; such a service must enable reuse_sessions explicitly.
+
+  Own Id: OTP-20445 Aux Id: [PR-11773], [CVE-2026-105236]
+
+[PR-11662]: https://github.com/erlang/otp/pull/11662
+[GH-11620]: https://github.com/erlang/otp/issues/11620
+[PR-11692]: https://github.com/erlang/otp/pull/11692
+[GH-11702]: https://github.com/erlang/otp/issues/11702
+[GH-11709]: https://github.com/erlang/otp/issues/11709
+[PR-11707]: https://github.com/erlang/otp/pull/11707
+[PR-11773]: https://github.com/erlang/otp/pull/11773
+[CVE-2026-94200]: https://nvd.nist.gov/vuln/detail/2026-94200
+[PR-11751]: https://github.com/erlang/otp/pull/11751
+[PR-11773]: https://github.com/erlang/otp/pull/11773
+[CVE-2026-105236]: https://nvd.nist.gov/vuln/detail/2026-105236
+
 ## SSL 11.2.12.13
 
 ### Fixed Bugs and Malfunctions

@@ -533,6 +533,17 @@ limitations under the License.
 [PR-9670]: https://github.com/erlang/otp/pull/9670
 [PR-9101]: https://github.com/erlang/otp/pull/9101
 
+## Inets 9.3.2.8
+
+### Fixed Bugs and Malfunctions
+
+- Credentials supplied in the userinfo component of a request URI (`http://user:password@host/path`) were still sent to the redirect target when `httpc` followed a cross-origin redirect. The userinfo component is now cleared together with the sensitive headers whenever the redirect target differs in host or port from the original request. Redirects that stay within the same origin are unaffected and still carry the credentials.
+
+  Own Id: OTP-20456 Aux Id: [PR-11825], GHSA-m75x-4vwg-ggjh, OTP-20155, [CVE-2026-48856]
+
+[PR-11825]: https://github.com/erlang/otp/pull/11825
+[CVE-2026-48856]: https://nvd.nist.gov/vuln/detail/2026-48856
+
 ## Inets 9.3.2.7
 
 ### Fixed Bugs and Malfunctions
