@@ -71,6 +71,8 @@ handle_ssh_msg({ssh_cm, _, {exit_status, ChId, _Status}}, State) ->
     {stop, ChId, State}.
 
 
+terminate(_Reason, #state{fwd_socket=undefined}) ->
+    ok;
 terminate(_Reason, #state{fwd_socket=Sock}) ->
     gen_tcp:close(Sock),
     ok.

@@ -337,7 +337,7 @@ xf_reply(XF, <<?SSH_FXP_ATTRS, ?UINT32(ReqID),
     {A, _} = decode_ATTR(XF#ssh_xfer.vsn, AData),
     {attrs, ReqID, A};
 xf_reply(_XF, <<?SSH_FXP_EXTENDED_REPLY, ?UINT32(ReqID),
-	      RData>>) ->
+                RData/binary>>) ->
     {extended_reply, ReqID, RData}.
 
 
