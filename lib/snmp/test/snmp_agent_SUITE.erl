@@ -188,6 +188,9 @@
 	 otp_2979_3/1, 
 	 otp_3187_3/1,
 	 otp_3542/1,
+	 erierl1362_own_engine_id/1,
+	 erierl1362_empty_engine_id/1,
+	 erierl1362_unknown_engine_id/1,
 
 	 %% major_tcs - test_v3 - standard_mibs_3
 	 snmpv2_mib_3/1, 
@@ -422,6 +425,9 @@
 	 otp_2776_test/0, 
 	 otp_2979_test/0, 
 	 otp_3542_test/0, 
+	 erierl1362_own_engine_id_test/1,
+	 erierl1362_empty_engine_id_test/1,
+	 erierl1362_unknown_engine_id_test/1,
 	 otp_3725_test/1, 
 	 otp_4394_test/0, 
 	 otp_7157_test/1, 
@@ -6948,7 +6954,10 @@ reported_bugs3_cases() ->
      otp_2776_3, 
      otp_2979_3, 
      otp_3187_3,
-     otp_3542
+     otp_3542,
+     erierl1362_own_engine_id,
+     erierl1362_empty_engine_id,
+     erierl1362_unknown_engine_id
     ].
    
     
@@ -7377,6 +7386,187 @@ otp_3542_test() ->
     io:format("SNMP v3 discovery...~n"),
     Res = snmp_test_mgr:d(),
     io:format("SNMP v3 discovery result: ~p~n",[Res]).
+
+%%-----------------------------------------------------------------
+%% Ticket: ERIERL-1362
+%% Slogan: USM stage-1 discovery must only accept a zero-length
+%%         msgAuthoritativeEngineID
+%%
+%% The assertions read the agent's USM counters directly rather than
+%% waiting for the report on the manager side -- see the block comment
+%% in scripts/snmpa-usm-disco-secdata-badmatch/ for why.
+%%-----------------------------------------------------------------
+
+%% ?DISCO_TERMINATING_TRIGGER_USERNAME (snmpa_agent.erl) is "".
+-define(ERIERL1362_TRIGGER_USERNAME, "").
+-define(ERIERL1362_POLL_ATTEMPTS,    50).
+-define(ERIERL1362_POLL_DELAY,       100).
+
+%% A message carrying the terminating trigger username together with the
+%% agent's *own* engine ID is not a stage-1 discovery request. Before the
+%% guard, snmpa_usm:process_incoming_msg/5 claimed it anyway and returned
+%% the stage-1 3-tuple SecData; snmpa_mpd:v3_proc/6 then routed it to
+%% generate_discovery2_report_msg/10, which expects the plain 5-tuple, and
+%% snmpa_usm:generate_outgoing_msg/6 died with a badmatch. The stage-1
+%% branch only *reads* usmStatsUnknownUserNames, so pre-guard this counter
+%% never moved.
+erierl1362_own_engine_id(Config) when is_list(Config) ->
+    ?P(erierl1362_own_engine_id),
+    init_case(Config),
+    try_test(erierl1362_own_engine_id_test, [?GCONF(snmp_master, Config)]).
+
+erierl1362_own_engine_id_test(AgentNode) ->
+    EngineID = erierl1362_engine_id(AgentNode),
+    Before   = erierl1362_counter(AgentNode, usmStatsUnknownUserNames),
+    ?IPRINT("erierl1362_own_engine_id_test -> probe"
+            "~n   engine ID:                 ~p"
+            "~n   usmStatsUnknownUserNames:  ~w", [EngineID, Before]),
+    erierl1362_send_probe(EngineID, ?ERIERL1362_TRIGGER_USERNAME),
+    %% RFC 3414 #3.2 step 3: own engine ID is known, so step 4 decides and
+    %% snmpa_usm:error/4 bumps usmStatsUnknownUserNames.
+    erierl1362_await_counter(AgentNode, usmStatsUnknownUserNames, Before + 1).
+
+%% Genuine stage-1 discovery: both msgUserName and msgAuthoritativeEngineID
+%% zero length (RFC 3414 #4 para 1). This must keep working after the guard
+%% is added -- it is the case the stage-1 clause exists for. The stage-1
+%% branch reports usmStatsUnknownEngineIDs without incrementing it
+%% (process_discovery_msg/3 calls get_counter/1, not inc/1), so an
+%% unchanged counter is the signature of that branch being taken. If a
+%% future change made a zero-length engine ID fall through to 3.2.3
+%% instead, the counter would move and this case would catch it.
+erierl1362_empty_engine_id(Config) when is_list(Config) ->
+    ?P(erierl1362_empty_engine_id),
+    init_case(Config),
+    try_test(erierl1362_empty_engine_id_test, [?GCONF(snmp_master, Config)]).
+
+erierl1362_empty_engine_id_test(AgentNode) ->
+    InPkts = erierl1362_counter(AgentNode, snmpInPkts),
+    Before = erierl1362_counter(AgentNode, usmStatsUnknownEngineIDs),
+    ?IPRINT("erierl1362_empty_engine_id_test -> probe"
+            "~n   engine ID:                 \"\" (genuine stage 1)"
+            "~n   usmStatsUnknownEngineIDs:  ~w", [Before]),
+    erierl1362_send_probe("", ?ERIERL1362_TRIGGER_USERNAME),
+    erierl1362_await_processed(AgentNode, InPkts),
+    case erierl1362_counter(AgentNode, usmStatsUnknownEngineIDs) of
+        Before ->
+            ok;
+        After ->
+            ?FAIL({unexpected_counter_increment,
+                   usmStatsUnknownEngineIDs, Before, After})
+    end.
+
+%% Trigger username with an unknown, non-empty engine ID. Before the guard
+%% this was swallowed as {discarded, {badSecurityEngineID, _}} and no
+%% counter moved. After the guard it takes the normal 3.2.3 path and
+%% increments usmStatsUnknownEngineIDs. This is the observable behaviour
+%% change that the release note covers.
+erierl1362_unknown_engine_id(Config) when is_list(Config) ->
+    ?P(erierl1362_unknown_engine_id),
+    init_case(Config),
+    try_test(erierl1362_unknown_engine_id_test, [?GCONF(snmp_master, Config)]).
+
+erierl1362_unknown_engine_id_test(AgentNode) ->
+    Before = erierl1362_counter(AgentNode, usmStatsUnknownEngineIDs),
+    ?IPRINT("erierl1362_unknown_engine_id_test -> probe"
+            "~n   engine ID:                 \"no-such-engine\""
+            "~n   usmStatsUnknownEngineIDs:  ~w", [Before]),
+    erierl1362_send_probe("no-such-engine", ?ERIERL1362_TRIGGER_USERNAME),
+    erierl1362_await_counter(AgentNode, usmStatsUnknownEngineIDs, Before + 1).
+
+%%-----------------------------------------------------------------
+%% ERIERL-1362 helpers
+%%-----------------------------------------------------------------
+
+erierl1362_engine_id(AgentNode) ->
+    case rpc:call(AgentNode, snmp_framework_mib, get_engine_id, []) of
+        EngineID when is_list(EngineID) ->
+            EngineID;
+        Other ->
+            ?FAIL({engine_id_read_failed, Other})
+    end.
+
+%% snmp_agent_table is where snmpa_usm:inc/1 and get_counter/1 keep the
+%% USM counters. Read it directly so the assertion does not depend on the
+%% test manager being able to receive the report.
+erierl1362_counter(AgentNode, Counter) ->
+    case rpc:call(AgentNode, ets, lookup, [snmp_agent_table, Counter]) of
+        [{Counter, Value}] ->
+            Value;
+        [] ->
+            0;
+        Other ->
+            ?FAIL({counter_read_failed, Counter, Other})
+    end.
+
+erierl1362_await_counter(AgentNode, Counter, Expected) ->
+    erierl1362_await_counter(AgentNode, Counter, Expected,
+                             ?ERIERL1362_POLL_ATTEMPTS).
+
+erierl1362_await_counter(AgentNode, Counter, Expected, 0) ->
+        ?FAIL({counter_mismatch, Counter, Expected,
+           erierl1362_counter(AgentNode, Counter)});
+erierl1362_await_counter(AgentNode, Counter, Expected, N) ->
+    case erierl1362_counter(AgentNode, Counter) of
+        Expected ->
+            ok;
+        _Other ->
+            ?SLEEP(?ERIERL1362_POLL_DELAY),
+            erierl1362_await_counter(AgentNode, Counter, Expected, N - 1)
+    end.
+
+%% Wait until the agent has counted the probe as received, so that
+%% "counter unchanged" is asserted after processing rather than before.
+erierl1362_await_processed(AgentNode, InPktsBefore) ->
+    erierl1362_await_above(AgentNode, snmpInPkts, InPktsBefore,
+                           ?ERIERL1362_POLL_ATTEMPTS),
+    %% snmpInPkts is bumped at the top of snmpa_mpd:process_packet/6, so
+    %% allow the USM processing that follows it to finish.
+    ?SLEEP(500).
+
+erierl1362_await_above(AgentNode, Counter, Floor, 0) ->
+    ?FAIL({counter_not_above, Counter, Floor,
+           erierl1362_counter(AgentNode, Counter)});
+erierl1362_await_above(AgentNode, Counter, Floor, N) ->
+    case erierl1362_counter(AgentNode, Counter) of
+        Value when Value > Floor ->
+            ok;
+        _Other ->
+            ?SLEEP(?ERIERL1362_POLL_DELAY),
+            erierl1362_await_above(AgentNode, Counter, Floor, N - 1)
+    end.
+
+%% Build and send a reportable noAuthNoPriv v3 message with a chosen
+%% msgAuthoritativeEngineID and msgUserName. snmp_test_mgr:send_bytes/1
+%% puts the bytes straight on the wire, the same technique as
+%% snmp_mpd_mib_a/0.
+erierl1362_send_probe(EngineID, UserName) ->
+    Pdu   = #pdu{type         = 'get-request',
+                 request_id   = 1362,
+                 error_status = noError,
+                 error_index  = 0,
+                 varbinds     = []},
+    SPdu  = #scopedPdu{contextEngineID = EngineID,
+                       contextName     = "",
+                       data            = Pdu},
+    SecParams =
+        #usmSecurityParameters{msgAuthoritativeEngineID    = EngineID,
+                               msgAuthoritativeEngineBoots = 0,
+                               msgAuthoritativeEngineTime  = 0,
+                               msgUserName                 = UserName,
+                               msgAuthenticationParameters = "",
+                               msgPrivacyParameters        = ""},
+    V3Hdr = #v3_hdr{msgID                 = 1362,
+                    msgMaxSize            = 484,
+                    %% reportable, noAuthNoPriv
+                    msgFlags              = [4],
+                    %% USM
+                    msgSecurityModel      = 3,
+                    msgSecurityParameters =
+                        snmp_pdus:enc_usm_security_parameters(SecParams)},
+    Msg   = #message{version = 'version-3',
+                     vsn_hdr = V3Hdr,
+                     data    = snmp_pdus:enc_scoped_pdu(SPdu)},
+    snmp_test_mgr:send_bytes(snmp_pdus:enc_message_only(Msg)).
 
 
 %%-----------------------------------------------------------------
