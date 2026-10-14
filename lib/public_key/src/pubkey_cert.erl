@@ -111,15 +111,15 @@ init_validation_state(Cert, DefaultPathLen,
 validate_extensions(Cert, ValidationState0, UserState0, VerifyFun) ->
     OtpCert = otp_cert(Cert),
     TBSCert = OtpCert#'OTPCertificate'.tbsCertificate,
-    case TBSCert#'OTPTBSCertificate'.version of
-	N when N >= 3 ->
-	    Extensions = TBSCert#'OTPTBSCertificate'.extensions,
-            validate_extensions(Cert, Extensions,
-                                ValidationState0, no_basic_constraint,
-                                is_self_signed(OtpCert), UserState0, VerifyFun);
-        _ -> %% Extensions not present in versions 1 & 2
-	    {ValidationState0, UserState0}
-    end.
+    %% RFC 5280 section 6.1.4 (k)-(m) (basicConstraints cA, keyCertSign and
+    %% pathLenConstraint) must be enforced regardless of certificate version.
+    %% Certificate versions before v3, do not posses extensions and will
+    %% end up with an empty extension list, making validation function fail
+    %% if such a cert is uses as a CA cert.
+    Extensions = TBSCert#'OTPTBSCertificate'.extensions,
+    validate_extensions(Cert, Extensions,
+                        ValidationState0, no_basic_constraint,
+                        is_self_signed(OtpCert), UserState0, VerifyFun).
 %%--------------------------------------------------------------------
 -spec validate_policy_tree(#cert{}, #path_validation_state{})->
           #path_validation_state{} | no_return().
