@@ -32,6 +32,7 @@
 -include_lib("ssl/src/ssl_internal.hrl").
 -include_lib("ssl/src/ssl_record.hrl").
 -include_lib("ssl/src/tls_handshake.hrl").
+-include_lib("ssl/src/tls_handshake_1_3.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
 %% Common test
@@ -61,7 +62,8 @@
          drop_unassigned_signature_algorithms/1,
          drop_undecodable_certificate_authorities/1,
          reject_truncated_certificate_entry/1,
-         decode_sni_after_unknown_name_type/1]).
+         decode_sni_after_unknown_name_type/1,
+         decode_early_data_extension_by_message_type/1]).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -80,7 +82,8 @@ all() -> [
           drop_unassigned_signature_algorithms,
           drop_undecodable_certificate_authorities,
           reject_truncated_certificate_entry,
-          decode_sni_after_unknown_name_type
+          decode_sni_after_unknown_name_type,
+          decode_early_data_extension_by_message_type
          ].
 
 %%--------------------------------------------------------------------
@@ -150,7 +153,7 @@ decode_hello_handshake(_Config) ->
 
 decode_single_hello_extension_correctly(_Config) ->
     Renegotiation = <<?UINT16(?RENEGOTIATION_EXT), ?UINT16(1), 0>>,
-    Extensions = ssl_handshake:decode_extensions(Renegotiation, ?TLS_1_2, undefined),
+    Extensions = ssl_handshake:decode_extensions(Renegotiation, ?TLS_1_2, client_hello),
     #{renegotiation_info := #renegotiation_info{renegotiated_connection = <<0>>}} = Extensions.
 
 decode_supported_elliptic_curves_hello_extension_correctly(_Config) ->
@@ -212,6 +215,54 @@ decode_sni_after_unknown_name_type(_Config) ->
     SNI = <<?UINT16(?SNI_EXT), ?UINT16(ExtDataLen), ExtData/binary>>,
     Decoded = ssl_handshake:decode_hello_extensions(SNI, ?TLS_1_2, ?TLS_1_2, client),
     #{sni := #sni{hostname = "test.com"}} = Decoded.
+
+
+decode_early_data_extension_by_message_type(_Config) ->
+    %% RFC 9846 §4.2: the early_data extension has two wire forms and the
+    %% form permitted depends on the handshake message it rides in:
+    %%   - empty (0-length) in ClientHello / EncryptedExtensions
+    %%     -> #early_data_indication{}
+    %%   - 4-byte max_early_data_size in NewSessionTicket
+    %%     -> #early_data_indication_nst{}
+    %% The decoder must enforce this per message type. Regression test for the
+    %% NST early_data DoS: a malicious server's NewSessionTicket carrying a
+    %% 0-length early_data was previously decoded to #early_data_indication{}
+    %% and stored in the node-global tls_client_ticket_store; a later
+    %% auto-resume then crashed the store with a case_clause in
+    %% get_max_early_data/1 (only undefined/#early_data_indication_nst{} are
+    %% handled there). The fix guards the 0-length form to CH/EE only, so a
+    %% 0-length early_data in an NST is ignored (never stored, never crashes).
+
+    EmptyEarlyData = <<?UINT16(?EARLY_DATA_EXT), ?UINT16(0)>>,
+    NstEarlyData   = <<?UINT16(?EARLY_DATA_EXT), ?UINT16(4), ?UINT32(16384)>>,
+
+    %% Legitimate empty form in ClientHello / EncryptedExtensions is accepted.
+    #{early_data := #early_data_indication{}} =
+        ssl_handshake:decode_extensions(EmptyEarlyData, ?TLS_1_3, client_hello),
+    #{early_data := #early_data_indication{}} =
+        ssl_handshake:decode_extensions(EmptyEarlyData, ?TLS_1_3, encrypted_extensions),
+
+    %% Legitimate 4-byte form in NewSessionTicket is accepted.
+    #{early_data := #early_data_indication_nst{indication = 16384}} =
+        ssl_handshake:decode_extensions(NstEarlyData, ?TLS_1_3, new_session_ticket),
+
+    %% DoS closure: a 0-length early_data in a NewSessionTicket is NOT a valid
+    %% NST form, so it is ignored (no early_data key) rather than stored as
+    %% #early_data_indication{}. Before the fix this returned
+    %% #{early_data => #early_data_indication{}} and poisoned the ticket store.
+    NoEarlyDataNst = ssl_handshake:decode_extensions(EmptyEarlyData, ?TLS_1_3,
+                                                     new_session_ticket),
+    false = maps:is_key(early_data, NoEarlyDataNst),
+
+    %% Symmetric guard: the 4-byte NST form is not valid in ClientHello /
+    %% EncryptedExtensions and is likewise ignored.
+    NoEarlyDataCh = ssl_handshake:decode_extensions(NstEarlyData, ?TLS_1_3,
+                                                    client_hello),
+    false = maps:is_key(early_data, NoEarlyDataCh),
+    NoEarlyDataEe = ssl_handshake:decode_extensions(NstEarlyData, ?TLS_1_3,
+                                                    encrypted_extensions),
+    false = maps:is_key(early_data, NoEarlyDataEe),
+    ok.
 
 
 select_proper_tls_1_2_rsa_default_hashsign(_Config) ->
