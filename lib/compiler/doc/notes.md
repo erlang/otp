@@ -23,6 +23,23 @@ limitations under the License.
 
 This document describes the changes made to the Compiler application.
 
+## Compiler 9.0.6.4
+
+### Fixed Bugs and Malfunctions
+
+- Compilation of a function with thousands of clauses would be very slow.
+
+  Own Id: OTP-20437 Aux Id: [GH-11735], [PR-11767]
+
+- Sometimes compiling with `deterministic` would not guarantee generation of identical BEAM files for every build.
+
+  Own Id: OTP-20438 Aux Id: [GH-11748], [PR-11753]
+
+[GH-11735]: https://github.com/erlang/otp/issues/11735
+[PR-11767]: https://github.com/erlang/otp/pull/11767
+[GH-11748]: https://github.com/erlang/otp/issues/11748
+[PR-11753]: https://github.com/erlang/otp/pull/11753
+
 ## Compiler 9.0.6.3
 
 ### Fixed Bugs and Malfunctions
