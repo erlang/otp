@@ -4996,7 +4996,7 @@ If the database is huge, it it not always possible to restore it online. In such
 cases, restore the old database by installing a fallback and then restart.
 """.
 -spec restore(Source::_, [Arg]) -> t_result([table()]) when
-      Op  :: 'skip_tables' | 'clear_tables' | 'keep_tables' | 'restore_tables',
+      Op  :: 'skip_tables' | 'clear_tables' | 'keep_tables' | 'recreate_tables',
       Arg :: {'module', module()} | {Op, [table()]} | {'default_op', Op}.
 restore(Source, Args) ->
     mnesia_schema:restore(Source, Args).
