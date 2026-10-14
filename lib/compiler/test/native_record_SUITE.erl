@@ -26,7 +26,7 @@
 	 init_per_group/2,end_per_group/2,
          local_basic/1,local_updates/1,non_atomic_names/1,
          external_records/1,any_record/1,
-         matching/1,is_record_bif/1,type_opts/1]).
+         matching/1,is_record_bif/1,type_opts/1,fail_label/1]).
 
 %% Unexported records.
 -record #empty{}.
@@ -68,7 +68,8 @@ groups() ->
        external_records,
        matching,
        is_record_bif,
-       type_opts
+       type_opts,
+       fail_label
       ]}].
 
 init_per_suite(Config) ->
@@ -797,6 +798,20 @@ type_opt_ccc(A, B) ->
         #b_set{} ->
             ok
     end.
+
+%% Compiler passes did not handle put_record/6 instruction with
+%% a non-zero fail label.
+fail_label(_Config) ->
+    [true] = ext_creation(),
+    [true] = ext_update(#ext_records:vector{}),
+    ok.
+
+
+ext_creation() ->
+    [try #ext_records:vector{a = 1} catch _:_ -> true end].
+
+ext_update(R) ->
+    [try R#ext_records:vector{a = 1} catch _:_ -> true end].
 
 %%% Common utilities.
 
