@@ -93,11 +93,11 @@ groups() ->
     ].
 
 sni_tests() ->
-    [no_sni_ext, 
-     sni_match, 
+    [no_sni_ext,
+     sni_match,
      sni_no_match,
-     no_sni_ext_fun, 
-     sni_match_fun, 
+     no_sni_ext_fun,
+     sni_match_fun,
      sni_no_match_fun,
      sni_fail_fun,
      sni_crash_fun,
@@ -110,8 +110,7 @@ sni_tests() ->
      hostname_trailing_dot].
 
 init_per_suite(Config0) ->
-    catch application:stop(crypto),
-    try application:start(crypto) of
+    case application:ensure_started(crypto) of
         ok ->
             ssl_test_lib:clean_start(),
             Hostname = net_adm:localhost(),
@@ -122,9 +121,10 @@ init_per_suite(Config0) ->
             %% RSA certs files needed by *dot cases
             ssl_test_lib:make_rsa_cert([{client_opts, [{verify, verify_peer} | ClientConf]},
                                         {client_local_opts, [{verify, verify_peer} | LClientConf]},
-                                        {sni_server_opts, [{sni_hosts, [{Hostname, ServerConf}]} | LServerConf]}
-                                       | Config0])
-    catch _:_  ->
+                                        {sni_server_opts,
+                                         [{sni_hosts, [{Hostname, ServerConf}]} | LServerConf]}
+                                       | Config0]);
+        {error, _}  ->
             {skip, "Crypto did not start"}
     end.
 init_per_group(GroupName, Config) ->
@@ -148,7 +148,7 @@ init_per_testcase(_TestCase, Config) ->
     ct:timetrap(?TIMEOUT),
     Config.
 
-end_per_testcase(_TestCase, Config) ->     
+end_per_testcase(_TestCase, Config) ->
     Config.
 
 %%--------------------------------------------------------------------
