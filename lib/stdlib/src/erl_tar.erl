@@ -2367,6 +2367,8 @@ do_read(#reader{pos=Pos,handle=Handle,func=Fun}=Reader, Len)
 do_sparse_read(Reader, Len) ->
     do_sparse_read(Reader, Len, <<>>).
 
+do_sparse_read(#sparse_file_reader{}=Reader, 0, Acc) ->
+    {ok, Acc, Reader};
 do_sparse_read(#sparse_file_reader{sparse_map=[#sparse_entry{num_bytes=0}|Entries]
                                   }=Reader0, Len, Acc) ->
     %% skip all empty fragments
@@ -2382,12 +2384,10 @@ do_sparse_read(#sparse_file_reader{sparse_map=[],
     do_sparse_read(Reader1, Len-byte_size(Bin), <<Acc/binary,Bin/binary>>);
 do_sparse_read(#sparse_file_reader{sparse_map=[]}=Reader, _Len, Acc) ->
     {ok, Acc, Reader};
-do_sparse_read(#sparse_file_reader{}=Reader, 0, Acc) ->
-    {ok, Acc, Reader};
 do_sparse_read(#sparse_file_reader{sparse_map=[#sparse_entry{offset=Offset}|_],
                                    pos=Pos}=Reader0, Len, Acc)
   when Pos < Offset ->
-    {ok, Bin, Reader1} = read_sparse_hole(Reader0, Offset, Offset-Pos),
+    {ok, Bin, Reader1} = read_sparse_hole(Reader0, Offset, Len),
     do_sparse_read(Reader1, Len-byte_size(Bin), <<Acc/binary,Bin/binary>>);
 do_sparse_read(#sparse_file_reader{sparse_map=[Entry|Entries],
                                    pos=Pos}=Reader0, Len, Acc) ->
