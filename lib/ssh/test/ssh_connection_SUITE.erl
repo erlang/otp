@@ -2083,17 +2083,37 @@ max_channels_forwarding_helper(Config, ToServer) ->
     {error, timeout} = gen_tcp:recv(Sock1, 0, 0),
     {error, timeout} = gen_tcp:recv(Sock2, 0, 0),
 
-    %% Upon hitting the channel limit, server will close all sockets
+    %% Excess channel refused; connection and existing sockets survive.
     {ok, Sock3} = gen_tcp:connect("127.0.0.1", ListenPort, [{active, false}]),
-    receive
-        {Ref, "Received disconnect: Connection terminated. Channel limit reached."} ->
-            ok
-    after 2000 ->
-            ct:fail("Connection should be closed!")
-    end,
-    {error, closed} = gen_tcp:recv(Sock1, 0, timer:seconds(5)),
-    {error, closed} = gen_tcp:recv(Sock2, 0, timer:seconds(5)),
     {error, closed} = gen_tcp:recv(Sock3, 0, timer:seconds(5)),
+
+    %% Prior forwarded sockets are still connected
+    {error, timeout} = gen_tcp:recv(Sock1, 0, 0),
+    {error, timeout} = gen_tcp:recv(Sock2, 0, 0),
+
+    %% Free a slot and confirm the connection is still usable. The
+    %% session_channel round-trip also flushes the handler mailbox, so a
+    %% disconnect (if any) is delivered before the peek below.
+    gen_tcp:close(Sock1),
+    WaitForChannels =
+        fun Wait(0) -> ct:fail("channel slot not freed");
+            Wait(N) ->
+                case ssh:connection_info(ConnectionRef, channels) of
+                    {channels, Chs} when length(Chs) < 2 -> ok;
+                    _ -> timer:sleep(100), Wait(N - 1)
+                end
+        end,
+    WaitForChannels(50),
+    {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, timer:seconds(5)),
+    ssh_connection:close(ConnectionRef, ChannelId),
+
+    %% Must not have disconnected.
+    receive
+        {Ref, Reason} ->
+            ct:fail("Connection should stay up, got disconnect: ~p", [Reason])
+    after 0 ->
+            ok
+    end,
 
     gen_tcp:close(TargetSock),
     ssh:stop_daemon(Pid).
