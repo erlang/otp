@@ -21,6 +21,20 @@ limitations under the License.
 
 This document describes the changes made to the ERTS application.
 
+## Erts 15.2.7.14
+
+### Fixed Bugs and Malfunctions
+
+- Two trace sessions that trace `garbage_collection` on the same process crash the emulator on the first collection.
+  
+  `trace_gc()` in `erl_trace.c` builds the GC info list on a temporary heap for the first session and frees it inside the session loop. The next session reuses `msg`, which now points into freed memory.
+  
+  The memory is now freed after the session loop, which removes the use-after-free.
+
+  Own Id: OTP-20385 Aux Id: [PR-11623]
+
+[PR-11623]: https://github.com/erlang/otp/pull/11623
+
 ## Erts 15.2.7.13
 
 ### Fixed Bugs and Malfunctions

@@ -25,6 +25,16 @@ as all enhancements and bugfixes for every release of Mnesia. Each release of
 Mnesia thus constitutes one section in this document. The title of each section
 is the version number of Mnesia.
 
+## Mnesia 4.23.5.6
+
+### Fixed Bugs and Malfunctions
+
+- Fixed the type specification for `mnesia:restore/2`, which incorrectly listed the operation `restore_tables` instead of `recreate_tables`, causing Dialyzer to reject valid calls and accept invalid ones.
+
+  Own Id: OTP-20442 Aux Id: [PR-11755]
+
+[PR-11755]: https://github.com/erlang/otp/pull/11755
+
 ## Mnesia 4.23.5.5
 
 ### Fixed Bugs and Malfunctions
