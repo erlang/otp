@@ -661,7 +661,7 @@ decode_handshake(?NEW_SESSION_TICKET, <<?UINT32(LifeTime), ?UINT32(Age),
                                         ?BYTE(NonceSize), Nonce:NonceSize/binary,
                                         ?UINT16(TicketSize), Ticket:TicketSize/binary,
                                         ?UINT16(BinExtSize), BinExts:BinExtSize/binary>>) ->
-    Exts = decode_extensions(BinExts, encrypted_extensions),
+    Exts = decode_extensions(BinExts, new_session_ticket),
     #new_session_ticket{ticket_lifetime = LifeTime,
                         ticket_age_add = Age,
                         ticket_nonce = Nonce,
@@ -748,7 +748,7 @@ decode_cert_entries(<<>>, Acc) ->
 decode_cert_entries(<<?UINT24(DSize), Data:DSize/binary,
                       ?UINT16(Esize), BinExts:Esize/binary, Rest/binary>>, Acc) ->
     Entry = #certificate_entry{data = Data,
-                               extensions = decode_extensions(BinExts, certificate_request)},
+                               extensions = decode_extensions(BinExts, certificate)},
     decode_cert_entries(Rest, [Entry | Acc]);
 decode_cert_entries(_Other, _Acc) ->
     throw(?ALERT_REC(?FATAL, ?DECODE_ERROR, truncated_certificate_entry)).
@@ -2039,15 +2039,20 @@ process_ticket(#{cipher_suite := CipherSuite,
     Identity = #psk_identity{
                   identity = Ticket,
                   obfuscated_ticket_age = ObfuscatedTicketAge},
-    MaxEarlyData = get_max_early_data(Extensions),
-    #ticket_data{
-       key = undefined,
-       pos = N,
-       identity = Identity,
-       psk = PSK,
-       nonce = Nonce,
-       cipher_suite = CipherSuite,
-       max_size = MaxEarlyData};
+    try get_max_early_data(Extensions) of
+        MaxEarlyData ->
+            #ticket_data{
+               key = undefined,
+               pos = N,
+               identity = Identity,
+               psk = PSK,
+               nonce = Nonce,
+               cipher_suite = CipherSuite,
+               max_size = MaxEarlyData}
+    catch
+        _:_ ->
+            error
+    end;
 process_ticket(_, _) ->
     error.
 
