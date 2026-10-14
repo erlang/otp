@@ -23,6 +23,35 @@ limitations under the License.
 
 This document describes the changes made to the Compiler application.
 
+## Compiler 10.0.7
+
+### Fixed Bugs and Malfunctions
+
+- Fix native record bugs when used together with `try...catch`
+
+  Own Id: OTP-20415 Aux Id: [GH-11691], [PR-11719]
+
+- Compilation of a function with thousands of clauses would be very slow.
+
+  Own Id: OTP-20437 Aux Id: [GH-11735], [PR-11767]
+
+- Sometimes compiling with `deterministic` would not guarantee generation of identical BEAM files for every build.
+
+  Own Id: OTP-20438 Aux Id: [GH-11748], [PR-11753]
+
+- A crash in `sys_core_fold` on native record patterns has been eliminated.
+
+  Own Id: OTP-20440 Aux Id: [GH-11724], [PR-11768]
+
+[GH-11691]: https://github.com/erlang/otp/issues/11691
+[PR-11719]: https://github.com/erlang/otp/pull/11719
+[GH-11735]: https://github.com/erlang/otp/issues/11735
+[PR-11767]: https://github.com/erlang/otp/pull/11767
+[GH-11748]: https://github.com/erlang/otp/issues/11748
+[PR-11753]: https://github.com/erlang/otp/pull/11753
+[GH-11724]: https://github.com/erlang/otp/issues/11724
+[PR-11768]: https://github.com/erlang/otp/pull/11768
+
 ## Compiler 10.0.6
 
 ### Fixed Bugs and Malfunctions
