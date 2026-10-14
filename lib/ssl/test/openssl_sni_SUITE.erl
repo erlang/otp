@@ -38,7 +38,9 @@
          sni_no_match/1,
          sni_no_match_fun/1,
          sni_no_header/1,
-         sni_no_header_fun/1
+         sni_no_header_fun/1,
+         sni_cross_ca_no_session_reuse/0,
+         sni_cross_ca_no_session_reuse/1
         ]).
 
 %% Apply exports
@@ -75,15 +77,15 @@ groups() ->
      case ssl_test_lib:openssl_sane_dtls() of 
          true ->
              [{'tlsv1.3', [], sni_tests()},
-              {'tlsv1.2', [], sni_tests()},
+              {'tlsv1.2', [], sni_tests() ++ tls_1_2_tests()},
               {'tlsv1.1', [], sni_tests()},
               {'tlsv1', [], sni_tests()},
-              {'dtlsv1.2', [], sni_tests()},
+              {'dtlsv1.2', [], sni_tests() ++ tls_1_2_tests()},
               {'dtlsv1', [], sni_tests()}
              ];
         false ->
              [{'tlsv1.3', [], sni_tests()},
-              {'tlsv1.2', [], sni_tests()},
+              {'tlsv1.2', [], sni_tests() ++ tls_1_2_tests()},
               {'tlsv1.1', [], sni_tests()},
               {'tlsv1', [], sni_tests()}
              ]
@@ -96,6 +98,10 @@ sni_tests() ->
      sni_no_match_fun,
      sni_no_header,
      sni_no_header_fun].
+
+%% Session-id based resumption only exists pre TLS-1.3.
+tls_1_2_tests() ->
+    [sni_cross_ca_no_session_reuse].
 
 init_per_suite(Config0) ->
     Config1 = ssl_test_lib:init_per_suite(Config0, openssl),
@@ -188,6 +194,90 @@ sni_no_match_fun(Config) when is_list(Config) ->
                                                proplists:get_value(client_local_opts, Config)], Config),
     sni_test(ServerNode, ServerOptions, ClientOptions, Config).
 
+sni_cross_ca_no_session_reuse() ->
+    ["Two SNI names share the same server
+    certificate but trust different CAs. A client that
+    trusts the lower-trust name must NOT be able to resume
+    that TLS-1.2 session at the higher-trust name."].
+
+sni_cross_ca_no_session_reuse(Config) when is_list(Config) ->
+    {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Version = ssl_test_lib:protocol_version(Config),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    {ServerConf, ServerCACertFile, LowCACertFile, HighCACertFile,
+     LowClientCert, LowClientKey} = ssl_test_lib:make_cross_ca_pems(PrivDir),
+
+    LowSNI = "low.test",
+    HighSNI = "high.test",
+    SigAlgOpts = maybe_add_sigalgs(Version, []),
+    SniBase = SigAlgOpts ++ ServerConf,
+    SniFun =
+        fun(SNI) when SNI =:= LowSNI ->
+                [{verify, verify_peer}, {fail_if_no_peer_cert, true},
+                 {reuse_sessions, true},
+                 {cacertfile, LowCACertFile} | SniBase];
+           (SNI) when SNI =:= HighSNI ->
+                [{verify, verify_peer}, {fail_if_no_peer_cert, true},
+                 {reuse_sessions, true},
+                 {cacertfile, HighCACertFile} | SniBase];
+           (_) ->
+                unrecognized
+        end,
+
+    ServerOptions = [{verify, verify_none},
+                     {versions, [Version]},
+                     {sni_fun, SniFun} | SniBase],
+
+    SessFile = filename:join(PrivDir, "otp20445_low.sess"),
+    file:delete(SessFile),
+
+    %% One persistent listener for both connections so the pre-TLS-1.3
+    %% session cache (which is per listen socket) is shared.
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+                                        {from, self()},
+                                        {mfa, {?MODULE, send_and_hostname, []}},
+                                        {options, ServerOptions}]),
+    Port0 = ssl_test_lib:inet_port(Server),
+
+    ClientBase = maybe_add_openssl_sigalgs(Version) ++
+        [{hostname, Hostname}, {port, Port0},
+         {cacertfile, ServerCACertFile},
+         {certfile, LowClientCert}, {keyfile, LowClientKey}],
+
+    %% 1. Establish and save a session at the low-trust name. The server
+    %% reports the SNI name it served, proving the low client is
+    %% authenticated against the low CA.
+    Low = ssl_test_lib:start_client(openssl,
+                                    [{server_name_indication, LowSNI},
+                                     {versions, [Version]},
+                                     {session_args, ["-sess_out", SessFile]}
+                                     | ClientBase],
+                                    Config),
+    ssl_test_lib:check_result(Server, LowSNI),
+    ssl_test_lib:close_port(Low),
+
+    %% The session file must have been written for the attack to be
+    %% meaningful.
+    true = filelib:is_regular(SessFile),
+
+    %% Re-arm the same listener for the next connection.
+    Server ! {listen, {mfa, {?MODULE, send_and_hostname, []}}},
+
+    %% 2. Attempt to resume that session at the high-trust name using
+    %% the same low-trust client certificate. The verify_peer service
+    %% must force a full handshake and reject the low-trust cert with an
+    %% unknown_ca alert, instead of silently resuming (which would let
+    %% the low-trust client reach the high-trust authority).
+    High = ssl_test_lib:start_client(openssl,
+                                     [{server_name_indication, HighSNI},
+                                      {versions, [Version]},
+                                      {session_args, ["-sess_in", SessFile]}
+                                      | ClientBase],
+                                     Config),
+    ssl_test_lib:check_server_alert(Server, unknown_ca),
+    ssl_test_lib:close_port(High),
+    ssl_test_lib:close(Server),
+    ok.
 
 %%--------------------------------------------------------------------
 %% Callback functions  ------------------------------------------------
@@ -234,7 +324,8 @@ sni_test(ServerNode, ServerOptions0, ClientOptions, Config) ->
     ok.
 
 maybe_add_sigalgs(Version, ServerOptions) when Version == 'tlsv1.3';
-                                               Version == 'tlsv1.2' ->
+                                               Version == 'tlsv1.2';
+                                               Version == 'dtlsv1.2'->
     case maybe_add_openssl_sigalgs(Version) of
         [] ->
             [{signature_algs, [rsa_pss_rsae_sha512,
@@ -256,21 +347,26 @@ maybe_add_sigalgs(_, ServerOptions) ->
     ServerOptions.
 
 maybe_add_openssl_sigalgs(Version) when Version == 'tlsv1.3';
-                                        Version == 'tlsv1.2' ->
+                                        Version == 'tlsv1.2';
+                                        Version == 'dtlsv1.2' ->
     case ssl_test_lib:portable_cmd("openssl", ["version"]) of
         "OpenSSL 1.0" ++  _ ->
             [];
+        "OpenSSL 1.1" ++  _ ->
+            openssl_add_sigalgs("rsa_pkcs1_sha256:rsa_pss_rsae_sha256");
         _ ->
-            HelpText = ssl_test_lib:portable_cmd("openssl", ["s_client", "--help"]),
-            case string:str(HelpText, "-sigalgs") of
-                0 ->
-                    [];
-                _ ->
-                    [{sigalgs, "rsa_pss_rsae_sha512:rsa_pss_rsae_sha384:rsa_pss_rsae_sha256"}]
-            end
+            openssl_add_sigalgs("rsa_pss_rsae_sha512:rsa_pss_rsae_sha384:rsa_pss_rsae_sha256")
     end;
 maybe_add_openssl_sigalgs(_) ->
     [].
+openssl_add_sigalgs(Sigalgs) ->
+    HelpText = ssl_test_lib:portable_cmd("openssl", ["s_client", "--help"]),
+    case string:str(HelpText, "-sigalgs") of
+        0 ->
+            [];
+        _ ->
+            [{sigalgs, Sigalgs}]
+    end.
 
 check_openssl_sni_support(Config) ->
     HelpText = ssl_test_lib:portable_cmd("openssl", ["s_client", "--help"]),
