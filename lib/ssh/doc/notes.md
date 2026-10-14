@@ -21,6 +21,68 @@ limitations under the License.
 -->
 # SSH Release Notes
 
+## Ssh 6.0.7
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a bug where SSH CLI sessions using {shell, {shell, start, []}} did not handle latin1-encoded put_chars messages from the Erlang shell. This caused exception output (e.g. "** exception error: ...") to not be displayed on the SSH client, and {unhandled_request, ...} messages to appear on the daemon host.
+
+  Own Id: OTP-20359 Aux Id: [PR-11474]
+
+- Fixed the following bugs in the SSH application:
+  
+    - The SFTP client (ssh_sftp) checked the channel state record against 0
+      instead of the exit status integer when handling an exit_status
+      message. The success branch was therefore dead code, and every SFTP
+      subsystem exit — including a clean exit with status 0 — was reported
+      to callers as an error. A clean exit is now reported as a normal stop.
+  
+    - The SSH_FXP_EXTENDED_REPLY decoder in ssh_xfer bound only a single
+      byte of the reply payload instead of the full binary (the pattern was
+      missing a /binary specifier). This made SFTP extension operations such
+      as statvfs@openssh.com fail with a function_clause crash whenever the
+      payload was not exactly one byte.
+  
+    - The TCP forwarding acceptor supervisor used the default permanent
+      restart strategy, causing the acceptor to be restarted unnecessarily
+      when a forwarded socket closed normally. The child now uses a
+      transient restart strategy.
+  
+    - The keyboard_interact_fun handling returned the atom nok instead of
+      not_ok on an invalid response, causing a crash during SSH message
+      encoding instead of a clean authentication rejection.
+  
+    - The ssh_client_channel catch pattern error:{undef, _} never matched
+      Erlang's actual error:undef exception, so a missing optional
+      handle_call/3 or handle_cast/2 callback crashed the channel process
+      instead of being ignored. The catch now matches error:undef and uses
+      erlang:function_exported/3 to tell a genuinely missing optional
+      callback (ignored, as before) from an undef raised deeper inside an
+      implemented callback (now re-raised instead of being silently
+      swallowed).
+  
+    - Both ssh_tcpip_forward_client and ssh_tcpip_forward_srv called
+      gen_tcp:close(undefined) in terminate/2 when the forwarding socket was
+      never established (or already closed), producing noisy crash reports on
+      normal forward teardown. terminate/2 now handles the undefined socket.
+
+  Own Id: OTP-20360 Aux Id: [PR-11561]
+
+- Fixed an SSH port-forwarding acceptor crash triggered by a peer that connects and immediately resets the connection. Transient TCP errors from accept and peername are now handled gracefully instead of terminating the acceptor.
+
+  Own Id: OTP-20392 Aux Id: [PR-11720]
+
+- When the max_channels limit is reached for a port-forwarding channel (direct-tcpip or forwarded-tcpip), the SSH daemon now refuses the individual channel with SSH_MSG_CHANNEL_OPEN_FAILURE and keeps the connection alive, instead of terminating the whole SSH connection. Port-forwarding channels now behave like session channels, which already survived the limit, and this matches OpenSSH. Applications that relied on the connection being closed when the channel limit was reached must instead handle the channel-open failure.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-20420 Aux Id: [PR-11708]
+
+[PR-11474]: https://github.com/erlang/otp/pull/11474
+[PR-11561]: https://github.com/erlang/otp/pull/11561
+[PR-11720]: https://github.com/erlang/otp/pull/11720
+[PR-11708]: https://github.com/erlang/otp/pull/11708
+
 ## Ssh 6.0.6
 
 ### Fixed Bugs and Malfunctions

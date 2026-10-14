@@ -23,6 +23,19 @@ limitations under the License.
 
 This document describes the changes made to the STDLIB application.
 
+## STDLIB 8.1.1
+
+### Fixed Bugs and Malfunctions
+
+- A loop with Unreachable Exit Condition ('Infinite Loop') vulnerability in the `m:erl_tar` module allowed an attacker who supplied a tar archive to cause a denial of service via a crafted GNU sparse member. This has been corrected.
+  
+  In addition, when attempting to extract a tar file with a legal GNU sparse member, extraction could fail with a `badarg` exception. That has also been corrected.
+
+  Own Id: OTP-20447 Aux Id: [PR-11791], [CVE-2026-96596]
+
+[PR-11791]: https://github.com/erlang/otp/pull/11791
+[CVE-2026-96596]: https://nvd.nist.gov/vuln/detail/2026-96596
+
 ## STDLIB 8.1
 
 ### Fixed Bugs and Malfunctions

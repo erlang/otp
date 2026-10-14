@@ -1,4 +1,4 @@
-SSL_VSN = 11.7.7
+SSL_VSN = 11.7.8
 
 # %CopyrightBegin%
 #
