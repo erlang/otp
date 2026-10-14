@@ -1887,7 +1887,7 @@ tailrecur_ne:
                         if (i == 0) {
                             goto pop_next;
                         }
-                        if (exact) {
+                        if (exact && eq_only) {
 			    /*
 			     * We only care about equality so we can compare
 			     * the maps as two term arrays where the first
