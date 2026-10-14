@@ -2406,7 +2406,8 @@ valid_key_sha_alg_ec(_, _) -> false.
 
 mldsa_ssh_alg(mldsa44) -> 'ssh-mldsa-44';
 mldsa_ssh_alg(mldsa65) -> 'ssh-mldsa-65';
-mldsa_ssh_alg(mldsa87) -> 'ssh-mldsa-87'.
+mldsa_ssh_alg(mldsa87) -> 'ssh-mldsa-87';
+mldsa_ssh_alg(_) -> false. 
 
     
 
