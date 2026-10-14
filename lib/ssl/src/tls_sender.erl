@@ -582,13 +582,18 @@ send_application_data(Data, From, StateName,
                     StateData = update_bytes_sent(Version, ConnectionStates, StateData0, DataSz),
                     send_reply(From, ok),
                     hibernate_after(StateName, StateData, []);
-                Result ->
+                {error, timeout} = Result ->
                     send_reply(From, Result),
                     StateData = StateData0#data{connection_states = ConnectionStates},
-                    hibernate_after(StateName, StateData, [])
+                    hibernate_after(StateName, StateData, []);
+                {error, Reason} = Result ->
+                    send_reply(From, Result),
+                    StateData = StateData0#data{connection_states = ConnectionStates},
+                    death_row_shutdown(Reason, StateData)
             end
     end.
 
+send_reply(dist_data, _Msg) -> ok;
 send_reply(undefined, _Msg) -> ok;
 send_reply(From, Msg) -> gen_statem:reply(From, Msg).
 
