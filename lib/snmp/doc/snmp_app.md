@@ -128,6 +128,13 @@ Agent specific config options and types:
   - stage2: `discovery`
   - trigger_username: `""`
 
+  The `trigger_username` only identifies a stage 1 discovery request if the
+  message also carries a zero-length `msgAuthoritativeEngineID`, as required by
+  section 4 of RFC 3414. A message using the trigger user name together with a
+  non-empty engine ID is processed as an ordinary USM message and is answered
+  with a report of `usmStatsUnknownUserNames` (engine ID known to the agent) or
+  `usmStatsUnknownEngineIDs` (engine ID not known).
+
 - **`agent_originating_discovery_opts() = [agent_originating_discovery_opt()] <optional>`{:  #agent_orig_disco_opts }** -
   `agent_originating_discovery_opt() = {enable, boolean()}`
 
