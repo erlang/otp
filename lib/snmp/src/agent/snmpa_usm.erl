@@ -88,12 +88,12 @@ process_incoming_msg(Packet, Data, SecParams, SecLevel, LocalEngineID) ->
 		Res
 	end,
     case UsmSecParams of
-	#usmSecurityParameters{msgAuthoritativeEngineID = MsgAuthEngineID,
-			       msgUserName              = TermTriggerUsername} when TermDiscoEnabled =:= true ->
+        #usmSecurityParameters{msgAuthoritativeEngineID = [],
+                               msgUserName              = TermTriggerUsername} when TermDiscoEnabled ->
 	    %% Step 1 discovery message
 	    ?vtrace("process_incoming_msg -> [~p] discovery step 1", 
 		    [TermTriggerUsername]),
-	    process_discovery_msg(MsgAuthEngineID, Data, SecLevel);
+	    process_discovery_msg([], Data, SecLevel);
 	
 	#usmSecurityParameters{msgAuthoritativeEngineID = MsgAuthEngineID,
 			       msgUserName = MsgUserName} ->
