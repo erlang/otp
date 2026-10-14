@@ -1,17 +1,23 @@
 %% -*- erlang-indent-level: 4 -*-
-%%
+%% %CopyrightBegin%
+%% 
+%% SPDX-License-Identifier: Apache-2.0
+%% 
+%% Copyright Ericsson AB 2018-2026. All Rights Reserved.
+%% 
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
-%%
+%% 
 %%     http://www.apache.org/licenses/LICENSE-2.0
-%%
+%% 
 %% Unless required by applicable law or agreed to in writing, software
 %% distributed under the License is distributed on an "AS IS" BASIS,
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%%
+%% 
+%% %CopyrightEnd%
 -module(erl_types_SUITE).
 
 -export([all/0,groups/0,init_per_group/2,end_per_group/2,
@@ -239,6 +245,20 @@ misc(_Config) ->
     B1_2 = ?M:t_bitstr(85, 7),
     R1_R = ?M:t_bitstr(547608330240, 347892352432),
     R1_R = ?M:t_inf(B1_1, B1_2),
+
+    %% Used to loop forever. The nominal set of Anno has a structural part
+    %% that overlaps the opaque a:t() of structure any(), and a:t() sorts
+    %% before erl_anno:anno() in the set.
+    Loc = ?M:t_nominal({erl_anno, location, 0, transparent},
+                       ?M:t_non_neg_integer()),
+    AnnoName = {erl_anno, anno, 0, opaque},
+    Anno = ?M:t_nominal(AnnoName, ?M:t_sup(Loc, ?M:t_nonempty_list())),
+    Set = ?M:t_sup(?M:t_nominal({a, t, 0, opaque}, ?M:t_any()),
+                   ?M:t_nominal(AnnoName, ?M:t_any())),
+    Sup = ?M:t_sup(Anno, Set),
+    Sup = ?M:t_sup(Set, Anno),
+    true = ?M:t_is_subtype(Anno, Sup),
+    true = ?M:t_is_subtype(Set, Sup),
     ok.
 
 %% OTP-17537.
