@@ -137,6 +137,8 @@
          pkix_path_validation_root_expired/1,
          pkix_path_validation_forged_chain/0,
          pkix_path_validation_forged_chain/1,
+         pkix_path_validation_v1_intermediate/0,
+         pkix_path_validation_v1_intermediate/1,
          pkix_ext_key_usage/0,
          pkix_ext_key_usage/1,
          pkix_ext_key_usage_any/0,
@@ -231,6 +233,7 @@ all() ->
      pkix_path_validation,
      pkix_path_validation_root_expired,
      pkix_path_validation_forged_chain,
+     pkix_path_validation_v1_intermediate,
      pkix_ext_key_usage,
      pkix_ext_key_usage_any,
      pkix_path_validation_bad_date,
@@ -1489,6 +1492,77 @@ pkix_path_validation_forged_chain(Config) when is_list(Config) ->
           end,
     {error, Err} = public_key:pkix_path_validation(Root, [ICA, ServerCert, ForgedCert],
                                                    [{verify_fun, {Fun, []}}]).
+
+pkix_path_validation_v1_intermediate() ->
+    [{doc, "An X.509 v1 certificate has no basicConstraints and MUST NOT be "
+      "accepted as an intermediate CA (RFC 5280 6.1.4). A v1 end-entity is "
+      "still valid as a leaf. Regression test for the v1 path not covered by "
+      "the CVE-2026-42789 fix (v1 slipped past the version >= 3 gate in "
+      "pubkey_cert:validate_extensions/4)."}].
+pkix_path_validation_v1_intermediate(Config) when is_list(Config) ->
+    #{cert := Root, key := RootKey} = SRootSpec =
+        public_key:pkix_test_root_cert("OTP test v1 ROOT", []),
+    %% A normal chain: root -> peer. Take the peer cert + key and rebuild it as
+    %% a version 1 certificate with no extensions, re-signed by the root.
+    #{server_config := ServerOpts0} =
+        public_key:pkix_test_data(#{server_chain =>
+                                        #{root => SRootSpec,
+                                          intermediates => [],
+                                          peer => []},
+                                    client_chain =>
+                                        #{root => [],
+                                          intermediates => [],
+                                          peer => []}}),
+    RootCert = public_key:pkix_decode_cert(Root, otp),
+    #'OTPCertificate'{tbsCertificate = RootTBS} = RootCert,
+    RootSubject = RootTBS#'OTPTBSCertificate'.subject,
+
+    PeerCert = public_key:pkix_decode_cert(proplists:get_value(cert, ServerOpts0), otp),
+    #'OTPCertificate'{tbsCertificate = PeerTBS} = PeerCert,
+
+    %% Alice's own key pair (the attacker's legitimately issued v1 cert).
+    #'ECPrivateKey'{parameters = AParams, publicKey = APub} = AliceKey =
+        public_key:generate_key({namedCurve, ?'secp256r1'}),
+    AliceAlgo = #'PublicKeyAlgorithm'{algorithm = ?'id-ecPublicKey',
+                                      parameters = AParams},
+    AliceSPKI = #'OTPSubjectPublicKeyInfo'{algorithm = AliceAlgo,
+                                           subjectPublicKey = #'ECPoint'{point = APub}},
+    AliceSubject = {rdnSequence,
+                    [[{'AttributeTypeAndValue', {2,5,4,3},
+                       {printableString, "alice v1 end entity"}}]]},
+    %% Version 1 certificate (v1 = integer 0 in the decoded TBS), no extensions,
+    %% issued (signed) by the trusted root.
+    AliceV1TBS = PeerTBS#'OTPTBSCertificate'{version = v1,
+                                             issuer = RootSubject,
+                                             subject = AliceSubject,
+                                             subjectPublicKeyInfo = AliceSPKI,
+                                             extensions = asn1_NOVALUE},
+    AliceV1 = public_key:pkix_sign(AliceV1TBS, RootKey),
+
+    %% A forged leaf for an arbitrary identity, signed with alice's key -
+    %% this is what alice could mint if her v1 cert were (wrongly) trusted as CA.
+    #'ECPrivateKey'{parameters = LParams, publicKey = LPub} =
+        public_key:generate_key({namedCurve, ?'secp256r1'}),
+    LeafAlgo = #'PublicKeyAlgorithm'{algorithm = ?'id-ecPublicKey',
+                                     parameters = LParams},
+    LeafSPKI = #'OTPSubjectPublicKeyInfo'{algorithm = LeafAlgo,
+                                          subjectPublicKey = #'ECPoint'{point = LPub}},
+    LeafTBS = PeerTBS#'OTPTBSCertificate'{version = v3,
+                                          issuer = AliceSubject,
+                                          subject = {rdnSequence,
+                                                     [[{'AttributeTypeAndValue', {2,5,4,3},
+                                                        {printableString, "forged.example.com"}}]]},
+                                          subjectPublicKeyInfo = LeafSPKI,
+                                          extensions = []},
+    ForgedLeaf = public_key:pkix_sign(LeafTBS, AliceKey),
+
+    %% (1) v1 certificate used as an INTERMEDIATE must be rejected.
+    {error, {bad_cert, missing_basic_constraint}} =
+        public_key:pkix_path_validation(Root, [AliceV1, ForgedLeaf], []),
+
+    %% (2) v1 certificate used as an END ENTITY (leaf) must still be accepted -
+    %% the fix must not break legitimate v1 leaf certificates.
+    {ok, _} = public_key:pkix_path_validation(Root, [AliceV1], []).
 
 pkix_ext_key_usage() ->
     [{doc, "If extended key usage is a critical extension in a CA (usually not included) make sure it is compatible with keyUsage extension"}].
