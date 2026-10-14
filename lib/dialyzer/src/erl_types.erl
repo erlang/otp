@@ -2250,9 +2250,17 @@ nominal_set_absorb([?nominal(_, _)=N | Ns0], Sup, Acc) ->
   ?debug(t_is_nominal(Sup), Sup),
   case t_inf_aux(N, Sup) of
     ?nominal(_, _) ->
-      %% The types overlap, abort and start over with the widened type.
-      t_sup_aux(?nominal_set(lists:reverse(Acc, Ns0), ?none),
-                t_sup_aux(N, Sup));
+      case t_sup_aux(N, Sup) of
+        ?nominal(_, _)=Widened ->
+          %% The types overlap and merge into one nominal, abort and start
+          %% over with the widened type.
+          t_sup_aux(?nominal_set(lists:reverse(Acc, Ns0), ?none), Widened);
+        ?nominal_set(_, _) ->
+          %% The types overlap only through a structural part and do not
+          %% merge, so they are kept side by side. Starting over would
+          %% repeat this call forever.
+          nominal_set_absorb(Ns0, Sup, [N | Acc])
+      end;
     ?none ->
       nominal_set_absorb(Ns0, Sup, [N | Acc])
   end;
