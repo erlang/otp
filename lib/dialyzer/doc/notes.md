@@ -112,6 +112,17 @@ This document describes the changes made to the Dialyzer application.
 [PR-10276]: https://github.com/erlang/otp/pull/10276
 [PR-10839]: https://github.com/erlang/otp/pull/10839
 
+## Dialyzer 5.4.0.2
+
+### Fixed Bugs and Malfunctions
+
+- Dialyzer will now avoid an infinite loop when multiple nominal types with the same structure are analyzed together.
+
+  Own Id: OTP-20444 Aux Id: [GH-11762], [PR-11763]
+
+[GH-11762]: https://github.com/erlang/otp/issues/11762
+[PR-11763]: https://github.com/erlang/otp/pull/11763
+
 ## Dialyzer 5.4.0.1
 
 ### Fixed Bugs and Malfunctions

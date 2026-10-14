@@ -80,6 +80,25 @@ limitations under the License.
 [PR-10580]: https://github.com/erlang/otp/pull/10580
 [PR-10730]: https://github.com/erlang/otp/pull/10730
 
+## SNMP 5.20.2.3
+
+### Fixed Bugs and Malfunctions
+
+- The SNMP agent no longer fails to answer an SNMPv3 message whose msgUserName matches the configured terminating-discovery trigger_username (by default the empty string) and whose msgAuthoritativeEngineID is the agent's own engine ID. Such a message
+    is not a stage-1 discovery request, but the agent treated it as one and then failed while generating the report, logging a configuration error and discarding the request without responding. The agent now answers it with a usmStatsUnknownUserNames
+    report, as prescribed by RFC 3414, section 3.2.
+  As a consequence of the same change, a message carrying the trigger user name together with an unknown, non-empty engine ID is now answered with a usmStatsUnknownEngineIDs report instead of being silently discarded.
+
+  Own Id: OTP-20427 Aux Id: ERIERL-1362, [PR-11823]
+
+- The byte-length bounds added in OTP-20346 for varbind values now apply to every integer field decoded by snmp_pdus: the v3 header fields msgID, msgMaxSize and msgSecurityModel, the USM security parameters msgAuthoritativeEngineBoots and msgAuthoritativeEngineTime, and the PDU fields request-id, error-status, error-index, non-repeaters, max-repetitions, generic-trap and specific-trap. Each field accepts at most the number of BER content octets that its type requires, instead of an arbitrary number of octets that were converted into a large integer. An over-long integer is now signalled with an exit rather than a throw. Code that calls the exported snmp_pdus decode functions inside a catch will receive {'EXIT', Reason} where it previously received the thrown term directly. Inside the agent and
+    manager, such a message is now discarded and counted in snmpInASNParseErrs; previously it caused a case_clause failure during message processing.
+
+  Own Id: OTP-20428 Aux Id: [PR-11824], GHSA-q7cq-pfgf-5hr7, OTP-20346
+
+[PR-11823]: https://github.com/erlang/otp/pull/11823
+[PR-11824]: https://github.com/erlang/otp/pull/11824
+
 ## SNMP 5.20.2.2
 
 ### Fixed Bugs and Malfunctions
