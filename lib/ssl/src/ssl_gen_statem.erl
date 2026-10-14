@@ -1372,7 +1372,9 @@ update_ssl_options_from_sni(#{sni_fun := SNIFun} = OrigSSLOptions, SNIHostname) 
             ?ALERT_REC(?FATAL, ?UNRECOGNIZED_NAME, {sni, SNIHostname});
         SSLOptions ->
             try
-                FallBackOptions = fallback_options(SSLOptions, OrigSSLOptions),
+                FallBackOptions0 = fallback_options(SSLOptions, OrigSSLOptions),
+                FallBackOptions = sni_session_reuse_options(SSLOptions,
+                                                            FallBackOptions0),
                 ssl_config:update_options(SSLOptions, server, FallBackOptions)
             catch
                 throw:#alert{} = Alert ->
@@ -1385,6 +1387,20 @@ update_ssl_options_from_sni(#{sni_fun := SNIFun} = OrigSSLOptions, SNIHostname) 
         Error:Reason:ST ->
             ?LOG_ERROR("sni_fun crashed ~p ~p~n ~p~n", [Error, Reason, {stacktrace, ST}]),
             ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE, sni_fun_crashed)
+    end.
+
+sni_session_reuse_options(SSLOptions, FallBackOptions) ->
+    case {proplists:get_value(verify, SSLOptions),
+          maps:get(verify, FallBackOptions),
+          proplists:is_defined(reuse_sessions, SSLOptions)} of
+        {verify_peer, verify_none, false} ->
+            %% Default shall be not to reuse sessions when client
+            %% certs are requested. If `FallBackOptions` is changed
+            %% from `verify_none` the `reuse_sessions` default will be
+            %% true. Remove it so the false default will be used.
+            maps:remove(reuse_sessions, FallBackOptions);
+        _ ->
+            FallBackOptions
     end.
 
 fallback_options(SSLOptions, OrigSSLOptions) ->

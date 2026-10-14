@@ -53,7 +53,8 @@
                   time_stamp,
                   ecc,                   %% TLS 1.3 Group
                   sign_alg,              %% TLS 1.3 Signature Algorithm
-                  dh_public_value        %% TLS 1.3 DH Public Value from peer
+                  dh_public_value,       %% TLS 1.3 DH Public Value from peer
+                  sni                    %% SNI hostname 
                  }).
 
 -define(EMPTY_ID, <<>>).

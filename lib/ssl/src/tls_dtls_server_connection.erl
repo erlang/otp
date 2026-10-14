@@ -284,6 +284,7 @@ cipher(internal, #finished{verify_data = Data} = Finished,
                                        port = Port,
                                        trackers = Trackers},
               handshake_env = #handshake_env{tls_handshake_history = Hist,
+                                             sni_hostname = SNIHostname,
                                              expecting_finished = true},
               connection_env = #connection_env{negotiated_version = Version},
 	      session = #session{master_secret = MasterSecret}
@@ -297,7 +298,8 @@ cipher(internal, #finished{verify_data = Data} = Finished,
 					 SecParams#security_parameters.prf_algorithm,
 					 MasterSecret, Hist) of
         verified ->
-	    Session = maybe_register_session(SslOpts, Host, Port, Trackers, Session0),
+	    Session = maybe_register_session(SslOpts, SNIHostname, Host, Port,
+                                             Trackers, Session0),
             ConnectionStates1 = ssl_record:set_client_verify_data(current_read, Data,
                                                                   ConnectionStates0),
             {State1, Actions} =
@@ -821,12 +823,14 @@ generate_srp_server_keys(SrpParams =
     end.
 
 maybe_register_session(#{reuse_sessions := true},
-                       _Host, _Port, Trackers, #session{is_resumable = false} = Session0) ->
+                       SNIHostname, _Host, _Port, Trackers,
+                       #session{is_resumable = false} = Session0) ->
     Tracker = proplists:get_value(session_id_tracker, Trackers),
-    Session = Session0#session{is_resumable = true},
+    Session = Session0#session{is_resumable = true,
+                               sni = SNIHostname},
     ssl_server_session_cache:register_session(Tracker, Session),
     Session;
-maybe_register_session(_,_,_,_, Session) ->
+maybe_register_session(_, _, _, _, _, Session) ->
     Session.
 
 ext_info(OcspState, _, #cert{otp=PeerCert}) ->
