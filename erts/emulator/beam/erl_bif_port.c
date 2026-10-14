@@ -331,10 +331,10 @@ BIF_RETTYPE erts_internal_port_control_3(BIF_ALIST_3)
 	retval = am_badarg;
     else if (!term_to_Uint(BIF_ARG_2, &uint_op))
 	retval = am_badarg;
-    else if (uint_op > (Uint) UINT_MAX)
+    else if (uint_op > (Uint) UINT32_MAX)
 	retval = am_badarg;
     else {
-        unsigned int op = (unsigned int) uint_op;
+        Uint32 op = (Uint32) uint_op;
 
         switch (erts_port_control(BIF_P, prt, op, BIF_ARG_3, &retval)) {
         case ERTS_PORT_OP_BADARG:

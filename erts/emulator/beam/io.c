@@ -4021,7 +4021,7 @@ erts_port_command(Process *c_p,
 static ERTS_INLINE ErtsPortOpResult
 call_driver_control(Eterm caller,
 		    Port *prt,
-		    unsigned int command,
+                    Uint32 command,
 		    char *bufp,
 		    ErlDrvSizeT size,
 		    char **resp_bufp,
@@ -4044,7 +4044,7 @@ call_driver_control(Eterm caller,
 #endif
 
     if (ERTS_IS_P_TRACED_FL(prt, F_TRACE_RECEIVE))
-        trace_port_receive(prt, caller, am_control, command, bufp, size);
+        trace_port_receive(prt, caller, am_control, (unsigned int)command, bufp, size);
 
     ERTS_MSACC_SET_STATE_CACHED_M(ERTS_MSACC_STATE_PORT);
 
@@ -4271,7 +4271,7 @@ erl_drv_port_control(Eterm port_num, unsigned int cmd, char* buff, ErlDrvSizeT s
 ErtsPortOpResult
 erts_port_control(Process* c_p,
 		  Port *prt,
-		  unsigned int command,
+                  Uint32 command,
 		  Eterm data,
 		  Eterm *retvalp)
 {
