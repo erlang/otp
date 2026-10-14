@@ -1162,9 +1162,9 @@ scan_pi(Str = [H1,H2,H3 | T],S0=#xmerl_scanner{line = L, col = C}, Pos, Ps)
     if
 	H2==$m orelse H2==$M,
 	H3==$l orelse H3==$L ->
-	    scan_wellknown_pi(T,S,Str,S0,Pos,Ps);
+            scan_wellknown_pi(T,S,Str,S0,Pos,Ps);
 	true ->
-	    {Target, _NamespaceInfo, T1, S1} = scan_name(Str, S0),
+            {Target, _NamespaceInfo, T1, S1} = scan_name(Str, S0),
 	    scan_pi(T1, S1, Target, L, C, Pos, Ps, [])
     end;
 scan_pi(Str, S=#xmerl_scanner{line = L, col = C}, Pos, Ps) ->
