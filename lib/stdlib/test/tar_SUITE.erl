@@ -32,6 +32,7 @@
          sparse/1, init/1, leading_slash/1, dotdot/1,
          roundtrip_metadata/1, apply_file_info_opts/1,
          incompatible_options/1, table_absolute_names/1,
+         sparse_hole/1,
          streamed_extract/1, symlink_parent_dir/1,
          streamed_extract/1, max_size/1]).
 
@@ -49,6 +50,7 @@ all() ->
      read_other_implementations, bsdtgz,
      sparse,init,leading_slash,dotdot,roundtrip_metadata,
      apply_file_info_opts,incompatible_options, table_absolute_names,
+     sparse_hole,
      streamed_extract, symlink_parent_dir,
      max_size].
 
@@ -1168,6 +1170,58 @@ table_absolute_names(Config) ->
     ok = file:delete(TarName),
 
     ok.
+
+sparse_hole(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    Dir = filename:join(PrivDir, ?FUNCTION_NAME),
+    ok = file:make_dir(Dir),
+    File = filename:join(Dir, "file"),
+
+    %% Data at offset 0, followed by a huge hole. erl_tar used to loop
+    %% forever.
+    Tar1 = make_sparse(0),
+
+    {Pid,Ref} =
+        spawn_monitor(fun() ->
+                              Res = erl_tar:extract({binary, Tar1},
+                                                    [{cwd, Dir}]),
+                              exit(Res)
+                      end),
+    receive
+        {'DOWN',Ref,process,Pid,Result} ->
+            ok = Result,
+            {ok, <<"data",0:((1 bsl 20) - 4)/unit:8>>} =
+                file:read_file(File),
+            ok = file:delete(File)
+    after 10_000 ->
+            error(not_finished)
+    end,
+
+    %% A hole of size 70000 (larger than the chunk size), followed by 4 bytes
+    %% of data, followed by another hole. Would raise a `badarg` exception.
+    Tar2 = make_sparse(70000),
+    ok = erl_tar:extract({binary, Tar2}, [{cwd, Dir}]),
+    {ok, <<0:70000/unit:8, "data", 0:((1 bsl 20) - 4 - 70000)/unit:8>>} =
+        file:read_file(File),
+    ok = file:delete(File),
+
+    ok.
+
+make_sparse(DataPos) ->
+    H = <<"file", 0:(96*8),                       % name
+          "0000644", 0, "0000000", 0, "0000000", 0, % mode, uid, gid
+          (octal(4))/binary, (octal(0))/binary,     % size (stored bytes), mtime
+          "        ", "S",                         % checksum placeholder, GNU sparse type
+          0:(100*8), "ustar ", " ", 0, 0:(121*8),  % linkname, GNU magic, unused fields
+          (octal(DataPos))/binary, (octal(4))/binary, % sparse[0]: offset DataPos, 4 bytes
+          0:(3*24*8), 0,                            % sparse[1..3], isextended
+          (octal(1 bsl 20))/binary, 0:(17*8)>>,      % realsize 1 MiB
+    <<Pre:148/binary, _:8/binary, Post/binary>> = H,
+    Sum = lists:sum(binary_to_list(H)),
+    <<Pre/binary, (io_lib:bformat("~6.8.0b", [Sum]))/binary, 0, " ",
+      Post/binary, "data", 0:(508*8), 0:(1024*8)>>.
+
+octal(N) -> <<(io_lib:bformat("~11.8.0b", [N]))/binary, 0>>.
 
 %% Test that extracting to disk streams file entries in chunks
 %% instead of loading them fully into memory.
