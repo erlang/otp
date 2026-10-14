@@ -38,7 +38,7 @@
 %% Internal application API
 -export([is_new/2,
          client_select_session/5,
-         server_select_session/5,
+         server_select_session/6,
          valid_session/2,
          legacy_session_id/1]).
 
@@ -112,16 +112,16 @@ client_select_session({_, _, #{versions := Versions,
     end.
 
 %%--------------------------------------------------------------------
--spec server_select_session(ssl_record:ssl_version(), pid(), ssl:session_id(), map(),
+-spec server_select_session(ssl_record:ssl_version(), pid(), ssl:session_id(), map(), map(),
                             list())  -> {binary(), #session{} | undefined}.
 %%
 %% Description: Should be called by the server side to get an id
 %%              for the client hello message.
 %%--------------------------------------------------------------------
-server_select_session(_, SessIdTracker, ?EMPTY_ID, _SslOpts, _CertKeyPairs) ->
+server_select_session(_, SessIdTracker, ?EMPTY_ID, _HelloExt, _SslOpts, _CertKeyPairs) ->
     {ssl_server_session_cache:new_session_id(SessIdTracker), undefined};
-server_select_session(_, SessIdTracker, SuggestedId, Options, CertKeyPairs) ->
-    case is_resumable(SuggestedId, SessIdTracker, Options, CertKeyPairs)
+server_select_session(_, SessIdTracker, SuggestedId, HelloExt, Options, CertKeyPairs) ->
+    case is_resumable(SuggestedId, SessIdTracker, Options, HelloExt, CertKeyPairs)
     of
 	{true, Resumed} ->
 	    {SuggestedId, Resumed};
@@ -198,10 +198,10 @@ select_session(Sessions, #{ciphers := Ciphers}, CertKeyPairs) ->
 	[Session | _] -> Session
     end.
 
-is_resumable(_, _, #{reuse_sessions := false}, _) ->
+is_resumable(_, _, #{reuse_sessions := false}, _, _) ->
     {false, undefined};
 is_resumable(SuggestedSessionId, SessIdTracker,
-             #{reuse_session := ReuseFun} = Options,  OwnCertKeyPairs) ->
+             #{reuse_session := ReuseFun} = Options, HelloExt, OwnCertKeyPairs) ->
     case ssl_server_session_cache:reuse_session(SessIdTracker, SuggestedSessionId) of
 	#session{cipher_suite = CipherSuite,
                  own_certificates =  [SessionOwnCert | _],
@@ -209,7 +209,7 @@ is_resumable(SuggestedSessionId, SessIdTracker,
 		 peer_certificate = PeerCert} = Session ->
 	    case resumable(IsResumable)
 		andalso is_owncert(SessionOwnCert, OwnCertKeyPairs)
-		andalso reusable_options(Options, Session)
+                andalso reusable_options(Options, HelloExt, Session)
 		andalso ReuseFun(SuggestedSessionId, PeerCert,
 				 ?NO_COMPRESSION, CipherSuite)
 	    of
@@ -233,10 +233,23 @@ resumable(IsResumable) ->
     IsResumable.
 
 reusable_options(#{fail_if_no_peer_cert := true,
-                   verify := verify_peer}, Session) ->
-    (Session#session.peer_certificate =/= undefined);
-reusable_options(_,_) ->
-    true.
+                   verify := verify_peer}, _, #session{peer_certificate = undefined}) ->
+    %% Can not resume session without a peer cert if current negotiation requires one.
+    false;
+reusable_options(_Opts, HelloExt, #session{sni = SessionSNI}) ->
+    %% RFC 6066 3: a server that implements SNI MUST NOT resume a session
+    %% if the server_name of the resumption request differs from the one
+    %% that established the session; it must do a full handshake instead.
+    %% Comparing the established server_name (rather than the server
+    %% certificate) also covers the case where several SNI names share
+    %% one certificate but have different client-authentication trust.
+    %% A request without SNI only matches a session established without
+    %% SNI, so ordinary (non-SNI) resumption is unaffected.
+    RequestSNI = case maps:get(sni, HelloExt, undefined) of
+                     #sni{hostname = Host} -> Host;
+                     undefined -> undefined
+                 end,
+    RequestSNI =:= SessionSNI.
 
 record_cb(tls) ->
     tls_record;

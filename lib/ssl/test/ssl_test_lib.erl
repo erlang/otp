@@ -186,6 +186,7 @@
          make_rsa_1024_cert/1,
          make_rsa_pss_pem/4,
          make_rsa_sni_configs/0,
+         make_cross_ca_pems/1,
          pss_params/1,
          gen_conf/4,
          make_mix_cert/1,
@@ -1741,6 +1742,65 @@ make_sni_conf(HostName, Sha) ->
                                                          {key, hardcode_rsa_key(5)}]],
                                       peer => [{digest, Sha},
                                                {key, hardcode_rsa_key(6)}]}}).
+
+%% Build PEM material for the cross-CA SNI test:
+%%  - one shared server certificate presented for both SNI names
+%%  - two independent client CAs (low / high)
+%%  - a client certificate signed by the low CA
+%% The server certificate carries both SNI names as SANs so that the
+%% same certificate legitimately serves low.test and high.test, which
+%% is what makes the pre-TLS-1.3 session cache's is_owncert check pass.
+make_cross_ca_pems(PrivDir) ->
+    Sha = sha256,
+    SNIExt = [#'Extension'{extnID = ?'id-ce-subjectAltName',
+                           extnValue = [{dNSName, "low.test"},
+                                        {dNSName, "high.test"}],
+                           critical = false}],
+    %% Call 1: shared server + low client CA.
+    Data1 = public_key:pkix_test_data(
+              #{server_chain =>
+                    #{root => [{digest, Sha}, {key, ssl_test_lib:hardcode_rsa_key(1)}],
+                      intermediates => [[{digest, Sha},
+                                         {key, ssl_test_lib:hardcode_rsa_key(2)}]],
+                      peer => [{digest, Sha}, {extensions, SNIExt},
+                               {key, ssl_test_lib:hardcode_rsa_key(3)}]},
+                client_chain =>
+                    #{root => [{digest, Sha}, {key, ssl_test_lib:hardcode_rsa_key(4)}],
+                      intermediates => [[{digest, Sha},
+                                         {key, ssl_test_lib:hardcode_rsa_key(5)}]],
+                      peer => [{digest, Sha},
+                               {key, ssl_test_lib:hardcode_rsa_key(6)}]}}),
+    [{server_config, SharedServerConf},
+     {client_config, LowClientConf}] =
+        x509_test:gen_pem_config_files(
+          Data1,
+          filename:join(PrivDir, "otp20445_low"),
+          filename:join(PrivDir, "otp20445_shared")),
+
+    %% Call 2: throwaway server + an independent high client CA. Only
+    %% the client (high) CA file is used from this call.
+    Data2 = public_key:pkix_test_data(
+              #{server_chain =>
+                    #{root => [{digest, Sha}], intermediates => [[{digest, Sha}]],
+                      peer => [{digest, Sha}]},
+                client_chain =>
+                    #{root => [{digest, Sha}], intermediates => [[{digest, Sha}]],
+                      peer => [{digest, Sha}]}}),
+    [{server_config, _}, {client_config, HighClientConf}] =
+        x509_test:gen_pem_config_files(
+          Data2,
+          filename:join(PrivDir, "otp20445_high"),
+          filename:join(PrivDir, "otp20445_throwaway")),
+
+    ServerConf = [{certfile, proplists:get_value(certfile, SharedServerConf)},
+                  {keyfile, proplists:get_value(keyfile, SharedServerConf)}],
+    ServerCACertFile = proplists:get_value(cacertfile, SharedServerConf),
+    LowCACertFile = proplists:get_value(cacertfile, LowClientConf),
+    HighCACertFile = proplists:get_value(cacertfile, HighClientConf),
+    LowClientCert = proplists:get_value(certfile, LowClientConf),
+    LowClientKey = proplists:get_value(keyfile, LowClientConf),
+    {ServerConf, ServerCACertFile, LowCACertFile, HighCACertFile,
+     LowClientCert, LowClientKey}.
 
 gen_conf(ClientChainType, ServerChainType, UserClient, UserServer) ->
     gen_conf(ClientChainType, ServerChainType, UserClient, UserServer, ?DEFAULT_CURVE).
