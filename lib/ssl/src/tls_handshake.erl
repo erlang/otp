@@ -348,7 +348,7 @@ handle_client_hello(Version,
 	    {Type, #session{cipher_suite = CipherSuite,
                             own_certificates = [OwnCert |_]} = Session1}
 		= ssl_handshake:select_session(SugesstedId, CipherSuites,
-                                               AvailableHashSigns,
+                                               AvailableHashSigns, HelloExt,
 					       SessIdTracker, Session0#session{ecc = ECCCurve},
                                                Version, SslOpts, CertKeyPairs),
 	    case CipherSuite of
