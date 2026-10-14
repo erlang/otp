@@ -993,6 +993,8 @@ skip_if_unsup(Type, Config) ->
     end.
 
 
+pkey_supported(dsa) ->
+    pkey_supported(dss);
 pkey_supported(Type) ->
     lists:member(Type, proplists:get_value(public_keys, crypto:supports(), [])).
 
