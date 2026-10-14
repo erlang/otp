@@ -77,6 +77,8 @@
          verify_fun_always_run_server/1,
          incomplete_chain_auth/0,
          incomplete_chain_auth/1,
+         incomplete_chain_unrelated_ca_auth/0,
+         incomplete_chain_unrelated_ca_auth/1,
          no_chain_client_auth/0,
          no_chain_client_auth/1,
          invalid_signature_client/0,
@@ -270,6 +272,7 @@ all_version_tests() ->
      verify_fun_always_run_client,
      verify_fun_always_run_server,
      incomplete_chain_auth,
+     incomplete_chain_unrelated_ca_auth,
      no_chain_client_auth,
      invalid_signature_client,
      invalid_signature_server,
@@ -670,6 +673,42 @@ incomplete_chain_auth(Config) when is_list(Config) ->
     ServerOpts = ssl_test_lib:ssl_options(extra_server, [{verify, verify_peer},
                                                          {cacerts, [ServerRoot]} |
                                                          proplists:delete(cacerts, ServerOpts0)], Config),
+    ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
+
+%%--------------------------------------------------------------------
+incomplete_chain_unrelated_ca_auth() ->
+    [{doc, "The server sends [Peer, UnrelatedCA] where no sent certificate "
+      "is the issuer of the peer cert, but the real issuer chain is in the "
+      "client's trust store. The client should complete the chain from the "
+      "trust store instead of failing with unknown_ca (GH-11620, OTP-20394)."}].
+incomplete_chain_unrelated_ca_auth(Config) when is_list(Config) ->
+    Prop = proplists:get_value(tc_group_properties, Config),
+    Group = proplists:get_value(name, Prop),
+    DefaultCertConf = ssl_test_lib:default_ecc_cert_chain_conf(Group),
+    Alg = proplists:get_value(cert_key_alg, Config),
+    %% server and client chains are generated independently, so the
+    %% client's self-signed root is completely unrelated to the server
+    %% leaf's issuer and serves as the "unrelated CA".
+    #{client_config := ClientOpts0,
+      server_config := ServerOpts0} =
+        ssl_test_lib:make_cert_chains_der(Alg,
+                                          [{server_chain, DefaultCertConf},
+                                           {client_chain, DefaultCertConf}]),
+    Leaf = proplists:get_value(cert, ServerOpts0),
+    ServerCas = proplists:get_value(cacerts, ServerOpts0),
+    [UnrelatedRoot | _] = ClientCas = proplists:get_value(cacerts, ClientOpts0),
+    %% Server sends [Leaf, UnrelatedRoot]: no sent cert issues the leaf.
+    ServerOpts =
+        ssl_test_lib:ssl_options(extra_server,
+                                 [{verify, verify_peer},
+                                  {cert, [Leaf, UnrelatedRoot]} |
+                                  proplists:delete(cert, ServerOpts0)], Config),
+    %% Client trusts the real issuer chain (server root + intermediate).
+    ClientOpts =
+        ssl_test_lib:ssl_options(extra_client,
+                                 [{verify, verify_peer},
+                                  {cacerts, ServerCas ++ ClientCas} |
+                                  proplists:delete(cacerts, ClientOpts0)], Config),
     ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
 
 %%--------------------------------------------------------------------
