@@ -490,7 +490,24 @@ extensions(?TLS_1_3 = Version, encrypted_extensions) ->
 server_name() ->
   ?LET(ServerName, sni(),
        ServerName).
-    %% sni().
+
+max_fragment_length() ->
+    ?LET(Enum, elements([1,2,3,4]), #max_frag_enum{enum = Enum}).
+
+status_request(client_hello) ->
+    undefined; %% Should extend this as part of OCSP enhancement
+status_request(server_hello) ->
+    "".
+
+early_data_indication() ->
+    %% In ClientHello and EncryptedExtensions the early_data extension is
+    %% empty (RFC 8446/9846 4.2.10). The max_early_data_size form
+    %% (#early_data_indication_nst{}) is only valid in NewSessionTicket.
+    #early_data_indication{}.
+
+cookie() ->
+    %% Can be bigger, but value is not important here.
+    #cookie{cookie = rand:bytes(20)}.
 
 signature_algs_cert() ->
     ?LET(List,  sig_scheme_list(),
