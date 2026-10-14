@@ -199,6 +199,7 @@ only_simulated() ->
      redirect_permanent_redirect,
      redirect_relative_uri,
      redirect_strips_sensitive_headers,
+     redirect_strips_userinfo_credentials,
      port_in_host_header,
      redirect_port_in_host_header,
      te_header_undefined_no_connection,
@@ -996,6 +997,41 @@ redirect_strips_sensitive_headers(Config) when is_list(Config) ->
     ?assertEqual("false", proplists:get_value("x-received-cookie",              RespHeaders)),
     ?assertEqual("false", proplists:get_value("x-received-referer",             RespHeaders)),
     ?assertEqual("false", proplists:get_value("x-received-origin",              RespHeaders)).
+
+%%-------------------------------------------------------------------------
+redirect_strips_userinfo_credentials() ->
+    [{doc, "URL userinfo (http://user:pass@host/) credentials MUST NOT be "
+      "re-derived into an Authorization header on cross-origin (different "
+      "host/port) redirects. Missed codepath from GHSA-m75x-4vwg-ggjh / "
+      "CVE-2026-48856: httpc_request:handle_user_info/2 re-creates the "
+      "Authorization header from #request.userinfo on every send, "
+      "independently of the header-stripping done in "
+      "httpc_response:redirect/2."}].
+redirect_strips_userinfo_credentials(Config) when is_list(Config) ->
+    %% Origin server issues a 301 to a second sim_http server (different port
+    %% = cross-origin). The original request carries credentials via URL
+    %% userinfo (no explicit Authorization header). The target echoes
+    %% whether it received an Authorization header.
+    Group = group_name(Config),
+    OriginUrl = url(Group, "testuser:s3cr3t", "/301_custom_url.html", Config),
+    RequestOpts = proplists:get_value(request_opts, Config, []),
+    Profile = ?profile(Config),
+    TargetPort = server_start(Group, server_config(Group, Config)),
+    {ok, Host} = inet:gethostname(),
+    TargetUrlStart =
+        case OriginUrl of
+            "http://" ++ _ -> "http://";
+            "https://" ++ _ -> "https://"
+        end,
+    TargetUrl = TargetUrlStart ++ Host ++ ":" ++ integer_to_list(TargetPort) ++
+                    "/capture_sensitive_redirect_target.html",
+
+    RedirectHeaders = [{"x-test-301-url", TargetUrl}],
+
+    {ok, {{_, 200, _}, RespHeaders, _}} =
+        httpc:request(get, {OriginUrl, RedirectHeaders}, [?SSL_NO_VERIFY], RequestOpts, Profile),
+
+    ?assertEqual("false", proplists:get_value("x-received-authorization", RespHeaders)).
 
 %%-------------------------------------------------------------------------
 cookie() ->
