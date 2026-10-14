@@ -49,6 +49,16 @@ process.
 -define(VMODULE,"PDUS").
 -include("snmp_verbosity.hrl").
 
+%% Maximum number of content octets accepted for a BER-encoded integer.
+%% Each value is the minimal BER length of the largest legal value of the
+%% type. Unsigned types need one octet more than their width, for the
+%% leading zero that keeps the value positive.
+-define(INT32_MAX_OCTETS,   4).  %% ASN.1 INTEGER / Integer32 and every
+                                 %% INTEGER (0..2147483647) field
+-define(UINT32_MAX_OCTETS,  5).  %% Counter32, Gauge32/Unsigned32, TimeTicks
+-define(UINT64_MAX_OCTETS,  9).  %% Counter64
+-define(VERSION_MAX_OCTETS, 10). %% msgVersion -- deliberately generous
+
 %% See RFC1155, RFC1157, RFC1901, RFC1902, RFC1905, RFC2272
 
 -dialyzer({nowarn_function, dec_Counter64/1}).
@@ -155,11 +165,11 @@ dec_message_only([48 | Bytes]) ->
     end.
 
 dec_snmp_version(Bytes) ->
-    case (catch dec_int_tag(Bytes, 10)) of
-	{error, {bad_integer, BadInt}} ->
-	    exit({bad_version, BadInt});
+    case (catch dec_int_tag(Bytes, ?VERSION_MAX_OCTETS)) of
 	{SNMPversion, Rest} when is_integer(SNMPversion) andalso is_list(Rest) ->
 	    {dec_snmp_ver(SNMPversion), Rest};
+        {'EXIT', {error, {bad_integer, BadInt}}} ->
+	    exit({bad_version, BadInt});
 	{'EXIT', Reason} ->
 	    exit(Reason)
     end.
@@ -187,12 +197,18 @@ dec_rest_v3_msg_only([48 | Bytes]) -> % starts with header data sequence
     {Size, Tail} = dec_len(Bytes),
     {HBytes, Bytes1} = split_at(Tail, Size, []),
     %% Decode HeaderData
-    {MsgID, HBytes1} = dec_int_tag(HBytes),
+    {MsgID, HBytes1} = try dec_int_tag(HBytes, ?INT32_MAX_OCTETS)
+                       catch exit:{error, {bad_integer, BadSizeMsgId}} -> exit({bad_msg_id_bytesize, BadSizeMsgId})
+                       end,
     chk_msg_id(MsgID),
-    {MsgMaxSize, HBytes2} = dec_int_tag(HBytes1),
+    {MsgMaxSize, HBytes2} = try dec_int_tag(HBytes1, ?INT32_MAX_OCTETS)
+                            catch exit:{error, {bad_integer, BadSizeMaxSize}} -> exit({bad_msg_max_size_bytesize, BadSizeMaxSize})
+                            end,
     chk_msg_max_size(MsgMaxSize),
     {MsgFlags, HBytes3} = dec_oct_str_tag(HBytes2),
-    {MsgSecurityModel, []} = dec_int_tag(HBytes3),
+    {MsgSecurityModel, []} = try dec_int_tag(HBytes3, ?INT32_MAX_OCTETS)
+                             catch exit:{error, {bad_integer, BadSizeSecModel}} -> exit({bad_sec_model_bytesize, BadSizeSecModel})
+                             end,
     chk_msg_sec_model(MsgSecurityModel),
     %% Continue with Message
 %    {MsgSecurityParameters, Bytes2} = dec_oct_str_tag(Bytes1),
@@ -284,8 +300,8 @@ dec_pdu([164 | Bytes]) ->      % It's a trap
     Bytes2 = get_data_bytes(Bytes),
     {Enterprise, Rest1} = dec_oid_tag(Bytes2),
     {{'IpAddress', [_, _, _, _] = AgentAddr}, Rest2} = dec_value(Rest1),
-    {GenericTrap, Rest3} = dec_int_tag(Rest2),
-    {SpecificTrap, Rest4} = dec_int_tag(Rest3),
+    {GenericTrap, Rest3} = dec_int_tag(Rest2, ?INT32_MAX_OCTETS),
+    {SpecificTrap, Rest4} = dec_int_tag(Rest3, ?INT32_MAX_OCTETS),
     {{'TimeTicks', TimeStamp}, VBBytes} = dec_value(Rest4),
     VBs = dec_VBs(VBBytes),
     #trappdu{enterprise = Enterprise, agent_addr = AgentAddr,
@@ -294,9 +310,9 @@ dec_pdu([164 | Bytes]) ->      % It's a trap
 
 dec_pdu([165 | Bytes]) ->    % Bulk
     Bytes2 = get_data_bytes(Bytes),
-    {RequestID, Rest1} = dec_int_tag(Bytes2),
-    {NonRepeaters, Rest2} = dec_int_tag(Rest1),
-    {MaxRepetitions,VBbytes} = dec_int_tag(Rest2),
+    {RequestID, Rest1} = dec_int_tag(Bytes2, ?INT32_MAX_OCTETS),
+    {NonRepeaters, Rest2} = dec_int_tag(Rest1, ?INT32_MAX_OCTETS),
+    {MaxRepetitions,VBbytes} = dec_int_tag(Rest2, ?INT32_MAX_OCTETS),
     VBs = dec_VBs(VBbytes),
     #pdu{type = 'get-bulk-request', request_id = RequestID,
 	 error_status = NonRepeaters, error_index = MaxRepetitions,
@@ -305,15 +321,15 @@ dec_pdu([165 | Bytes]) ->    % Bulk
 dec_pdu([PduTag | Bytes]) ->
     Type = dec_pdu_tag(PduTag),
     Bytes2 = get_data_bytes(Bytes),
-    {RequestID, Rest1} = dec_int_tag(Bytes2),
-    {ErrStat, Rest2} = dec_int_tag(Rest1),
+    {RequestID, Rest1} = dec_int_tag(Bytes2, ?INT32_MAX_OCTETS),
+    {ErrStat, Rest2} = dec_int_tag(Rest1, ?INT32_MAX_OCTETS),
     ErrStatus = case lists:keysearch(ErrStat, 2, errMsgs()) of
 		    {value, {ErrStatName, _ErrStat}} ->
 			ErrStatName;
 		    false ->
 			ErrStat
 		end,
-    {ErrIndex, VarbindsBytes} = dec_int_tag(Rest2),
+    {ErrIndex, VarbindsBytes} = dec_int_tag(Rest2, ?INT32_MAX_OCTETS),
     VBs = dec_VBs(VarbindsBytes),
     #pdu{type = Type, request_id = RequestID, error_status = ErrStatus,
 	 error_index = ErrIndex, varbinds = VBs}.
@@ -345,8 +361,14 @@ dec_individual_VBs([48 | Bytes], OrgIndex, AccVBs) ->
 dec_usm_security_parameters([48 | Bytes1]) ->
     {_Len, Bytes2} = dec_len(Bytes1),
     {MsgAuthEngineID, Bytes3} = dec_oct_str_tag(Bytes2),
-    {MsgAuthEngineBoots, Bytes4} = dec_int_tag(Bytes3),
-    {MsgAuthEngineTime, Bytes5} = dec_int_tag(Bytes4),
+    {MsgAuthEngineBoots, Bytes4} = try dec_int_tag(Bytes3, ?INT32_MAX_OCTETS)
+                                   catch
+                                           exit:{error, {bad_integer, SizeBoots}} -> exit({bad_engine_boots_bytesize, SizeBoots})
+                                   end,
+    {MsgAuthEngineTime, Bytes5} = try dec_int_tag(Bytes4, ?INT32_MAX_OCTETS)
+                                  catch
+                                        exit:{error, {bad_integer, SizeTime}} -> exit({bad_engine_time_bytesize, SizeTime})
+                                  end,
     {MsgUserName, Bytes6} = dec_oct_str_tag(Bytes5),
     {MsgAuthParams, Bytes7} = dec_oct_str_tag(Bytes6),
     {MsgPrivParams, []} = dec_oct_str_tag(Bytes7),
@@ -389,7 +411,7 @@ dec_value([5,0 | T]) ->
 %%     {Value, Rest} = dec_INTEGER(Bytes),
 %%     {{'INTEGER', Value}, Rest};
 dec_value([2 | Bytes]) ->
-    {Value, Rest} = dec_integer_notag(Bytes, 4), %% SMI INTEGER is 32-bit
+    {Value, Rest} = dec_integer_notag(Bytes, ?INT32_MAX_OCTETS), %% SMI INTEGER is 32-bit
     {{'INTEGER', Value}, Rest};
 
 %% OCTET STRING
@@ -419,7 +441,7 @@ dec_value([64 | Bytes]) ->
 dec_value([65 | Bytes]) ->
     %% Counter32 is an unsigned 32 but is actually encoded as 
     %% a signed integer 32 (INTEGER).
-    {Value, Rest} = dec_integer_notag(Bytes, 5),
+    {Value, Rest} = dec_integer_notag(Bytes, ?UINT32_MAX_OCTETS),
     Value2 = 
     	if
     	    (Value >= 0) andalso (Value =< 16#ffffffff) ->
@@ -442,7 +464,7 @@ dec_value([65 | Bytes]) ->
 %%             exit({error, {bad_unsigned32, BadValue}})	
 %%     end;
 dec_value([66 | Bytes]) ->
-    {Value, Rest} = dec_integer_notag(Bytes, 5),
+    {Value, Rest} = dec_integer_notag(Bytes, ?UINT32_MAX_OCTETS),
     Value2 = 
 	if 
 	    (Value >= 0) andalso (Value =< 16#ffffffff) ->
@@ -463,7 +485,7 @@ dec_value([66 | Bytes]) ->
 %%             exit({error, {bad_timeticks, BadValue}})	
 %%     end;
 dec_value([67 | Bytes]) ->
-    {Value, Rest} = dec_integer_notag(Bytes, 5),
+    {Value, Rest} = dec_integer_notag(Bytes, ?UINT32_MAX_OCTETS),
     Value2 = 
 	if
 	    (Value >= 0) andalso (Value =< 16#ffffffff) ->
@@ -493,7 +515,7 @@ dec_value([68 | Bytes]) ->
 %%             exit({error, {bad_counter64, BadValue}})	
 %%     end;
 dec_value([70 | Bytes]) ->
-    case dec_Counter64(Bytes, 9) of
+    case dec_Counter64(Bytes, ?UINT64_MAX_OCTETS) of
         {Value, Rest} when (Value >= 0) andalso
                            (Value =< 18446744073709551615) ->
             {{'Counter64', Value}, Rest};
@@ -534,7 +556,8 @@ dec_Counter64(Bytes, SizeLimit) ->
         {Size, Rest} when (is_integer(SizeLimit) andalso
                             (Size =< SizeLimit)) ->
             dec_Counter64([Size | Rest]);
-        {BadSize, _} -> throw({exit, {bad_counter64_length, BadSize}})
+        {BadSize, _} -> exit({error, {bad_integer,
+                                      {BadSize, ?UINT64_MAX_OCTETS}}})
     end.
 dec_Counter64([CounterLen | Rest0]) ->
     %% This crappola is because we currently uses lists (instead of binary)
@@ -606,22 +629,16 @@ split_at([H|T], N, Acc) ->
 %% All decoding routines return: {Data, RestBytes}
 %%----------------------------------------------------------------------
 
-dec_int_tag([2 | Bytes]) ->
-    dec_integer_notag(Bytes).
 dec_int_tag([2 | Bytes], SizeLimit) ->
     dec_integer_notag(Bytes, SizeLimit).
 
-dec_integer_notag(Ints) ->
-    dec_integer_notag(Ints, infinity).
 dec_integer_notag(Ints, SizeLimit) ->
     case dec_len(Ints) of
-	{Size, Ints2} when SizeLimit =:= infinity ->
-	    do_dec_integer_notag(Size, Ints2);
 	{Size, Ints2} when (is_integer(SizeLimit) andalso 
 			    (Size =< SizeLimit)) ->
 	    do_dec_integer_notag(Size, Ints2);
 	{BadSize, _BadInts2} ->
-	    throw({error, {bad_integer, {BadSize, SizeLimit}}})
+	    exit({error, {bad_integer, {BadSize, SizeLimit}}})
     end.
 
 do_dec_integer_notag(Size, Ints) ->
