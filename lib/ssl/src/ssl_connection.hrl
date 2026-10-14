@@ -66,7 +66,11 @@
                                                | 'undefined',
                         expecting_finished =                  false ::boolean(),
                         renegotiation        :: undefined | {boolean(), From::term() | internal | peer},
-                        resumption = false   :: boolean(),  %% TLS 1.3
+                        resumption = false   :: boolean(), 
+                        %% TLS 1.3 client, session_tickets = auto will store it selected
+                        %% ticket data in a one element list to be use in same functions as
+                        %% manual ticket handling where the list may have more elements.
+                        auto_ticket_data :: list() | 'undefined',
                         change_cipher_spec_sent = false :: boolean(),  %% TLS 1.3
                         sni_guided_cert_selection = false :: boolean(), %% TLS 1.3
                         early_data_accepted = false :: boolean(), %% TLS 1.3
