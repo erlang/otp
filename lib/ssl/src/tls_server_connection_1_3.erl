@@ -526,7 +526,7 @@ do_handle_client_hello(#client_hello{cipher_suites = ClientCiphers,
         {Ref, #alert{} = Alert} ->
             Alert;
         error:Reason:ST ->
-            ?SSL_LOG(info, handshake_error, [{reason, Reason}, {stacktrace, ST}]),
+            ?SSL_LOG(notice, handshake_error, [{reason, Reason}, {stacktrace, ST}]),
             ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER, illegal_parameter_in_client_hello)
     end.
 
