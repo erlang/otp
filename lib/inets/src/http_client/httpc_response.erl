@@ -445,11 +445,12 @@ redirect(Response = {_, Headers, _}, Request) ->
                     %% RFC 9110 §15.4: strip Authorization, Proxy-Authorization,
                     %% Cookie, Origin, and Referer on cross-origin redirects
                     %% (different host or port).
+                    CrossOrigin = Request#request.address =/= {THost, TPort},
                     NewHeaders =
-                        case Request#request.address of
-                            {THost, TPort} ->
+                        case CrossOrigin of
+                            false ->
                                 NewHeaders0;
-                            _ ->
+                            true ->
                                 CrossOriginOther = ["cookie", "origin"],
                                 OtherStripped = lists:filter(
                                     fun({K, _}) ->
@@ -462,11 +463,26 @@ redirect(Response = {_, Headers, _}, Request) ->
                                     referer = undefined,
                                     other = OtherStripped}
                         end,
+                    %% The 'userinfo' field (URL "user:pass@host" credentials)
+                    %% is re-derived into an Authorization header on every
+                    %% send by httpc_request:handle_user_info/2, independent
+                    %% of the 'headers' record above. Without clearing it
+                    %% here, a cross-origin redirect would strip the
+                    %% Authorization header above only to have it
+                    %% immediately reconstructed from the stale userinfo
+                    %% when the redirected request is sent (missed codepath
+                    %% from GHSA-m75x-4vwg-ggjh / CVE-2026-48856).
+                    NewUserInfo =
+                        case CrossOrigin of
+                            false -> Request#request.userinfo;
+                            true  -> ""
+                        end,
                     NewRequest =
                         Request#request{redircount =
                                             Request#request.redircount+1,
                                         scheme = TScheme,
                                         headers = NewHeaders,
+                                        userinfo = NewUserInfo,
                                         address = {THost,TPort},
                                         path = TPath,
                                         pquery = TQuery,
