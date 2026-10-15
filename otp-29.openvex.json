@@ -3,8 +3,8 @@
   "@id": "https://erlang.org/download/vex/otp-29.openvex.json",
   "author": "vexctl",
   "timestamp": "2026-10-01T13:59:59.250027+02:00",
-  "last_updated": "2026-10-06T16:46:39.481894865+02:00",
-  "version": 108,
+  "last_updated": "2026-10-15T01:22:36.234499296Z",
+  "version": 114,
   "statements": [
     {
       "vulnerability": {
@@ -2776,6 +2776,231 @@
       ],
       "status": "not_affected",
       "justification": "vulnerable_code_not_present"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-105236"
+      },
+      "timestamp": "2026-10-15T01:22:36.125054228Z",
+      "products": [
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.0"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.0.1"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.0.2"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.0.3"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.0.4"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.0.5"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.0.6"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.1"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.1.1"
+        },
+        {
+          "@id": "pkg:otp/ssl@11.7"
+        },
+        {
+          "@id": "pkg:otp/ssl@11.7.1"
+        },
+        {
+          "@id": "pkg:otp/ssl@11.7.2"
+        },
+        {
+          "@id": "pkg:otp/ssl@11.7.3"
+        },
+        {
+          "@id": "pkg:otp/ssl@11.7.4"
+        },
+        {
+          "@id": "pkg:otp/ssl@11.7.5"
+        },
+        {
+          "@id": "pkg:otp/ssl@11.7.6"
+        },
+        {
+          "@id": "pkg:otp/ssl@11.7.7"
+        }
+      ],
+      "status": "affected",
+      "action_statement": "Update to any of the following versions: pkg:otp/ssl@11.7.8",
+      "action_statement_timestamp": "2026-10-15T01:22:36.125054228Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-105236"
+      },
+      "timestamp": "2026-10-15T01:22:36.144817278Z",
+      "products": [
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.1.2"
+        },
+        {
+          "@id": "pkg:otp/ssl@11.7.8"
+        }
+      ],
+      "status": "fixed"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-96596"
+      },
+      "timestamp": "2026-10-15T01:22:36.167486839Z",
+      "products": [
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.0"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.0.1"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.0.2"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.0.3"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.0.4"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.0.5"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.0.6"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.1"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.1.1"
+        },
+        {
+          "@id": "pkg:otp/stdlib@8.0"
+        },
+        {
+          "@id": "pkg:otp/stdlib@8.0.1"
+        },
+        {
+          "@id": "pkg:otp/stdlib@8.0.2"
+        },
+        {
+          "@id": "pkg:otp/stdlib@8.0.3"
+        },
+        {
+          "@id": "pkg:otp/stdlib@8.0.4"
+        },
+        {
+          "@id": "pkg:otp/stdlib@8.1"
+        }
+      ],
+      "status": "affected",
+      "action_statement": "Update to any of the following versions: pkg:otp/stdlib@8.1.1",
+      "action_statement_timestamp": "2026-10-15T01:22:36.167486839Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-96596"
+      },
+      "timestamp": "2026-10-15T01:22:36.187662658Z",
+      "products": [
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.1.2"
+        },
+        {
+          "@id": "pkg:otp/stdlib@8.1.1"
+        }
+      ],
+      "status": "fixed"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-94200"
+      },
+      "timestamp": "2026-10-15T01:22:36.210709347Z",
+      "products": [
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.0"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.0.1"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.0.2"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.0.3"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.0.4"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.0.5"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.0.6"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.1"
+        },
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.1.1"
+        },
+        {
+          "@id": "pkg:otp/ssl@11.7"
+        },
+        {
+          "@id": "pkg:otp/ssl@11.7.1"
+        },
+        {
+          "@id": "pkg:otp/ssl@11.7.2"
+        },
+        {
+          "@id": "pkg:otp/ssl@11.7.3"
+        },
+        {
+          "@id": "pkg:otp/ssl@11.7.4"
+        },
+        {
+          "@id": "pkg:otp/ssl@11.7.5"
+        },
+        {
+          "@id": "pkg:otp/ssl@11.7.6"
+        },
+        {
+          "@id": "pkg:otp/ssl@11.7.7"
+        }
+      ],
+      "status": "affected",
+      "action_statement": "Update to any of the following versions: pkg:otp/ssl@11.7.8",
+      "action_statement_timestamp": "2026-10-15T01:22:36.210709347Z"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-94200"
+      },
+      "timestamp": "2026-10-15T01:22:36.234500278Z",
+      "products": [
+        {
+          "@id": "pkg:github/erlang/otp@OTP-29.1.2"
+        },
+        {
+          "@id": "pkg:otp/ssl@11.7.8"
+        }
+      ],
+      "status": "fixed"
     }
   ]
 }
