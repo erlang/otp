@@ -753,8 +753,7 @@ static BOOLEAN_T esaio_completion_connect(ESAIOThreadData*    dataP,
                                           int                 error);
 static void esaio_completion_connect_success(ErlNifEnv*          env,
                                              ESockDescriptor*    descP,
-                                             ESAIOOpDataConnect* opDataP,
-                                             BOOLEAN_T           isOpen);
+                                             ESAIOOpDataConnect* opDataP);
 static void esaio_completion_connect_aborted(ErlNifEnv*          env,
                                              ESockDescriptor*    descP,
                                              ESAIOOpDataConnect* opDataP);
@@ -816,8 +815,7 @@ static void esaio_completion_send_success(ErlNifEnv*       env,
                                           OVERLAPPED*      ovl,
                                           ErlNifEnv*       opEnv,
                                           ErlNifPid*       opCaller,
-                                          ESAIOOpDataSend* opDataP,
-                                          BOOLEAN_T        isOpen);
+                                          ESAIOOpDataSend* opDataP);
 static void esaio_completion_send_aborted(ErlNifEnv*         env,
                                           ESockDescriptor* descP,
                                           ErlNifPid*       opCaller,
@@ -862,8 +860,7 @@ static void esaio_completion_sendv_success(ErlNifEnv*        env,
                                            OVERLAPPED*       ovl,
                                            ErlNifEnv*        opEnv,
                                            ErlNifPid*        opCaller,
-                                           ESAIOOpDataSendv* opDataP,
-                                           BOOLEAN_T         isOpen);
+                                           ESAIOOpDataSendv* opDataP);
 static void esaio_completion_sendv_aborted(ErlNifEnv*        env,
                                            ESockDescriptor*  descP,
                                            ErlNifPid*        opCaller,
@@ -889,8 +886,7 @@ static void esaio_completion_sendto_success(ErlNifEnv*         env,
                                             OVERLAPPED*        ovl,
                                             ErlNifEnv*         opEnv,
                                             ErlNifPid*         opCaller,
-                                            ESAIOOpDataSendTo* opDataP,
-                                            BOOLEAN_T          isOpen);
+                                            ESAIOOpDataSendTo* opDataP);
 static void esaio_completion_sendto_aborted(ErlNifEnv*         env,
                                             ESockDescriptor*   descP,
                                             ErlNifPid*         opCaller,
@@ -916,8 +912,7 @@ static void esaio_completion_sendmsg_success(ErlNifEnv*          env,
                                              OVERLAPPED*         ovl,
                                              ErlNifEnv*          opEnv,
                                              ErlNifPid*          opCaller,
-                                             ESAIOOpDataSendMsg* opDataP,
-                                             BOOLEAN_T           isOpen);
+                                             ESAIOOpDataSendMsg* opDataP);
 static void esaio_completion_sendmsg_aborted(ErlNifEnv*          env,
                                              ESockDescriptor*    descP,
                                              ErlNifPid*          opCaller,
@@ -6974,7 +6969,11 @@ void* esaio_completion_main(void* threadDataP)
 
 
 
-/* descP->readMtx and descp->writeMtx must be acquired
+/* descp->writeMtx must be locked and !IS_OPEN(descP->writeState).
+ * If readMtxMissing is FALSE descP->readMutex must also be locked.
+ * If readMtxMissing is TRUE, descp->writeMtx is released then both
+ * are locked in the right order, and finally descP->readMtx
+ * is released again.
  *
  * After a failure, check if the socket is closing
  * and the close is pending; closerPid is not undefined
@@ -6985,10 +6984,25 @@ void* esaio_completion_main(void* threadDataP)
  * to send the close message, or else socket:close/1 will hang forever.
  */
 static
-void esaio_completion_maybe_stop(ErlNifEnv *env,
-                                 ESockDescriptor *descP) {
-    if ((! IS_OPEN(descP->readState))       &&
-        (! IS_PID_UNDEF(&descP->closerPid)) &&
+void esaio_completion_maybe_stop(ErlNifEnv       *env,
+                                 ESockDescriptor *descP,
+                                 BOOLEAN_T        readMtxMissing) {
+
+    /* Requirement: IS_OPEN should be FALSE */
+    if (readMtxMissing) {
+        MUNLOCK(descP->writeMtx);
+        MLOCK(descP->readMtx);
+        MLOCK(descP->writeMtx);
+
+        /* Check again after reacquiring both locks */
+        if (IS_OPEN(descP->writeState)) {
+            /* Return with just descP->writeMtx locked */
+            MUNLOCK(descP->readMtx);
+            return;
+        }
+    }
+    /* Now we have both locks */
+    if ((! IS_PID_UNDEF(&descP->closerPid)) &&
         (descP->closeEnv         != NULL)   &&
         (descP->readersQ.first   == NULL)   &&
         (descP->writersQ.first   == NULL)   &&
@@ -6999,6 +7013,10 @@ void esaio_completion_maybe_stop(ErlNifEnv *env,
                 "closing and all queues empty; finalize stop\r\n",
                 descP->sock) );
         esaio_stop(env, descP);
+    }
+    if (readMtxMissing) {
+        /* Return with just descP->writeMtx locked */
+        MUNLOCK(descP->readMtx);
     }
 }
 
@@ -7053,7 +7071,6 @@ BOOLEAN_T esaio_completion_connect(ESAIOThreadData*    dataP,
 {
     ErlNifEnv*   env = dataP->env;
     ERL_NIF_TERM reason;
-    BOOLEAN_T    isOpen;
 
     SSDBG( descP,
            ("WIN-ESAIO", "esaio_completion_connect(%d) -> entry\r\n",
@@ -7067,16 +7084,11 @@ BOOLEAN_T esaio_completion_connect(ESAIOThreadData*    dataP,
                ("WIN-ESAIO", "esaio_completion_connect(%d) -> success"
                 "\r\n", descP->sock) );
 
-        MLOCK(descP->readMtx);
         MLOCK(descP->writeMtx);
-        if ((isOpen = IS_OPEN(descP->writeState)))
-            MUNLOCK(descP->readMtx);
 
-        esaio_completion_connect_success(env, descP, opDataP, isOpen);
+        esaio_completion_connect_success(env, descP, opDataP);
 
         MUNLOCK(descP->writeMtx);
-        if (! isOpen)
-            MUNLOCK(descP->readMtx);
         break;
 
     case WSA_OPERATION_ABORTED:
@@ -7105,14 +7117,15 @@ BOOLEAN_T esaio_completion_connect(ESAIOThreadData*    dataP,
                 "esaio_completion_connect(%d) -> unknown failure:"
                 "\r\n   %T"
                 "\r\n", descP->sock, ENO2T(env, error)) );
-        MLOCK(descP->readMtx);
         MLOCK(descP->writeMtx);
 
         esaio_completion_connect_failure(env, descP, opDataP, error);
-        esaio_completion_maybe_stop(env, descP);
+
+        if (! IS_OPEN(descP->writeState)) {
+            esaio_completion_maybe_stop(env, descP, TRUE);
+        }
 
         MUNLOCK(descP->writeMtx);
-        MUNLOCK(descP->readMtx);
         break;
     }
 
@@ -7136,11 +7149,10 @@ BOOLEAN_T esaio_completion_connect(ESAIOThreadData*    dataP,
 static
 void esaio_completion_connect_success(ErlNifEnv*          env,
                                       ESockDescriptor*    descP,
-                                      ESAIOOpDataConnect* opDataP,
-                                      BOOLEAN_T           isOpen)
+                                      ESAIOOpDataConnect* opDataP)
 {
     if (descP->connectorP != NULL) {
-        if (isOpen) {
+        if (IS_OPEN(descP->writeState)) {
             esaio_completion_connect_completed(env, descP, opDataP);
         } else {
             /* A completed (active) request for a socket that is not open.
@@ -7153,12 +7165,10 @@ void esaio_completion_connect_success(ErlNifEnv*          env,
                                     "not active",
                                     env, descP, &descP->connector);
             descP->connectorP = NULL;
-
-            esaio_completion_maybe_stop(env, descP);
-
             descP->writeState &=
                 ~(ESOCK_STATE_CONNECTING | ESOCK_STATE_SELECTED);
 
+            esaio_completion_maybe_stop(env, descP, TRUE);
             esaio_completion_connect_not_active(descP);
         }
     } else {
@@ -7201,7 +7211,9 @@ void esaio_completion_connect_aborted(ErlNifEnv*          env,
         descP->connectorP = NULL;
         descP->writeState &= ~(ESOCK_STATE_CONNECTING | ESOCK_STATE_SELECTED);
 
-        esaio_completion_maybe_stop(env, descP);
+        if (! IS_OPEN(descP->writeState)) {
+            esaio_completion_maybe_stop(env, descP, FALSE);
+        }
 
     } else {
         descP->writeState &= ~(ESOCK_STATE_CONNECTING | ESOCK_STATE_SELECTED);
@@ -7444,12 +7456,15 @@ BOOLEAN_T esaio_completion_accept(ESAIOThreadData*   dataP,
                 "esaio_completion_accept(%d) -> unknown failure"
                 "\r\n", descP->sock) );
         MLOCK(descP->readMtx);
-        MLOCK(descP->writeMtx);
 
         esaio_completion_accept_failure(env, descP, opCaller, opDataP, error);
-        esaio_completion_maybe_stop(env, descP);
 
-        MUNLOCK(descP->writeMtx);
+        if (! IS_OPEN(descP->readState)) {
+            MLOCK(descP->writeMtx);
+            esaio_completion_maybe_stop(env, descP, FALSE);
+            MUNLOCK(descP->writeMtx);
+        }
+
         MUNLOCK(descP->readMtx);
         break;
     }
@@ -7497,7 +7512,7 @@ void esaio_completion_accept_success(ErlNifEnv*         env,
              * A race (completed just as the socket was closed).
              */
             MLOCK(descP->writeMtx);
-            esaio_completion_maybe_stop(env, descP);
+            esaio_completion_maybe_stop(env, descP, FALSE);
             MUNLOCK(descP->writeMtx);
 
             esaio_completion_accept_not_active(descP);
@@ -7573,7 +7588,9 @@ void esaio_completion_accept_aborted(ErlNifEnv*         env,
 
     }
 
-    esaio_completion_maybe_stop(env, descP);
+    if (! IS_OPEN(descP->readState)) {
+        esaio_completion_maybe_stop(env, descP, FALSE);
+    }
 
     /* *Maybe* update socket (read) state
      * (depends on if the queue is now empty)
@@ -7877,7 +7894,6 @@ BOOLEAN_T esaio_completion_send(ESAIOThreadData* dataP,
     ErlNifEnv*     env = dataP->env;
     ESockRequestor req;
     ERL_NIF_TERM   reason;
-    BOOLEAN_T      isOpen;
 
     SSDBG( descP,
            ("WIN-ESAIO", "esaio_completion_send(%d) -> entry with"
@@ -7889,17 +7905,12 @@ BOOLEAN_T esaio_completion_send(ESAIOThreadData* dataP,
         SSDBG( descP,
                ("WIN-ESAIO", "esaio_completion_send(%d) -> no error"
                 "\r\n", descP->sock) );
-        MLOCK(descP->readMtx);
         MLOCK(descP->writeMtx);
-        if ((isOpen = IS_OPEN(descP->writeState)))
-            MUNLOCK(descP->readMtx);
 
         esaio_completion_send_success(env, descP, ovl, opEnv,
-                                      opCaller, opDataP, isOpen);
+                                      opCaller, opDataP);
 
         MUNLOCK(descP->writeMtx);
-        if (! isOpen)
-            MUNLOCK(descP->readMtx);
         break;
 
     case WSA_OPERATION_ABORTED:
@@ -7922,14 +7933,15 @@ BOOLEAN_T esaio_completion_send(ESAIOThreadData* dataP,
                ("WIN-ESAIO",
                 "esaio_completion_send(%d) -> operation unknown failure"
                 "\r\n", descP->sock) );
-        MLOCK(descP->readMtx);
         MLOCK(descP->writeMtx);
 
         esaio_completion_send_failure(env, descP, opCaller, opDataP, error);
-        esaio_completion_maybe_stop(env, descP);
+
+        if (! IS_OPEN(descP->writeState)) {
+            esaio_completion_maybe_stop(env, descP, TRUE);
+        }
 
         MUNLOCK(descP->writeMtx);
-        MUNLOCK(descP->readMtx);
         break;
     }
 
@@ -7962,8 +7974,7 @@ void esaio_completion_send_success(ErlNifEnv*       env,
                                    OVERLAPPED*      ovl,
                                    ErlNifEnv*       opEnv,
                                    ErlNifPid*       opCaller,
-                                   ESAIOOpDataSend* opDataP,
-                                   BOOLEAN_T        isOpen)
+                                   ESAIOOpDataSend* opDataP)
 {
     ESockRequestor req;
 
@@ -7971,7 +7982,7 @@ void esaio_completion_send_success(ErlNifEnv*       env,
                          &opDataP->sendRef,
                          opCaller,
                          &req)) {
-        if (isOpen) {
+        if (IS_OPEN(descP->writeState)) {
             esaio_completion_send_completed(env, descP, ovl, opEnv,
                                             opCaller,
                                             opDataP->sockRef,
@@ -7984,7 +7995,7 @@ void esaio_completion_send_success(ErlNifEnv*       env,
              * Is this even possible?
              * A race (completed just as the socket was closed).
              */
-            esaio_completion_maybe_stop(env, descP);
+            esaio_completion_maybe_stop(env, descP, TRUE);
             esaio_completion_send_not_active(descP);
         }
 
@@ -8054,7 +8065,9 @@ void esaio_completion_send_aborted(ErlNifEnv*       env,
 
     }
 
-    esaio_completion_maybe_stop(env, descP);
+    if (! IS_OPEN(descP->writeState)) {
+        esaio_completion_maybe_stop(env, descP, FALSE);
+    }
 
     /* *Maybe* update socket (write) state
      * (depends on if the queue is now empty)
@@ -8426,7 +8439,6 @@ BOOLEAN_T esaio_completion_sendv(ESAIOThreadData*  dataP,
     ErlNifEnv*     env = dataP->env;
     ESockRequestor req;
     ERL_NIF_TERM   reason;
-    BOOLEAN_T      isOpen;
 
     SSDBG( descP,
            ("WIN-ESAIO", "esaio_completion_sendv(%d) -> entry with"
@@ -8439,17 +8451,12 @@ BOOLEAN_T esaio_completion_sendv(ESAIOThreadData*  dataP,
         SSDBG( descP,
                ("WIN-ESAIO", "esaio_completion_sendv(%d) -> no error"
                 "\r\n", descP->sock) );
-        MLOCK(descP->readMtx);
+
         MLOCK(descP->writeMtx);
-        if ((isOpen = IS_OPEN(descP->writeState)))
-            MUNLOCK(descP->readMtx);
 
         esaio_completion_sendv_success(env, descP, ovl, opEnv,
-                                       opCaller, opDataP, isOpen);
-
+                                       opCaller, opDataP);
         MUNLOCK(descP->writeMtx);
-        if (! isOpen)
-            MUNLOCK(descP->readMtx);
         break;
 
     case WSA_OPERATION_ABORTED:
@@ -8472,14 +8479,15 @@ BOOLEAN_T esaio_completion_sendv(ESAIOThreadData*  dataP,
                ("WIN-ESAIO",
                 "esaio_completion_sendv(%d) -> operation unknown failure"
                 "\r\n", descP->sock) );
-        MLOCK(descP->readMtx);
         MLOCK(descP->writeMtx);
 
         esaio_completion_sendv_failure(env, descP, opCaller, opDataP, error);
-        esaio_completion_maybe_stop(env, descP);
+
+        if (! IS_OPEN(descP->writeState)) {
+            esaio_completion_maybe_stop(env, descP, TRUE);
+        }
 
         MUNLOCK(descP->writeMtx);
-        MUNLOCK(descP->readMtx);
         break;
     }
 
@@ -8511,8 +8519,7 @@ void esaio_completion_sendv_success(ErlNifEnv*        env,
                                     OVERLAPPED*       ovl,
                                     ErlNifEnv*        opEnv,
                                     ErlNifPid*        opCaller,
-                                    ESAIOOpDataSendv* opDataP,
-                                    BOOLEAN_T         isOpen)
+                                    ESAIOOpDataSendv* opDataP)
 {
     ESockRequestor req;
     BOOLEAN_T      cleanup;
@@ -8521,7 +8528,7 @@ void esaio_completion_sendv_success(ErlNifEnv*        env,
                          &opDataP->sendRef,
                          opCaller,
                          &req)) {
-        if (isOpen) {
+        if (IS_OPEN(descP->writeState)) {
             esaio_completion_send_completed(env, descP, ovl, opEnv,
                                             opCaller,
                                             opDataP->sockRef,
@@ -8534,7 +8541,7 @@ void esaio_completion_sendv_success(ErlNifEnv*        env,
              * Is this even possible?
              * A race (completed just as the socket was closed).
              */
-            esaio_completion_maybe_stop(env, descP);
+            esaio_completion_maybe_stop(env, descP, TRUE);
             esaio_completion_send_not_active(descP);
         }
 
@@ -8622,7 +8629,9 @@ void esaio_completion_sendv_aborted(ErlNifEnv*        env,
 
     }
 
-    esaio_completion_maybe_stop(env, descP);
+    if (! IS_OPEN(descP->writeState)) {
+        esaio_completion_maybe_stop(env, descP, FALSE);
+    }
 
     /* *Maybe* update socket (write) state
      * (depends on if the queue is now empty)
@@ -8743,7 +8752,6 @@ BOOLEAN_T esaio_completion_sendto(ESAIOThreadData*   dataP,
     ErlNifEnv*     env = dataP->env;
     ESockRequestor req;
     ERL_NIF_TERM   reason;
-    BOOLEAN_T      isOpen;
 
     SSDBG( descP,
            ("WIN-ESAIO", "esaio_completion_sendto(%d) -> entry"
@@ -8755,17 +8763,12 @@ BOOLEAN_T esaio_completion_sendto(ESAIOThreadData*   dataP,
         SSDBG( descP,
                ("WIN-ESAIO", "esaio_completion_sendto(%d) -> no error"
                 "\r\n", descP->sock) );
-        MLOCK(descP->readMtx);
+
         MLOCK(descP->writeMtx);
-        if ((isOpen = IS_OPEN(descP->writeState)))
-            MUNLOCK(descP->readMtx);
 
         esaio_completion_sendto_success(env, descP, ovl, opEnv,
-                                        opCaller, opDataP, isOpen);
-
+                                        opCaller, opDataP);
         MUNLOCK(descP->writeMtx);
-        if (! isOpen)
-            MUNLOCK(descP->readMtx);
         break;
 
     case WSA_OPERATION_ABORTED:
@@ -8788,14 +8791,15 @@ BOOLEAN_T esaio_completion_sendto(ESAIOThreadData*   dataP,
                ("WIN-ESAIO",
                 "esaio_completion_sendto(%d) -> operation unknown failure"
                 "\r\n", descP->sock) );
-        MLOCK(descP->readMtx);
         MLOCK(descP->writeMtx);
 
         esaio_completion_sendto_failure(env, descP, opCaller, opDataP, error);
-        esaio_completion_maybe_stop(env, descP);
+
+        if (! IS_OPEN(descP->writeState)) {
+            esaio_completion_maybe_stop(env, descP, TRUE);
+        }
 
         MUNLOCK(descP->writeMtx);
-        MUNLOCK(descP->readMtx);
         break;
     }
 
@@ -8826,8 +8830,7 @@ void esaio_completion_sendto_success(ErlNifEnv*         env,
                                      OVERLAPPED*        ovl,
                                      ErlNifEnv*         opEnv,
                                      ErlNifPid*         opCaller,
-                                     ESAIOOpDataSendTo* opDataP,
-                                     BOOLEAN_T          isOpen)
+                                     ESAIOOpDataSendTo* opDataP)
 {
     ESockRequestor req;
 
@@ -8835,7 +8838,7 @@ void esaio_completion_sendto_success(ErlNifEnv*         env,
                          &opDataP->sendRef,
                          opCaller,
                          &req)) {
-        if (isOpen) {
+        if (IS_OPEN(descP->writeState)) {
             esaio_completion_send_completed(env, descP, ovl, opEnv,
                                             opCaller,
                                             opDataP->sockRef,
@@ -8848,7 +8851,7 @@ void esaio_completion_sendto_success(ErlNifEnv*         env,
              * Is this even possible?
              * A race (completed just as the socket was closed).
              */
-            esaio_completion_maybe_stop(env, descP);
+            esaio_completion_maybe_stop(env, descP, TRUE);
             esaio_completion_send_not_active(descP);
         }
 
@@ -8918,7 +8921,9 @@ void esaio_completion_sendto_aborted(ErlNifEnv*         env,
 
     }
 
-    esaio_completion_maybe_stop(env, descP);
+    if (! IS_OPEN(descP->writeState)) {
+        esaio_completion_maybe_stop(env, descP, FALSE);
+    }
 
     /* *Maybe* update socket (write) state
      * (depends on if the queue is now empty)
@@ -9038,7 +9043,6 @@ BOOLEAN_T esaio_completion_sendmsg(ESAIOThreadData*    dataP,
     ErlNifEnv*     env = dataP->env;
     ESockRequestor req;
     ERL_NIF_TERM   reason;
-    BOOLEAN_T      isOpen;
 
     SSDBG( descP,
            ("WIN-ESAIO", "esaio_completion_sendmsg(%d) -> entry with"
@@ -9050,17 +9054,12 @@ BOOLEAN_T esaio_completion_sendmsg(ESAIOThreadData*    dataP,
         SSDBG( descP,
                ("WIN-ESAIO", "esaio_completion_sendmsg(%d) -> no error"
                 "\r\n", descP->sock) );
-        MLOCK(descP->readMtx);
         MLOCK(descP->writeMtx);
-        if ((isOpen = IS_OPEN(descP->writeState)))
-            MUNLOCK(descP->readMtx);
 
         esaio_completion_sendmsg_success(env, descP, ovl, opEnv,
-                                         opCaller, opDataP, isOpen);
+                                         opCaller, opDataP);
 
         MUNLOCK(descP->writeMtx);
-        if (! isOpen)
-            MUNLOCK(descP->readMtx);
         break;
 
     case WSA_OPERATION_ABORTED:
@@ -9083,14 +9082,15 @@ BOOLEAN_T esaio_completion_sendmsg(ESAIOThreadData*    dataP,
                ("WIN-ESAIO",
                 "esaio_completion_sendmsg(%d) -> operation unknown failure"
                 "\r\n", descP->sock) );
-        MLOCK(descP->readMtx);
         MLOCK(descP->writeMtx);
 
         esaio_completion_sendmsg_failure(env, descP, opCaller, opDataP, error);
-        esaio_completion_maybe_stop(env, descP);
+
+        if (! IS_OPEN(descP->writeState)) {
+            esaio_completion_maybe_stop(env, descP, TRUE);
+        }
 
         MUNLOCK(descP->writeMtx);
-        MUNLOCK(descP->readMtx);
         break;
     }
 
@@ -9123,8 +9123,7 @@ void esaio_completion_sendmsg_success(ErlNifEnv*          env,
                                       OVERLAPPED*         ovl,
                                       ErlNifEnv*          opEnv,
                                       ErlNifPid*          opCaller,
-                                      ESAIOOpDataSendMsg* opDataP,
-                                      BOOLEAN_T           isOpen)
+                                      ESAIOOpDataSendMsg* opDataP)
 {
     ESockRequestor req;
 
@@ -9132,7 +9131,7 @@ void esaio_completion_sendmsg_success(ErlNifEnv*          env,
                          &opDataP->sendRef,
                          opCaller,
                          &req)) {
-        if (isOpen) {
+        if (IS_OPEN(descP->writeState)) {
 
             DWORD toWrite = 0;
 
@@ -9159,7 +9158,7 @@ void esaio_completion_sendmsg_success(ErlNifEnv*          env,
              * Is this even possible?
              * A race (completed just as the socket was closed).
              */
-            esaio_completion_maybe_stop(env, descP);
+            esaio_completion_maybe_stop(env, descP, TRUE);
             esaio_completion_send_not_active(descP);
         }
 
@@ -9228,7 +9227,9 @@ void esaio_completion_sendmsg_aborted(ErlNifEnv*          env,
 
     }
 
-    esaio_completion_maybe_stop(env, descP);
+    if (! IS_OPEN(descP->writeState)) {
+        esaio_completion_maybe_stop(env, descP, FALSE);
+    }
 
     /* *Maybe* update socket (write) state
      * (depends on if the queue is now empty)
@@ -9387,12 +9388,15 @@ BOOLEAN_T esaio_completion_recv(ESAIOThreadData* dataP,
                 "esaio_completion_recv(%d) -> operation unknown failure"
                 "\r\n", descP->sock) );
         MLOCK(descP->readMtx);
-        MLOCK(descP->writeMtx);
 
         esaio_completion_recv_failure(env, descP, opCaller, opDataP, error);
-        esaio_completion_maybe_stop(env, descP);
 
-        MUNLOCK(descP->writeMtx);
+        if (! IS_OPEN(descP->readState)) {
+            MLOCK(descP->writeMtx);
+            esaio_completion_maybe_stop(env, descP, FALSE);
+            MUNLOCK(descP->writeMtx);
+        }
+
         MUNLOCK(descP->readMtx);
         break;
     }
@@ -9438,7 +9442,7 @@ void esaio_completion_recv_success(ErlNifEnv*       env,
              * A race (completed just as the socket was closed).
              */
             MLOCK(descP->writeMtx);
-            esaio_completion_maybe_stop(env, descP);
+            esaio_completion_maybe_stop(env, descP, FALSE);
             MUNLOCK(descP->writeMtx);
 
             esaio_completion_recv_not_active(descP);
@@ -9512,7 +9516,9 @@ void esaio_completion_recv_aborted(ErlNifEnv*       env,
 
     }
 
-    esaio_completion_maybe_stop(env, descP);
+    if (! IS_OPEN(descP->readState)) {
+        esaio_completion_maybe_stop(env, descP, FALSE);
+    }
 
     FREE_BIN( &opDataP->buf );
 
@@ -10120,12 +10126,15 @@ BOOLEAN_T esaio_completion_recvfrom(ESAIOThreadData*     dataP,
                 "esaio_completion_recvfrom(%d) -> operation unknown failure"
                 "\r\n", descP->sock) );
         MLOCK(descP->readMtx);
-        MLOCK(descP->writeMtx);
 
         esaio_completion_recvfrom_failure(env, descP, opCaller, opDataP, error);
-        esaio_completion_maybe_stop(env, descP);
 
-        MUNLOCK(descP->writeMtx);
+        if (! IS_OPEN(descP->readState)) {
+            MLOCK(descP->writeMtx);
+            esaio_completion_maybe_stop(env, descP, FALSE);
+            MUNLOCK(descP->writeMtx);
+        }
+
         MUNLOCK(descP->readMtx);
         break;
     }
@@ -10169,7 +10178,7 @@ void esaio_completion_recvfrom_success(ErlNifEnv*           env,
              * A race (completed just as the socket was closed).
              */
             MLOCK(descP->writeMtx);
-            esaio_completion_maybe_stop(env, descP);
+            esaio_completion_maybe_stop(env, descP, FALSE);
             MUNLOCK(descP->writeMtx);
 
             esaio_completion_recv_not_active(descP);
@@ -10243,6 +10252,16 @@ void esaio_completion_recvfrom_more_data(ErlNifEnv*           env,
                                       opDataP->sockRef, // Dest socket
                                       completionInfo);  // Info
 
+        } else {
+            /* More data on a socket that is not open.
+             * Is this even possible?
+             * A race (completed just as the socket was closed).
+             */
+            MLOCK(descP->writeMtx);
+            esaio_completion_maybe_stop(env, descP, FALSE);
+            MUNLOCK(descP->writeMtx);
+
+            esaio_completion_recv_not_active(descP);
         }
 
         FREE_BIN( &opDataP->buf );
@@ -10313,7 +10332,9 @@ void esaio_completion_recvfrom_aborted(ErlNifEnv*           env,
 
     }
 
-    esaio_completion_maybe_stop(env, descP);
+    if (! IS_OPEN(descP->readState)) {
+        esaio_completion_maybe_stop(env, descP, FALSE);
+    }
 
     FREE_BIN( &opDataP->buf );
 
@@ -10728,12 +10749,15 @@ BOOLEAN_T esaio_completion_recvmsg(ESAIOThreadData*    dataP,
                 "esaio_completion_recvmsg(%d) -> unknown operation failure"
                 "\r\n", descP->sock) );
         MLOCK(descP->readMtx);
-        MLOCK(descP->writeMtx);
 
         esaio_completion_recvmsg_failure(env, descP, opCaller, opDataP, error);
-        esaio_completion_maybe_stop(env, descP);
 
-        MUNLOCK(descP->writeMtx);
+        if (! IS_OPEN(descP->readState)) {
+            MLOCK(descP->writeMtx);
+            esaio_completion_maybe_stop(env, descP, FALSE);
+            MUNLOCK(descP->writeMtx);
+        }
+
         MUNLOCK(descP->readMtx);
         break;
     }
@@ -10779,7 +10803,7 @@ void esaio_completion_recvmsg_success(ErlNifEnv*          env,
              * A race (completed just as the socket was closed).
              */
             MLOCK(descP->writeMtx);
-            esaio_completion_maybe_stop(env, descP);
+            esaio_completion_maybe_stop(env, descP, FALSE);
             MUNLOCK(descP->writeMtx);
 
             esaio_completion_recv_not_active(descP);
@@ -10854,7 +10878,9 @@ void esaio_completion_recvmsg_aborted(ErlNifEnv*          env,
 
     }
 
-    esaio_completion_maybe_stop(env, descP);
+    if (! IS_OPEN(descP->readState)) {
+        esaio_completion_maybe_stop(env, descP, FALSE);
+    }
 
     FREE_BIN( &opDataP->data[0] );
     FREE_BIN( &opDataP->ctrl );
