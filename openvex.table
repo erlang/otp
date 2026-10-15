@@ -321,6 +321,33 @@
   ],
   "otp-27": [
     {
+      "pkg:otp/public_key@1.16": "CVE-2026-42789",
+      "status": {
+        "affected": "Update to any of the following versions: pkg:otp/public_key@1.17.1.7",
+        "fixed": [
+          "pkg:otp/public_key@1.17.1.7"
+        ]
+      }
+    },
+    {
+      "pkg:otp/ssl@11.2": "CVE-2026-94200",
+      "status": {
+        "affected": "Update to any of the following versions: pkg:otp/ssl@11.2.12.14",
+        "fixed": [
+          "pkg:otp/ssl@11.2.12.14"
+        ]
+      }
+    },
+    {
+      "pkg:otp/ssl@11.2": "CVE-2026-105236",
+      "status": {
+        "affected": "Update to any of the following versions: pkg:otp/ssl@11.2.12.14",
+        "fixed": [
+          "pkg:otp/ssl@11.2.12.14"
+        ]
+      }
+    },
+    {
       "pkg:otp/ssl@11.2": "CVE-2026-89422",
       "status": {
         "affected": "Update to any of the following versions: pkg:otp/ssl@11.2.12.13",
@@ -1045,6 +1072,33 @@
     }
   ],
   "otp-28": [
+    {
+      "pkg:otp/public_key@1.18": "CVE-2026-42789",
+      "status": {
+        "affected": "Update to any of the following versions: pkg:otp/public_key@1.20.3.6",
+        "fixed": [
+          "pkg:otp/public_key@1.20.3.6"
+        ]
+      }
+    },
+    {
+      "pkg:otp/ssl@11.3": "CVE-2026-94200",
+      "status": {
+        "affected": "Update to any of the following versions: pkg:otp/ssl@11.6.0.7",
+        "fixed": [
+          "pkg:otp/ssl@11.6.0.7"
+        ]
+      }
+    },
+    {
+      "pkg:otp/ssl@11.3": "CVE-2026-105236",
+      "status": {
+        "affected": "Update to any of the following versions: pkg:otp/ssl@11.6.0.7",
+        "fixed": [
+          "pkg:otp/ssl@11.6.0.7"
+        ]
+      }
+    },
     {
       "pkg:otp/ssl@11.3": "CVE-2026-89422",
       "status": {
@@ -2345,6 +2399,42 @@
     }
   ],
   "otp-29": [
+    {
+      "pkg:otp/public_key@1.21": "CVE-2026-42789",
+      "status": {
+        "affected": "Update to any of the following versions: pkg:otp/public_key@1.21.8",
+        "fixed": [
+          "pkg:otp/public_key@1.21.8"
+        ]
+      }
+    },
+    {
+      "pkg:otp/ssl@11.7": "CVE-2026-94200",
+      "status": {
+        "affected": "Update to any of the following versions: pkg:otp/ssl@11.7.8",
+        "fixed": [
+          "pkg:otp/ssl@11.7.8"
+        ]
+      }
+    },
+    {
+      "pkg:otp/stdlib@8.0": "CVE-2026-96596",
+      "status": {
+        "affected": "Update to any of the following versions: pkg:otp/stdlib@8.1.1",
+        "fixed": [
+          "pkg:otp/stdlib@8.1.1"
+        ]
+      }
+    },
+    {
+      "pkg:otp/ssl@11.7": "CVE-2026-105236",
+      "status": {
+        "affected": "Update to any of the following versions: pkg:otp/ssl@11.7.8",
+        "fixed": [
+          "pkg:otp/ssl@11.7.8"
+        ]
+      }
+    },
     {
       "pkg:otp/ssl@11.7": "CVE-2026-89422",
       "status": {
