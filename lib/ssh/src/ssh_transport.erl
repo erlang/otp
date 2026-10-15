@@ -2517,10 +2517,12 @@ hybrid_secret_size(secp256r1) -> 32;
 hybrid_secret_size(secp384r1) -> 48.
 
 validate_hybrid_point(x25519, <<_:?X25519_PUBLICKEY_SIZE/binary>>) -> ok;
-validate_hybrid_point(secp256r1, <<4, _:64/binary>>) -> ok;
-validate_hybrid_point(secp256r1, <<Tag, _:32/binary>>) when Tag == 2; Tag == 3 -> ok;
-validate_hybrid_point(secp384r1, <<4, _:96/binary>>) -> ok;
-validate_hybrid_point(secp384r1, <<Tag, _:48/binary>>) when Tag == 2; Tag == 3 -> ok;
+validate_hybrid_point(secp256r1, <<4, _:(?NISTP256_PUBLICKEY_SIZE - 1)/binary>>) -> ok;
+validate_hybrid_point(secp256r1, <<Tag, _:(?NISTP256_COMPRESSED_PUBLICKEY_SIZE - 1)/binary>>)
+  when Tag == 2; Tag == 3 -> ok;
+validate_hybrid_point(secp384r1, <<4, _:(?NISTP384_PUBLICKEY_SIZE - 1)/binary>>) -> ok;
+validate_hybrid_point(secp384r1, <<Tag, _:(?NISTP384_COMPRESSED_PUBLICKEY_SIZE - 1)/binary>>)
+  when Tag == 2; Tag == 3 -> ok;
 validate_hybrid_point(_, _) -> error(invalid_hybrid_point).
 
 dh_bits(#alg{encrypt = Encrypt,
