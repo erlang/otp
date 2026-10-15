@@ -38,7 +38,7 @@
          import/1,
          kill_yielding/1,
 
-         last_test/1]).
+         last_test/1,  doctests/1]).
 
 -export([id/1]).
 
@@ -65,7 +65,7 @@ all() ->
      import,
      kill_yielding,
 
-     last_test].
+     last_test, doctests].
 
 groups() -> 
     [].
@@ -1312,3 +1312,14 @@ check_yield_coverage([Tuple | Tail], YieldAcc, Err0) ->
     check_yield_coverage(Tail, YieldAcc + Yields, Err1).
 
 id(X) -> X.
+
+doctests(_Config) ->
+    %% Every ```erlang block in this module's docs is now a real, runnable
+    %% doctest (the illustrative call/result snippets that used to lack a
+    %% "1>" shell prompt were converted or merged into their neighboring
+    %% runnable examples), so no skipped_blocks allowance is needed.
+    %%
+    %% version/0 intentionally has no example: it just returns the PCRE
+    %% version string of whatever system built this Erlang/OTP, which
+    %% isn't a meaningful fixed value to demonstrate.
+    ct_doctest:module(re, [{skipped_blocks, 0}, {missing_tests, [{version, 0}]}]).
