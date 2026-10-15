@@ -41,7 +41,7 @@
 	 last_day_of_the_month/1,
 	 local_time_to_universal_time_dst/1,
 	 iso_week_number/1,
-         system_time/1, rfc3339/1]).
+         system_time/1, rfc3339/1, doctests/1]).
 
 -define(START_YEAR, 1947).
 -define(END_YEAR, 2032).
@@ -58,7 +58,7 @@ all() ->
      iso_week_number, system_time, rfc3339, big_gregorian_days,
      gregorian_days_edge_cases, negative_gregorian_days,
      negative_gregorian_seconds, negative_leap_years,
-     negative_day_of_the_week].
+     negative_day_of_the_week, doctests].
 
 groups() ->
     [].
@@ -742,3 +742,25 @@ check_iso_week_number() ->
     {2004, 53} = calendar:iso_week_number({2005, 1, 1}),
     {2007, 1} = calendar:iso_week_number({2007, 1, 1}),
     {2009, 1} = calendar:iso_week_number({2008, 12, 29}).
+
+doctests(_Config) ->
+    %% Run doctests on a peer node with CET timezone to ensure consistent results
+    %% for time-dependent functions like local_time/0 and universal_time/0
+    {ok, Peer, Node} = peer:start_link(#{
+        name => peer:random_name(doctests),
+        args => ["-env", "TZ", "CET"]  %% Set timezone to CET
+    }),
+
+    try
+        %% Run the doctests on the peer node
+        Result = erpc:call(Node, ct_doctest, module,
+                          [calendar,
+                           [{skipped_blocks, 0},
+                            {missing_tests, [{local_time, 0},
+                                           {universal_time, 0}]}]]),
+        Result
+    after
+        %% Stop the peer node
+        peer:stop(Peer)
+    end.
+
