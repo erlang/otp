@@ -38,6 +38,7 @@
 -export([binary_absorption/1,
          integer_absorption/1,
          integer_associativity/1,
+         native_record_subtraction/1,
          tuple_absorption/1,
          tuple_set_limit/1]).
 
@@ -49,6 +50,7 @@ all() ->
      binary_absorption,
      integer_absorption,
      integer_associativity,
+     native_record_subtraction,
      tuple_absorption,
      tuple_set_limit].
 
@@ -142,6 +144,19 @@ integer_associativity(Config) when is_list(Config) ->
     LHS_Meet = beam_types:meet(A, beam_types:meet(B, C)),
     RHS_Meet = beam_types:meet(beam_types:meet(A, B), C),
     #t_integer{elements={5,5}} = LHS_Meet = RHS_Meet,
+
+    ok.
+
+native_record_subtraction(Config) when is_list(Config) ->
+    R1 = #t_record{name={m,a}},
+    R2 = #t_record{name={m,b},type=#{field => missing}},
+    Atom = #t_atom{},
+    A = beam_types:join(Atom, beam_types:join(R1, R2)),
+    B = #t_record{type=#{field => missing}},
+    Expected = beam_types:join(Atom, R1),
+
+    Expected = beam_types:subtract(A, B),
+    Expected = beam_types:meet(A, Expected),
 
     ok.
 

@@ -769,7 +769,8 @@ subtract(#t_union{tuple_set=#t_tuple{}=Tuple}=A, #t_tuple{}=B) ->
 subtract(#t_union{native_record_set=[_|_]=Records0}=A, #t_record{}=B) ->
     %% Filter out all records that are more specific than B.
     NewSet = case [T || T <:- Records0, meet(T, B) =/= T] of
-                 [_|_]=Records -> Records;
+                 [Record] -> Record;
+                 [_,_|_]=Records -> Records;
                  [] -> none
              end,
     shrink_union(A#t_union{native_record_set=NewSet});
