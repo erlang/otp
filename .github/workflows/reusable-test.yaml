@@ -90,6 +90,20 @@ jobs:
           if [ "$APP" != "${MATRIX_TYPE}" ]; then
             mv make_test_dir/${APP}_test "make_test_dir/${MATRIX_TYPE}_test"
           fi
+      - name: Test scheduler utilization with CPU quota
+        if: matrix.type == 'runtime_tools'
+        run: |
+          allowed_cpus=$(awk '/^Cpus_allowed_list:/ {print $2}' /proc/self/status)
+          mkdir -p "$PWD/make_test_dir/quota"
+          docker run --rm --cpus=1 --cpuset-cpus="$allowed_cpus" \
+            --ulimit core=-1 --ulimit nofile=5000:5000 --pids-limit 1024 \
+            -e CTRUN_TIMEOUT=90 -e TEST_NEEDS_RELEASE=true \
+            -e "RELEASE_ROOT=/buildroot/otp/Erlang ∅⊤℞" \
+            -e ARGS="-suite scheduler_SUITE -case weighted_cpu_quota" \
+            -e ERL_ARGS="+S 1:1 +SDcpu 1" \
+            -e EXTRA_ARGS="-ct_hooks cth_surefire [{path,\"/buildroot/otp/lib/runtime_tools/make_test_dir/quota_junit.xml\"}]" \
+            -v "$PWD/make_test_dir/quota:/buildroot/otp/lib/runtime_tools/make_test_dir" \
+            otp "make runtime_tools_test"
       - name: Cleanup tests
         if: ${{ !cancelled() }}
         env:

@@ -2,7 +2,7 @@
 %%
 %% SPDX-License-Identifier: Apache-2.0
 %%
-%% Copyright Ericsson AB 2018-2025. All Rights Reserved.
+%% Copyright Ericsson AB 2018-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -26,10 +26,13 @@
 
 %% Test cases
 -export([basic/1,
-         utilization_disable/1]).
+         utilization_disable/1,
+         weighted_utilization/1,
+         weighted_cpu_quota/1]).
 
 all() -> [basic,
-          utilization_disable].
+          utilization_disable,
+          weighted_utilization].
 
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
@@ -78,6 +81,48 @@ utilization_disable(_Config) ->
 
     undefined = scheduler:get_sample(),
     ok.
+
+
+weighted_utilization(_Config) ->
+    {S0, S1} = weighted_samples(),
+    U = scheduler:utilization(S0, S1),
+    check(U),
+    {total, 0.75, _} = lists:keyfind(total, 1, U),
+    case erlang:system_info(logical_processors_available) of
+        unknown ->
+            false = lists:keymember(weighted, 1, U);
+        LPA ->
+            Capacity = case erlang:system_info(cpu_quota) of
+                           Quota when is_integer(Quota), Quota > 0 ->
+                               min(LPA, Quota);
+                           _ -> LPA
+                       end,
+            Expected = 1.5 / Capacity,
+            {weighted, Weighted, _} = lists:keyfind(weighted, 1, U),
+            true = abs(Weighted - Expected) < 1.0e-9
+    end,
+    ok.
+
+
+%% Run explicitly in CI with a one-CPU quota and at least two available CPUs.
+weighted_cpu_quota(_Config) ->
+    1 = erlang:system_info(cpu_quota),
+    LPA = erlang:system_info(logical_processors_available),
+    true = is_integer(LPA) andalso LPA > 1,
+    {S0, S1} = weighted_samples(),
+    U = scheduler:utilization(S0, S1),
+    check(U),
+    {total, 0.75, _} = lists:keyfind(total, 1, U),
+    {weighted, 1.5, "150.0%"} = lists:keyfind(weighted, 1, U),
+    ok.
+
+
+weighted_samples() ->
+    %% Fixed intervals isolate capacity weighting and dirty-I/O exclusion.
+    {{scheduler_wall_time_all,
+      [{normal, 1, 0, 0}, {cpu, 2, 0, 0}, {io, 3, 0, 0}]},
+     {scheduler_wall_time_all,
+      [{normal, 1, 100, 100}, {cpu, 2, 50, 100}, {io, 3, 100, 100}]}}.
 
 
 check([{total, Tf, Ts} | List]=U) ->
