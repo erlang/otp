@@ -127,6 +127,8 @@ while test -n "$1" ; do
 	    OPTIMIZED_BUILD=true;;
         -O0|-Og)
             ;;
+        -fno-common|-fno-omit-frame-pointer|-std=gnu99)
+            ;;
 	-O*)
 	    # Optimization hardcoded
 	    OPTIMIZE_FLAGS="-Ox -Z7";

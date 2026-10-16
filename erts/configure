@@ -16733,6 +16733,48 @@ if test "x$TERMCAP_LIB" != "x"; then
 
 printf "%s\n" "#define HAVE_TERMCAP 1" >>confdefs.h
 
+
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking whether tputs callback takes a char argument" >&5
+printf %s "checking whether tputs callback takes a char argument... " >&6; }
+        saved_CFLAGS=$CFLAGS
+        CFLAGS="-Werror $CFLAGS"
+        cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+#if defined(HAVE_NCURSES_CURSES_H)
+#  include <ncurses/curses.h>
+#  include <ncurses/term.h>
+#elif defined(HAVE_CURSES_H) && defined(HAVE_TERM_H)
+#  include <curses.h>
+#  include <term.h>
+#endif
+static int putfunc(char c) { return c; }
+
+int
+main (void)
+{
+tputs("", 1, putfunc);
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  tputs_putfunc_takes_char=yes
+else case e in #(
+  e) tputs_putfunc_takes_char=no ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+        CFLAGS=$saved_CFLAGS
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $tputs_putfunc_takes_char" >&5
+printf "%s\n" "$tputs_putfunc_takes_char" >&6; }
+        if test "x$tputs_putfunc_takes_char" = "xyes"
+then :
+
+printf "%s\n" "#define TPUTS_PUTFUNC_TAKES_CHAR 1" >>confdefs.h
+
+fi
 fi
 
 if test "X$host" != "Xwin32"

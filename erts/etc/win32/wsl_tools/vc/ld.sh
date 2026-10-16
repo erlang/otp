@@ -50,7 +50,7 @@ while test -n "$1" ; do
 	-lMSVCRTD|-lmsvcrtd)
 	    STDLIB_FORCED=true;
 	    STDLIB=MSVCRTD.LIB;;
-	-lLIBCMT|-llibcmt)
+        -lLIBCMT|-llibcmt|-mt|-MT)
 	    STDLIB_FORCED=true;
 	    STDLIB=LIBCMT.LIB;;
 	-lLIBCMTD|-llibcmtd)
