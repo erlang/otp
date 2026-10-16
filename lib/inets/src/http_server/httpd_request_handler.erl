@@ -539,7 +539,7 @@ handle_body(#state{headers = Headers, body = Body,
 	_ -> 
 	    Length = list_to_integer(Headers#http_request_h.'content-length'),
 	    MaxChunk = max_client_body_chunk(ConfigDB),
-	    case Length =< MaxBodySize orelse MaxBodySize == nolimit of
+            case Length =< MaxBodySize of
 		true ->
 		    case httpd_request:body_chunk_first(Body, Length, MaxChunk) of 
                         %% This is the case that the we need more data to complete
@@ -587,7 +587,7 @@ handle_expect(#state{headers = Headers, mod =
 	      MaxBodySize) ->
     Length = list_to_integer(Headers#http_request_h.'content-length'),
     case expect(Headers, ModData#mod.http_version, ConfigDB) of
-	continue when (MaxBodySize > Length) orelse (MaxBodySize =:= nolimit) ->
+        continue when MaxBodySize > Length ->
 	    httpd_response:send_status(ModData, 100, ""),
 	    ok;
 	continue when MaxBodySize < Length ->
@@ -791,7 +791,7 @@ max_uri_size(ConfigDB) ->
     httpd_util:lookup(ConfigDB, max_uri_size, ?HTTP_MAX_URI_SIZE).
 
 max_body_size(ConfigDB) ->
-    httpd_util:lookup(ConfigDB, max_body_size, nolimit).
+    httpd_util:lookup(ConfigDB, max_body_size, ?HTTP_MAX_BODY_SIZE).
 
 max_keep_alive_request(ConfigDB) ->
     httpd_util:lookup(ConfigDB, max_keep_alive_request, infinity).
