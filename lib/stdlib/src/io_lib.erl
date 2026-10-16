@@ -74,7 +74,7 @@ used for flattening deep lists.
 -export([fwrite/2,fwrite/3,fread/2,fread/3,format/2,format/3]).
 -export([bfwrite/2, bfwrite/3, bformat/2, bformat/3]).
 -export([scan_format/2,unscan_format/1,build_text/1,build_text/2]).
--export([print/1,print/4,indentation/2]).
+-export([print/1,print/2,print/4,indentation/2]).
 
 -export([write/1,write/2,write/3,write/5,bwrite/2]).
 -export([nl/0,format_prompt/1,format_prompt/2]).
@@ -108,7 +108,8 @@ used for flattening deep lists.
 
 -export_type([chars/0, latin1_string/0, continuation/0,
               fread_error/0, fread_item/0, format_spec/0,
-              chars_limit/0, format_options/0]).
+              chars_limit/0, format_options/0,
+              print_options/0, rec_print_fun/0]).
 
 -dialyzer([{nowarn_function,
             [string_bin_escape_unicode/6,
@@ -117,10 +118,38 @@ used for flattening deep lists.
 
 %%----------------------------------------------------------------------
 
--doc "An possibly deep list containing only `t:char/0`s.".
+-doc "A possibly deep list containing only `t:char/0`s.".
 -type chars() :: [char() | chars()].
 -type latin1_string() :: [unicode:latin1_char()].
 -type depth() :: -1 | non_neg_integer().
+-doc """
+A fun used for printing tuple records
+
+Given a record `Tag` and its field count `NFields`, it returns a list of
+`NFields` field names, or `no` if `Tag`/`NFields` do not identify a known record.
+""".
+-type rec_print_fun() :: fun((Tag :: atom(), NFields :: non_neg_integer()) ->
+                                    'no' | [FieldName :: atom()]).
+
+-doc """
+A map describing print options:
+- `column` is the starting column; defaults to 1.
+- `line_length` is the maximum line length; defaults to 80. The value 0 can be used
+   to specify infinite length, meaning that no line breaks are inserted.
+- `depth` is the maximum print depth; defaults to -1, which means no limitation.
+- `strings` if `true` prints printable lists and binaries as strings, defaults to `true`.
+- `maps_order` is the order used when printing maps; defaults to `undefined`.
+- `record_print_fun` can be used to print tuple records, no default fun is provided.
+""".
+
+-type print_options() ::
+        #{'column' => non_neg_integer(),
+          'line_length' => non_neg_integer(),
+          'depth' => depth(),
+          'strings' => boolean(),
+          'maps_order' => maps:iterator_order(),
+          'record_print_fun' => rec_print_fun()
+         }.
 
 -doc "A continuation as returned by `fread/3`.".
 -opaque continuation() :: {Format :: string(),
@@ -475,16 +504,33 @@ print(Term) ->
     io_lib_pretty:print(Term).
 
 -doc """
-Returns a list of characters that represents `Term`, but breaks representations
-longer than one line into many lines and indents each line sensibly.
+Pretty-print a term.
 
-Also tries to detect and output lists of printable characters as strings.
+Returns a list of characters that represents `Term`, using `Options` to
+control how `Term` is formatted.
+All options are optional; see `t:print_options/0`.
 
-- `Column` is the starting column; defaults to 1.
-- `LineLength` is the maximum line length; defaults to 80. The value 0 can be used
-   to specify infinite length, meaning that no line breaks are inserted.
-- `Depth` is the maximum print depth; defaults to -1, which means no limitation.
+_Example:_
+
+```erlang
+1> RP = fun(foo, 2) -> [f1, f2]; (_,_) -> no end.
+2> Opts = #{strings => false,
+            maps_order => ordered,
+            record_print_fun => RP,
+            line_length => 35}.
+3> lists:flatten(io_lib:print(#{b_key => {foo, 1, 2}, a_key => "Hello"}, Opts)).
+"#{a_key => [72,101,108,108,111],\n  b_key => #foo{f1 = 1,f2 = 2}}"
+```
 """.
+-doc #{ since => ~"OTP @OTP-20463@" }.
+-spec print(Term, Options) -> chars() when
+      Term :: term(),
+      Options :: print_options().
+
+print(Term, Options) when is_map(Options) ->
+    io_lib_pretty:print(Term, Options).
+
+-doc(#{equiv => print(Term, #{column => Column, line_length => LineLength, depth => Depth})}).
 -spec print(Term, Column, LineLength, Depth) -> chars() when
       Term :: term(),
       Column :: non_neg_integer(),
