@@ -677,6 +677,9 @@ static int db_member_hash(DbTable *tbl, Eterm key, Eterm *ret);
 
 static int db_get_element_hash(Process *p, DbTable *tbl, 
 			       Eterm key, int pos, Eterm *ret);
+static int db_get_elements_hash(Process *p, DbTable *tbl, 
+                                Eterm key, Eterm* indexes, int index_cnt,
+                                Eterm *ret);
 
 static int db_erase_object_hash(DbTable *tbl, Eterm object,Eterm *ret);
 
@@ -857,6 +860,7 @@ DbTableMethod db_hash =
     db_put_hash,
     db_get_hash,
     db_get_element_hash,
+    db_get_elements_hash,
     db_member_hash,
     db_erase_hash,
     db_erase_object_hash,
@@ -1600,6 +1604,77 @@ static int db_get_element_hash(Process *p, DbTable *tbl,
 	    goto done;
 	}
 	b1 = b1->next;
+    }
+    retval = DB_ERROR_BADKEY;
+done:
+    RUNLOCK_HASH(lck);
+    return retval;
+}
+
+static int db_get_elements_hash(Process *p, DbTable *tbl, 
+                               Eterm key,
+                               Eterm *positions,
+                               int pos_cnt,
+                               Eterm *ret)
+{
+    DbTableHash *tb = &tbl->hash;
+    HashValue hval;
+    UWord ix;
+    HashDbTerm* b1;
+    erts_rwmtx_t* lck;
+    int retval;
+    
+    hval = MAKE_HASH(key);
+    lck = RLOCK_HASH(tb, hval);
+    ix = hash_to_ix(tb, hval);
+    b1 = BUCKET(tb, ix);
+
+
+    while(b1 != 0) {
+        if (has_live_key(tb,b1,key,hval)) {
+            for(int i=0; i<pos_cnt; i++) {
+                if (unsigned_val(positions[i]) > arityval(b1->dbterm.tpl[0])) {
+                    retval = DB_ERROR_BADITEM;
+                    goto done;
+                }
+            }
+            if (tb->common.status & (DB_BAG | DB_DUPLICATE_BAG)) {
+                HashDbTerm* b;
+                HashDbTerm* b2 = b1->next;
+                Eterm elem_list = NIL;
+
+                while(b2 != NULL && has_key(tb,b2,key,hval)) {
+                    for(int i=0; i<pos_cnt; i++) {
+                        if (unsigned_val(positions[i]) > arityval(b2->dbterm.tpl[0])
+                            && !is_pseudo_deleted(b2)) {
+                            retval = DB_ERROR_BADITEM;
+                            goto done;
+                        }
+                    }
+                    b2 = b2->next;
+                }
+                b = b1;
+                while(b != b2) {
+                    if (!is_pseudo_deleted(b)) {
+                        Eterm *hp;
+                        Eterm copy = db_copy_elements_from_ets(&tb->common, p,
+                                                               &b->dbterm, positions,
+                                                               pos_cnt, &hp, 2);
+                        elem_list = CONS(hp, copy, elem_list);
+                    }
+                    b = b->next;
+                }
+                *ret = elem_list;
+            }
+            else {
+                Eterm* hp;
+                *ret = db_copy_elements_from_ets(&tb->common, p, &b1->dbterm,
+                                                 positions, pos_cnt, &hp, 0);
+            }
+            retval = DB_ERROR_NONE;
+            goto done;
+        }
+        b1 = b1->next;
     }
     retval = DB_ERROR_BADKEY;
 done:

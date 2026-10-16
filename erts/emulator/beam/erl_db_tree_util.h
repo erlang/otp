@@ -106,6 +106,9 @@ int db_get_tree_common(Process *p, DbTableCommon *tb, TreeDbTerm *root, Eterm ke
                        Eterm *ret, DbTableTree *stack_container);
 int db_get_element_tree_common(Process *p, DbTableCommon *tb, TreeDbTerm *root, Eterm key,
                                int ndex, Eterm *ret, DbTableTree *stack_container);
+int db_get_elements_tree_common(Process *p, DbTableCommon *tb, TreeDbTerm *root, Eterm key,
+                                Eterm *indexes, int index_cnt, Eterm *ret,
+                                DbTableTree *stack_container);
 int db_member_tree_common(DbTableCommon *tb, TreeDbTerm *root, Eterm key, Eterm *ret,
                           DbTableTree *stack_container);
 int db_erase_tree_common(DbTable *tbl, TreeDbTerm **root, Eterm key, Eterm *ret,
