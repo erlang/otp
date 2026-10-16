@@ -423,6 +423,8 @@ erts_bs_get_binary_2(Process *p, Uint num_bits, ErlSubBits *sb)
     return result;
 }
 
+#if !((SIZEOF__FLOAT16 == 2) && defined(FLOAT16_IS_CONVERTIBLE))
+
 /* Software fallback for FP16_FROM_FP64: convert a double directly to a
  * binary16 with a single round-to-nearest-even step, mirroring the
  * semantics of the native (_Float16) cast used when _Float16 is
@@ -545,6 +547,7 @@ static ERTS_INLINE float f16_to_f32(Uint16 fp)
     u.u32 = res;
     return u.f32;
 }
+#endif
 
 Eterm
 erts_bs_get_float_2(Process *p, Uint num_bits, unsigned flags, ErlSubBits *sb)

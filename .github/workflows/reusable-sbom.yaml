@@ -126,8 +126,8 @@ jobs:
           FROM otp
           RUN echo 'export PATH="\$HOME/.local/bin:\$PATH"' >> /home/otptest/.profile
           RUN sudo apt-get install -y libicu-dev pip && \
-              pip install click==8.3.1 scancode-toolkit==${SCANCODE_VERSION} reuse && \
-              pip install -U ntia-conformance-checker
+              pip install --break-system-packages click==8.3.1 scancode-toolkit==${SCANCODE_VERSION} reuse && \
+              pip install --break-system-packages -U ntia-conformance-checker
           EOF
 
       - name: Restore from cache
