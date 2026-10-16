@@ -39,7 +39,8 @@
          unscan_format_without_maps_order/1, build_text_without_maps_order/1,
          native_records/1, cover_fread/1,
          format_w_empty_map/1, format_w_limited/1,
-         write_record_maps_order/1, write_record_latin1_encoding/1]).
+         write_record_maps_order/1, write_record_latin1_encoding/1,
+         print_options/1]).
 
 -export([pretty/2, trf/3, rfd/2]).
 
@@ -79,6 +80,7 @@ all() ->
      native_records,
      format_w_empty_map, format_w_limited,
      write_record_maps_order, write_record_latin1_encoding,
+     print_options,
      cover_fread].
 
 %% Error cases for output.
@@ -3536,3 +3538,89 @@ fread_float_not_accepted(Format, [C|Cs], Prefix) ->
 fread_float_not_accepted(_, [], _) ->
     ok.
 
+
+print_options(Config) when is_list(Config) ->
+    P = fun(Term, Opts) ->
+                Chars = lists:flatten(io_lib:print(Term, Opts)),
+                %% bprint/2 must return the UTF-8 binary of the same content.
+                Bin = io_lib:bprint(Term, Opts),
+                true = is_binary(Bin),
+                Bin = unicode:characters_to_binary(Chars),
+                Chars
+        end,
+
+    %% Default behaviour: empty map must equal the default print.
+    "{a,[1,2]}" = P({a,[1,2]}, #{}),
+    "{a,[1,2]}" = lists:flatten(io_lib:print({a,[1,2]}, 1, 80, -1)),
+
+    %% column: a large starting column forces earlier line breaks and
+    %% indents the continuation lines to that column.
+    "[aaaa,\n"
+    "                                        bbbb,\n"
+    "                                        cccc]" =
+        P([aaaa,bbbb,cccc], #{column => 40, line_length => 20}),
+
+    %% line_length: the default of 80 breaks a term wider than 80 chars...
+    "[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,\n"
+    " 29,30,31,32,33,34,35,36,37,38,39,40]" =
+        P(lists:seq(1,40), #{}),
+    %% ...while 0 means infinite -- never insert a line break.
+    "[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,"
+    "28,29,30,31,32,33,34,35,36,37,38,39,40]" =
+        P(lists:seq(1,40), #{line_length => 0}),
+
+    %% depth: limit the print depth.
+    "[1,2|...]" = P([1,2,3,4,5], #{depth => 3}),
+    "[1,2,3,4,5]" = P([1,2,3,4,5], #{depth => -1}),
+
+    %% strings: printable lists as strings (default) or as lists of ints.
+    "\"abc\"" = P("abc", #{}),
+    "\"abc\"" = P("abc", #{strings => true}),
+    "[97,98,99]" = P("abc", #{strings => false}),
+
+    %% maps_order: control the order maps are printed in.
+    "#{a => 1,b => 2,c => 3}" = P(#{c => 3,a => 1,b => 2}, #{maps_order => ordered}),
+    "#{c => 3,b => 2,a => 1}" = P(#{a => 1,b => 2,c => 3}, #{maps_order => reversed}),
+    CmpFun = fun(A, B) -> A >= B end,
+    "#{c => 3,b => 2,a => 1}" = P(#{a => 1,b => 2,c => 3}, #{maps_order => CmpFun}),
+
+    %% record_print_fun: render tagged tuples as records.
+    "#b{f = 5}" = P({b,5}, #{record_print_fun => fun rfd/2}),
+    %% A fun that does not recognise the tag leaves the tuple untouched.
+    "{z,5}" = P({z,5}, #{record_print_fun => fun rfd/2}),
+
+    %% All options combined.
+    "#b{f = \"ab\"}" =
+        P({b,"ab"}, #{column => 1, line_length => 80, depth => -1,
+                      strings => true, maps_order => ordered,
+                      record_print_fun => fun rfd/2}),
+
+    %% --- Error / edge cases -------------------------------------------
+
+    %% Options must be a map; anything else is rejected uniformly,
+    %% including for atomic terms. Same for the binary variant bprint/2.
+    ?assertError(function_clause, io_lib:print(42, foo)),
+    ?assertError(function_clause, io_lib:print(hello, 123)),
+    ?assertError(function_clause, io_lib:print({a,[1,2]}, [{strings, false}])),
+    ?assertError(function_clause, io_lib:bprint(42, foo)),
+    ?assertError(function_clause, io_lib:bprint({a,[1,2]}, [{strings, false}])),
+
+    %% Invalid maps_order value is rejected when a map is printed.
+    ?assertError(badarg, P(#{a => 1,b => 2}, #{maps_order => bananas})),
+
+    %% A record_print_fun with the wrong arity fails when a record-like
+    %% tuple is encountered.
+    ?assertError({badarity,_},
+                 P({b,5}, #{record_print_fun => fun(_Tag) -> no end})),
+
+    %% A non-integer depth leads to an arithmetic error for compound terms.
+    ?assertError(badarith, P([1,2,3], #{depth => foo})),
+
+    %% bprint/1 is the arity-1 binary counterpart; an empty options map
+    %% behaves as bprint/1.
+    B0 = io_lib:bprint({a,[1,2,3]}),
+    true = is_binary(B0),
+    B0 = io_lib:bprint({a,[1,2,3]}, #{}),
+    B0 = unicode:characters_to_binary(lists:flatten(io_lib:print({a,[1,2,3]}))),
+
+    ok.
