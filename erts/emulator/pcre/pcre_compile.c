@@ -9003,7 +9003,13 @@ for (i = 0; i < cd->names_found; i++)
 
 PUT2(slot, 0, groupno);
 memcpy(slot + IMM2_SIZE, name, IN_UCHARS(length));
-slot[IMM2_SIZE + length] = 0;
+
+/* Add a terminating zero and fill the rest of the slot with zeroes so that
+the memory is all initialized. Otherwise valgrind moans about uninitialized
+memory when saving serialized compiled patterns. */
+
+memset(slot + IMM2_SIZE + length, 0,
+  IN_UCHARS(cd->name_entry_size - length - IMM2_SIZE));
 cd->names_found++;
 }
 
