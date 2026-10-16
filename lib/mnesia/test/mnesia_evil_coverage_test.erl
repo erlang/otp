@@ -29,7 +29,8 @@
 
 -export([system_info/1, table_info/1, error_description/1,
          db_node_lifecycle/1, evil_delete_db_node/1, start_and_stop/1,
-         checkpoint/1, checkpoint_del_table/1, table_lifecycle/1, storage_options/1,
+         checkpoint/1, checkpoint_del_table/1, checkpoint_change_table_copy_type/1,
+         table_lifecycle/1, storage_options/1,
          add_copy_conflict/1, add_copy_when_going_down/1, add_copy_when_dst_going_down/1,
          add_copy_with_down/1,
          replica_management/1, clear_table_during_load/1,
@@ -64,7 +65,7 @@ end_per_testcase(Func, Conf) ->
 all() -> 
     [system_info, table_info, error_description,
      db_node_lifecycle, evil_delete_db_node, start_and_stop,
-     checkpoint, checkpoint_del_table,
+     checkpoint, checkpoint_del_table, checkpoint_change_table_copy_type,
      table_lifecycle, storage_options,
      add_copy_conflict,
      add_copy_when_going_down, add_copy_when_dst_going_down, add_copy_with_down,
@@ -476,6 +477,19 @@ checkpoint_del_table(Config) when is_list(Config) ->
     %% Ensure we didn't crash
 
     ?verify_mnesia([Node1], []).
+
+checkpoint_change_table_copy_type(Config) when is_list(Config) ->
+    [Node1] = Nodes = ?acquire_nodes(1, Config),
+
+    Tab = checkpoint_change_table_copy_type,
+    ?match({atomic, ok}, mnesia:create_table(Tab, [{ram_copies, Nodes}])),
+
+    CpName = checkpoint_name,
+    ?match({ok, CpName, Nodes}, mnesia:activate_checkpoint([{name, CpName}, {max, [Tab]}])),
+    ?match({atomic, ok}, mnesia:change_table_copy_type(Tab, Node1, disc_copies)),
+    ?match(ok, mnesia:deactivate_checkpoint(CpName)),
+
+    ?verify_mnesia(Nodes, []).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Create and delete tables
