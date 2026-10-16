@@ -866,3 +866,4 @@ bif records:get_definition/2
 bif erlang:pid_to_binary/1
 bif erlang:port_to_binary/1
 bif erlang:ref_to_binary/1
+bif ets:take_one/2

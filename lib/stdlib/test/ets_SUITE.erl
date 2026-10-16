@@ -8228,6 +8228,10 @@ take(Config) when is_list(Config) ->
     %% Non-immediate key.
     ets:insert(T1, {{'not',<<"immediate">>},ok}),
     [{{'not',<<"immediate">>},ok}] = ets:take(T1, {'not',<<"immediate">>}),
+    [] = ets:take_one(T1, missing),
+    ets:insert(T1, {foo,bar}),
+    [{foo,bar}] = ets:take_one(T1, foo),
+    [] = ets:tab2list(T1),
     %% Same with ordered tables.
     repeat_for_all_ord_set_table_types(
       fun(Opts) ->
@@ -8244,6 +8248,9 @@ take(Config) when is_list(Config) ->
               [{1.0,float}] = ets:take(T2, 1),
               [{2,integer}] = ets:take(T2, 2.0),
               [] = ets:tab2list(T2),
+              ets:insert(T2, {foo,bar}),
+              [{foo,bar}] = ets:take_one(T2, foo),
+              [] = ets:tab2list(T2),
               ets:delete(T2)
       end),
     %% Same with bag.
@@ -8253,6 +8260,27 @@ take(Config) when is_list(Config) ->
     R = lists:sort(ets:take(T3, 1)),
     [{3,3}] = ets:take(T3, 3),
     [] = ets:tab2list(T3),
+    %% take_one/2 removes one object from bag and duplicate_bag tables.
+    ets:insert(T3, [{1,1},{1,2}]),
+    [{1,V}] = ets:take_one(T3, 1),
+    true = lists:member(V, [1,2]),
+    [{1,_}] = ets:lookup(T3, 1),
+    [{1,_}] = ets:take_one(T3, 1),
+    [] = ets:lookup(T3, 1),
+    [] = ets:take_one(T3, 1),
+    [] = ets:take_one(T3, missing),
+    T4 = ets_new(d, [duplicate_bag]),
+    ets:insert(T4, [{k,1},{k,1},{k,2}]),
+    3 = length(ets:lookup(T4, k)),
+    [{k,V2}] = ets:take_one(T4, k),
+    true = lists:member(V2, [1,2]),
+    2 = length(ets:lookup(T4, k)),
+    [{k,_}] = ets:take_one(T4, k),
+    1 = length(ets:lookup(T4, k)),
+    [{k,_}] = ets:take_one(T4, k),
+    [] = ets:lookup(T4, k),
+    [] = ets:take_one(T4, k),
+    ets:delete(T4),
     ets:delete(T1),
     ets:delete(T3),
     ok.
@@ -9690,6 +9718,7 @@ error_info(_Config) ->
          {table, 2},                            %Not BIF.
 
          {take, ['$Tab', no_key], [no_fail]},
+         {take_one, ['$Tab', no_key], [no_fail]},
 
          {test_ms, 2},                          %Not BIF.
          {to_dets, 2},                          %Not BIF.
