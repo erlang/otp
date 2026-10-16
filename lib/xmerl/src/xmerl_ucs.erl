@@ -562,7 +562,7 @@ is_incharset(In,Charset) when is_list(In) ->
 	    {error,unsupported_charset};
 	{error,_} ->
 	    false;
-	[Int] when is_integer(Int) ->
+        L when is_list(L) ->
 	    true
     end.
 
