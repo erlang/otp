@@ -739,12 +739,8 @@ strip_bytes(_, []) ->
     [].
 
 new_async(#data{env = #env{socket_opts_tab = Tab}}) ->
-    Read = fun(Key, Def) ->
-                   try ets:lookup_element(Tab, Key, 2)
-                   catch _:_ -> Def
-                   end
-           end,
-    #async{high = Read(high_watermark, 8192), low = Read(low_watermark, 4096)}.
+    #async{high = ssl_shared_opts:get_high_watermark(Tab, 8192),
+           low = ssl_shared_opts:get_low_watermark(Tab, 4096)}.
 
 log_error(Atom) when is_atom(Atom) ->
     ?SSL_LOG(notice, "ssl send socket error", Atom);
