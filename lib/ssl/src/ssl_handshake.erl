@@ -1951,6 +1951,12 @@ get_ec_curve(#'OTPSubjectPublicKeyInfo'{
                                                              order = Order,
                                                              cofactor = Cofactor}}}}) ->
     curve_to_atom(Curve, Base, Order, Cofactor);
+get_ec_curve(#'OTPSubjectPublicKeyInfo'{
+                algorithm = #'PublicKeyAlgorithm'{algorithm = ?'id-Ed25519'}}) ->
+    ed25519;
+get_ec_curve(#'OTPSubjectPublicKeyInfo'{
+                algorithm = #'PublicKeyAlgorithm'{algorithm = ?'id-Ed448'}}) ->
+    ed448;
 get_ec_curve(_) ->
     unsupported.
 

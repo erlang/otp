@@ -1713,6 +1713,20 @@ validate_key_compatibility(PublicKeyAlgo, RSAKeySize, [CertSignAlg|CertSignAlgs]
         false ->
             select_sign_algo(PublicKeyAlgo, RSAKeySize, CertSignAlgs, OwnSignAlgs, Curve)
     end;
+validate_key_compatibility(PublicKeyAlgo, RSAKeySize, [CertSignAlg|CertSignAlgs], OwnSignAlgs, Curve)
+  when PublicKeyAlgo =:= eddsa ->
+    %% In TLS 1.3 the EdDSA signature scheme is bound to a specific curve
+    %% (RFC 8446 4.2.3 / RFC 8032): eddsa_ed25519 -> ed25519, eddsa_ed448 ->
+    %% ed448. The certificate key's curve MUST match the scheme's curve,
+    %% otherwise the announced CertificateVerify scheme would not match the
+    %% key/signature actually used.
+    {_ , Sign, PeerCurve} = ssl_cipher:scheme_to_components(CertSignAlg),
+    case Sign =:= eddsa andalso Curve =:= PeerCurve of
+        true ->
+            {ok, CertSignAlg};
+        false ->
+            select_sign_algo(PublicKeyAlgo, RSAKeySize, CertSignAlgs, OwnSignAlgs, Curve)
+    end;
 validate_key_compatibility(_, _, [CertSignAlg|_], _, _) ->
     {ok, CertSignAlg}.
 
