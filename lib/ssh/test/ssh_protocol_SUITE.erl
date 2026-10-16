@@ -79,6 +79,7 @@
          kex_strict_violation_new_keys/1,
          kex_strict_violation/1,
          kex_strict_violation_2/1,
+         kex_strict_violation_pre_kexinit/1,
          kex_strict_msg_unknown/1,
          dh_kexdh_init_e_out_of_bounds/1,
          gex_client_init_option_groups/1,
@@ -189,7 +190,8 @@ suite() ->
         end,
     SkipTc = [kex_strict_negotiated,
               kex_strict_violation,
-              kex_strict_violation_2],
+              kex_strict_violation_2,
+              kex_strict_violation_pre_kexinit],
     [{ct_hooks,[ts_install_cth,
                 {cth_events,
                  [{verify_fun, VerifyFun},
@@ -247,6 +249,7 @@ groups() ->
                 kex_strict_violation_new_keys,
                 kex_strict_violation,
                 kex_strict_violation_2,
+                kex_strict_violation_pre_kexinit,
                 kex_strict_msg_unknown,
                 dh_kexdh_init_e_out_of_bounds]},
      {service_requests, [], [bad_service_name,
@@ -358,6 +361,7 @@ init_per_testcase(TC, Config) when TC == kex_strict_negotiated;
                                    TC == kex_strict_violation_new_keys;
                                    TC == kex_strict_violation;
                                    TC == kex_strict_violation_2;
+                                   TC == kex_strict_violation_pre_kexinit;
                                    TC == kex_strict_msg_unknown ->
     Level = ssh_test_lib:get_log_level(),
     ssh_test_lib:set_log_level(debug),
@@ -430,6 +434,7 @@ end_per_testcase(TC, Config) when TC == kex_strict_negotiated;
                                   TC == kex_strict_violation_new_keys;
                                   TC == kex_strict_violation;
                                   TC == kex_strict_violation_2;
+                                  TC == kex_strict_violation_pre_kexinit;
                                   TC == kex_strict_msg_unknown ->
     ssh_test_lib:set_log_level(proplists:get_value(saved_log_level, Config)),
     Config;
@@ -1622,6 +1627,51 @@ kex_strict_violation(Config) ->
     [kex_strict_helper(Config, TestProcedure(Procedure), Reason) ||
         Procedure = {_, Reason, _} <- TestFlows],
     ct:log("==== END ====="),
+    ok.
+
+%%%----------------------------------------------------------------
+%%% A non-KEXINIT message before the peer's first KEXINIT is a strict KEX
+%%% violation (detected in verify_kexinit_is_first_msg/3): the server must
+%%% disconnect with KEY_EXCHANGE_FAILED, not a generic "Internal error".
+kex_strict_violation_pre_kexinit(Config0) ->
+    Config = ssh_test_lib:add_log_handler(?FUNCTION_NAME, Config0),
+    {ok, InitialState} = ssh_trpt_test_lib:exec(
+                           [{set_options, [print_ops, print_seqnums, print_messages]}]),
+    {ok, _} =
+        ssh_trpt_test_lib:exec(
+          [{connect,
+            ssh_test_lib:server_host(Config), ssh_test_lib:server_port(Config),
+            [{preferred_algorithms,[{kex,[?DEFAULT_KEX]},
+                                    {cipher,?DEFAULT_CIPHERS}]},
+             {silently_accept_hosts, true},
+             {recv_ext_info, false},
+             {user_dir, ssh_test_lib:user_dir(Config)},
+             {user_interaction, false}
+            | proplists:get_value(extra_options,Config,[])
+            ]},
+           receive_hello,
+           {send, hello},
+           %% A non-KEXINIT message before our own KEXINIT. It is accepted
+           %% at receive time (strict KEX is not negotiated yet) but advances
+           %% the server recv_sequence. The following KEXINIT then negotiates
+           %% strict KEX and verify_kexinit_is_first_msg/3 retroactively
+           %% rejects the handshake because recv_sequence =/= 1.
+           {send, ssh_msg_ignore},
+           {send, ssh_msg_kexinit},
+           close_socket],
+          InitialState),
+    ct:sleep(100),
+    {ok, Events} = ssh_test_lib:get_log_events(Config),
+    ssh_test_lib:rm_log_handler(?FUNCTION_NAME),
+    ct:log("Events = ~p", [Events]),
+    %% Precondition: strict KEX was actually negotiated by the server
+    %% (otherwise verify_kexinit_is_first_msg/3 would not fire at all).
+    true = ssh_test_lib:kex_strict_negotiated(server, Events),
+    %% Assert the server disconnected with reason 3 (KEY_EXCHANGE_FAILED).
+    %% The pre-fix bug reported reason 11 "Internal error" here, so matching
+    %% the reason code (not just "a violation happened") makes this a guard.
+    true = ssh_test_lib:event_logged(
+             server, Events, "code = 3 [RFC4253 11.1]: Key exchange failed"),
     ok.
 
 kex_strict_violation_2(Config0) ->
