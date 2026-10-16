@@ -74,7 +74,7 @@ used for flattening deep lists.
 -export([fwrite/2,fwrite/3,fread/2,fread/3,format/2,format/3]).
 -export([bfwrite/2, bfwrite/3, bformat/2, bformat/3]).
 -export([scan_format/2,unscan_format/1,build_text/1,build_text/2]).
--export([print/1,print/2,print/4,indentation/2]).
+-export([print/1,print/2,print/4,bprint/1,bprint/2,indentation/2]).
 
 -export([write/1,write/2,write/3,write/5,bwrite/2]).
 -export([nl/0,format_prompt/1,format_prompt/2]).
@@ -539,6 +539,30 @@ print(Term, Options) when is_map(Options) ->
 
 print(Term, Column, LineLength, Depth) ->
     io_lib_pretty:print(Term, Column, LineLength, Depth).
+
+-doc(#{equiv => bprint(Term, #{})}).
+-doc(#{since => ~"OTP @OTP-20463@"}).
+-spec bprint(Term) -> unicode:unicode_binary() when
+      Term :: term().
+
+bprint(Term) ->
+    bprint(Term, #{}).
+
+-doc """
+Returns a UTF-8 encoded binary that represents `Term`.
+
+This is the binary counterpart of `print/2`: the content is identical to
+`print(Term, Options)`, only the result is a binary instead of a list of
+characters. See `t:print_options/0` for the available options.
+""".
+-doc(#{since => ~"OTP @OTP-20463@"}).
+-spec bprint(Term, Options) -> unicode:unicode_binary() when
+      Term :: term(),
+      Options :: print_options().
+
+bprint(Term, Options) when is_map(Options) ->
+    {Bin, _Sz, _Col} = io_lib_pretty:print_bin(Term, Options),
+    Bin.
 
 -doc "Returns the indentation if `String` has been printed, starting at `StartIndent`.".
 -spec indentation(String, StartIndent) -> integer() when
