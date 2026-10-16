@@ -1553,22 +1553,18 @@ call_fun_before_load(Config) ->
     end,
     ok.
 
-%% The export table keeps a flat index next to its hash tables. Check that it
-%% agrees with them, and that calls and erlang:function_exported/3 through it
-%% get the right answers, through growth, stubs, reloading, deletion, on_load
-%% and tracing.
+%% The export table is a flat index over one list of exports. Check that they
+%% agree, and that calls and erlang:function_exported/3 through the index get
+%% the right answers, through growth, stubs, reloading, deletion, on_load and
+%% tracing.
 export_accelerator(_Config) ->
-    case erts_debug:get_internal_state(export_accelerator) of
-        false ->
-            {skip, "export accelerator not compiled in"};
-        {Size0, Used0, 0} ->
-            %% Exports are never removed, so use new names on every run. Each
-            %% module adds 4 exports: enough to grow the index.
-            N = (Size0 * 7 div 10 - Used0) div 4 + 100,
-            case accel_room(4 * N + 100) of
-                true -> export_accelerator(Size0, N);
-                false -> {skip, "no room for more exports"}
-            end
+    {Size0, Used0, 0} = erts_debug:get_internal_state(export_accelerator),
+    %% Exports are never removed, so use new names on every run. Each module
+    %% adds 4 exports: enough to grow the index.
+    N = (Size0 * 7 div 10 - Used0) div 4 + 100,
+    case accel_room(4 * N + 100) of
+        true -> export_accelerator(Size0, N);
+        false -> {skip, "no room for more exports"}
     end.
 
 export_accelerator(Size0, N) ->
@@ -1610,6 +1606,13 @@ export_accelerator_test(Size0, Mods, Late, OnLoad) ->
     false = erlang:function_exported(export_accel_missing, f, 0),
     false = erlang:function_exported(export_accel_missing, g, 1),
     false = erlang:function_exported(Some, nofun, 0),
+
+    %% false:false/0 packs to the empty key, so it's kept outside the index.
+    {'EXIT', {undef, [{false, false, [], _} | _]}} =
+        (catch apply(id(false), id(false), [])),
+    false = erlang:function_exported(false, false, 0),
+    Unpacked = erlang:make_fun(false, false, 0),
+    Unpacked = erlang:make_fun(id(false), id(false), 0),
 
     %% A stub that later gets a definition.
     {'EXIT', {undef, _}} = (catch apply(id(Late), f, [])),
@@ -1672,14 +1675,10 @@ export_accelerator_test(Size0, Mods, Late, OnLoad) ->
 %% so that most of them find each one just after another published it.
 %% Meanwhile, erlang:function_exported/3 must flip once for a loaded module.
 export_accelerator_concurrent(_Config) ->
-    case erts_debug:get_internal_state(export_accelerator) of
-        false ->
-            {skip, "export accelerator not compiled in"};
-        {Size0, Used0, 0} ->
-            case accel_room(Size0 * 7 div 10 - Used0 + 1100) of
-                true -> export_accelerator_concurrent(Size0, Used0);
-                false -> {skip, "no room for more exports"}
-            end
+    {Size0, Used0, 0} = erts_debug:get_internal_state(export_accelerator),
+    case accel_room(Size0 * 7 div 10 - Used0 + 1100) of
+        true -> export_accelerator_concurrent(Size0, Used0);
+        false -> {skip, "no room for more exports"}
     end.
 
 export_accelerator_concurrent(Size0, Used0) ->
