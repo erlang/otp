@@ -203,7 +203,15 @@ handle_options(Role, OptsList0, Opts0) when is_map(Opts0),
                               %% A value set in config or options. Replace the current.
                               {M#{K => V1,
                                   key_cb_options => [{K,V1} | maps:get(key_cb_options,M)]},
-                               [{K,V1} | PL]
+                               case lists:keymember(K, 1, PL) of
+                                   true ->
+                                       %% Given in the option list: checked
+                                       %% once, at its own position, in save/3
+                                       PL;
+                                   false ->
+                                       %% From config or application env
+                                       [{K,V1} | PL]
+                               end
                               };
 
                           {append,V1} ->
@@ -255,7 +263,7 @@ check_and_save(OptsList, OptionDefinitions, InitialMap) ->
 maybe_add_fake_passwd_checker(server, Options) ->
     case ?GET_OPT(pwdfun, Options) of
         undefined ->
-            ?PUT_INTERNAL_OPT({fake_passwd_checker, make_passwd_fun("fake")}, Options);
+            ?PUT_INTERNAL_OPT({fake_passwd_checker, make_fake_passwd_fun()}, Options);
         _ ->
             Options
     end;
@@ -952,26 +960,43 @@ default(common) ->
             }
      }.
 
+%% Fake checker for unknown users (GHSA-3w6p-vwhf-wvp4): runs one PBKDF2
+%% per check so the timing matches a real checker, but needs no
+%% precomputed hash at daemon start (ERIERL-1375).
+make_fake_passwd_fun() ->
+    make_passwd_fun(false, ignored).
+
 make_passwd_fun(PlainPwd) ->
-    PlainPwdBin = unicode:characters_to_binary(PlainPwd),
+    make_passwd_fun(true, PlainPwd).
+
+make_passwd_fun(Real, PlainPwd) ->
     Salt = crypto:strong_rand_bytes(?SSH_PKBDF2_KEYLENGTH),
-    HashedPwd = crypto:pbkdf2_hmac(?SSH_PKBDF2_DIGEST,
+    HashedPwd =
+        case Real of
+            true ->
+                PlainPwdBin = unicode:characters_to_binary(PlainPwd),
+                crypto:pbkdf2_hmac(?SSH_PKBDF2_DIGEST,
                                    PlainPwdBin, Salt,
                                    ?SSH_PKBDF2_ITERATIONS,
-                                   ?SSH_PKBDF2_KEYLENGTH),
+                                   ?SSH_PKBDF2_KEYLENGTH);
+            false ->
+                undefined
+        end,
     fun
         Chk(PlainCheckPwd) when is_binary(PlainCheckPwd) ->
             HashedCheckPwd = crypto:pbkdf2_hmac(?SSH_PKBDF2_DIGEST,
                                                 PlainCheckPwd, Salt,
                                                 ?SSH_PKBDF2_ITERATIONS,
                                                 ?SSH_PKBDF2_KEYLENGTH),
-            crypto:hash_equals(HashedPwd, HashedCheckPwd);
+            case Real of
+                true -> crypto:hash_equals(HashedPwd, HashedCheckPwd);
+                false -> false
+            end;
         Chk(PlainCheckPwd) when is_list(PlainCheckPwd) ->
             Chk(unicode:characters_to_binary(PlainCheckPwd));
         Chk(_) ->
             false
     end.
-
 
 %%%================================================================
 %%%================================================================

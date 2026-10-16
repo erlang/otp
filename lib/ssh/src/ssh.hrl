@@ -1073,9 +1073,11 @@ supporting ext-info.
 
   > #### Warning {: .warning }
   >
-  > Note that this is very insecure due to the plain-text passwords; it is
-  > intended for test purposes. Use the [`pwdfun`](`m:ssh#option-pwdfun`) option
-  > to handle the password checking instead.
+  > Note that this is very insecure, as the passwords are provided in plain
+  > text in the options; it is intended for test purposes. It also adds
+  > password-hashing work to every daemon start. Use the
+  > [`pwdfun`](`m:ssh#option-pwdfun`) option to handle the password checking
+  > instead.
 
 - **`pk_check_user`{: #option-pk_check_user }** - Enables checking of the
   [client's user name](`t:authentication_client_options/0`) in the server when
