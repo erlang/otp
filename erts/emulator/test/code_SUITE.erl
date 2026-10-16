@@ -1564,17 +1564,30 @@ export_accelerator(_Config) ->
         {Size0, Used0, 0} ->
             %% Exports are never removed, so use new names on every run. Each
             %% module adds 4 exports: enough to grow the index.
-            Tag = "_" ++ integer_to_list(erlang:unique_integer([positive])),
-            Late = list_to_atom("export_accel_late" ++ Tag),
-            OnLoad = list_to_atom("export_accel_on_load" ++ Tag),
-            Mods = [list_to_atom("export_accel_" ++ integer_to_list(I) ++ Tag)
-                    || I <- lists:seq(1, (Size0 * 7 div 10 - Used0) div 4 + 100)],
-            try
-                export_accelerator_test(Size0, Mods, Late, OnLoad)
-            after
-                accel_delete([Late, OnLoad | Mods])
+            N = (Size0 * 7 div 10 - Used0) div 4 + 100,
+            case accel_room(4 * N + 100) of
+                true -> export_accelerator(Size0, N);
+                false -> {skip, "no room for more exports"}
             end
     end.
+
+export_accelerator(Size0, N) ->
+    Tag = "_" ++ integer_to_list(erlang:unique_integer([positive])),
+    Late = list_to_atom("export_accel_late" ++ Tag),
+    OnLoad = list_to_atom("export_accel_on_load" ++ Tag),
+    Mods = [list_to_atom("export_accel_" ++ integer_to_list(I) ++ Tag)
+            || I <- lists:seq(1, N)],
+    try
+        export_accelerator_test(Size0, Mods, Late, OnLoad)
+    after
+        accel_delete([Late, OnLoad | Mods])
+    end.
+
+%% Each run grows the index to its next size and exports are never removed, so
+%% a node that has run these cases a few times (ct_run -repeat) reaches the
+%% export limit.
+accel_room(Need) ->
+    erlang:system_info(export_count) + Need < erlang:system_info(export_limit).
 
 export_accelerator_test(Size0, Mods, Late, OnLoad) ->
     {Bulk, OneByOne} = lists:split(length(Mods) div 2, Mods),
@@ -1663,15 +1676,21 @@ export_accelerator_concurrent(_Config) ->
         false ->
             {skip, "export accelerator not compiled in"};
         {Size0, Used0, 0} ->
-            Tag = "_" ++ integer_to_list(erlang:unique_integer([positive])),
-            Mod = list_to_atom("export_accel_concurrent" ++ Tag),
-            Late = list_to_atom("export_accel_late" ++ Tag),
-            {module, Mod} = code:load_binary(Mod, "", accel_module(Mod, 1, [])),
-            try
-                export_accelerator_concurrent_test(Mod, Late, Tag, Size0, Used0)
-            after
-                accel_delete([Mod, Late])
+            case accel_room(Size0 * 7 div 10 - Used0 + 1100) of
+                true -> export_accelerator_concurrent(Size0, Used0);
+                false -> {skip, "no room for more exports"}
             end
+    end.
+
+export_accelerator_concurrent(Size0, Used0) ->
+    Tag = "_" ++ integer_to_list(erlang:unique_integer([positive])),
+    Mod = list_to_atom("export_accel_concurrent" ++ Tag),
+    Late = list_to_atom("export_accel_late" ++ Tag),
+    {module, Mod} = code:load_binary(Mod, "", accel_module(Mod, 1, [])),
+    try
+        export_accelerator_concurrent_test(Mod, Late, Tag, Size0, Used0)
+    after
+        accel_delete([Mod, Late])
     end.
 
 export_accelerator_concurrent_test(Mod, Late, Tag, Size0, Used0) ->
