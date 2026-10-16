@@ -1792,6 +1792,8 @@ ERL_NIF_TERM esaio_open_plain(ErlNifEnv*       env,
     descP->domain   = domain;
     descP->type     = type;
     descP->protocol = proto;
+    /* A socket we just created cannot have SO_LINGER set */
+    descP->closeMayBlock = FALSE;
 
     SSDBG2( dbg, ("WIN-ESAIO",
                   "esaio_open_plain -> add to completion port\r\n") );
@@ -2605,6 +2607,7 @@ ERL_NIF_TERM esaio_accept_accepted(ErlNifEnv*       env,
 
     MLOCK(descP->writeMtx);
 
+    accDescP->closeMayBlock = descP->closeMayBlock;
     accDescP->rBufSz   = descP->rBufSz;  // Inherit buffer size
     accDescP->rCtrlSz  = descP->rCtrlSz; // Inherit buffer size
     accDescP->wCtrlSz  = descP->wCtrlSz; // Inherit buffer size
@@ -7698,6 +7701,7 @@ void esaio_completion_accept_completed(ErlNifEnv*         env,
 
             MLOCK(descP->writeMtx);
 
+            accDescP->closeMayBlock = descP->closeMayBlock;
             accDescP->rBufSz   = descP->rBufSz;  // Inherit buffer size
             accDescP->rCtrlSz  = descP->rCtrlSz; // Inherit buffer size
             accDescP->wCtrlSz  = descP->wCtrlSz; // Inherit buffer size
