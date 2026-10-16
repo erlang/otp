@@ -9267,19 +9267,38 @@ The possible flags are:
   active all the time between the two measurements.
 
   Another (probably more) useful value is to calculate total scheduler utilization
-  weighted against maximum amount of available CPU time:
+  weighted against the detected CPU capacity:
 
   ```erlang
-  > WeightedSchedulerUtilization = (TotalSchedulerUtilization
-                                    * (erlang:system_info(schedulers)
-                                       + erlang:system_info(dirty_cpu_schedulers)))
-                                   / erlang:system_info(logical_processors_available).
+  > CpuCapacity = case erlang:system_info(logical_processors_available) of
+        unknown -> unknown;
+        LPA ->
+            case erlang:system_info(cpu_quota) of
+                Quota when is_integer(Quota), Quota > 0 -> min(LPA, Quota);
+                _ -> LPA
+            end
+    end,
+    WeightedSchedulerUtilization = case CpuCapacity of
+        unknown -> unknown;
+        _ -> (TotalSchedulerUtilization
+              * (erlang:system_info(schedulers)
+                 + erlang:system_info(dirty_cpu_schedulers))) / CpuCapacity
+    end.
   0.9769136803764825
   ```
 
-  This weighted scheduler utilization will reach `1.0` when schedulers are active
-  the same amount of time as maximum available CPU time. If more schedulers exist
-  than available logical processors, this value may be greater than `1.0`.
+  This weighted scheduler utilization will reach `1.0` when scheduler active
+  wall time equals the time represented by the detected CPU capacity, using
+  the minimum of
+  `logical_processors_available` and a known `cpu_quota` as CPU capacity, or
+  `logical_processors_available` when the quota is unknown. The CPU quota is
+  reported as an integer and does not represent fractional CPU quotas exactly.
+  The value cannot be calculated when `logical_processors_available` is
+  `unknown`.
+
+  Scheduler active wall time includes time when an active scheduler thread is
+  not scheduled by the operating system. Weighted scheduler utilization is
+  therefore not a measurement of CPU execution time and may exceed `1.0`.
 
   As of ERTS version 9.0, the Erlang runtime system will as default have more
   schedulers than logical processors. This due to the dirty schedulers.
