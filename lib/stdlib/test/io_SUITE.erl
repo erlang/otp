@@ -3539,9 +3539,15 @@ fread_float_not_accepted(_, [], _) ->
     ok.
 
 
-%% Test io_lib:print/2 with every documented option and some error cases.
 print_options(Config) when is_list(Config) ->
-    P = fun(Term, Opts) -> lists:flatten(io_lib:print(Term, Opts)) end,
+    P = fun(Term, Opts) ->
+                Chars = lists:flatten(io_lib:print(Term, Opts)),
+                %% bprint/2 must return the UTF-8 binary of the same content.
+                Bin = io_lib:bprint(Term, Opts),
+                true = is_binary(Bin),
+                Bin = unicode:characters_to_binary(Chars),
+                Chars
+        end,
 
     %% Default behaviour: empty map must equal the default print.
     "{a,[1,2]}" = P({a,[1,2]}, #{}),
@@ -3554,9 +3560,14 @@ print_options(Config) when is_list(Config) ->
     "                                        cccc]" =
         P([aaaa,bbbb,cccc], #{column => 40, line_length => 20}),
 
-    %% line_length: 0 means infinite -- never insert a line break.
-    "[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20]" =
-        P(lists:seq(1,20), #{line_length => 0}),
+    %% line_length: the default of 80 breaks a term wider than 80 chars...
+    "[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,\n"
+    " 29,30,31,32,33,34,35,36,37,38,39,40]" =
+        P(lists:seq(1,40), #{}),
+    %% ...while 0 means infinite -- never insert a line break.
+    "[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,"
+    "28,29,30,31,32,33,34,35,36,37,38,39,40]" =
+        P(lists:seq(1,40), #{line_length => 0}),
 
     %% depth: limit the print depth.
     "[1,2|...]" = P([1,2,3,4,5], #{depth => 3}),
@@ -3587,10 +3598,12 @@ print_options(Config) when is_list(Config) ->
     %% --- Error / edge cases -------------------------------------------
 
     %% Options must be a map; anything else is rejected uniformly,
-    %% including for atomic terms.
+    %% including for atomic terms. Same for the binary variant bprint/2.
     ?assertError(function_clause, io_lib:print(42, foo)),
     ?assertError(function_clause, io_lib:print(hello, 123)),
     ?assertError(function_clause, io_lib:print({a,[1,2]}, [{strings, false}])),
+    ?assertError(function_clause, io_lib:bprint(42, foo)),
+    ?assertError(function_clause, io_lib:bprint({a,[1,2]}, [{strings, false}])),
 
     %% Invalid maps_order value is rejected when a map is printed.
     ?assertError(badarg, P(#{a => 1,b => 2}, #{maps_order => bananas})),
@@ -3602,5 +3615,12 @@ print_options(Config) when is_list(Config) ->
 
     %% A non-integer depth leads to an arithmetic error for compound terms.
     ?assertError(badarith, P([1,2,3], #{depth => foo})),
+
+    %% bprint/1 is the arity-1 binary counterpart; an empty options map
+    %% behaves as bprint/1.
+    B0 = io_lib:bprint({a,[1,2,3]}),
+    true = is_binary(B0),
+    B0 = io_lib:bprint({a,[1,2,3]}, #{}),
+    B0 = unicode:characters_to_binary(lists:flatten(io_lib:print({a,[1,2,3]}))),
 
     ok.
