@@ -1129,7 +1129,8 @@ loop(Cpid, Data) ->
 %%% --------------------------------------------------------------------
 do_start_tls(Data=#eldap{using_tls=true}, _, _, _) ->
     {{error,tls_already_started}, Data};
-do_start_tls(Data=#eldap{fd=FD} , TlsOptions, Timeout, Controls) ->
+do_start_tls(Data=#eldap{fd=FD, host=Host}, TlsOptions0, Timeout, Controls) ->
+    TlsOptions = add_server_name_indication(Host, TlsOptions0),
     case catch exec_start_tls(Data, Controls) of
 	{ok,NewData} ->
 	    case ssl:connect(FD,TlsOptions,Timeout) of
@@ -1145,6 +1146,18 @@ do_start_tls(Data=#eldap{fd=FD} , TlsOptions, Timeout, Controls) ->
 	{error,Error}      -> {{error,Error},Data};
 	Else               -> {{error,Else},Data}
     end.
+
+%%% Use the host we connect to for SNI unless one was already set.
+add_server_name_indication(Host, Opts) when is_atom(Host) ->
+    add_server_name_indication(atom_to_list(Host), Opts);
+add_server_name_indication(Host, Opts) when is_list(Host) ->
+    case lists:keymember(server_name_indication, 1, Opts) of
+	true  -> Opts;
+	%% SNI should not contain a trailing dot that a hostname may have.
+	false -> [{server_name_indication, string:strip(Host, right, $.)} | Opts]
+    end;
+add_server_name_indication(_NotAHostname, Opts) ->
+    Opts.
 
 -define(START_TLS_OID, "1.3.6.1.4.1.1466.20037").
 
