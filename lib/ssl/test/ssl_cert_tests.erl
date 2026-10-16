@@ -66,7 +66,9 @@
          hello_retry_client_auth_empty_cert_accepted/0,
          hello_retry_client_auth_empty_cert_accepted/1,
          hello_retry_client_auth_empty_cert_rejected/0,
-         hello_retry_client_auth_empty_cert_rejected/1
+         hello_retry_client_auth_empty_cert_rejected/1,
+         eddsa_curve_binding_client_auth/0,
+         eddsa_curve_binding_client_auth/1
          ]).
 
 -export([test_ciphers/2, openssl_ciphers/0]).
@@ -486,7 +488,38 @@ hello_retry_client_auth_empty_cert_rejected(Config) ->
                                             [{versions, ['tlsv1.2','tlsv1.3']}, {verify, verify_peer} | ClientOpts0]), 
        
     ssl_test_lib:basic_alert(ClientOpts, ServerOpts, Config, certificate_required).
+%%--------------------------------------------------------------------
+eddsa_curve_binding_client_auth() ->
+      [{doc, "TLS 1.3 client auth: an Ed25519 client certificate must be "
+        "paired with the eddsa_ed25519 scheme (not eddsa_ed448) in "
+        "CertificateVerify, even when the server offers both EdDSA schemes "
+        "with ed448 listed first (RFC 8446 4.2.3). Regression test for "
+        "OTP-20468."}].
+ eddsa_curve_binding_client_auth(Config) ->
+      %% init_per_group(eddsa, ...) in ssl_cert_SUITE generates Ed25519
+      %% chains for both client and server
+      ClientOpts0 = ssl_test_lib:ssl_options(client_cert_opts, Config),
+      ServerOpts0 = ssl_test_lib:ssl_options(server_cert_opts, Config),
+      ServerOpts = [{versions, ['tlsv1.3']},
+                    {verify, verify_peer},
+                    {fail_if_no_peer_cert, true},
+                    %% ed448 deliberately first: pre-fix code would pick it
+                    %% for the Ed25519 client key and emit a mismatched
+                    %% CertificateVerify that this server then rejects.
+                    {signature_algs, [eddsa_ed448, eddsa_ed25519]}
+                    | ServerOpts0],
+      ClientOpts = [{versions, ['tlsv1.3']},
+                    {verify, verify_peer},
+                    {signature_algs, [eddsa_ed448, eddsa_ed25519]}
+                    | ClientOpts0],
+      %% With the fix the handshake completes; without it the server
+      %% rejects the CertificateVerify (illegal_parameter / decrypt_error).
+      ssl_test_lib:basic_test(ClientOpts, ServerOpts, Config).
 
+
+%%--------------------------------------------------------------------
+%% Internal functions  -----------------------------------------------
+%%--------------------------------------------------------------------
 test_ciphers(_, 'tlsv1.3' = Version) ->
     Ciphers = ssl:cipher_suites(default, Version),
     ?CT_LOG("Version ~p Testing  ~p~n", [Version, Ciphers]),
@@ -523,6 +556,7 @@ test_ciphers(Kex, Version) ->
 openssl_ciphers() ->
     Str = os:cmd("openssl ciphers"),
     string:split(string:strip(Str, right, $\n), ":", all).
+
 
 %%--------------------------------------------------------------------
 %% Internal functions  -----------------------------------------------
