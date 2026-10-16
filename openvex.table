@@ -330,6 +330,33 @@
       }
     },
     {
+      "pkg:otp/inets@9.2": "CVE-2026-48856",
+      "status": {
+        "affected": "Update to any of the following versions: pkg:otp/inets@9.3.2.8",
+        "fixed": [
+          "pkg:otp/inets@9.3.2.8"
+        ]
+      }
+    },
+    {
+      "pkg:otp/snmp@5.16": "CVE-2026-70405",
+      "status": {
+        "affected": "Update to any of the following versions: pkg:otp/snmp@5.18.2.2",
+        "fixed": [
+          "pkg:otp/snmp@5.18.2.2"
+        ]
+      }
+    },
+    {
+      "pkg:otp/public_key@1.16": "CVE-2026-42789",
+      "status": {
+        "affected": "Update to any of the following versions: pkg:otp/public_key@1.17.1.7",
+        "fixed": [
+          "pkg:otp/public_key@1.17.1.7"
+        ]
+      }
+    },
+    {
       "pkg:otp/ssl@11.2": "CVE-2026-94200",
       "status": {
         "affected": "Update to any of the following versions: pkg:otp/ssl@11.2.12.14",
@@ -1072,6 +1099,33 @@
     }
   ],
   "otp-28": [
+    {
+      "pkg:otp/public_key@1.18": "CVE-2026-42789",
+      "status": {
+        "affected": "Update to any of the following versions: pkg:otp/public_key@1.20.3.6",
+        "fixed": [
+          "pkg:otp/public_key@1.20.3.6"
+        ]
+      }
+    },
+    {
+      "pkg:otp/inets@9.4": "CVE-2026-48856",
+      "status": {
+        "affected": "Update to any of the following versions: pkg:otp/inets@9.6.2.4",
+        "fixed": [
+          "pkg:otp/inets@9.6.2.4"
+        ]
+      }
+    },
+    {
+      "pkg:otp/snmp@5.19": "CVE-2026-70405",
+      "status": {
+        "affected": "Update to any of the following versions: pkg:otp/snmp@5.20.2.3",
+        "fixed": [
+          "pkg:otp/snmp@5.20.2.3"
+        ]
+      }
+    },
     {
       "pkg:otp/public_key@1.18": "CVE-2026-42789",
       "status": {
@@ -2399,6 +2453,33 @@
     }
   ],
   "otp-29": [
+    {
+      "pkg:otp/public_key@1.21": "CVE-2026-42789",
+      "status": {
+        "affected": "Update to any of the following versions: pkg:otp/public_key@1.21.8",
+        "fixed": [
+          "pkg:otp/public_key@1.21.8"
+        ]
+      }
+    },
+    {
+      "pkg:otp/inets@9.7": "CVE-2026-48856",
+      "status": {
+        "affected": "Update to any of the following versions: pkg:otp/inets@9.8.1",
+        "fixed": [
+          "pkg:otp/inets@9.8.1"
+        ]
+      }
+    },
+    {
+      "pkg:otp/snmp@5.20.3": "CVE-2026-70405",
+      "status": {
+        "affected": "Update to any of the following versions: pkg:otp/snmp@5.20.6",
+        "fixed": [
+          "pkg:otp/snmp@5.20.6"
+        ]
+      }
+    },
     {
       "pkg:otp/public_key@1.21": "CVE-2026-42789",
       "status": {
