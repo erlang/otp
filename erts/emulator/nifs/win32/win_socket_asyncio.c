@@ -6944,14 +6944,14 @@ void* esaio_completion_main(void* threadDataP)
                                             numBytes, save_errno);
             break;
 
-        }
 
+        }
 
         SGDBG( ("WIN-ESAIO", "esaio_completion_main -> free OVERLAPPED\r\n") );
 
         FREE(opP);
 
-        
+
     } /* while (!done) */
 
     SGDBG( ("WIN-ESAIO", "esaio_completion_main -> terminating\r\n") );
@@ -6965,6 +6965,59 @@ void* esaio_completion_main(void* threadDataP)
     SGDBG( ("WIN-ESAIO", "esaio_completion_main -> done\r\n") );
 
     return threadDataP;
+}
+
+
+
+/* descp->writeMtx must be locked and !IS_OPEN(descP->writeState).
+ * If readMtxMissing is FALSE descP->readMutex must also be locked.
+ * If readMtxMissing is TRUE, descp->writeMtx is released then both
+ * are locked in the right order, and finally descP->readMtx
+ * is released again.
+ *
+ * After a failure, check if the socket is closing
+ * and the close is pending; closerPid is not undefined
+ * and closeEnv != NULL.
+ *
+ * If so check that all request queues are empty, meaning this
+ * is the last operation in progress, then call esaio_stop()
+ * to send the close message, or else socket:close/1 will hang forever.
+ */
+static
+void esaio_completion_maybe_stop(ErlNifEnv       *env,
+                                 ESockDescriptor *descP,
+                                 BOOLEAN_T        readMtxMissing) {
+
+    /* Requirement: IS_OPEN should be FALSE */
+    if (readMtxMissing) {
+        MUNLOCK(descP->writeMtx);
+        MLOCK(descP->readMtx);
+        MLOCK(descP->writeMtx);
+
+        /* Check again after reacquiring both locks */
+        if (IS_OPEN(descP->writeState)) {
+            /* Return with just descP->writeMtx locked */
+            MUNLOCK(descP->readMtx);
+            return;
+        }
+    }
+    /* Now we have both locks */
+    if ((! IS_PID_UNDEF(&descP->closerPid)) &&
+        (descP->closeEnv         != NULL)   &&
+        (descP->readersQ.first   == NULL)   &&
+        (descP->writersQ.first   == NULL)   &&
+        (descP->acceptorsQ.first == NULL)) {
+        SSDBG( descP,
+               ("WIN-ESAIO",
+                "esaio_completion (%d) -> "
+                "closing and all queues empty; finalize stop\r\n",
+                descP->sock) );
+        esaio_stop(env, descP);
+    }
+    if (readMtxMissing) {
+        /* Return with just descP->writeMtx locked */
+        MUNLOCK(descP->readMtx);
+    }
 }
 
 
@@ -7030,6 +7083,7 @@ BOOLEAN_T esaio_completion_connect(ESAIOThreadData*    dataP,
         SSDBG( descP,
                ("WIN-ESAIO", "esaio_completion_connect(%d) -> success"
                 "\r\n", descP->sock) );
+
         MLOCK(descP->writeMtx);
 
         esaio_completion_connect_success(env, descP, opDataP);
@@ -7066,6 +7120,10 @@ BOOLEAN_T esaio_completion_connect(ESAIOThreadData*    dataP,
         MLOCK(descP->writeMtx);
 
         esaio_completion_connect_failure(env, descP, opDataP, error);
+
+        if (! IS_OPEN(descP->writeState)) {
+            esaio_completion_maybe_stop(env, descP, TRUE);
+        }
 
         MUNLOCK(descP->writeMtx);
         break;
@@ -7107,10 +7165,10 @@ void esaio_completion_connect_success(ErlNifEnv*          env,
                                     "not active",
                                     env, descP, &descP->connector);
             descP->connectorP = NULL;
-
             descP->writeState &=
                 ~(ESOCK_STATE_CONNECTING | ESOCK_STATE_SELECTED);
 
+            esaio_completion_maybe_stop(env, descP, TRUE);
             esaio_completion_connect_not_active(descP);
         }
     } else {
@@ -7153,14 +7211,10 @@ void esaio_completion_connect_aborted(ErlNifEnv*          env,
         descP->connectorP = NULL;
         descP->writeState &= ~(ESOCK_STATE_CONNECTING | ESOCK_STATE_SELECTED);
 
-        /* The socket not being open (assumed closing),
-         * means we are in the closing phase...
-         */
         if (! IS_OPEN(descP->writeState)) {
-
-            esaio_stop(env, descP);
-
+            esaio_completion_maybe_stop(env, descP, FALSE);
         }
+
     } else {
         descP->writeState &= ~(ESOCK_STATE_CONNECTING | ESOCK_STATE_SELECTED);
     }
@@ -7405,6 +7459,12 @@ BOOLEAN_T esaio_completion_accept(ESAIOThreadData*   dataP,
 
         esaio_completion_accept_failure(env, descP, opCaller, opDataP, error);
 
+        if (! IS_OPEN(descP->readState)) {
+            MLOCK(descP->writeMtx);
+            esaio_completion_maybe_stop(env, descP, FALSE);
+            MUNLOCK(descP->writeMtx);
+        }
+
         MUNLOCK(descP->readMtx);
         break;
     }
@@ -7451,6 +7511,10 @@ void esaio_completion_accept_success(ErlNifEnv*         env,
              * Is this even possible?
              * A race (completed just as the socket was closed).
              */
+            MLOCK(descP->writeMtx);
+            esaio_completion_maybe_stop(env, descP, FALSE);
+            MUNLOCK(descP->writeMtx);
+
             esaio_completion_accept_not_active(descP);
         }
     } else {
@@ -7524,43 +7588,8 @@ void esaio_completion_accept_aborted(ErlNifEnv*         env,
 
     }
 
-    /* The socket not being open (assumed closing),
-     * means we are in the closing phase...
-     */
-
-    SSDBG( descP,
-           ("WIN-ESAIO",
-            "%s(%d) -> "
-            "maybe send close message => "
-            "\r\n   is socket (read) open: %s"
-            "\r\n",
-            __FUNCTION__, descP->sock, B2S((IS_OPEN(descP->readState)))) );
-
     if (! IS_OPEN(descP->readState)) {
-
-        /* We can only send the 'close' message to the closer
-         * when all requests has been processed!
-         */
-
-        /* Check "our" queue */
-        if (descP->acceptorsQ.first == NULL) {
-
-            /* Check "other" queue(s) and if there is a closer pid */
-            if ((descP->readersQ.first == NULL) &&
-                (descP->writersQ.first == NULL)) {
-
-                SSDBG( descP,
-                       ("WIN-ESAIO",
-                        "%s(%d) -> "
-                        "all queues are empty => "
-                        "\r\n   send close message"
-                        "\r\n",
-                        __FUNCTION__, descP->sock) );
-
-                esaio_stop(env, descP);
-
-            }
-        }
+        esaio_completion_maybe_stop(env, descP, FALSE);
     }
 
     /* *Maybe* update socket (read) state
@@ -7907,7 +7936,11 @@ BOOLEAN_T esaio_completion_send(ESAIOThreadData* dataP,
         MLOCK(descP->writeMtx);
 
         esaio_completion_send_failure(env, descP, opCaller, opDataP, error);
-        
+
+        if (! IS_OPEN(descP->writeState)) {
+            esaio_completion_maybe_stop(env, descP, TRUE);
+        }
+
         MUNLOCK(descP->writeMtx);
         break;
     }
@@ -7962,6 +7995,7 @@ void esaio_completion_send_success(ErlNifEnv*       env,
              * Is this even possible?
              * A race (completed just as the socket was closed).
              */
+            esaio_completion_maybe_stop(env, descP, TRUE);
             esaio_completion_send_not_active(descP);
         }
 
@@ -7999,7 +8033,7 @@ void esaio_completion_send_success(ErlNifEnv*       env,
  */
 
 static
-void esaio_completion_send_aborted(ErlNifEnv*         env,
+void esaio_completion_send_aborted(ErlNifEnv*       env,
                                    ESockDescriptor* descP,
                                    ErlNifPid*       opCaller,
                                    ESAIOOpDataSend* opDataP)
@@ -8031,43 +8065,8 @@ void esaio_completion_send_aborted(ErlNifEnv*         env,
 
     }
 
-    /* The socket not being open (assumed closing),
-     * means we are in the closing phase...
-     */
-
-    SSDBG( descP,
-           ("WIN-ESAIO",
-            "esaio_completion_send_aborted(%d) -> "
-            "maybe send close message => "
-            "\r\n   is socket (write) open: %s"
-            "\r\n",
-            descP->sock, B2S((IS_OPEN(descP->writeState)))) );
-
     if (! IS_OPEN(descP->writeState)) {
-
-        /* We can only send the 'close' message to the closer
-         * when all requests has been processed!
-         */
-
-        /* Check "our" queue */
-        if (descP->writersQ.first == NULL) {
-
-            /* Check "other" queue(s) and if there is a closer pid */
-            if ((descP->readersQ.first == NULL) &&
-                (descP->acceptorsQ.first == NULL)) {
-
-                SSDBG( descP,
-                       ("WIN-ESAIO",
-                        "esaio_completion_send_aborted(%d) -> "
-                        "all queues are empty => "
-                        "\r\n   send close message"
-                        "\r\n",
-                        descP->sock) );
-
-                esaio_stop(env, descP);
-
-            }
-        }
+        esaio_completion_maybe_stop(env, descP, FALSE);
     }
 
     /* *Maybe* update socket (write) state
@@ -8452,11 +8451,11 @@ BOOLEAN_T esaio_completion_sendv(ESAIOThreadData*  dataP,
         SSDBG( descP,
                ("WIN-ESAIO", "esaio_completion_sendv(%d) -> no error"
                 "\r\n", descP->sock) );
+
         MLOCK(descP->writeMtx);
 
         esaio_completion_sendv_success(env, descP, ovl, opEnv,
                                        opCaller, opDataP);
-
         MUNLOCK(descP->writeMtx);
         break;
 
@@ -8483,7 +8482,11 @@ BOOLEAN_T esaio_completion_sendv(ESAIOThreadData*  dataP,
         MLOCK(descP->writeMtx);
 
         esaio_completion_sendv_failure(env, descP, opCaller, opDataP, error);
-        
+
+        if (! IS_OPEN(descP->writeState)) {
+            esaio_completion_maybe_stop(env, descP, TRUE);
+        }
+
         MUNLOCK(descP->writeMtx);
         break;
     }
@@ -8538,6 +8541,7 @@ void esaio_completion_sendv_success(ErlNifEnv*        env,
              * Is this even possible?
              * A race (completed just as the socket was closed).
              */
+            esaio_completion_maybe_stop(env, descP, TRUE);
             esaio_completion_send_not_active(descP);
         }
 
@@ -8625,43 +8629,8 @@ void esaio_completion_sendv_aborted(ErlNifEnv*        env,
 
     }
 
-    /* The socket not being open (assumed closing),
-     * means we are in the closing phase...
-     */
-
-    SSDBG( descP,
-           ("WIN-ESAIO",
-            "esaio_completion_sendv_aborted(%d) -> "
-            "maybe send close message => "
-            "\r\n   is socket (write) open: %s"
-            "\r\n",
-            descP->sock, B2S((IS_OPEN(descP->writeState)))) );
-
     if (! IS_OPEN(descP->writeState)) {
-
-        /* We can only send the 'close' message to the closer
-         * when all requests has been processed!
-         */
-
-        /* Check "our" queue */
-        if (descP->writersQ.first == NULL) {
-
-            /* Check "other" queue(s) and if there is a closer pid */
-            if ((descP->readersQ.first == NULL) &&
-                (descP->acceptorsQ.first == NULL)) {
-
-                SSDBG( descP,
-                       ("WIN-ESAIO",
-                        "esaio_completion_sendv_aborted(%d) -> "
-                        "all queues are empty => "
-                        "\r\n   send close message"
-                        "\r\n",
-                        descP->sock) );
-
-                esaio_stop(env, descP);
-
-            }
-        }
+        esaio_completion_maybe_stop(env, descP, FALSE);
     }
 
     /* *Maybe* update socket (write) state
@@ -8794,11 +8763,11 @@ BOOLEAN_T esaio_completion_sendto(ESAIOThreadData*   dataP,
         SSDBG( descP,
                ("WIN-ESAIO", "esaio_completion_sendto(%d) -> no error"
                 "\r\n", descP->sock) );
+
         MLOCK(descP->writeMtx);
 
         esaio_completion_sendto_success(env, descP, ovl, opEnv,
                                         opCaller, opDataP);
-
         MUNLOCK(descP->writeMtx);
         break;
 
@@ -8825,6 +8794,10 @@ BOOLEAN_T esaio_completion_sendto(ESAIOThreadData*   dataP,
         MLOCK(descP->writeMtx);
 
         esaio_completion_sendto_failure(env, descP, opCaller, opDataP, error);
+
+        if (! IS_OPEN(descP->writeState)) {
+            esaio_completion_maybe_stop(env, descP, TRUE);
+        }
 
         MUNLOCK(descP->writeMtx);
         break;
@@ -8878,6 +8851,7 @@ void esaio_completion_sendto_success(ErlNifEnv*         env,
              * Is this even possible?
              * A race (completed just as the socket was closed).
              */
+            esaio_completion_maybe_stop(env, descP, TRUE);
             esaio_completion_send_not_active(descP);
         }
 
@@ -8947,43 +8921,8 @@ void esaio_completion_sendto_aborted(ErlNifEnv*         env,
 
     }
 
-    /* The socket not being open (assumed closing),
-     * means we are in the closing phase...
-     */
-
-    SSDBG( descP,
-           ("WIN-ESAIO",
-            "esaio_completion_sendto_aborted(%d) -> "
-            "maybe send close message => "
-            "\r\n   is socket (write) open: %s"
-            "\r\n",
-            descP->sock, B2S((IS_OPEN(descP->writeState)))) );
-
     if (! IS_OPEN(descP->writeState)) {
-
-        /* We can only send the 'close' message to the closer
-         * when all requests has been processed!
-         */
-
-        /* Check "our" queue */
-        if (descP->writersQ.first == NULL) {
-
-            /* Check "other" queue(s) and if there is a closer pid */
-            if ((descP->readersQ.first == NULL) &&
-                (descP->acceptorsQ.first == NULL)) {
-
-                SSDBG( descP,
-                       ("WIN-ESAIO",
-                        "esaio_completion_sendto_aborted(%d) -> "
-                        "all queues are empty => "
-                        "\r\n   send close message"
-                        "\r\n",
-                        descP->sock) );
-
-                esaio_stop(env, descP);
-
-            }
-        }
+        esaio_completion_maybe_stop(env, descP, FALSE);
     }
 
     /* *Maybe* update socket (write) state
@@ -9147,6 +9086,10 @@ BOOLEAN_T esaio_completion_sendmsg(ESAIOThreadData*    dataP,
 
         esaio_completion_sendmsg_failure(env, descP, opCaller, opDataP, error);
 
+        if (! IS_OPEN(descP->writeState)) {
+            esaio_completion_maybe_stop(env, descP, TRUE);
+        }
+
         MUNLOCK(descP->writeMtx);
         break;
     }
@@ -9215,6 +9158,7 @@ void esaio_completion_sendmsg_success(ErlNifEnv*          env,
              * Is this even possible?
              * A race (completed just as the socket was closed).
              */
+            esaio_completion_maybe_stop(env, descP, TRUE);
             esaio_completion_send_not_active(descP);
         }
 
@@ -9283,43 +9227,8 @@ void esaio_completion_sendmsg_aborted(ErlNifEnv*          env,
 
     }
 
-    /* The socket not being open (assumed closing),
-     * means we are in the closing phase...
-     */
-
-    SSDBG( descP,
-           ("WIN-ESAIO",
-            "esaio_completion_sendmsg_aborted(%d) -> "
-            "maybe send close message => "
-            "\r\n   is socket (write) open: %s"
-            "\r\n",
-            descP->sock, B2S((IS_OPEN(descP->writeState)))) );
-
     if (! IS_OPEN(descP->writeState)) {
-
-        /* We can only send the 'close' message to the closer
-         * when all requests has been processed!
-         */
-
-        /* Check "our" queue */
-        if (descP->writersQ.first == NULL) {
-
-            /* Check "other" queue(s) and if there is a closer pid */
-            if ((descP->readersQ.first == NULL) &&
-                (descP->acceptorsQ.first == NULL)) {
-
-                SSDBG( descP,
-                       ("WIN-ESAIO",
-                        "esaio_completion_sendmsg_aborted(%d) -> "
-                        "all queues are empty => "
-                        "\r\n   send close message"
-                        "\r\n",
-                        descP->sock) );
-
-                esaio_stop(env, descP);
-
-            }
-        }
+        esaio_completion_maybe_stop(env, descP, FALSE);
     }
 
     /* *Maybe* update socket (write) state
@@ -9482,6 +9391,12 @@ BOOLEAN_T esaio_completion_recv(ESAIOThreadData* dataP,
 
         esaio_completion_recv_failure(env, descP, opCaller, opDataP, error);
 
+        if (! IS_OPEN(descP->readState)) {
+            MLOCK(descP->writeMtx);
+            esaio_completion_maybe_stop(env, descP, FALSE);
+            MUNLOCK(descP->writeMtx);
+        }
+
         MUNLOCK(descP->readMtx);
         break;
     }
@@ -9526,6 +9441,10 @@ void esaio_completion_recv_success(ErlNifEnv*       env,
              * Is this even possible?
              * A race (completed just as the socket was closed).
              */
+            MLOCK(descP->writeMtx);
+            esaio_completion_maybe_stop(env, descP, FALSE);
+            MUNLOCK(descP->writeMtx);
+
             esaio_completion_recv_not_active(descP);
             FREE_BIN( &opDataP->buf );
         }
@@ -9597,43 +9516,8 @@ void esaio_completion_recv_aborted(ErlNifEnv*       env,
 
     }
 
-    /* The socket not being open (assumed closing),
-     * means we are in the closing phase...
-     */
-
-    SSDBG( descP,
-           ("WIN-ESAIO",
-            "esaio_completion_recv_aborted(%d) -> "
-            "maybe send close message => "
-            "\r\n   is socket (read) open: %s"
-            "\r\n",
-            descP->sock, B2S((IS_OPEN(descP->readState)))) );
-
     if (! IS_OPEN(descP->readState)) {
-
-        /* We can only send the 'close' message to the closer
-         * when all requests has been processed!
-         */
-
-        /* Check "our" queue */
-        if (descP->readersQ.first == NULL) {
-
-            /* Check "other" queue(s) and if there is a closer pid */
-            if ((descP->writersQ.first == NULL) &&
-                (descP->acceptorsQ.first == NULL)) {
-
-                SSDBG( descP,
-                       ("WIN-ESAIO",
-                        "esaio_completion_recv_aborted(%d) -> "
-                        "all queues are empty => "
-                        "\r\n   send close message"
-                        "\r\n",
-                        descP->sock) );
-
-                esaio_stop(env, descP);
-
-            }
-        }
+        esaio_completion_maybe_stop(env, descP, FALSE);
     }
 
     FREE_BIN( &opDataP->buf );
@@ -10245,6 +10129,12 @@ BOOLEAN_T esaio_completion_recvfrom(ESAIOThreadData*     dataP,
 
         esaio_completion_recvfrom_failure(env, descP, opCaller, opDataP, error);
 
+        if (! IS_OPEN(descP->readState)) {
+            MLOCK(descP->writeMtx);
+            esaio_completion_maybe_stop(env, descP, FALSE);
+            MUNLOCK(descP->writeMtx);
+        }
+
         MUNLOCK(descP->readMtx);
         break;
     }
@@ -10287,6 +10177,10 @@ void esaio_completion_recvfrom_success(ErlNifEnv*           env,
              * Is this even possible?
              * A race (completed just as the socket was closed).
              */
+            MLOCK(descP->writeMtx);
+            esaio_completion_maybe_stop(env, descP, FALSE);
+            MUNLOCK(descP->writeMtx);
+
             esaio_completion_recv_not_active(descP);
             FREE_BIN( &opDataP->buf );
         }
@@ -10358,6 +10252,16 @@ void esaio_completion_recvfrom_more_data(ErlNifEnv*           env,
                                       opDataP->sockRef, // Dest socket
                                       completionInfo);  // Info
 
+        } else {
+            /* More data on a socket that is not open.
+             * Is this even possible?
+             * A race (completed just as the socket was closed).
+             */
+            MLOCK(descP->writeMtx);
+            esaio_completion_maybe_stop(env, descP, FALSE);
+            MUNLOCK(descP->writeMtx);
+
+            esaio_completion_recv_not_active(descP);
         }
 
         FREE_BIN( &opDataP->buf );
@@ -10428,43 +10332,8 @@ void esaio_completion_recvfrom_aborted(ErlNifEnv*           env,
 
     }
 
-    /* The socket not being open (assumed closing),
-     * means we are in the closing phase...
-     */
-
-    SSDBG( descP,
-           ("WIN-ESAIO",
-            "esaio_completion_recvfrom_aborted(%d) -> "
-            "maybe send close message => "
-            "\r\n   is socket (read) open: %s"
-            "\r\n",
-            descP->sock, B2S((IS_OPEN(descP->readState)))) );
-
     if (! IS_OPEN(descP->readState)) {
-
-        /* We can only send the 'close' message to the closer
-         * when all requests has been processed!
-         */
-
-        /* Check "our" queue */
-        if (descP->readersQ.first == NULL) {
-
-            /* Check "other" queue(s) and if there is a closer pid */
-            if ((descP->writersQ.first == NULL) &&
-                (descP->acceptorsQ.first == NULL)) {
-
-                SSDBG( descP,
-                       ("WIN-ESAIO",
-                        "esaio_completion_recvfrom_aborted(%d) -> "
-                        "all queues are empty => "
-                        "\r\n   send close message"
-                        "\r\n",
-                        descP->sock) );
-
-                esaio_stop(env, descP);
-
-            }
-        }
+        esaio_completion_maybe_stop(env, descP, FALSE);
     }
 
     FREE_BIN( &opDataP->buf );
@@ -10883,6 +10752,12 @@ BOOLEAN_T esaio_completion_recvmsg(ESAIOThreadData*    dataP,
 
         esaio_completion_recvmsg_failure(env, descP, opCaller, opDataP, error);
 
+        if (! IS_OPEN(descP->readState)) {
+            MLOCK(descP->writeMtx);
+            esaio_completion_maybe_stop(env, descP, FALSE);
+            MUNLOCK(descP->writeMtx);
+        }
+
         MUNLOCK(descP->readMtx);
         break;
     }
@@ -10927,6 +10802,10 @@ void esaio_completion_recvmsg_success(ErlNifEnv*          env,
              * Is this even possible?
              * A race (completed just as the socket was closed).
              */
+            MLOCK(descP->writeMtx);
+            esaio_completion_maybe_stop(env, descP, FALSE);
+            MUNLOCK(descP->writeMtx);
+
             esaio_completion_recv_not_active(descP);
             FREE_BIN( &opDataP->data[0] );
             FREE_BIN( &opDataP->ctrl );
@@ -10999,43 +10878,8 @@ void esaio_completion_recvmsg_aborted(ErlNifEnv*          env,
 
     }
 
-    /* The socket not being open (assumed closing),
-     * means we are in the closing phase...
-     */
-
-    SSDBG( descP,
-           ("WIN-ESAIO",
-            "esaio_completion_recvmsg_aborted(%d) -> "
-            "maybe send close message => "
-            "\r\n   is socket (read) open: %s"
-            "\r\n",
-            descP->sock, B2S((IS_OPEN(descP->readState)))) );
-
     if (! IS_OPEN(descP->readState)) {
-
-        /* We can only send the 'close' message to the closer
-         * when all requests has been processed!
-         */
-
-        /* Check "our" queue */
-        if (descP->readersQ.first == NULL) {
-
-            /* Check "other" queue(s) and if there is a closer pid */
-            if ((descP->writersQ.first == NULL) &&
-                (descP->acceptorsQ.first == NULL)) {
-
-                SSDBG( descP,
-                       ("WIN-ESAIO",
-                        "esaio_completion_recvmsg_aborted(%d) -> "
-                        "all queues are empty => "
-                        "\r\n   send close message"
-                        "\r\n",
-                        descP->sock) );
-
-                esaio_stop(env, descP);
-
-            }
-        }
+        esaio_completion_maybe_stop(env, descP, FALSE);
     }
 
     FREE_BIN( &opDataP->data[0] );

@@ -16991,6 +16991,7 @@ ESockDescriptor* esock_alloc_descriptor(SOCKET sock)
     // sprintf(buf, "esock.w[" SOCKET_FORMAT_STR "]", sock);
     // descP->writeMtx       = MCREATE(buf);
     descP->writeMtx       = MCREATE3("esock.w", buf, sock);
+    /* Protected by writeMtx */
     descP->writeState     = 0;
 #ifndef __WIN32__
     /* Not used on Windows - see header for more info */
@@ -17017,6 +17018,7 @@ ESockDescriptor* esock_alloc_descriptor(SOCKET sock)
     // sprintf(buf, "esock.r[" SOCKET_FORMAT_STR "]", sock);
     // descP->readMtx        = MCREATE(buf);
     descP->readMtx        = MCREATE3("esock.r", buf, sock);
+    /* Protected by readMtx */
     descP->readState      = 0;
 #ifndef __WIN32__
     /* Not used on Windows - see header for more info */
@@ -17036,6 +17038,7 @@ ESockDescriptor* esock_alloc_descriptor(SOCKET sock)
     descP->readFails      = 0;
 
     /* *** Accept section *** */
+    /* Protected by readMtx */
     // sprintf(buf, "esock.acc[" SOCKET_FORMAT_STR "]", sock);
 #ifndef __WIN32__
     /* Not used on Windows - see header for more info */
@@ -17050,6 +17053,7 @@ ESockDescriptor* esock_alloc_descriptor(SOCKET sock)
     descP->accWaits         = 0;
 
     /* *** Close section *** */
+    /* Protected by readMtx and writeMtx */
     // sprintf(buf, "esock.close[" SOCKET_FORMAT_STR "]", sock);
     descP->closeEnv         = NULL;
     descP->closeRef         = esock_atom_undefined;
@@ -17057,6 +17061,7 @@ ESockDescriptor* esock_alloc_descriptor(SOCKET sock)
     MON_INIT(&descP->closerMon);
 
     /* *** Config section *** */
+    /* Protected by readMtx and writeMtx */
     // sprintf(buf, "esock.cfg[" SOCKET_FORMAT_STR "]", sock);
     descP->rBufSz           = ESOCK_RECV_BUFFER_SIZE_DEFAULT;
 #ifndef __WIN32__
