@@ -166,7 +166,7 @@ new(Type) ->
 	{Access, Ts} ->
 	    V = ets:new(vertices, [set, Access]),
 	    E = ets:new(edges, [set, Access]),
-	    N = ets:new(neighbours, [bag, Access]),
+	    N = ets:new(neighbours, [duplicate_bag, Access]),
 	    ets:insert(N, [{'$vid', 0}, {'$eid', 0}]),
 	    set_type(Ts, #digraph{vtab=V, etab=E, ntab=N});
 	error ->
@@ -675,7 +675,30 @@ other_edge_exists(#digraph{etab = ET}, E, V1, V2) ->
 -spec do_insert_edge(edge(), vertex(), vertex(), label(), graph()) -> edge().
 
 do_insert_edge(E, V1, V2, Label, #digraph{ntab=NT, etab=ET}) ->
-    ets:insert(NT, [{{out, V1}, E}, {{in, V2}, E}]),
+    case ets:member(ET, E) of
+        false ->
+            ets:insert(NT, [{{out, V1}, E}, {{in, V2}, E}]);
+        true ->
+            %% Two counter rows plus two rows per edge proves completeness
+            %% under the no-orphans/no-duplicates invariant. Only the owner
+            %% writes the tables, so this check cannot race another writer.
+            case ets:info(NT, size) =:= 2 * ets:info(ET, size) + 2 of
+                true -> ok;
+                false ->
+                    %% Restore missing rows after stock match-spec deletion.
+                    In = {{in, V2}, E},
+                    Out = {{out, V1}, E},
+                    MissingIn = case lists:member(In, ets:lookup(NT, {in, V2})) of
+                                    true -> [];
+                                    false -> [In]
+                                end,
+                    Missing = case lists:member(Out, ets:lookup(NT, {out, V1})) of
+                                  true -> MissingIn;
+                                  false -> [Out|MissingIn]
+                              end,
+                    ets:insert(NT, Missing)
+            end
+    end,
     ets:insert(ET, {E, V1, V2, Label}),
     E.
 
