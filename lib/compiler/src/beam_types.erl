@@ -43,6 +43,8 @@
          set_tuple_element/3,
          update_tuple/2]).
 
+-export([is_not_wider/2]).
+
 -export([make_type_from_value/1]).
 
 -export([make_atom/1,
@@ -143,7 +145,7 @@
                target=any :: {atom(), non_neg_integer()} | 'any',
                type=any :: type()}.
 -record #t_integer{elements=any :: 'any' | beam_bounds:range()}.
--record #t_number{elements=any :: 'any' | beam_bounds:range()}.
+-record #t_number{elements=any :: 'any' | beam_bounds:range() | float_range()}.
 
 %% `super_key` and `super_value` are the join of all key and value types.
 %%
@@ -976,6 +978,163 @@ normalize_native_record_set([], B) ->
 normalize_native_record_set(A, B) ->
     lub(A, B).
 
+%% Returns true if `A` is not a wider type than `B`.
+-spec is_not_wider(A, B) -> boolean()
+              when A :: type(),
+                   B :: type().
+is_not_wider(T, T) ->
+    true;
+is_not_wider(_, any) ->
+    true;
+is_not_wider(nil, #t_list{}) ->
+    true;
+is_not_wider(none, _) ->
+    true;
+is_not_wider(nil, #t_union{list=TB}) ->
+    is_not_wider(nil, TB);
+is_not_wider(#t_atom{}, #t_atom{elements=any}) ->
+    true;
+is_not_wider(#t_atom{elements=[_|_]=AA}, #t_atom{elements=[_|_]=AB}) ->
+    ordsets:is_subset(AA, AB);
+is_not_wider(#t_atom{}=TA, #t_union{atom=TB}) ->
+    is_not_wider(TA, TB);
+is_not_wider(#t_bitstring{}=TA, #t_union{other=TB}) ->
+    is_not_wider(TA, TB);
+is_not_wider(#t_bs_context{}=TA, #t_union{other=TB}) ->
+    is_not_wider(TA, TB);
+is_not_wider(#t_bs_matchable{}=TA, #t_union{other=TB}) ->
+    is_not_wider(TA, TB);
+is_not_wider(#t_cons{type=HdA,terminator=TlA},
+             #t_cons{type=HdB,terminator=TlB}) ->
+    is_not_wider(HdA, HdB) andalso is_not_wider(TlA, TlB);
+is_not_wider(#t_cons{type=HdA,terminator=TlA},
+             #t_list{type=HdB,terminator=TlB}) ->
+    is_not_wider(HdA, HdB) andalso is_not_wider(TlA, TlB);
+is_not_wider(#t_cons{}=TA, #t_union{list=TB}) ->
+    is_not_wider(TA, TB);
+is_not_wider(#t_float{}=TA, #t_number{}=TB) ->
+    is_number_not_wider(TA, TB);
+is_not_wider(#t_float{}=TA, #t_union{number=TB}) ->
+    is_not_wider(TA, TB);
+is_not_wider(#t_fun{}=TA, #t_union{other=TB}) ->
+    is_not_wider(TA, TB);
+is_not_wider(#t_integer{}=TA, #t_union{number=TB}) ->
+    is_not_wider(TA, TB);
+is_not_wider(#t_list{type=HdA,terminator=TlA},
+             #t_list{type=HdB,terminator=TlB}) ->
+    is_not_wider(HdA, HdB) andalso is_not_wider(TlA, TlB);
+is_not_wider(#t_list{}=TA, #t_union{list=TB}) ->
+    is_not_wider(TA, TB);
+is_not_wider(#t_map{super_key=KeyA,super_value=ValA},
+             #t_map{super_key=KeyB,super_value=ValB}) ->
+    is_not_wider(KeyA, KeyB) andalso is_not_wider(ValA, ValB);
+is_not_wider(#t_map{}=TA, #t_union{other=TB}) ->
+    is_not_wider(TA, TB);
+is_not_wider(#t_number{}=TA, #t_number{}=TB) ->
+    is_number_not_wider(TA, TB);
+is_not_wider(#t_number{}=TA, #t_union{number=TB}) ->
+    is_not_wider(TA, TB);
+is_not_wider(#t_record{}=TA, #t_record{}=TB) ->
+    is_not_wider_record_elements(TA, TB);
+is_not_wider(#t_record{}=TA, #t_union{native_record_set=NSetB}) ->
+    is_not_wider(TA, normalize_native_record_set(NSetB, none));
+is_not_wider(#t_tuple{}=TA, #t_union{tuple_set=TSetB}) ->
+    is_not_wider(TA, normalize_tuple_set(TSetB, none));
+is_not_wider(#t_tuple{}=TA, #t_tuple{}=TB) ->
+    is_tuple_not_wider(TA, TB);
+is_not_wider(#t_union{atom=AtomA,list=ListA,number=NumberA,
+                      tuple_set=TSetA,native_record_set=NSetA,
+                      other=OtherA},
+             #t_union{atom=AtomB,list=ListB,number=NumberB,
+                      tuple_set=TSetB,native_record_set=NSetB,
+                      other=OtherB}) ->
+    is_not_wider(AtomA, AtomB) andalso
+        is_not_wider(ListA, ListB) andalso
+        is_not_wider(NumberA, NumberB) andalso
+        is_not_wider(OtherA, OtherB) andalso
+        is_not_wider(normalize_tuple_set(TSetA, none),
+                     normalize_tuple_set(TSetB, none)) andalso
+        is_not_wider(normalize_native_record_set(NSetA, none),
+                     normalize_native_record_set(NSetB, none));
+is_not_wider(#t_union{atom=none,list=none,number=none,
+                      tuple_set=none,native_record_set=NSetA,
+                      other=none},
+             #t_record{}=TB) ->
+    is_not_wider(normalize_native_record_set(NSetA, none), TB);
+is_not_wider(#t_union{atom=none,list=none,number=none,
+                      tuple_set=TSetA,native_record_set=none,
+                      other=none},
+             #t_tuple{}=TB) ->
+    is_not_wider(normalize_tuple_set(TSetA, none), TB);
+is_not_wider(TA, #t_union{other=TB})
+  when TA =:= identifier; TA =:= pid; TA =:= other;
+       TA =:= port; TA =:= reference ->
+    is_not_wider(TA, TB);
+is_not_wider(TA, TB) ->
+    false = is_record(TA, ?MODULE, t_union),    %Assertion.
+    false = is_record(TB, ?MODULE, t_union),    %Assertion.
+    glb(TA, TB) =:= TA.
+
+is_number_not_wider(#t_float{elements=R1}, #t_number{elements=R2}) ->
+    NormR1 = case norm_number_range(R1) of
+                 #t_number{elements={Min,Max}} when is_float(Min); is_float(Max) ->
+                     #t_float{elements={Min,Max}};
+                 #t_number{}=Norm0 ->
+                     Norm0
+             end,
+    glb(NormR1, norm_number_range(R2)) =:= NormR1;
+is_number_not_wider(#t_number{elements=R1}, #t_number{elements=R2}) ->
+    NormR1 = norm_number_range(R1),
+    glb(NormR1, norm_number_range(R2)) =:= NormR1.
+
+norm_number_range({A,B}) ->
+    #t_number{elements={norm_number(A),norm_number(B)}};
+norm_number_range(any) ->
+    #t_number{}.
+
+norm_number(N) when is_number(N) ->
+    {F0,F1,F2} = {float(N-1), float(N), float(N+1)},
+    if
+        F0 =:= F1; F1 =:= F2 ->
+            floor(F1);
+        true ->
+            N
+    end;
+norm_number(Other) ->
+    Other.
+
+is_tuple_not_wider(#t_tuple{elements=Es1},
+                   #t_tuple{elements=Es2}) ->
+    Keys = usort(maps:keys(Es1) ++ maps:keys(Es2)),
+    is_not_wider_elements(Keys, Es1, Es2).
+
+is_not_wider_elements([K|Ks], Es1, Es2) ->
+    is_not_wider(maps:get(K, Es1, any),
+                 maps:get(K, Es2, any)) andalso
+        is_not_wider_elements(Ks, Es1, Es2);
+is_not_wider_elements([], _, _) ->
+    true.
+
+is_not_wider_record_elements(#t_record{type=Es1},
+                             #t_record{type=Es2}) ->
+    Keys = usort(maps:keys(Es1) ++ maps:keys(Es2)),
+    inw_record_elements(Keys, Es1, Es2).
+
+inw_record_elements([Key | Keys], Es1, Es2) ->
+    case {Es1, Es2} of
+        {#{ Key := {present, Type1} }, #{ Key := {present, Type2} }} ->
+            is_not_wider(Type1, Type2) andalso
+                inw_record_elements(Keys, Es1, Es2);
+        {#{ Key := {present, _ }}, #{ Key := missing}} ->
+            false;
+        {#{ Key := missing}, #{ Key := {present, _}}} ->
+            false;
+        {#{}, #{}} ->
+            inw_record_elements(Keys, Es1, Es2)
+    end;
+inw_record_elements([], _Es1, _Es2) ->
+    true.
+
 %%%
 %%% Type constructors
 %%%
@@ -1267,8 +1426,8 @@ glb(#t_integer{elements=R1}, #t_integer{elements=R2}) ->
     integer_from_range(glb_ranges(R1, R2));
 glb(#t_integer{elements=R1}, #t_number{elements=R2}) ->
     integer_from_range(glb_ranges(R1, R2));
-glb(#t_float{elements=R1}, #t_number{elements=R2}) ->
-    float_from_range(glb_ranges(R1, number_to_float_range(R2)));
+glb(#t_float{}=TA, #t_number{}=TB) ->
+    glb_number(TB, TA);
 glb(#t_list{type=TypeA,terminator=TermA},
     #t_list{type=TypeB,terminator=TermB}) ->
     %% A list is a union of `[type() | _]` and `[]`, so we're left with
@@ -1284,12 +1443,12 @@ glb(#t_list{}, nil) ->
     nil;
 glb(nil, #t_list{}) ->
     nil;
-glb(#t_number{elements=R1}, #t_number{elements=R2}) ->
-    number_from_range(glb_ranges(R1, R2));
+glb(#t_number{}=TA, #t_number{}=TB) ->
+    glb_number(TA, TB);
 glb(#t_number{elements=R1}, #t_integer{elements=R2}) ->
     integer_from_range(glb_ranges(R1, R2));
-glb(#t_number{elements=R1}, #t_float{elements=R2}) ->
-    float_from_range(glb_ranges(number_to_float_range(R1), R2));
+glb(#t_number{}=TA, #t_float{}=TB) ->
+    glb_number(TA, TB);
 glb(#t_map{super_key=SKeyA,super_value=SValueA},
     #t_map{super_key=SKeyB,super_value=SValueB}) ->
     %% Note the use of meet/2; elements don't need to be normal types.
@@ -1323,6 +1482,21 @@ glb(T, other) ->
 glb(_, _) ->
     %% Inconsistent types. There will be an exception at runtime.
     none.
+
+glb_number(#t_number{elements=RA0}, #t_float{elements=RB}) ->
+    RA = number_to_float_range(RA0),
+    case {RA,RB} of
+        {{A,B},{C,D}} when C =:= D, float(A) =:= C, float(B) =:= C ->
+            %% Even though C and D are equal, the range C..D
+            %% represents more than one value. In this case the range
+            %% A..B completely overlaps C..D; therefore, the resulting
+            %% range is C..D.
+            #t_float{elements=RB};
+        _ ->
+            float_from_range(glb_ranges(RA, RB))
+    end;
+glb_number(#t_number{elements=RA}, #t_number{elements=RB}) ->
+    number_from_range(glb_ranges(RA, RB)).
 
 glb_ranges({MinA,MaxA}, {MinB,MaxB}) ->
     true = inf_le(MinA, MaxA) andalso inf_le(MinB, MaxB), %Assertion.
