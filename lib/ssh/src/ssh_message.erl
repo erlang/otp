@@ -307,6 +307,15 @@ encode(#ssh_msg_kex_hybrid_reply{public_host_key = {Key,SigAlg}, s_reply = S_rep
     EncSign = encode_signature(Key, SigAlg, Sign),
     <<?Ebyte(?SSH_MSG_KEX_HYBRID_REPLY), ?Ebinary(EncKey), ?Ebinary(S_reply), ?Ebinary(EncSign)>>;
 
+encode(#ssh_msg_kex_kem_init{c_init = C_init}) ->
+    <<?Ebyte(?SSH_MSG_KEX_KEM_INIT), ?Ebinary(C_init)>>;
+
+encode(#ssh_msg_kex_kem_reply{public_host_key = {Key,SigAlg}, s_reply = S_reply,
+                              h_sig = Sign}) ->
+    EncKey = ssh2_pubkey_encode(Key),
+    EncSign = encode_signature(Key, SigAlg, Sign),
+    <<?Ebyte(?SSH_MSG_KEX_KEM_REPLY), ?Ebinary(EncKey), ?Ebinary(S_reply), ?Ebinary(EncSign)>>;
+
 encode(#ssh_msg_ignore{data = Data}) ->
     <<?Ebyte(?SSH_MSG_IGNORE), ?Estring_utf8(Data)>>;
 
@@ -594,6 +603,23 @@ decode(<<"mlkem",?BYTE(?SSH_MSG_KEX_HYBRID_REPLY),
     throw({error, size_error([{mlkem_host_key_too_large, KLen, ?MAX_HOST_KEY_SIZE},
                               {mlkem_signature_too_large, SigLen, ?MAX_SIGNATURE_SIZE}])});
 
+decode(<<"kem512",?BYTE(?SSH_MSG_KEX_KEM_INIT), ?DEC_BIN(C_init, CLen)>>) ->
+    decode_kem_init(C_init, CLen, ?MLKEM512_PUBLICKEY_SIZE);
+decode(<<"kem768",?BYTE(?SSH_MSG_KEX_KEM_INIT), ?DEC_BIN(C_init, CLen)>>) ->
+    decode_kem_init(C_init, CLen, ?MLKEM768_PUBLICKEY_SIZE);
+decode(<<"kem1024",?BYTE(?SSH_MSG_KEX_KEM_INIT), ?DEC_BIN(C_init, CLen)>>) ->
+    decode_kem_init(C_init, CLen, ?MLKEM1024_PUBLICKEY_SIZE);
+
+decode(<<"kem512",?BYTE(?SSH_MSG_KEX_KEM_REPLY),
+         ?DEC_BIN(Key, KLen), ?DEC_BIN(S_reply, SLen), ?DEC_BIN(Sig, SigLen)>>) ->
+    decode_kem_reply(Key, KLen, S_reply, SLen, Sig, SigLen, ?MLKEM512_CIPHERTEXT_SIZE);
+decode(<<"kem768",?BYTE(?SSH_MSG_KEX_KEM_REPLY),
+         ?DEC_BIN(Key, KLen), ?DEC_BIN(S_reply, SLen), ?DEC_BIN(Sig, SigLen)>>) ->
+    decode_kem_reply(Key, KLen, S_reply, SLen, Sig, SigLen, ?MLKEM768_CIPHERTEXT_SIZE);
+decode(<<"kem1024",?BYTE(?SSH_MSG_KEX_KEM_REPLY),
+         ?DEC_BIN(Key, KLen), ?DEC_BIN(S_reply, SLen), ?DEC_BIN(Sig, SigLen)>>) ->
+    decode_kem_reply(Key, KLen, S_reply, SLen, Sig, SigLen, ?MLKEM1024_CIPHERTEXT_SIZE);
+
 decode(<<?SSH_MSG_SERVICE_REQUEST, ?DEC_BIN(Service, Len)>>)
   when Len =< ?MAX_SERVICE_NAME_SIZE ->
     #ssh_msg_service_request{name = binary:bin_to_list(Service)};
@@ -871,6 +897,22 @@ size_error([{Tag, Actual, Max} | _]) ->
     {Tag, Actual, Max};
 size_error([]) ->
     invalid_size_check.
+
+decode_kem_init(C_init, Expected, Expected) ->
+    #ssh_msg_kex_kem_init{c_init = C_init};
+decode_kem_init(_, Actual, Expected) ->
+    throw({error, {kem_init_invalid_size, Actual, Expected}}).
+
+decode_kem_reply(Key, KLen, S_reply, Expected, Sig, SigLen, Expected)
+  when KLen =< ?MAX_HOST_KEY_SIZE, SigLen =< ?MAX_SIGNATURE_SIZE ->
+    #ssh_msg_kex_kem_reply{public_host_key = ssh2_pubkey_decode(Key),
+                           s_reply = S_reply,
+                           h_sig = decode_signature(Sig)};
+decode_kem_reply(_, _, _, Actual, _, _, Expected) when Actual =/= Expected ->
+    throw({error, {kem_reply_invalid_size, Actual, Expected}});
+decode_kem_reply(_, KLen, _, _, _, SigLen, _) ->
+    throw({error, size_error([{kem_host_key_too_large, KLen, ?MAX_HOST_KEY_SIZE},
+                              {kem_signature_too_large, SigLen, ?MAX_SIGNATURE_SIZE}])}).
 
 bin_foldr(Fun, Acc, Bin) ->
     lists:reverse(bin_foldl(Fun, Acc, Bin)).
