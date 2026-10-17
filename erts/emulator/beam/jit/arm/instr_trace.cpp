@@ -72,7 +72,7 @@ void BeamGlobalAssembler::emit_generic_bp_local() {
     /* Our actual return address is valid (and word-aligned), but it points
      * just after the trampoline word so we'll need to skip that to find our
      * ErtsCodeInfo. */
-    a.sub(ARG2, ARG2, imm(BEAM_ASM_FUNC_PROLOGUE_SIZE + sizeof(ErtsCodeInfo)));
+    a.sub(ARG2, ARG2, imm(BEAM_ASM_BP_RETURN_OFFSET + sizeof(ErtsCodeInfo)));
 
     emit_enter_runtime_frame();
     emit_enter_runtime<Update::eHeapAlloc | Update::eXRegs |
@@ -103,7 +103,7 @@ void BeamGlobalAssembler::emit_debug_bp() {
 
     /* Read and adjust the return address we saved in generic_bp_local. */
     a.ldr(ARG2, TMP_MEM1q);
-    a.sub(ARG2, ARG2, imm(BEAM_ASM_FUNC_PROLOGUE_SIZE + sizeof(ErtsCodeMFA)));
+    a.sub(ARG2, ARG2, imm(BEAM_ASM_BP_RETURN_OFFSET + sizeof(ErtsCodeMFA)));
 
     emit_enter_runtime<Update::eHeapAlloc | Update::eXRegs |
                        Update::eReductions>();
