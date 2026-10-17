@@ -35,6 +35,7 @@
 #include "global.h"
 #include "erl_threads.h"
 #include "erl_cpu_topology.h"
+#include <limits.h>
 #include <malloc.h>
 
 #if defined(__WIN32__) && !defined(WINDOWS_H_INCLUDES_WINSOCK2_H)
@@ -504,9 +505,10 @@ struct driver_data {
     int outBufSize;		/* Size of output buffer. */
     byte *outbuf;		/* Buffer to use for overlapped write. */
     ErlDrvPort port_num;	/* The port handle. */
-    int packet_bytes;		/* 0: continuous stream, 1, 2, or 4: the number
+    int packet_bytes;		/* 0: continuous stream, 1, 2, 3, or 4: the number
 				 * of bytes in the packet header.
 				 */
+    ErtsSysDriverPacketHeaderEndianness packet_header_endianness;
     HANDLE port_pid;		/* PID of the port process. */
     AsyncIo in;			/* Control block for overlapped reading. */
     AsyncIo out;		/* Control block for overlapped writing. */
@@ -621,7 +623,9 @@ unrefer_driver_data(DriverData *dp)
  */
 
 static DriverData*
-new_driver_data(ErlDrvPort port_num, int packet_bytes, int wait_objs_required, int use_threads)
+new_driver_data(ErlDrvPort port_num, int packet_bytes,
+                ErtsSysDriverPacketHeaderEndianness packet_header_endianness,
+                int wait_objs_required, int use_threads)
 {
     DriverData* dp;
 
@@ -648,6 +652,7 @@ new_driver_data(ErlDrvPort port_num, int packet_bytes, int wait_objs_required, i
     dp->outbuf = NULL;
     dp->port_num = port_num;
     dp->packet_bytes = packet_bytes;
+    dp->packet_header_endianness = packet_header_endianness;
     dp->port_pid = INVALID_HANDLE_VALUE;
     if (init_async_io(dp, &dp->in, use_threads) == -1)
 	goto async_io_error1;
@@ -879,10 +884,23 @@ set_driver_data(DriverData* dp, HANDLE ifd, HANDLE ofd, int read_write, int repo
 }
 
 static ErlDrvData
-reuse_driver_data(DriverData *dp, HANDLE ifd, HANDLE ofd, int read_write, ErlDrvPort port_num)
+reuse_driver_data(DriverData *dp, HANDLE ifd, HANDLE ofd, int read_write,
+                  int packet_bytes,
+                  ErtsSysDriverPacketHeaderEndianness packet_header_endianness,
+                  ErlDrvPort port_num)
 {
     int result;
 
+    /* fd_stop() keeps DriverData and its pending read for standard fd pairs
+     * 0/1 and 2/2. The read still targets inbuf + bytesInBuffer, so retain
+     * that prefix and restart only the framing phase when options change. */
+    if (dp->packet_bytes != packet_bytes ||
+        (packet_bytes > 1 &&
+         dp->packet_header_endianness != packet_header_endianness)) {
+        dp->totalNeeded = packet_bytes;
+    }
+    dp->packet_bytes = packet_bytes;
+    dp->packet_header_endianness = packet_header_endianness;
     dp->port_num = port_num;
     dp->in.fd = ifd;
     dp->out.fd = ofd;
@@ -1191,8 +1209,10 @@ spawn_start(ErlDrvPort port_num, char* utf8_name, SysDriverOpts* opts)
     if (opts->read_write & DO_WRITE)
 	neededSelects++;
 
-    if ((dp = new_driver_data(port_num, opts->packet_bytes, neededSelects,
-			      !use_named_pipes)) == NULL)
+    if ((dp = new_driver_data(
+             port_num, opts->packet_bytes,
+             opts->packet_header_endianness,
+             neededSelects, !use_named_pipes)) == NULL)
 	return ERL_DRV_ERROR_GENERAL;
 
     /*
@@ -2130,12 +2150,18 @@ fd_start(ErlDrvPort port_num, char* name, SysDriverOpts* opts)
     opts->ofd = (Uint) translate_fd(out);
     if ( in == 0 && out == 1 && save_01_port != NULL) {
 	dp = save_01_port;
-	return reuse_driver_data(dp, (HANDLE) opts->ifd, (HANDLE) opts->ofd, opts->read_write, port_num);
+        return reuse_driver_data(
+            dp, (HANDLE) opts->ifd, (HANDLE) opts->ofd, opts->read_write,
+            opts->packet_bytes, opts->packet_header_endianness, port_num);
     } else if (in == 2 && out == 2 && save_22_port != NULL) {
 	dp = save_22_port;
-	return reuse_driver_data(dp, (HANDLE) opts->ifd, (HANDLE) opts->ofd, opts->read_write, port_num);
+        return reuse_driver_data(
+            dp, (HANDLE) opts->ifd, (HANDLE) opts->ofd, opts->read_write,
+            opts->packet_bytes, opts->packet_header_endianness, port_num);
     } else {
-	if ((dp = new_driver_data(port_num, opts->packet_bytes, 2, TRUE)) == NULL)
+        if ((dp = new_driver_data(port_num, opts->packet_bytes,
+                                  opts->packet_header_endianness,
+                                  2, TRUE)) == NULL)
 	    return ERL_DRV_ERROR_GENERAL;
 	
 	/**
@@ -2413,7 +2439,10 @@ output(ErlDrvData drv_data, char* buf, ErlDrvSizeT len)
      * Check that the message can be sent with given header length.
      */
 
-    if ((pb == 2 && len > 65535) || (pb == 1 && len > 255)) {
+    if ((pb == 4 && len > 0xffffffff)
+        || (pb == 3 && len > 0xffffff)
+        || (pb == 2 && len > 0xffff)
+        || (pb == 1 && len > 0xff)) {
 	driver_failure_posix(dp->port_num, EINVAL);
 	return ; /* -1; */
     }
@@ -2436,13 +2465,41 @@ output(ErlDrvData drv_data, char* buf, ErlDrvSizeT len)
     current = bin->orig_bytes;
 
     switch (pb) {
-    case 4:
-	*current++ = (len >> 24) & 255;
-	*current++ = (len >> 16) & 255;
-    case 2:
-	*current++ = (len >> 8) & 255;
+    case 0:
+        break;
     case 1:
-	*current++ = len & 255;
+        put_int8(len, current);
+        current += 1;
+        break;
+    case 2:
+        if (dp->packet_header_endianness ==
+            ERTS_SYS_DRIVER_PACKET_HEADER_ENDIAN_LITTLE) {
+            put_little_int16(len, current);
+        } else {
+            put_int16(len, current);
+        }
+        current += 2;
+        break;
+    case 3:
+        if (dp->packet_header_endianness ==
+            ERTS_SYS_DRIVER_PACKET_HEADER_ENDIAN_LITTLE) {
+            put_little_int24(len, current);
+        } else {
+            put_int24(len, current);
+        }
+        current += 3;
+        break;
+    case 4:
+        if (dp->packet_header_endianness ==
+            ERTS_SYS_DRIVER_PACKET_HEADER_ENDIAN_LITTLE) {
+            put_little_int32((Uint32) len, current);
+        } else {
+            put_int32((Uint32) len, current);
+        }
+        current += 4;
+        break;
+    default:
+        ERTS_UNREACHABLE;
     }
 
     /*
@@ -2563,12 +2620,17 @@ ready_input(ErlDrvData drv_data, ErlDrvEvent ready_event)
 
     if (error == NO_ERROR) {
 	if (pb == 0) { /* Continuous stream. */
+            /* A cached packet reader may have retained bytes before this port
+             * reopened as a stream. The pending read appended bytes after them. */
+            dp->bytesInBuffer += bytesRead;
 #ifdef DEBUG
-	    DEBUGF(("ready_input: %d: ", bytesRead));
-	    erl_bin_write(dp->inbuf, 16, bytesRead);
+            /* Dump the retained prefix too, matching driver_output() below. */
+            DEBUGF(("ready_input: %d: ", dp->bytesInBuffer));
+            erl_bin_write(dp->inbuf, 16, dp->bytesInBuffer);
 	    DEBUGF(("\n"));
 #endif
-	    driver_output(dp->port_num, dp->inbuf, bytesRead);
+            driver_output(dp->port_num, dp->inbuf, dp->bytesInBuffer);
+            dp->bytesInBuffer = 0;
 	} else {			/* Packet mode */
 	    dp->bytesInBuffer += bytesRead;
 
@@ -2592,20 +2654,54 @@ ready_input(ErlDrvData drv_data, ErlDrvEvent ready_event)
 		     * the packet size.
 		     */
 
-		    int packet_size = 0;
-		    unsigned char *header = (unsigned char *) dp->inbuf;
-		    
-		    switch (pb) {
-		    case 4:
-			packet_size = (packet_size << 8) | *header++;
-			packet_size = (packet_size << 8) | *header++;
-		    case 2:
-			packet_size = (packet_size << 8) | *header++;
-		    case 1:
-			packet_size = (packet_size << 8) | *header++;
-		    }
-		    
-		    dp->totalNeeded += packet_size;
+                    Uint32 packet_size;
+
+                    switch (pb) {
+                    case 1:
+                        packet_size = get_int8(dp->inbuf);
+                        break;
+                    case 2:
+                        if (dp->packet_header_endianness ==
+                            ERTS_SYS_DRIVER_PACKET_HEADER_ENDIAN_LITTLE) {
+                            packet_size = get_little_int16(dp->inbuf);
+                        } else {
+                            packet_size = get_int16(dp->inbuf);
+                        }
+                        break;
+                    case 3:
+                        if (dp->packet_header_endianness ==
+                            ERTS_SYS_DRIVER_PACKET_HEADER_ENDIAN_LITTLE) {
+                            packet_size = get_little_int24(dp->inbuf);
+                        } else {
+                            packet_size = get_int24(dp->inbuf);
+                        }
+                        break;
+                    case 4:
+                        if (dp->packet_header_endianness ==
+                            ERTS_SYS_DRIVER_PACKET_HEADER_ENDIAN_LITTLE) {
+                            packet_size = get_little_uint32(dp->inbuf);
+                        } else {
+                            packet_size = get_uint32(dp->inbuf);
+                        }
+                        break;
+                    default:
+                        ERTS_UNREACHABLE;
+                    }
+
+                    /* totalNeeded is a signed int and includes the header.
+                     * Cached fd readers outlive port failure, so arm the next
+                     * read before terminating this logical port. */
+                    if (packet_size > (Uint32) (INT_MAX - pb)) {
+                        if (dp == save_01_port || dp == save_22_port) {
+                            dp->bytesInBuffer = 0;
+                            dp->totalNeeded = pb;
+                            async_read_file(&dp->in, dp->inbuf, dp->inBufSize);
+                        }
+                        driver_failure_posix(dp->port_num, EINVAL);
+                        return;
+                    }
+
+                    dp->totalNeeded += (int) packet_size;
 		    
 		    /*
 		     * Make sure that the receive buffer is big enough.
