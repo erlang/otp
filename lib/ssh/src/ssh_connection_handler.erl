@@ -1512,6 +1512,15 @@ handle_packet_part_result({packet_decrypted, DecryptedBytes, EncryptedDataRest, 
     catch
         Class:Reason0:Stacktrace  ->
             Reason = ssh_lib:trim_reason(Reason0),
+            DisconnectCode =
+                case Reason0 of
+                    {error, {mlkem_init_invalid_size, _, _}} ->
+                        ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED;
+                    {error, {mlkem_reply_invalid_size, _, _}} ->
+                        ?SSH_DISCONNECT_KEY_EXCHANGE_FAILED;
+                    _ ->
+                        ?SSH_DISCONNECT_PROTOCOL_ERROR
+                end,
             MsgFun =
                 fun(debug) ->
                         io_lib:format("Bad packet: Decrypted, but can't decode~n~p:~p~n~p",
@@ -1523,7 +1532,7 @@ handle_packet_part_result({packet_decrypted, DecryptedBytes, EncryptedDataRest, 
                                       [{chars_limit, ssh_lib:max_log_len(Ssh0)}])
                 end,
             {Shutdown, D} =
-                ?send_disconnect(?SSH_DISCONNECT_PROTOCOL_ERROR,
+                ?send_disconnect(DisconnectCode,
                                  ?SELECT_MSG(MsgFun),
                                  StateName, D1),
             {stop, Shutdown, D}
@@ -1799,7 +1808,11 @@ set_kex_overload_prefix(Msg = <<?BYTE(Op),_/binary>>, #data{ssh_params=SshParams
 	"diffie-hellman-group" ++ _ ->
 	    <<"dh",Msg/binary>>;
         "mlkem768x25519" ++ _ ->
-	    <<"mlkem",Msg/binary>>;
+            <<"mlkem",Msg/binary>>;
+        "mlkem768nistp256" ++ _ ->
+            <<"mlkem768nistp256",Msg/binary>>;
+        "mlkem1024nistp384" ++ _ ->
+            <<"mlkem1024nistp384",Msg/binary>>;
 	_ ->
 	    Msg
     end;

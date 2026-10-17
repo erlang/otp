@@ -142,6 +142,8 @@ Supported algorithms are (in the default order):
 **Key exchange algorithms**
 
 - mlkem768x25519-sha256
+- mlkem768nistp256-sha256
+- mlkem1024nistp384-sha384
 - curve25519-sha256
 - curve25519-sha256@libssh.org
 - curve448-sha512
@@ -395,11 +397,13 @@ The following RFCs are supported:
 - [Secure Shell (SSH) Key Exchange Method Using Curve25519 and Curve448](https://tools.ietf.org/html/rfc8731)
 - [RFC 8709](https://tools.ietf.org/html/rfc8709) Ed25519 and Ed448 public key
   algorithms for the Secure Shell (SSH) protocol
-- [draft-kampanakis-curdle-ssh-pq-ke](https://datatracker.ietf.org/doc/draft-kampanakis-curdle-ssh-pq-ke/),
-  Post-Quantum Traditional Hybrid Key Exchange for SSH.
+- [RFC 10042](https://www.rfc-editor.org/rfc/rfc10042),
+  Post-Quantum/Traditional Hybrid Key Exchange with the Module-Lattice-Based
+  Key-Encapsulation Mechanism for Use in SSH.
 
-  Comment: Implements mlkem768x25519-sha256. The ML-KEM-768 component is
-  defined by [NIST FIPS 203](https://csrc.nist.gov/pubs/fips/203/final).
+  Comment: Implements mlkem768x25519-sha256, mlkem768nistp256-sha256, and
+  mlkem1024nistp384-sha384. ML-KEM is defined by
+  [NIST FIPS 203](https://csrc.nist.gov/pubs/fips/203/final).
 
 ## See Also
 

@@ -594,6 +594,28 @@ decode(<<"mlkem",?BYTE(?SSH_MSG_KEX_HYBRID_REPLY),
     throw({error, size_error([{mlkem_host_key_too_large, KLen, ?MAX_HOST_KEY_SIZE},
                               {mlkem_signature_too_large, SigLen, ?MAX_SIGNATURE_SIZE}])});
 
+decode(<<"mlkem768nistp256", ?BYTE(?SSH_MSG_KEX_HYBRID_INIT),
+         ?DEC_BIN(C_init, CLen)>>) ->
+    decode_hybrid_init(C_init, CLen,
+                       [?MLKEM768_PUBLICKEY_SIZE + ?NISTP256_COMPRESSED_PUBLICKEY_SIZE,
+                        ?MLKEM768_PUBLICKEY_SIZE + ?NISTP256_PUBLICKEY_SIZE]);
+decode(<<"mlkem768nistp256", ?BYTE(?SSH_MSG_KEX_HYBRID_REPLY),
+         ?DEC_BIN(Key, KLen), ?DEC_BIN(S_reply, SLen), ?DEC_BIN(Sig, SigLen)>>) ->
+    decode_hybrid_reply(Key, KLen, S_reply, SLen, Sig, SigLen,
+                        [?MLKEM768_CIPHERTEXT_SIZE + ?NISTP256_COMPRESSED_PUBLICKEY_SIZE,
+                         ?MLKEM768_CIPHERTEXT_SIZE + ?NISTP256_PUBLICKEY_SIZE]);
+
+decode(<<"mlkem1024nistp384", ?BYTE(?SSH_MSG_KEX_HYBRID_INIT),
+         ?DEC_BIN(C_init, CLen)>>) ->
+    decode_hybrid_init(C_init, CLen,
+                       [?MLKEM1024_PUBLICKEY_SIZE + ?NISTP384_COMPRESSED_PUBLICKEY_SIZE,
+                        ?MLKEM1024_PUBLICKEY_SIZE + ?NISTP384_PUBLICKEY_SIZE]);
+decode(<<"mlkem1024nistp384", ?BYTE(?SSH_MSG_KEX_HYBRID_REPLY),
+         ?DEC_BIN(Key, KLen), ?DEC_BIN(S_reply, SLen), ?DEC_BIN(Sig, SigLen)>>) ->
+    decode_hybrid_reply(Key, KLen, S_reply, SLen, Sig, SigLen,
+                        [?MLKEM1024_CIPHERTEXT_SIZE + ?NISTP384_COMPRESSED_PUBLICKEY_SIZE,
+                         ?MLKEM1024_CIPHERTEXT_SIZE + ?NISTP384_PUBLICKEY_SIZE]);
+
 decode(<<?SSH_MSG_SERVICE_REQUEST, ?DEC_BIN(Service, Len)>>)
   when Len =< ?MAX_SERVICE_NAME_SIZE ->
     #ssh_msg_service_request{name = binary:bin_to_list(Service)};
@@ -640,6 +662,25 @@ decode(<<?BYTE(?SSH_MSG_DEBUG), ?BYTE(Bool), ?DEC_BIN(Msg, MLen), ?DEC_BIN(Lang,
 decode(<<?BYTE(?SSH_MSG_DEBUG), ?BYTE(_), ?DEC_BIN(_, MLen), ?DEC_BIN(_, LLen)>>) ->
     throw({error, size_error([{debug_msg_too_large, MLen, ?MAX_DEBUG_MSG_SIZE},
                               {debug_lang_too_large, LLen, ?MAX_LANG_SIZE}])}).
+
+decode_hybrid_init(C_init, CLen, AllowedSizes) ->
+    case lists:member(CLen, AllowedSizes) of
+        true -> #ssh_msg_kex_hybrid_init{c_init = C_init};
+        false -> throw({error, {mlkem_init_invalid_size, CLen, AllowedSizes}})
+    end.
+
+decode_hybrid_reply(Key, KLen, S_reply, SLen, Sig, SigLen, AllowedSizes) ->
+    case lists:member(SLen, AllowedSizes) of
+        false ->
+            throw({error, {mlkem_reply_invalid_size, SLen, AllowedSizes}});
+        true when KLen =< ?MAX_HOST_KEY_SIZE, SigLen =< ?MAX_SIGNATURE_SIZE ->
+            #ssh_msg_kex_hybrid_reply{public_host_key = ssh2_pubkey_decode(Key),
+                                      s_reply = S_reply,
+                                      h_sig = decode_signature(Sig)};
+        true ->
+            throw({error, size_error([{mlkem_host_key_too_large, KLen, ?MAX_HOST_KEY_SIZE},
+                                      {mlkem_signature_too_large, SigLen, ?MAX_SIGNATURE_SIZE}])})
+    end.
 
 %%%================================================================
 %%%
