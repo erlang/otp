@@ -2589,7 +2589,8 @@ generator(Line, {Generate,Lg,P,E}, Gs, _StrictPats, St0)
             {Cg,St3} = lc_guard_tests(Gs, St2),
             {SkipSegs,St4} = skip_segments(AccSegs, St3, []),
             NomatchPat = Cp#ibinary{segments=SkipSegs},
-            {Ce,Pre,St5} = safe(E, St4),
+            {Ce,Pre0,St5} = safe(E, St4),
+            Pre = Pre0 ++ zero_width_check(Segs, SkipSegs, Ce, GA),
             Gen = #igen{anno=GAnno,acc_pat=AccPat,acc_guard=Cg,
                         nomatch_pat=NomatchPat,nomatch_mode=skip,
                         tail=Tail,tail_pat=#ibinary{anno=#a{anno=LA},segments=[TailSeg]},
@@ -2599,13 +2600,15 @@ generator(Line, {Generate,Lg,P,E}, Gs, _StrictPats, St0)
             {AccSegs,Tail,TailSeg,St2} = append_tail_segment(Segs, St1),
             AccPat = Cp#ibinary{segments=AccSegs},
             {Cg,St3} = lc_guard_tests(Gs, St2),
-            {Ce,Pre,St4} = safe(E, St3),
+            {SkipSegs,St4} = skip_segments(AccSegs, St3, []),
+            {Ce,Pre0,St5} = safe(E, St4),
+            Pre = Pre0 ++ zero_width_check(Segs, SkipSegs, Ce, GA),
             Gen = #igen{anno=GAnno,acc_pat=AccPat,acc_guard=Cg,
                         nomatch_pat=#ibinary{anno=#a{anno=LA},segments=[TailSeg]},
                         nomatch_mode=Tail,
                         tail=Tail,tail_pat=#ibinary{anno=#a{anno=LA},segments=[]},
                         arg={Pre,Ce}},
-            {Gen,St4}
+            {Gen,St5}
     catch
         throw:nomatch ->
             {Ce,Pre,St1} = safe(E, St0),
@@ -2771,6 +2774,33 @@ skip_segments([B|Rest], St0, Acc) ->
     skip_segments(Rest, St1, [B#ibitstr{val=Var}|Acc]);
 skip_segments([], St, Acc) ->
     {reverse(Acc),St}.
+
+%% zero_width_check(Segments, SkipSegments, Arg, Anno) -> [PreExpr].
+%%  A bitstring generator whose pattern matches zero bits would never
+%%  consume its input and therefore loop forever. Unless some segment
+%%  is known to have a non-zero size, generate code that raises a
+%%  bad_generator exception if the pattern has zero width. Since the
+%%  size of each segment does not depend on the input when all
+%%  segments have zero width, it is sufficient to match the skip
+%%  pattern against the empty bitstring once before iterating.
+
+zero_width_check(Segs, SkipSegs, Arg, Anno) ->
+    IsNonZero = fun(#ibitstr{size=[#c_literal{val=Size}]}) -> Size =/= 0;
+                   (#ibitstr{}) -> false
+                end,
+    case any(IsNonZero, Segs) of
+        true ->
+            [];
+        false ->
+            Pat = #ibinary{anno=#a{anno=Anno},segments=SkipSegs},
+            Error = bad_generator([Pat], Arg, #c_literal{anno=Anno,val=[]}),
+            Ok = #iclause{anno=#a{anno=[compiler_generated]},
+                          pats=[#c_var{name='_'}],guard=[],
+                          body=[#c_literal{val=ok}]},
+            [#icase{anno=#a{anno=Anno},
+                    args=[#c_literal{anno=Anno,val= <<>>}],
+                    clauses=[Error],fc=Ok}]
+    end.
 
 lc_guard_tests([], St) -> {[],St};
 lc_guard_tests(Gs0, St0) ->
