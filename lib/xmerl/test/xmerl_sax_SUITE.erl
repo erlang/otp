@@ -50,12 +50,68 @@ groups() ->
                  event_fun_endDocument_error_test,
                  event_fun_startDocument_error_test,
                  allow_entities_test, entity_recurse_limit_test,
-                 external_entities_test, fail_undeclared_ref_test
+                 external_entities_test, fail_undeclared_ref_test,
+                 large_character_reference
                 ]}].
 
 %%======================================================================
 %% Tests
 %%======================================================================
+
+%% Oversized character references must return a parser error, including
+%% values that require a bignum on both 32-bit and 64-bit systems.
+large_character_reference(Config) ->
+    Encodings = [utf8, latin1, {utf16, big}, {utf16, little}, list],
+    Values = [1 bsl 27, (1 bsl 59) - 1, 1 bsl 59, 1 bsl 128],
+    [begin
+         Ref = "#" ++ Prefix ++ integer_to_list(Value, Base),
+         Reason = "Not a legal character: " ++ Ref,
+         Documents = ["<a>&" ++ Ref ++ ";</a>",
+                      "<a k='&" ++ Ref ++ ";'/>",
+                      "<!DOCTYPE a [<!ENTITY e '&" ++ Ref ++
+                          ";'>]><a>&e;</a>"],
+         [begin
+              Data = character_reference_input(Xml, Encoding),
+              Options = [{encoding, Encoding}],
+              {fatal_error, _, Reason, _, _} =
+                  xmerl_sax_parser:stream(Data, Options),
+              %% Split the reference across continuation calls, keeping
+              %% UTF-16 code units intact.
+              Continue = fun(<<>>) -> {<<>>, <<>>};
+                            (<<Unit:2/binary, Rest/binary>>)
+                              when Encoding =:= {utf16, big};
+                                   Encoding =:= {utf16, little} ->
+                                {Unit, Rest};
+                            (<<Byte, Rest/binary>>) -> {<<Byte>>, Rest};
+                            ([]) -> {[], []};
+                            ([Char | Rest]) -> {[Char], Rest}
+                         end,
+              Split = string:str(Xml, Ref) + length(Ref) div 2,
+              {Start, Tail} = lists:split(Split, Xml),
+              {fatal_error, _, Reason, _, _} =
+                  xmerl_sax_parser:stream(
+                    character_reference_input(Start, Encoding),
+                    [{continuation_fun, Continue},
+                     {continuation_state,
+                      character_reference_input(Tail, Encoding)} | Options])
+          end || Xml <- Documents]
+     end || Encoding <- Encodings, Value <- Values,
+            {Base, Prefix} <- [{10, ""}, {16, "x"}]],
+    File = filename:join(proplists:get_value(priv_dir, Config),
+                         "large_character_reference.xml"),
+    [begin
+         Xml = "<a>&#576460752303423488;</a>",
+         ok = file:write_file(File, character_reference_input(Xml, Encoding)),
+         {fatal_error, _, "Not a legal character: #576460752303423488", _, _} =
+             xmerl_sax_parser:file(File, [{encoding, Encoding}])
+     end || Encoding <- Encodings -- [list]],
+    ok = file:delete(File),
+    ok.
+
+character_reference_input(Xml, list) -> Xml;
+character_reference_input(Xml, Encoding) ->
+    unicode:characters_to_binary(Xml, unicode, Encoding).
+
 %%----------------------------------------------------------------------
 %% Test Case 
 %% ID: ticket_8213
