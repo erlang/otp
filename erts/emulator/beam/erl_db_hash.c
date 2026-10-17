@@ -276,9 +276,9 @@ static ERTS_INLINE bool is_pseudo_deleted(HashDbTerm* p)
 }
 
 
-/* optimised version of make_hash (normal case? atomic key) */
+/* Same as erts_internal_hash(term) >> 1, with the immediate path inlined */
 #define MAKE_HASH(term) \
-    ((is_atom(term) ? (atom_tab(atom_val(term))->slot.bucket.hvalue) : \
+    ((is_immed(term) ? (erts_ihash_t)erts_ihash_mix64(term) : \
       erts_internal_hash(term)) >> 1)
 
 #  define GET_LOCK_MASK(NUMBER_OF_LOCKS) ((NUMBER_OF_LOCKS)-1)
