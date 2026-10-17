@@ -32,6 +32,7 @@
 -include("ssh_auth.hrl").
 -include("ssh_test_lib.hrl").
 -include_lib("public_key/include/public_key.hrl"). % #'ECPoint'{}, ?'id-Ed25519'
+-include_lib("stdlib/include/assert.hrl").
 
 %% RFC 3526 Group 14 — 2048-bit MODP prime (generator = 2).
 -define(RFC3526_GROUP14_PRIME,
@@ -59,6 +60,8 @@
          bad_very_long_service_name/1,
          banner_sent_to_client/1,
          banner_not_sent_to_client/1,
+         strict_public_key_wire_decoding/1,
+         public_key_algorithm_binding/1,
          client_handles_keyboard_interactive_0_pwds/1,
          client_handles_banner_keyboard_interactive/1,
          client_info_line/1,
@@ -276,7 +279,9 @@ groups() ->
      {authentication, [], [client_handles_keyboard_interactive_0_pwds,
                            client_handles_banner_keyboard_interactive,
                            banner_sent_to_client,
-                           banner_not_sent_to_client
+                           banner_not_sent_to_client,
+                           strict_public_key_wire_decoding,
+                           public_key_algorithm_binding
 			  ]},
      {ext_info, [], [no_ext_info_s1,
                      no_ext_info_s2,
@@ -1392,6 +1397,67 @@ banner_not_sent_to_client(Config) ->
     ssh:stop_daemon(Pid),
 
     Config.
+
+%%%--------------------------------------------------------------------
+strict_public_key_wire_decoding(_Config) ->
+    PublicKey = #'RSAPublicKey'{modulus = 3233, publicExponent = 17},
+    KeyBlob = iolist_to_binary(ssh_message:ssh2_pubkey_encode(PublicKey)),
+    PublicKey = ssh_message:ssh2_pubkey_decode(KeyBlob),
+    ?assertError({badmatch, _},
+                 ssh_message:ssh2_pubkey_decode(<<KeyBlob/binary, 0>>)),
+
+    Signature = <<1, 2, 3>>,
+    SignatureContainer = <<?STRING(<<"rsa-sha2-256">>), ?STRING(Signature)>>,
+    Reply = <<"dh", ?BYTE(?SSH_MSG_KEXDH_REPLY),
+              ?Ebinary(KeyBlob), ?Empint(1), ?Ebinary(SignatureContainer)>>,
+    #ssh_msg_kexdh_reply{public_host_key = PublicKey,
+                         f = 1,
+                         h_sig = {"rsa-sha2-256", Signature}} =
+        ssh_message:decode(Reply),
+
+    BadSignatureContainer = <<SignatureContainer/binary, 0>>,
+    BadReply = <<"dh", ?BYTE(?SSH_MSG_KEXDH_REPLY),
+                 ?Ebinary(KeyBlob), ?Empint(1), ?Ebinary(BadSignatureContainer)>>,
+    ?assertError(function_clause, ssh_message:decode(BadReply)).
+
+%%%--------------------------------------------------------------------
+public_key_algorithm_binding(Config) ->
+    User = "foo",
+    UserDir = ssh_test_lib:user_dir(Config),
+    {ok, PrivateKey} =
+        ssh_file:user_key('rsa-sha2-256', [{user_dir, UserDir}]),
+    PublicKey = ssh_file:extract_public_key(PrivateKey),
+    KeyBlob = iolist_to_binary(ssh_message:ssh2_pubkey_encode(PublicKey)),
+    Options = ssh_options:handle_options(server,
+                                         [{user_dir, UserDir},
+                                          {auth_methods, "publickey"}]),
+    Ssh = #ssh{opts = Options,
+               userauth_supported_methods = "publickey",
+               auth_tries_left = 3},
+    SessionId = <<"test-session-id">>,
+
+    ValidRequest = signed_public_key_request(User, SessionId,
+                                             'rsa-sha2-256', 'rsa-sha2-256',
+                                             KeyBlob, PrivateKey),
+    ?assertMatch({authorized, User, {#ssh_msg_userauth_success{}, _}},
+                 ssh_auth:handle_userauth_request(ValidRequest, SessionId, Ssh)),
+
+    KeyMismatch = signed_public_key_request(User, SessionId,
+                                            'ecdsa-sha2-nistp256',
+                                            'ecdsa-sha2-nistp256',
+                                            KeyBlob, PrivateKey),
+    ?assertMatch({not_authorized, {User, undefined},
+                  {#ssh_msg_userauth_failure{}, _}},
+                 ssh_auth:handle_userauth_request(KeyMismatch, SessionId, Ssh)),
+
+    SignatureMismatch = signed_public_key_request(User, SessionId,
+                                                  'rsa-sha2-256',
+                                                  'rsa-sha2-512',
+                                                  KeyBlob, PrivateKey),
+    ?assertMatch({not_authorized, {User, undefined},
+                  {#ssh_msg_userauth_failure{}, _}},
+                 ssh_auth:handle_userauth_request(SignatureMismatch,
+                                                  SessionId, Ssh)).
 
 %%%--------------------------------------------------------------------
 client_info_line(Config) ->
@@ -2533,6 +2599,30 @@ max_auth_tries_infinity(Config) ->
 %%%================================================================
 %%%==== Internal functions ========================================
 %%%================================================================
+
+signed_public_key_request(User, SessionId, OuterAlg, InnerAlg,
+                          KeyBlob, PrivateKey) ->
+    UserBin = unicode:characters_to_binary(User),
+    OuterAlgBin = atom_to_binary(OuterAlg, latin1),
+    InnerAlgBin = atom_to_binary(InnerAlg, latin1),
+    SignedData = <<?STRING(SessionId),
+                   ?BYTE(?SSH_MSG_USERAUTH_REQUEST),
+                   ?STRING(UserBin),
+                   ?STRING(<<"ssh-connection">>),
+                   ?STRING(<<"publickey">>),
+                   ?BYTE(?TRUE),
+                   ?STRING(OuterAlgBin),
+                   ?STRING(KeyBlob)>>,
+    Signature = ssh_transport:sign(SignedData, ssh_transport:sha(OuterAlg),
+                                   PrivateKey),
+    SignatureContainer = <<?STRING(InnerAlgBin), ?STRING(Signature)>>,
+    #ssh_msg_userauth_request{user = User,
+                              service = "ssh-connection",
+                              method = "publickey",
+                              data = <<?BYTE(?TRUE),
+                                       ?STRING(OuterAlgBin),
+                                       ?STRING(KeyBlob),
+                                       ?STRING(SignatureContainer)>>}.
 
 %% Connect, run key exchange and request the ssh-userauth service.
 connect_and_request_userauth(Host, Port, UserDir) ->

@@ -168,7 +168,8 @@ Eshell V16.3.1 (press Ctrl+G to abort, type help(). for help)
        'diffie-hellman-group14-sha256']},
  {public_key,['ssh-ed25519','ssh-ed448','ecdsa-sha2-nistp521',
               'ecdsa-sha2-nistp384','ecdsa-sha2-nistp256',
-              'rsa-sha2-512','rsa-sha2-256']},
+              'rsa-sha2-512','rsa-sha2-256',
+              'ssh-mldsa-87','ssh-mldsa-65','ssh-mldsa-44']},
  {cipher,[{client2server,['aes256-gcm@openssh.com','aes256-ctr',
                           'aes192-ctr','aes128-gcm@openssh.com',
                           'aes128-ctr',
@@ -279,7 +280,8 @@ A newly started erlang shell shows that no `'ssh-dss'` is present in the
 1> proplists:get_value(public_key, ssh:default_algorithms()).
 ['ssh-ed25519','ssh-ed448','ecdsa-sha2-nistp521',
  'ecdsa-sha2-nistp384','ecdsa-sha2-nistp256',
- 'rsa-sha2-512','rsa-sha2-256']
+ 'rsa-sha2-512','rsa-sha2-256',
+ 'ssh-mldsa-87','ssh-mldsa-65','ssh-mldsa-44']
 2>
 ```
 
