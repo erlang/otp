@@ -52,6 +52,7 @@
          unsafe_vars/1,unsafe_vars2/1,
          unsafe_vars_try/1,
          unsized_binary_in_bin_gen_pattern/1,
+         zero_width_bin_gen_pattern/1,
          guard/1, otp_4886/1, otp_4988/1, otp_5091/1, otp_5276/1, otp_5338/1,
          otp_5362/1, otp_5371/1, otp_7227/1, binary_aliases/1,
          otp_5494/1, otp_5644/1, otp_5878/1,
@@ -111,6 +112,7 @@ all() ->
      shadow_vars, unused_import, unused_function,
      unsafe_vars, unsafe_vars2, unsafe_vars_try, guard,
      unsized_binary_in_bin_gen_pattern,
+     zero_width_bin_gen_pattern,
      otp_4886, otp_4988, otp_5091, otp_5276, otp_5338,
      otp_5362, otp_5371, otp_7227, binary_aliases, otp_5494, otp_5644,
      otp_5878, otp_5917, otp_6585, otp_6885, otp_10436, otp_11254,
@@ -1731,6 +1733,31 @@ unsized_binary_in_bin_gen_pattern(Config) when is_list(Config) ->
 	     {{22,16},erl_lint,unsized_binary_in_bin_gen_pattern},
 	     {{24,16},erl_lint,unsized_binary_in_bin_gen_pattern}],
 	     []}}],
+    [] = run(Config, Ts),
+    ok.
+
+%% Patterns of bit string generators that match zero bits are forbidden,
+%% since they would loop forever.
+zero_width_bin_gen_pattern(Config) when is_list(Config) ->
+    Ts = [{zero_width_bin_gen_pattern,
+           <<"t(1, Bin) -> [X || <<X:0>> <= Bin];
+              t(2, Bin) -> [X || <<X:0>> <:= Bin];
+              t(3, Bin) -> << <<>> || <<>> <= Bin >>;
+              t(4, Bin) -> [ok || <<\"\">> <= Bin];
+              t(5, Bin) -> [X || <<X:(1-1), _:0/binary>> <= Bin];
+              t(6, Bin) -> [X || <<X:0>> <= Bin && _ <- [a]];
+              t(7, Bin) -> [X || <<X:0, _:8>> <= Bin];
+              t(8, Bin) -> [X || <<_:8, X:0>> <= Bin];
+              t(9, {Bin,N}) -> [X || <<X:N>> <= Bin].">>,
+           [],
+           {errors,
+            [{{1,40},erl_lint,zero_width_bin_gen_pattern},
+             {{2,34},erl_lint,zero_width_bin_gen_pattern},
+             {{3,39},erl_lint,zero_width_bin_gen_pattern},
+             {{4,35},erl_lint,zero_width_bin_gen_pattern},
+             {{5,34},erl_lint,zero_width_bin_gen_pattern},
+             {{6,34},erl_lint,zero_width_bin_gen_pattern}],
+            []}}],
     [] = run(Config, Ts),
     ok.
 
