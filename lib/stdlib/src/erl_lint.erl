@@ -5697,15 +5697,15 @@ check_format_string(Fmt, Strict) when is_binary(Fmt) ->
 check_format_string(Fmt, Strict) ->
     extract_sequences(Fmt, [], Strict).
 
-extract_sequences(Fmt, Need0, Strict) ->
-    case string:find(Fmt, [$~]) of
-        nomatch -> {ok,lists:reverse(Need0)};         %That's it
-        [$~|Fmt1] ->
-            case extract_sequence(1, Fmt1, Need0, Strict) of
-                {ok,Need1,Rest} -> extract_sequences(Rest, Need1, Strict);
-                Error -> Error
-            end
-    end.
+extract_sequences([$~|Fmt], Need0, Strict) ->
+    case extract_sequence(1, Fmt, Need0, Strict) of
+        {ok,Need1,Rest} -> extract_sequences(Rest, Need1, Strict);
+        Error -> Error
+    end;
+extract_sequences([_|Fmt], Need, Strict) ->
+    extract_sequences(Fmt, Need, Strict);
+extract_sequences([], Need, _Strict) ->
+    {ok,lists:reverse(Need)}.
 
 extract_sequence(1, [$-,C|Fmt], Need, Strict)
   when is_integer(C), C >= $0, C =< $9 ->

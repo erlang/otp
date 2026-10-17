@@ -63,6 +63,7 @@
          otp_7550/1,
          otp_8051/1,
          format_warn/1,
+         check_format_string/1,
          on_load_successful/1, on_load_failing/1,
          too_many_arguments/1,
          basic_errors/1,bin_syntax_errors/1,
@@ -115,7 +116,7 @@ all() ->
      otp_5878, otp_5917, otp_6585, otp_6885, otp_10436, otp_11254,
      otp_11772, otp_11771, otp_11872, export_all,
      bif_clash, behaviour_basic, behaviour_multiple, otp_11861,
-     otp_7550, otp_8051, format_warn, {group, on_load},
+     otp_7550, otp_8051, format_warn, check_format_string, {group, on_load},
      too_many_arguments, basic_errors, bin_syntax_errors, predef,
      maps, maps_type, maps_parallel_match,
      otp_11851, otp_11879, otp_13230,
@@ -3950,6 +3951,27 @@ format_warn(Config) when is_list(Config) ->
     format_level(1, L1, Config),
     format_level(2, L1+L2, Config),
     format_level(3, L1+L2, Config),             %there is no level 3
+    ok.
+
+%% Format controls are parsed as characters, not grapheme clusters.
+check_format_string(Config) when is_list(Config) ->
+    Combining = 16#301,
+    Invalid = [$~, Combining],
+    Error = {error, "invalid control ~" ++ [Combining]},
+    Error = erl_lint:check_format_string(Invalid),
+    Error = erl_lint:check_format_string("prefix" ++ Invalid),
+    Error = erl_lint:check_format_string("~p" ++ Invalid),
+    Error = erl_lint:check_format_string(Invalid, false),
+    try io_lib:format(Invalid, []) of
+        _ -> ct:fail(expected_badarg)
+    catch
+        error:badarg -> ok
+    end,
+    {ok, []} = erl_lint:check_format_string([]),
+    {ok, []} = erl_lint:check_format_string([$a, Combining]),
+    {ok, []} = erl_lint:check_format_string([$~, $~, Combining]),
+    {ok, [term, int]} =
+        erl_lint:check_format_string([$a, Combining] ++ "~p text ~c"),
     ok.
 
 format_level(Level, Count, Config) ->
