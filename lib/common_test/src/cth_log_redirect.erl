@@ -134,14 +134,18 @@ start_log_handler(Options) ->
         _Pid ->
             ok
     end,
-    {DefaultFormatter, DefaultLevel} =
+    {DefaultFormatter, DefaultLevel, DefaultFilters, DefaultFilterDefault} =
         case logger:get_handler_config(default) of
             {ok, Default} ->
-                {maps:get(formatter, Default), maps:get(level, Default)};
+                {maps:get(formatter, Default), maps:get(level, Default),
+                 maps:get(filters, Default), maps:get(filter_default, Default)};
             _Else ->
-                {{?DEFAULT_FORMATTER,?DEFAULT_FORMAT_CONFIG},info}
+                {{?DEFAULT_FORMATTER,?DEFAULT_FORMAT_CONFIG},info,
+                 ?DEFAULT_HANDLER_FILTERS([otp,sasl]),stop}
         end,
-    HandlerConfig = #{level => DefaultLevel, formatter => DefaultFormatter},
+    HandlerConfig = #{level => DefaultLevel, formatter => DefaultFormatter,
+                      filters => remove_remote_gl_filters(DefaultFilters),
+                      filter_default => DefaultFilterDefault},
     HandlerName = case proplists:get_value(mode, Options, add) of
                       add ->
                           ?MODULE;
@@ -150,6 +154,12 @@ start_log_handler(Options) ->
                           default
                   end,
     ok = logger:add_handler(HandlerName, ?MODULE, HandlerConfig).
+
+%% Events from remote group leaders are handled by this module itself,
+%% see handle_remote_events/1, so they must not be stopped by a filter.
+remove_remote_gl_filters(Filters) ->
+    RemoteGL = fun logger_filters:remote_gl/2,
+    [Filter || {_Id,{Fun,_Args}}=Filter <- Filters, Fun =/= RemoteGL].
 
 init([]) ->
     {ok, #eh_state{log_func = tc_log_async}}.
@@ -180,10 +190,6 @@ log(#{msg:={report,Msg},meta:=#{domain:=[otp,sasl]}}=Log,Config) ->
                     do_log(add_log_category(Log,sasl),Config)
             end
     end;
-log(#{meta:=#{domain:=[otp]}}=Log,Config) ->
-    do_log(add_log_category(Log,error_logger),Config);
-log(#{meta:=#{domain:=_}},_) ->
-    ok;
 log(Log,Config) ->
     do_log(add_log_category(Log,error_logger),Config).
 

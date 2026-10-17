@@ -78,6 +78,10 @@ end_per_testcase(cth_log_formatter = TestCase, Config) ->
        [default, formatter,
         {?DEFAULT_FORMATTER,?DEFAULT_FORMAT_CONFIG}]}, Config),
     ct_test_support:end_per_testcase(TestCase, Config);
+end_per_testcase(cth_log_domain = TestCase, Config) ->
+    ct_test_support:ct_rpc(
+      {logger,remove_handler_filter,[default, cth_log_domain_user]}, Config),
+    ct_test_support:end_per_testcase(TestCase, Config);
 end_per_testcase(TestCase, Config) ->
     ct_test_support:end_per_testcase(TestCase, Config).
 
@@ -121,7 +125,7 @@ all(suite) ->
 groups() ->
     [
      {cth_log_redirect, [], [cth_log_unexpect, cth_log_formatter,
-                             cth_log, cth_log_mode_replace]}
+                             cth_log, cth_log_mode_replace, cth_log_domain]}
     ].
 
 
@@ -382,6 +386,36 @@ cth_log_mode_replace(Config) when is_list(Config) ->
     %% html I/O log when replace mode is used
     verify_cth_log_output(Config, [{cth_log_redirect, [{mode, replace}]}],
                           [{enable_builtin_hooks, false}]).
+
+cth_log_domain(Config) when is_list(Config) ->
+    %% test that cth_log_redirect uses the filters of the default
+    %% handler, so log events with a user supplied domain can be
+    %% captured
+    ct:timetrap({minutes,10}),
+    ok = ct_test_support:ct_rpc(
+           {logger,add_handler_filter,
+            [default, cth_log_domain_user,
+             {fun logger_filters:domain/2, {log, sub, [user]}}]},
+           Config),
+    StartOpts = do_test(cth_log_domain, "cth_log_domain_SUITE.erl", [], Config),
+    Logdir = proplists:get_value(logdir, StartOpts),
+    [_|_] = TCLogs =
+        filelib:wildcard(
+          filename:join(Logdir,
+                        "ct_run*/cth.tests*/run*/cth_log_domain_suite.tc1.html")),
+    lists:foreach(
+      fun(TCLog) ->
+              {ok,Bin} = file:read_file(TCLog),
+              case {binary:match(Bin, <<"cth_log_domain_user_event">>),
+                    binary:match(Bin, <<"cth_log_domain_other_event">>)} of
+                  {{_,_}, nomatch} ->
+                      ok;
+                  Matches ->
+                      ct:pal("Unexpected matches ~p in ~tp", [Matches,TCLog]),
+                      exit({unexpected_io,TCLog})
+              end
+      end, TCLogs),
+    ok.
 
 %% OTP-10599 adds the Suite argument as first argument to all hook
 %% callbacks that did not have a Suite argument from before. This test
@@ -2043,6 +2077,16 @@ test_events(cth_log) ->
                                  [{suite,cth_log_SUITE}]},ok}},
 
      {?eh,tc_done,{cth_log_SUITE,end_per_suite,ok}},
+     {?eh,test_done,{'DEF','STOP_TIME'}},
+     {?eh,stop_logging,[]}
+    ];
+
+test_events(cth_log_domain) ->
+    [{?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+     {?eh,tc_start,{cth_log_domain_SUITE,tc1}},
+     {?eh,tc_done,{cth_log_domain_SUITE,tc1,ok}},
+     {?eh,test_stats,{1,0,{0,0}}},
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}
     ];
