@@ -386,13 +386,12 @@ make_path(BundleDir, Bundles0) ->
     make_path(BundleDir, Bundles, []).
 
 choose_bundles(Bundles) ->
-    ArchiveExt = archive_extension(),
-    Bs = lists:sort([create_bundle(B, ArchiveExt) || B <- Bundles]),
+    Bs = lists:sort([create_bundle(B) || B <- Bundles]),
     [FullName || {_Name,_NumVsn,FullName} <-
-		     choose(lists:reverse(Bs), [], ArchiveExt)].
+                     choose(lists:reverse(Bs), [])].
 
-create_bundle(FullName, ArchiveExt) ->
-    BaseName = filename:basename(FullName, ArchiveExt),
+create_bundle(FullName) ->
+    BaseName = filename:basename(FullName),
     case split_base(BaseName) of
 	{Name, VsnStr} ->
 	    case vsn_to_num(VsnStr) of
@@ -449,22 +448,12 @@ join([H], _) ->
 join([], _) ->
     [].
 
-choose([{Name,NumVsn,NewFullName}=New|Bs], Acc, ArchiveExt) ->
-    case lists:keyfind(Name, 1, Acc) of
-	{_, NV, OldFullName} when NV =:= NumVsn ->
-	    case filename:extension(OldFullName) =:= ArchiveExt of
-		false ->
-		    choose(Bs,Acc, ArchiveExt);
-		true ->
-		    Acc2 = lists:keystore(Name, 1, Acc, New),
-		    choose(Bs,Acc2, ArchiveExt)
-	    end;
-	{_, _, _} ->
-	    choose(Bs,Acc, ArchiveExt);
-	false ->
-	    choose(Bs,[{Name,NumVsn,NewFullName}|Acc], ArchiveExt)
+choose([{Name,_NumVsn,_FullName}=New|Bs], Acc) ->
+    case lists:keymember(Name, 1, Acc) of
+        true -> choose(Bs, Acc);
+        false -> choose(Bs, [New|Acc])
     end;
-choose([],Acc, _ArchiveExt) ->
+choose([], Acc) ->
     Acc.
 
 make_path(_, [], Res) ->
@@ -472,40 +461,15 @@ make_path(_, [], Res) ->
 make_path(BundleDir, [Bundle|Tail], Res) ->
     Dir = filename:append(BundleDir, Bundle),
     Ebin = filename:append(Dir, "ebin"),
-    %% First try with /ebin
     case is_dir(Ebin) of
-	true ->
-	    make_path(BundleDir, Tail, [Ebin|Res]);
-	false ->
-	    %% Second try with archive
-	    Ext = archive_extension(),
-	    Base = filename:basename(Bundle, Ext),
-	    Ebin2 = filename:join([BundleDir, Base ++ Ext, Base, "ebin"]),
-	    Ebins = 
-		case split_base(Base) of
-		    {AppName,_} ->
-			Ebin3 = filename:join([BundleDir, Base ++ Ext,
-					       AppName, "ebin"]),
-			[Ebin3, Ebin2, Dir];
-		    _ ->
-			[Ebin2, Dir]
-		end,
-	    case try_ebin_dirs(Ebins) of
-		{ok,FoundEbin} ->
-		    make_path(BundleDir, Tail, [FoundEbin|Res]);
-		error ->
-		    make_path(BundleDir, Tail, Res)
-	    end
+        true ->
+            make_path(BundleDir, Tail, [Ebin|Res]);
+        false ->
+            case is_dir(Dir) of
+                true -> make_path(BundleDir, Tail, [Dir|Res]);
+                false -> make_path(BundleDir, Tail, Res)
+            end
     end.
-
-try_ebin_dirs([Ebin|Ebins]) ->
-    case is_dir(Ebin) of
-	true -> {ok,Ebin};
-	false -> try_ebin_dirs(Ebins)
-    end;
-try_ebin_dirs([]) ->
-    error.
-
 
 %%
 %% Add the erl_prim_loader path.
@@ -668,59 +632,16 @@ split_base(BaseName) ->
 	    BaseName
     end.
 
-check_path(Path) ->
-    PathChoice = init:code_path_choice(),
-    ArchiveExt = archive_extension(),
-    do_check_path(Path, PathChoice, ArchiveExt, []).
-    
-do_check_path([], _PathChoice, _ArchiveExt, Acc) -> 
-    {ok, lists:reverse(Acc)};
-do_check_path([Dir | Tail], PathChoice, ArchiveExt, Acc) ->
+check_path([]) ->
+    {ok, []};
+check_path([Dir|Tail]) ->
     case is_dir(Dir) of
-	true ->
-	    do_check_path(Tail, PathChoice, ArchiveExt, [Dir | Acc]);
-	false when PathChoice =:= strict ->
-	    %% Be strict. Only use dir as explicitly stated
-	    {error, bad_directory};
-	false when PathChoice =:= relaxed ->
-	    %% Be relaxed
-	    case catch lists:reverse(filename:split(Dir)) of
-		{'EXIT', _} ->
-		    {error, bad_directory};
-		["ebin", App] ->
-		    Dir2 = filename:join([App ++ ArchiveExt, App, "ebin"]),
-		    case is_dir(Dir2) of
-			true ->
-			    do_check_path(Tail, PathChoice, ArchiveExt, [Dir2 | Acc]);
-			false ->
-			    {error, bad_directory}
-		    end;
-		["ebin", App, OptArchive | RevTop] ->
-		    Ext = filename:extension(OptArchive),
-		    Base = filename:basename(OptArchive, Ext),
-		    Dir2 = 
-			if
-			    Ext =:= ArchiveExt, Base =:= App ->
-				%% .../app-vsn.ez/app-vsn/ebin
-				Top = lists:reverse(RevTop),
-				filename:join(Top ++ [App, "ebin"]);
-			    Ext =:= ArchiveExt ->
-				%% .../app-vsn.ez/xxx/ebin
-				{error, bad_directory};
-			    true ->
-				%% .../app-vsn/ebin
-				Top = lists:reverse([OptArchive | RevTop]),
-				filename:join(Top ++ [App ++ ArchiveExt, App, "ebin"])
-			end,
-		    case is_dir(Dir2) of
-			true ->
-			    do_check_path(Tail, PathChoice, ArchiveExt, [Dir2 | Acc]);
-			false ->
-			    {error, bad_directory}
-		    end;
-		_ ->
-		    {error, bad_directory}
-	    end
+        true ->
+            case check_path(Tail) of
+                {ok, Rest} -> {ok, [Dir|Rest]};
+                Error -> Error
+            end;
+        false -> {error, bad_directory}
     end.
 
 %%
@@ -796,7 +717,7 @@ create_namedb(Path, Root) ->
     init_namedb(lists:reverse(Path), Db),
 
     case lookup_name("erts", Db) of
-        {ok, _, _, _} ->
+        {ok, _} ->
             %% erts is part of code path
             ok;
         false ->
@@ -843,37 +764,9 @@ insert_name(Name, Dir, Db) ->
     AppDir = del_ebin(Dir),
     do_insert_name(Name, AppDir, Db).
 
-do_insert_name(".", _, _) ->
-    %% "." is most likely not an archive, avoid looking for subdirs
-    true;
 do_insert_name(Name, AppDir, Db) ->
-    {Base, SubDirs} = archive_subdirs(AppDir),
-    ets:insert(Db, {Name, AppDir, Base, SubDirs}),
+    ets:insert(Db, {Name, AppDir}),
     true.
-
-archive_subdirs(AppDir) ->
-    Base = filename:basename(AppDir),
-    Dirs = case split_base(Base) of
-	       {Name, _} -> [Name, Base];
-	    _ -> [Base]
-	end,
-    Ext = archive_extension(),
-    try_archive_subdirs(AppDir ++ Ext, Base, Dirs).
-
-try_archive_subdirs(Archive, Base, [Dir | Dirs]) ->
-    ArchiveDir = filename:append(Archive, Dir),
-    case erl_prim_loader:list_dir(ArchiveDir) of
-	{ok, Files} ->
-	    IsDir = fun(RelFile) ->
-			    File = filename:append(ArchiveDir, RelFile),
-			    is_dir(File)
-		    end,
-	    {Dir, lists:filter(IsDir, Files)};
-	_ ->
-	    try_archive_subdirs(Archive, Base, Dirs)
-    end;
-try_archive_subdirs(_Archive, Base, []) ->
-    {Base, []}.
 
 %%
 %% Delete a directory from Path.
@@ -965,21 +858,7 @@ del_ebin(Dir) ->
     filename:join(del_ebin_1(filename:split(Dir))).
 
 del_ebin_1([Parent,App,"ebin"]) ->
-    case filename:basename(Parent) of
-	[] ->
-	    %% Parent is the root directory
-	    [Parent,App];
-	_ ->
-	    Ext = archive_extension(),
-	    case filename:basename(Parent, Ext) of
-		Parent ->
-		    %% Plain directory.
-		    [Parent,App];
-		Archive ->
-		    %% Archive.
-		    [Archive]
-	    end
-    end;
+    [Parent,App];
 del_ebin_1(Path = [_App,"ebin"]) ->
     del_ebin_1(filename:split(absname(filename:join(Path))));
 del_ebin_1(["ebin"]) ->
@@ -1007,7 +886,7 @@ delete_name_dir(Dir, Db) ->
 	Name ->
 	    Dir0 = del_ebin(Dir),
 	    case lookup_name(Name, Db) of
-		{ok, Dir0, _Base, _SubDirs} ->
+                {ok, Dir0} ->
 		    ets:delete(Db, Name), 
 		    true;
 		_ -> false
@@ -1016,7 +895,7 @@ delete_name_dir(Dir, Db) ->
 
 lookup_name(Name, Db) ->
     case ets:lookup(Db, Name) of
-	[{Name, Dir, Base, SubDirs}] -> {ok, Dir, Base, SubDirs};
+        [{Name, Dir}] -> {ok, Dir};
 	_ -> false
     end.
 
@@ -1029,30 +908,18 @@ do_dir(Root,root_dir,_) ->
     Root;
 do_dir(_Root,compiler_dir,NameDb) ->
     case lookup_name("compiler", NameDb) of
-	{ok, Dir, _Base, _SubDirs} -> Dir;
+        {ok, Dir} -> Dir;
 	_  -> ""
     end;
 do_dir(_Root,{lib_dir,Name},NameDb) ->
     case catch lookup_name(to_list(Name), NameDb) of
-	{ok, Dir, _Base, _SubDirs} -> Dir;
+        {ok, Dir} -> Dir;
 	_         -> {error, bad_name}
     end;
-do_dir(_Root,{lib_dir,Name,SubDir0},NameDb) ->
-    SubDir = atom_to_list(SubDir0),
+do_dir(_Root,{lib_dir,Name,SubDir},NameDb) ->
     case catch lookup_name(to_list(Name), NameDb) of
-	{ok, Dir, Base, SubDirs} ->
-	    case lists:member(SubDir, SubDirs) of
-		true ->
-		    %% Subdir is in archive
-		    filename:join([Dir ++ archive_extension(),
-				   Base,
-				   SubDir]);
-		false ->
-		    %% Subdir is regular directory
-		    filename:join([Dir, SubDir])
-	    end;
-	_  -> 
-	    {error, bad_name}
+        {ok, Dir} -> filename:join(Dir, atom_to_list(SubDir));
+        _ -> {error, bad_name}
     end;
 do_dir(_Root,{priv_dir,Name},NameDb) ->
     do_dir(_Root,{lib_dir,Name,priv},NameDb);
@@ -1458,9 +1325,6 @@ info_msg(Format, Args) ->
 
 objfile_extension() ->
     init:objfile_extension().
-
-archive_extension() ->
-    init:archive_extension().
 
 to_list(X) when is_list(X) -> X;
 to_list(X) when is_atom(X) -> atom_to_list(X).

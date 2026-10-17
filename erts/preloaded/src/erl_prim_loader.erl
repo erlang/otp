@@ -64,6 +64,8 @@ The `erl_prim_loader` module interprets the following command-line flags:
 - **`-setcookie Cookie`** - Specifies the cookie of the Erlang runtime system.
   This flag is mandatory if flag `-loader inet` is present.
 
+The loader retains support for the primary archive used by `m:escript`.
+
 ### See Also
 
 `m:init`, `m:erl_boot_server`
@@ -94,7 +96,7 @@ The `erl_prim_loader` module interprets the following command-line flags:
 -export([set_primary_archive/4]).
 
 %% Used by test suites
--export([purge_archive_cache/0, get_modules/3]).
+-export([get_modules/3]).
 
 %% Used by init and the code server
 -export([get_modules/2, is_basename/1]).
@@ -115,7 +117,7 @@ The `erl_prim_loader` module interprets the following command-line flags:
          timeout           :: timeout(),	 % idle timeout
          prim_state        :: prim_state()}).    % state for efile code loader
 
--define(EFILE_IDLE_TIMEOUT, (6*60*1000)).	%purge archives
+-define(EFILE_IDLE_TIMEOUT, (6*60*1000)).	%idle timeout
 -define(INET_IDLE_TIMEOUT, (60*1000)). 		%tear down connection timeout
 
 %% Defines for inet as prim_loader
@@ -252,9 +254,6 @@ internal path is set to the loader, this path is used to find the file.
 `FullName` is the complete name of the fetched file. `Bin` is the contents of
 the file as a binary.
 
-`Filename` can also be a file in an archive, for example,
-`$OTPROOT/lib/mnesia-4.4.7.ez/mnesia-4.4.7/ebin/mnesia.beam`. For
-information about archive files, see `m:code`.
 """.
 -spec get_file(Filename) -> {'ok', Bin, FullName} | 'error' when
       Filename :: atom() | string(),
@@ -272,9 +271,6 @@ Returns `{ok, Filenames}` if successful, otherwise `error`. `Filenames`
 is a list of the names of all the files in the directory. The names are
 not sorted.
 
-`Dir` can also be a directory in an archive, for example,
-`$OTPROOT/lib/mnesia-4.4.7.ez/mnesia-4.4.7/ebin`. For information about
-archive files, see `m:code`.
 """.
 -spec list_dir(Dir) -> {'ok', Filenames} | 'error' when
       Dir :: string(),
@@ -288,9 +284,6 @@ Reads a file using the low-level loader.
 Returns `{ok, Bin}` if successful, otherwise `error`. `Bin` is the contents
 of the file as a binary.
 
-`Filename` can also be a file in an archive, for example,
-`$OTPROOT/lib/mnesia-4.4.7.ez/mnesia-4.4.7/ebin/mnesia.beam`. For
-information about archive files, see `m:code`.
 """.
 -doc(#{since => <<"OTP 27.0">>}).
 -spec read_file(Filename) -> {'ok', Bin} | 'error' when
@@ -313,9 +306,6 @@ function is called:
 
 For more information about the record see `file:read_file_info/2`.
 
-`Filename` can also be a file in an archive, for example,
-`$OTPROOT/lib/mnesia-4.4.7.ez/mnesia-4.4.7/ebin/mnesia`. For information
-about archive files, see `m:code`.
 """.
 -spec read_file_info(Filename) -> {'ok', FileInfo} | 'error' when
       Filename :: string(),
@@ -372,15 +362,6 @@ set_primary_archive(undefined, undefined, undefined, ParserFun) ->
 set_primary_archive(File, ArchiveBin, FileInfo, ParserFun)
   when is_list(File), is_binary(ArchiveBin), is_record(FileInfo, file_info) ->
     request({set_primary_archive, File, ArchiveBin, FileInfo, ParserFun}).
-
-%% NOTE: Does not close the primary archive. Only closes all
-%% open zip files kept in the cache. Should be called before an archive
-%% file is to be removed (for example in the test suites).
-
--doc false.
--spec purge_archive_cache() -> 'ok' | {'error', _}.
-purge_archive_cache() ->
-    request(purge_archive_cache).
 
 -doc false.
 -spec get_modules([module()],
@@ -531,8 +512,6 @@ handle_request(Req, Paths, St0) ->
 	{set_primary_archive,File,ArchiveBin,FileInfo,ParserFun} ->
 	    handle_set_primary_archive(St0, File, ArchiveBin,
 				       FileInfo, ParserFun);
-	purge_archive_cache ->
-	    handle_purge_archive_cache(St0);
 	_ ->
 	    ignore
     end.
@@ -544,10 +523,6 @@ handle_get_file(State = #state{loader = inet}, Paths, File) ->
 
 handle_set_primary_archive(State= #state{loader = efile}, File, ArchiveBin, FileInfo, ParserFun) ->
     ?SAFE2(efile_set_primary_archive(State, File, ArchiveBin, FileInfo, ParserFun), State).
-
-handle_purge_archive_cache(#state{loader = efile}=State) ->
-    prim_purge_cache(),
-    {ok,State}.
 
 handle_list_dir(State = #state{loader = efile}, Dir) ->
     ?SAFE2(efile_list_dir(State, Dir), State);
@@ -647,7 +622,6 @@ efile_read_file_info(#state{prim_state = PS} = State, File, FollowLinks) ->
     {Res, State#state{prim_state = PS2}}.
 
 efile_timeout_handler(State, _Parent) ->
-    prim_purge_cache(),
     State.
 
 %%% --------------------------------------------------------
@@ -656,7 +630,7 @@ efile_timeout_handler(State, _Parent) ->
 
 handle_get_modules(#state{loader=efile}=St, Ms, Process, Paths) ->
     Primary = (St#state.prim_state)#prim_state.primary_archive,
-    Res = case efile_any_archives(Paths, Primary) of
+    Res = case (Primary =/= undefined) andalso efile_any_archives(Paths, Primary) of
 	      false ->
 		  efile_get_mods_par(Ms, Process, Paths);
 	      true ->
@@ -1041,21 +1015,7 @@ prim_init() ->
             {ok, _} -> true;
             error -> false
         end,
-    cache_new(#prim_state{debug = Deb}).
-
-prim_purge_cache() ->
-    do_prim_purge_cache(get()).
-
-do_prim_purge_cache([{Key,Val}|T]) ->
-    case Val of
-	{Cache,_FI} ->
-	    catch clear_cache(Key, Cache);
-	_ ->
-	    ok
-    end,
-    do_prim_purge_cache(T);
-do_prim_purge_cache([]) ->
-    ok.
+    #prim_state{debug = Deb}.
 
 prim_set_primary_archive(PS, undefined, undefined, undefined, _ParserFun) ->
     debug(PS, {set_primary_archive, clean}),
@@ -1246,16 +1206,7 @@ prim_get_cwd(PS, [Drive]) ->
 apply_archive(PS, Fun, Acc, Archive) ->
     case get(Archive) of
         undefined ->
-	    case open_archive(Archive, Acc, Fun) of
-		{ok, PrimZip, {Acc2, FI, _}} ->
-		    debug(PS, {cache, ok}),
-		    put(Archive, {{ok, PrimZip}, FI}),
-		    {Acc2, PS};
-		Error ->
-		    debug(PS, {cache, Error}),
-		    %% put(Archive, {Error, FI}),
-		    {Error, PS}
-	    end;
+            {{error, enoent}, PS};
         {primary, PrimZip, FI, ParserFun} ->
 	    case prim_file:read_file_info(Archive) of
                 {ok, FI2} 
@@ -1281,41 +1232,7 @@ apply_archive(PS, Fun, Acc, Archive) ->
 		    debug(PS, {cache, {clear, Error}}),
 		    ok = clear_cache(Archive, {ok, PrimZip}),
 		    apply_archive(PS, Fun, Acc, Archive)
-	    end;
-        {Cache, FI} ->
-            case prim_file:read_file_info(Archive) of
-                {ok, FI2} 
-		  when FI#file_info.mtime =:= FI2#file_info.mtime ->
-                    case Cache of
-                        {ok, PrimZip} ->
-                            case foldl_archive(PrimZip, Acc, Fun) of
-                                {ok, _PrimZip2, Acc2} ->
-                                    {Acc2, PS};
-                                Error ->
-                                    debug(PS, {cache, {clear, Error}}),
-                                    ok = clear_cache(Archive, Cache),
-                                    debug(PS, {cache, Error}),
-				    erase(Archive),
-                                    %% put(Archive, {Error, FI}),
-                                    {Error, PS}
-                            end;
-                        Error ->
-                            debug(PS, {cache, Error}),
-                            {Error, PS}
-                    end;
-                Error ->
-                    debug(PS, {cache, {clear, Error}}),
-                    ok = clear_cache(Archive, Cache),
-                    apply_archive(PS, Fun, Acc, Archive)
             end
-    end.
-
-open_archive(Archive, Acc, Fun) ->
-    case prim_file:read_file_info(Archive) of
-	{ok, FileInfo} ->
-	    open_archive(Archive, FileInfo, Acc, Fun);
-	{error, Reason} ->
-	    {error, Reason}
     end.
 
 %% Open the given archive and iterate through all files with an own
@@ -1385,17 +1302,9 @@ foldl_archive(PrimZip, Acc, Fun) ->
         end,                        
     prim_zip:foldl(Wrapper, Acc, PrimZip).
 
-cache_new(PS) ->
-    PS.
-
-clear_cache(Archive, Cache) ->
+clear_cache(Archive, {ok, PrimZip}) ->
     erase(Archive),
-    case Cache of
-        {ok, PrimZip} ->
-            prim_zip:close(PrimZip);
-        {error, _} ->
-            ok
-    end.
+    prim_zip:close(PrimZip).
 
 %%% --------------------------------------------------------
 %%% Misc. functions.
@@ -1503,23 +1412,16 @@ path_join([Path],Acc) ->
 path_join([Path|Paths],Acc) ->
     path_join(Paths,"/" ++ reverse(Path) ++ Acc).
 
-name_split(_PrimaryArchive, {archive, _, _} = Archive) ->
-    Archive;
 name_split(undefined, File) ->
-    %% Ignore primary archive
-    RevExt = reverse(init:archive_extension()),
-    case archive_split(File, RevExt, []) of
-        no_split ->
-            {file, File};
-	Archive ->
-	    Archive
-    end;
+    {file, File};
+name_split(ArchiveFile, {archive, ArchiveFile, _} = Archive) ->
+    Archive;
 name_split(ArchiveFile, File0) ->
     %% Look first in primary archive
     File = absname(File0),
     case string_match(real_path(File), ArchiveFile) of
         no_match ->
-            %% Archive or plain file
+            %% Not in the primary archive
             name_split(undefined, File);
         {match, FileInArchive} ->
             %% Primary archive
@@ -1534,29 +1436,6 @@ string_match([$/ | File], []) ->
     {match, File};
 string_match(_File, _Archive) ->
     no_match.
-
-archive_split("/"++File, RevExt, Acc) ->
-    case is_prefix(RevExt, Acc) of
-	false ->
-	    archive_split(File, RevExt, [$/|Acc]);
-	true ->
-	    ArchiveFile = absname(reverse(Acc)),
-	    {archive, ArchiveFile, File}
-    end;
-archive_split([H|T], RevExt, Acc) ->
-    archive_split(T, RevExt, [H|Acc]);
-archive_split([], RevExt, Acc) ->
-    case is_prefix(RevExt, Acc) of
-	false ->
-	    no_split;
-	true ->
-	    ArchiveFile = absname(reverse(Acc)),
-	    {archive, ArchiveFile, []}
-    end.
-
-is_prefix([H|T1], [H|T2]) -> is_prefix(T1, T2);
-is_prefix([_|_], _) -> false;
-is_prefix([], _ ) -> true.
 
 %% Parse list of ipv4 addresses 
 ipv4_list([H | T]) ->
