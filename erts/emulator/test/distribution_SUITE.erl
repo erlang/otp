@@ -38,7 +38,7 @@
 %% Tests distribution and the tcp driver.
 
 -include_lib("common_test/include/ct.hrl").
--include_lib("erts_test_utils.hrl").
+-include("erts_test_utils.hrl").
 
 -export([all/0, suite/0, groups/0,
          init_per_suite/1, end_per_suite/1,

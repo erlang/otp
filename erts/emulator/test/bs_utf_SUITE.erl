@@ -490,15 +490,19 @@ evaluate(Str, Vars) ->
 	    Result
     end.
 
-%% Retrieve the original data directory for cloned modules.
+%% Fall back to the original data directory for cloned modules.
 get_data_dir(Config) ->
     Data = proplists:get_value(data_dir, Config),
-    Opts = [{return,list}],
-    Suffixes = ["_no_opt_SUITE",
-                "_stripped_types_SUITE"],
-    lists:foldl(fun(Suffix, Acc) ->
-                        Opts = [{return,list}],
-                        re:replace(Acc, Suffix, "_SUITE", Opts)
-                end, Data, Suffixes).
+    case filelib:is_dir(Data) of
+        true ->
+            Data;
+        false ->
+            Suffixes = ["_no_opt_SUITE",
+                        "_stripped_types_SUITE"],
+            lists:foldl(fun(Suffix, Acc) ->
+                                Opts = [{return,list}],
+                                re:replace(Acc, Suffix, "_SUITE", Opts)
+                        end, Data, Suffixes)
+    end.
 
 id(I) -> I.
