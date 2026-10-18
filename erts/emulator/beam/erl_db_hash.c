@@ -643,7 +643,7 @@ static HashDbTerm* next_live(DbTableHash *tb, UWord *iptr, erts_rwmtx_t** lck_pt
 static HashDbTerm* search_list(DbTableHash* tb, Eterm key, 
 			       HashValue hval, HashDbTerm *list);
 static void shrink(DbTableHash* tb, UWord nitems);
-static void grow(DbTableHash* tb, UWord nitems);
+static void grow(DbTableHash* tb, UWord nitems, HashValue hval);
 static Eterm build_term_list(Process* p, HashDbTerm* ptr1, HashDbTerm* ptr2,
 			   Uint sz, DbTableHash*);
 static Eterm get_term_list(Process *p, DbTableHash *tb, Eterm key, HashValue hval,
@@ -1018,6 +1018,7 @@ int db_create_hash(Process *p, DbTable *tbl)
     sys_memset(tb->first_segtab[0], 0, SIZEOF_SEGMENT(FIRST_SEGSZ));
 
     erts_atomic_init_nob(&tb->is_resizing, 0);
+    erts_atomic_init_nob(&tb->grow_behind, 0);
     erts_atomic_init_nob(&tb->lock_array_resize_state,
                          (erts_aint_t)DB_HASH_LOCK_ARRAY_RESIZE_STATUS_NORMAL);
     if (!(tb->common.type & DB_FINE_LOCKED)) {
@@ -1241,6 +1242,25 @@ static ERTS_INLINE int db_terms_eq(DbTableCommon* tb, DbTerm* a, DbTerm* b,
     }
 }
 
+/* grow() marks the table grow_behind when it, or an insert that lost the race
+ * for is_resizing, leaves more items than buckets. Inserts that add no item
+ * never call grow(), so they catch the table up here. The flag is cleared
+ * before the item count is read, so an insert that marks the table after that
+ * read leaves it marked.
+ */
+static ERTS_INLINE void catch_up_growth(DbTableHash* tb, HashValue hval)
+{
+    if (DB_USING_FINE_LOCKING(tb)
+        && erts_atomic_read_nob(&tb->grow_behind)
+        && !IS_FIXED(tb)
+        && erts_atomic_xchg_mb(&tb->grow_behind, 0)) {
+        UWord nitems = NITEMS_ESTIMATE(tb, NULL, hval);
+        if (nitems > GROW_LIMIT(NACTIVE(tb))) {
+            grow(tb, nitems, hval);
+        }
+    }
+}
+
 static int db_put_dbterm_hash(DbTable* tbl,
                               void* ob,
                               bool key_clash_fail,
@@ -1350,13 +1370,16 @@ Lnew:
     {
 	UWord nactive = NACTIVE(tb);
 	if (nitems > GROW_LIMIT(nactive) && !IS_FIXED(tb)) {
-	    grow(tb, nitems);
+            grow(tb, nitems, hval);
 	}
     }
     return DB_ERROR_NONE;
 
 Ldone:
     WUNLOCK_HASH_LCK_CTR(lck_ctr);
+    if (ret == DB_ERROR_NONE) {
+        catch_up_growth(tb, hval);
+    }
     return ret;
 }
 
@@ -1456,13 +1479,16 @@ Lnew:
     {
 	const UWord nactive = NACTIVE(tb);
 	if (nitems > GROW_LIMIT(nactive) && !IS_FIXED(tb)) {
-	    grow(tb, nitems);
+            grow(tb, nitems, hval);
 	}
     }
     return DB_ERROR_NONE;
 
 Ldone:
     WUNLOCK_HASH_LCK_CTR(lck_ctr);
+    if (ret == DB_ERROR_NONE) {
+        catch_up_growth(tb, hval);
+    }
     return ret;
 }
 
@@ -3642,10 +3668,17 @@ done_resizing(DbTableHash* tb)
 	erts_atomic_set_relb(&tb->is_resizing, 0);
 }
 
+static ERTS_INLINE void mark_grow_behind(DbTableHash* tb)
+{
+    if (!erts_atomic_read_nob(&tb->grow_behind)) {
+        erts_atomic_set_relb(&tb->grow_behind, 1);
+    }
+}
+
 /* Grow table with one or more new buckets.
 ** Allocate new segment if needed.
 */
-static void grow(DbTableHash* tb, UWord nitems)
+static void grow(DbTableHash* tb, UWord nitems, HashValue hval)
 {
     HashDbTerm** pnext;
     HashDbTerm** to_pnext;
@@ -3654,11 +3687,13 @@ static void grow(DbTableHash* tb, UWord nitems)
     UWord nactive;
     UWord from_ix, to_ix;
     UWord szm;
-    int loop_limit = 5;
+    int loop_limit = 8;
 
     do {
-        if (!begin_resizing(tb))
+        if (!begin_resizing(tb)) {
+            mark_grow_behind(tb);
             return; /* already in progress */
+        }
         nactive = NACTIVE(tb);
         if (nitems <= GROW_LIMIT(nactive)) {
             goto abort; /* already done (race) */
@@ -3728,8 +3763,12 @@ static void grow(DbTableHash* tb, UWord nitems)
         *to_pnext = NULL;
         WUNLOCK_HASH(lck);
 
+        nitems = NITEMS_ESTIMATE(tb, NULL, hval);
     }while (--loop_limit && nitems > GROW_LIMIT(nactive));
 
+    if (nitems > GROW_LIMIT(nactive)) {
+        mark_grow_behind(tb);
+    }
     return;
    
 abort:
@@ -3998,7 +4037,7 @@ db_finalize_dbterm_hash(int cret, DbUpdateHandle* handle)
             nactive = NACTIVE(tb);
 
             if (nitems > GROW_LIMIT(nactive) && !IS_FIXED(tb)) {
-                grow(tb, nitems);
+                grow(tb, nitems, hval);
             }
         } else {
             WUNLOCK_HASH_LCK_CTR(lck_ctr);
