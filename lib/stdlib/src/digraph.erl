@@ -166,7 +166,7 @@ new(Type) ->
 	{Access, Ts} ->
 	    V = ets:new(vertices, [set, Access]),
 	    E = ets:new(edges, [set, Access]),
-	    N = ets:new(neighbours, [duplicate_bag, Access]),
+            N = ets:new(neighbours, [duplicate_bag, Access]),
 	    ets:insert(N, [{'$vid', 0}, {'$eid', 0}]),
 	    set_type(Ts, #digraph{vtab=V, etab=E, ntab=N});
 	error ->
