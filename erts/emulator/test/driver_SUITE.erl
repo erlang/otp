@@ -96,7 +96,7 @@
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("stdlib/include/assert.hrl").
--include_lib("erts_test_utils.hrl").
+-include("erts_test_utils.hrl").
 
 % First byte in communication with the timer driver
 -define(START_TIMER, 0).
@@ -135,7 +135,7 @@ all() -> %% Keep a_test first and z_test last...
     [a_test, outputv_errors, outputv_echo, queue_echo,
      {group, timer},
      driver_unloaded, io_ready_exit, otp_6602,
-     {group, polling},
+     {group, poll_default},
      {group, poll_thread},
      {group, poll_set},
      driver_system_info_base_ver,
@@ -161,6 +161,7 @@ groups() ->
     [{timer, [],
       [timer_measure, timer_cancel, timer_delay,
        timer_change]},
+     {poll_default, [], [{group, polling}]},
      {poll_thread, [], [{group, polling}]},
      {poll_set, [], [{group, polling}]},
      {polling, [],

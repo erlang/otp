@@ -982,7 +982,7 @@ set_affinity_mask(Port, Status) ->
     end.
 
 set_affinity_mask(Mask) ->
-    Cmd = lists:flatten(["taskset -p ",
+    Cmd = lists:flatten(["taskset -ap ",
 			 io_lib:format("~.16b", [Mask]),
 			 " ",
 			 os:getpid()]),
@@ -1157,12 +1157,16 @@ sbt_test(CpuTCmd, ClBt, Bt, LP) ->
     ok.
 
 scheduler_threads(Config) when is_list(Config) ->
-    {Sched, SchedOnln, _} = get_sstate(""),
+    {Sched0, SchedOnln0, _} = get_sstate(""),
+    Sched = min(Sched0, 1024 div 4),
+    SchedOnln = min(SchedOnln0, 1024 div 4),
+    BaseCmd = ["+S", integer_to_list(Sched)++":"++
+                     integer_to_list(SchedOnln)],
     %% Configure half the number of both the scheduler threads and
     %% the scheduler threads online.
     {HalfSched, HalfSchedOnln} = {lists:max([1,Sched div 2]),
                                   lists:max([1,SchedOnln div 2])},
-    {HalfSched, HalfSchedOnln, _} = get_sstate(["+SP", "50:50"]),
+    {HalfSched, HalfSchedOnln, _} = get_sstate(BaseCmd++["+SP", "50:50"]),
     %% Use +S to configure 4x the number of scheduler threads and
     %% 4x the number of scheduler threads online, but alter that
     %% setting using +SP to 50% scheduler threads and 25% scheduler
@@ -1178,12 +1182,12 @@ scheduler_threads(Config) when is_list(Config) ->
     CombinedCmd2 = ["+SP50:25", "+S", FourSched++":"++FourSchedOnln],
     {TwiceSched, SchedOnln, _} = get_sstate(CombinedCmd2),
     %% Apply two +SP options to make sure the second overrides the first
-    TwoCmd = ["+SP", "25:25", "+SP", "100:100"],
+    TwoCmd = BaseCmd++["+SP", "25:25", "+SP", "100:100"],
     {Sched, SchedOnln, _} = get_sstate(TwoCmd),
     %% Configure 50% of scheduler threads online only
-    {Sched, HalfSchedOnln, _} = get_sstate(["+SP:50"]),
+    {Sched, HalfSchedOnln, _} = get_sstate(BaseCmd++["+SP:50"]),
     %% Configure 2x scheduler threads only
-    {TwiceSched, SchedOnln, _} = get_sstate(["+SP", "200"]),
+    {TwiceSched, SchedOnln, _} = get_sstate(BaseCmd++["+SP", "200"]),
 
     LProc = erlang:system_info(logical_processors),
     LProcAvail = erlang:system_info(logical_processors_available),
@@ -1269,7 +1273,9 @@ dirty_schedulers_online_smp_test(SchedOnln) ->
     ok.
 
 get_sstate(Cmd) ->
-    {ok, Peer, Node} = ?CT_PEER(#{ args => Cmd, env => [{"ERL_FLAGS",false}]}),
+    {ok, Peer, Node} = ?CT_PEER(#{ args => Cmd,
+                                   env => [{"ERL_FLAGS",false},
+                                           {"ERL_ZFLAGS",false}]}),
     [SState] = mcall(Node, [fun () ->
                                     erlang:system_info(schedulers_state)
                             end]),
@@ -1277,7 +1283,9 @@ get_sstate(Cmd) ->
     SState.
 
 get_dsstate(Cmd) ->
-    {ok, Peer, Node} = ?CT_PEER(#{ args => Cmd, env => [{"ERL_FLAGS",false}]}),
+    {ok, Peer, Node} = ?CT_PEER(#{ args => Cmd,
+                                   env => [{"ERL_FLAGS",false},
+                                           {"ERL_ZFLAGS",false}]}),
     [DSCPU] = mcall(Node, [fun () ->
 				   erlang:system_info(dirty_cpu_schedulers)
 			   end]),
@@ -1650,7 +1658,8 @@ get_ionum(Cmd) ->
 get_iostate(Cmd)->
     try
         {ok, Peer, Node} = ?CT_PEER(#{connection => standard_io, args => Cmd,
-                                      env => [{"ERL_LIBS", false}]}),
+                                      env => [{"ERL_LIBS", false},
+                                              {"ERL_ZFLAGS", false}]}),
         [IOStates] = mcall(Node,[fun () -> erlang:system_info(check_io) end]),
         IO = [IOState || IOState <- IOStates,
             proplists:get_value(fallback, IOState) == false,

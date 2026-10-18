@@ -179,13 +179,28 @@ registered_db_tables(Config) when is_list(Config) ->
 
     %% There ought to be at least one registered table (code)
     erts_debug:lcnt_control(mask, [db]),
+    ok = wait_for_registered_db_table(),
+    ok.
+
+wait_for_registered_db_table() ->
+    wait_for_registered_db_table(10).
+wait_for_registered_db_table(Tries) when Tries >= 0 ->
     [_, {locks, DbLocks}] = erts_debug:lcnt_collect(),
-    true = lists:any(
+    RegisteredTableFound = lists:any(
         fun
             ({db_tab, RegName, _, _}) when is_atom(RegName) -> true;
             (_Lock) -> false
         end, DbLocks),
-    ok.
+    case RegisteredTableFound of
+        true ->
+            ok;
+        false when Tries > 0 ->
+            timer:sleep(50),
+            wait_for_registered_db_table(Tries - 1);
+        false ->
+            ct:fail("No registered table found after enabling DB lock counting.~n\t~p",
+                    [DbLocks])
+    end.
 
 %% Not all locks can be toggled on or off due to technical limitations, so we
 %% need to filter them out when checking whether we successfully disabled lock
@@ -207,6 +222,9 @@ remove_untoggleable_locks([{'esock.gcnt', _, _, _} | T]) ->
     remove_untoggleable_locks(T);
 remove_untoggleable_locks([{'esock.protocols', _, _, _} | T]) ->
     %% Global lock used by socket NIF
+    remove_untoggleable_locks(T);
+remove_untoggleable_locks([{tty_global_mutex, _, _, _} | T]) ->
+    %% Global lock used by prim_tty NIF
     remove_untoggleable_locks(T);
 remove_untoggleable_locks([H | T]) ->
     [H | remove_untoggleable_locks(T)].
