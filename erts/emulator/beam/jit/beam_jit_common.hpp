@@ -536,6 +536,42 @@ static constexpr JitBSCValue beam_jit_get_bsc_value(Uint packed_info) {
     return (JitBSCValue)((packed_info >> BSC_VALUE_OFFSET) & BSC_VALUE_MASK);
 }
 
+/* Returns the multiplier for dividing a small integer by `divisor`, a positive
+ * literal that is not a power of two, and stores the post-shift in `shift`.
+ *
+ * The multiplier is ceil(2^(64 + shift) / divisor) with
+ * shift = floor(log2(divisor)) - 1, which is less than 2^63. The quotient
+ * truncated towards zero is then
+ *
+ *     (high 64 bits of the signed product dividend * multiplier) >> shift,
+ *     plus one if the dividend is negative.
+ *
+ * The small-integer range leaves enough headroom that this is exact. The
+ * multiplier is computed without a 128-bit type. */
+static inline Uint beam_jit_div_reciprocal(Uint divisor, unsigned *shift) {
+    Uint reciprocal, residue;
+
+    ASSERT(divisor > 2 && (divisor & (divisor - 1)) != 0);
+
+    *shift = 0;
+    for (Uint d = divisor; d >= 4; d >>= 1) {
+        (*shift)++;
+    }
+
+    reciprocal = (Uint(1) << 63) / divisor;
+    residue = (Uint(1) << 63) % divisor;
+    for (unsigned bit = 0; bit <= *shift; bit++) {
+        reciprocal <<= 1;
+        residue <<= 1;
+        if (residue >= divisor) {
+            reciprocal++;
+            residue -= divisor;
+        }
+    }
+
+    return reciprocal + (residue != 0);
+}
+
 /* ** */
 
 #if defined(DEBUG) && defined(JIT_HARD_DEBUG)
