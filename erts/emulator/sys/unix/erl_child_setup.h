@@ -54,16 +54,18 @@ typedef unsigned long long ErtsSysPortId;
 
 typedef struct ErtsSysForkerProto_ {
     enum {
-        ErtsSysForkerProtoAction_Start,
-        ErtsSysForkerProtoAction_StartAck,
-        ErtsSysForkerProtoAction_Go,
-        ErtsSysForkerProtoAction_SigChld,
-        ErtsSysForkerProtoAction_Ack
+        ErtsSysForkerProtoAction_Start,     /* Command to spawn a new OS process */
+        ErtsSysForkerProtoAction_StartAck,  /* Response to guarantee that start was not lost */
+        ErtsSysForkerProtoAction_Go,        /* Response after the child process is forked */
+        ErtsSysForkerProtoAction_SigChld,   /* Response when a child process stops */
+        ErtsSysForkerProtoAction_Ack,       /* Acknowledgement of Go, allowing the child to start */
+        ErtsSysForkerProtoAction_Stop       /* Command informing of port_close */
     } action;
     union {
         struct {
             ErtsSysPortId port_id;
             int fds[3];
+            bool want_exit_status;
         } start;
         struct {
             pid_t os_pid;
@@ -73,6 +75,9 @@ typedef struct ErtsSysForkerProto_ {
             ErtsSysPortId port_id;
             int error_number;
         } sigchld;
+        struct {
+            pid_t os_pid;
+        } stop;
     } u;
 } ErtsSysForkerProto;
 
