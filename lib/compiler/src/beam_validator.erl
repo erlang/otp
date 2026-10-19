@@ -2108,13 +2108,15 @@ verify_arg_type(Reg, GivenType, ParamInfo, Vst) ->
     end.
 
 verify_arg_type_1(Reg, GivenType, Info, Vst) ->
+    true = GivenType =/= none,                  %Assertion.
     RequiredType = proplists:get_value(type, Info, any),
-    case meet(GivenType, RequiredType) of
-        Type when Type =/= none, Vst#vst.level =:= weak ->
-            %% Strictly speaking this should always match GivenType, but
-            %% beam_jump:share/1 sometimes joins blocks in a manner that makes
-            %% it very difficult to accurately reconstruct type information,
-            %% for example:
+    case Vst#vst.level of
+        strong ->
+            %% Strictly speaking GivenType should never be wider
+            %% than RequiredType, but beam_jump:share/1 sometimes
+            %% joins blocks in a manner that makes it very difficult
+            %% to accurately reconstruct type information, for
+            %% example:
             %%
             %%        bug({Tag, _, _} = Key) when Tag == a; Tag == b ->
             %%            foo(Key);
@@ -2133,16 +2135,25 @@ verify_arg_type_1(Reg, GivenType, Info, Vst) ->
             %% Fixing this properly is a big undertaking, so for now we've
             %% decided on a compromise that splits validation into two steps.
             %%
-            %% We run a 'strong' pass directly after code generation in which
+            %% We run this 'strong' pass directly after code generation in which
             %% arguments must be at least as narrow as expected, and a 'weak'
             %% pass after all optimizations have been applied in which we
             %% tolerate arguments that aren't in direct conflict.
-            ok;
-        GivenType ->
-            true = GivenType =/= none,          %Assertion.
-            ok;
-        _ ->
-            error({bad_arg_type, Reg, GivenType, RequiredType})
+            case beam_types:is_not_wider(GivenType, RequiredType) of
+                true ->
+                    ok;
+                false ->
+                    error({bad_arg_type, Reg, GivenType, RequiredType})
+            end;
+        weak ->
+            %% Here in the 'weak' pass we will tolerate arguments that
+            %% aren't in direct conflict.
+            case meet(GivenType, RequiredType) of
+                none ->
+                    error({bad_arg_type, Reg, GivenType, RequiredType});
+                _ ->
+                    ok
+            end
     end.
 
 allocate(Tag, Stk, Heap, Live, #vst{current=#st{numy=none}=St}=Vst0) ->

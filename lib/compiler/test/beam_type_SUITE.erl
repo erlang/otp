@@ -38,7 +38,7 @@
          funs/1,will_succeed/1,float_confusion/1,
          cover_convert_ext/1, catch_setelement/1,gh_11368/1,gh_11413/1,
          rem_bounds/1,
-         gh_11686/1]).
+         gh_11686/1,float_widens/1]).
 
 %% Force id/1 to return 'any'.
 -export([id/1]).
@@ -91,7 +91,8 @@ groups() ->
        gh_11368,
        gh_11413,
        rem_bounds,
-       gh_11686
+       gh_11686,
+       float_widens
       ]}].
 
 init_per_suite(Config) ->
@@ -1753,6 +1754,115 @@ gh_11686_c(A) ->
 gh_11686_d(A) ->
     gh_11686_d((A bsr A) - 100).
 
+%% GH-11817. Failed to compile with an argument_widened exception.
+float_widens(_Config) ->
+    cover_is_not_wider(),
+
+    try float_widens_seq() of
+        done -> ok
+    catch
+        _:_ ->
+            error(not_properly_finished)
+    end,
+
+    ok.
+
+float_widens_seq() ->
+    float_widens_1(),
+    float_widens_2(),
+    float_widens_3(),
+    float_widens_4(),
+    float_widens_5(),
+
+    done.
+
+float_widens_1() ->
+    %% There will eventually be a multiplication of
+    %% 18446744073709551615 by 1.0. The result will be rounded up
+    %% to 18446744073709551616, meaning that the range will be
+    %% widended.
+    [ok] = id([ok || _ <:- [try <<ok || ok>> of
+                                _ -> 1.0
+                            catch
+                                _ -> 1
+                            end * 18446744073709551615]]).
+
+float_widens_2() ->
+    float_widens_2_id({try <<ok || ok>> of
+                           _ -> 1.0
+                       catch
+                           _ -> 1
+                       end * 18446744073709551615}).
+
+float_widens_2_id(I) -> I.
+
+float_widens_3() ->
+    float_widens_3_id(#{key => try <<ok || ok>> of
+                                   _ -> 1.0
+                               catch
+                                   _ -> 1
+                               end * 18446744073709551615}).
+
+float_widens_3_id(I) -> I.
+
+-record #rec{v}.
+
+float_widens_4() ->
+    float_widens_4_id(#rec{v={try <<ok || ok>> of
+                                  _ -> 1.0
+                              catch
+                                  _ -> 1
+                              end * 18446744073709551615}}).
+
+float_widens_4_id(I) -> I.
+
+float_widens_5() ->
+    F = fun() ->
+                try <<ok || ok>> of
+                    _ -> 1.0
+                catch
+                    _ -> 1
+                end * 18446744073709551615
+        end,
+    float_widens_5_id(F).
+
+float_widens_5_id(I) -> I.
+
+cover_is_not_wider() ->
+    ?assertError(_, find(id(~""), id(""))).
+
+find(String, SearchPattern) ->
+    %% find_r(String, unicode:characters_to_list(SearchPattern), undefined, nomatch).
+    find_r(String, SearchPattern, undefined, nomatch).
+
+find_r([Bin|Cont0], Needle, BP, _Res) when is_binary(Bin) ->
+    case bin_search_str(Bin, Cont0, Needle) of
+        {_, Cs0, _} ->
+            [_|Cs] = unicode_util:gc(Cs0),
+            find_r(Cs, Needle, BP, Cs0)
+    end;
+find_r(Bin, Needle, BP, _Res) ->
+    case bin_search_str(Bin, [], Needle) of
+        {_Before, [Cs0], _After} ->
+            <<_/utf8, Cs/binary>> = Cs0,
+            find_r(Cs, Needle, BP, Cs0)
+    end.
+
+bin_search_str(Bin0, Cont, SearchCPs) ->
+    <<Keep:42/binary, Cs0/binary>> = Bin0,
+    Rest = prefix_1([Cs0], SearchCPs),
+    {Keep, [Cs0|Cont], Rest}.
+
+prefix_1(Cs0, [GC]) ->
+    case unicode_util:gc(Cs0) of
+        [GC|Cs] -> Cs;
+        _ -> nomatch
+    end;
+prefix_1(Cs0, [Pre|PreR]) ->
+    case unicode_util:cp(Cs0) of
+        [Pre|Cs] ->  prefix_1(Cs,PreR);
+        _ -> nomatch
+    end.
 
 %%%
 %%% Common utilities.

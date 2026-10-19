@@ -588,35 +588,20 @@ ensure_not_widened(Id, Args, Prev, Current) ->
     _ = [begin
              A = map_get(Arg, Prev),
              B = map_get(Arg, Current),
-             case check_widened(A, B) of
-                 ok ->
+             case beam_types:is_not_wider(B, A) of
+                 true ->
                      ok;
-                 {error,Meet} ->
+                 false ->
                      io:format("~p/~p\n",
                                [Id#b_local.name#b_literal.val,
                                 Id#b_local.arity]),
                      io:format("Arg: ~p\n", [Arg#b_var.name]),
                      io:format("Previous: ~p\n", [A]),
                      io:format("Current:  ~p\n", [B]),
-                     io:format("Meet: ~p\n", [Meet]),
                      error(argument_widened)
              end
          end || Arg <- Args],
     ok.
-
-check_widened(A0, B) ->
-    case beam_types:meet(A0, B) of
-        B ->
-            ok;
-        _ ->
-            A = beam_types:normalize(A0),
-            case beam_types:meet(A, B) of
-                B ->
-                    ok;
-                Meet ->
-                    {error,Meet}
-            end
-    end.
 
 join_arg_types(Args, TypeMaps) ->
     #{Arg => beam_types:join(maps:values(TypeMap)) ||
