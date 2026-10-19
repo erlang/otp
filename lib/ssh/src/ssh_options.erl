@@ -211,9 +211,7 @@ handle_options(Role, OptsList0, Opts0) when is_map(Opts0),
                                    false ->
                                        %% From config or application env
                                        [{K,V1} | PL]
-                               end
-                              };
-
+                               end};
                           {append,V1} ->
                               %% A value set in config or options, but should be
                               %% appended to the existing value
@@ -221,22 +219,14 @@ handle_options(Role, OptsList0, Opts0) when is_map(Opts0),
                               {M#{K => NewVal,
                                   key_cb_options => [{K,NewVal} |
                                                      lists:keydelete(K,1,maps:get(key_cb_options,M))]},
-                               [{K,NewVal} | lists:keydelete(K,1,PL)]
-                              };
-                              
+                               [{K,NewVal} | lists:keydelete(K,1,PL)]};
                           undefined ->
                               %% Use the default value
                               {M#{K => Vd}, PL}
                       end
-                 %%          ;
-                 %% (_,_,Acc) ->
-                 %%      Acc
               end,
               {Opts0#{key_cb_options => maps:get(key_cb_options,Opts0)},
-               [{K,V} || {K,V} <- OptsList1,
-                         not maps:is_key(K,Opts0) % Keep socket opts
-               ]
-              },
+               [{K,V} || {K,V} <- OptsList1, not maps:is_key(K,Opts0)]}, % Keep socket opts
               OptionDefinitions),
         %% Enter the user's values into the map; unknown keys are
         %% treated as socket options
@@ -285,7 +275,6 @@ config_val(modify_algorithms=Key, RoleCnfs, Opts) ->
         [] -> undefined;
         _ -> {append,V}
     end;
-
 config_val(Key, RoleCnfs, Opts) ->
     case lists:keysearch(Key, 1, Opts) of
         {value, {_,V}} ->
@@ -298,7 +287,6 @@ config_val(Key, RoleCnfs, Opts) ->
                     application:get_env(ssh, Key) % returns {ok,V} | undefined
             end
     end.
-
 
 check_fun(Key, Defs) ->
     case ssh_connection_handler:prohibited_sock_option(Key) of
