@@ -7519,8 +7519,11 @@ is_tuple(_Term) ->
 
 %% Shadowed by erl_bif_types: erlang:is_integer/3
 -doc """
-Returns `true` if `Term`, `LB`, and `UB` all evaluate to integers, and `Term`
-is between `LB` and `UB` inclusive; otherwise, returns `false`.
+Returns `true` if `Term` evaluates to an integer that is between `LB` and `UB`
+inclusive; otherwise, returns `false`.
+
+If `LB` is the atom `undefined`, there is no lower bound. If `UB` is the atom
+`undefined`, there is no upper bound.
 
 ## Examples
 
@@ -7529,16 +7532,27 @@ is between `LB` and `UB` inclusive; otherwise, returns `false`.
 true
 2> is_integer(-1, 0, 1).
 false
+3> is_integer(-1, undefined, 1).
+true
+4> is_integer(1_000_000, 0, undefined).
+true
+5> is_integer(1, undefined, undefined).
+true
+6> is_integer(1.0, undefined, undefined).
+false
+7> is_integer(zero, undefined, undefined).
+false
 ```
 
-Failure: `badarg` if `LB` or `UB` does not evaluate to an integer.
+Failure: `badarg` if `LB` or `UB` is neither an integer nor the atom
+`undefined`.
 """.
 -doc(#{since => ~"OTP 29.0"}).
 -doc #{ category => terms }.
 -spec is_integer(Term, LB, UB) -> boolean() when
-      Term :: integer(),
-      LB :: integer(),
-      UB :: integer().
+      Term :: term(),
+      LB :: integer() | undefined,
+      UB :: integer() | undefined.
 is_integer(_Term, _LB, _UB) ->
     erlang:nif_error(undefined).
 
