@@ -586,10 +586,14 @@ send_application_data(Data, From, StateName,
                     send_reply(From, Result),
                     StateData = StateData0#data{connection_states = ConnectionStates},
                     hibernate_after(StateName, StateData, []);
-                {error, Reason} = Result ->
+                {error, Reason} = Result when DistHandle =/= undefined ->
                     send_reply(From, Result),
                     StateData = StateData0#data{connection_states = ConnectionStates},
-                    death_row_shutdown(Reason, StateData)
+                    death_row_shutdown(Reason, StateData);
+                Result ->
+                    send_reply(From, Result),
+                    StateData = StateData0#data{connection_states = ConnectionStates},
+                    hibernate_after(StateName, StateData, [])
             end
     end.
 
