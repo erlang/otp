@@ -528,6 +528,10 @@ add_loader_path(IPath,Mode) ->
 
             Path0 = exclude_pa_pz(PrimP,Pa,Pz),
             Path1 = strip_path(Path0, Mode),
+            %% The IPath entries were already checked by make_path/2
+            %% when they were built (the trailing "." needs no check;
+            %% patch_path/1 would keep it either way), so they are not
+            %% validated again here.
             Path2 = merge_path(Path1, IPath, []),
             Path3 = cache_path(Path2),
             add_pa_pz(Path3,Pa,Pz)
