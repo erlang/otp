@@ -58,8 +58,11 @@ opts() ->
             default => "git@github.com:" ++ OriginalOwner ++ "/otp",
             help => "Set the origin github repository, e.g git@github.com:garazdawi/otp"},
          #{ name => upstream, long => "-upstream", short => $u,
-            default => ~"git@github.com:erlang/otp",
-            help => "Set the upstream github repository"}],
+            default => ~"erlang/otp",
+            help => "Set the upstream github repository (OWNER/REPO or URL, used by gh)"},
+         #{ name => upstream_remote, long => "-upstream-remote",
+            default => ~"upstream",
+            help => "Named git remote for the upstream repository (used by git push/fetch)"}],
     #{ handler =>
            fun(Opts) ->
                    OriginalBranch = cmd(Opts, "git branch --show-current"),
@@ -101,6 +104,7 @@ run(Opts) ->
     {ok, Cwd} = file:get_cwd(),
 
     Upstream = maps:get(upstream, Opts),
+    UpstreamRemote = maps:get(upstream_remote, Opts),
     Origin = maps:get(origin, Opts),
 
     continue(Opts, "This command will clean the contents of ~ts, "
@@ -178,10 +182,10 @@ run(Opts) ->
                             end
                     end, maps:to_list(PassedRenovatePRs))),
 
-            continue(Opts, "Push ~ts to ~ts?", [lists:join(" ", UpdatedBranches), Upstream]),
+            continue(Opts, "Push ~ts to ~ts?", [lists:join(" ", UpdatedBranches), UpstreamRemote]),
 
             %% Push maint+master if changed
-            dry(Opts, ["git push ", Upstream, " --atomic ", lists:join(" ", UpdatedBranches)]);
+            dry(Opts, ["git push ", UpstreamRemote, " --atomic ", lists:join(" ", UpdatedBranches)]);
 
         false ->
             ok
@@ -201,7 +205,7 @@ run(Opts) ->
             io:format("renovate.json5 is uptodate\n");
         false ->
             continue(Opts, "renovate.json5 is invalid, do you want to create a PR that updates it?"),
-            cmd(Opts, ["git fetch ", Upstream, " master && git checkout -B update-renovate-config FETCH_HEAD"]),
+            cmd(Opts, ["git fetch ", UpstreamRemote, " master && git checkout -B update-renovate-config FETCH_HEAD"]),
             file:write_file("renovate.json5", NewConfig),
             cmd(Opts, "git add -u && git commit -m 'Update renovate config'"),
             dry(Opts, ["git push ", Origin, " +update-renovate-config"]),
@@ -214,7 +218,7 @@ run(Opts) ->
     ok.
 
 synchronize_branch(Opts, Branch) ->
-    cmd(Opts, ["git fetch ", maps:get(upstream, Opts), " ", Branch, " && "
+    cmd(Opts, ["git fetch ", maps:get(upstream_remote, Opts), " ", Branch, " && "
                "git checkout -B ", Branch, " FETCH_HEAD"]).
 
 continue(Opts, Format, Args) ->
