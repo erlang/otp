@@ -37,7 +37,7 @@ jobs:
     runs-on: 'ubuntu-latest'
     name: 'ratchet'
     steps:
-      - uses: 'actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd' # ratchet:actions/checkout@v6.0.2
+      - uses: 'actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803' # v6.1.0
         with:
           persist-credentials: false
       - id: files
@@ -46,6 +46,6 @@ jobs:
             echo "${FILES}"
             echo "files=${FILES}" >> $GITHUB_OUTPUT
 
-      - uses: 'docker://ghcr.io/sethvargo/ratchet:latest@sha256:527e78e6d29a9ac306e843cf766afe0604a0b35633f16913d85dd522218e8ca1' # ratchet:docker://ghcr.io/sethvargo/ratchet:latest
+      - uses: 'docker://ghcr.io/sethvargo/ratchet:latest@sha256:ba6a286f8a53899714d17f89f45134678577431ca483b8000b5dba9267eee36c' # ratchet:docker://ghcr.io/sethvargo/ratchet:latest
         with:
           args: 'check ${{ steps.files.outputs.files }}'
