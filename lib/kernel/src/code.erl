@@ -107,112 +107,16 @@ cached by default. Many of the functions that manipulate the code path
 accept the `cache` atom as an optional argument to enable caching
 selectively.
 
-## Loading of Code From Archive Files
+## Loading of Code From Escript Archives
 
-> #### Change {: .info }
->
-> The existing experimental support for archive files will be changed
-> in a future release. As of Erlang/OTP 27, the function `code:lib_dir/2`,
-> the `-code_path_choice` flag, and using `m:erl_prim_loader` for
-> reading files from an archive are deprecated.
->
-> `escript` scripts that use archive files should use
-> `escript:extract/2` to read data files from its archive instead of using
-> `code:lib_dir/2` and `m:erl_prim_loader`.
+An `escript` can contain a ZIP archive holding BEAM files and applications.
+At startup, the top directory and the application `ebin` directories in the
+embedded archive are added to the code path. Modules and application resource
+files are loaded from the embedded archive as needed. See `m:escript`.
 
-The Erlang archives are `ZIP` files with extension `.ez`. Erlang archives can
-also be [enclosed in `escript`](`m:escript`) files whose file extension is arbitrary.
+To read data files from the embedded archive, use `escript:extract/2`.
+The primitive loader retains support for the primary archive used by escripts.
 
-Erlang archive files can contain entire Erlang applications or parts of
-applications. The structure in an archive file is the same as the directory
-structure for an application. If you, for example, create an archive of
-`mnesia-4.4.7`, the archive file must be named `mnesia-4.4.7.ez` and it must
-contain a top directory named `mnesia-4.4.7`. If the version part of the name is
-omitted, it must also be omitted in the archive. That is, a `mnesia.ez` archive
-must contain a `mnesia` top directory.
-
-An archive file for an application can, for example, be created like this:
-
-```erlang
-zip:create("mnesia-4.4.7.ez",
-	["mnesia-4.4.7"],
-	[{cwd, code:lib_dir()},
-	 {compress, all},
-	 {uncompress,[".beam",".app"]}]).
-```
-
-Any file in the archive can be compressed, but to speed up the access of
-frequently read files, it can be a good idea to store `beam` and `app` files
-uncompressed in the archive.
-
-Normally the top directory of an application is located in library directory
-`$OTPROOT/lib` or in a directory referred to by environment variable `ERL_LIBS`.
-At startup, when the initial code path is computed, the code server also looks
-for archive files in these directories and possibly adds `ebin` directories in
-archives to the code path. The code path then contains paths to directories that
-look like `$OTPROOT/lib/mnesia.ez/mnesia/ebin` or
-`$OTPROOT/lib/mnesia-4.4.7.ez/mnesia-4.4.7/ebin`.
-
-The code server uses module `erl_prim_loader` in ERTS (possibly through
-`erl_boot_server`) to read code files from archives. However, the functions in
-`erl_prim_loader` can also be used by other applications to read files from
-archives. For example, the call
-`erl_prim_loader:list_dir( "/otp/root/lib/mnesia-4.4.7.ez/mnesia-4.4.7/examples/bench)"`
-would list the contents of a directory inside an archive. See
-`m:erl_prim_loader`.
-
-An application archive file and a regular application directory can coexist.
-This can be useful when it is needed to have parts of the application as regular
-files. A typical case is the `priv` directory, which must reside as a regular
-directory to link in drivers dynamically and start port programs. For other
-applications that do not need this, directory `priv` can reside in the archive
-and the files under the directory `priv` can be read through `erl_prim_loader`.
-
-When a directory is added to the code path and when the entire code path is
-(re)set, the code server decides which subdirectories in an application that are
-to be read from the archive and which that are to be read as regular files. If
-directories are added or removed afterwards, the file access can fail if the
-code path is not updated (possibly to the same path as before, to trigger the
-directory resolution update).
-
-For each directory on the second level in the application archive (`ebin`,
-`priv`, `src`, and so on), the code server first chooses the regular directory
-if it exists and second from the archive. Function `code:lib_dir/2` returns the
-path to the subdirectory. For example, `code:lib_dir(megaco, ebin)` can return
-`/otp/root/lib/megaco-3.9.1.1.ez/megaco-3.9.1.1/ebin` while
-`code:lib_dir(megaco, priv)` can return `/otp/root/lib/megaco-3.9.1.1/priv`.
-
-When an `escript` file contains an archive, there are no restrictions on the
-name of the `escript` and no restrictions on how many applications that can be
-stored in the embedded archive. Single Beam files can also reside on the top
-level in the archive. At startup, the top directory in the embedded archive and
-all (second level) `ebin` directories in the embedded archive are added to the
-code path. See [`escript`](`e:erts:escript_cmd.md`).
-
-A future-proof way for `escript` scripts to read data files from the archive is
-to use the `escript:extract/2` function.
-
-When the choice of directories in the code path is `strict` (which is
-the default as of Erlang/OTP 27), the directory that ends up in the
-code path is exactly the stated one. This means that if, for example,
-the directory `$OTPROOT/lib/mnesia-4.4.7/ebin` is explicitly added to
-the code path, the code server does not load files from
-`$OTPROOT/lib/mnesia-4.4.7.ez/mnesia-4.4.7/ebin`.
-
-This behavior can be controlled through command-line flag
-`-code_path_choice Choice`. If the flag is set to `relaxed`, the code server
-instead chooses a suitable directory depending on the actual file structure. If
-a regular application `ebin` directory exists, it is chosen. Otherwise, the
-directory `ebin` in the archive is chosen if it exists. If neither of them
-exists, the original directory is chosen.
-
-Command-line flag `-code_path_choice Choice` also affects how module `init`
-interprets the `boot script`. The interpretation of the explicit code paths in
-the `boot script` can be `strict` or `relaxed`. It is particularly useful to set
-the flag to `relaxed` when elaborating with code loading from archives without
-editing the `boot script`. The default has changed to `strict` in OTP 27 and the
-option is scheduled for removal in OTP 28. See module `m:init` in the
-Erts application.
 
 ## Current and Old Code
 
@@ -894,18 +798,6 @@ If a regular directory called `Name` or `Name-Vsn` exists in the code path with
 an `ebin` subdirectory, the path to this directory is returned (not the `ebin`
 directory).
 
-If the directory refers to a directory in an archive, the archive name is
-stripped away before the path is returned. For example, if directory
-`/usr/local/otp/lib/mnesia-4.2.2.ez/mnesia-4.2.2/ebin` is in the path,
-`/usr/local/otp/lib/mnesia-4.2.2/ebin` is returned. This means that the library
-directory for an application is the same, regardless if the application resides
-in an archive or not.
-
-> #### Warning {: .info }
->
-> Archives are experimental. In a future release, they can be removed or
-> their behavior can change.
-
 _Example:_
 
 ```erlang
@@ -930,16 +822,7 @@ lib_dir(App) when is_atom(App) ; is_list(App) -> call({dir,{lib_dir,App}}).
 Returns the path to a subdirectory directly under the top directory of an
 application.
 
-> #### Change {: .info }
->
-> This function is part of the archive support, which is an experimental
-> feature that will be changed or removed in a future release.
-
-Normally the subdirectories reside under the top directory for the
-application, but when applications at least partly reside in an archive, the
-situation is different. Some of the subdirectories can reside as regular
-directories while others reside in an archive file. It is not checked whether
-this directory exists.
+It is not checked whether this directory exists.
 
 Instead of using this function, use [`code:lib_dir/1`](`code:lib_dir/1`)
 and `filename:join/2`.

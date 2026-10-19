@@ -30,3 +30,19 @@ The type test aliases `atom/1`, `binary/1`, `float/1`, `function/1`,
 `reference/1`, and `tuple/1`, for the respective tests `is_atom/1`,
 `is_binary/1`, `is_float/1`, ..., `is_tuple/2`, have been deprecated
 since before OTP R13 and was removed in OTP 30.
+
+### Archives
+
+The following features of archives have been removed:
+
+* Using archives for packaging a single application or parts of a single application
+  into an archive file that is included in the code path.
+
+* Support for standalone application archives in module `m:erl_prim_loader`.
+  Primary archives, used by Escripts, have not yet been removed.
+
+* The `-code_path_choice` flag for `erl`.
+
+The functionality to use a single archive file in Escripts is **not**
+deprecated and will continue to work. Use `escript:extract/2` to read data
+files from the archive.
