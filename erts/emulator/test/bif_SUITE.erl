@@ -1998,6 +1998,43 @@ is_integer_3_test(_Config) ->
     is_between_badarg(2, 1, 10.0),
     is_between_badarg(2, lower, upper),
 
+    _ = [begin
+             is_at_most_ten(X),
+             is_at_least_one(X),
+             is_any_integer(X)
+         end || X <- lists:seq(-2, 12)],
+
+    true = is_at_most_ten(-1 bsl 64),
+    true = is_at_most_ten(10),
+    false = is_at_most_ten(11),
+    false = is_at_most_ten(1 bsl 64),
+
+    false = is_at_least_one(-1 bsl 64),
+    false = is_at_least_one(0),
+    true = is_at_least_one(1),
+    true = is_at_least_one(1 bsl 64),
+
+    true = is_any_integer(-1 bsl 64),
+    true = is_any_integer(1 bsl 64),
+
+    _ = [begin
+             false = is_at_most_ten(T),
+             false = is_at_least_one(T),
+             false = is_any_integer(T)
+         end || T <- [a, undefined, 5.0, -7.0, [1], {1}, <<1>>]],
+
+    _ = [begin
+             is_at_most_bignum(X),
+             is_at_least_bignum(X)
+         end || X <- lists:seq((1 bsl 64) - 3, (1 bsl 64) + 10)],
+
+    is_between_badarg(2, undefined, 10.0),
+    is_between_badarg(2, 1.5, undefined),
+    is_between_badarg(2, undefined, upper),
+    is_between_badarg(2, lower, undefined),
+    is_between_badarg(2, "undefined", undefined),
+    is_between_badarg(a, undefined, upper),
+
     ok.
 
 -define(IS_BETWEEN_TEST(Name, LB, UB),
@@ -2024,6 +2061,32 @@ Name(X0) ->
 ?IS_BETWEEN_TEST(is_between_negative, -89, -77).
 ?IS_BETWEEN_TEST(is_between_mixed, -7, 7).
 ?IS_BETWEEN_TEST(is_between_bignum, 1 bsl 64, (1 bsl 64) + 7).
+
+-define(IS_BETWEEN_OPEN_TEST(Name, LB, UB),
+Name(X0) ->
+    F = id(is_integer),
+    Lower0 = LB,
+    Upper0 = UB,
+    Lower = id(Lower0),
+    Upper = id(Upper0),
+
+    X1 = id(X0),
+    Result = is_integer(X1, Lower0, Upper0),
+    Result = is_integer(X1, Lower, Upper),
+    Result = apply(erlang, F, id([X1, Lower, Upper])),
+    Result = erlang:F(X1, Lower, Upper),
+
+    X = id(X1),
+    Result = is_integer(X) andalso
+        (Lower =:= undefined orelse Lower =< X) andalso
+        (Upper =:= undefined orelse X =< Upper),
+    Result).
+
+?IS_BETWEEN_OPEN_TEST(is_at_most_ten, undefined, 10).
+?IS_BETWEEN_OPEN_TEST(is_at_least_one, 1, undefined).
+?IS_BETWEEN_OPEN_TEST(is_any_integer, undefined, undefined).
+?IS_BETWEEN_OPEN_TEST(is_at_most_bignum, undefined, (1 bsl 64) + 7).
+?IS_BETWEEN_OPEN_TEST(is_at_least_bignum, 1 bsl 64, undefined).
 
 is_between_badarg(X, A, B) ->
     F = id(is_integer),

@@ -3425,6 +3425,54 @@ is_integer_3_guard(_Config) ->
     false = is_integer_3_guard_8(id(0), id(12), id(20)),
     true = is_integer_3_guard_8(id(5), id(1), id(20)),
 
+    _ = [begin
+             Expected = (Lower1 =:= undefined orelse Lower1 =< X) andalso
+                 (Upper1 =:= undefined orelse X =< Upper1),
+             Expected = is_integer_3_guard_1(X, Lower1, Upper1),
+             false = is_integer_3_guard_1(float(X), Lower1, Upper1),
+             false = is_integer_3_guard_1(id(a), Lower1, Upper1)
+         end || X <- lists:seq(-7, 17),
+                {Lower1, Upper1} <- [{id(undefined), id(10)},
+                                     {id(1), id(undefined)},
+                                     {id(undefined), id(undefined)}]],
+
+    ?assertError(badarg, is_integer_3_guard_1(2, undefined, 1.5)),
+    ?assertError(badarg, is_integer_3_guard_1(2, 1.5, undefined)),
+    ?assertError(badarg, is_integer_3_guard_1(2, undefined, b)),
+    ?assertError(badarg, is_integer_3_guard_1(2, a, undefined)),
+    ?assertError(badarg, is_integer_3_guard_1(a, a, undefined)),
+
+    true = is_integer_3_guard_9(id(-1 bsl 64)),
+    true = is_integer_3_guard_9(id(0)),
+    true = is_integer_3_guard_9(id(1024)),
+    false = is_integer_3_guard_9(id(1025)),
+    false = is_integer_3_guard_9(id(0.0)),
+    false = is_integer_3_guard_9(id(a)),
+
+    false = is_integer_3_guard_10(id(0)),
+    true = is_integer_3_guard_10(id(1)),
+    true = is_integer_3_guard_10(id(1 bsl 64)),
+    false = is_integer_3_guard_10(id(1.0)),
+    false = is_integer_3_guard_10(id(a)),
+
+    true = is_integer_3_guard_11(id(-1 bsl 64)),
+    true = is_integer_3_guard_11(id(0)),
+    true = is_integer_3_guard_11(id(1 bsl 64)),
+    false = is_integer_3_guard_11(id(0.0)),
+    false = is_integer_3_guard_11(id(a)),
+
+    false = is_integer_3_guard_12(id(0)),
+    false = is_integer_3_guard_12(id(1024)),
+    true = is_integer_3_guard_12(id(1025)),
+    true = is_integer_3_guard_12(id(a)),
+
+    false = is_integer_3_guard_13(id(0), id(undefined)),
+    true = is_integer_3_guard_13(id(1), id(undefined)),
+    true = is_integer_3_guard_13(id(1 bsl 64), id(undefined)),
+    true = is_integer_3_guard_13(id(10), id(10)),
+    false = is_integer_3_guard_13(id(11), id(10)),
+    false = is_integer_3_guard_13(id(a), id(undefined)),
+
     ok.
 
 is_integer_3_guard_1(X, LB, UB) when is_integer(X, LB, UB) ->
@@ -3476,6 +3524,33 @@ is_integer_3_guard_8(X, LB, UB) ->
     is_integer(X, LB, UB).
 
 is_integer_3_guard_8_id(I) -> I.
+
+is_integer_3_guard_9(X) when is_integer(X, undefined, 1024) ->
+    true = is_integer(X, id(undefined), id(1024));
+is_integer_3_guard_9(X) ->
+    false = is_integer(X, id(undefined), id(1024)).
+
+is_integer_3_guard_10(X) when is_integer(X, 1, undefined) ->
+    true = is_integer(X, id(1), id(undefined));
+is_integer_3_guard_10(X) ->
+    false = is_integer(X, id(1), id(undefined)).
+
+is_integer_3_guard_11(X) when is_integer(X, undefined, undefined) ->
+    true = is_integer(X, id(undefined), id(undefined));
+is_integer_3_guard_11(X) ->
+    false = is_integer(X, id(undefined), id(undefined)).
+
+is_integer_3_guard_12(X) when not is_integer(X, undefined, 1024) ->
+    true = not is_integer(X, id(undefined), id(1024));
+is_integer_3_guard_12(X) ->
+    false = not is_integer(X, id(undefined), id(1024)).
+
+%% The upper bound is known to be an integer or `undefined`.
+is_integer_3_guard_13(X, UB) when UB =:= undefined orelse is_integer(UB),
+                                  is_integer(X, 1, UB) ->
+    true = is_integer(X, id(1), id(UB));
+is_integer_3_guard_13(X, UB) ->
+    false = is_integer(X, id(1), id(UB)).
 
 %% Call this function to turn off constant propagation.
 id(I) -> I.
