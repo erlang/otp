@@ -142,8 +142,6 @@ Supported algorithms are (in the default order):
 **Key exchange algorithms**
 
 - mlkem768x25519-sha256
-- mlkem768nistp256-sha256
-- mlkem1024nistp384-sha384
 - curve25519-sha256
 - curve25519-sha256@libssh.org
 - curve448-sha512
@@ -154,6 +152,8 @@ Supported algorithms are (in the default order):
 - diffie-hellman-group16-sha512
 - diffie-hellman-group18-sha512
 - diffie-hellman-group14-sha256
+- mlkem768nistp256-sha256
+- mlkem1024nistp384-sha384
 
 The following unsecure `SHA1` algorithms are now disabled by default:
 

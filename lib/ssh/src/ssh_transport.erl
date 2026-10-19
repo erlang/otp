@@ -214,8 +214,6 @@ supported_algorithms(kex) ->
     select_crypto_supported(
       [
        {'mlkem768x25519-sha256',                [{kems, mlkem768}, {public_keys,ecdh}, {curves,x25519}, {hashs,sha256}]},
-       {'mlkem768nistp256-sha256',              [{kems, mlkem768}, {public_keys,ecdh}, {curves,secp256r1}, {hashs,sha256}]},
-       {'mlkem1024nistp384-sha384',             [{kems, mlkem1024}, {public_keys,ecdh}, {curves,secp384r1}, {hashs,sha384}]},
        {'curve25519-sha256',                    [{public_keys,ecdh}, {curves,x25519}, {hashs,sha256}]},
        {'curve25519-sha256@libssh.org',         [{public_keys,ecdh}, {curves,x25519}, {hashs,sha256}]},
        {'curve448-sha512',                      [{public_keys,ecdh}, {curves,x448},   {hashs,sha512}]},
@@ -228,7 +226,9 @@ supported_algorithms(kex) ->
        {'diffie-hellman-group14-sha256',        [{public_keys,dh},   {hashs,sha256}]}, % In OpenSSH 7.3.p1
        {'diffie-hellman-group14-sha1',          [{public_keys,dh},   {hashs,sha}]},
        {'diffie-hellman-group-exchange-sha1',   [{public_keys,dh},   {hashs,sha}]},
-       {'diffie-hellman-group1-sha1',           [{public_keys,dh},   {hashs,sha}]}
+       {'diffie-hellman-group1-sha1',           [{public_keys,dh},   {hashs,sha}]},
+       {'mlkem768nistp256-sha256',              [{kems, mlkem768}, {public_keys,ecdh}, {curves,secp256r1}, {hashs,sha256}]},
+       {'mlkem1024nistp384-sha384',             [{kems, mlkem1024}, {public_keys,ecdh}, {curves,secp384r1}, {hashs,sha384}]}
       ]);
 supported_algorithms(public_key) ->
     select_crypto_supported(
