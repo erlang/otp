@@ -43,6 +43,8 @@
 
 -define(UNICODE_TYPE, #t_integer{elements={0,16#10FFFF}}).
 
+-define(IS_INTEGER_BOUND, join(#t_integer{}, #t_atom{elements=[undefined]})).
+
 %%
 %% Returns whether a call will succeed or not.
 %%
@@ -161,7 +163,7 @@ will_succeed(erlang, 'xor', [_, _]=Args) ->
     Bool = beam_types:make_boolean(),
     succeeds_if_types(Args, [Bool, Bool]);
 will_succeed(erlang, 'is_integer', [_, _, _]=Args) ->
-    succeeds_if_types(Args, [any, #t_integer{}, #t_integer{}]);
+    succeeds_if_types(Args, [any, ?IS_INTEGER_BOUND, ?IS_INTEGER_BOUND]);
 will_succeed(erlang, setelement, [Pos, Tuple0, _Value]=Args) ->
     PosRange = #t_integer{elements={1,?MAX_TUPLE_SIZE}},
     case {meet(Pos, PosRange), meet(Tuple0, #t_tuple{size=1})} of
@@ -417,7 +419,8 @@ types(erlang, is_function, [Type]) ->
 types(erlang, is_integer, [Type]) ->
     sub_unsafe_type_test(Type, #t_integer{});
 types(erlang, is_integer, [_Term, _LB, _UB]) ->
-    sub_unsafe(beam_types:make_boolean(), [any, #t_integer{}, #t_integer{}]);
+    sub_unsafe(beam_types:make_boolean(),
+               [any, ?IS_INTEGER_BOUND, ?IS_INTEGER_BOUND]);
 types(erlang, is_list, [Type]) ->
     sub_unsafe_type_test(Type, #t_list{});
 types(erlang, is_map, [Type]) ->

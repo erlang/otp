@@ -336,16 +336,31 @@ BIF_RETTYPE size_1(BIF_ALIST_1)
 
 BIF_RETTYPE is_integer_3(BIF_ALIST_3)
 {
-    if(is_not_integer(BIF_ARG_2) ||
-       is_not_integer(BIF_ARG_3)) {
-        BIF_ERROR(BIF_P, BADARG);
-    }
-    if(is_not_integer(BIF_ARG_1)) {
-        BIF_RET(am_false);
-    }
+    bool lb_int = is_integer(BIF_ARG_2);
+    bool ub_int = is_integer(BIF_ARG_3);
 
-    BIF_RET((CMP_LE(BIF_ARG_2, BIF_ARG_1) && CMP_LE(BIF_ARG_1, BIF_ARG_3)) ?
-        am_true : am_false);
+    if (lb_int && ub_int) {
+        BIF_RET((is_integer(BIF_ARG_1) &&
+                 CMP_GE(BIF_ARG_1, BIF_ARG_2) &&
+                 CMP_LE(BIF_ARG_1, BIF_ARG_3)) ?
+            am_true : am_false);
+    } else {
+        bool lb_none = BIF_ARG_2 == am_undefined;
+        bool ub_none = BIF_ARG_3 == am_undefined;
+
+        if (lb_none && ub_int) {
+            BIF_RET((is_integer(BIF_ARG_1) &&
+                     CMP_LE(BIF_ARG_1, BIF_ARG_3)) ?
+                am_true : am_false);
+        } else if (lb_int && ub_none) {
+            BIF_RET((is_integer(BIF_ARG_1) &&
+                     CMP_GE(BIF_ARG_1, BIF_ARG_2)) ?
+                am_true : am_false);
+        } else if (lb_none && ub_none) {
+            BIF_RET(is_integer(BIF_ARG_1) ? am_true : am_false);
+        }
+    }
+    BIF_ERROR(BIF_P, BADARG);
 }
 
 /**********************************************************************/

@@ -44,6 +44,7 @@
 -export([module/2]).
 
 -include("beam_ssa.hrl").
+-include("beam_types.hrl").
 
 -export_record([func_info, opt_st]).
 -export_type([func_id/0, func_info_db/0, st_map/0]).
@@ -624,8 +625,9 @@ ssa_opt_split_blocks({#opt_st{ssa=Blocks0,cnt=Count0}=St, FuncDb}) ->
 
 %%%
 %%% BIF is_integer/3 tests whether a number is between a given range.
-%%% When the range is constant, rewrite it into 3 BIFs: is_integer/1 and two
-%%% =<'s to enable later optimization.
+%%% When both bounds are known to be integers or the atom `undefined`,
+%%% rewrite it into is_integer/1 followed by one =< for each bound that
+%%% is not `undefined` to enable later optimization.
 %%%
 ssa_opt_is_between({#opt_st{ssa=Linear0,cnt=Count0}=St, FuncDb}) ->
     {Linear1, Count1} = ssa_opt_is_between_1(Linear0, Count0),
@@ -654,24 +656,45 @@ ssa_opt_is_between_1([], Count0) ->
     {[], Count0}.
 
 is_between_rewrite(Count0, L, Prefix, IsInt, Blk0) ->
-    LowerL = Count0,
-    UpperL = Count0 + 1,
-    LowerBool = #b_var{name=Count0},
-    UpperBool = #b_var{name=Count0 + 1},
-    Count = Count0 + 2,
-    #b_set{args=[Term,LB,UB]} = IsInt,
-    #b_blk{last=#b_br{}=Br0} = Blk0,
-    I = IsInt#b_set{args=[Term]},
-    Is = reverse(Prefix, [I]),
-    Blk1 = Blk0#b_blk{is=Is,last=Br0#b_br{succ=LowerL}},
-    BlkLower = #b_blk{is=[#b_set{op={bif,'=<'},dst=LowerBool,
-                                 args=[LB,Term]}],
-                      last=Br0#b_br{bool=LowerBool,succ=UpperL}},
-    BlkUpper = #b_blk{is=[#b_set{op={bif,'=<'},dst=UpperBool,
-                                 args=[Term,UB]}],
-                      last=Br0#b_br{bool=UpperBool}},
-    Blocks = [{L, Blk1}, {LowerL, BlkLower}, {UpperL, BlkUpper}],
-    {Blocks, Count}.
+    #b_set{anno=Anno,args=[Term,LB,UB]} = IsInt,
+    ArgTypes = maps:get(arg_types, Anno, #{}),
+    case {is_between_bound(LB, 1, ArgTypes),
+          is_between_bound(UB, 2, ArgTypes)} of
+        {unknown, _} ->
+            {[{L, Blk0}], Count0};
+        {_, unknown} ->
+            {[{L, Blk0}], Count0};
+        {Lower, Upper} ->
+            Cmps = [[LB,Term] || Lower =:= bounded] ++
+                [[Term,UB] || Upper =:= bounded],
+            I = IsInt#b_set{args=[Term]},
+            Blk1 = Blk0#b_blk{is=reverse(Prefix, [I])},
+            is_between_chain(Cmps, L, Blk1, Count0)
+    end.
+
+is_between_bound(#b_literal{val=undefined}, _Index, _ArgTypes) ->
+    unbounded;
+is_between_bound(#b_literal{val=Val}, _Index, _ArgTypes)
+  when is_integer(Val) ->
+    bounded;
+is_between_bound(#b_var{}, Index, ArgTypes) ->
+    case ArgTypes of
+        #{Index := #t_integer{}} -> bounded;
+        #{} -> unknown
+    end;
+is_between_bound(_, _Index, _ArgTypes) ->
+    unknown.
+
+is_between_chain([Args|Cmps], L, #b_blk{last=Br}=Blk0, Count0) ->
+    NextL = Count0,
+    Bool = #b_var{name=Count0},
+    Blk = Blk0#b_blk{last=Br#b_br{succ=NextL}},
+    NextBlk = #b_blk{is=[#b_set{op={bif,'=<'},dst=Bool,args=Args}],
+                     last=Br#b_br{bool=Bool}},
+    {Bs, Count} = is_between_chain(Cmps, NextL, NextBlk, Count0 + 1),
+    {[{L, Blk} | Bs], Count};
+is_between_chain([], L, Blk, Count) ->
+    {[{L, Blk}], Count}.
 
 %%%
 %%% Coalesce phi nodes.

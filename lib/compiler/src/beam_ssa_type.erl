@@ -3078,7 +3078,8 @@ infer_type({bif,is_integer}, [#b_var{}=Arg], _Ts, _Ds) ->
     {[T], [T]};
 infer_type({bif,is_integer}, [#b_var{}=Arg,
                               #b_literal{val=Min},
-                              #b_literal{val=Max}], _Ts, _Ds) when Min =< Max ->
+                              #b_literal{val=Max}], _Ts, _Ds)
+  when is_integer(Min), is_integer(Max), Min =< Max ->
     T = {Arg, beam_types:make_integer(Min, Max)},
     {[T], [T]};
 infer_type({bif,is_integer}, [#b_var{}=Arg,Min0,Max0], Ts, _Ds) ->
