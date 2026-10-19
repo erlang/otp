@@ -97,10 +97,12 @@ parse_default(#{ name := Name, type := {custom, Fun}}, Opts) ->
 parse_default(_, Opts) ->
     Opts.
 
-run(Opts) ->
+run(Opts0) ->
     {ok, Cwd} = file:get_cwd(),
 
-    Upstream = maps:get(upstream, Opts),
+    Upstream = maps:get(upstream, Opts0),
+    UpstreamRemote = upstream_remote(Opts0, Upstream),
+    Opts = Opts0#{ upstream_remote => UpstreamRemote },
     Origin = maps:get(origin, Opts),
 
     continue(Opts, "This command will clean the contents of ~ts, "
@@ -178,10 +180,10 @@ run(Opts) ->
                             end
                     end, maps:to_list(PassedRenovatePRs))),
 
-            continue(Opts, "Push ~ts to ~ts?", [lists:join(" ", UpdatedBranches), Upstream]),
+            continue(Opts, "Push ~ts to ~ts?", [lists:join(" ", UpdatedBranches), UpstreamRemote]),
 
             %% Push maint+master if changed
-            dry(Opts, ["git push ", Upstream, " --atomic ", lists:join(" ", UpdatedBranches)]);
+            dry(Opts, ["git push ", UpstreamRemote, " --atomic ", lists:join(" ", UpdatedBranches)]);
 
         false ->
             ok
@@ -201,7 +203,7 @@ run(Opts) ->
             io:format("renovate.json5 is uptodate\n");
         false ->
             continue(Opts, "renovate.json5 is invalid, do you want to create a PR that updates it?"),
-            cmd(Opts, ["git fetch ", Upstream, " master && git checkout -B update-renovate-config FETCH_HEAD"]),
+            cmd(Opts, ["git fetch ", UpstreamRemote, " master && git checkout -B update-renovate-config FETCH_HEAD"]),
             file:write_file("renovate.json5", NewConfig),
             cmd(Opts, "git add -u && git commit -m 'Update renovate config'"),
             dry(Opts, ["git push ", Origin, " +update-renovate-config"]),
@@ -214,8 +216,22 @@ run(Opts) ->
     ok.
 
 synchronize_branch(Opts, Branch) ->
-    cmd(Opts, ["git fetch ", maps:get(upstream, Opts), " ", Branch, " && "
+    cmd(Opts, ["git fetch ", maps:get(upstream_remote, Opts), " ", Branch, " && "
                "git checkout -B ", Branch, " FETCH_HEAD"]).
+
+%% Find the local git remote whose push URL matches the upstream repository
+%% The optional .git permits remotes cloned with or without the suffix.
+upstream_remote(Opts, Upstream) ->
+    Match = cmd(Opts, ["git remote -v | grep -E '",
+                       Upstream, "(\\.git)? \\(push\\)' | awk '{print $1}' || true"]),
+    case string:split(string:trim(Match), "\n") of
+        [~""] ->
+            fail(io_lib:format("Could not find a git remote matching upstream ~ts.~n"
+                               "Add one with: git remote add upstream ~ts",
+                               [Upstream, Upstream]));
+        [Remote | _] ->
+            Remote
+    end.
 
 continue(Opts, Format, Args) ->
     continue(Opts, io_lib:format(Format, Args)).
