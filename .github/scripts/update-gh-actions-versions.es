@@ -58,11 +58,8 @@ opts() ->
             default => "git@github.com:" ++ OriginalOwner ++ "/otp",
             help => "Set the origin github repository, e.g git@github.com:garazdawi/otp"},
          #{ name => upstream, long => "-upstream", short => $u,
-            default => ~"erlang/otp",
-            help => "Set the upstream github repository (OWNER/REPO or URL, used by gh)"},
-         #{ name => upstream_remote, long => "-upstream-remote",
-            default => ~"upstream",
-            help => "Named git remote for the upstream repository (used by git push/fetch)"}],
+            default => ~"git@github.com:erlang/otp",
+            help => "Set the upstream github repository"}],
     #{ handler =>
            fun(Opts) ->
                    OriginalBranch = cmd(Opts, "git branch --show-current"),
@@ -100,11 +97,12 @@ parse_default(#{ name := Name, type := {custom, Fun}}, Opts) ->
 parse_default(_, Opts) ->
     Opts.
 
-run(Opts) ->
+run(Opts0) ->
     {ok, Cwd} = file:get_cwd(),
 
-    Upstream = maps:get(upstream, Opts),
-    UpstreamRemote = maps:get(upstream_remote, Opts),
+    Upstream = maps:get(upstream, Opts0),
+    UpstreamRemote = upstream_remote(Opts0, Upstream),
+    Opts = Opts0#{ upstream_remote => UpstreamRemote },
     Origin = maps:get(origin, Opts),
 
     continue(Opts, "This command will clean the contents of ~ts, "
@@ -220,6 +218,20 @@ run(Opts) ->
 synchronize_branch(Opts, Branch) ->
     cmd(Opts, ["git fetch ", maps:get(upstream_remote, Opts), " ", Branch, " && "
                "git checkout -B ", Branch, " FETCH_HEAD"]).
+
+%% Find the local git remote whose push URL matches the upstream repository
+%% The optional .git permits remotes cloned with or without the suffix.
+upstream_remote(Opts, Upstream) ->
+    Match = cmd(Opts, ["git remote -v | grep -E '",
+                       Upstream, "(\\.git)? \\(push\\)' | awk '{print $1}' || true"]),
+    case string:split(string:trim(Match), "\n") of
+        [~""] ->
+            fail(io_lib:format("Could not find a git remote matching upstream ~ts.~n"
+                               "Add one with: git remote add upstream ~ts",
+                               [Upstream, Upstream]));
+        [Remote | _] ->
+            Remote
+    end.
 
 continue(Opts, Format, Args) ->
     continue(Opts, io_lib:format(Format, Args)).
