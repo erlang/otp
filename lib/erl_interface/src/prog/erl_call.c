@@ -457,6 +457,10 @@ int main(int argc, char *argv[])
           /* Failed to resolve our own hostname; try binding to loopback and
            * hope for the best. */
           hp = ei_gethostbyname("localhost");
+          if (!hp) {
+              fprintf(stderr, "erl_call: failed to resolve own hostname (%s) and localhost\n", h_hostname);
+              exit_free_flags_fields(1, &flags);
+          }
           flags.use_localhost_fallback = 1;
 
           format_node_hostname(&flags, h_hostname, h_hostname);
@@ -838,7 +842,10 @@ static int do_connect(ei_cnode *ec, char *nodename, struct call_flags *flags)
 	hostname++;
 
 	h = ei_gethostbyname(hostname);
-
+        if (!h) {
+            fprintf(stderr, "erl_call: failed to resolve hostname (%s)\n", hostname);
+            exit_free_flags_fields(1, flags);
+        }
 
 	if ((r=erl_start_sys(ec,alive,(Erl_IpAddr)(h->h_addr_list[0]),
 			     start_flags,flags->script,args)) < 0) {
@@ -1358,7 +1365,8 @@ static HANDLE spawn_erlang_epmd(ei_cnode *ec,
     HANDLE ret;
 
     if(is_erlang){
-	get_addr(ei_thishostname(ec), &myaddr);
+        if (!get_addr(ei_thishostname(ec), &myaddr))
+            return INVALID_HANDLE_VALUE;
 	if((ptr = inet_ntoa(myaddr)) == NULL)
 	    return INVALID_HANDLE_VALUE;
 	else
