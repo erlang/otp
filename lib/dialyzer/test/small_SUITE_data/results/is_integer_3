@@ -1,0 +1,5 @@
+
+is_integer_3.erl:51:1: Function bad_lower/1 has no local return
+is_integer_3.erl:52:19: The call erlang:is_integer(X::any(),'foo',10) will never return since it differs in the 2nd argument from the success typing arguments: (any(),'undefined' | integer(),'undefined' | integer())
+is_integer_3.erl:54:1: Function bad_upper/1 has no local return
+is_integer_3.erl:55:22: The call erlang:is_integer(X::any(),1,1.0e+1) will never return since it differs in the 3rd argument from the success typing arguments: (any(),'undefined' | integer(),'undefined' | integer())
