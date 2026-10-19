@@ -1983,10 +1983,10 @@ children_to_list(_Fun,[],_Db,Acc) ->
 %% The order is not important - so ignore Ids
 -spec children_fold(Fun, Acc0, children()) -> Acc1 when
       Fun :: fun((child_id(), child_rec(), AccIn) -> AccOut),
-      Acc0 :: term(),
-      Acc1 :: term(),
-      AccIn :: term(),
-      AccOut :: term().
+      Acc0 :: Acc,
+      Acc1 :: Acc,
+      AccIn :: Acc,
+      AccOut :: Acc.
 children_fold(Fun,Init,{_Ids,Db}) ->
     maps:fold(Fun, Init, Db).
 
