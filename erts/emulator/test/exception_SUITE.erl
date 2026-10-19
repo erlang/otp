@@ -947,6 +947,8 @@ error_info(_Config) ->
          {is_function, [abc, bad_arity]},
          {is_function, [abc, -1]},
          {is_integer, [5, a, b]},
+         {is_integer, [5, undefined, b]},
+         {is_integer, [5, a, undefined]},
          {is_map_key, [key, not_map]},
          {is_process_alive, [abc]},
 
