@@ -65,7 +65,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.repository == 'erlang/otp' && github.event_name == 'pull_request'
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           fetch-depth: 0
 
@@ -98,7 +98,7 @@ jobs:
         build-c-code: ${{ steps.c-code-changes.outputs.changes != '[]' || env.FULL_BUILD_AND_CHECK == 'true' }}
         all: ${{ steps.apps.outputs.all }}
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
       - uses: ./.github/actions/build-base-image
         with:
             BASE_BRANCH: ${{ env.BASE_BRANCH }}
@@ -115,7 +115,7 @@ jobs:
           ALL_APPS=$(jq -n --arg inarr "${ALL_APPS}" '$inarr | split("\n")' | tr '\n' ' ')
           echo "all=${ALL_APPS}" >> $GITHUB_OUTPUT
       - name: Check which applications have changed
-        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # ratchet:dorny/paths-filter@v3.0.2
+        uses: dorny/paths-filter@0e4a8c6effa4802afeda77dc8d303f8176d7dfad # v3.0.4
         id: app-changes
         with:
           filters: .github/scripts/path-filters.yaml
@@ -131,19 +131,19 @@ jobs:
               echo "changes=${CHANGED_APPS}" >> "$GITHUB_OUTPUT"
           fi
       - name: Check if there are any C-code changes, if not then limit CI run
-        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # ratchet:dorny/paths-filter@v3.0.2
+        uses: dorny/paths-filter@0e4a8c6effa4802afeda77dc8d303f8176d7dfad # v3.0.4
         id: c-code-changes
         with:
           filters: .github/scripts/c-code-path-filters.yaml
       - name: Cache pre-built src
-        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
         with:
             path: otp_src.tar.gz
             key: prebuilt-src-${{ github.ref_name }}-${{ github.sha }}
             restore-keys: |
                 prebuilt-src-${{ github.base_ref }}-${{ github.event.pull_request.base.sha }}
       - name: Cache pre-built binaries
-        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
         with:
             path: otp_cache.tar.gz
             key: prebuilt-cache-64-bit-${{ github.ref_name }}-${{ github.sha }}
@@ -157,7 +157,7 @@ jobs:
           name: otp_git_archive
           path: otp_archive.tar.gz
       - name: Check how we can use the pre-built cache
-        uses: dorny/paths-filter@de90cc6fb38fc0963ad72b210f1f284cd68cea36 # ratchet:dorny/paths-filter@v3.0.2
+        uses: dorny/paths-filter@0e4a8c6effa4802afeda77dc8d303f8176d7dfad # v3.0.4
         id: cache
         with:
           filters: |
@@ -227,7 +227,7 @@ jobs:
       WXWIDGETS_VERSION: 3.2.9
       MACOS_VERSION: 15
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       - name: Download source archive
         uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
@@ -246,7 +246,7 @@ jobs:
 
       - name: Cache wxWidgets
         id: wxwidgets-cache
-        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
         with:
           path: wxWidgets
           key: wxWidgets-${{ env.WXWIDGETS_VERSION }}-${{ runner.os }}-${{ hashFiles('.github/scripts/build-macos-wxwidgets.sh') }}-${{ env.MACOS_VERSION }}-${{ steps.brew-fingerprint.outputs.value }}
@@ -286,7 +286,7 @@ jobs:
     needs: pack
     if: needs.pack.outputs.build-c-code == 'true'
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
       - name: Download source archive
         uses: actions/download-artifact@018cc2cf5baa6db3ef3c5f8a56943fffe632ef53 # v6.0.0
         with:
@@ -323,7 +323,7 @@ jobs:
     needs: pack
     if: needs.pack.outputs.build-c-code == 'true'
     steps:
-      - uses: Vampire/setup-wsl@6a8db447be7ed35f2f499c02c6e60ff77ef11278 # v6.0.0
+      - uses: Vampire/setup-wsl@887f39deb6c0976365e546926fe66f41b77d65ff # v6.1.0
         with:
           distribution: Ubuntu-18.04
 
@@ -348,7 +348,7 @@ jobs:
         run: echo "os=${ImageOS:-unknown}" >> "$GITHUB_OUTPUT"
 
       - name: Cache wxWidgets
-        uses: actions/cache@cdf6c1fa76f9f475f3d7449005a359c84ca0f306 # v5.0.3
+        uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5.1.0
         with:
           path: wxWidgets
           key: wxWidgets-${{ env.WXWIDGETS_VERSION }}-${{ steps.image.outputs.os }}
@@ -441,7 +441,7 @@ jobs:
       fail-fast: false
 
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
       - uses: ./.github/actions/build-base-image
         with:
             BASE_BRANCH: ${{ env.BASE_BRANCH }}
@@ -520,7 +520,7 @@ jobs:
     outputs:
       vendor-files: ${{ steps.vendor-files.outputs.MODIFIED_FILES != '0' }}
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
         with:
           fetch-depth: 0
       - name: Get modified vendor files
@@ -559,7 +559,7 @@ jobs:
       fail-fast: false
 
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
       - uses: ./.github/actions/build-base-image
         with:
             BASE_BRANCH: ${{ env.BASE_BRANCH }}
@@ -576,7 +576,7 @@ jobs:
         with:
           name: otp_prebuilt
       - name: Build on FreeBSD
-        uses: vmactions/freebsd-vm@c9f815bc7aa0d34c9fdd0619b034a32d6ca7b57e # v1
+        uses: vmactions/freebsd-vm@c46abacb49f09938ca4e1702d15d836285d694cc # v1
         with:
             usesh: true
             copyback: false
@@ -600,7 +600,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: pack
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
       - uses: ./.github/actions/build-base-image
         with:
             BASE_BRANCH: ${{ env.BASE_BRANCH }}
@@ -654,7 +654,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: pack
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
       - uses: ./.github/actions/build-base-image
         with:
             BASE_BRANCH: ${{ env.BASE_BRANCH }}
@@ -681,7 +681,7 @@ jobs:
         # type: ["os_mon","sasl"]
       fail-fast: false
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
       - uses: ./.github/actions/build-base-image
         with:
             BASE_BRANCH: ${{ env.BASE_BRANCH }}
@@ -734,7 +734,7 @@ jobs:
     if: ${{ !cancelled() && needs.pack.result == 'success' }} # Run even if the need has failed
     needs: [pack, test]     # it makes no sense to run this if there is no build image (pack job)
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
       - uses: ./.github/actions/build-base-image
         with:
             BASE_BRANCH: ${{ env.BASE_BRANCH }}
@@ -811,13 +811,13 @@ jobs:
       - name: Use HTTPS instead of SSH for Git cloning
         run: git config --global url.https://github.com/.insteadOf ssh://git@github.com/
 
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
       - uses: ./.github/actions/build-base-image
         with:
             BASE_BRANCH: ${{ env.BASE_BRANCH }}
 
       - name: Fetch Default ORT Config
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         with:
           repository: oss-review-toolkit/ort-config
           ref: "d2978deb230beae095bb6cfec074b94f1a74fd34"
@@ -835,7 +835,7 @@ jobs:
             cp .ort/config/* "$HOME/.ort/config/"
 
       - name: Run OSS Review Toolkit (analyzer)
-        uses: oss-review-toolkit/ort-ci-github-action@1805edcf1f4f55f35ae6e4d2d9795ccfb29b6021 # ratchet:oss-review-toolkit/ort-ci-github-action@v1.1.0
+        uses: oss-review-toolkit/ort-ci-github-action@086d928d24ef1653dc0777296b312fda5faaaf52 # v1.2.0
         with:
             image: ghcr.io/oss-review-toolkit/ort-minimal:${{ env.ORT_VERSION }}
             run: >
@@ -848,7 +848,7 @@ jobs:
         run: ln -s analyzer-result.json $HOME/.ort/ort-results/current-result.json
 
       - name: Restore ORT Scanner cache
-        uses: actions/cache/restore@b7e8d49f17405cc70c1c120101943203c98d3a4b # ratchet:actions/cache/restore@v4
+        uses: actions/cache/restore@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         id: ort-cache
         if: ${{ env.FULL_BUILD_AND_CHECK == 'false' }}
         with:
@@ -886,7 +886,7 @@ jobs:
 
       - name: Run OSS Review Toolkit (scanner)
         if: hashFiles(env.SCAN_RESULT_CACHE_PATH) == ''
-        uses: oss-review-toolkit/ort-ci-github-action@1805edcf1f4f55f35ae6e4d2d9795ccfb29b6021 # ratchet:oss-review-toolkit/ort-ci-github-action@v1.1.0
+        uses: oss-review-toolkit/ort-ci-github-action@086d928d24ef1653dc0777296b312fda5faaaf52 # v1.2.0
         with:
             image: ghcr.io/oss-review-toolkit/ort-minimal:${{ env.ORT_VERSION }}
             run: >
@@ -915,7 +915,7 @@ jobs:
           ln -f -s scan-result.reuse.json $HOME/.ort/ort-results/current-result.json
 
       - name: Run OSS Review Toolkit (reporter)
-        uses: oss-review-toolkit/ort-ci-github-action@1805edcf1f4f55f35ae6e4d2d9795ccfb29b6021 # ratchet:oss-review-toolkit/ort-ci-github-action@v1.1.0
+        uses: oss-review-toolkit/ort-ci-github-action@086d928d24ef1653dc0777296b312fda5faaaf52 # v1.2.0
         with:
             image: ghcr.io/oss-review-toolkit/ort-minimal:${{ env.ORT_VERSION }}
             run: >
@@ -925,7 +925,7 @@ jobs:
             sw-version: ${{ env.OTP_SBOM_VERSION }}
 
       - name: Save ORT Scanner cache
-        uses: actions/cache/save@b7e8d49f17405cc70c1c120101943203c98d3a4b # ratchet:actions/cache/save@v4
+        uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
         if: steps.ort-cache.outputs.cache-hit != 'true'
         with:
             path: ${{ env.SCAN_RESULT_CACHE_PATH }}
@@ -951,7 +951,7 @@ jobs:
           path: /home/runner/.ort/ort-results/bom.spdx.json
 
       - name: Run OSS Review Toolkit (upload)
-        uses: oss-review-toolkit/ort-ci-github-action@1805edcf1f4f55f35ae6e4d2d9795ccfb29b6021 # ratchet:oss-review-toolkit/ort-ci-github-action@v1.1.0
+        uses: oss-review-toolkit/ort-ci-github-action@086d928d24ef1653dc0777296b312fda5faaaf52 # v1.2.0
         with:
             image: ghcr.io/oss-review-toolkit/ort-minimal:${{ env.ORT_VERSION }}
             run: >
@@ -963,7 +963,7 @@ jobs:
         run: ln -f -s scan-result.reuse.json $HOME/.ort/ort-results/current-result.json
 
       - name: Run OSS Review Toolkit (evaluator)
-        uses: oss-review-toolkit/ort-ci-github-action@1805edcf1f4f55f35ae6e4d2d9795ccfb29b6021 # ratchet:oss-review-toolkit/ort-ci-github-action@v1.1.0
+        uses: oss-review-toolkit/ort-ci-github-action@086d928d24ef1653dc0777296b312fda5faaaf52 # v1.2.0
         with:
             image: ghcr.io/oss-review-toolkit/ort-minimal:${{ env.ORT_VERSION }}
             run: >
@@ -984,7 +984,7 @@ jobs:
       contents: write
       id-token: write
     steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
       - uses: ./.github/actions/build-base-image
         with:
             BASE_BRANCH: ${{ env.BASE_BRANCH }}
@@ -1008,7 +1008,7 @@ jobs:
       #
       - name: Upload SBOM to Github Dependency API
         if: github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == true
-        uses: advanced-security/spdx-dependency-submission-action@169d22427d74f3faf93504e70b03eede8dab272a # v0.2.0
+        uses: advanced-security/spdx-dependency-submission-action@b009efcf8b9d562a4569d2028c276522232e631f # v0.4.0
 
   ## If this is an "OTP-*" tag that has been pushed we do some release work
   release:
@@ -1035,7 +1035,7 @@ jobs:
           echo "tag=${TAG}" >> $GITHUB_OUTPUT
           echo "vsn=${VSN}" >> $GITHUB_OUTPUT
 
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
 
       ## Publish the pre-built archive and docs
       - name: Download source archive
@@ -1105,7 +1105,7 @@ jobs:
           path: "attestations/*.sigstore"
 
       - name: Upload pre-built and doc tar archives
-        uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.5.0
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2.6.2
         with:
           name: OTP ${{ steps.tag.outputs.vsn }}
           files: |
