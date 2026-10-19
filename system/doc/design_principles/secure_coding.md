@@ -69,7 +69,7 @@ considered as _untrusted_ as something given to you by a malicious actor.
     It is therefore important that the user secures the host system so that an
     attacker cannot modify any files relevant to the program.
   * Excessive resource usage is not prevented by default. Unless safeguards are
-    are put in place (for example heap size limitations), a process is free to
+    put in place (for example heap size limitations), a process is free to
     consume enough resources to crash the whole program.
 * All nodes connected through Erlang distribution are assumed to be trusted,
   and have unrestricted access to all other connected systems.
@@ -162,7 +162,7 @@ invalid state, but it is nevertheless necessary for a language to be able to
 handle it since a broken invariant in an insignificant part of the program
 would otherwise tear the entire program down.
 
-The isolation properties given by Erlang processes works together with the idea
+The isolation properties given by Erlang processes work together with the idea
 of supervision trees to allow generalized recovery from third-category errors
 without the programmer having to define each particular case. Whatever the
 crashing process worked on is lost, but the program as a whole is spared.
@@ -257,8 +257,8 @@ for the language that the native code is written in as well as the guidelines
 for writing drivers and NIF libraries. Poorly written native code can both
 introduce vulnerabilities as well as stability problems.
 
-A NIF library is loaded using `erlang:load_nif/2` function while a driver is
-loaded using one of the `m:erl_ddll` load functions.
+A NIF library is loaded using the `erlang:load_nif/2` function while a driver
+is loaded using one of the `m:erl_ddll` load functions.
 
 [NIF library]: `e:erts:erl_nif.html`
 [driver]: `e:erts:erl_driver.html`
@@ -332,7 +332,7 @@ For signatures, use `crypto:sign/4`/`crypto:verify/5` instead.
 [`ssl`]: `e:ssl:index.html`
 
 The [`ssl`] application is secure by default and remains so if the
-recommendations in its documentation is followed. One must be especially
+recommendations in its documentation are followed. One must be especially
 careful when enabling legacy functionality, as it weakens security. It should
 only be done when absolutely necessary.
 
@@ -343,8 +343,7 @@ used to configure more than one possible certificate/key pair for a client or
 server, giving good security while allowing interoperability with legacy
 systems for a period of time.
 
-See also [`TLS Hardening Guide`](`e:ssl:ssl_hardening.html`)
-
+See also [`TLS Hardening Guide`](`e:ssl:ssl_hardening.html`).
 
 [](){: #h-ssh-application }
 ### [`ssh`] Application
@@ -376,7 +375,7 @@ For signatures, use `public_key:sign/4`/`public_key:verify/5` instead.
 [`xmerl`]: `e:xmerl:index.html`
 
 The `m:xmerl_scan` module dynamically produces new atoms and is therefore not
-suitable for decoding XML data originating untrusted sources.
+suitable for decoding XML data originating from untrusted sources.
 
 When parsing untrusted XML, you want to prevent XML entity attacks by disabling
 parsing of entities. In the `m:xmerl_sax_parser` you can do that by passing the
@@ -559,7 +558,7 @@ them is to adopt the convention that all macros should be upper-case. Missing a
 #### [`DEP-001`] - Do Not Expose Default Erlang Distribution on Untrusted Networks
 [`DEP-001`]: #rule-dep-001
 
-The builtin Erlang distribution makes it possible to easily and transparently
+The built-in Erlang distribution makes it possible to easily and transparently
 communicate between Erlang nodes. By default, communication is performed over
 an unencrypted TCP connection with a rudimentary [cookie based authentication]
 only present in order to prevent mistakes. This configuration should *only* be
@@ -627,13 +626,13 @@ configuring the build, which will make sure to use `pie` options where
 appropriate.
 
 As of Erlang/OTP 28.0, the `configure` script that you run when building
-Erlang/OTP will, on Unix like systems, try to enable most of the C/C++
+Erlang/OTP will, on Unix-like systems, try to enable most of the C/C++
 hardening flags recommended by the Open Source Security Foundation. By setting
 the environment variable `V=1` when building, you can see the full command
 line for each invocation of the compiler as well as the linker. By inspecting
-that output you can see what hardening flags is being used in your build.
+that output you can see what hardening flags are being used in your build.
 
-Make sure to build Erlang/OTP using an up to date OpenSSL. By pointing out the
+Make sure to build Erlang/OTP using an up-to-date OpenSSL. By pointing out the
 OpenSSL installation to use by passing the `--with-ssl=PATH` argument to
 [`configure`] when building one can ensure that the build does not build
 against another old OpenSSL installation found on the system. By passing the
@@ -662,8 +661,8 @@ Related CWEs and OWASP risks: [`A03:2025`]
 Make sure to use an actively maintained version of Erlang/OTP. The
 [OTP Versions Tree] page contains information about maintained Erlang/OTP
 releases as well as CVEs affecting different OTP versions. [VEX documents],
-which provide information about potential vulnerabilites, are regularly updated
-for currently maintained OTP releases. Patches are announced on the
+which provide information about potential vulnerabilities, are regularly
+updated for currently maintained OTP releases. Patches are announced on the
 [`erlang-announce`] mailing list as well as on the [erlang forums] web site.
 
 [Rule priority:] `Critical`
@@ -817,14 +816,14 @@ better to translate them yourself and reject invalid inputs, as
 `*_to_existing_atom()` can return *any* atom that exists in the system, not
 just those expected in the context.
 
-There are also a number APIs that create general Erlang terms from data of some
-serialized format. You should not use such APIs if the data is not trusted (see
-[`DSG-011`]) unless the API also provides some way of preventing creation of
-atoms. For example, [`binary_to_term/2`] with the `safe` option will prevent
-new atoms from being created. However, note that even if the `safe` option is
-used and the data originates from an untrusted source, it still has to be
-validated and sanitized, since it can still be harmful to the Erlang
-application in other ways.
+There are also a number of APIs that create general Erlang terms from data of
+some serialized format. You should not use such APIs if the data is not
+trusted (see [`DSG-011`]) unless the API also provides some way of preventing
+creation of atoms. For example, [`binary_to_term/2`] with the `safe` option
+will prevent new atoms from being created. However, note that even if the
+`safe` option is used and the data originates from an untrusted source, it
+still has to be validated and sanitized, since it can still be harmful to the
+Erlang application in other ways.
 
 In general, it is best to avoid using such functions altogether on untrusted
 data, even with the `safe` option.
@@ -1030,7 +1029,7 @@ JSON is an example of a better format to use when communicating with untrusted
 entities. Erlang/OTP provides the `m:json` module for JSON encoding/decoding.
 XML is another example of a format that can be used. The [`xmerl`] application
 provides functionality for encoding/decoding; see the [`xmerl` Application]
-section below for more security related information.
+section above for more security related information.
 
 The decoded data, of course, needs to be validated and sanitized if it does not
 originate from a trusted entity. Using the `m:xmerl_sax_parser` when decoding XML
@@ -1060,7 +1059,7 @@ There are no performance penalties for doing this.
 
 ```erlang
 %% DO
-some_function(State0)
+some_function(State0) ->
     {C, State1} = case foo(State0) of
                       {ok, A} ->
                           {a, bar(A)};
@@ -1070,7 +1069,7 @@ some_function(State0)
     bar(C, State1).
 
 %% DO NOT
-some_function(State0)
+some_function(State0) ->
     C = case foo(State0) of
             {ok, A} ->
                 State1 = bar(A),
@@ -1193,7 +1192,7 @@ instead of spawning an external program.
 
 When spawning an external program, a safer approach is to use [`open_port/2`]
 with the `{spawn_executable, _}` argument. No shell is used and the arguments
-to the program needs to be explicitly listed using the `{args, Args}` option
+to the program need to be explicitly listed using the `{args, Args}` option
 where no environment variable expansion is made. You may also want to overwrite
 certain environment variables using the `{env, Env}` option in order not to
 expose those to the external program.
@@ -1257,10 +1256,10 @@ the latter has two drawbacks:
 2. In a distributed system you may have differing versions of the code, and
    calling the `fun()` may crash because it's for a different version of its
    defining module. A workaround for that would be to extract the secret with
-   `[Secret] = erlang:fun_info(Fun, env)` instead of calling the fun.
+   `{env, [Secret]} = erlang:fun_info(Fun, env)` instead of calling the fun.
 
 Another approach is to catch errors in sensitive sections of code and then
-walking through each stack frame, discarding the arguments, before raising the
+walk through each stack frame, discarding the arguments, before raising the
 exception again. However, note that neither approach prevents the data from
 leaking out through a crash or core dump.
 
@@ -1407,19 +1406,15 @@ Related CWEs and OWASP risks: [CWE-242], [CWE-489], [`A06:2025`]
 | `file:consult/1`                           |                                                                     | See [`DSG-003`] and [`DSG-011`]        |
 | `file:path_consult/2`                      |                                                                     | See [`DSG-003`] and [`DSG-011`]        |
 | `binary_to_term/1`                         | [`binary_to_term/2`] with `safe` option                             | See [`DSG-003`] and [`DSG-011`]        |
-| `binary_to_term/2` without `safe` option   | [`binary_to_term/2`] with `safe` option                             | See [`xmerl` Application]              |
+| `binary_to_term/2` without `safe` option   | [`binary_to_term/2`] with `safe` option                             | See [`DSG-003`] and [`DSG-011`]        |
 | `xmerl_scan:file/1`                        | `m:xmerl_sax_parser` module                                         | See [`xmerl` Application]              |
 | `xmerl_scan:file/2`                        | `m:xmerl_sax_parser` module                                         | See [`xmerl` Application]              |
-| `xmerl_scan:string/1`                      | `m:xmerl_sax_parser` module                                         | See [`xmerl` Application]              |
-| `xmerl_scan:string/2`                      | `m:xmerl_sax_parser` module                                         | See [`xmerl` Application]              |
 | `xmerl_scan:string/1`                      | `m:xmerl_sax_parser` module                                         | See [`xmerl` Application]              |
 | `xmerl_scan:string/2`                      | `m:xmerl_sax_parser` module                                         | See [`xmerl` Application]              |
 | `xmerl_sax_parser:file/2` without `disallow_entities` option | `xmerl_sax_parser:file/2` with `disallow_entities` option | See [`xmerl` Application]      |
 | `xmerl_sax_parser:stream/2` without `disallow_entities` option | `xmerl_sax_parser:stream/2` with `disallow_entities` option | See [`xmerl` Application]  |
 | `socket:open/1`                            |  `socket:open/2` with `dup` option, which must still be used with extreme care |                             |
 | `socket:open/2` without `dup` option       |  `socket:open/2` with `dup` option, which must still be used with extreme care |                             |
-| `ssl:prf/5`                                | `ssl:export_key_materials/4`                                        |                                        |
-| `ssl:prf/5`                                | `ssl:export_key_materials/4`                                        |                                        |
 | `ssl:prf/5`                                | `ssl:export_key_materials/4`                                        |                                        |
 | Deprecated functionality                   |                                                                     | See [`DSG-005`]                        |
 
@@ -1632,10 +1627,10 @@ Erlang/OTP, covering both the [CWE Top 25] and the [On The Cusp] list.
    [CWE-20]: https://cwe.mitre.org/data/definitions/20.html
 
    [](){: #cwe-284 }
-1. [CWE-284] -  Improper Access Control
+1. [CWE-284] - Improper Access Control
    [`CWE-284`]: #cwe-284
    
-   This is not Erlang-specific, please refer to
+   This is not Erlang-specific, please refer to the
    [CWE description](https://cwe.mitre.org/data/definitions/284.html) for
    general advice on how to deal with this.
    
@@ -1715,7 +1710,7 @@ Erlang/OTP, covering both the [CWE Top 25] and the [On The Cusp] list.
 1. [CWE-266] - Incorrect Privilege Assignment
    [`CWE-266`]: #cwe-266
    
-   This is not Erlang-specific, please refer to
+   This is not Erlang-specific, please refer to the
    [CWE description](https://cwe.mitre.org/data/definitions/266.html) for
    general advice on how to deal with this.
    
@@ -1943,8 +1938,8 @@ these risks.
 1. [A05:2025] - Injection
    [`A05:2025`]: #owasp-a05-2025
    
-   See [`MSC-004`] and the [A05:2025] description for advice on how to deal
-   with this.
+   See [`MSC-003`], [`MSC-005`], [`DSG-007`] and the [A05:2025] description
+   for advice on how to deal with this.
    
    [A05:2025]: https://owasp.org/Top10/2025/A05_2025-Injection/
    [](){: #owasp-a06-2025 }
