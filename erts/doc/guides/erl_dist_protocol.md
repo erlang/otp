@@ -787,7 +787,7 @@ following capability flags are defined:
   >
   > This flag is mandatory as of OTP 26.
 
-- **`-define(DFLAG_MANDATORY_25_DIGEST, (1 bsl 36)).`** - The node supports all
+- **`-define(DFLAG_MANDATORY_25_DIGEST, 16#4000000).`** - The node supports all
   capabilities that are mandatory in OTP 25. Introduced in OTP 25.
 
   > #### Note {: .info }

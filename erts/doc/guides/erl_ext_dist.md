@@ -787,7 +787,7 @@ This is the encoding of a native record.
 - **`#Fields`** - Number of fields.
 
 - **`Flags`** - The least significant bit is 0 if this record is not
-    exported, and 1 if not exported. The other bits are reserved for
+    exported, and 1 if it is exported. The other bits are reserved for
     future use and must be set to zero.
 
 - **`Module`** - An atom. The module name of the module where the record is defined.
