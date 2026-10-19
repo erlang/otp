@@ -4693,7 +4693,7 @@ join_lookup(Config) when is_list(Config) ->
                   %% Cannot look up in (1) (X is keypos). Can look up (2).
                   %% Lookup-join: traverse (1), look up in (2).
                   {0,1,0,0} = join_info_count(Q),
-                  [{a,a},{b,a}] = qlc:e(Q)
+                  [{a,a},{b,a}] = lists:sort(qlc:e(Q))
                end, [{a,a},{b,a},{c,3},{d,4}])">>,
 
        <<"%% The pattern {X,_} is used to filter out looked up objects.

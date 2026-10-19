@@ -1024,7 +1024,7 @@ subsequent calls to `match/1`.
 ## Examples
 
 ```erlang
-1> T = ets:new(t, []).
+1> T = ets:new(t, [ordered_set]).
 2> ets:insert(T, [{a,1},{b,2}]).
 true
 3> {_, Cont1} = ets:match(T, '$1', 1).

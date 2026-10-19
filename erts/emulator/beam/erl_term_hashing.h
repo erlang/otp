@@ -33,6 +33,34 @@ typedef UWord erts_ihash_t;
 erts_ihash_t erts_internal_salted_hash(Eterm term, erts_ihash_t salt);
 erts_ihash_t erts_internal_hash(Eterm term);
 erts_ihash_t erts_map_hash(Eterm term);
+ERTS_GLB_INLINE Uint64 erts_ihash_mix64(Uint64 input);
+
+#if ERTS_GLB_INLINE_INCL_FUNC_DEF
+
+/* MurmurHash3 fmix64 finalizer, the immediate path of erts_internal_hash. */
+ERTS_INLINE Uint64 erts_ihash_mix64(Uint64 input)
+{
+    Uint64 hash = input;
+
+    hash ^= hash >> 33;
+    hash *= 0xFF51AFD7ED558CCDull;
+    hash ^= hash >> 33;
+    hash *= 0xC4CEB9FE1A85EC53ull;
+    hash ^= hash >> 33;
+
+    /* Inverse, if needed for testing. The constants are the modular inverse of
+     * the ones above (over 1 << 64).
+     *
+     * hash ^= hash >> 33;
+     * hash *= 0x9CB4B2F8129337DBull;
+     * hash ^= hash >> 33;
+     * hash *= 0x4F74430C22A54005ull;
+     * hash ^= hash >> 33; */
+
+    return hash;
+}
+
+#endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */
 
 #ifdef DEBUG
 #  define DBG_HASHMAP_COLLISION_BONANZA

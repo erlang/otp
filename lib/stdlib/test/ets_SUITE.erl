@@ -34,7 +34,7 @@
 -export([firstnext/1,firstnext_concurrent/1]).
 -export([firstnext_lookup/1,firstnext_lookup_concurrent/1]).
 -export([slot/1]).
--export([hash_clash/1]).
+-export([hash_clash/1, hash_atom_keys/1]).
 -export([match1/1, match2/1, match_object/1, match_object2/1]).
 -export([dups/1, misc1/1, safe_fixtable/1, info/1, tab2list/1]).
 -export([info_binary_stress/1]).
@@ -152,7 +152,7 @@ suite() ->
 all() ->
     [{group, new}, {group, insert}, {group, lookup},
      {group, delete}, firstnext, firstnext_concurrent,
-     firstnext_lookup, firstnext_lookup_concurrent, slot, hash_clash,
+     firstnext_lookup, firstnext_lookup_concurrent, slot, hash_clash, hash_atom_keys,
      {group, match}, t_match_spec_run,
      {group, lookup_element}, {group, misc}, {group, files},
      {group, heavy}, {group, insert_list}, ordered, ordered_match,
@@ -5131,6 +5131,21 @@ hash_clash(Config) when is_list(Config) ->
     true = ets:insert(Tab, {<<"123">>, "extra"}),
     [] = ets:slot(Tab, Phash).
 
+%% Atom keys that only differ in the middle of the name must spread over
+%% the buckets like any other key.
+hash_atom_keys(Config) when is_list(Config) ->
+    KeySets = [fun(N) -> "m" ++ integer_to_list(N) ++ "_handler_sup" end,
+               fun(N) -> "node" ++ integer_to_list(N) ++ "@host" end,
+               fun(N) -> "key_" ++ integer_to_list(N) end],
+    [begin
+         Tab = ets:new(tab, [set]),
+         [true = ets:insert(Tab, {list_to_atom(Name(N))})
+          || N <- lists:seq(1, 10000)],
+         ok = verify_table_load(Tab),
+         ets:delete(Tab)
+     end || Name <- KeySets],
+    ok.
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
@@ -5189,7 +5204,7 @@ match2_do(Opts) ->
     end,
     [[value3_1],[value3_2]] = ets:match(Tab, {'$1', key3}),
     [[key1]] = ets:match(Tab, {value1, '$1'}),
-    [[key2_wannabe],[key2]] = ets:match(Tab, {value2_1, '$2'}),
+    [[key2],[key2_wannabe]] = lists:sort(ets:match(Tab, {value2_1, '$2'})),
     [] = ets:match(Tab,{'$1',nosuchkey}),
     [] = ets:match(Tab,{'$1',kgY2}), % same hash as key2
     [] = ets:match(Tab,{nosuchvalue,'$1'}),
