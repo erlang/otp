@@ -318,6 +318,7 @@ static struct {
 	int active_runqs;
 	int reds;
 	erts_aint32_t max_len;
+        Uint n;
     } prev_rise;
     Uint n;
 } balance_info;
@@ -327,6 +328,7 @@ do {							\
     balance_info.prev_rise.active_runqs = (ACTIVE);	\
     balance_info.prev_rise.max_len = (MAX_LEN);		\
     balance_info.prev_rise.reds = (REDS);		\
+    balance_info.prev_rise.n = balance_info.n;		\
 } while (0)
 
 
@@ -5544,6 +5546,20 @@ erts_debug_nbalance(void)
     return n;
 }
 
+void
+erts_debug_balance_info(ErtsDebugBalanceInfo *info)
+{
+    erts_mtx_lock(&balance_info.update_mtx);
+    get_no_runqs(&info->active_runqs, &info->used_runqs);
+    info->last_active_runqs = balance_info.last_active_runqs;
+    info->checks = balance_info.n;
+    info->rise_active_runqs = balance_info.prev_rise.active_runqs;
+    info->rise_max_len = (int) balance_info.prev_rise.max_len;
+    info->rise_reds = balance_info.prev_rise.reds;
+    info->rise_check = balance_info.prev_rise.n;
+    erts_mtx_unlock(&balance_info.update_mtx);
+}
+
 /* Wakeup other schedulers */
 
 typedef enum {
@@ -6338,6 +6354,7 @@ erts_init_scheduling(int no_schedulers, int no_schedulers_online, int no_poll_th
     balance_info.prev_rise.active_runqs = 0;
     balance_info.prev_rise.max_len = 0;
     balance_info.prev_rise.reds = 0;
+    balance_info.prev_rise.n = 0;
     balance_info.n = 0;
 
     init_migration_paths();
