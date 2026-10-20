@@ -27,6 +27,7 @@
          all/0, groups/0]).
 
 -export([durability_of_disc_copies/1,
+         durability_of_disc_copies2/1,
          durability_of_disc_only_copies/1,
          load_latest_data/1, load_local_contents_directly/1,
          load_directly_when_all_are_ram_copiesA/1,
@@ -67,6 +68,7 @@ all() ->
     [{group, load_tables},
      {group, durability_of_dump_tables},
      durability_of_disc_copies,
+     durability_of_disc_copies2,
      durability_of_disc_only_copies].
 
 groups() -> 
@@ -1575,3 +1577,66 @@ receive_messages(ListOfMsgs) ->
                    [ListOfMsgs])
     end.  
 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+durability_of_disc_copies2(doc) ->
+    ["Perform regression test that checks if no data is lost after "
+     "restart of Mnesia.",
+     "This test is done for disc_copies"];
+
+durability_of_disc_copies2(suite) -> [];
+durability_of_disc_copies2(Config) when is_list(Config) ->
+    %% The error went like this:
+    %% 1.  Empty table is created, but nothing is written to it, Tab.DCD and LATEST.LOG exist
+    %% 2.  Table is deleted, and dirty_write is executed after prepare and before commit of
+    %%     schema transaction, that means write is part of this transaction now.
+    %% 3.  Schema update triggers transaction dump, calls mnesia_dumper:do_insert_rec/5 after
+    %%     transaction has been committed.
+    %% 4.  This function looks at Rec#commit.disc_copies, if there are any ops the Tab.DCL is created for
+    %%     the table via mnesia_dumper:open_disc_copies/2, also {mnesia_dumper, Tab} key in process
+    %%     dictionary is set to {opened_dumper, dcl}
+    %% 5.  mnesia_dumper:insert_ops/6 is called which calls insert_op(..., {op, delete_table, TabDef}, ...) ->
+    %%     which calls mnesia_dumper:disc_delete_table/2. If {mnesia_dumper, Tab} is set to {opened_dumper, dcl}
+    %%     mnesia_log:unsafe_close_log is called with invalid log name. After that Tab.DCL and Tab.DCD
+    %%     are deleted.
+    %% 6.  Now disk_log holds a file descriptor to a deleted file.
+    %% 7.  Same table is created again, this creates empty Tab.DCD
+    %% 8.  Data is written to the table, appended to LATEST.LOG
+    %% 9.  Transaction log dump is initiated manually, this causes mnesia_dumper:insert_recs/6 to call
+    %%     mnesia_dumper:do_insert_rec/5, which in turn calls mnesia_dumper:disc_insert/8
+    %% 10. disc_insert/8 calls mnesia_dumper:open_disc_copies/2, which calls mnesia_log:open_log/6
+    %% 11. Because the log was never closed, we get back the handle to previous log, so the dirty_writes
+    %%     go to the file which is already deleted on disk.
+    %% 12. do_perform_dump reaches the eof and calls close_files, which now closes the leaked disk_log,
+    %%     and OS removes the file.
+    %% 13. After mnesia restart, the table data is gone.
+    ?is_debug_compiled,
+    Nodes = ?acquire_nodes(1, Config),
+
+    Tab = durability_of_disc_copies2,
+    ?match({atomic, ok}, mnesia:create_table(Tab, [{disc_copies, Nodes}])),
+
+    TestPid = self(),
+    DebugId = {mnesia_tm, multi_commit_asym_got_votes},
+    DebugFun = fun(PrevContext, _) ->
+                       ?verbose("inject dirty_write after prepare but before commit~n", []),
+                       mnesia:dirty_write({Tab, 1, 1}),
+                       ?deactivate_debug_fun(DebugId),
+                       TestPid ! {self(), debug_fun_was_called},
+                       PrevContext
+               end,
+    ?activate_debug_fun(DebugId, DebugFun, ok),
+    ?match({atomic, ok}, mnesia:delete_table(Tab)),
+    ?match(false, lists:member({mnesia_dumper, Tab}, disk_log:all())),
+    receive_messages([debug_fun_was_called]),
+
+    ?match({atomic, ok}, mnesia:create_table(Tab, [{disc_copies, Nodes}])),
+    [?match(ok, mnesia:dirty_write({Tab, K, K})) || K <- lists:seq(1, 10)],
+    ?match(dumped, mnesia:dump_log()),
+    ?match(false, lists:member({mnesia_dumper, Tab}, disk_log:all())),
+    ?match([], mnesia_test_lib:stop_mnesia(Nodes)),
+
+    ?match([], mnesia_test_lib:start_mnesia(Nodes, [Tab])),
+    ?match(10, mnesia:table_info(Tab, size)),
+    [?match([{Tab, K, K}], mnesia:dirty_read({Tab, K})) || K <- lists:seq(1, 10)],
+    ?verify_mnesia(Nodes, []).
