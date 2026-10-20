@@ -2217,6 +2217,19 @@ Eterm erts_debug_reader_groups_map(Process *c_p, int groups);
 
 Uint erts_debug_nbalance(void);
 
+typedef struct {
+    int active_runqs;
+    int used_runqs;
+    int last_active_runqs;
+    Uint checks;
+    int rise_active_runqs;
+    int rise_max_len;
+    int rise_reds;
+    Uint rise_check;
+} ErtsDebugBalanceInfo;
+
+void erts_debug_balance_info(ErtsDebugBalanceInfo *info);
+
 #define ERTS_DEBUG_WAIT_COMPLETED_DEALLOCATIONS		(1 << 0)
 #define ERTS_DEBUG_WAIT_COMPLETED_TIMER_CANCELLATIONS	(1 << 1)
 #define ERTS_DEBUG_WAIT_COMPLETED_AUX_WORK		(1 << 2)
