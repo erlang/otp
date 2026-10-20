@@ -495,6 +495,7 @@ struct ErtsRunQueue_ {
     int waiting;
     int woken;
     int check_balance_reds;
+    ErtsMonotonicTime check_balance_timeout;
     int full_reds_history_sum;
     int full_reds_history[ERTS_FULL_REDS_HISTORY_SIZE];
     int out_of_work_count;

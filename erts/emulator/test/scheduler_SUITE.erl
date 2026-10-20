@@ -49,6 +49,8 @@
 	 equal_with_high/1,
 	 equal_with_high_max/1,
          compaction_after_rise/1,
+         compaction_follows_load/1,
+         balance_check_without_load/1,
 	 bound_process/1,
 	
 	 scheduler_bind_types/1,
@@ -78,6 +80,8 @@ all() ->
      equal_and_high_with_part_time_max, equal_with_high,
      equal_with_high_max,
      compaction_after_rise,
+     compaction_follows_load,
+     balance_check_without_load,
      bound_process,
      {group, scheduler_bind}, scheduler_threads,
      scheduler_suspend_basic, scheduler_suspend,
@@ -243,6 +247,30 @@ compaction_after_rise(Config) when is_list(Config) ->
     true = maps:get(rise_active_run_queues, Rise) >= 2,
     1 = wait_active_run_queues(Node, 1, 60000),
     stop_ticker(Ticker),
+    peer:stop(Peer),
+    ok.
+
+compaction_follows_load(Config) when is_list(Config) ->
+    ct:timetrap({minutes, 5}),
+    {ok, Peer, Node} = ?CT_PEER(["+S", "8:8"]),
+    enable_internal_state(Node),
+    Ticker = start_ticker(Node, 50),
+    1 = wait_active_run_queues(Node, 1, 30000),
+    Hogs = [spawn(Node, fun hog/0) || _ <- lists:seq(1, 16)],
+    8 = wait_active_run_queues(Node, 8, 5000),
+    lists:foreach(fun (Hog) -> true = exit(Hog, kill) end, Hogs),
+    1 = wait_active_run_queues(Node, 1, 30000),
+    stop_ticker(Ticker),
+    peer:stop(Peer),
+    ok.
+
+balance_check_without_load(Config) when is_list(Config) ->
+    ct:timetrap({minutes, 1}),
+    {ok, Peer, Node} = ?CT_PEER(["+S", "8:8"]),
+    enable_internal_state(Node),
+    Checks = count_balance_checks(Node, 100, 100),
+    io:format("balance checks: ~p~n", [Checks]),
+    true = Checks >= 5,
     peer:stop(Peer),
     ok.
 
@@ -2659,6 +2687,22 @@ burn(0) ->
 burn(N) ->
     5050 = lists:sum(lists:seq(1, 100)),
     burn(N - 1).
+
+hog() ->
+    burn(100),
+    hog().
+
+count_balance_checks(Node, Polls, IntervalMs) ->
+    #{checks := Start} = balance_info(Node),
+    #{checks := End} = poll_balance_info(Node, Polls, IntervalMs),
+    End - Start.
+
+poll_balance_info(Node, 1, _IntervalMs) ->
+    balance_info(Node);
+poll_balance_info(Node, Polls, IntervalMs) ->
+    #{} = balance_info(Node),
+    receive after IntervalMs -> ok end,
+    poll_balance_info(Node, Polls - 1, IntervalMs).
 
 enable_internal_state() ->
     case catch erts_debug:get_internal_state(available_internal_state) of
