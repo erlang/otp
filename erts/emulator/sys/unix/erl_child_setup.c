@@ -358,6 +358,12 @@ start_new_child(int pipes[])
 
     sys_sigrelease(SIGCHLD);
 
+    /* Restore default handling of sigpipe just before exec */
+    if (sigaction(SIGPIPE, &sa, 0) == -1) {
+        perror(NULL);
+        exit(1);
+    }
+
     if (args) {
         /* spawn_executable */
         execve(cmd, args, new_environ);
