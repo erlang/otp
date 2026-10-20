@@ -712,6 +712,8 @@ static int db_select_replace_continue_hash(Process *p, DbTable *tbl,
                                            enum DbIterSafety*);
 
 static int db_take_hash(Process *, DbTable *, Eterm, Eterm *);
+static int db_take_hash_one(Process *, DbTable *, Eterm, Eterm *);
+static int db_take_hash_common(Process *, DbTable *, Eterm, Eterm *, bool);
 static void db_print_hash(fmtfn_t to,
 			  void *to_arg,
                           bool show,
@@ -871,6 +873,7 @@ DbTableMethod db_hash =
     db_select_replace_hash,
     db_select_replace_continue_hash,
     db_take_hash,
+    db_take_hash_one,
     db_delete_all_objects_hash,
     db_delete_all_objects_get_nitems_from_holder_hash,
     db_free_empty_table_hash,
@@ -2948,6 +2951,18 @@ static int db_select_replace_continue_hash(Process* p, DbTable* tbl,
 
 static int db_take_hash(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
 {
+    return db_take_hash_common(p, tbl, key, ret, false);
+}
+
+static int db_take_hash_one(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
+{
+    bool several = (tbl->common.status & (DB_BAG | DB_DUPLICATE_BAG)) != 0;
+    return db_take_hash_common(p, tbl, key, ret, several);
+}
+
+static int db_take_hash_common(Process *p, DbTable *tbl, Eterm key, Eterm *ret,
+                               bool one)
+{
     DbTableHash *tb = &tbl->hash;
     HashDbTerm **bp, *b;
     HashDbTerm *free_us = NULL;
@@ -2962,7 +2977,12 @@ static int db_take_hash(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
         if (has_live_key(tb, b, key, hval)) {
             HashDbTerm *bend;
 
-            *ret = get_term_list(p, tb, key, hval, b, &bend);
+            if (one) {
+                bend = b->next;
+                *ret = build_term_list(p, b, bend, b->dbterm.size + 2, tb);
+            } else {
+                *ret = get_term_list(p, tb, key, hval, b, &bend);
+            }
             while (b != bend) {
                 --nitems_diff;
                 if (nitems_diff == -1 && IS_FIXED(tb)
