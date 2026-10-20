@@ -139,6 +139,39 @@
            {'text', string()}] |  {line(),column()}.
 
 
+%% Parenthesized -spec(...) form containing a fun type.
+%% Regression test: the indentation engine must balance the parens of
+%% the fun type inside the wrapping -spec(...) parentheses.
+-spec(unzip(Archive, Options) -> RetValue when
+      FileFilter :: fun((ZipFile) -> boolean()),
+      RetValue :: {ok, list()}).
+unzip(A, O) -> {A, O}.
+
+
+%% Character literal $\" must not be mistaken for the start of a string.
+%% Regression test: the escaped character of a $\ literal belongs to
+%% the literal, otherwise the following code is parsed as a string.
+quote_char([$\" | Rest], N) ->
+    quote_char(Rest, N + 1);
+quote_char([_ | Rest], N) ->
+    quote_char(Rest, N).
+
+
+%% A fun type used as a record field.  Regression test: the parens of
+%% the fun type must balance even though the enclosing construct is a
+%% -record(...), not a -spec/-type at the bottom of the stack.
+-record(cbs, {handle :: fun((Req :: term(), State :: term()) ->
+                                   {reply, term()} |
+                                   {noreply, term()}),
+              info :: fun((term()) -> term())}).
+
+
+%% Parenthesized -type(...) form containing fun types.
+-type(set_fun() :: pos_integer()
+                 | {external, fun((set()) -> set())}
+                 | fun((set()) -> set())).
+
+
 %% Test multiline strings as well
 %%  since the tests works by removing indentation and then
 %%  adding them again strings can only be tested without leading spaces
