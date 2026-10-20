@@ -331,6 +331,8 @@ do {							\
     balance_info.prev_rise.n = balance_info.n;		\
 } while (0)
 
+#define ERTS_BLNCE_RISE_HOLD_CHECKS ERTS_FULL_REDS_HISTORY_SIZE
+
 
 erts_sched_stat_t erts_sched_stat;
 
@@ -5115,7 +5117,9 @@ check_balance(ErtsRunQueue *c_rq)
 	    ERTS_BLNCE_SAVE_RISE(current_active, mmax_len, scheds_reds);
 	    active = current_active;
 	}
-	else if (active < balance_info.prev_rise.active_runqs) {
+        else if (active < balance_info.prev_rise.active_runqs
+                 && (balance_info.n - balance_info.prev_rise.n
+                     <= ERTS_BLNCE_RISE_HOLD_CHECKS)) {
 	    if (ERTS_PERCENT(mmax_len,
 			     balance_info.prev_rise.max_len) >= 90
 		&& ERTS_PERCENT(scheds_reds,
