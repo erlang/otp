@@ -463,7 +463,8 @@ do_test(Tag, {WhatTag,Wildcard}, CTHs, Config, Res, EC, ExtraOpts) ->
 
     TestEvents = events_to_check(Tag, EC),
     ok = ct_test_support:verify_events(TestEvents, Events, Config),
-    Opts.
+    %% The log directories of the runs, see ct_test_support:run/2
+    [Dir || {_, #event{name = start_logging, data = Dir}} <- Events].
 
 setup(Test, Config) ->
     Opts0 = ct_test_support:get_opts(Config),
@@ -487,14 +488,16 @@ gen_config(Name,KeyVals,Config) ->
 
 %% Run Tag_SUITE and check that every log file matching Log contains at
 %% least the given number of lines starting with each prefix in MinCounts.
+%% Only the logs of these runs are checked, not those of earlier test cases.
 verify_cth_log_output(Tag, CTHooks, ExtraOpts, Log, MinCounts, Config) ->
     ct:timetrap({minutes,10}),
     Suite = atom_to_list(Tag) ++ "_SUITE.erl",
-    StartOpts = do_test(Tag, Suite, CTHooks, Config, ok, 2, ExtraOpts),
-    Logdir = proplists:get_value(logdir, StartOpts),
+    RunDirs = do_test(Tag, Suite, CTHooks, Config, ok, 2, ExtraOpts),
     LogFiles =
-        filelib:wildcard(
-          filename:join([Logdir, "ct_run*/cth.tests*/run*", Log])),
+        lists:append(
+          [filelib:wildcard(filename:join([RunDir, "cth.tests*/run*", Log]))
+           || RunDir <- RunDirs]),
+    [_|_] = LogFiles,
     lists:foreach(
       fun(LogFile) ->
               {ok,Bin} = file:read_file(LogFile),
