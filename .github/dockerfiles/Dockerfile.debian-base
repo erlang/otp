@@ -48,7 +48,7 @@ RUN apt-get update && apt-get -y upgrade && apt-get install -y build-essential p
           sed -i "s@main\n@main\nArch: $BUILD_ARCH,$HOST_ARCH@g" /etc/apt/sources.list.d/debian.sources; \
         fi && \
         apt-get update && \
-        apt-get install -y build-essential m4 autoconf default-jdk \
+        apt-get install -y build-essential m4 autoconf default-jdk:$BUILD_ARCH \
           $INSTALL_LIBS && \
         if [ "$HOST_TRIP" != "$BUILD_TRIP" ]; then \
           apt-get install -y -f \
