@@ -78,6 +78,10 @@ end_per_testcase(cth_log_formatter = TestCase, Config) ->
        [default, formatter,
         {?DEFAULT_FORMATTER,?DEFAULT_FORMAT_CONFIG}]}, Config),
     ct_test_support:end_per_testcase(TestCase, Config);
+end_per_testcase(cth_log_filters = TestCase, Config) ->
+    ct_test_support:ct_rpc(
+      {logger,remove_handler_filter,[default, error_only]}, Config),
+    ct_test_support:end_per_testcase(TestCase, Config);
 end_per_testcase(TestCase, Config) ->
     ct_test_support:end_per_testcase(TestCase, Config).
 
@@ -121,7 +125,7 @@ all(suite) ->
 groups() ->
     [
      {cth_log_redirect, [], [cth_log_unexpect, cth_log_formatter,
-                             cth_log, cth_log_mode_replace]}
+                             cth_log, cth_log_mode_replace, cth_log_filters]}
     ].
 
 
@@ -311,7 +315,7 @@ cth_log(Config) when is_list(Config) ->
     verify_cth_log_output(cth_log, [], [], "cth_log_suite.tc*.html",
                           #{"=ERROR" => 1, "=INFO" => 1, "=NOTICE" => 1,
                             "Logger" => 1},
-                          Config).
+                          [], Config).
 
 cth_log_formatter(Config) when is_list(Config) ->
     %% test that cth_log_redirect writes properly to
@@ -322,14 +326,14 @@ cth_log_formatter(Config) when is_list(Config) ->
     verify_cth_log_output(cth_log_formatter, [], [],
                           "cth_log_formatter_suite.tc*.html",
                           #{"error:" => 1, "notice:" => 1, "Logger" => 1},
-                          Config).
+                          [], Config).
 
 cth_log_unexpect(Config) when is_list(Config) ->
     %% test that cth_log_redirect writes properly to
     %% unexpected I/O log
     verify_cth_log_output(cth_log_unexpect, [], [], "unexpected_io.log.html",
                           #{"=ERROR" => 3, "=INFO" => 3, "Logger" => 3},
-                          Config).
+                          [], Config).
 
 cth_log_mode_replace(Config) when is_list(Config) ->
     %% test that cth_log_redirect writes properly to
@@ -339,7 +343,19 @@ cth_log_mode_replace(Config) when is_list(Config) ->
                           "cth_log_suite.tc*.html",
                           #{"=ERROR" => 1, "=INFO" => 1, "=NOTICE" => 1,
                             "Logger" => 1},
-                          Config).
+                          [], Config).
+
+cth_log_filters(Config) when is_list(Config) ->
+    %% test that cth_log_redirect uses the filters of the
+    %% default handler
+    ok = ct_test_support:ct_rpc(
+           {logger,add_handler_filter,
+            [default, error_only,
+             {fun logger_filters:level/2, {stop, neq, error}}]},
+           Config),
+    verify_cth_log_output(cth_log, [], [], "cth_log_suite.tc*.html",
+                          #{"=ERROR" => 1, "Logger" => 1},
+                          ["=NOTICE", "=INFO"], Config).
 
 %% OTP-10599 adds the Suite argument as first argument to all hook
 %% callbacks that did not have a Suite argument from before. This test
@@ -487,9 +503,11 @@ gen_config(Name,KeyVals,Config) ->
     File.
 
 %% Run Tag_SUITE and check that every log file matching Log contains at
-%% least the given number of lines starting with each prefix in MinCounts.
+%% least the given number of lines starting with each prefix in MinCounts,
+%% and no lines starting with a prefix in Forbidden.
 %% Only the logs of these runs are checked, not those of earlier test cases.
-verify_cth_log_output(Tag, CTHooks, ExtraOpts, Log, MinCounts, Config) ->
+verify_cth_log_output(Tag, CTHooks, ExtraOpts, Log, MinCounts, Forbidden,
+                      Config) ->
     ct:timetrap({minutes,10}),
     Suite = atom_to_list(Tag) ++ "_SUITE.erl",
     RunDirs = do_test(Tag, Suite, CTHooks, Config, ok, 2, ExtraOpts),
@@ -509,6 +527,12 @@ verify_cth_log_output(Tag, CTHooks, ExtraOpts, Log, MinCounts, Config) ->
               case [P || P := Min <- MinCounts, map_get(P, Counts) < Min] of
                   [] -> ok;
                   Missing -> exit({missing_io,Missing,LogFile})
+              end,
+              case [P || P <- Forbidden,
+                         L <- Lines,
+                         lists:prefix(P, L)] of
+                  [] -> ok;
+                  Found -> exit({unexpected_io,lists:usort(Found),LogFile})
               end
       end, LogFiles),
     ok.
