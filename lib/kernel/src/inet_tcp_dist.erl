@@ -25,7 +25,7 @@
 %% Handles the connection setup phase with other Erlang nodes.
 
 -export([listen/1, listen/2, accept/1, accept_connection/5,
-	 setup/5, close/1, select/1, address/0, is_node_name/1]).
+	 setup/5, close/1, select/1, address/0]).
 
 %% Optional
 -export([setopts/2, getopts/2]).
@@ -588,14 +588,6 @@ check_ip(Driver, [{OwnIP, _, Netmask}|IFs], PeerIP) ->
 check_ip(_Driver, [], PeerIP) ->
     {false, PeerIP}.
     
-is_node_name(Node) when is_atom(Node) ->
-    case split_node(atom_to_list(Node), $@, []) of
-	[_, _Host] -> true;
-	_ -> false
-    end;
-is_node_name(_Node) ->
-    false.
-
 tick(Driver, Socket) ->
     case Driver:send(Socket, [], [force]) of
 	{error, closed} ->
