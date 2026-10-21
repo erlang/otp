@@ -2762,7 +2762,8 @@ change_table_copy_type_node_down_allowed(Config) when is_list(Config) ->
     ?verify_mnesia(All, []),
     ?match({[[N1], [N1]], []}, rpc:multicall(All, mnesia, table_info, [tab, disc_copies])),
     ?match({[[N2], [N2]], []}, rpc:multicall(All, mnesia, table_info, [tab, ram_copies])),
-    ?match({[Schema1, Schema1], []}, rpc:multicall(All, ets, tab2list, [schema])),
+    {SchemaLists1, []} = rpc:multicall(All, ets, tab2list, [schema]),
+    ?match([Schema1, Schema1], [lists:sort(L) || L <- SchemaLists1]),
 
     ?match([], mnesia_test_lib:kill_mnesia([N2])),
     ?match(ok, mnesia:delete_schema([N2])),
@@ -2774,7 +2775,8 @@ change_table_copy_type_node_down_allowed(Config) when is_list(Config) ->
     ?verify_mnesia(All, []),
     ?match({[[N1], [N1]], []}, rpc:multicall(All, mnesia, table_info, [tab, disc_only_copies])),
     ?match({[[N2], [N2]], []}, rpc:multicall(All, mnesia, table_info, [tab, ram_copies])),
-    ?match({[Schema2, Schema2], []}, rpc:multicall(All, ets, tab2list, [schema])).
+    {SchemaLists2, []} = rpc:multicall(All, ets, tab2list, [schema]),
+    ?match([Schema2, Schema2], [lists:sort(L) || L <- SchemaLists2]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -2829,4 +2831,5 @@ verify_change_table_copy_type_node_down_not_allowed(Config, From, To) ->
 
     ?verify_mnesia(All, []),
     ?match({[All, All], []}, rpc:multicall(All, mnesia, table_info, [tab, From])),
-    ?match({[Schema, Schema], []}, rpc:multicall(All, ets, tab2list, [schema])).
+    {SchemaLists, []} = rpc:multicall(All, ets, tab2list, [schema]),
+    ?match([Schema, Schema], [lists:sort(L) || L <- SchemaLists]).
