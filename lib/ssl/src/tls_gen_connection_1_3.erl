@@ -71,7 +71,7 @@ initial_state(Role, Sender, Tab, Host, Port, Socket,
     UserMonitor = erlang:monitor(process, User),
     SslSocket = tls_socket:socket([self(),Sender], CbModule, Socket, tls_gen_connection, Tab, Trackers),
 
-    true = ets:insert(Tab, {{socket_options, packet}, SocketOptions#socket_options.packet}),
+    ok = ssl_shared_opts:set_packet(Tab, SocketOptions#socket_options.packet),
 
     InitStatEnv = #static_env{
                      role = Role,
