@@ -3,8 +3,8 @@
   "@id": "https://erlang.org/download/vex/otp-28.openvex.json",
   "author": "vexctl",
   "timestamp": "2026-10-16T13:47:15.985472+02:00",
-  "last_updated": "2026-10-16T12:17:15.007754421Z",
-  "version": 280,
+  "last_updated": "2026-10-21T10:41:19.043993458+02:00",
+  "version": 281,
   "statements": [
     {
       "vulnerability": {
@@ -19570,6 +19570,19 @@
         }
       ],
       "status": "fixed"
+    },
+    {
+      "vulnerability": {
+        "name": "CVE-2026-85091"
+      },
+      "timestamp": "2026-10-21T10:41:19.043995327+02:00",
+      "products": [
+        {
+          "@id": "pkg:github/madler/zlib@1a8db63788c34a50e39e273d39b7e1033208aea2"
+        }
+      ],
+      "status": "not_affected",
+      "justification": "vulnerable_code_not_present"
     }
   ]
 }
