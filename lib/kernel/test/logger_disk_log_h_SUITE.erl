@@ -44,6 +44,7 @@
 
 -define(msg,"Log from "++atom_to_list(?FUNCTION_NAME)++
             ":"++integer_to_list(?LINE)).
+-define(report,#{from => {?FUNCTION_NAME, ?LINE}}).
 -define(bin(Msg), list_to_binary(Msg++"\n")).
 -define(log_no(File,N), lists:concat([File,".",N])).
 -define(domain,#{domain=>[?MODULE]}).
@@ -93,6 +94,7 @@ all() ->
      open_existing_log,
      disk_log_opts,
      default_formatter,
+     binary_formatter,
      logging,
      filter_config,
      errors,
@@ -284,6 +286,18 @@ default_formatter(Config) ->
     match = re:run(Bin, "=NOTICE REPORT====.*\ndummy", [{capture,none}]),
     ok.
 default_formatter(cleanup, _Config) ->
+    logger:remove_handler(?MODULE).
+
+binary_formatter(Config) ->
+    PrivDir = ?config(priv_dir,Config),
+    LogFile = filename:join(PrivDir,atom_to_list(?FUNCTION_NAME)),
+    ok = logger:add_handler(?MODULE, logger_disk_log_h,
+                            #{config => #{file=>LogFile},
+                              formatter=>{?MODULE,bin}}),
+    logger:notice(M1=?report),
+    try_read_file(?log_no(LogFile,1), {ok,term_to_binary(M1)}, 5000),
+    ok.
+binary_formatter(cleanup, _Config) ->
     logger:remove_handler(?MODULE).
 
 logging(Config) ->
@@ -1441,6 +1455,8 @@ format(_,bad_return) ->
     bad_return;
 format(_,crash) ->
     erlang:error(formatter_crashed);
+format(#{msg:={report,Report}},bin) ->
+    term_to_binary(Report);
 format(#{msg:={report,R},meta:=#{report_cb:=Fun}}=Log,Config) ->
     format(Log#{msg=>Fun(R)},Config);
 format(#{msg:={string,String0}},no_nl) ->
