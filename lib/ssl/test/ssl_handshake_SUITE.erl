@@ -63,7 +63,8 @@
          drop_undecodable_certificate_authorities/1,
          reject_truncated_certificate_entry/1,
          decode_sni_after_unknown_name_type/1,
-         decode_early_data_extension_by_message_type/1]).
+         decode_early_data_extension_by_message_type/1,
+         extension_value_known_extensions/1]).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -83,7 +84,8 @@ all() -> [
           drop_undecodable_certificate_authorities,
           reject_truncated_certificate_entry,
           decode_sni_after_unknown_name_type,
-          decode_early_data_extension_by_message_type
+          decode_early_data_extension_by_message_type,
+          extension_value_known_extensions
          ].
 
 %%--------------------------------------------------------------------
@@ -264,6 +266,55 @@ decode_early_data_extension_by_message_type(_Config) ->
     false = maps:is_key(early_data, NoEarlyDataEe),
     ok.
 
+extension_value_known_extensions(_Config) ->
+    %% ssl_handshake:extension_value/1 maps each decoded hello-extension
+    %% record to the value surfaced to the user when a handshake is paused
+    %% with {handshake, hello} (via ssl_gen_statem:no_records/1). Every
+    %% extension that can appear in that map MUST have a clause; a missing
+    %% one raises function_clause and crashes the paused handshake.
+    Cases =
+        [{#sni{hostname = "example.com"}, "example.com"},
+         {#use_srtp{protection_profiles = [<<0,1>>], mki = <<>>},
+          #{protection_profiles => [<<0,1>>], mki => <<>>}},
+         {#ec_point_formats{ec_point_format_list = [0]}, [0]},
+         {#elliptic_curves{elliptic_curve_list = [secp256r1]}, [secp256r1]},
+         {#supported_groups{supported_groups = [x25519]}, [x25519]},
+         {#hash_sign_algos{hash_sign_algos = [{sha256, rsa}]}, [{sha256, rsa}]},
+         {#alpn{extension_data = <<"h2">>}, <<"h2">>},
+         {#max_frag_enum{enum = 1}, 1},
+         {#next_protocol_negotiation{extension_data = <<>>}, <<>>},
+         {#srp{username = <<"user">>}, <<"user">>},
+         {#renegotiation_info{renegotiated_connection = <<>>}, <<>>},
+         {#signature_algorithms{signature_scheme_list = [rsa_pss_rsae_sha256]},
+          [rsa_pss_rsae_sha256]},
+         {#signature_algorithms_cert{signature_scheme_list = [rsa_pss_rsae_sha256]},
+          [rsa_pss_rsae_sha256]},
+         {#key_share_client_hello{client_shares = []}, []},
+         {#key_share_server_hello{server_share = share}, share},
+         {#key_share_hello_retry_request{selected_group = x25519}, x25519},
+         {#early_data_indication{}, ""},
+         {#early_data_indication_nst{indication = 16384}, 16384},
+         {#client_hello_versions{versions = [?TLS_1_3]}, [?TLS_1_3]},
+         {#server_hello_selected_version{selected_version = ?TLS_1_3}, ?TLS_1_3},
+         {#pre_shared_key_client_hello{offered_psks = psks}, psks},
+         {#pre_shared_key_server_hello{selected_identity = 0}, 0},
+         {#psk_key_exchange_modes{ke_modes = [psk_ke]}, [psk_ke]},
+         {#certificate_authorities{authorities = [<<"ca">>]}, [<<"ca">>]},
+         {#cookie{cookie = <<"c">>}, <<"c">>},
+         %% Regression: certificate_status (OCSP stapling response) was the
+         %% missing clause.
+         {#certificate_status{status_type = ?CERTIFICATE_STATUS_TYPE_OCSP,
+                              response = <<"ocsp-der">>}, <<"ocsp-der">>},
+         {undefined, undefined}],
+    [begin
+         Got = ssl_handshake:extension_value(Ext),
+         case Got =:= Expected of
+             true -> ok;
+             false ->
+                 ct:fail({extension_value_mismatch, element(1, Ext), Expected, Got})
+         end
+     end || {Ext, Expected} <- Cases],
+    ok.
 
 select_proper_tls_1_2_rsa_default_hashsign(_Config) ->
     % RFC 5246 section 7.4.1.4.1 tells to use {sha1,rsa} as default signature_algorithm for RSA key exchanges
