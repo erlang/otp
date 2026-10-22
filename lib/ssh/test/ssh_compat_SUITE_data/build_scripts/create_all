@@ -59,9 +59,9 @@ function create_one_image ()
         popd
     ;;
     *)
-        echo "Unsupported: $1"
+        echo "Unsupported: $1" >&2
         popd
-        exit
+        exit 1
     esac
 }
 
@@ -83,15 +83,15 @@ case ${WHAT_TO_DO} in
             create_one_image $2 $3 $4
             exit
         else
-            echo "$0 build_one openssh SSH_ver openssl SSL_ver BASE_ver | build_one dropbear SSH_ver BASE_ver"
-            exit
+            echo "$0 build_one openssh SSH_ver openssl SSL_ver BASE_ver | build_one dropbear SSH_ver BASE_ver" >&2
+            exit 1
         fi
     ;;
     build_all)
     ;;
     *)
-        echo "$0 list | listatoms | build_one openssh SSH_ver openssl SSL_ver BASE_ver | build_one dropbear SSH_ver BASE_ver | build_all"
-        exit
+        echo "$0 list | listatoms | build_one openssh SSH_ver openssl SSL_ver BASE_ver | build_one dropbear SSH_ver BASE_ver | build_all" >&2
+        exit 1
     ;;
 esac
 

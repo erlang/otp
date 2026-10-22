@@ -47,6 +47,7 @@
          check_docker_present/1,
          login_otp_is_client/1,
          login_otp_is_server/1,
+         no_images_to_test/1,
          renegotiation_otp_is_server/1,
          send_recv_big_with_renegotiate_otp_is_client/1
         ]).
@@ -67,7 +68,14 @@ suite() ->
     [{timetrap, ?DEFAULT_TIMETRAP}].
 
 all() ->
-    [{group,G} || G <- ssh_image_versions()].
+    case ssh_image_versions() of
+        [] ->
+            %% Keep one case so that init_per_suite/1 runs and the
+            %% reason is visible as a skip instead of an empty run
+            [no_images_to_test];
+        Vs ->
+            [{group,G} || G <- Vs]
+    end.
 
 groups() ->
     [{otp_client, [], [login_otp_is_client,
@@ -80,33 +88,79 @@ groups() ->
      [{G, [], [{group,otp_client}, {group,otp_server}]} || G <- ssh_image_versions()]
     ].
 
+%% Located like the CT data_dir: next to the suite's beam file. This works
+%% both in a development tree and in a released test tree, where the ssh
+%% application directory has no test/ subdirectory.
+versions_file() ->
+    filename:join([filename:dirname(code:which(?MODULE)),
+                   "ssh_compat_SUITE_data", ?VERSIONS_FILE]).
+
+%% Group names are the docker image tags derived from the versions.txt
+%% lines, e.g. 'openssh10.2p1-openssl3.5.4-22.04'. They contain no spaces,
+%% so they are usable with -group and do not depend on column alignment.
 ssh_image_versions() ->
-    Path = filename:join([code:lib_dir(ssh), "test", "ssh_compat_SUITE_data", ?VERSIONS_FILE]),
-    {ok, Content} = file:read_file(Path),
-    Vs = string:lexemes(Content, "\n"),
-    ListVs = lists:filtermap(fun(Line) ->
-                                    case {string:is_empty(Line), string:prefix(Line, "#")} of
-                                        {false, nomatch} ->
-                                            {true, binary_to_atom(Line)};
-                                        _ ->
-                                            false
-                                    end
-                            end, Vs),
-    lists:sort(ListVs).
+    lists:sort([Tag || {Tag, _Tokens} <- read_versions()]).
+
+%% [{Tag, Tokens}] where Tokens are the words of the versions.txt line
+read_versions() ->
+    case file:read_file(versions_file()) of
+        {ok, Content} ->
+            parse_versions(Content);
+        {error, _Reason} ->
+            %% Reported as a skip by init_per_suite/1
+            []
+    end.
+
+parse_versions(Content) ->
+    Lines = string:lexemes(unicode:characters_to_list(Content), "\r\n"),
+    [{list_to_atom(version_tag(Tokens)), Tokens}
+     || Line <- Lines,
+        not lists:prefix("#", string:trim(Line)),
+        Tokens <- [string:lexemes(Line, " \t")],
+        Tokens =/= []].
+
+version_tag(["openssh", SshVer, SslType, SslVer, BaseVer]) ->
+    lists:concat(["openssh", SshVer, "-", SslType, SslVer, "-", BaseVer]);
+version_tag(["dropbear", SshVer, BaseVer]) ->
+    lists:concat(["dropbear", SshVer, "-", BaseVer]);
+version_tag(Tokens) ->
+    %% Unknown format: keep it visible, create_all will reject it
+    lists:flatten(lists:join("-", Tokens)).
 
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
     ?CHECK_CRYPTO(
-       case os:find_executable("docker") of
-           false ->
+       case {os:find_executable("docker"), file:read_file_info(versions_file())} of
+           {false, _} ->
                {skip, "No docker"};
+           {_, {error, Reason}} ->
+               {skip, lists:flatten(io_lib:format("Cannot read ~ts: ~p",
+                                                  [versions_file(), Reason]))};
            _ ->
-               ssh:start(),
-               log_image_versions(ssh_image_versions(), Config),
-               ct:log("Crypto info: ~p",[crypto:info_lib()]),
-               ct:log("ssh image versions: ~p",[ssh_image_versions()]),
-               Config
+               case docker_usable() of
+                   ok ->
+                       ssh:start(),
+                       log_image_versions(ssh_image_versions(), Config),
+                       ct:log("Crypto info: ~p",[crypto:info_lib()]),
+                       ct:log("ssh image versions: ~p",[ssh_image_versions()]),
+                       Config;
+                   {error, Msg} ->
+                       {skip, "docker daemon not usable: " ++ Msg}
+               end
        end).
+
+%% The docker executable may exist while the daemon is down or not
+%% accessible to the user (e.g. permission denied on docker.sock).
+docker_usable() ->
+    Out = string:trim(os:cmd("docker info --format '{{.ServerVersion}}' 2>&1")),
+    case re:run(Out, "^[0-9]+\\.[0-9]", [{capture, none}]) of
+        match ->
+            ok;
+        nomatch when Out == "" ->
+            {error, "no output from docker info"};
+        nomatch ->
+            {error, Out}
+    end.
 
 end_per_suite(_Config) ->
     %% Remove all containers that are not running:
@@ -222,6 +276,10 @@ end_per_testcase(_TC, _Config) ->
 
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
+%%--------------------------------------------------------------------
+no_images_to_test(_Config) ->
+    {skip, "No ssh versions to test in " ++ versions_file()}.
+
 %%--------------------------------------------------------------------
 check_docker_present(_Config) ->
     ct:log("This testcase is just to show in Monitor that we have a test host with docker installed",[]),
@@ -1586,11 +1644,12 @@ fix_version(E) ->
         ["dropbear", Vs, BaseVer] -> lists:concat(["Dropbear ", Vs, " ", BaseVer])
     end.
 
-get_list_version(Line) when is_atom(Line) ->
-    get_list_version(atom_to_list(Line));
-get_list_version(Line) ->
-    Split = string:split(Line, " ", all),
-    lists:filter(fun(Word) -> Word /= "" end, Split).
+%% Words of the versions.txt line for a group/tag (atom or string)
+get_list_version(Tag) when is_list(Tag) ->
+    get_list_version(list_to_atom(Tag));
+get_list_version(Tag) when is_atom(Tag) ->
+    {Tag, Tokens} = lists:keyfind(Tag, 1, read_versions()),
+    Tokens.
 
 hostname() ->
     case inet:gethostname() of
@@ -1613,7 +1672,8 @@ build_image(Config, Ver) ->
             try
                 DataDir = proplists:get_value(data_dir, Config),
                 BuildAll = filename:join([DataDir, "build_scripts", "create_all"]),
-                Cmd = lists:concat([BuildAll, " build_one ", Ver]),
+                Cmd = lists:flatten([BuildAll, " build_one ",
+                                     lists:join(" ", get_list_version(Ver))]),
                 ct:pal("Building ~p...~n", [Ver]),
                 ct:log("Cmd: ~p~n", [Cmd]),
                 os:cmd(Cmd, #{exception_on_failure => true}),
@@ -1628,10 +1688,6 @@ build_image(Config, Ver) ->
             end
     end.
 
-get_docker_version(Line) ->
-    case get_list_version(Line) of
-        ["openssh", SshVer, SslType, SslVer, BaseVer] ->
-            lists:concat(["openssh", SshVer, "-", SslType, SslVer, "-", BaseVer]);
-        ["dropbear", SshVer, BaseVer] ->
-            lists:concat(["dropbear", SshVer, "-", BaseVer])
-    end.
+%% The group name is the docker image tag
+get_docker_version(Tag) ->
+    atom_to_list(Tag).
