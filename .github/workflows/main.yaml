@@ -403,13 +403,26 @@ jobs:
 
   build:
     name: Build Erlang/OTP
-    runs-on: ubuntu-latest
+    ## 32-bit and cross-compile build inside an i386/debian container.
+    ## On ubuntu-26.04 the preinstalled Docker's default seccomp profile
+    ## blocks the socketcall syscall that 32-bit glibc needs for sockets,
+    ## which breaks name resolution inside the container
+    ## (https://github.com/actions/runner-images/issues/14790).
+    ## Pin those to ubuntu-24.04 until a fixed Docker lands on the runner.
+    ## clang is a 64-bit build and stays on ubuntu-latest.
+    runs-on: ${{ matrix.runner }}
     needs: pack
     if: needs.pack.outputs.c-code-changes
 
     strategy:
       matrix:
-        type: [32-bit,cross-compile,clang]
+        include:
+          - type: 32-bit
+            runner: ubuntu-24.04
+          - type: cross-compile
+            runner: ubuntu-24.04
+          - type: clang
+            runner: ubuntu-latest
       fail-fast: false
 
     steps:
