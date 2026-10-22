@@ -1319,21 +1319,6 @@ simplify(#b_set{op={bif,element},args=[#b_literal{val=Index},Tuple]}=I0, Ts, Ds)
         _ ->
             eval_bif(I0, Ts, Ds)
     end;
-simplify(#b_set{op={bif,get_record_field},
-                args=[Term,#b_literal{val=Name},#b_literal{val=F}=F0],
-                anno=Anno}=I0, Ts, Ds) when is_atom(Name) ->
-    case {map_get(record_module, Anno), normalized_type(Term, Ts)} of
-        {Mod, #t_record{name={Mod,Name},type=Es}} ->
-            case Es of
-                #{F := {present,_Type}} ->
-                    I = I0#b_set{anno=Anno,op=get_record_element,args=[Term,F0]},
-                    simplify(I, Ts, Ds);
-                #{} ->
-                    I0
-            end;
-        _ ->
-            I0
-    end;
 simplify(#b_set{op={bif,hd},args=[List]}=I, Ts, Ds) ->
     case normalized_type(List, Ts) of
         #t_cons{} ->
