@@ -1672,20 +1672,41 @@ build_image(Config, Ver) ->
             try
                 DataDir = proplists:get_value(data_dir, Config),
                 BuildAll = filename:join([DataDir, "build_scripts", "create_all"]),
-                Cmd = lists:flatten([BuildAll, " build_one ",
-                                     lists:join(" ", get_list_version(Ver))]),
-                ct:pal("Building ~p...~n", [Ver]),
+                %% The build output goes to a file so that it can be
+                %% followed while the build runs (os:cmd/2 only returns
+                %% it at the end). A plain redirect keeps the exit status.
+                LogFile = build_log_file(Config, DockerVer),
+                Cmd = lists:flatten(["BUILDKIT_PROGRESS=plain ", BuildAll, " build_one ",
+                                     lists:join(" ", get_list_version(Ver)),
+                                     " > ", LogFile, " 2>&1"]),
+                ct:pal("Building ~p, follow with:~n  tail -f ~ts~n", [Ver, LogFile]),
                 ct:log("Cmd: ~p~n", [Cmd]),
                 os:cmd(Cmd, #{exception_on_failure => true}),
                 ct:pal("Built ~p.~n", [Ver]),
                 ok
             catch
-                error : {command_failed, Reason, ExitCode} : _ST ->
-                    ct:log("Cannot build image, exit code: ~p, output:~n~ts~n", [ExitCode, Reason]),
+                error : {command_failed, _Output, ExitCode} : _ST ->
+                    ct:log("Cannot build image, exit code: ~p, last lines of ~ts:~n~ts~n",
+                           [ExitCode, build_log_file(Config, DockerVer),
+                            log_tail(build_log_file(Config, DockerVer), 50)]),
                     {skip, io_lib:format("Cannot build image, exit code: ~p", [ExitCode])}
             after
                 ct:timetrap(?DEFAULT_TIMETRAP)
             end
+    end.
+
+build_log_file(Config, DockerVer) ->
+    filename:join(proplists:get_value(priv_dir, Config),
+                  "build-" ++ DockerVer ++ ".log").
+
+%% Last N lines of a file, for the CT log when a build fails
+log_tail(File, N) ->
+    case file:read_file(File) of
+        {ok, Bin} ->
+            Lines = string:split(string:trim(Bin, trailing), "\n", all),
+            lists:join("\n", lists:nthtail(max(0, length(Lines) - N), Lines));
+        {error, Reason} ->
+            io_lib:format("(cannot read build log: ~p)", [Reason])
     end.
 
 %% The docker image tag is the group name plus the build recipe version,
