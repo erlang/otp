@@ -47,6 +47,7 @@
 
 %% Test cases
 -export([decode_hello_handshake/1,
+         decode_fragmented_server_hello/1,
          decode_single_hello_extension_correctly/1,
          decode_supported_elliptic_curves_hello_extension_correctly/1,
          decode_unknown_hello_extension_correctly/1,
@@ -71,6 +72,7 @@
 %%--------------------------------------------------------------------
 all() -> [
           decode_hello_handshake,
+          decode_fragmented_server_hello,
           decode_single_hello_extension_correctly,
           decode_supported_elliptic_curves_hello_extension_correctly,
           decode_unknown_hello_extension_correctly,
@@ -147,11 +149,70 @@ decode_hello_handshake(_Config) ->
 		    16#70, 16#64, 16#79, 16#2f, 16#32>>,
     Version = ?SSL_3_0,
     DefOpts = ssl_config:update_options([{verify, verify_none}], client, #{}),
-    {Records, _Buffer} = tls_handshake:get_tls_handshakes(Version, HelloPacket, <<>>, DefOpts),
+    {Records, _Buffer} = tls_handshake:assemble_tls_handshakes(Version, HelloPacket, <<>>, DefOpts),
 
     {Hello, _Data} = hd(Records),
     Extensions = Hello#server_hello.extensions,
     #{renegotiation_info := #renegotiation_info{renegotiated_connection = <<0>>}} = Extensions.
+
+decode_fragmented_server_hello(_Config) ->
+    %% Regression for "ssl: Harden handshake parsing": a ServerHello that
+    %% arrives fragmented across very small TLS records must not cause a
+    %% client internal error. tls_handshake:assemble_server_hello/4 buffers
+    %% until the first complete handshake message is available and only
+    %% then decodes it, returning any coalesced trailing record bytes
+    %% separately. Before the fix the caller matched
+    %% <<FirstPacket:(Length+4)/binary, _/binary>> on partial Data and
+    %% crashed with a badmatch.
+    Version = ?SSL_3_0,
+    DefOpts = ssl_config:update_options([{verify, verify_none}], client, #{}),
+    ServerHello =
+        iolist_to_binary(
+          tls_handshake:encode_handshake(
+            #server_hello{server_version = {1, 2},
+                          random = <<1:256>>,
+                          session_id = <<>>,
+                          cipher_suite = <<16#00, 16#2f>>, %% TLS_RSA_WITH_AES_128_CBC_SHA
+                          extensions =
+                              #{renegotiation_info =>
+                                    #renegotiation_info{}}},
+            {1, 2})),
+    true = byte_size(ServerHello) > 5,
+
+    %% 1. Complete message in one chunk: decoded, no trailing record data.
+    {[{#server_hello{} = Decoded, _Raw}], <<>>} =
+        tls_handshake:assemble_server_hello(Version, ServerHello, <<>>, DefOpts),
+
+    %% 2. Fragmented across records - the first fragment alone is not a
+    %%    complete message. This is the case that crashed before the fix;
+    %%    it must now return buffer_handshake (keep buffering) rather than
+    %%    error. Exercise both a header-only fragment and a mid-body split.
+    <<HeaderOnly:3/binary, BodyRest/binary>> = ServerHello,
+    buffer_handshake =
+        tls_handshake:assemble_server_hello(Version, HeaderOnly, <<>>, DefOpts),
+
+    MidPoint = byte_size(ServerHello) - 2,
+    <<FirstPart:MidPoint/binary, LastPart/binary>> = ServerHello,
+    buffer_handshake =
+        tls_handshake:assemble_server_hello(Version, FirstPart, <<>>, DefOpts),
+
+    %% 3. Deliver the remainder with the earlier fragment as Buffer: the
+    %%    message is now complete and decodes to the same ServerHello.
+    {[{#server_hello{} = Decoded2, _}], <<>>} =
+        tls_handshake:assemble_server_hello(Version, LastPart, FirstPart, DefOpts),
+    Decoded = Decoded2,
+    {[{#server_hello{}, _}], <<>>} =
+        tls_handshake:assemble_server_hello(Version, BodyRest, HeaderOnly, DefOpts),
+
+    %% 4. Coalesced trailing bytes after a complete ServerHello are returned
+    %%    unparsed as RecordRest (to be decoded later with the negotiated
+    %%    version), not folded into this message.
+    Trailing = <<16#16, 16#03, 16#03>>,
+    {[{#server_hello{}, _}], Trailing} =
+        tls_handshake:assemble_server_hello(Version,
+                                            <<ServerHello/binary, Trailing/binary>>,
+                                            <<>>, DefOpts),
+    ok.
 
 decode_single_hello_extension_correctly(_Config) ->
     Renegotiation = <<?UINT16(?RENEGOTIATION_EXT), ?UINT16(1), 0>>,
