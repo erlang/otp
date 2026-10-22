@@ -2118,7 +2118,9 @@ extension_value(#psk_key_exchange_modes{ke_modes = Modes}) ->
 extension_value(#certificate_authorities{authorities = Auths}) ->
     Auths;
 extension_value(#cookie{cookie = Cookie}) ->
-    Cookie.
+    Cookie;
+extension_value(#certificate_status{response = Response}) ->
+    Response.
 
 %% Extension value mapping (from decode_extensions/4):
 %%   'false'     - extension absent from ServerHello (maps:get default)
