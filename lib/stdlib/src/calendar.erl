@@ -748,8 +748,10 @@ Valid options:
 
 - **`{offset, Offset}`** - The offset, either a string or an integer, to be
   included in the formatted string. An empty string, which is the default, is
-  interpreted as local time. A non-empty string is included as is. The time unit
-  of the integer is the same as the one of `Time`.
+  interpreted as local time. A non-empty string must be `"Z"`, `"z"`, or have
+  the form `+HH:MM` or `-HH:MM`, where `HH` is two-digit hours and `MM` is
+  two-digit minutes (for example, `"+02:00"`). It is included as is. The time
+  unit of the integer is the same as the one of `Time`.
 
 - **`{time_designator, Character}`** - The character used as time designator,
   that is, the date and time separator. The default is `$T`.
