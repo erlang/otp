@@ -108,7 +108,7 @@ result(Response = {{_, Code, _}, _, _}, Request)
 %% In redirect loop
 result(Response = {{_, Code, _}, _, _}, Request =
        #request{redircount = Redirects,
-		settings = #http_options{autoredirect = AutoRedirect}})
+                settings = #http_options{autoredirect = AutoRedirect}})
   when (AutoRedirect =/= false) andalso
        ((Code div 100) =:= 3) andalso (Redirects > ?HTTP_MAX_REDIRECTS) ->
     transparent(Response, Request);
@@ -116,7 +116,7 @@ result(Response = {{_, Code, _}, _, _}, Request =
 %% multiple choices
 result(Response = {{_, 300, _}, _, _},
        Request = #request{settings =
-			  #http_options{autoredirect = AutoRedirect}})
+                              #http_options{autoredirect = AutoRedirect}})
   when AutoRedirect =/= false ->
     redirect(Response, Request);
 
@@ -137,7 +137,7 @@ result(Response = {{_, Code, _}, _, _},
     redirect(Response, Request);
 result(Response = {{_, Code, _}, _, _},
         Request = #request{settings =
-			#http_options{autoredirect = AutoRedirect},
+                               #http_options{autoredirect = AutoRedirect},
                 method = Method}) when (AutoRedirect =/= false) andalso
                     ((Code =:= 301) orelse
                     (Code =:= 302) orelse

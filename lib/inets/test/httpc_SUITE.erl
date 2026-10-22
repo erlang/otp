@@ -949,11 +949,11 @@ redirect_https_to_http_blocked_by_default(Config) when is_list(Config) ->
     Headers = [{"x-test-301-url", TargetUrl}],
 
     {ok, {{_,301,_}, [_ | _], _}}
-	= httpc:request(get, {URL301, Headers}, [?SSL_NO_VERIFY], RequestOpts, Profile),
+        = httpc:request(get, {URL301, Headers}, [?SSL_NO_VERIFY], RequestOpts, Profile),
 
     {ok, {{_,301,_}, [_ | _], _}}
-	= httpc:request(get, {URL301, Headers}, [{autoredirect, no_downgrade}, ?SSL_NO_VERIFY],
-			RequestOpts, Profile).
+        = httpc:request(get, {URL301, Headers}, [{autoredirect, no_downgrade}, ?SSL_NO_VERIFY],
+                        RequestOpts, Profile).
 
 %%-------------------------------------------------------------------------
 redirect_https_to_http_blocked_case_insensitive() ->
@@ -970,7 +970,7 @@ redirect_https_to_http_blocked_case_insensitive(Config) when is_list(Config) ->
     Headers = [{"x-test-301-url", UpperTargetUrl}],
 
     {ok, {{_,301,_}, [_ | _], _}}
-	= httpc:request(get, {URL301, Headers}, [?SSL_NO_VERIFY], RequestOpts, Profile).
+        = httpc:request(get, {URL301, Headers}, [?SSL_NO_VERIFY], RequestOpts, Profile).
 
 %%-------------------------------------------------------------------------
 redirect_https_to_http_allowed_when_explicit() ->
@@ -984,8 +984,8 @@ redirect_https_to_http_allowed_when_explicit(Config) when is_list(Config) ->
     Headers = [{"x-test-301-url", TargetUrl}],
 
     {ok, {{_,200,_}, [_ | _], [_|_]}}
-	= httpc:request(get, {URL301, Headers}, [{autoredirect, true}, ?SSL_NO_VERIFY],
-			RequestOpts, Profile).
+        = httpc:request(get, {URL301, Headers}, [{autoredirect, true}, ?SSL_NO_VERIFY],
+                        RequestOpts, Profile).
 
 %%-------------------------------------------------------------------------
 redirect_https_to_http_blocked_after_upgrade() ->
@@ -1001,7 +1001,7 @@ redirect_https_to_http_blocked_after_upgrade(Config) when is_list(Config) ->
     Headers = [{"x-test-301-url", Step2Url}, {"x-test-302-url-2", FinalUrl}],
 
     {ok, {{_,302,_}, [_ | _], _}}
-	= httpc:request(get, {URL301, Headers}, [?SSL_NO_VERIFY], RequestOpts, Profile).
+        = httpc:request(get, {URL301, Headers}, [?SSL_NO_VERIFY], RequestOpts, Profile).
 
 %%-------------------------------------------------------------------------
 redirect_relative_different_port() ->
@@ -3250,8 +3250,8 @@ handle_uri(_,"/301.html",Port,_,Socket,_) ->
 handle_uri("HEAD","/301_rel_uri.html",_,_,_,_) ->
     NewUri = "/dummy.html",
     "HTTP/1.1 301 Moved Permanently\r\n" ++
-	"Location:" ++ NewUri ++  "\r\n" ++
-	"Content-Length:0\r\n\r\n";
+        "Location:" ++ NewUri ++  "\r\n" ++
+        "Content-Length:0\r\n\r\n";
 
 handle_uri(_,"/301_rel_uri.html",_,_,_,_) ->
     NewUri = "/dummy.html",

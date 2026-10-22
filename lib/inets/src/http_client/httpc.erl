@@ -1478,12 +1478,12 @@ http_options_default() ->
 			  error
 		  end,
     AutoRedirectPost =  fun(Value) when (Value =:= true) orelse
-					 (Value =:= false) orelse
-					 (Value =:= no_downgrade) ->
-				{ok, Value};
-			   (_) ->
-				error
-			end,
+                                        (Value =:= false) orelse
+                                        (Value =:= no_downgrade) ->
+                                {ok, Value};
+                           (_) ->
+                                error
+                        end,
 
     AutoRetryPost = fun(Value) when is_integer(Value)
                                     andalso Value >= 0 ->
