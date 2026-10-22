@@ -783,14 +783,11 @@ handle_server_hello(#server_hello{cipher_suite = SelectedCipherSuite,
                                   extensions = Extensions} = ServerHello,
                     #state{handshake_env = #handshake_env{key_share = ClientKeyShare},
                            ssl_options = #{ciphers := ClientCiphers,
-                                           supported_groups := ClientGroups0,
                                            session_tickets := SessionTickets,
                                            use_ticket := UseTicket}} = State0) ->
     {Ref,Maybe} = tls_gen_connection_1_3:do_maybe(),
     try
-        ClientGroups =
-            Maybe(tls_handshake_1_3:get_supported_groups(ClientGroups0)),
-        ServerKeyShare = server_share(maps:get(key_share, Extensions)),
+        ServerKeyShare = Maybe(hello_server_key_share(Extensions)),
         ServerPreSharedKey = maps:get(pre_shared_key, Extensions, undefined),
 
         %% RFC 8446 §4.1.4: If the version in the second ServerHello
@@ -801,7 +798,12 @@ handle_server_hello(#server_hello{cipher_suite = SelectedCipherSuite,
         Maybe(tls_handshake_1_3:maybe_hello_retry_request(ServerHello, State0)),
 
         Maybe(validate_cipher_suite(SelectedCipherSuite, ClientCiphers)),
-        Maybe(validate_server_key_share(ClientGroups, ServerKeyShare)),
+        %% RFC 8446 §4.2.8: the server's selected group MUST be one the
+        %% client actually offered a key_share for — not merely a member
+        %% of the supported_groups superset. Validate against the groups
+        %% present in the client's own key_share list.
+        OfferedGroups = offered_key_share_groups(ClientKeyShare),
+        Maybe(validate_server_key_share(OfferedGroups, ServerKeyShare)),
 
         %% Get server public key
         #key_share_entry{group = SelectedGroup,
@@ -907,10 +909,15 @@ server_group(#key_share_server_hello{server_share = #key_share_entry{group = Gro
 server_group(#key_share_hello_retry_request{selected_group = Group}) ->
     Group.
 
-server_share(#key_share_server_hello{server_share = Share}) ->
-    Share;
-server_share(#key_share_hello_retry_request{selected_group = Share}) ->
-    Share.
+%% RFC 8446 §4.1.3: a (non-HRR) ServerHello MUST carry a key_share
+%% extension. 
+hello_server_key_share(Extensions) ->
+    case maps:get(key_share, Extensions, undefined) of
+        #key_share_server_hello{server_share = Share} ->
+            {ok, Share};
+        _ ->
+            {error, ?ALERT_REC(?FATAL, ?MISSING_EXTENSION, missing_key_share)}
+    end.
 
 client_private_key(Group, ClientShares) ->
     case lists:keysearch(Group, 2, ClientShares) of
@@ -1047,6 +1054,11 @@ decode_alpn(Encoded) ->
         _  ->
             {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER, invalid_alpn)}
     end.
+
+%% RFC 8446 §4.2.8: the groups the client actually offered a key_share
+%% for (distinct from the supported_groups superset).
+offered_key_share_groups(#key_share_client_hello{client_shares = Shares}) ->
+    [Group || #key_share_entry{group = Group} <- Shares].
 
 %% Verify that selected group is offered by the client.
 validate_server_key_share([], _) ->
