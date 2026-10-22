@@ -59,6 +59,8 @@
 -define(VERSIONS_FILE, "versions.txt").
 -define(DEFAULT_TIMETRAP, {minutes, 2}).
 -define(IMAGE_BUILD_TIMETRAP, {minutes, 10}).
+%% Max wait for one test process in test_erl_client_reneg/2 (ms)
+-define(RENEG_TEST_TIMEOUT, 30000).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -257,6 +259,9 @@ end_per_group(G, Config) ->
     end.
 
 init_per_testcase(all_algorithms_sftp_exec_reneg_otp_is_client, Config) ->
+    %% One connection per common algorithm (~20), each may take up to
+    %% ?RENEG_TEST_TIMEOUT if the peer misbehaves
+    ct:timetrap({minutes, 15}),
     case get_list_version(proplists:get_value(ssh_version, Config)) of
         ["openssh", "6.2p2", "openssl", "0.9.8c", "16.04"] ->
             {skip, "Openssh 6.x disabled diffie-hellman-group1-sha1 but 6.2p2 still advertises it."};
@@ -355,6 +360,8 @@ login_otp_is_server(Config) ->
                                                    {preferred_algorithms, ssh_transport:supported_algorithms()},
                                                    {system_dir, SysDir},
                                                    {user_dir, UsrDir},
+                                                   %% exec is disabled by default since OTP 29
+                                                   {exec, erlang_eval},
                                                    {failfun, fun ssh_test_lib:failfun/2}
                                                    | Opts
                                                   ]),
@@ -1405,19 +1412,27 @@ recv_log_msgs(C, Ch) ->
 %%%----------------------------------------------------------------
 %%%----------------------------------------------------------------
 test_erl_client_reneg({ok,C}, Spec) ->
-    %% Start the test processes on the connection C:
+    %% Start the test processes on the connection C. A crash is reported
+    %% as a result, so that the collector below never waits for a
+    %% process that is gone.
     Parent = self(),
     Pids = [spawn(
               fun() ->
-                      Parent ! {self(), TestType, Id, one_test_erl_client(TestType,Id,C)}
+                      Result = try one_test_erl_client(TestType,Id,C)
+                               catch Class:Reason:St -> {crashed,Class,Reason,St}
+                               end,
+                      Parent ! {self(), TestType, Id, Result}
               end
-             ) 
+             )
             || {TestType,N} <- Spec,
                Id <- lists:seq(1,N)],
 
     Kex1 = renegotiate_test(init, C),
 
-    %% Collect the results:
+    %% Collect the results. Test processes still running after
+    %% ?RENEG_TEST_TIMEOUT are killed, so the remaining algorithms are
+    %% still tested. One deadline for all processes of this connection.
+    Deadline = erlang:monotonic_time(millisecond) + ?RENEG_TEST_TIMEOUT,
     case lists:filter(
            fun(R) -> R=/=ok end,
            [receive
@@ -1427,14 +1442,27 @@ test_erl_client_reneg({ok,C}, Spec) ->
                 {Pid,TestType,Id,OtherResult} ->
                     ct:log("~p:~p ~p ~p~n~p",[?MODULE,?LINE,TestType,Id,OtherResult]),
                     {error,TestType,Id}
+            after max(0, Deadline - erlang:monotonic_time(millisecond)) ->
+                    exit(Pid, kill),
+                    ct:log("~p:~p test process ~p did not reply within ~p ms",
+                           [?MODULE,?LINE,Pid,?RENEG_TEST_TIMEOUT]),
+                    {error,timeout,Pid}
             end || Pid <- Pids])
     of
         [] ->
             renegotiate_test(Kex1, C),
             {ok,C};
         Other ->
-            renegotiate_test(Kex1, C),
-            Other
+            case is_process_alive(C) of
+                true ->
+                    renegotiate_test(Kex1, C),
+                    Other;
+                false ->
+                    %% The peer closed the whole connection; report it as
+                    %% a failure for this algorithm and go on with the next
+                    ct:log("~p:~p connection ~p closed during the tests", [?MODULE,?LINE,C]),
+                    [{error,connection_closed} | Other]
+            end
     end;
 
 test_erl_client_reneg(Error, _) ->
