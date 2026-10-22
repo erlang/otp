@@ -39,7 +39,10 @@ BASE_VER=$5
 
 INPUT_FILE=$6
 
-VER=${FAMssh}${VERssh}-${FAMssl}${VERssl}-${BASE_VER}
+# Image recipe version, see RECIPE_VERSION
+RECIPE=r$(grep -v '^#' "$(dirname -- "${BASH_SOURCE[0]}")/RECIPE_VERSION" | tr -d '[:space:]')
+
+VER=${FAMssh}${VERssh}-${FAMssl}${VERssl}-${BASE_VER}-${RECIPE}
 
 case $FAMssl$VERssl in
     openssl3*)
@@ -58,7 +61,7 @@ esac
 # Make a Dockerfile. This method simplifies env variable handling considerably:
 cat - > TempDockerFile <<EOF
 
-    FROM ssh_compat_suite_img-${FAMssl}:${VERssl}-${BASE_VER}
+    FROM ssh_compat_suite_img-${FAMssl}:${VERssl}-${BASE_VER}-${RECIPE}
     ARG  DEBIAN_FRONTEND=noninteractive
 
     LABEL openssh-version=${VER}

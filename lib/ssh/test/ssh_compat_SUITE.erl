@@ -1688,6 +1688,15 @@ build_image(Config, Ver) ->
             end
     end.
 
-%% The group name is the docker image tag
+%% The docker image tag is the group name plus the build recipe version,
+%% e.g. 'openssh10.2p1-openssl3.5.4-22.04' -> "openssh10.2p1-openssl3.5.4-22.04-r1"
 get_docker_version(Tag) ->
-    atom_to_list(Tag).
+    atom_to_list(Tag) ++ "-r" ++ recipe_version().
+
+%% Same file and parsing as in the build scripts (build_scripts/RECIPE_VERSION)
+recipe_version() ->
+    File = filename:join([filename:dirname(code:which(?MODULE)),
+                          "ssh_compat_SUITE_data", "build_scripts", "RECIPE_VERSION"]),
+    {ok, Bin} = file:read_file(File),
+    Lines = string:lexemes(unicode:characters_to_list(Bin), "\r\n"),
+    lists:append([string:trim(L) || L <- Lines, not lists:prefix("#", L)]).

@@ -36,9 +36,12 @@ esac
 BASE_VER=$3
 INPUT_FILE=$4
 
-VER=${FAMssh}${VERssh}-${BASE_VER}
+# Image recipe version, see RECIPE_VERSION
+RECIPE=r$(grep -v '^#' "$(dirname -- "${BASH_SOURCE[0]}")/RECIPE_VERSION" | tr -d '[:space:]')
 
-BASE_IMG=ssh_compat_suite_img-ubuntu:$BASE_VER
+VER=${FAMssh}${VERssh}-${BASE_VER}-${RECIPE}
+
+BASE_IMG=ssh_compat_suite_img-ubuntu:$BASE_VER-$RECIPE
 
 if [[ $(docker images -q $BASE_IMG 2> /dev/null) == "" ]] ; then
     echo "Building $BASE_IMG..."
