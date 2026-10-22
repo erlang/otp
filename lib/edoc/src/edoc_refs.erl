@@ -173,6 +173,11 @@ abs_uri({module, M}, Env) ->
 abs_uri({module, M, Ref}, Env) ->
     module_absref(M, Env) ++ "#" ++ to_label(Ref).
 
+docgen_abs_uri({module, M}, Env) ->
+    module_absref(M, Env);
+docgen_abs_uri({module, M, Ref}, Env) ->
+    module_absref(M, Env) ++ lists:flatten(docgen_uri(Ref)).
+
 module_ref(M, Env) ->
     case (Env#env.modules)(M) of
 	"" ->
@@ -187,6 +192,8 @@ module_absref(M, Env) ->
 
 app_ref(A, Env) ->
     case (Env#env.apps)(A) of
+        "" when Env#env.app_default == ?APP_DEFAULT ->
+            join_uri(Env#env.app_default, escape_uri(atom_to_list(A)));
 	"" ->
 	    join_uri(Env#env.app_default,
 		     join_uri(escape_uri(atom_to_list(A)), ?EDOC_DIR));
@@ -195,7 +202,12 @@ app_ref(A, Env) ->
     end.
 
 app_ref(A, Ref, Env) ->
-    join_uri(app_ref(A, Env), abs_uri(Ref, Env)).
+    case (Env#env.apps)(A) of
+        "" when Env#env.app_default == ?APP_DEFAULT ->
+            join_uri(app_ref(A, Env), docgen_abs_uri(Ref, Env));
+        _ ->
+            join_uri(app_ref(A, Env), abs_uri(Ref, Env))
+    end.
 
 is_top({app, _App}, _Env) ->
     true;
