@@ -27,7 +27,7 @@
 -export([edge_cases/1,
          addition/1, subtraction/1, negation/1,
          multiplication/1, mul_add/1, division/1,
-         test_bitwise/1, test_bsl/1, test_bsr/1,
+         test_bitwise/1, test_bnot/1, test_bsl/1, test_bsr/1,
          element/1,
          range_optimization/1,
          confused_squaring/1]).
@@ -48,7 +48,7 @@ groups() ->
     [{p, [parallel],
       [edge_cases,
        addition, subtraction, negation, multiplication, mul_add, division,
-       test_bitwise, test_bsl, test_bsr,
+       test_bitwise, test_bnot, test_bsl, test_bsr,
        element,
        range_optimization,
        confused_squaring]}].
@@ -1273,6 +1273,74 @@ test_bitwise_1(A, B, Mod, Name) ->
     OrRes = A bor B,
     XorRes = A bxor B,
     {AndRes, OrRes, XorRes} = Mod:Name(A, B),
+    ok.
+
+%% Test that the JIT only omits the test for a small operand when it's safe.
+test_bnot(_Config) ->
+    _ = rand:uniform(),				%Seed generator
+    io:format("Seed: ~p", [rand:export_seed()]),
+    Mod = list_to_atom(lists:concat([?MODULE,"_",?FUNCTION_NAME])),
+    Limits = determine_small_limits(0),
+    Integers = neg_gen_integers(),
+    Fs0 = gen_func_names(Integers, 0),
+    Fs = [gen_bnot_function(F, Limits) || F <- Fs0],
+    Tree = ?Q(["-module('@Mod@').",
+               "-compile([export_all,nowarn_export_all])."]) ++ Fs,
+    merl:print(Tree),
+    {ok,_Bin} = merl:compile_and_load(Tree, []),
+    test_bnot(Fs0, Mod),
+    unload(Mod),
+
+    %% Test an invalid operand.
+    expect_badarith(fun(X) -> bnot X end),
+    expect_fc(fun(X) when is_integer(bnot X) -> ok end),
+
+    ok.
+
+gen_bnot_function({Name,A}, {MinSmall,MaxSmall}) ->
+    APlusOne = abs(A) + 1,
+    ?Q("'@Name@'(integer0, X0) when is_integer(X0) ->
+           X1 = X0 rem _@APlusOne@,
+           Res = bnot X0,
+           Res = bnot X1;
+         '@Name@'(integer1, X) when is_integer(X), -_@APlusOne@ < X, X < _@APlusOne@ ->
+           bnot X;
+         '@Name@'(small, X) when is_integer(X), _@MinSmall@ =< X, X =< _@MaxSmall@ ->
+           bnot X;
+         '@Name@'(small, X) ->
+           bnot X;
+         '@Name@'(guard, X) when is_integer(X), -_@APlusOne@ < X, X < _@APlusOne@,
+                                 bnot X < 0 ->
+           negative;
+         '@Name@'(guard, X) when is_integer(X) ->
+           non_negative;
+         '@Name@'(number, X) when is_number(X) ->
+           bnot X. ").
+
+test_bnot([{Name,A}|T], Mod) ->
+    try
+        test_bnot_1(A, Mod, Name),
+        test_bnot_1(-A, Mod, Name)
+    catch
+        C:R:Stk ->
+            io:format("~p failed. number: ~p\n", [Name,A]),
+            erlang:raise(C, R, Stk)
+    end,
+    test_bnot(T, Mod);
+test_bnot([], _) ->
+    ok.
+
+test_bnot_1(A, Mod, Name) ->
+    Res = bnot A,
+    Res = Mod:Name(integer0, A),
+    Res = Mod:Name(integer1, A),
+    Res = Mod:Name(small, A),
+    Res = Mod:Name(number, A),
+    Sign = if
+               Res < 0 -> negative;
+               true -> non_negative
+           end,
+    Sign = Mod:Name(guard, A),
     ok.
 
 %% Test that the JIT only omits the overflow check when it's safe.
