@@ -553,8 +553,8 @@ protocol_name() ->
 
 
 %%====================================================================
-%% Internal functions 
-%%====================================================================	     
+%% Internal functions
+%%====================================================================
 get_tls_handshakes(Data, StateName, #state{protocol_buffers =
                                                #protocol_buffers{tls_handshake_buffer = HSBuffer},
                                            connection_env =
@@ -845,21 +845,23 @@ handle_unnegotiated_version(?LEGACY_VERSION , #{versions := [?TLS_1_3 = Version 
     %% should be the TLS-1.3. Possible coalesced TLS-1.2 server
     %% handshake messages should be decoded with the negotiated
     %% version in later state.
-    <<_:8, ?UINT24(Length), _/binary>> = Data,
-    <<FirstPacket:(Length+4)/binary, RecordRest/binary>> = Data,
-    {HSPacket, <<>> = NewHsBuffer} = tls_handshake:get_tls_handshakes(Version, FirstPacket,
-                                                                      Buffer, Options),
-    {HSPacket, NewHsBuffer, RecordRest};
+    case tls_handshake:assemble_server_hello(Version, Data, Buffer, Options) of
+        buffer_handshake ->
+            %% ServerHello not fully arrived yet - keep buffering.
+            {[], <<Buffer/binary, Data/binary>>, <<>>};
+        {HSPacket, RecordRest} ->
+            {HSPacket, <<>>, RecordRest}
+    end;
 %% TLS-1.3 RetryRequest
 handle_unnegotiated_version(?TLS_1_2 , #{versions := [?TLS_1_3 = Version |_]} = Options, Data,
                             Buffer, client, wait_sh) ->
-    tls_handshake:get_tls_handshakes(Version, Data, Buffer, Options);
+    tls_handshake:assemble_tls_handshakes(Version, Data, Buffer, Options);
 %% When the `negotiated_version` variable is not yet set use the highest supported version.
 handle_unnegotiated_version(undefined, #{versions := [Version|_]} = Options, Data, Buff, _, _) ->
-    tls_handshake:get_tls_handshakes(Version, Data, Buff, Options);
+    tls_handshake:assemble_tls_handshakes(Version, Data, Buff, Options);
 %% In all other cases use the version saved in the connection state variable `negotiated_version`
 handle_unnegotiated_version(Version, Options, Data, Buff, _, _) ->
-    tls_handshake:get_tls_handshakes(Version, Data, Buff, Options).
+    tls_handshake:assemble_tls_handshakes(Version, Data, Buff, Options).
 
 assert_buffer_sanity(<<?BYTE(_Type), ?UINT24(Length), Rest/binary>>,
                      #{max_handshake_size := Max}) when
