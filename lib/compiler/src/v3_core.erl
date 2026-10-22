@@ -4936,6 +4936,8 @@ lit_vars(#c_alias{var=#c_var{name=V},pat=P}, Vs) -> add_element(V, lit_vars(P, V
 lit_vars(#imap{es=Es}, Vs) -> lit_list_vars(Es, Vs);
 lit_vars(#imappair{key=K,val=V}, Vs) -> lit_list_vars(K, lit_vars(V, Vs));
 lit_vars(#ibinary{segments=Segs}, Vs) -> ibitstr_vars(Segs, Vs);
+lit_vars(#c_record{es=Es}, Vs) -> lit_list_vars(Es, Vs);
+lit_vars(#c_record_pair{val=V}, Vs) -> lit_vars(V, Vs);
 lit_vars(_, Vs) -> Vs.				%These are atomic
 
 lit_list_vars(Ls) -> lit_list_vars(Ls, []).
