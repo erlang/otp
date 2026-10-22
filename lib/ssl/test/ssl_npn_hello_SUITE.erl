@@ -79,7 +79,7 @@ init_per_testcase(_TestCase, Config) ->
     ct:timetrap({seconds, 5}),
     Config.
 
-end_per_testcase(_TestCase, Config) ->     
+end_per_testcase(_TestCase, Config) ->
     Config.
 
 %%--------------------------------------------------------------------
@@ -90,8 +90,9 @@ encode_and_decode_client_hello_test(Config) ->
     HandShakeData = create_client_handshake(undefined),
     Version = ssl_test_lib:protocol_version(Config),
     {[{DecodedHandshakeMessage, _Raw}], _} =
-	tls_handshake:get_tls_handshakes(Version, list_to_binary(HandShakeData), <<>>,
-                                        default_options_map()),
+        tls_handshake:assemble_tls_handshakes(Version,
+                                              list_to_binary(HandShakeData), <<>>,
+                                              default_options_map()),
     Extensions = DecodedHandshakeMessage#client_hello.extensions,
     #{next_protocol_negotiation := undefined} = Extensions.
 %%--------------------------------------------------------------------
@@ -99,8 +100,9 @@ encode_and_decode_npn_client_hello_test(Config) ->
     HandShakeData = create_client_handshake(#next_protocol_negotiation{extension_data = <<>>}),
     Version = ssl_test_lib:protocol_version(Config),
     {[{DecodedHandshakeMessage, _Raw}], _} =
-	tls_handshake:get_tls_handshakes(Version, list_to_binary(HandShakeData), <<>>,
-                                        default_options_map()),
+        tls_handshake:assemble_tls_handshakes(Version,
+                                              list_to_binary(HandShakeData), <<>>,
+                                              default_options_map()),
     Extensions = DecodedHandshakeMessage#client_hello.extensions,
     #{next_protocol_negotiation := #next_protocol_negotiation{extension_data = <<>>}} = Extensions.
 %%--------------------------------------------------------------------
@@ -108,21 +110,24 @@ encode_and_decode_server_hello_test(Config) ->
     HandShakeData = create_server_handshake(undefined),
     Version = ssl_test_lib:protocol_version(Config),
     {[{DecodedHandshakeMessage, _Raw}], _} =
-	tls_handshake:get_tls_handshakes(Version, list_to_binary(HandShakeData), <<>>,
-                                        default_options_map()),
+        tls_handshake:assemble_tls_handshakes(Version,
+                                              list_to_binary(HandShakeData), <<>>,
+                                              default_options_map()),
     Extensions = DecodedHandshakeMessage#server_hello.extensions,
     #{next_protocol_negotiation := undefined} = Extensions.
 
 %%--------------------------------------------------------------------
 encode_and_decode_npn_server_hello_test(Config) ->
-    HandShakeData = create_server_handshake(#next_protocol_negotiation{extension_data = <<6, "spdy/2">>}),
+    HandShakeData =
+        create_server_handshake(#next_protocol_negotiation{extension_data = <<6, "spdy/2">>}),
     Version = ssl_test_lib:protocol_version(Config),
     {[{DecodedHandshakeMessage, _Raw}], _} =
-	tls_handshake:get_tls_handshakes(Version, list_to_binary(HandShakeData), <<>>,
-                                        default_options_map()),
-    Extensions = DecodedHandshakeMessage#server_hello.extensions, 
+        tls_handshake:assemble_tls_handshakes(Version, list_to_binary(HandShakeData), <<>>,
+                                              default_options_map()),
+    Extensions = DecodedHandshakeMessage#server_hello.extensions,
     ?CT_LOG("~p ~n", [Extensions]),
-    #{next_protocol_negotiation := #next_protocol_negotiation{extension_data = <<6, "spdy/2">>}} = Extensions.
+    #{next_protocol_negotiation :=
+          #next_protocol_negotiation{extension_data = <<6, "spdy/2">>}} = Extensions.
 
 %%--------------------------------------------------------------------
 create_server_hello_with_no_advertised_protocols_test(_Config) ->
@@ -132,7 +137,8 @@ create_server_hello_with_no_advertised_protocols_test(_Config) ->
 %%--------------------------------------------------------------------
 create_server_hello_with_advertised_protocols_test(_Config) ->
     Hello = ssl_handshake:server_hello(<<>>, ?SSL_3_0, create_connection_states(),
-				       #{next_protocol_negotiation => [<<"spdy/1">>, <<"http/1.0">>, <<"http/1.1">>]}),
+                                       #{next_protocol_negotiation =>
+                                             [<<"spdy/1">>, <<"http/1.0">>, <<"http/1.1">>]}),
     Extensions = Hello#server_hello.extensions,
     #{next_protocol_negotiation := [<<"spdy/1">>, <<"http/1.0">>, <<"http/1.1">>]} = Extensions.
 %%--------------------------------------------------------------------
@@ -146,7 +152,7 @@ create_client_handshake(Npn) ->
 				      session_id = <<>>,
 				      cipher_suites = [?TLS_DHE_DSS_WITH_DES_CBC_SHA],
 				      extensions = #{next_protocol_negotiation => Npn,
-						      renegotiation_info => #renegotiation_info{}}
+                                                     renegotiation_info => #renegotiation_info{}}
 				     }, Vsn).
 
 create_server_handshake(Npn) ->
