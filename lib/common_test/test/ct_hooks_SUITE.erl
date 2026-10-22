@@ -78,6 +78,10 @@ end_per_testcase(cth_log_formatter = TestCase, Config) ->
        [default, formatter,
         {?DEFAULT_FORMATTER,?DEFAULT_FORMAT_CONFIG}]}, Config),
     ct_test_support:end_per_testcase(TestCase, Config);
+end_per_testcase(cth_log_filters = TestCase, Config) ->
+    ct_test_support:ct_rpc(
+      {logger,remove_handler_filter,[default, error_only]}, Config),
+    ct_test_support:end_per_testcase(TestCase, Config);
 end_per_testcase(TestCase, Config) ->
     ct_test_support:end_per_testcase(TestCase, Config).
 
@@ -121,7 +125,7 @@ all(suite) ->
 groups() ->
     [
      {cth_log_redirect, [], [cth_log_unexpect, cth_log_formatter,
-                             cth_log, cth_log_mode_replace]}
+                             cth_log, cth_log_mode_replace, cth_log_filters]}
     ].
 
 
@@ -308,80 +312,50 @@ data_dir(Config) when is_list(Config) ->
 cth_log(Config) when is_list(Config) ->
     %% test that cth_log_redirect writes properly to
     %% html I/O log
-    verify_cth_log_output(Config, [], []).
+    verify_cth_log_output(cth_log, [], [], "cth_log_suite.tc*.html",
+                          #{"=ERROR" => 1, "=INFO" => 1, "=NOTICE" => 1,
+                            "Logger" => 1},
+                          [], Config).
 
 cth_log_formatter(Config) when is_list(Config) ->
     %% test that cth_log_redirect writes properly to
     %% html I/O log using the formatter
-    ct:timetrap({minutes,10}),
     ct_test_support:ct_rpc({logger,set_handler_config,[default, formatter,
                               {logger_formatter,#{ template => [level,":",msg,"\n"] }}]},
                            Config),
-    StartOpts = do_test(cth_log_formatter, "cth_log_formatter_SUITE.erl", [], Config),
-    Logdir = proplists:get_value(logdir, StartOpts),
-    TCLogs =
-	filelib:wildcard(
-	  filename:join(Logdir,
-			"ct_run*/cth.tests*/run*/cth_log_formatter_suite.tc*.html")),
-    lists:foreach(
-      fun(TCLog) ->
-	      {ok,Bin} = file:read_file(TCLog),
-	      Ts = string:lexemes(binary_to_list(Bin),[$\n]),
-	      Matches = lists:foldl(fun("error:"++_,  {E,N,L}) ->
-					    {E+1,N,L};
-				       ("notice:"++_,  {E,N,L}) ->
-					    {E,N+1,L};
-				       ("Logger"++_,  {E,N,L}) ->
-					    {E,N,L+1};
-				       (_, N) -> N
-				    end, {0,0,0}, Ts),
-	      ct:pal("~p ({Error,Notice,Log}) matches in ~tp",
-                     [Matches,TCLog]),
-              MatchList = tuple_to_list(Matches),
-              case [N || N <- MatchList, N<1] of
-                  [] -> ok;
-                  _ -> exit({missing_io,TCLog})
-	      end
-      end, TCLogs),
-    ok.
+    verify_cth_log_output(cth_log_formatter, [], [],
+                          "cth_log_formatter_suite.tc*.html",
+                          #{"error:" => 1, "notice:" => 1, "Logger" => 1},
+                          [], Config).
 
 cth_log_unexpect(Config) when is_list(Config) ->
     %% test that cth_log_redirect writes properly to
     %% unexpected I/O log
-    ct:timetrap({minutes,10}),
-    StartOpts = do_test(cth_log_unexpect, "cth_log_unexpect_SUITE.erl", [], Config),
-    Logdir = proplists:get_value(logdir, StartOpts),
-    UnexpIoLogs =
-	filelib:wildcard(
-	  filename:join(Logdir,
-			"ct_run*/cth.tests*/run*/unexpected_io.log.html")),
-    lists:foreach(
-      fun(UnexpIoLog) ->
-	      {ok,Bin} = file:read_file(UnexpIoLog),
-	      Ts = string:lexemes(binary_to_list(Bin),[$\n]),
-	      Matches = lists:foldl(fun("=ERROR"++_,  {E,I,L}) ->
-					    {E+1,I,L};
-				       ("=INFO"++_,  {E,I,L}) ->
-					    {E,I+1,L};
-				       ("Logger"++_,  {E,I,L}) ->
-					    {E,I,L+1};
-				       (_, N) -> N
-				    end, {0,0,0}, Ts),
-	      ct:pal("~p ({Error,Info,Log}) matches in ~tp",
-                     [Matches,UnexpIoLog]),
-              MatchList = tuple_to_list(Matches),
-              case [N || N <- MatchList, N<3] of
-                  [] -> ok;
-                  _ -> exit({missing_unexpected_io,UnexpIoLog})
-	      end
-      end, UnexpIoLogs),
-    ok.
+    verify_cth_log_output(cth_log_unexpect, [], [], "unexpected_io.log.html",
+                          #{"=ERROR" => 3, "=INFO" => 3, "Logger" => 3},
+                          [], Config).
 
 cth_log_mode_replace(Config) when is_list(Config) ->
     %% test that cth_log_redirect writes properly to
     %% html I/O log when replace mode is used
-    verify_cth_log_output(Config, [{cth_log_redirect, [{mode, replace}]}],
-                          [{enable_builtin_hooks, false}]).
+    verify_cth_log_output(cth_log, [{cth_log_redirect, [{mode, replace}]}],
+                          [{enable_builtin_hooks, false}],
+                          "cth_log_suite.tc*.html",
+                          #{"=ERROR" => 1, "=INFO" => 1, "=NOTICE" => 1,
+                            "Logger" => 1},
+                          [], Config).
+
+cth_log_filters(Config) when is_list(Config) ->
+    %% test that cth_log_redirect uses the filters of the
+    %% default handler
+    ok = ct_test_support:ct_rpc(
+           {logger,add_handler_filter,
+            [default, error_only,
+             {fun logger_filters:level/2, {stop, neq, error}}]},
+           Config),
+    verify_cth_log_output(cth_log, [], [], "cth_log_suite.tc*.html",
+                          #{"=ERROR" => 1, "Logger" => 1},
+                          ["=NOTICE", "=INFO"], Config).
 
 %% OTP-10599 adds the Suite argument as first argument to all hook
 %% callbacks that did not have a Suite argument from before. This test
@@ -505,7 +479,8 @@ do_test(Tag, {WhatTag,Wildcard}, CTHs, Config, Res, EC, ExtraOpts) ->
 
     TestEvents = events_to_check(Tag, EC),
     ok = ct_test_support:verify_events(TestEvents, Events, Config),
-    Opts.
+    %% The log directories of the runs, see ct_test_support:run/2
+    [Dir || {_, #event{name = start_logging, data = Dir}} <- Events].
 
 setup(Test, Config) ->
     Opts0 = ct_test_support:get_opts(Config),
@@ -527,36 +502,39 @@ gen_config(Name,KeyVals,Config) ->
                                || {Key,Value} <- KeyVals]),
     File.
 
-verify_cth_log_output(Config, CTHooks, ExtraOpts) ->
+%% Run Tag_SUITE and check that every log file matching Log contains at
+%% least the given number of lines starting with each prefix in MinCounts,
+%% and no lines starting with a prefix in Forbidden.
+%% Only the logs of these runs are checked, not those of earlier test cases.
+verify_cth_log_output(Tag, CTHooks, ExtraOpts, Log, MinCounts, Forbidden,
+                      Config) ->
     ct:timetrap({minutes,10}),
-    StartOpts = do_test(cth_log, "cth_log_SUITE.erl", CTHooks, Config, ok, 2, ExtraOpts),
-    Logdir = proplists:get_value(logdir, StartOpts),
-    TCLogs =
-	filelib:wildcard(
-	  filename:join(Logdir,
-			"ct_run*/cth.tests*/run*/cth_log_suite.tc*.html")),
+    Suite = atom_to_list(Tag) ++ "_SUITE.erl",
+    RunDirs = do_test(Tag, Suite, CTHooks, Config, ok, 2, ExtraOpts),
+    LogFiles =
+        lists:append(
+          [filelib:wildcard(filename:join([RunDir, "cth.tests*/run*", Log]))
+           || RunDir <- RunDirs]),
+    [_|_] = LogFiles,
     lists:foreach(
-      fun(TCLog) ->
-	      {ok,Bin} = file:read_file(TCLog),
-	      Ts = string:lexemes(binary_to_list(Bin),[$\n]),
-	      Matches = lists:foldl(fun("=ERROR"++_,  {E,I,N,L}) ->
-					    {E+1,I,N,L};
-				       ("=INFO"++_,  {E,I,N,L}) ->
-					    {E,I+1,N,L};
-				       ("=NOTICE"++_,  {E,I,N,L}) ->
-					    {E,I,N+1,L};
-				       ("Logger"++_,  {E,I,N,L}) ->
-					    {E,I,N,L+1};
-				       (_, N) -> N
-				    end, {0,0,0,0}, Ts),
-	      ct:pal("~p ({Error,Info,Notice,Log}) matches in ~tp",
-                     [Matches,TCLog]),
-              MatchList = tuple_to_list(Matches),
-              case [N || N <- MatchList, N<1] of
+      fun(LogFile) ->
+              {ok,Bin} = file:read_file(LogFile),
+              Lines = string:lexemes(binary_to_list(Bin),[$\n]),
+              Counts = #{Prefix => length([L || L <- Lines,
+                                                lists:prefix(Prefix, L)])
+                         || Prefix := _ <- MinCounts},
+              ct:pal("~p matches in ~tp", [Counts,LogFile]),
+              case [P || P := Min <- MinCounts, map_get(P, Counts) < Min] of
                   [] -> ok;
-                  _ -> exit({missing_io,TCLog})
-	      end
-      end, TCLogs),
+                  Missing -> exit({missing_io,Missing,LogFile})
+              end,
+              case [P || P <- Forbidden,
+                         L <- Lines,
+                         lists:prefix(P, L)] of
+                  [] -> ok;
+                  Found -> exit({unexpected_io,lists:usort(Found),LogFile})
+              end
+      end, LogFiles),
     ok.
 
 
