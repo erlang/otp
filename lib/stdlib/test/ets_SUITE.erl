@@ -30,6 +30,7 @@
 -export([delete_elem/1,delete_tab/1,delete_large_tab/1,
 	 delete_large_named_table/1,
 	 evil_delete/1,baddelete/1,match_delete/1,table_leak/1]).
+-export([delete_fixtab_rename_race/1]).
 -export([match_delete3/1]).
 -export([firstnext/1,firstnext_concurrent/1]).
 -export([firstnext_lookup/1,firstnext_lookup_concurrent/1]).
@@ -219,7 +220,8 @@ groups() ->
      {delete, [],
       [delete_elem, delete_tab, delete_large_tab,
        delete_large_named_table, evil_delete, table_leak,
-       baddelete, match_delete, match_delete3]},
+       baddelete, match_delete, match_delete3,
+       delete_fixtab_rename_race]},
      {match, [],
       [match1, match2, match_object, match_object2]},
      {misc, [],
@@ -3937,6 +3939,132 @@ evil_create_fixed_tab() ->
     ets:safe_fixtable(T, true),
     T.
 
+%% OTP-20462: Race between
+%%   - Deleting a named table (ets:delete/1 or exiting owner)
+%%   - Auto unfix of same table by exiting process (not owner).
+%%   - Lock contention of same name-table lock.
+%% Could cause emulator crash.
+delete_fixtab_rename_race(Config) when is_list(Config) ->
+    case erlang:system_info(schedulers_online) of
+        N when N < 3 ->
+            {skip,"Not relevant when schedulers < 3"};
+        _ ->
+            EtsMem = etsmem(),
+            repeat_for_opts(fun delete_fixtab_rename_race_do/1,
+                            [hash_types, [{write_concurrency,true},
+                                          {write_concurrency,false}]]),
+            verify_etsmem(EtsMem)
+    end.
+
+delete_fixtab_rename_race_do(Opts) ->
+    delete_fixtab_rename_race_loop(10, Opts).
+
+delete_fixtab_rename_race_loop(0, _Opts) ->
+    ok;
+delete_fixtab_rename_race_loop(N, Opts) ->
+    Coord = self(),
+    NSched = case erlang:system_info(schedulers_online) of
+                 SO when SO < 12 -> SO;
+                 _ -> 12
+             end,
+    TabName = delete_fixtab_rename_race,
+
+    {Deleter,_} = my_spawn_opt(
+                    fun () ->
+                            TabName = ets_new(TabName, [named_table, public | Opts]),
+                            Tid = ets:whereis(TabName),
+                            Coord ! {deleter_ready, self(), Tid},
+                            receive
+                                delete ->
+                                    true = ets:delete(Tid);
+                                die ->
+                                    %% Delete table by terminating owner
+                                    exit(normal)
+                            end
+                    end,
+                    [link, monitor, {scheduler, 2}]),
+
+    receive {deleter_ready, Deleter, Tid} -> ok end,
+    ets:insert(Tid, {key, value}),
+
+    %% A gang of table readers. Just to keep the table read locked
+    %% and thereby make the deleter wait for write lock.
+    Readers = [my_spawn_opt(
+                 fun F() ->
+                         catch ets:lookup(Tid, key),
+                         receive die -> ok
+                         after 0 -> F() end
+                 end,
+                 [link, monitor, {scheduler,(I rem NSched)+1}])
+               || I <- lists:seq(1,NSched)],
+
+    %% A gang of table fixers:
+    %% Fixates the table then (on 'die') terminates while the fixation is still
+    %% in place, exercising the auto fixation cleanup.
+    Fixers = [my_spawn_opt(
+                fun() ->
+                        true = ets:safe_fixtable(Tid, true),
+                        Coord ! {fixer_ready, self()},
+                        receive die -> ok end,
+                        %% Exit immediately with the fixation held.
+                        exit(normal)
+                end,
+                [link, monitor, {scheduler,(I rem NSched)+1}])
+              || I <- lists:seq(1,NSched*50)],
+
+    %% Renamer:  Tries to rename another table to TabName, just to get contention
+    %% on the same name lookup lock and make deleter fail the trylock
+    %% when removing the name.
+    [OtherName] = colliding_names(TabName, 1),
+    Renamers = [my_spawn_opt(
+                    fun () ->
+                            %% We don't even bother creating the other table
+                            %% as name table lock is seized before table lookup.
+                            %%OtherName = ets:new(OtherName, [named_table]),
+                            Coord ! {renamer_ready, self()},
+                            die = try_rename_loop(OtherName, TabName)
+                    end,
+                    [link, monitor, {scheduler, (I rem NSched)+1}])
+                   || I <- lists:seq(1,NSched)],
+
+
+    [receive {fixer_ready, Pid}   -> ok end || {Pid,_} <- Fixers],
+    [receive {renamer_ready, Pid} -> ok end || {Pid,_} <- Renamers],
+
+    true = is_process_alive(Deleter),
+    [true = is_process_alive(Reader) || {Reader,_} <- Readers],
+    [true = is_process_alive(Fixer) || {Fixer,_} <- Fixers],
+    [true = is_process_alive(Renamer) || {Renamer,_} <- Renamers],
+
+    DeleteOp = case (N rem 2) of
+                   0 -> delete;
+                   1 -> die
+               end,
+
+    %% Race it!
+    [Fixer ! die || {Fixer,_} <- Fixers],
+    Deleter ! DeleteOp,
+
+    receive {'DOWN', _, process, Deleter, normal} -> ok end,
+    [Reader ! die || {Reader,_} <- Readers],
+    [Renamer ! die || {Renamer,_} <- Renamers],
+    [receive {'DOWN', _, process, Renamer, normal} -> ok end || {Renamer,_} <- Renamers],
+    [receive {'DOWN', _, process, Fixer, normal} -> ok end || {Fixer,_} <- Fixers],
+    [receive {'DOWN', _, process, Reader, normal} -> ok end || {Reader,_} <- Readers],
+
+    delete_fixtab_rename_race_loop(N-1, Opts).
+
+try_rename_loop(From, To) ->
+    try ets:rename(From, To) of
+        To -> ok
+    catch
+        error:badarg ->
+            receive die -> die
+            after 0 -> try_rename_loop(From,To)
+            end
+    end.
+
+
 %% Tests that the return values and errors are equal for set's and
 %% ordered_set's where applicable.
 interface_equality(Config) when is_list(Config) ->
@@ -7176,7 +7304,7 @@ meta_wb(Config) when is_list(Config) ->
 
 meta_wb_do(Opts) ->
     %% Do random new/delete/rename of colliding named tables
-    Names0 = [pioneer | colliding_names(pioneer)],
+    Names0 = [pioneer | colliding_names(pioneer, 5)],
 
     %% Remove any names that happen to exist as tables already
     Names = lists:filter(fun(Name) -> ets:info(Name) == undefined end,
@@ -7232,8 +7360,8 @@ meta_wb_rename(Old, New, Tabs, _) ->
     end.
 
 
-colliding_names(Name) ->
-    erts_debug:set_internal_state(colliding_names, {Name,5}).
+colliding_names(Name, N) ->
+    erts_debug:set_internal_state(colliding_names, {Name,N}).
 
 
 %% OTP_6913: Grow and shrink.
