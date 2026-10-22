@@ -36,7 +36,13 @@ jobs:
   build:
     name: Update base Erlang/OTP build images
     if: github.repository == 'erlang/otp'
-    runs-on: ubuntu-latest
+    ## i386-debian-base builds inside an i386/debian container. On
+    ## ubuntu-26.04 the preinstalled Docker's default seccomp profile
+    ## blocks the socketcall syscall that 32-bit glibc needs for sockets,
+    ## breaking name resolution inside the container
+    ## (https://github.com/actions/runner-images/issues/14790).
+    ## Pin only that type to ubuntu-24.04 until a fixed Docker lands.
+    runs-on: ${{ matrix.type == 'i386-debian-base' && 'ubuntu-24.04' || 'ubuntu-latest' }}
 
     permissions:
       packages: write
