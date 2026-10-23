@@ -85,8 +85,9 @@ has been received.
 >
 > On `select` systems, when the `{otp, select_read}` option is `true`,
 > the asynchronous [`recv/3,4`](#recv-nowait),
-> [`recvfrom/3,4`](#recvfrom-nowait), and
-> [`recvmsg/3,4,5`](#recvmsg-nowait) functions may also return:
+> [`recvfrom/3,4`](#recvfrom-nowait),
+> [`recvmsg/3,4,5`](#recvmsg-nowait), and
+> [`recvmmsg/6`](`recvmmsg/6`) functions may also return:
 >
 > - `{select_read, {`[`SelectInfo`](`t:select_info/0`)`, Data}`
 >
@@ -5056,9 +5057,9 @@ multiple datagrams.
 
 On success, returns either:
 - **`ok`** – when all messages were sent in full (or there were zero messages).
-- **`{ok, Rest}`** – when one or more messages had a partial write. `Rest` is a list with one
-  element per message that was not fully sent, in message order. Each element is the
-  remaining data for that message in the same form as [`sendmsg/4`](`sendmsg/4`)'s rest data
+- **`{ok, Rest}`** – when one or more messages had a partial write or were not sent at all. `Rest`
+  is a list with one element per message that was not fully sent, in message order. Each element is
+  the remaining data for that message in the same form as [`sendmsg/4`](`sendmsg/4`)'s rest data
   (`t:erlang:iovec/0`), so you can retry with `sendmsg` for each.
 
 On error returns `{error, Reason}`.
@@ -5130,11 +5131,20 @@ sendmmsg(?socket(SockRef), Msgs, Flags, Timeout)
 sendmmsg(Socket, Msgs, Flags, Timeout) ->
     error(badarg, [Socket, Msgs, Flags, Timeout]).
 
-%% Build rest iovecs from partials-only result list.
-%% C returns [{Index, Written}, ...] in message order; we slice the Index-th message's iov.
-sendmmsg_rest_from_result(Msgs, ResultList) ->
-    [iovec_rest(maps:get(iov, lists:nth(Index + 1, Msgs)), Written) ||
-        {Index, Written} <- ResultList].
+%% Build rest iovecs from the NIF result.
+%% Partials is [{Index, Written}, ...], one element per message among the first
+%% SentCount that was only partially sent; we slice that message's iov.
+%% Every message from SentCount on was not sent at all and goes in full.
+%% This single walk relies on Partials being in message order.
+sendmmsg_rest_from_result(Partials, Msgs, SentCount) ->
+    sendmmsg_rest_from_result(Partials, Msgs, SentCount, 0).
+
+sendmmsg_rest_from_result(_Partials, Msgs, SentCount, SentCount) ->
+    [maps:get(iov, Msg) || Msg <- Msgs];
+sendmmsg_rest_from_result([{Index, Written} | Partials], [#{iov := IOV} | Msgs], SentCount, Index) ->
+    [iovec_rest(IOV, Written) | sendmmsg_rest_from_result(Partials, Msgs, SentCount, Index + 1)];
+sendmmsg_rest_from_result(Partials, [_ | Msgs], SentCount, Index) ->
+    sendmmsg_rest_from_result(Partials, Msgs, SentCount, Index + 1).
 
 %% Skip first Written bytes from IOV; return rest as iovec (same as sendmsg rest).
 iovec_rest(IOV, Written) when Written =< 0 ->
@@ -5156,8 +5166,8 @@ sendmmsg_nowait(SockRef, Msgs, Flags, Handle) ->
             {Tag, ?COMPLETION_INFO(sendmmsg, Handle)};
         ok ->
             ok;
-        {ok, ResultList} ->
-            {ok, sendmmsg_rest_from_result(Msgs, ResultList)};
+        {ok, Partials, SentCount} ->
+            {ok, sendmmsg_rest_from_result(Partials, Msgs, SentCount)};
         {error, _} = Error ->
             Error
     end.
@@ -5166,29 +5176,27 @@ sendmmsg_deadline(SockRef, Msgs, Flags, Deadline) ->
     Handle = make_ref(),
     case prim_socket:sendmmsg(SockRef, Msgs, Flags, Handle) of
         {select_write, _SentCount} ->
-            Now = erlang:monotonic_time(millisecond),
-            case Deadline - Now of
-                TimeLeft when TimeLeft > 0 ->
-                    receive
-                        ?socket_msg(_Socket, select, Handle) ->
-                            sendmmsg_deadline(SockRef, Msgs, Flags, Deadline);
-                        ?socket_msg(_Socket, abort, {Handle, Reason}) ->
-                            _ = cancel(SockRef, sendmmsg, Handle),
-                            {error, Reason}
-                    after TimeLeft ->
-                            _ = cancel(SockRef, sendmmsg, Handle),
-                            {error, timeout}
-                    end;
-                _ ->
-                    _ = cancel(SockRef, sendmmsg, Handle),
-                    {error, timeout}
-            end;
+            sendmmsg_deadline_select(SockRef, Msgs, Flags, Deadline, Handle);
+        select ->
+            sendmmsg_deadline_select(SockRef, Msgs, Flags, Deadline, Handle);
         ok ->
             ok;
-        {ok, ResultList} ->
-            {ok, sendmmsg_rest_from_result(Msgs, ResultList)};
+        {ok, Partials, SentCount} ->
+            {ok, sendmmsg_rest_from_result(Partials, Msgs, SentCount)};
         {error, _} = Error ->
             Error
+    end.
+
+sendmmsg_deadline_select(SockRef, Msgs, Flags, Deadline, Handle) ->
+    Timeout = timeout(Deadline),
+    receive
+        ?socket_msg(?socket(SockRef), select, Handle) ->
+            sendmmsg_deadline(SockRef, Msgs, Flags, Deadline);
+        ?socket_msg(_Socket, abort, {Handle, Reason}) ->
+            {error, Reason}
+    after Timeout ->
+            _ = cancel(SockRef, sendmmsg, Handle),
+            {error, timeout}
     end.
 
 sendmsg_deadline_cont(SockRef, Data, Cont, Deadline, HasWritten) ->
@@ -6964,25 +6972,9 @@ recvmmsg_nowait(SockRef, VLen, BufSz, CtrlSz, Flags, Handle) ->
 recvmmsg_deadline(SockRef, VLen, BufSz, CtrlSz, Flags, Deadline) ->
     Handle = make_ref(),
     case prim_socket:recvmmsg(SockRef, VLen, BufSz, CtrlSz, Flags, Handle) of
-        {select_read, _Msgs} ->
+        {select_read, Msgs} ->
             _ = cancel(SockRef, recvmmsg, Handle),
-            Now = erlang:monotonic_time(millisecond),
-            case Deadline - Now of
-                TimeLeft when TimeLeft > 0 ->
-                    receive
-                        ?socket_msg(_Socket, select, Handle) ->
-                            recvmmsg_deadline(SockRef, VLen, BufSz, CtrlSz, Flags, Deadline);
-                        ?socket_msg(_Socket, abort, {Handle, Reason}) ->
-                            _ = cancel(SockRef, recvmmsg, Handle),
-                            {error, Reason}
-                    after TimeLeft ->
-                            _ = cancel(SockRef, recvmmsg, Handle),
-                            {error, timeout}
-                    end;
-                _ ->
-                    _ = cancel(SockRef, recvmmsg, Handle),
-                    {error, timeout}
-            end;
+            {ok, Msgs};
 
         select = Tag ->
             %% There is nothing just now, but we will be notified when there
@@ -8133,7 +8125,7 @@ timeout(Deadline) ->
     end.
 
 timestamp() ->
-    erlang:monotonic_time(milli_seconds).
+    erlang:monotonic_time(millisecond).
 
 
 f(F, A) ->
