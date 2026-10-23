@@ -5439,7 +5439,11 @@ pbkdf2_hmac_invalid_input(Config) when is_list(Config) ->
     TestFun(sha, <<"pass">>, <<"salt">>, "baditer", 1, "Not integer"),
     TestFun(sha, <<"pass">>, <<"salt">>, 0, 1, "Must be > 0"),
     TestFun(sha, <<"pass">>, <<"salt">>, 1, "badlen", "Not integer"),
-    TestFun(sha, <<"pass">>, <<"salt">>, 1, 0, "Must be > 0")
+    TestFun(sha, <<"pass">>, <<"salt">>, 1, 0, "Must be > 0"),
+    %% We skip testing for pass and salt being longer than INT_MAX because that would
+    %% require us to allocate 2 GiB (per binary) just for tests
+    TestFun(sha, <<"pass">>, <<"salt">>, 1 bsl 31, 1, "Must be <= INT_MAX"),
+    TestFun(sha, <<"pass">>, <<"salt">>, 1, 1 bsl 31 + 1, "Must be <= INT_MAX")
   catch
     error:{notsup, _, "Unsupported CRYPTO_PKCS5_PBKDF2_HMAC"++_} ->
             {skip, "No CRYPTO_PKCS5_PBKDF2_HMAC"}
