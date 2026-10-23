@@ -1897,6 +1897,10 @@ mlkem_invalid_ciphertext_disconnects(Config) ->
     HostPort = ssh_trpt_test_lib:server_host_port(InitialState),
     Parent = self(),
     DisconnectRef = make_ref(),
+    DisconnectFun =
+        fun(Reason) ->
+                Parent ! {DisconnectRef, lists:flatten(Reason)}
+        end,
     Pid =
         spawn_link(
           fun() ->
@@ -1923,12 +1927,17 @@ mlkem_invalid_ciphertext_disconnects(Config) ->
         std_connect(HostPort, Config,
                     [{preferred_algorithms,
                       [{kex, ['mlkem768-sha256']}]},
-                     {disconnectfun, test_disconnectfun(Parent, DisconnectRef)}]),
+                     {disconnectfun, DisconnectFun}]),
     receive
         {result, Pid, {ok, _}} ->
-            assert_disconnect_callback(
-              DisconnectRef,
-              "Disconnects with code = 3 [RFC4253 11.1]: Key exchange failed");
+            receive
+                {DisconnectRef, Reason} ->
+                    ?assertEqual(
+                       "Disconnects with code = 3 [RFC4253 11.1]: Key exchange failed",
+                       Reason)
+            after
+                2000 -> ct:fail("Missing disconnect callback")
+            end;
         {result, Pid, {error, {Op, Reason, State}}} ->
             ct:fail("~p failed: ~p~n~s",
                     [Op, Reason, ssh_trpt_test_lib:format_msg(State)])

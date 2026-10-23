@@ -580,25 +580,25 @@ decode(<<"ecdh",?BYTE(?SSH_MSG_KEX_ECDH_REPLY),
                               {ecdh_point_too_large, QLen, ?MAX_ECDH_POINT_SIZE},
                               {ecdh_signature_too_large, SLen, ?MAX_SIGNATURE_SIZE}])});
 
-decode(<<"mlkem",?BYTE(?SSH_MSG_KEX_HYBRID_INIT), ?DEC_BIN(C_init, CLen)>>)
+decode(<<"mlkem768x25519",?BYTE(?SSH_MSG_KEX_HYBRID_INIT), ?DEC_BIN(C_init, CLen)>>)
   when CLen =:= ?MLKEM768_INIT_SIZE->
     #ssh_msg_kex_hybrid_init{c_init = C_init};
 %% Reject invalid ML-KEM messages with proper error
-decode(<<"mlkem", ?BYTE(?SSH_MSG_KEX_HYBRID_INIT), ?DEC_BIN(_, CLen)>>) ->
+decode(<<"mlkem768x25519", ?BYTE(?SSH_MSG_KEX_HYBRID_INIT), ?DEC_BIN(_, CLen)>>) ->
     throw({error, {mlkem_init_invalid_size, CLen, ?MLKEM768_INIT_SIZE}});
 
-decode(<<"mlkem",?BYTE(?SSH_MSG_KEX_HYBRID_REPLY),
+decode(<<"mlkem768x25519",?BYTE(?SSH_MSG_KEX_HYBRID_REPLY),
          ?DEC_BIN(Key, KLen), ?DEC_BIN(S_reply, SLen), ?DEC_BIN(Sig, SigLen)>>)
   when KLen =< ?MAX_HOST_KEY_SIZE,
        SLen =:= ?MLKEM768_REPLY_SIZE,
        SigLen =< ?MAX_SIGNATURE_SIZE ->
     #ssh_msg_kex_hybrid_reply{public_host_key = ssh2_pubkey_decode(Key), s_reply = S_reply,
                               h_sig = decode_signature(Sig)};
-decode(<<"mlkem",?BYTE(?SSH_MSG_KEX_HYBRID_REPLY),
+decode(<<"mlkem768x25519",?BYTE(?SSH_MSG_KEX_HYBRID_REPLY),
          ?DEC_BIN(_, _KLen), ?DEC_BIN(_, SLen), ?DEC_BIN(_, _SigLen)>>)
   when SLen =/= ?MLKEM768_REPLY_SIZE ->
     throw({error, {mlkem_reply_invalid_size, SLen, ?MLKEM768_REPLY_SIZE}});
-decode(<<"mlkem",?BYTE(?SSH_MSG_KEX_HYBRID_REPLY),
+decode(<<"mlkem768x25519",?BYTE(?SSH_MSG_KEX_HYBRID_REPLY),
          ?DEC_BIN(_, KLen), ?DEC_BIN(_, _SLen), ?DEC_BIN(_, SigLen)>>) ->
     throw({error, size_error([{mlkem_host_key_too_large, KLen, ?MAX_HOST_KEY_SIZE},
                               {mlkem_signature_too_large, SigLen, ?MAX_SIGNATURE_SIZE}])});
