@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # %CopyrightBegin%
 #
 # SPDX-License-Identifier: Apache-2.0
@@ -20,40 +20,64 @@
 # %CopyrightEnd%
 
 
-# ./create-image openssl 1.0.2m [in-file] 
-
-case "$1" in
-    "openssl")
-	FAM=openssl
-	VER=$2
-	PFX=https://www.openssl.org/source/openssl-
-	SFX=.tar.gz
-	TMP=tmp.tar.gz
-	;;
-    "libressl")
-	FAM=libressl
-	VER=$2
-	PFX=https://ftp.openbsd.org/pub/OpenBSD/LibreSSL/libressl-
-	SFX=.tar.gz
-	TMP=tmp.tar.gz
-	;;
-    *)
-	echo No lib type
-	exit
-	;;
-esac
-
-INPUT_FILE=$3
+# ./create-ssl-image openssl 1.0.2m [in-file]
 
 case $1$2 in
-    openssl0.9.8[a-l])
-        CONFIG_FLAGS=no-asm
-	;;
+    openssl[0-1]*)
+        FAM=openssl
+        VER=$2
+        DASH_VER=$(echo -n $VER | sed 's/\./_/g')
+        LINK=https://github.com/openssl/openssl/releases/download/OpenSSL_${DASH_VER}/openssl-${VER}.tar.gz
+        TMP=tmp.tar.gz
+    ;;
+    openssl3*)
+        FAM=openssl
+        VER=$2
+        LINK=https://github.com/openssl/openssl/releases/download/openssl-${VER}/openssl-${VER}.tar.gz
+        TMP=tmp.tar.gz
+    ;;
+    libressl[2-3].[0-7]*)
+        FAM=libressl
+        VER=$2
+        LINK=https://ftp.openbsd.org/pub/OpenBSD/LibreSSL/libressl-${VER}.tar.gz
+        TMP=tmp.tar.gz
+    ;;
+    libressl[3-4]*)
+        FAM=libressl
+        VER=$2
+        LINK=https://github.com/libressl/portable/releases/download/v${VER}/libressl-${VER}.tar.gz
+        TMP=tmp.tar.gz
+    ;;
     *)
-	CONFIG_FLAGS=
-	;;
+        echo No lib type
+        exit 1
+    ;;
 esac
 
+BASE_VER=$3
+INPUT_FILE=$4
+
+# Image recipe version, see RECIPE_VERSION
+RECIPE=r$(grep -v '^#' "$(dirname -- "${BASH_SOURCE[0]}")/RECIPE_VERSION" | tr -d '[:space:]')
+
+BASE_IMG=ssh_compat_suite_img-ubuntu:$BASE_VER-$RECIPE
+
+if [[ $(docker images -q $BASE_IMG 2> /dev/null) == "" ]] ; then
+    echo "Building $BASE_IMG..."
+    if ! ./create-base-image $BASE_VER; then
+        echo "Create base failed." >&2
+        exit 1
+    fi
+fi
+
+case $FAM$VER in
+    openssl0.9.8[a-l])
+        CONFIG_FLAGS=no-asm
+    ;;
+    *)
+        CONFIG_FLAGS=
+    ;;
+esac
 
 # This way of fetching the tar-file separate from the docker commands makes
 # http-proxy handling way easier. The wget command handles the $https_proxy
@@ -63,7 +87,8 @@ esac
 # Make a Dockerfile. This method simplifies env variable handling considerably:
 cat - > TempDockerFile <<EOF
 
-    FROM ssh_compat_suite-ubuntu:latest
+    FROM $BASE_IMG
+    ARG  DEBIAN_FRONTEND=noninteractive
 
     LABEL version=$FAM-$VER
 
@@ -85,18 +110,21 @@ EOF
 # Fetch the tar file. This could be done in an "ADD ..." in the Dockerfile,
 # but then we hit the proxy problem...
 
-if [ "x$INPUT_FILE" = "x" ]
+if [[ "x$INPUT_FILE" == "x" ]]
 then
-    wget -O $TMP $PFX$VER$SFX
+    wget -O $TMP $LINK
 
-elif [ "x$INPUT_FILE" != "x$TMP" ]
+elif [[ "x$INPUT_FILE" != "x$TMP" ]]
 then
-     echo "Use $INPUT_FILE for input"
+    echo "Use $INPUT_FILE for input"
     cp $INPUT_FILE $TMP
 fi
 
 # Build the image:
-docker build -t ssh_compat_suite-$FAM:$VER -f ./TempDockerFile .
+docker build -t ssh_compat_suite_img-$FAM:$VER-$BASE_VER-$RECIPE -f ./TempDockerFile .
+CODE=$?
 
 # Cleaning
 rm -fr ./TempDockerFile $TMP
+
+exit $CODE
