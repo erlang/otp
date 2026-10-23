@@ -160,6 +160,8 @@ ERL_NIF_TERM atom_mlkem768;
 ERL_NIF_TERM atom_mlkem1024;
 #endif
 
+ERL_NIF_TERM atom_context_string;
+
 int init_atoms(ErlNifEnv *env) {
     atom_true  = enif_make_atom(env,"true");
     atom_false = enif_make_atom(env,"false");
@@ -290,5 +292,7 @@ int init_atoms(ErlNifEnv *env) {
     atom_mlkem768  = enif_make_atom(env,"mlkem768");
     atom_mlkem1024 = enif_make_atom(env,"mlkem1024");
 #endif
+
+    atom_context_string = enif_make_atom(env,"context_string");
     return 1;
 }
