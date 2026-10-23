@@ -41,6 +41,28 @@ extern "C"
 void BeamGlobalAssembler::emit_internal_hash_helper() {
     a64::Gp key = ARG2, key_hash = ARG3;
 
+    if (erts_deterministic_atom_order) {
+        /* +zdao hashes atoms by name; leave that to the runtime system's
+         * implementation. The flag is fixed once the node has started, so
+         * nodes without it keep the expansion below. */
+        emit_enter_runtime_frame();
+        emit_enter_runtime();
+
+        a.stp(ARG1, ARG2, TMP_MEM1q);
+        a.str(ARG4, TMP_MEM3q);
+
+        a.mov(ARG1, ARG2);
+        runtime_call<erts_ihash_t (*)(Eterm), erts_internal_hash>();
+        a.mov(key_hash, ARG1);
+
+        a.ldp(ARG1, ARG2, TMP_MEM1q);
+        a.ldr(ARG4, TMP_MEM3q);
+
+        emit_leave_runtime();
+        emit_leave_runtime_frame();
+        return;
+    }
+
     /* key_hash = key ^ (key >> 33); */
     a.eor(key_hash, key, key, a64::lsr(33));
 
