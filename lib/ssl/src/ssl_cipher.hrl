@@ -37,7 +37,13 @@
          ticket_age_add,
          lifetime,
          timestamp,
-         certificate
+         certificate,
+         sni = undefined        %% SNI hostname the ticket was issued for.
+                                %% Used by *_with_cert modes to decline
+                                %% cross-SNI resumption (defense-in-depth,
+                                %% see tls_server_session_ticket). Older
+                                %% tickets without this field decode as
+                                %% undefined and are treated permissively.
         }).
 
 %%% SSL cipher protocol  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

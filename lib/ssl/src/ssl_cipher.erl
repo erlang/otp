@@ -1309,7 +1309,8 @@ encrypt_ticket(#stateless_ticket{
                   ticket_age_add = TicketAgeAdd,
                   lifetime = Lifetime,
                   timestamp = Timestamp,
-                  certificate = Certificate
+                  certificate = Certificate,
+                  sni = SNI
                  }, Shard, IV) ->
     Plaintext1 = <<(ssl_cipher:hash_algorithm(Hash)):8,PSK/binary,
                    ?UINT64(TicketAgeAdd),?UINT32(Lifetime),?UINT32(Timestamp)>>,
@@ -1317,13 +1318,23 @@ encrypt_ticket(#stateless_ticket{
                             undefined -> 0;
                             _ -> byte_size(Certificate)
     end,
-    Plaintext = case CertificateLength of
+    Plaintext2 = case CertificateLength of
                     0 ->
                         <<Plaintext1/binary,?UINT16(0)>>;
                     _ ->
                         <<Plaintext1/binary,?UINT16(CertificateLength),
                           Certificate/binary>>
                 end,
+    %% SNI the ticket was established for (used by *_with_cert modes to
+    %% refuse cross-SNI resumption). Length-prefixed like the certificate;
+    %% an absent SNI (undefined) encodes as length 0 so older ticket
+    %% readers and no-SNI sessions behave identically.
+    SNIBin = case SNI of
+                 undefined -> <<>>;
+                 _ -> iolist_to_binary(SNI)
+             end,
+    SNILength = byte_size(SNIBin),
+    Plaintext = <<Plaintext2/binary,?UINT16(SNILength),SNIBin/binary>>,
     encrypt_ticket_data(Plaintext, Shard, IV).
 
 
@@ -1332,22 +1343,35 @@ decrypt_ticket(CipherFragment, Shard, IV) ->
         error ->
             error;
         Plaintext ->
-            <<?BYTE(HKDF),T/binary>> = Plaintext,
+            <<?BYTE(HKDF), Rest/binary>> = Plaintext,
             Hash = hash_algorithm(HKDF),
             HashSize = hash_size(Hash),
-            <<PSK:HashSize/binary,?UINT64(TicketAgeAdd),?UINT32(Lifetime),?UINT32(Timestamp),
-                ?UINT16(CertificateLength),Certificate1:CertificateLength/binary,_/binary>> = T,
-            Certificate = case CertificateLength of
-                              0 -> undefined;
-                              _ -> Certificate1
+            %% SNI is appended after the certificate. Tickets issued
+            %% before SNI binding have no trailing SNI block -> undefined.
+            {PSK, TicketAgeAdd, Lifetime, Timestamp, Certificate, SNI} =
+                case Rest of
+                    <<PSK0:HashSize/binary,?UINT64(AgeAdd),?UINT32(LT),?UINT32(TS),
+                      ?UINT16(CertLen),Cert0:CertLen/binary,
+                      ?UINT16(SNILength),SNIBin:SNILength/binary>>
+                      when SNILength > 0 ->
+                        {PSK0, AgeAdd, LT, TS, Cert0,
+                         binary_to_list(SNIBin)};
+                    <<PSK0:HashSize/binary,?UINT64(AgeAdd),?UINT32(LT),?UINT32(TS),
+                      ?UINT16(CertLen),Cert0:CertLen/binary,_/binary>> ->
+                        Cert1 = case CertLen of
+                                    0 -> undefined;
+                                    _ -> Cert0
                           end,
+                        {PSK0, AgeAdd, LT, TS, Cert1, undefined}
+                end,
             #stateless_ticket{
                hash = Hash,
                pre_shared_key = PSK,
                ticket_age_add = TicketAgeAdd,
                lifetime = Lifetime,
                timestamp = Timestamp,
-               certificate = Certificate
+               certificate = Certificate,
+               sni = SNI
               }
     end.
 
