@@ -1163,13 +1163,13 @@ catch_apply(M,F,A, Default, Fallback) ->
 catch_apply(M,F,A) ->
     try
         erlang:apply(M,F,A)
-    catch _:Reason:Trace ->
+    catch Class:Reason:Trace ->
             ct_logs:log("Suite Hook","Call to CTH failed: ~w:~tp",
-                            [error,{Reason,Trace}]),
+                            [Class,{Reason,Trace}]),
             throw({error_in_cth_call,
-                   lists:flatten(
-                     io_lib:format("~w:~tw/~w CTH call failed",
-                                   [M,F,length(A)]))})
+                   {lists:flatten(
+                      io_lib:format("~w:~tw/~w CTH call failed: ~w:~tp",
+                                    [M,F,length(A),Class,Reason])), Trace}})
     end.
 
 process_hooks_order(init, Return) when is_list(Return) ->

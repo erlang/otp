@@ -95,7 +95,7 @@ all(suite) ->
        one_cth, two_cth, faulty_cth_no_init, faulty_cth_id_no_init,
        faulty_cth_exit_in_init, faulty_cth_exit_in_id,
        faulty_cth_exit_in_init_scope_suite, minimal_cth,
-       minimal_and_maximal_cth, faulty_cth_undef,
+       minimal_and_maximal_cth, faulty_cth_undef, faulty_cth_long_reason,
        scope_per_suite_cth, scope_per_group_cth, scope_suite_cth,
        scope_suite_group_only_cth,
        scope_per_suite_state_cth, scope_per_group_state_cth,
@@ -154,8 +154,59 @@ minimal_and_maximal_cth(Config) when is_list(Config) ->
 	    [minimal_cth, empty_cth],Config).
 
 faulty_cth_undef(Config) when is_list(Config) ->
+    LogName = "ct_cth_empty_suite.init_per_suite.html",
+    OldLogs = reason_logs(Config, LogName),
     do_test(faulty_cth_undef, "ct_cth_empty_SUITE.erl",
-	    [undef_cth],Config).
+            [undef_cth], Config),
+    verify_reason_log(Config, LogName, OldLogs,
+                      ["=== Reason: undef_cth:pre_init_per_suite/3 "
+                       "CTH call failed: error:undef\n"
+                       "  in function  lists:flaten/1\n"
+                       "     called as lists:flaten("]).
+
+faulty_cth_long_reason(Config) when is_list(Config) ->
+    LogName = "ct_cth_empty_suite.test_case.html",
+    OldLogs = reason_logs(Config, LogName),
+    do_test(faulty_cth_long_reason, "ct_cth_empty_SUITE.erl",
+            [crash_post_end_tc_cth], Config),
+    Prefix = "=== Reason: ",
+    verify_reason_log(Config, LogName, OldLogs,
+                      [Prefix ++ long_cth_reason(string:length(Prefix)) ++ "\n"
+                       "  in function  gen_server:call/3"]).
+
+long_cth_reason(Shift) ->
+    Ind = fun(N) -> lists:duplicate(N + Shift, $\s) end,
+    lists:append(
+      ["crash_post_end_tc_cth:post_end_per_testcase/5 CTH call failed: "
+       "exit:{timeout,\n",
+       Ind(69), "{gen_server,\n",
+       Ind(70), "call,\n",
+       Ind(70), "[crash_post_end_tc_cth,\n",
+       Ind(71), "{assert_no_failures,\n",
+       Ind(72), "[{\"SOME_REFERENCE\",\n",
+       Ind(74), "\"related to XXYYZZ\"}]},\n",
+       Ind(71), "100]}}"]).
+
+verify_reason_log(Config, LogName, OldLogs, Expected) ->
+    TCLogs = reason_logs(Config, LogName) -- OldLogs,
+    [_|_] = TCLogs,
+    lists:foreach(
+      fun(TCLog) ->
+              {ok, Bin} = file:read_file(TCLog),
+              Log = unicode:characters_to_list(Bin),
+              [case string:find(Log, Str) of
+                   nomatch ->
+                       ct:fail({not_found_in_log, Str, TCLog});
+                   _ ->
+                       ok
+               end || Str <- Expected],
+              nomatch = string:find(Log, "=== === Reason:")
+      end, TCLogs).
+
+reason_logs(Config, LogName) ->
+    Logdir = proplists:get_value(logdir, ct_test_support:get_opts(Config)),
+    filelib:wildcard(
+      filename:join(Logdir, "ct_run*/cth.tests*/run*/" ++ LogName)).
 
 faulty_cth_exit_in_init_scope_suite(Config) when is_list(Config) ->
     do_test(faulty_cth_exit_in_init_scope_suite,
@@ -701,7 +752,11 @@ test_events(minimal_and_maximal_cth) ->
     ];
 
 test_events(faulty_cth_undef) ->
-    FailReasonStr = "undef_cth:pre_init_per_suite/3 CTH call failed",
+    FailReasonStr =
+        fun({"undef_cth:pre_init_per_suite/3 CTH call failed: error:undef",
+             [_|_]}) ->
+                match
+        end,
     FailReason = {ct_cth_empty_SUITE,init_per_suite,
 		  {failed,FailReasonStr}},
     [
@@ -722,6 +777,37 @@ test_events(faulty_cth_undef) ->
      {?eh,cth,{'_',on_tc_skip,'_'}},
 
      {?eh,test_done,{'DEF','STOP_TIME'}},
+     {?eh,stop_logging,[]}
+    ];
+
+test_events(faulty_cth_long_reason) ->
+    FailStr = long_cth_reason(0),
+    FailReason =
+        fun({Str, [_|_] = T}) when Str =:= FailStr ->
+                {gen_server,call,3,_} = lists:keyfind(gen_server, 1, T),
+                true = lists:keymember(crash_post_end_tc_cth, 1, T),
+                match
+        end,
+    [
+     {?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+     {?eh,cth,{'_',init,['_',[]]}},
+     {?eh,tc_start,{ct_cth_empty_SUITE,init_per_suite}},
+     {?eh,tc_done,{ct_cth_empty_SUITE,init_per_suite,ok}},
+
+     {?eh,tc_start,{ct_cth_empty_SUITE,test_case}},
+     {?eh,cth,{'_',pre_init_per_testcase,
+               [ct_cth_empty_SUITE,test_case,'$proplist',[]]}},
+     {?eh,cth,{'_',post_end_per_testcase,
+               [ct_cth_empty_SUITE,test_case,'$proplist',ok,[]]}},
+     {?eh,tc_done,{ct_cth_empty_SUITE,test_case,
+                   {failed,{error,FailReason}}}},
+     {?eh,cth,{'_',on_tc_fail,'_'}},
+
+     {?eh,tc_start,{ct_cth_empty_SUITE,end_per_suite}},
+     {?eh,tc_done,{ct_cth_empty_SUITE,end_per_suite,ok}},
+     {?eh,test_done,{'DEF','STOP_TIME'}},
+     {?eh,cth,{'_',terminate,[[]]}},
      {?eh,stop_logging,[]}
     ];
 
@@ -2922,7 +3008,11 @@ test_events(crash_groups) ->
      {?eh,tc_start,{ct_framework,error_in_suite}},
      {?eh,tc_done,{ct_framework,error_in_suite,
                    {failed,
-                    {error,"all_and_groups_cth:post_groups/2 CTH call failed"}}}},
+                    {error,
+                     fun({"all_and_groups_cth:post_groups/2 CTH call failed: "
+                          "error:crash_in_post_groups", [_|_]}) ->
+                             match
+                     end}}}},
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,cth,{empty_cth,terminate,[[]]}},
      {?eh,stop_logging,[]}
@@ -2942,7 +3032,11 @@ test_events(crash_all) ->
      {?eh,tc_start,{ct_framework,error_in_suite}},
      {?eh,tc_done,{ct_framework,error_in_suite,
                    {failed,
-                    {error,"all_and_groups_cth:post_all/3 CTH call failed"}}}},
+                    {error,
+                     fun({"all_and_groups_cth:post_all/3 CTH call failed: "
+                          "error:crash_in_post_all", [_|_]}) ->
+                             match
+                     end}}}},
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,cth,{empty_cth,terminate,[[]]}},
      {?eh,stop_logging,[]}
