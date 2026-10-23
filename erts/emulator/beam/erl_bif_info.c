@@ -4442,6 +4442,34 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 	    erts_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
 	    BIF_RET(erts_make_integer(n, BIF_P));
 	}
+        else if (ERTS_IS_ATOM_STR("balance_info", BIF_ARG_1)) {
+            ErtsDebugBalanceInfo info;
+            ErtsHeapFactory hfact;
+            Eterm ks[8], vs[8], res;
+            erts_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
+            erts_debug_balance_info(&info);
+            erts_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
+            ks[0] = ERTS_MAKE_AM("active_run_queues");
+            vs[0] = make_small(info.active_runqs);
+            ks[1] = ERTS_MAKE_AM("used_run_queues");
+            vs[1] = make_small(info.used_runqs);
+            ks[2] = ERTS_MAKE_AM("last_active_run_queues");
+            vs[2] = make_small(info.last_active_runqs);
+            ks[3] = ERTS_MAKE_AM("checks");
+            vs[3] = erts_make_integer(info.checks, BIF_P);
+            ks[4] = ERTS_MAKE_AM("rise_active_run_queues");
+            vs[4] = make_small(info.rise_active_runqs);
+            ks[5] = ERTS_MAKE_AM("rise_max_len");
+            vs[5] = make_small(info.rise_max_len);
+            ks[6] = ERTS_MAKE_AM("rise_reds");
+            vs[6] = erts_make_integer((Uint) info.rise_reds, BIF_P);
+            ks[7] = ERTS_MAKE_AM("rise_at_check");
+            vs[7] = erts_make_integer(info.rise_check, BIF_P);
+            erts_factory_proc_init(&hfact, BIF_P);
+            res = erts_map_from_ks_and_vs(&hfact, ks, vs, 8);
+            erts_factory_close(&hfact);
+            BIF_RET(res);
+        }
 	else if (ERTS_IS_ATOM_STR("available_internal_state", BIF_ARG_1)) {
 	    BIF_RET(am_true);
 	}
