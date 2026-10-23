@@ -607,6 +607,7 @@ __decl_noreturn void __noreturn  erts_usage(void)
     erts_fprintf(stderr, "-JPperf true|false|dump|map|fp|no_fp   enable or disable support for perf on Linux\n");
     erts_fprintf(stderr, "-JPperfdirectory <directory>    set the directory perf files are stored. Default: /tmp\n");
     erts_fprintf(stderr, "-JMsingle bool enable the use of single-mapped RWX memory for JIT:ed code\n");
+    erts_fprintf(stderr, "-JMthp bool    request transparent huge pages for single-mapped JIT code on Linux/AArch64\n");
     erts_fprintf(stderr, "\n");
 #endif
 
@@ -1800,6 +1801,21 @@ erl_start(int argc, char **argv)
                         erts_jit_single_map = 0;
                     } else {
                         erts_fprintf(stderr, "bad +JMsingle support flag %s\n", arg);
+                        erts_usage();
+                    }
+                } else if (has_prefix("thp", sub_param)) {
+                    arg = get_arg(sub_param+3, argv[i + 1], &i);
+                    if (sys_strcmp(arg, "true") == 0) {
+#if defined(__linux__) && defined(__aarch64__)
+                        erts_jit_use_thp = 1;
+#else
+                        erts_fprintf(stderr, "+JMthp is only supported on Linux/AArch64\n");
+                        erts_usage();
+#endif
+                    } else if (sys_strcmp(arg, "false") == 0) {
+                        erts_jit_use_thp = 0;
+                    } else {
+                        erts_fprintf(stderr, "bad +JMthp support flag %s\n", arg);
                         erts_usage();
                     }
                 } else {
