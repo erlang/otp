@@ -479,8 +479,8 @@ format_erlang_error(is_function, [_,Arity], _) ->
          is_integer(Arity) -> range;
          true -> not_integer
      end];
-format_erlang_error(is_integer, [_,_,_], _) ->
-    [not_integer];
+format_erlang_error(is_integer, [_,LB,UB], _) ->
+    [[],must_be_int_or_undefined(LB),must_be_int_or_undefined(UB)];
 format_erlang_error(is_map_key, [_,_], _) ->
     [[],not_map];
 format_erlang_error(is_process_alive, [Arg], _) ->
@@ -1331,6 +1331,10 @@ must_be_int(N, Min, Max, Default) when is_integer(N) ->
     end;
 must_be_int(_, _, _, _) -> not_integer.
 
+must_be_int_or_undefined(undefined) -> [];
+must_be_int_or_undefined(N) when is_integer(N) -> [];
+must_be_int_or_undefined(_) -> not_integer_or_undefined.
+
 must_be_non_neg_int(N) ->
     must_be_int(N, 0, infinity).
 
@@ -1555,6 +1559,8 @@ expand_error(not_fun) ->
     <<"not a fun">>;
 expand_error(not_integer) ->
     <<"not an integer">>;
+expand_error(not_integer_or_undefined) ->
+    <<"not an integer or 'undefined'">>;
 expand_error(not_iodata) ->
     <<"not an iodata term">>;
 expand_error(not_iolist) ->

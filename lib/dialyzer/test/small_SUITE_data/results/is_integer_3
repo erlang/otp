@@ -1,0 +1,27 @@
+
+is_integer_3.erl:51:1: Function bad_lower/1 has no local return
+is_integer_3.erl:52:19: The call erlang:is_integer(X::any(),'foo',10) will never return since it differs in the 2nd argument from the success typing arguments: (any(),'undefined' | integer(),'undefined' | integer())
+is_integer_3.erl:54:1: Function bad_upper/1 has no local return
+is_integer_3.erl:55:22: The call erlang:is_integer(X::any(),1,1.0e+1) will never return since it differs in the 3rd argument from the success typing arguments: (any(),'undefined' | integer(),'undefined' | integer())
+
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% SPDX-FileCopyrightText: Copyright 2026 Maria Scott <maria-12648430@hnc-agency.org>
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+%%

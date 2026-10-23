@@ -2261,7 +2261,8 @@ arg_types(erlang, is_function, 2) ->
 arg_types(erlang, is_integer, 1) ->
   [t_any()];
 arg_types(erlang, is_integer, 3) ->
-  [t_any(),t_integer(), t_integer()];
+  Bound = t_sup(t_integer(), t_atom('undefined')),
+  [t_any(), Bound, Bound];
 arg_types(erlang, is_list, 1) ->
   [t_any()];
 arg_types(erlang, is_map, 1) ->
