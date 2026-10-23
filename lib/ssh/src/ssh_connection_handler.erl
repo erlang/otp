@@ -1818,7 +1818,7 @@ set_kex_overload_prefix(Msg = <<?BYTE(Op),_/binary>>, #data{ssh_params=SshParams
 	"diffie-hellman-group" ++ _ ->
 	    <<"dh",Msg/binary>>;
         "mlkem768x25519" ++ _ ->
-            <<"mlkem",Msg/binary>>;
+            <<"mlkem768x25519",Msg/binary>>;
         "mlkem512-sha256" ->
             <<"kem512",Msg/binary>>;
         "mlkem768-sha256" ->

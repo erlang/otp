@@ -1061,12 +1061,12 @@ handle_kex_hybrid_reply(#ssh_msg_kex_hybrid_reply{public_host_key = PeerPubHostK
     end.
 
 %%%---- Pure ML-KEM Key Exchange Method (draft-harrison-sshm-mlkem)
+%% Incoming public-key and ciphertext sizes are validated by ssh_message.
 handle_kex_kem_init(#ssh_msg_kex_kem_init{c_init = C_init},
                     Ssh0 = #ssh{algorithms = #alg{kex = Kex, hkey = SignAlg},
                                 opts = Opts}) ->
     Kem = kem(Kex),
     try
-        true = byte_size(C_init) =:= kem_public_key_size(Kem),
         {K_pq_secret, S_reply} = crypto:encapsulate_key(Kem, C_init),
         true = byte_size(K_pq_secret) =:= 32,
         true = byte_size(S_reply) =:= kem_ciphertext_size(Kem),
@@ -1105,7 +1105,6 @@ handle_kex_kem_reply(#ssh_msg_kex_kem_reply{public_host_key = PeerPubHostKey,
                                  algorithms = #alg{kex = Kex}}) ->
     try
         true = Kem =:= kem(Kex),
-        true = byte_size(S_reply) =:= kem_ciphertext_size(Kem),
         K_pq_secret = crypto:decapsulate_key(Kem, C_private, S_reply),
         true = byte_size(K_pq_secret) =:= 32,
         K_enc = <<?Ebinary(K_pq_secret)>>,
@@ -2565,10 +2564,6 @@ generate_key(dh, [P,G,Sz2]) ->
 kem('mlkem512-sha256') -> mlkem512;
 kem('mlkem768-sha256') -> mlkem768;
 kem('mlkem1024-sha384') -> mlkem1024.
-
-kem_public_key_size(mlkem512) -> ?MLKEM512_PUBLICKEY_SIZE;
-kem_public_key_size(mlkem768) -> ?MLKEM768_PUBLICKEY_SIZE;
-kem_public_key_size(mlkem1024) -> ?MLKEM1024_PUBLICKEY_SIZE.
 
 kem_ciphertext_size(mlkem512) -> ?MLKEM512_CIPHERTEXT_SIZE;
 kem_ciphertext_size(mlkem768) -> ?MLKEM768_CIPHERTEXT_SIZE;
