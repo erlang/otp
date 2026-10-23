@@ -138,6 +138,9 @@
 -define(user_skip_color, "#FF8000").
 -define(sortable_table_name, "SortableTable").
 
+-define(reason_prefix, "=== Reason: ").
+-define(exception_prefix, "exception error: ").
+
 -record(state,{jobs=[], levels={1,19,10}, reject_io_reqs=false,
 	       multiply_timetraps=1, scale_timetraps=true,
 	       create_priv_dir=auto_per_run, finish=false,
@@ -4141,8 +4144,8 @@ progress(failed, CaseNum, Mod, Func, GrName, Loc, {testcase_aborted,Reason}, T,
     FormatLoc = test_server_sup:format_loc(Loc),
     print(minor, "=== Location: ~ts", [FormatLoc]),
     print(minor,
-          "~ts",
-	  [escape_chars(io_lib:format("=== Reason: {testcase_aborted,~tp}",
+          "=== Reason: ~ts",
+          [escape_chars(io_lib:format("{testcase_aborted,~tp}",
 				     [Reason]))]),
     failed;
 
@@ -4179,10 +4182,10 @@ progress(failed, CaseNum, Mod, Func, GrName, unknown, Reason, T,
 	  "<td>~ts</td></tr>\n",
 	  [TimeStr,Comment]),
     print(minor, "=== Location: ~w", [unknown]),
-    {FStr,FormattedReason} = format_exception(Reason),
+    {FStr,FormattedReason} = format_exception(Reason, string:length(?reason_prefix)),
     print(minor,
-          "~ts",
-	  [escape_chars(io_lib:format("=== Reason: " ++ FStr, [FormattedReason]))]),
+          ?reason_prefix ++ "~ts",
+          [escape_chars(io_lib:format(FStr, [FormattedReason]))]),
     failed;
 
 progress(failed, CaseNum, Mod, Func, GrName, Loc, Reason, T,
@@ -4215,10 +4218,9 @@ progress(failed, CaseNum, Mod, Func, GrName, Loc, Reason, T,
 	  [TimeStr,FormatLastLoc,Comment]),
     FormatLoc = test_server_sup:format_loc(LocMin),
     print(minor, "=== Location: ~ts", [FormatLoc]),
-    {FStr,FormattedReason} = format_exception(Reason),
-    print(minor, "~ts",
-          ["=== Reason: " ++
-           escape_chars(io_lib:format(FStr, [FormattedReason]))]),
+    {FStr,FormattedReason} = format_exception(Reason, string:length(?reason_prefix)),
+    print(minor, ?reason_prefix ++ "~ts",
+          [escape_chars(io_lib:format(FStr, [FormattedReason]))]),
     failed;
 
 progress(ok, _CaseNum, Mod, Func, GrName, _Loc, RetVal, T,
@@ -4423,37 +4425,47 @@ get_font_style1(default) ->
 %% test_server node with init argument 'test_server_format_exception'
 %% set to false.
 
-format_exception(Reason={_Error,Stack}) when is_list(Stack) ->
+format_exception(Reason={_Error,Stack}, Shift) when is_list(Stack) ->
     case get_fw_mod(undefined) of
-	undefined ->
-	    case application:get_env(test_server, format_exception) of
-		{ok,false} ->
-		    {"~tp",Reason};
-		_ ->
-		    do_format_exception(Reason)
-	    end;
-	FW ->
-	    case application:get_env(FW, format_exception) of
-		{ok,false} ->
-		    {"~tp",Reason};
-		_ ->
-		    do_format_exception(Reason)
-	    end
+        undefined ->
+            case application:get_env(test_server, format_exception) of
+                {ok,false} ->
+                    {"~tp",Reason};
+                _ ->
+                    do_format_exception(Reason, Shift)
+            end;
+        FW ->
+            case application:get_env(FW, format_exception) of
+                {ok,false} ->
+                    {"~tp",Reason};
+                _ ->
+                    do_format_exception(Reason, Shift)
+            end
     end;
-format_exception(Error) ->
-    format_exception({Error,[]}).
+format_exception(Error, Shift) ->
+    format_exception({Error, []}, Shift).
 
-do_format_exception(Reason={Error,Stack}) ->
+do_format_exception(Reason={Error,Stack}, Shift) ->
     StackFun = fun(_, _, _) -> false end,
-    PF = fun(Term, I) ->
-		 io_lib:format("~." ++ integer_to_list(I) ++ "tkp", [Term])
-	 end,
+    PF = fun(Str, I) when is_list(Str), Str =/= [], Str =:= Error ->
+                 case io_lib:printable_unicode_list(Str) of
+                     true ->
+                         io_lib:format("~ts", [shift_stacktrace(Str, Shift)]);
+                     false ->
+                         io_lib:format("~." ++ integer_to_list(I) ++ "tkp", [Str])
+                 end;
+            (Term, I) ->
+                 io_lib:format("~." ++ integer_to_list(I) ++ "tkp", [Term])
+         end,
     case catch erl_error:format_exception(1, error, Error, Stack, StackFun, PF, utf8) of
-	{'EXIT',_R} ->
-	    {"~tp",Reason};
-	Formatted  ->
-	    Formatted1 = re:replace(Formatted, "exception error: ", "", [{return,list},unicode]),
-	    {"~ts",lists:flatten(Formatted1)}
+        {'EXIT',_R} ->
+            {"~tp",Reason};
+        Formatted0 ->
+            Flat = lists:flatten(Formatted0),
+            case string:prefix(Flat, ?exception_prefix) of
+                nomatch   -> {"~ts", Flat};
+                Formatted -> {"~ts", Formatted}
+            end
     end.
 
 
@@ -5884,3 +5896,14 @@ report_repeat_testcase(M,forever) ->
     print(minor, "~n=== Repeated test case: ~w of infinity", [M]);
 report_repeat_testcase(M,N) ->
     print(minor, "~n=== Repeated test case: ~w of ~w", [M,N]).
+
+shift_stacktrace(Trace, 0) ->
+    Trace;
+shift_stacktrace(Trace, Shift) when Shift > 0 ->
+    case string:find(Trace, "\n") of
+        nomatch ->
+            Trace;
+        _ ->
+            Indent = lists:duplicate(Shift, $\s),
+            string:replace(Trace, "\n", "\n" ++ Indent, all)
+    end.
