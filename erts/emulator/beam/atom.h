@@ -154,7 +154,7 @@ typedef enum {
 #define ERTS_MAKE_AM(Str) am_atom_put(Str, sizeof(Str) - 1)
 
 int atom_table_size(void);	/* number of elements */
-int atom_table_sz(void);	/* table size in bytes, excluding stored objects */
+Uint atom_table_sz(void);	/* table size in bytes, excluding stored objects */
 
 Eterm am_atom_put(const char*, Sint); /* ONLY 7-bit ascii! */
 Eterm erts_atom_put(const byte *name, Sint len, ErtsAtomEncoding enc, int trunc);
