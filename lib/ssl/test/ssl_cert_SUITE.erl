@@ -162,7 +162,9 @@
          cert_auth_in_first_ca/0,
          cert_auth_in_first_ca/1,
          mldsa_expanded_keyfile/0,
-         mldsa_expanded_keyfile/1
+         mldsa_expanded_keyfile/1,
+         eddsa_curve_binding_client_auth/0,
+         eddsa_curve_binding_client_auth/1
         ]).
 
 %%--------------------------------------------------------------------
@@ -203,7 +205,8 @@ groups() ->
           [signature_algorithms_bad_curve_secp256r1,
            signature_algorithms_bad_curve_secp384r1,
            signature_algorithms_bad_curve_secp521r1]},
-     {eddsa, [parallel], all_version_tests() ++ tls_1_3_tests()},
+     {eddsa, [parallel], all_version_tests() ++ tls_1_3_tests() ++
+          tls_1_3_eddsa_tests()},
      {mldsa, [parallel], all_version_tests() ++ tls_1_3_tests() ++
           [mldsa_expanded_keyfile]},
      {slhdsa_sha2, [parallel], all_version_tests() ++ tls_1_3_tests()},
@@ -247,6 +250,9 @@ tls_1_3_tests() ->
      server_certificate_authorities_disabled,
      certs_keys_signature_algs_selection
     ].
+
+tls_1_3_eddsa_tests() ->
+    [eddsa_curve_binding_client_auth].
 
 pre_tls_1_3_rsa_tests() ->
     [
@@ -1752,6 +1758,11 @@ legacy_server_certificate_authorities_disabled(Config) ->
                              {certificate_authorities, false} |
                              ServerOpts], Config).
 
+
+eddsa_curve_binding_client_auth() ->
+      ssl_cert_tests:eddsa_curve_binding_client_auth().
+eddsa_curve_binding_client_auth(Config) ->
+      ssl_cert_tests:eddsa_curve_binding_client_auth(Config).
 %%--------------------------------------------------------------------
 %% Internal functions  -----------------------------------------------
 %%--------------------------------------------------------------------
