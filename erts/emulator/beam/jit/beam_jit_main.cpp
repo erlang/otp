@@ -48,6 +48,7 @@ char etrs_jit_perf_directory[MAXPATHLEN] = "/tmp";
 #endif
 /* Force use of single-mapped RWX memory for JIT code */
 int erts_jit_single_map = 0;
+int erts_jit_use_thp = 0;
 
 /*
  * Special Beam instructions.
@@ -225,6 +226,9 @@ static JitAllocator *pick_allocator() {
 
     if (allocator == nullptr) {
         params.options &= ~JitAllocatorOptions::kUseDualMapping;
+        if (erts_jit_use_thp) {
+            params.options |= JitAllocatorOptions::kUseTransparentHugePages;
+        }
         std::tie(allocator, single_mapped) = create_allocator(params);
     }
 

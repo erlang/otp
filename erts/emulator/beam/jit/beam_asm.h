@@ -51,6 +51,7 @@ extern enum beamasm_perf_flags erts_jit_perf_support;
 extern char etrs_jit_perf_directory[MAXPATHLEN];
 #    endif
 extern int erts_jit_single_map;
+extern int erts_jit_use_thp;
 
 void beamasm_init(void);
 void *beamasm_new_assembler(Eterm mod,

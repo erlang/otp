@@ -26,7 +26,8 @@
          init_per_suite/1, end_per_suite/1,
          init_per_group/2, end_per_group/2,
          init_per_testcase/2, end_per_testcase/2]).
--export([annotate/1, jmsingle/1, named_labels/1, symbols/1, perfdirectory_set/1, perfdirectory_not_set/1]).
+-export([annotate/1, jmsingle/1, jmthp/1, named_labels/1, symbols/1,
+         perfdirectory_set/1, perfdirectory_not_set/1]).
 
 suite() ->
     [{timetrap, {minutes, 4}}].
@@ -35,7 +36,7 @@ groups() ->
     [{perf, [symbols, annotate, perfdirectory_set, perfdirectory_not_set]}].
 
 all() ->
-    [{group, perf}, jmsingle, named_labels].
+    [{group, perf}, jmsingle, jmthp, named_labels].
 
 init_per_suite(Config) ->
     case erlang:system_info(emu_flavor) of
@@ -237,6 +238,29 @@ jmsingle(Config) ->
                       "Emulator did not start with +JMsingle false"),
     run_jmsingle_test("broken", false,
                       "Emulator started with bad +JMsingle parameter").
+
+jmthp(_Config) ->
+    Expected = case {os:type(), erlang:system_info(system_architecture)} of
+                   {{unix, linux}, "aarch64" ++ _} ->
+                       "all_is_well";
+                   _ ->
+                       "+JMthp is only supported on Linux/AArch64"
+               end,
+    run_jmthp_test("true +JMsingle true", Expected),
+    run_jmthp_test("true +JMsingle false", Expected),
+    run_jmthp_test("false", "all_is_well"),
+    run_jmthp_test("broken", "bad +JMthp support flag broken").
+
+run_jmthp_test(Args, Expected) ->
+    Cmd = "erl +JMthp " ++ Args ++ " -noshell " ++
+        "-eval \"erlang:display(all_is_well),erlang:halt(0).\"",
+    Result = os:cmd(Cmd),
+    case string:find(Result, Expected) of
+        nomatch ->
+            ct:fail("Unexpected result for +JMthp ~ts: ~ts", [Args, Result]);
+        _ ->
+            ok
+    end.
 
 get_tmp_asm_files() ->
     {ok, Cwd} = file:get_cwd(),
