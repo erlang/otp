@@ -79,6 +79,7 @@
          ssh_openssh_key_with_comment/1,
          ssh_openssh_key_long_header/1,
 
+         mldsa_algorithms/1,
          mldsa_public_key_blob/1,
          mldsa_sign_verify/1,
          connect_mldsa44/1,
@@ -162,7 +163,8 @@ groups() ->
      {option_space,[], [{group,new_format}]},
      {pkcs8, [], [ssh_hostkey_pkcs8]},
 
-     {mldsa, [], [mldsa_public_key_blob,
+     {mldsa, [], [mldsa_algorithms,
+                  mldsa_public_key_blob,
                   mldsa_sign_verify,
                   connect_mldsa44,
                   connect_mldsa65,
@@ -456,6 +458,15 @@ connect_ed448_to_ed448(Config) ->
 %% ML-DSA (draft-sfluhrer-ssh-mldsa) uses the pure ML-DSA variants
 %% with an empty context.  In public_key this is selected by the
 %% digest type 'none'.
+
+mldsa_algorithms(_Config) ->
+    Supported = ssh_transport:supported_algorithms(public_key),
+    Default = ssh_transport:default_algorithms(public_key),
+    lists:foreach(
+      fun({_MLDSA, SshAlg, _PublicKeySize, _SignatureSize}) ->
+              true = lists:member(SshAlg, Supported),
+              false = lists:member(SshAlg, Default)
+      end, mldsa_parameters()).
 
 mldsa_public_key_blob(_Config) ->
     lists:foreach(

@@ -295,8 +295,8 @@ handle_userauth_request(#ssh_msg_userauth_request{user = User,
 						  method = "publickey",
 						  data = <<?BYTE(?FALSE),
 							   ?UINT32(ALen), BAlg:ALen/binary,
-                                                           ?UINT32(KLen), KeyBlob:KLen/binary,
-                                                           _/binary
+							   ?UINT32(KLen), KeyBlob:KLen/binary,
+							   _/binary
 							 >>
 						 }, 
 			_SessionId, 

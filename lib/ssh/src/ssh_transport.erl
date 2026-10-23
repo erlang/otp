@@ -198,7 +198,11 @@ default_algorithms1(public_key) ->
     supported_algorithms(public_key, [
                                       'ssh-rsa',
                                       %% Gone in OpenSSH 7.3.p1:
-                                      'ssh-dss'
+                                      'ssh-dss',
+                                      %% Opt-in while the SSH specification is a draft:
+                                      'ssh-mldsa-87',
+                                      'ssh-mldsa-65',
+                                      'ssh-mldsa-44'
                                      ]);
 
 default_algorithms1(compression) ->
@@ -241,9 +245,9 @@ supported_algorithms(public_key) ->
        {'ssh-rsa',              [{public_keys,rsa},   {hashs,sha}                         ]},
        {'ssh-dss',              [{public_keys,dss},   {hashs,sha}                         ]}, % Gone in OpenSSH 7.3.p1
        %% Prefer established, smaller signatures while ML-DSA is a draft.
-       {'ssh-mldsa-87',         [{public_keys,mldsa87}                                      ]},
-       {'ssh-mldsa-65',         [{public_keys,mldsa65}                                      ]},
-       {'ssh-mldsa-44',         [{public_keys,mldsa44}                                      ]}
+       {'ssh-mldsa-87',         [{public_keys,mldsa87}]},
+       {'ssh-mldsa-65',         [{public_keys,mldsa65}]},
+       {'ssh-mldsa-44',         [{public_keys,mldsa44}]}
       ]);
  
 supported_algorithms(cipher) ->
@@ -2384,10 +2388,13 @@ valid_key_sha_alg(private, #'RSAPrivateKey'{}, 'rsa-sha2-384') -> true;
 valid_key_sha_alg(private, #'RSAPrivateKey'{}, 'rsa-sha2-256') -> true;
 valid_key_sha_alg(private, #'RSAPrivateKey'{}, 'ssh-rsa'     ) -> true;
 
-valid_key_sha_alg(public, #'ML-DSAPublicKey'{algorithm = MLDSA}, Alg) ->
-    mldsa_ssh_alg(MLDSA) == Alg;
-valid_key_sha_alg(private, #'ML-DSAPrivateKey'{algorithm = MLDSA}, Alg) ->
-    mldsa_ssh_alg(MLDSA) == Alg;
+valid_key_sha_alg(public, #'ML-DSAPublicKey'{algorithm = mldsa44}, 'ssh-mldsa-44') -> true;
+valid_key_sha_alg(public, #'ML-DSAPublicKey'{algorithm = mldsa65}, 'ssh-mldsa-65') -> true;
+valid_key_sha_alg(public, #'ML-DSAPublicKey'{algorithm = mldsa87}, 'ssh-mldsa-87') -> true;
+
+valid_key_sha_alg(private, #'ML-DSAPrivateKey'{algorithm = mldsa44}, 'ssh-mldsa-44') -> true;
+valid_key_sha_alg(private, #'ML-DSAPrivateKey'{algorithm = mldsa65}, 'ssh-mldsa-65') -> true;
+valid_key_sha_alg(private, #'ML-DSAPrivateKey'{algorithm = mldsa87}, 'ssh-mldsa-87') -> true;
 
 valid_key_sha_alg(public, {_, #'Dss-Parms'{}}, 'ssh-dss') -> true;
 valid_key_sha_alg(private, #'DSAPrivateKey'{},  'ssh-dss') -> true;
@@ -2404,14 +2411,9 @@ valid_key_sha_alg_ec(OID, Alg) when is_tuple(OID) ->
 valid_key_sha_alg_ec(_, _) -> false.
 
 
--dialyzer({no_match, mldsa_ssh_alg/1}).
-
 mldsa_ssh_alg(mldsa44) -> 'ssh-mldsa-44';
 mldsa_ssh_alg(mldsa65) -> 'ssh-mldsa-65';
-mldsa_ssh_alg(mldsa87) -> 'ssh-mldsa-87';
-mldsa_ssh_alg(_) -> false. 
-
-    
+mldsa_ssh_alg(mldsa87) -> 'ssh-mldsa-87'.
 
 -dialyzer({no_match, public_algo/1}).
 

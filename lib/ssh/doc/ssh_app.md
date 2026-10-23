@@ -73,6 +73,7 @@ file names:
 
 The ML-DSA algorithms and key files are available only when the cryptographic
 backend used by `crypto` provides the corresponding ML-DSA parameter set.
+The algorithms are disabled by default and must be explicitly enabled.
 
 By default, `ssh` looks for `id_*`, `known_hosts`, and `authorized_keys` in
 `~/.ssh`, and for the ssh\_host\_\*\_key files in `/etc/ssh`. These locations can
@@ -117,8 +118,10 @@ See [ssh_file](`m:ssh_file#FILE-authorized_keys`) for details.
 
 ## Host Keys
 
-RSA, DSA (if enabled), ECDSA, EdDSA, and ML-DSA host keys are supported. See
-`m:ssh_file` for their conventional file names and formats.
+RSA, DSA (if enabled), ECDSA, EdDSA (Ed25519 and Ed448) and ML-DSA
+(ML-DSA-44, ML-DSA-65 and ML-DSA-87; if supported by `crypto` and
+enabled) host keys are supported. ML-DSA host keys are read from
+unencrypted PKCS#8 PEM files.
 
 See [ssh_file](`m:ssh_file#FILE-ssh_host_STAR_key`) for details.
 
@@ -183,12 +186,12 @@ for example the Option value
 - ecdsa-sha2-nistp256
 - rsa-sha2-512
 - rsa-sha2-256
+
+The following ML-DSA algorithms are supported but disabled by default:
+
 - ssh-mldsa-87
 - ssh-mldsa-65
 - ssh-mldsa-44
-
-The ML-DSA algorithms are listed after the established algorithms because their
-keys and signatures are larger and their SSH specification is still a draft.
 
 The following unsecure `SHA1` algorithms are supported but disabled by
 default:
@@ -201,6 +204,12 @@ Disabled public key algorithms can be enabled with the
 [modify_algorithms](`t:ssh:modify_algorithms_common_option/0`) options. See
 [Example 9](configure_algos.md#example-9) in
 [Configuring algorithms in SSH](configure_algos.md) for a description.
+
+For example, append ML-DSA-65 to the default public key algorithms with:
+
+```erlang
+{modify_algorithms, [{append, [{public_key, ['ssh-mldsa-65']}]}]}
+```
 
 **MAC algorithms**
 
@@ -415,11 +424,12 @@ The following RFCs are supported:
 
   Comment: Implements mlkem768x25519-sha256. The ML-KEM-768 component is
   defined by [NIST FIPS 203](https://csrc.nist.gov/pubs/fips/203/final).
-- [draft-sfluhrer-ssh-mldsa](https://datatracker.ietf.org/doc/draft-sfluhrer-ssh-mldsa/),
-  ML-DSA Authentication for the Secure Shell Protocol.
+- [draft-sfluhrer-ssh-mldsa-08](https://datatracker.ietf.org/doc/html/draft-sfluhrer-ssh-mldsa-08),
+  SSH Support of ML-DSA.
 
-  Comment: Implements ssh-mldsa-44, ssh-mldsa-65, and ssh-mldsa-87 when the
-  corresponding ML-DSA parameter set is available from `crypto`.
+  Comment: Implements ssh-mldsa-44, ssh-mldsa-65, and ssh-mldsa-87 as specified
+  in revision -08, when the corresponding ML-DSA parameter set is available
+  from `crypto`. The algorithms are disabled by default.
 
 ## See Also
 

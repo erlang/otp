@@ -91,9 +91,12 @@ Clients uses all files stored in the [USERDIR](`m:ssh_file#USERDIR`) directory.
     key for curve 25519 (optional)
   - `ssh_host_ed448_key`{: #FILE-ssh_host_ed448_key } \- private eddsa host key
     for curve 448 (optional)
-  - `ssh_host_mldsa44_key`, `ssh_host_mldsa65_key`, and
-    `ssh_host_mldsa87_key` \- private ML-DSA host keys in PKCS#8 PEM format
-    (optional)
+  - `ssh_host_mldsa44_key`{: #FILE-ssh_host_mldsa44_key } \- private ML-DSA-44
+    host key in PKCS#8 PEM format (optional)
+  - `ssh_host_mldsa65_key`{: #FILE-ssh_host_mldsa65_key } \- private ML-DSA-65
+    host key in PKCS#8 PEM format (optional)
+  - `ssh_host_mldsa87_key`{: #FILE-ssh_host_mldsa87_key } \- private ML-DSA-87
+    host key in PKCS#8 PEM format (optional)
 
   The classical key files can be generated with OpenSSH's `ssh-keygen`
   command. ML-DSA keys use unencrypted PKCS#8 PEM; for example, OpenSSL 3.5
@@ -180,8 +183,12 @@ Clients uses all files stored in the [USERDIR](`m:ssh_file#USERDIR`) directory.
     (optional)
   - `id_ed448`{: #FILE-id_ed448 } \- private eddsa user key for curve 448
     (optional)
-  - `id_mldsa44`, `id_mldsa65`, and `id_mldsa87` \- private ML-DSA user keys
-    in PKCS#8 PEM format (optional)
+  - `id_mldsa44`{: #FILE-id_mldsa44 } \- private ML-DSA-44 user key in
+    PKCS#8 PEM format (optional)
+  - `id_mldsa65`{: #FILE-id_mldsa65 } \- private ML-DSA-65 user key in
+    PKCS#8 PEM format (optional)
+  - `id_mldsa87`{: #FILE-id_mldsa87 } \- private ML-DSA-87 user key in
+    PKCS#8 PEM format (optional)
 
   The classical key files can be generated with OpenSSH's `ssh-keygen`
   command. ML-DSA keys use unencrypted PKCS#8 PEM; for example, OpenSSL 3.5
@@ -299,9 +306,9 @@ Implements `c:ssh_server_key_api:host_key/2`.
 - [`SYSDIR/ssh_host_ecdsa_key`](`m:ssh_file#FILE-ssh_host_ecdsa_key`)
 - [`SYSDIR/ssh_host_ed25519_key`](`m:ssh_file#FILE-ssh_host_ed25519_key`)
 - [`SYSDIR/ssh_host_ed448_key`](`m:ssh_file#FILE-ssh_host_ed448_key`)
-- `SYSDIR/ssh_host_mldsa44_key`
-- `SYSDIR/ssh_host_mldsa65_key`
-- `SYSDIR/ssh_host_mldsa87_key`
+- [`SYSDIR/ssh_host_mldsa44_key`](`m:ssh_file#FILE-ssh_host_mldsa44_key`)
+- [`SYSDIR/ssh_host_mldsa65_key`](`m:ssh_file#FILE-ssh_host_mldsa65_key`)
+- [`SYSDIR/ssh_host_mldsa87_key`](`m:ssh_file#FILE-ssh_host_mldsa87_key`)
 """.
 -doc(#{since => <<"OTP 21.2">>, group => <<"Callback Implementations">>}).
 -spec host_key(Algorithm, Options) -> Result when
@@ -365,9 +372,9 @@ Note that EdDSA passhrases (Curves 25519 and 448) are not implemented.
 - [`USERDIR/id_ecdsa`](`m:ssh_file#FILE-id_ecdsa`)
 - [`USERDIR/id_ed25519`](`m:ssh_file#FILE-id_ed25519`)
 - [`USERDIR/id_ed448`](`m:ssh_file#FILE-id_ed448`)
-- `USERDIR/id_mldsa44`
-- `USERDIR/id_mldsa65`
-- `USERDIR/id_mldsa87`
+- [`USERDIR/id_mldsa44`](`m:ssh_file#FILE-id_mldsa44`)
+- [`USERDIR/id_mldsa65`](`m:ssh_file#FILE-id_mldsa65`)
+- [`USERDIR/id_mldsa87`](`m:ssh_file#FILE-id_mldsa87`)
 """.
 -doc(#{since => <<"OTP 21.2">>, group => <<"Callback Implementations">>}).
 -spec user_key(Algorithm, Options) -> Result when
