@@ -227,6 +227,10 @@ static HardenedRuntimeFlags get_hardened_runtime_flags() noexcept {
 Error alloc(void** p, size_t size, MemoryFlags memory_flags) noexcept {
   *p = nullptr;
 
+  if (Support::test(memory_flags, MemoryFlags::kMMapTransparentHugePages)) {
+    return make_error(Error::kFeatureNotEnabled);
+  }
+
   if (size == 0) {
     return make_error(Error::kInvalidArgument);
   }
@@ -499,6 +503,49 @@ static size_t detect_large_page_size() noexcept {
   return 0u;
 #endif
 }
+
+#if defined(__linux__) && defined(MADV_HUGEPAGE)
+[[maybe_unused]]
+static bool is_linux_thp_mode_enabled(const char* modes, const char* inherited_modes) noexcept {
+  if (strstr(modes, "[inherit]")) {
+    modes = inherited_modes;
+  }
+  return strstr(modes, "[always]") || strstr(modes, "[madvise]");
+}
+
+[[maybe_unused]]
+static bool read_linux_thp_modes(const char* path, char* modes, size_t capacity) noexcept {
+  int fd = ::open(path, O_RDONLY);
+  if (fd < 0) {
+    return false;
+  }
+  ssize_t size = ::read(fd, modes, capacity - 1);
+  ::close(fd);
+  if (size <= 0) {
+    return false;
+  }
+  modes[size] = '\0';
+  return true;
+}
+
+[[maybe_unused]]
+static size_t detect_transparent_huge_page_size() noexcept {
+  char modes[128];
+  char inherited_modes[128] = {};
+
+  if (!read_linux_thp_modes("/sys/kernel/mm/transparent_hugepage/hugepages-2048kB/enabled", modes, sizeof(modes))) {
+    return 0;
+  }
+
+  if (strstr(modes, "[inherit]")) {
+    if (!read_linux_thp_modes("/sys/kernel/mm/transparent_hugepage/enabled", inherited_modes, sizeof(inherited_modes))) {
+      return 0;
+    }
+  }
+
+  return is_linux_thp_mode_enabled(modes, inherited_modes) ? 2u * 1024u * 1024u : 0;
+}
+#endif
 
 // Virtual Memory [Posix] - Anonymous Memory
 // =========================================
@@ -912,7 +959,60 @@ static Error unmap_memory(void* p, size_t size) noexcept {
   return Error::kOk;
 }
 
+#if defined(__linux__) && defined(MADV_HUGEPAGE)
+static Error map_memory_with_transparent_huge_pages(void** p, size_t size, MemoryFlags memory_flags, size_t page_size) noexcept {
+  *p = nullptr;
+  if (!Support::is_power_of_2(page_size) || page_size < info().page_size ||
+      size == 0 || !Support::is_aligned(size, page_size) ||
+      Support::test(memory_flags, MemoryFlags::kMMapLargePages | MemoryFlags::kMapShared)) {
+    return make_error(Error::kInvalidArgument);
+  }
+
+  size_t extra_size = page_size - info().page_size;
+  if (size > std::numeric_limits<size_t>::max() - extra_size) {
+    return make_error(Error::kTooLarge);
+  }
+
+  void* base;
+  size_t mapping_size = size + extra_size;
+  ASMJIT_PROPAGATE(map_memory(&base, mapping_size, memory_flags & ~MemoryFlags::kMMapTransparentHugePages));
+
+  uint8_t* aligned = reinterpret_cast<uint8_t*>(Support::align_up(uintptr_t(base), page_size));
+  size_t leading_size = size_t(aligned - static_cast<uint8_t*>(base));
+  size_t trailing_size = extra_size - leading_size;
+
+  if (leading_size && munmap(base, leading_size) != 0) {
+    Error err = asmjit_error_from_errno(errno);
+    munmap(base, mapping_size);
+    return make_error(err);
+  }
+  if (trailing_size && munmap(aligned + size, trailing_size) != 0) {
+    Error err = asmjit_error_from_errno(errno);
+    munmap(aligned, size + trailing_size);
+    return make_error(err);
+  }
+  if (madvise(aligned, size, MADV_HUGEPAGE) != 0) {
+    Error err = asmjit_error_from_errno(errno);
+    munmap(aligned, size);
+    return make_error(err);
+  }
+
+  *p = aligned;
+  return Error::kOk;
+}
+#endif
+
 Error alloc(void** p, size_t size, MemoryFlags memory_flags) noexcept {
+  if (Support::test(memory_flags, MemoryFlags::kMMapTransparentHugePages)) {
+    *p = nullptr;
+#if defined(__linux__) && defined(MADV_HUGEPAGE)
+    size_t page_size = transparent_huge_page_size();
+    if (page_size != 0) {
+      return map_memory_with_transparent_huge_pages(p, size, memory_flags, page_size);
+    }
+#endif
+    return make_error(Error::kFeatureNotEnabled);
+  }
   return map_memory(p, size, memory_flags);
 }
 
@@ -1205,6 +1305,15 @@ size_t large_page_size() noexcept {
   return size;
 }
 
+size_t transparent_huge_page_size() noexcept {
+#if defined(__linux__) && ASMJIT_ARCH_ARM == 64 && defined(MADV_HUGEPAGE)
+  static const size_t page_size = detect_transparent_huge_page_size();
+  return page_size;
+#else
+  return 0;
+#endif
+}
+
 // Virtual Memory - Hardened Runtime Info
 // ======================================
 
@@ -1250,6 +1359,44 @@ UNIT(virt_mem) {
   INFO("    kMapJit: %s"     , Support::test(hardened_rt_flags, VirtMem::HardenedRuntimeFlags::kMapJit     ) ? "true" : "false");
   INFO("    kDualMapping: %s", Support::test(hardened_rt_flags, VirtMem::HardenedRuntimeFlags::kDualMapping) ? "true" : "false");
 }
+
+#if defined(__linux__) && defined(MADV_HUGEPAGE)
+UNIT(virt_mem_thp) {
+  char modes[128] = "[madvise]";
+  EXPECT_FALSE(VirtMem::read_linux_thp_modes("/dev/null", modes, sizeof(modes)));
+  EXPECT_FALSE(VirtMem::read_linux_thp_modes("/dev/null/enabled", modes, sizeof(modes)));
+  EXPECT_FALSE(VirtMem::read_linux_thp_modes("/proc/self", modes, sizeof(modes)));
+
+  const char* enabled_modes[] = {"[always] madvise never", "always [madvise] never"};
+  const char* disabled_modes[] = {"always madvise [never]", "", "always [madvi", "[inherit]"};
+
+  for (const char* modes : enabled_modes) {
+    EXPECT_TRUE(VirtMem::is_linux_thp_mode_enabled(modes, ""));
+    EXPECT_TRUE(VirtMem::is_linux_thp_mode_enabled("always [inherit] madvise never", modes));
+  }
+  for (const char* modes : disabled_modes) {
+    EXPECT_FALSE(VirtMem::is_linux_thp_mode_enabled(modes, ""));
+    EXPECT_FALSE(VirtMem::is_linux_thp_mode_enabled("always [inherit] madvise never", modes));
+  }
+
+  // Test alignment and advice even when the host policy disables huge page backing.
+  const size_t page_size = 2u * 1024u * 1024u;
+  for (size_t size : {page_size, page_size * 2}) {
+    void* p = nullptr;
+    EXPECT_EQ(VirtMem::map_memory_with_transparent_huge_pages(&p, size, VirtMem::MemoryFlags::kAccessRW, page_size), Error::kOk);
+    EXPECT_TRUE(Support::is_aligned(uintptr_t(p), page_size));
+    memset(p, 0xA5, size);
+    EXPECT_EQ(static_cast<uint8_t*>(p)[size - 1], uint8_t(0xA5));
+    EXPECT_EQ(VirtMem::release(p, size), Error::kOk);
+  }
+
+  void* p = nullptr;
+  EXPECT_EQ(VirtMem::map_memory_with_transparent_huge_pages(&p, 0, VirtMem::MemoryFlags::kAccessRW, page_size), Error::kInvalidArgument);
+  EXPECT_NULL(p);
+  EXPECT_EQ(VirtMem::map_memory_with_transparent_huge_pages(&p, page_size - 1, VirtMem::MemoryFlags::kAccessRW, page_size), Error::kInvalidArgument);
+  EXPECT_NULL(p);
+}
+#endif
 
 ASMJIT_END_NAMESPACE
 #endif // ASMJIT_TEST
