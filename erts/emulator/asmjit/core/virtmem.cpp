@@ -470,6 +470,21 @@ static size_t detect_large_page_size() noexcept {
   Support::Array<size_t, 2> page_size;
   // TODO: Does it return unsigned?
   return (getpagesizes(page_size.data(), 2) < 2) ? 0 : uint32_t(page_size[1]);
+#elif defined(__linux__) && ASMJIT_ARCH_ARM == 64
+  static constexpr uint32_t KiB = 1, MiB = 1024, GiB = 1024 * 1024;
+  static constexpr uint32_t known_pages_kib[] = {
+    64 * KiB, 2 * MiB, 32 * MiB, 512 * MiB, 1 * GiB, 16 * GiB
+  };
+  StringTmp<128> path;
+
+  for (uint32_t known_page : known_pages_kib) {
+    path.assign_format("/sys/kernel/mm/hugepages/hugepages-%ukB", known_page);
+    struct stat sbuf;
+    if (stat(path.data(), &sbuf) == 0 && S_ISDIR(sbuf.st_mode)) {
+      return size_t(known_page) * 1024u;
+    }
+  }
+  return 0u;
 #elif defined(__linux__)
   StringTmp<128> storage;
 
@@ -898,6 +913,9 @@ static Error map_memory(void** p, size_t size, MemoryFlags memory_flags, int fd 
   if (use_large_pages) {
     madvise(ptr, size, MADV_HUGEPAGE);
   }
+  if (Support::test(memory_flags, MemoryFlags::kMAdviseLargePages)) {
+    madvise(ptr, size, MADV_HUGEPAGE);
+  }
 #endif
 
   *p = ptr;
@@ -911,6 +929,50 @@ static Error unmap_memory(void* p, size_t size) noexcept {
 
   return Error::kOk;
 }
+
+#if defined(__linux__) && defined(MADV_HUGEPAGE)
+static Error map_aligned_memory(void** p, size_t size, MemoryFlags memory_flags, size_t alignment) noexcept {
+  *p = nullptr;
+  if (!Support::is_power_of_2(alignment) || alignment < info().page_size ||
+      size == 0 || !Support::is_aligned(size, alignment) ||
+      Support::test(memory_flags, MemoryFlags::kMMapLargePages | MemoryFlags::kMapShared)) {
+    return make_error(Error::kInvalidArgument);
+  }
+
+  size_t extra_size = alignment - info().page_size;
+  if (size > std::numeric_limits<size_t>::max() - extra_size) {
+    return make_error(Error::kTooLarge);
+  }
+
+  void* base;
+  size_t mapping_size = size + extra_size;
+  ASMJIT_PROPAGATE(map_memory(&base, mapping_size, memory_flags & ~MemoryFlags::kMAdviseLargePages));
+
+  uint8_t* aligned = reinterpret_cast<uint8_t*>(Support::align_up(uintptr_t(base), alignment));
+  size_t leading_size = size_t(aligned - static_cast<uint8_t*>(base));
+  size_t trailing_size = extra_size - leading_size;
+
+  if (leading_size && munmap(base, leading_size) != 0) {
+    Error err = asmjit_error_from_errno(errno);
+    munmap(base, mapping_size);
+    return make_error(err);
+  }
+  if (trailing_size && munmap(aligned + size, trailing_size) != 0) {
+    Error err = asmjit_error_from_errno(errno);
+    munmap(aligned, size + trailing_size);
+    return make_error(err);
+  }
+  if (Support::test(memory_flags, MemoryFlags::kMAdviseLargePages) &&
+      madvise(aligned, size, MADV_HUGEPAGE) != 0) {
+    Error err = asmjit_error_from_errno(errno);
+    munmap(aligned, size);
+    return make_error(err);
+  }
+
+  *p = aligned;
+  return Error::kOk;
+}
+#endif
 
 Error alloc(void** p, size_t size, MemoryFlags memory_flags) noexcept {
   return map_memory(p, size, memory_flags);
@@ -1205,6 +1267,16 @@ size_t large_page_size() noexcept {
   return size;
 }
 
+Error alloc_aligned(void** p, size_t size, size_t alignment, MemoryFlags memory_flags) noexcept {
+  *p = nullptr;
+#if defined(__linux__) && defined(MADV_HUGEPAGE)
+  return map_aligned_memory(p, size, memory_flags, alignment);
+#else
+  Support::maybe_unused(size, alignment, memory_flags);
+  return make_error(Error::kFeatureNotEnabled);
+#endif
+}
+
 // Virtual Memory - Hardened Runtime Info
 // ======================================
 
@@ -1250,6 +1322,51 @@ UNIT(virt_mem) {
   INFO("    kMapJit: %s"     , Support::test(hardened_rt_flags, VirtMem::HardenedRuntimeFlags::kMapJit     ) ? "true" : "false");
   INFO("    kDualMapping: %s", Support::test(hardened_rt_flags, VirtMem::HardenedRuntimeFlags::kDualMapping) ? "true" : "false");
 }
+
+#if defined(__linux__) && defined(MADV_HUGEPAGE)
+UNIT(virt_mem_aligned) {
+  const size_t base_page_size = VirtMem::info().page_size;
+  void* probe = nullptr;
+  EXPECT_EQ(VirtMem::alloc(&probe, base_page_size, VirtMem::MemoryFlags::kAccessRW), Error::kOk);
+  // Kernels without THP can reject advice even when the build headers support it.
+  const bool advice_supported = madvise(probe, base_page_size, MADV_HUGEPAGE) == 0;
+  EXPECT_EQ(VirtMem::release(probe, base_page_size), Error::kOk);
+
+  for (size_t alignment : {base_page_size, base_page_size * 4, size_t(2u * 1024u * 1024u)}) {
+    for (VirtMem::MemoryFlags advice : {VirtMem::MemoryFlags::kNone, VirtMem::MemoryFlags::kMAdviseLargePages}) {
+      for (size_t size : {alignment, alignment * 2}) {
+        void* p = nullptr;
+        Error err = VirtMem::alloc_aligned(&p, size, alignment, VirtMem::MemoryFlags::kAccessRW | advice);
+        if (advice != VirtMem::MemoryFlags::kNone && !advice_supported) {
+          EXPECT_NE(err, Error::kOk);
+          EXPECT_NULL(p);
+          continue;
+        }
+        EXPECT_EQ(err, Error::kOk);
+        EXPECT_TRUE(Support::is_aligned(uintptr_t(p), alignment));
+        memset(p, 0xA5, size);
+        EXPECT_EQ(static_cast<uint8_t*>(p)[size - 1], uint8_t(0xA5));
+        EXPECT_EQ(VirtMem::release(p, size), Error::kOk);
+      }
+    }
+  }
+
+  void* p = nullptr;
+  EXPECT_EQ(VirtMem::alloc_aligned(&p, 0, base_page_size, VirtMem::MemoryFlags::kAccessRW), Error::kInvalidArgument);
+  EXPECT_NULL(p);
+  EXPECT_EQ(VirtMem::alloc_aligned(&p, base_page_size - 1, base_page_size, VirtMem::MemoryFlags::kAccessRW), Error::kInvalidArgument);
+  EXPECT_NULL(p);
+  EXPECT_EQ(VirtMem::alloc_aligned(&p, base_page_size, base_page_size * 3, VirtMem::MemoryFlags::kAccessRW), Error::kInvalidArgument);
+  EXPECT_NULL(p);
+  EXPECT_EQ(VirtMem::alloc_aligned(&p, base_page_size, 1, VirtMem::MemoryFlags::kAccessRW), Error::kInvalidArgument);
+  EXPECT_NULL(p);
+  EXPECT_EQ(VirtMem::alloc_aligned(&p, base_page_size, base_page_size * 4, VirtMem::MemoryFlags::kAccessRW), Error::kInvalidArgument);
+  EXPECT_NULL(p);
+  EXPECT_EQ(VirtMem::alloc_aligned(&p, base_page_size, base_page_size,
+                                 VirtMem::MemoryFlags::kAccessRW | VirtMem::MemoryFlags::kMMapLargePages), Error::kInvalidArgument);
+  EXPECT_NULL(p);
+}
+#endif
 
 ASMJIT_END_NAMESPACE
 #endif // ASMJIT_TEST
