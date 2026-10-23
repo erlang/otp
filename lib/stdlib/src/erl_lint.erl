@@ -3322,18 +3322,15 @@ expr({maybe_match,Anno,P,E}, Vt, St0) ->
 expr({'maybe',Anno,Es}, Vt, St) ->
     %% No variables are exported.
     {Evt0, St1} = exprs(Es, Vt, St),
-    Evt1 = vtupdate(vtunsafe({'maybe',Anno}, Evt0, Vt), Vt),
-    Evt2 = vtmerge(Evt0, Evt1),
-    {Evt2,St1};
+    {vtupd_unsafe({'maybe',Anno}, Evt0, Vt),St1};
 expr({'maybe',MaybeAnno,Es,{'else',ElseAnno,Cs}}, Vt, St) ->
     %% No variables are exported.
     {Evt0, St1} = exprs(Es, Vt, St),
     Evt1 = vtupdate(vtunsafe({'maybe',MaybeAnno}, Evt0, Vt), Vt),
     {Cvt0, St2} = icrt_clauses(Cs, {'else',ElseAnno}, Evt1, St1),
-    Cvt1 = vtupdate(vtunsafe({'else',ElseAnno}, Cvt0, Vt), Vt),
-    Evt2 = vtmerge(Evt0, Evt1),
-    Cvt2 = vtmerge(Cvt0, Cvt1),
-    {vtmerge(Evt2, Cvt2),St2};
+    Evt2 = vtupd_unsafe({'maybe',MaybeAnno}, Evt0, Vt),
+    Cvt1 = vtupd_unsafe({'else',ElseAnno}, Cvt0, Vt),
+    {vtmerge(Evt2, Cvt1),St2};
 %% No comparison or boolean operators yet.
 expr({op,Anno,Op,A}, Vt, St) ->
     vtupd_export_expr_list({Op, Anno}, [A], Vt, St);
