@@ -196,3 +196,16 @@
     ?no_zero_byte((W) bxor 16#22222222222222) andalso
     ?no_zero_byte((W) bxor 16#5C5C5C5C5C5C5C)
 ).
+
+%% SWAR check: all 7 bytes (in one 56-bit word) are ASCII digits.
+%% Adapted from fast_float, as used by simdjson.
+%%
+%% Per byte, adding 0x46 sets the high bit iff the byte is above $9, and
+%% subtracting 0x30 borrows into the high bit iff the byte is below $0.
+%% Digits produce neither a carry nor a borrow, so the lowest non-digit
+%% byte is always flagged, whatever it does to the bytes above it.
+%% The subtraction can go negative; band then sees the same low 56 bits
+%% as an unsigned wraparound would, and every value stays a small.
+-define(are_all_digits_swar(W),
+    (((W) + 16#46464646464646) bor ((W) - 16#30303030303030)) band ?SWAR_MASK80 =:= 0
+).

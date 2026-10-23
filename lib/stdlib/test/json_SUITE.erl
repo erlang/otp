@@ -721,7 +721,53 @@ test_decode_numbers(_Config) ->
     ?assertEqual(0.1e-1, decode(<<"0.1e-1">>)),
     ?assertEqual(99.99e99, decode(<<"99.99e99">>)),
     ?assertEqual(-99.99e-99, decode(<<"-99.99e-99">>)),
-    ?assertEqual(123456789.123456789e123, decode(<<"123456789.123456789e123">>)).
+    ?assertEqual(123456789.123456789e123, decode(<<"123456789.123456789e123">>)),
+
+    %% fractions around and beyond the 7 digits checked at once
+    ?assertEqual(0.1234567, decode(<<"0.1234567">>)),
+    ?assertEqual(0.12345678, decode(<<"0.12345678">>)),
+    ?assertEqual(-65.613616999999977, decode(<<"-65.613616999999977">>)),
+    ?assertEqual(0.30000000000000004, decode(<<"0.30000000000000004">>)),
+    ?assertEqual(1.2345678901234567e-10, decode(<<"1.2345678901234567e-10">>)),
+    ?assertEqual([0.12345678901234567, 1], decode(<<"[0.12345678901234567,1]">>)),
+    ?assertError(unexpected_end, decode(<<"0.12345678901234e">>)),
+    ?assertError({invalid_byte, $a}, json:decode(<<"0.12345678a">>)),
+
+    %% integers around the length accumulated while scanning, and around
+    %% the 64-bit boundaries
+    ?assertEqual(12345678901234567, decode(<<"12345678901234567">>)),
+    ?assertEqual(123456789012345678, decode(<<"123456789012345678">>)),
+    ?assertEqual(-123456789012345678, decode(<<"-123456789012345678">>)),
+    ?assertEqual(1234567890123456789, decode(<<"1234567890123456789">>)),
+    ?assertEqual(-1234567890123456789, decode(<<"-1234567890123456789">>)),
+    ?assertEqual(9223372036854775807, decode(<<"9223372036854775807">>)),
+    ?assertEqual(-9223372036854775808, decode(<<"-9223372036854775808">>)),
+    ?assertEqual(18446744073709551615, decode(<<"18446744073709551615">>)),
+    ?assertEqual(123456789012345678901, decode(<<"123456789012345678901">>)),
+    ?assertEqual(-123456789012345678901, decode(<<"-123456789012345678901">>)),
+    ?assertEqual(1234567890123456789012345678901234567,
+                 decode(<<"1234567890123456789012345678901234567">>)),
+    ?assertEqual(-123456789012345678901234567890123456,
+                 decode(<<"-123456789012345678901234567890123456">>)),
+    ?assertEqual(12345678901234567890123456789012345678,
+                 decode(<<"12345678901234567890123456789012345678">>)),
+    ?assertEqual(-1234567890123456789012345678901234567,
+                 decode(<<"-1234567890123456789012345678901234567">>)),
+    ?assertEqual(100000000000000000000000000000000001,
+                 decode(<<"100000000000000000000000000000000001">>)),
+    ?assertEqual(-100000000000000000000000000000000000,
+                 decode(<<"-100000000000000000000000000000000000">>)),
+    LongInteger = binary:copy(<<"9">>, 500),
+    ?assertEqual(binary_to_integer(LongInteger), decode(LongInteger)),
+    ?assertEqual([1, -22, 333, 1234567890123456789012],
+                 decode(<<"[1,-22,333,1234567890123456789012]">>)),
+
+    %% custom integer decoders still receive the integer as a binary
+    Integer = fun(Bin) -> {integer, Bin} end,
+    ?assertEqual({[{integer, <<"7">>}, {integer, <<"-1234567890123456789">>},
+                   {integer, <<"123456789012345678901">>}, {integer, <<"0">>}], ok, <<>>},
+                 json:decode(<<"[7,-1234567890123456789,123456789012345678901,0]">>, ok,
+                             #{integer => Integer})).
 
 test_decode_strings(_Config) ->
     ?assertError(unexpected_end, decode(<<"\"">>)),
@@ -744,6 +790,14 @@ test_decode_strings(_Config) ->
     ?assertEqual(<<"𝄞"/utf8>>, decode(<<"\"\\ud834\\udd1e\"">>)),
     ?assertEqual(<<"힙힙"/utf8>>, decode(<<"\"\\uD799\\uD799\"">>)),
     ?assertEqual(<<"✔"/utf8>>, decode(<<"\"✔\""/utf8>>)),
+
+    %% escapes directly following each other, and errors right after one
+    ?assertEqual(<<"\n\n\t\\\"">>, decode(<<"\"\\n\\n\\t\\\\\\\"\"">>)),
+    ?assertEqual(<<"éé\n"/utf8>>, decode(<<"\"\\u00e9\\u00e9\\n\"">>)),
+    ?assertEqual(<<"a\n𝄞☃b"/utf8>>, decode(<<"\"a\\n\\ud834\\udd1e\\u2603b\"">>)),
+    ?assertError({invalid_byte, $k}, decode(<<"\"\\n\\k\"">>)),
+    ?assertError({unexpected_sequence, <<"\\uxxxx">>}, decode(<<"\"\\n\\uxxxx\"">>)),
+    ?assertError(unexpected_end, decode(<<"\"\\n\\">>)),
 
     %% test-case with & without \n to test copying & non-copying implementation
 

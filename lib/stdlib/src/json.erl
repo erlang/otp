@@ -89,12 +89,21 @@ standards. The decoder is tested using [JSONTestSuite](https://github.com/nst/JS
     utf8s/0,
     utf8s0/0,
     hex_to_int/4,
-    string/6
+    string/6,
+    integer_value/6,
+    zero_value/1
 ]}).
 
 -include("json.hrl").
 -define(UTF8_ACCEPT, 0).
 -define(UTF8_REJECT, 12).
+
+%% Integers up to this many bytes long (sign included) are accumulated while
+%% their digits are scanned, which covers every 64-bit integer.
+-define(MAX_ACC_INT_LEN, 20).
+%% Longer integers reuse that accumulated prefix when the rest is at most
+%% this many digits, which binary_to_integer/1 converts on its fast path.
+-define(MAX_TAIL_INT_LEN, 17).
 
 %%
 %% Encoding implementation
@@ -835,7 +844,7 @@ steps(N) ->  ["\n", lists:duplicate(N, " ")].
     object_push :: object_push_fun() | undefined,
     object_finish :: object_finish_fun() | undefined,
     float = fun erlang:binary_to_float/1 :: from_binary_fun(),
-    integer = fun erlang:binary_to_integer/1 :: from_binary_fun(),
+    integer :: from_binary_fun() | undefined,
     string :: from_binary_fun() | undefined,
     null = null :: term()
 }).
@@ -1044,7 +1053,7 @@ value(<<Byte, Rest/bits>>, Original, Skip, Acc, Stack, Decode) when ?is_ws(Byte)
 value(<<$0, Rest/bits>>, Original, Skip, Acc, Stack, Decode) ->
     number_zero(Rest, Original, Skip, Acc, Stack, Decode, 1);
 value(<<Byte, Rest/bits>>, Original, Skip, Acc, Stack, Decode) when ?is_1_to_9(Byte) ->
-    number(Rest, Original, Skip, Acc, Stack, Decode, 1);
+    number(Rest, Original, Skip, Acc, Stack, Decode, 1, Byte - $0, 1);
 value(<<$-, Rest/bits>>, Original, Skip, Acc, Stack, Decode) ->
     number_minus(Rest, Original, Skip, Acc, Stack, Decode);
 value(<<$t, Rest/bits>>, Original, Skip, Acc, Stack, Decode) ->
@@ -1084,7 +1093,7 @@ null(_Rest, Original, Skip, Acc, Stack, Decode) ->
 number_minus(<<$0, Rest/bits>>, Original, Skip, Acc, Stack, Decode) ->
     number_zero(Rest, Original, Skip, Acc, Stack, Decode, 2);
 number_minus(<<Num, Rest/bits>>, Original, Skip, Acc, Stack, Decode) when ?is_1_to_9(Num) ->
-    number(Rest, Original, Skip, Acc, Stack, Decode, 2);
+    number(Rest, Original, Skip, Acc, Stack, Decode, 2, Num - $0, -1);
 number_minus(_Rest, Original, Skip, Acc, Stack, Decode) ->
     unexpected(Original, Skip, Acc, Stack, Decode, 1, 0, value).
 
@@ -1093,30 +1102,63 @@ number_zero(<<$., Rest/bits>>, Original, Skip, Acc, Stack, Decode, Len) ->
 number_zero(<<E, Rest/bits>>, Original, Skip, Acc, Stack, Decode, Len) when E =:= $E; E =:= $e ->
     number_exp_copy(Rest, Original, Skip, Acc, Stack, Decode, Len + 1, <<"0">>);
 number_zero(<<>>, Original, Skip, Acc, Stack, Decode, Len) ->
-    Value = (Decode#decode.integer)(<<"0">>),
+    Value = zero_value(Decode),
     unexpected(Original, Skip, Acc, Stack, Decode, Len, 0, {number, Value});
 number_zero(Rest, Original, Skip, Acc, Stack, Decode, Len) ->
-    Value = (Decode#decode.integer)(<<"0">>),
+    Value = zero_value(Decode),
     continue(Rest, Original, Skip+Len, Acc, Stack, Decode, Value).
 
-number(<<Num, Rest/bits>>, Original, Skip, Acc, Stack, Decode, Len) when ?is_0_to_9(Num) ->
-    number(Rest, Original, Skip, Acc, Stack, Decode, Len + 1);
-number(<<$., Rest/bits>>, Original, Skip, Acc, Stack, Decode, Len) ->
+number(<<Num, Rest/bits>>, Original, Skip, Acc, Stack, Decode, Len, Int, Sign)
+  when ?is_0_to_9(Num), Len < ?MAX_ACC_INT_LEN ->
+    number(Rest, Original, Skip, Acc, Stack, Decode, Len + 1, Int * 10 + (Num - $0), Sign);
+number(<<Num, Rest/bits>>, Original, Skip, Acc, Stack, Decode, Len, Int, Sign) when ?is_0_to_9(Num) ->
+    number(Rest, Original, Skip, Acc, Stack, Decode, Len + 1, Int, Sign);
+number(<<$., Rest/bits>>, Original, Skip, Acc, Stack, Decode, Len, _Int, _Sign) ->
     number_frac(Rest, Original, Skip, Acc, Stack, Decode, Len + 1);
-number(<<E, Rest/bits>>, Original, Skip, Acc, Stack, Decode, Len) when E =:= $E; E =:= $e ->
+number(<<E, Rest/bits>>, Original, Skip, Acc, Stack, Decode, Len, _Int, _Sign) when E =:= $E; E =:= $e ->
     Prefix = binary_part(Original, Skip, Len),
     number_exp_copy(Rest, Original, Skip, Acc, Stack, Decode, Len + 1, Prefix);
-number(<<>>, Original, Skip, Acc, Stack, Decode, Len) ->
-    Int = (Decode#decode.integer)(binary_part(Original, Skip, Len)),
-    unexpected(Original, Skip, Acc, Stack, Decode, Len, 0, {number, Int});
-number(Rest, Original, Skip, Acc, Stack, Decode, Len) ->
-    Int = (Decode#decode.integer)(binary_part(Original, Skip, Len)),
-    continue(Rest, Original, Skip+Len, Acc, Stack, Decode, Int).
+number(<<>>, Original, Skip, Acc, Stack, Decode, Len, Int, Sign) ->
+    Value = integer_value(Decode, Original, Skip, Len, Int, Sign),
+    unexpected(Original, Skip, Acc, Stack, Decode, Len, 0, {number, Value});
+number(Rest, Original, Skip, Acc, Stack, Decode, Len, Int, Sign) ->
+    Value = integer_value(Decode, Original, Skip, Len, Int, Sign),
+    continue(Rest, Original, Skip+Len, Acc, Stack, Decode, Value).
+
+integer_value(#decode{integer = undefined}, _Original, _Skip, Len, Int, Sign)
+  when Len =< ?MAX_ACC_INT_LEN ->
+    Sign * Int;
+integer_value(#decode{integer = undefined}, Original, Skip, Len, Int, Sign)
+  when Len - ?MAX_ACC_INT_LEN =< ?MAX_TAIL_INT_LEN ->
+    TailLen = Len - ?MAX_ACC_INT_LEN,
+    Tail = binary_to_integer(binary_part(Original, Skip + ?MAX_ACC_INT_LEN, TailLen)),
+    Sign * (Int * pow10(TailLen) + Tail);
+integer_value(#decode{integer = undefined}, Original, Skip, Len, _Int, _Sign) ->
+    binary_to_integer(binary_part(Original, Skip, Len));
+integer_value(#decode{integer = Fun}, Original, Skip, Len, _Int, _Sign) ->
+    Fun(binary_part(Original, Skip, Len)).
+
+pow10(0) -> 1;
+pow10(N) when N band 1 =:= 0 -> P = pow10(N bsr 1), P * P;
+pow10(N) -> 10 * pow10(N - 1).
+
+zero_value(#decode{integer = undefined}) -> 0;
+zero_value(#decode{integer = Fun}) -> Fun(<<"0">>).
 
 number_frac(<<Byte, Rest/bits>>, Original, Skip, Acc, Stack, Decode, Len) when ?is_0_to_9(Byte) ->
-    number_frac_cont(Rest, Original, Skip, Acc, Stack, Decode, Len + 1);
+    number_frac_digits(Rest, Original, Skip, Acc, Stack, Decode, Len + 1);
 number_frac(_, Original, Skip, Acc, Stack, Decode, Len) ->
     unexpected(Original, Skip, Acc, Stack, Decode, Len, 0, value).
+
+%% Fractions are often long (15-17 significant digits for computed floats),
+%% so runs of 7 digits are skipped at once; the byte loop handles the rest.
+number_frac_digits(Binary, Original, Skip, Acc, Stack, Decode, Len) ->
+    case Binary of
+        <<W:56, Rest/binary>> when ?are_all_digits_swar(W) ->
+            number_frac_digits(Rest, Original, Skip, Acc, Stack, Decode, Len + 7);
+        _ ->
+            number_frac_cont(Binary, Original, Skip, Acc, Stack, Decode, Len)
+    end.
 
 number_frac_cont(<<Byte, Rest/bits>>, Original, Skip, Acc, Stack, Decode, Len) when ?is_0_to_9(Byte) ->
     number_frac_cont(Rest, Original, Skip, Acc, Stack, Decode, Len + 1);
@@ -1234,6 +1276,9 @@ string_ascii(Binary, Original, Skip, Acc, Stack, Decode, Start, Len, SAcc) ->
 -spec string(binary(), binary(), integer(), acc(), stack(), decode(), integer(), integer(), binary()) -> dynamic().
 string(<<Byte, Rest/bits>>, Orig, Skip, Acc, Stack, Decode, Start, Len, SAcc) when ?is_ascii_plain(Byte) ->
     string(Rest, Orig, Skip, Acc, Stack, Decode, Start, Len + 1, SAcc);
+%% A backslash right after the previous escape: nothing to flush.
+string(<<$\\, Rest/bits>>, Orig, Skip, Acc, Stack, Decode, Start, 0, SAcc) ->
+    unescape(Rest, Orig, Skip, Acc, Stack, Decode, Start, 0, SAcc);
 string(<<$\\, Rest/bits>>, Orig, Skip, Acc, Stack, Decode, Start, Len, SAcc) ->
     Part = binary_part(Orig, Skip, Len),
     unescape(Rest, Orig, Skip, Acc, Stack, Decode, Start, Len, <<SAcc/binary, Part/binary>>);
