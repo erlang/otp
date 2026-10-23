@@ -136,8 +136,9 @@ get_cp_opt(Node, Alloc) ->
 erts_mmap(Config) when is_list(Config) ->
     case {os:type(), mmsc_flags()} of
 	{{unix,_}, false} ->
-	    [erts_mmap_do(SCO, SCRPM, SCRFSD)
-	     || SCO <-[true,false], SCRFSD <-[1234,0], SCRPM <- [true,false]];
+            [erts_mmap_do(SCO, SCRPM, SCRFSD, LP)
+             || SCO <-[true,false], SCRFSD <-[1234,0], SCRPM <- [true,false],
+                LP <- [off,on]];
 	{{unix,_}, Flags} ->
 	    {skipped, Flags};
 	{{SkipOs,_},_} ->
@@ -162,7 +163,7 @@ mmsc_flags(Env) ->
             end
     end.
 
-erts_mmap_do(SCO, SCRPM, SCRFSD) ->
+erts_mmap_do(SCO, SCRPM, SCRFSD, LP) ->
     %% We use the number of schedulers + 1 * approx main carriers size
     %% to calculate how large the super carrier has to be
     %% and then use a minimum of 100 for systems with a low amount of
@@ -171,7 +172,8 @@ erts_mmap_do(SCO, SCRPM, SCRFSD) ->
     SCS = max(round((262144 * 6 + 3 * 1048576) * Schldr / 1024 / 1024),100),
     O1 = ["+MMscs" ++ integer_to_list(SCS),
 	"+MMsco" ++ atom_to_list(SCO),
-	"+MMscrpm" ++ atom_to_list(SCRPM)],
+        "+MMscrpm" ++ atom_to_list(SCRPM),
+        "+MMlp" ++ atom_to_list(LP)],
     Opts = case SCRFSD of
 	       0 -> O1;
 	       _ -> O1 ++ ["+MMscrfsd"++integer_to_list(SCRFSD)]
@@ -195,13 +197,44 @@ erts_mmap_do(SCO, SCRPM, SCRFSD) ->
                     {false, {os,_}} -> ok
                 end,
 
+                case SCRPM of
+                    true -> erts_mmap_check_large_pages(SCS, LP);
+                    false -> ok
+                end,
                 exit(ok)
         end,
 
     {Pid, MRef} = spawn_monitor(Node, F),
     Result = receive {'DOWN', MRef, process, Pid, Rslt} -> Rslt end,
     peer:stop(Peer),
-    Result.
+    ok = Result.
+
+erts_mmap_check_large_pages(SCS, LP) ->
+    Arch = erlang:system_info(system_architecture),
+    SupportedArch = lists:prefix("aarch64-", Arch)
+        orelse lists:prefix("x86_64-", Arch),
+    case os:type() =:= {unix,linux} andalso SupportedArch andalso
+        filelib:is_file("/sys/kernel/mm/transparent_hugepage/hpage_pmd_size") of
+        true ->
+            {ok, Smaps} = file:read_file("/proc/self/smaps"),
+            Mappings = re:split(Smaps, "(?m)(?=^[0-9a-f]+-[0-9a-f]+ )",
+                                [{return,binary}]),
+            %% The kernel can merge a super carrier with adjacent mappings.
+            Flags = [F || Mapping <- Mappings,
+                          {match,[Size]} <-
+                              [re:run(Mapping, "^Size:[ \\t]+([0-9]+)",
+                                      [multiline,{capture,[1],list}])],
+                          list_to_integer(Size) >= SCS * 1024,
+                          {match,[F]} <-
+                              [re:run(Mapping, "^VmFlags:[ \\t]+([^\\n]*)",
+                                      [multiline,{capture,[1],binary}])]],
+            ?assertNotEqual([], Flags),
+            [?assertEqual(LP =:= on,
+                          lists:member(<<"hg">>, binary:split(F, <<" ">>, [global])))
+             || F <- Flags];
+        false ->
+            ok
+    end.
 
 
 %% Test erlang:system_flag(erts_alloc, ...)

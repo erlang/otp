@@ -267,6 +267,13 @@ The following letters are used for the allocators:
   costly to allocate or can only be allocated on a best-effort basis.  Currently
   only affects memory segments allocated in a super carrier. Defaults to `off`.
 
+  On Linux/AArch64, physically reserved super carriers use 2 MiB alignment
+  when the kernel's per-size policy enables multi-size transparent huge pages
+  of that size. The `inherit` policy follows the global transparent huge page
+  policy. If the per-size policy is unavailable or disabled, normal super
+  carrier alignment is used. Actual large page allocation is controlled by the
+  kernel.
+
 - **`+MMsco true|false`{: #MMsco }** - Sets [super carrier](erts_alloc.md#MMscs)
   only flag. Defaults to `true`. When a super carrier is used and this flag is
   `true`, `mseg_alloc` only creates carriers in the super carrier. Notice that
