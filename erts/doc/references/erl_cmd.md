@@ -806,6 +806,30 @@ behavior of earlier flags.
 
   Since: OTP 26.0
 
+- **`+JMthp true|false`{: #+JMthp }** - Requests transparent huge pages for
+  single-mapped JIT code on Linux/AArch64. The default is `false`.
+
+  This flag does not enable single mapping. Use it with
+  [`+JMsingle true`](#%2BJMsingle) or [`+JPperf`](#%2BJPperf) to request
+  transparent huge pages for JIT code. Dual mappings remain unchanged.
+
+  AsmJit detects a supported large page size. If it fits the allocator block
+  size and ERTS can establish a safe transparent huge page policy, JIT memory
+  is aligned to that size and advised with `MADV_HUGEPAGE`. A safe policy
+  enables that size and disables every larger size.
+  The per-size policy is honored, including inheritance from the global
+  policy. Kernels before Linux 6.8 have no per-size policy; there, the detected
+  size must be the PMD size and the global policy must enable transparent
+  huge pages.
+  Otherwise, including when a policy cannot be read or recognized, or when the
+  aligned mapping cannot be created, JIT memory is mapped without this advice.
+  ERTS checks the policy at startup for super carriers and JIT memory;
+  later changes are not observed. The kernel decides the actual page sizes.
+  No reserved HugeTLB pages are required.
+
+  This flag is independent of [`+MMlp`](erts_alloc.md#MMlp), which controls
+  large pages for ERTS super carriers.
+
 - **`+L`** - Prevents loading information about source filenames and line
   numbers. This saves some memory, but exceptions do not contain information
   about the filenames and line numbers.

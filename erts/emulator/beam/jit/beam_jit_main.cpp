@@ -48,6 +48,7 @@ char etrs_jit_perf_directory[MAXPATHLEN] = "/tmp";
 #endif
 /* Force use of single-mapped RWX memory for JIT code */
 int erts_jit_single_map = 0;
+int erts_jit_use_thp = 0;
 
 /*
  * Special Beam instructions.
@@ -225,6 +226,15 @@ static JitAllocator *pick_allocator() {
 
     if (allocator == nullptr) {
         params.options &= ~JitAllocatorOptions::kUseDualMapping;
+#if defined(HAVE_LINUX_THP) && defined(__aarch64__)
+        if (erts_jit_use_thp) {
+            const size_t large_page_size = VirtMem::large_page_size();
+            if (large_page_size <= params.block_size &&
+                erts_sys_is_thp_size_safe(large_page_size)) {
+                params.options |= JitAllocatorOptions::kUseTransparentHugePages;
+            }
+        }
+#endif
         std::tie(allocator, single_mapped) = create_allocator(params);
     }
 
