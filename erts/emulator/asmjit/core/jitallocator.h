@@ -89,6 +89,13 @@ enum class JitAllocatorOptions : uint32_t {
   //! allocation would be the same as a minimum large page when large pages are enabled and can be allocated.
   kAlignBlockSizeToLargePage = 0x00000040u,
 
+  //! Request transparent huge pages for single mappings on Linux/AArch64.
+  //!
+  //! Uses anonymous mappings rather than explicit large pages. This is a hint; allocation falls back to
+  //! regular pages when unavailable or unsuccessful. Dual mappings are unchanged. When combined with
+  //! \ref kUseLargePages, transparent huge pages take precedence.
+  kUseTransparentHugePages = 0x00000080u,
+
   //! Use a custom fill pattern, must be combined with `kFlagFillUnusedMemory`.
   kCustomFillPattern = 0x10000000u
 };
