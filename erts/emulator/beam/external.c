@@ -2884,21 +2884,21 @@ enc_atom(ErtsAtomCacheMap *acmp, Eterm atom, byte *ep, Uint64 dflags)
 
     if (dflags & DFLAG_ETS_COMPRESSED) {
 	Uint aval = atom_val(atom);
-	if (aval < (1 << 16)) {
+        if (aval < (1 << 16)) {
 	    *ep++ = ATOM_INTERNAL_REF2;
 	    put_int16(aval, ep);
-	    return ep + 2;
+            return ep + 2;
 	}
-	else if (aval < (1 << 24)) {
-	    *ep++ = ATOM_INTERNAL_REF3;
-	    put_int24(aval, ep);
-	    return ep + 3;
-	}
-	/* The index does not fit in ATOM_INTERNAL_REF3, which happens when
-	 * +t allows more than 2^24 atoms. Encode the atom by name below;
-	 * there is no atom cache for ETS. Must agree with
-	 * encode_atom_size(). */
-	ASSERT(acmp == NULL);
+        else if (aval < (1 << 24)) {
+            *ep++ = ATOM_INTERNAL_REF3;
+            put_int24(aval, ep);
+            return ep + 3;
+        }
+        /* The index does not fit in ATOM_INTERNAL_REF3, which happens when
+         * +t allows more than 2^24 atoms. Encode the atom by name below;
+         * there is no atom cache for ETS. Must agree with
+         * encode_atom_size(). */
+        ASSERT(acmp == NULL);
     }
 
     /*
