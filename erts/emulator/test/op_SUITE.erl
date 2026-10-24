@@ -26,7 +26,8 @@
          bsl_bsr/1,logical/1,t_not/1,relop_simple/1,relop/1,
          complex_relop/1,unsafe_fusing/1,
          range_tests/1,combined_relops/1,typed_relop/1,
-         term_equivalence/1,is_in_range/1]).
+         term_equivalence/1,is_in_range/1,
+         huge_bitstring_relop/1]).
 
 -import(lists, [foldl/3,flatmap/2]).
 
@@ -38,7 +39,7 @@ all() ->
     [bsl_bsr, logical, t_not, relop_simple, relop,
      complex_relop, unsafe_fusing, range_tests,
      combined_relops, typed_relop, term_equivalence,
-     is_in_range].
+     is_in_range, huge_bitstring_relop].
 
 %% Test the bsl and bsr operators.
 bsl_bsr(Config) when is_list(Config) ->
@@ -1163,6 +1164,26 @@ compare_bitstring({binary, _Res, Data}) ->
     {binary, Data};
 compare_bitstring({text, _Res, Data}) ->
     {text, Data}.
+
+huge_bitstring_relop(Config) when is_list(Config) ->
+    case erlang:system_info(wordsize) of
+        8 ->
+            Huge = <<0:(id(1 bsl 32))>>,
+            not_empty = parse(id(Huge)),
+            not_empty = parse_ne(id(Huge)),
+            empty = parse(id(<<>>)),
+            empty = parse_ne(id(<<>>)),
+            ok;
+        4 ->
+            {skip, "32-bit architecture"}
+    end.
+
+parse(<<>>) -> empty;
+parse(_Rest) -> not_empty.
+
+%% The second test keeps the compiler from turning =/= into is_eq_exact.
+parse_ne(Rest) when Rest =/= <<>>, Rest =/= done -> not_empty;
+parse_ne(_Rest) -> empty.
 
 classify_value(N) when is_integer(N), N < 0 ->
     negative;
