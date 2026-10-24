@@ -125,6 +125,97 @@ atom_cmp(Atom* tmpl, Atom* obj)
     return 1;
 }
 
+/*
+ * Lock-free lookup of an existing atom.
+ *
+ * Atoms are never removed, so an Atom that has been linked into the hash
+ * table stays valid for the life of the VM, and its name, length and hash
+ * value never change. Writers, which hold the write lock, publish a fully
+ * initialised Atom (hash_put), make its index-table slot visible before
+ * its index (index_put_entry), publish a grown bucket vector before the
+ * new shift (rehash), and never free an old bucket vector
+ * (atom_meta_free). A reader can therefore walk a chain without taking
+ * the lock.
+ *
+ * A hit is always correct. A miss is not: an atom whose insertion is in
+ * progress (index still -1), or an entry on a chain that a concurrent
+ * rehash is relinking, can be missed. Callers confirm a miss under the
+ * lock. Without this, every existing-atom lookup takes the read side of
+ * the table's rwlock, and each new-atom insertion (write side) stalls
+ * lookups on all schedulers while it drains and holds the lock.
+ *
+ * Returns the atom index, -1 for a miss, or -2 if the walk gave up on a
+ * long chain (the caller then uses the read-locked lookup, as before).
+ */
+#define ATOM_LOCKFREE_MAX_STEPS 32
+
+static ERTS_INLINE int
+atom_get_index_lockfree(Atom *tmpl)
+{
+    Hash *h = &erts_atom_table.htable;
+    HashValue hval = atom_hash(tmpl);
+    HashBucket **vec;
+    HashBucket *b;
+    int shift, steps;
+
+    shift = *(volatile int *) &h->shift;
+    ERTS_THR_READ_MEMORY_BARRIER;
+    vec = *(HashBucket ** volatile *) &h->bucket;
+    ERTS_THR_DATA_DEPENDENCY_READ_MEMORY_BARRIER;
+    b = *(HashBucket * volatile *) &vec[hash_slot_from_shift(shift, hval)];
+
+    for (steps = 0; b != NULL; steps++) {
+        if (steps == ATOM_LOCKFREE_MAX_STEPS) {
+            return -2;
+        }
+        ERTS_THR_DATA_DEPENDENCY_READ_MEMORY_BARRIER;
+        if (b->hvalue == hval && atom_cmp(tmpl, (Atom *) b) == 0) {
+            int ix = *(volatile int *) &((IndexSlot *) b)->index;
+            /* The slot for ix was published before ix (index_put_entry). */
+            ERTS_THR_READ_MEMORY_BARRIER;
+            return ix;
+        }
+        b = *(HashBucket * volatile *) &b->next;
+    }
+    return -1;
+}
+
+/*
+ * Bucket vectors replaced by a rehash are kept, because a lock-free
+ * reader may still be walking one. Each vector is allocated behind a
+ * small header that links it into atom_bucket_vectors, so retired vectors
+ * stay reachable (leak checkers see them as in use), and their size is
+ * reported by atom_table_sz(). The vectors grow geometrically, so the
+ * retired memory is less than the current vector (8 MB at a million
+ * atoms); the atom table never shrinks. Called with the write lock held,
+ * or during init.
+ */
+typedef struct atom_bucket_vector {
+    struct atom_bucket_vector *next;
+    Uint size;                  /* bytes after this header */
+} AtomBucketVector;
+
+static AtomBucketVector *atom_bucket_vectors;
+static Uint atom_retired_vector_bytes;
+
+static void *
+atom_meta_alloc(int type, size_t size)
+{
+    AtomBucketVector *v = erts_alloc(type, sizeof(AtomBucketVector) + size);
+    v->size = size;
+    v->next = atom_bucket_vectors;
+    atom_bucket_vectors = v;
+    return (void *) (v + 1);
+}
+
+static void
+atom_meta_free(int type, void *ptr)
+{
+    AtomBucketVector *v = ((AtomBucketVector *) ptr) - 1;
+    (void) type;
+    atom_retired_vector_bytes += sizeof(AtomBucketVector) + v->size;
+}
+
 
 static Atom*
 atom_alloc(Atom* tmpl)
@@ -289,13 +380,18 @@ erts_atom_put_index(const byte *name, Sint len, ErtsAtomEncoding enc, int trunc)
 
     a.len = tlen;
     a.u.name = (byte *) text;
-    atom_read_lock();
-    aix = index_get(&erts_atom_table, (void*) &a);
-    atom_read_unlock();
+    aix = atom_get_index_lockfree(&a);
+    if (aix == -2) {
+        atom_read_lock();
+        aix = index_get(&erts_atom_table, (void*) &a);
+        atom_read_unlock();
+    }
     if (aix >= 0) {
 	/* Already in table no need to verify it */
 	return aix;
     }
+    /* Probably a new atom. index_put() below looks again under the write
+     * lock, so an atom missed by the lock-free lookup is found there. */
 
     if (enc == ERTS_ATOM_ENC_UTF8) {
 	/* Need to verify encoding and length */
@@ -367,13 +463,13 @@ int atom_table_size(void)
     return ret;
 }
 
-int atom_table_sz(void)
+Uint atom_table_sz(void)
 {
-    int ret;
+    Uint ret;
     int lock = !ERTS_IS_CRASH_DUMPING;
     if (lock)
 	atom_read_lock();
-    ret = index_table_sz(&erts_atom_table);
+    ret = (Uint) index_table_sz(&erts_atom_table) + atom_retired_vector_bytes;
     if (lock)
 	atom_read_unlock();
     return ret;
@@ -424,12 +520,18 @@ erts_atom_get(const char *name, Uint len, Eterm* ap, ErtsAtomEncoding enc)
         a.len = (Sint16)len;
         a.u.name = (byte*)name;
         break;
+    default:
+        ERTS_INTERNAL_ERROR("invalid atom encoding");
     }
 
-    atom_read_lock();
-    i = index_get(&erts_atom_table, (void*) &a);
+    i = atom_get_index_lockfree(&a);
+    if (i < 0) {
+        /* A lock-free miss is not authoritative; confirm it. */
+        atom_read_lock();
+        i = index_get(&erts_atom_table, (void*) &a);
+        atom_read_unlock();
+    }
     res = i < 0 ? 0 : (*ap = make_atom(i), 1);
-    atom_read_unlock();
 
     return res;
 }
@@ -453,6 +555,7 @@ init_atom_table(void)
 {
     HashFunctions f;
     int i;
+    int size;
     Atom a;
     erts_rwmtx_opt_t rwmtx_opt = ERTS_RWMTX_OPT_DEFAULT_INITER;
 
@@ -470,12 +573,22 @@ init_atom_table(void)
     f.cmp  = (HCMP_FUN) atom_cmp;
     f.alloc = (HALLOC_FUN) atom_alloc;
     f.free = (HFREE_FUN) atom_free;
-    f.meta_alloc = (HMALLOC_FUN) erts_alloc;
-    f.meta_free = (HMFREE_FUN) erts_free;
+    f.meta_alloc = (HMALLOC_FUN) atom_meta_alloc;
+    f.meta_free = (HMFREE_FUN) atom_meta_free;
     f.meta_print = (HMPRINT_FUN) erts_print;
 
+    /* Size the hash for the expected number of atoms (+zatis), so that it
+     * does not rehash before the table holds that many. Rehashing takes
+     * the write lock for the whole table. */
+    size = ATOM_SIZE;
+    if (erts_atom_table_initial_size > size) {
+        size = erts_atom_table_initial_size < erts_atom_table_size
+            ? erts_atom_table_initial_size
+            : erts_atom_table_size;
+    }
+
     erts_index_init(ERTS_ALC_T_ATOM_TABLE, &erts_atom_table,
-		    "atom_tab", ATOM_SIZE, erts_atom_table_size, f);
+                    "atom_tab", size, erts_atom_table_size, f);
 
     /* Ordinary atoms. a is a template for creating an entry in the atom table */
     for (i = 0; erl_atom_names[i] != 0; i++) {
