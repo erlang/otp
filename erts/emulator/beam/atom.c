@@ -555,6 +555,7 @@ init_atom_table(void)
 {
     HashFunctions f;
     int i;
+    int size;
     Atom a;
     erts_rwmtx_opt_t rwmtx_opt = ERTS_RWMTX_OPT_DEFAULT_INITER;
 
@@ -576,8 +577,18 @@ init_atom_table(void)
     f.meta_free = (HMFREE_FUN) atom_meta_free;
     f.meta_print = (HMPRINT_FUN) erts_print;
 
+    /* Size the hash for the expected number of atoms (+zatis), so that it
+     * does not rehash before the table holds that many. Rehashing takes
+     * the write lock for the whole table. */
+    size = ATOM_SIZE;
+    if (erts_atom_table_initial_size > size) {
+        size = erts_atom_table_initial_size < erts_atom_table_size
+            ? erts_atom_table_initial_size
+            : erts_atom_table_size;
+    }
+
     erts_index_init(ERTS_ALC_T_ATOM_TABLE, &erts_atom_table,
-		    "atom_tab", ATOM_SIZE, erts_atom_table_size, f);
+                    "atom_tab", size, erts_atom_table_size, f);
 
     /* Ordinary atoms. a is a template for creating an entry in the atom table */
     for (i = 0; erl_atom_names[i] != 0; i++) {

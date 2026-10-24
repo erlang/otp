@@ -30,6 +30,9 @@
 #define MAX_ATOM_SZ_FROM_LATIN1 (2*MAX_ATOM_CHARACTERS)
 #define MAX_ATOM_SZ_LIMIT (4*MAX_ATOM_CHARACTERS) /* theoretical byte limit */
 #define ATOM_LIMIT (1024*1024)
+/* Upper bound for +zatis. It keeps the initial bucket vector (at most
+ * 2^27 slots) and the hash thresholds within int arithmetic. */
+#define MAX_ATOM_TABLE_INITIAL_SIZE (1 << 27)
 #define MIN_ATOM_TABLE_SIZE 8192
 #define ATOM_BAD_ENCODING_ERROR -1
 #define ATOM_MAX_CHARS_ERROR -2
