@@ -308,7 +308,7 @@ handle_userauth_request(#ssh_msg_userauth_request{user = User,
         end,
 
     case
-        pre_verify_sig(User, KeyBlob, Ssh)
+        pre_verify_sig(User, BAlg, KeyBlob, Ssh)
     of
 	true ->
 	    {not_authorized, {User, undefined},
@@ -553,9 +553,9 @@ get_password_option(Opts, User) ->
 	false -> ?GET_OPT(password, Opts)
     end.
 
-pre_verify_sig(User, KeyBlob,  #ssh{opts=Opts}) ->
+pre_verify_sig(User, AlgBin, KeyBlob, #ssh{opts=Opts}) ->
     try
-	Key = ssh_message:ssh2_pubkey_decode(KeyBlob), % or exception
+        {_Alg, Key} = decode_public_key(AlgBin, KeyBlob, Opts),
         ssh_transport:call_KeyCb(is_auth_key, [Key, User], Opts)
     catch
 	_:_ ->
@@ -564,21 +564,28 @@ pre_verify_sig(User, KeyBlob,  #ssh{opts=Opts}) ->
 
 verify_sig(SessionId, User, Service, AlgBin, KeyBlob, SigWLen, #ssh{opts=Opts} = Ssh) ->
     try
-        Alg = binary_to_list(AlgBin),
-        true = lists:member(list_to_existing_atom(Alg), 
-                            proplists:get_value(public_key,
-                                                ?GET_OPT(preferred_algorithms,Opts))),
-        Key = ssh_message:ssh2_pubkey_decode(KeyBlob), % or exception
+        {Alg, Key} = decode_public_key(AlgBin, KeyBlob, Opts),
         true = ssh_transport:call_KeyCb(is_auth_key, [Key, User], Opts),
-        PlainText = build_sig_data(SessionId, User, Service, KeyBlob, Alg),
+        PlainText = build_sig_data(SessionId, User, Service, KeyBlob,
+                                   binary_to_list(AlgBin)),
         <<?UINT32(AlgSigLen), AlgSig:AlgSigLen/binary>> = SigWLen,
-        <<?UINT32(AlgLen), _Alg:AlgLen/binary,
+        <<?UINT32(AlgLen), AlgBin:AlgLen/binary,
           ?UINT32(SigLen), Sig:SigLen/binary>> = AlgSig,
-        ssh_transport:verify(PlainText, list_to_existing_atom(Alg), Sig, Key, Ssh)
+        ssh_transport:verify(PlainText, Alg, Sig, Key, Ssh)
     catch
 	_:_ ->
 	    false
     end.
+
+
+decode_public_key(AlgBin, KeyBlob, Opts) ->
+    Alg = binary_to_existing_atom(AlgBin, latin1),
+    true = lists:member(Alg,
+                        proplists:get_value(public_key,
+                                            ?GET_OPT(preferred_algorithms, Opts))),
+    <<?UINT32(KeyAlgLen), KeyAlgBin:KeyAlgLen/binary, _/binary>> = KeyBlob,
+    KeyAlgBin = atom_to_binary(key_alg(Alg), latin1),
+    {Alg, ssh_message:ssh2_pubkey_decode(KeyBlob)}.
 
 build_sig_data(SessionId, User, Service, KeyBlob, Alg) ->
     Sig = [?binary(SessionId),
