@@ -88,16 +88,19 @@ if [ "$1" = "win64" ]; then
     AMD64DIR=true
     VCREDIST=vcredist_x64
     VCREDIST2=vcredist.x64
+    VCREDIST3=vc_redist.x64
     COMPONENTS="cl amd64 bin vc"
 elif [ "$1" = "win32" ]; then
     AMD64DIR=false
     VCREDIST=vcredist_x86
     VCREDIST2=vcredist.x86
+    VCREDIST3=vc_redist.x86
     COMPONENTS="cl bin vc"
 elif [ "$1" = "arm64" ]; then
     AMD64DIR=false
     VCREDIST=vcredist_arm64
     VCREDIST2=vcredist.arm64
+    VCREDIST3=vc_redist.arm64
 else
     echo "TARGET argument should win32, win64 or arm64"
     exit 2
@@ -110,6 +113,12 @@ if [ x"$VCToolsRedistDir" != x"" ]; then
 	exit 0
     fi
     File="$VCToolsRedistDir/$VCREDIST2.exe"
+    if [ -r "$File" ]; then
+	echo "$File"
+	exit 0
+    fi
+    # Visual Studio 2017 and later
+    File="$VCToolsRedistDir/$VCREDIST3.exe"
     if [ -r "$File" ]; then
 	echo "$File"
 	exit 0

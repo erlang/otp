@@ -67,6 +67,10 @@ ZSTD_CFLAGS += -MMD -MP
 # Set VISIBLE's to empty to NOT export any symbols for dynamic linking
 ZSTD_CFLAGS += -DZSTDLIB_VISIBLE= -DZSTDERRORLIB_VISIBLE=
 
+ifeq ($(TARGET)-$(ARCH), win32-arm64)
+ZSTD_CFLAGS += -DNO_PREFETCH
+endif
+
 ifeq ($(TARGET), win32)
 $(ZSTD_LIBRARY): $(ZSTD_OBJS)
 	$(V_AR) -out:$@ $(ZSTD_OBJS)
