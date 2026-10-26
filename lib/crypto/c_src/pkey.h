@@ -46,6 +46,7 @@ struct pkey_type_t {
 #endif
     } sign;
     const bool allow_seed;
+    const bool allow_context_string;
 };
 
 struct pkey_type_t* get_pkey_type(ERL_NIF_TERM alg_atom);
