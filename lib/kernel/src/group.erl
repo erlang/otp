@@ -182,14 +182,27 @@ init(internal, [Shell, Options], State = #state{ dumb = Dumb }) ->
 whereis_shell() ->
     case node(group_leader()) of
         Node when Node =:= node() ->
-            case user_drv:whereis_group() of
-                undefined -> undefined;
-                GroupPid ->
-                    {dictionary, Dict} = erlang:process_info(GroupPid, dictionary),
-                    proplists:get_value(shell, Dict)
+            %% Called either from within a group (e.g. by an expand_fun),
+            %% from a process in its session, or from elsewhere
+            case get(shell) of
+                undefined ->
+                    case shell_of(group_leader()) of
+                        undefined -> shell_of(user_drv:whereis_group());
+                        Shell -> Shell
+                    end;
+                Shell ->
+                    Shell
             end;
         OtherNode ->
             erpc:call(OtherNode, group, whereis_shell, [])
+    end.
+
+shell_of(undefined) ->
+    undefined;
+shell_of(GroupPid) ->
+    case erlang:process_info(GroupPid, {dictionary, shell}) of
+        {{dictionary, shell}, Shell} -> Shell;
+        undefined -> undefined
     end.
 
 %% start_shell(Shell)
