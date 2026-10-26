@@ -175,7 +175,7 @@ void BeamModuleAssembler::emit_i_nif_padding() {
 
 void BeamGlobalAssembler::emit_i_breakpoint_trampoline_shared() {
     constexpr ssize_t flag_offset =
-            sizeof(ErtsCodeInfo) + BEAM_ASM_FUNC_PROLOGUE_SIZE -
+            sizeof(ErtsCodeInfo) + BEAM_ASM_BP_RETURN_OFFSET -
             offsetof(ErtsCodeInfo, u.metadata.breakpoint_flag);
 
     Label bp_and_nif = a.new_label(), bp_only = a.new_label(),
@@ -239,6 +239,13 @@ void BeamModuleAssembler::emit_i_breakpoint_trampoline() {
      * breakpoint is enabled. */
     a.b(next);
 
+#ifdef ERLANG_FRAME_POINTERS
+    if (erts_frame_layout == ERTS_FRAME_LAYOUT_RA) {
+        /* Keep the breakpoint call at the same offset in both layouts. */
+        a.nop();
+    }
+#endif
+
     if (code_header.is_valid()) {
         a.bl(resolve_fragment(ga->get_i_breakpoint_trampoline_shared(),
                               disp128MB));
@@ -249,6 +256,11 @@ void BeamModuleAssembler::emit_i_breakpoint_trampoline() {
     }
 
     a.bind(next);
+
+#ifdef ERLANG_FRAME_POINTERS
+    /* Keep the full prologue size suitable for aligned inline NIF data. */
+    a.nop();
+#endif
 
     ASSERT((a.offset() - code.label_offset_from_base(current_label)) ==
            BEAM_ASM_FUNC_PROLOGUE_SIZE);

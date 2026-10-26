@@ -66,8 +66,14 @@ void BeamModuleAssembler::emit_return_do(bool set_I) {
 }
 
 void BeamModuleAssembler::emit_move_deallocate_return() {
-    a.ldp(XREG0, a64::x30, a64::Mem(E).post(16));
-    emit_dispatch_return(false);
+    if (ERTS_LIKELY(erts_frame_layout == ERTS_FRAME_LAYOUT_RA)) {
+        a.ldp(XREG0, a64::x30, a64::Mem(E).post(16));
+        emit_dispatch_return(false);
+    } else {
+        ASSERT(erts_frame_layout == ERTS_FRAME_LAYOUT_FP_RA);
+        a.ldr(XREG0, a64::Mem(E));
+        emit_return();
+    }
 }
 
 void BeamModuleAssembler::emit_i_call(const ArgLabel &CallTarget) {
@@ -86,6 +92,12 @@ void BeamModuleAssembler::emit_move_call_last(const ArgYRegister &Src,
                                               const ArgWord &Deallocate) {
     auto src_index = Src.get();
     Sint deallocate = Deallocate.get() * sizeof(Eterm);
+
+    if (ERTS_UNLIKELY(erts_frame_layout == ERTS_FRAME_LAYOUT_FP_RA)) {
+        mov_arg(Dst, Src);
+        emit_i_call_only(CallTarget);
+        return;
+    }
 
     if (src_index == 0 && deallocate == 8) {
         auto dst = init_destination(Dst, TMP1);
@@ -175,6 +187,12 @@ void BeamModuleAssembler::emit_move_call_ext_last(const ArgYRegister &Src,
                                                   const ArgWord &Deallocate) {
     auto src_index = Src.get();
     Sint deallocate = Deallocate.get() * sizeof(Eterm);
+
+    if (ERTS_UNLIKELY(erts_frame_layout == ERTS_FRAME_LAYOUT_FP_RA)) {
+        mov_arg(Dst, Src);
+        emit_i_call_ext_only(Exp);
+        return;
+    }
 
     if (src_index == 0 && deallocate == 8) {
         auto dst = init_destination(Dst, TMP1);
