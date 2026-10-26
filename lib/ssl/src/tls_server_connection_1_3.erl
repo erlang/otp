@@ -432,7 +432,8 @@ do_handle_client_hello(#client_hello{cipher_suites = ClientCiphers,
         %% cipher suite, an (EC)DHE group and key share for key establishment,
         %% and a signature algorithm/certificate pair to authenticate itself to
         %% the client.
-        Cipher = Maybe(select_cipher_suite(HonorCipherOrder, ClientCiphers, ServerCiphers)),
+        Cipher = Maybe(select_cipher_suite(HonorCipherOrder, ClientCiphers,
+                                           ServerCiphers, State1)),
         Groups = Maybe(tls_handshake_1_3:select_common_groups(ServerGroups, ClientGroups)),
         Maybe(validate_client_key_share(ClientGroups,
                                         ClientShares#key_share_client_hello.client_shares)),
@@ -895,6 +896,22 @@ validate_client_key_share([Group | ClientGroups],
     validate_client_key_share(ClientGroups, ClientShares);
 validate_client_key_share([_|ClientGroups], [_|_] = ClientShares) ->
     validate_client_key_share(ClientGroups, ClientShares).
+
+%% RFC 8446 4.1.2/4.1.4: on the post-HelloRetryRequest ClientHello the
+%% server MUST keep the cipher suite it selected in the HRR; otherwise it
+%% MUST abort with "illegal_parameter". 
+select_cipher_suite(_HonorOrder, ClientCiphers, _ServerCiphers,
+                    #state{protocol_specific = #{hello_retry := true},
+                           session = #session{cipher_suite = HRRCipher}}) ->
+    case lists:member(HRRCipher, ClientCiphers) of
+        true ->
+            {ok, HRRCipher};
+        false ->
+            {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER,
+                               cipher_suite_changed_in_second_client_hello)}
+    end;
+select_cipher_suite(HonorOrder, ClientCiphers, ServerCiphers, _State) ->
+    select_cipher_suite(HonorOrder, ClientCiphers, ServerCiphers).
 
 select_cipher_suite(_, [], _) ->
     {error, ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY, no_suitable_cipher)};
