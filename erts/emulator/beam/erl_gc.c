@@ -1821,9 +1821,9 @@ do_minor(Process *p, ErlHeapFragment *live_hf_end,
     OLD_HTOP(p) = old_htop;
     HIGH_WATER(p) = n_htop;
 
-    if (MSO(p).first || p->wrt_bins) {
-	sweep_off_heap(p, 0);
-    }
+    /* Always sweep so that the virtual heap limits can shrink when the
+     * last off-heap binary has died. */
+    sweep_off_heap(p, 0);
 
 #ifdef HARDDEBUG
     /*
@@ -2056,9 +2056,9 @@ full_sweep_heaps(Process *p,
 
     n_htop = sweep_heaps(n_heap, n_htop, oh, oh_size);
 
-    if (MSO(p).first || p->wrt_bins) {
-	sweep_off_heap(p, 1);
-    }
+    /* Always sweep so that the virtual heap limits can shrink when the
+     * last off-heap binary has died. */
+    sweep_off_heap(p, 1);
 
     if (OLD_HEAP(p) != NULL) {       
 	ERTS_HEAP_FREE(ERTS_ALC_T_OLD_HEAP,
