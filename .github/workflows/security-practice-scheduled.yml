@@ -45,7 +45,7 @@ jobs:
 
           gh issue create \
              --repo ${{ github.repository }} \
-             -- title "Annual Security Review" \
+             --title "Annual Security Review" \
              --label "team:VM,team:PS" \
              --body "## Annual Security Review
 
