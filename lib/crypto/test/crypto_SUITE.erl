@@ -59,7 +59,9 @@
          bad_hmac_name/1,
          bad_mac_name/1,
          bad_sign_name/1,
+         bad_sign_option/1,
          bad_verify_name/1,
+         bad_verify_option/1,
          cipher_info/0,
          cipher_info/1,
          cipher_info_prop_aead_attr/0,
@@ -136,6 +138,16 @@
          sign_verify/0,
          sign_verify/1,
          sign_verify_oqs/1,
+         context_string_combinations/0,
+         context_string_combinations/1,
+         sign_verify_mldsa_mapping/0,
+         sign_verify_mldsa_mapping/1,
+         sign_verify_slh_dsa_mapping/0,
+         sign_verify_slh_dsa_mapping/1,
+         sign_verify_oqs_wrong_alg/0,
+         sign_verify_oqs_wrong_alg/1,
+         context_string_option/0,
+         context_string_option/1,
          ec_key_padding/1,
          use_all_ec_sign_verify/1,
          use_all_ecdh_generate_compute/1,
@@ -266,6 +278,11 @@ all() ->
      mod_pow,
      encapsulate,
      sign_verify_oqs,
+     context_string_combinations,
+     sign_verify_mldsa_mapping,
+     sign_verify_slh_dsa_mapping,
+     sign_verify_oqs_wrong_alg,
+     context_string_option,
      exor,
      rand_uniform,
      rand_threads,
@@ -559,7 +576,9 @@ groups() ->
                                  bad_hmac_name,
                                  bad_cmac_name,
                                  bad_sign_name,
+                                 bad_sign_option,
                                  bad_verify_name,
+                                 bad_verify_option,
                                  api_errors_aead
                                 ]},
 
@@ -1559,9 +1578,13 @@ sign_verify_oqs_do(Alg) ->
 
 %% Supported by OpenSSL 3.5
 quantum_sign_ciphers() ->
-    [mldsa44, mldsa65, mldsa87,
+    mldsa_sign_ciphers() ++ slh_dsa_sign_ciphers().
 
-     slh_dsa_shake_128s,
+mldsa_sign_ciphers() ->
+    [mldsa44, mldsa65, mldsa87].
+
+slh_dsa_sign_ciphers() ->
+    [slh_dsa_shake_128s,
      slh_dsa_shake_128f,
      slh_dsa_sha2_128s,
      slh_dsa_sha2_128f,
@@ -1575,6 +1598,218 @@ quantum_sign_ciphers() ->
      slh_dsa_shake_256f,
      slh_dsa_sha2_256s,
      slh_dsa_sha2_256f].
+
+%%--------------------------------------------------------------------
+context_string_combinations() ->
+    [{doc, "Check that context_string is passed to OpenSSL for ML-DSA and "
+      "SLH-DSA, by signing and verifying with different contexts"}].
+
+context_string_combinations(_Config) ->
+    case openssl_version() of
+        V when V < {3,5,0} ->
+            {skip, "Requires OpenSSL 3.5"};
+        _ ->
+            Supported = crypto:supports(public_keys),
+            [begin
+                 true = lists:member(Alg, Supported),
+                 context_string_combinations_do(Alg)
+             end
+             || Alg <- quantum_sign_ciphers()],
+            ok
+    end.
+
+context_string_combinations_do(Alg) ->
+    io:format("Alg = ~p\n", [Alg]),
+    {Pub, Priv} = crypto:generate_key(Alg, []),
+    Msg = <<"m">>,
+    Ctx = <<"ctx">>,
+    Sign = fun(Opts) -> crypto:sign(Alg, none, Msg, Priv, Opts) end,
+    Verify = fun(Sig, Opts) -> crypto:verify(Alg, none, Msg, Sig, Pub, Opts) end,
+    C = fun(Bin) -> [{context_string, Bin}] end,
+    %% Signed with a context: verifies only with exactly the same context
+    SigCtx = Sign(C(Ctx)),
+    true = Verify(SigCtx, C(Ctx)),
+    false = Verify(SigCtx, []),
+    false = Verify(SigCtx, C(<<>>)),
+    false = Verify(SigCtx, C(<<"Ctx">>)),
+    false = Verify(SigCtx, C(<<"ctX">>)),
+    false = Verify(SigCtx, C(<<"ct">>)),
+    false = Verify(SigCtx, C(<<"ctx", 0>>)),
+    %% Signed without a context: verifies only without (or empty) context
+    SigNone = Sign([]),
+    true = Verify(SigNone, []),
+    true = Verify(SigNone, C(<<>>)),
+    false = Verify(SigNone, C(Ctx)),
+    %% Signed with an empty context: same as no context
+    SigEmpty = Sign(C(<<>>)),
+    true = Verify(SigEmpty, []),
+    false = Verify(SigEmpty, C(Ctx)),
+    ok.
+
+%%--------------------------------------------------------------------
+sign_verify_mldsa_mapping() ->
+    [{doc, "Check that ML-DSA variants are mapped to the right OpenSSL algorithms"}].
+
+sign_verify_mldsa_mapping(_Config) ->
+    case openssl_version() of
+        V when V < {3,5,0} ->
+            {skip, "Requires OpenSSL 3.5"};
+        _ ->
+            Supported = crypto:supports(public_keys),
+            Msg = <<"m">>,
+            %% ML-DSA: privkey, pubkey and signature sizes differ for each parameter set
+            %% so a wrong mapping changes the sizes.
+            MlDsaSizes = mldsa_sizes(),
+            MlDsaAlgs = [Alg || {Alg, _, _, _} <- MlDsaSizes],
+            MlDsaAlgs = mldsa_sign_ciphers(),
+            [begin
+                 true = lists:member(Alg, Supported),
+                 {Pub, Priv} = crypto:generate_key(Alg, []),
+                 Sig = crypto:sign(Alg, none, Msg, {expandedkey, Priv}, []),
+                 {Alg, PrivSize, PubSize, SigSize} = {Alg, byte_size(Priv), byte_size(Pub), byte_size(Sig)},
+                 true = crypto:verify(Alg, none, Msg, Sig, Pub, [])
+             end
+             || {Alg, PrivSize, PubSize, SigSize} <- MlDsaSizes],
+            ok
+    end.
+
+mldsa_sizes() ->
+    %% {Alg, PrivKeySize, PubKeySize, SignatureSize}
+    %% FIPS 204 table 2
+    [{mldsa44, 2560, 1312, 2420},
+     {mldsa65, 4032, 1952, 3309},
+     {mldsa87, 4896, 2592, 4627}].
+
+%%--------------------------------------------------------------------
+sign_verify_slh_dsa_mapping() ->
+    [{doc, "Check that SLH-DSA variants are mapped to the right OpenSSL algorithms"}].
+
+sign_verify_slh_dsa_mapping(_Config) ->
+    case openssl_version() of
+        V when V < {3,5,0} ->
+            {skip, "Requires OpenSSL 3.5"};
+        _ ->
+            Groups = slh_dsa_openssl_groups(),
+            %% Every SLH-DSA algorithm must have a key
+            SlhDsaAlgs = [Alg || Group <- Groups, {Alg, _} <- Group],
+            SlhDsaAlgs = slh_dsa_sign_ciphers(),
+            [sign_verify_slh_dsa_group(Group) || Group <- Groups],
+            ok
+    end.
+
+%% Each Alg in group have same private key size, so we need to check if signature
+%% is verified correctly only when Alg matches the algorithm for which the key was
+%% generated.
+sign_verify_slh_dsa_group(Group) ->
+    Supported = crypto:supports(public_keys),
+    Msg = <<"m">>,
+    Keys = [{KeyAlg, Priv, binary:part(Priv, byte_size(Priv) div 2,
+                                       byte_size(Priv) div 2)}
+            || {KeyAlg, PrivHex} <- Group,
+               Priv <- [binary:decode_hex(PrivHex)]],
+    [begin
+         true = lists:member(Alg, Supported),
+         io:format("Alg = ~p, key generated for ~p\n", [Alg, KeyAlg]),
+         Sig = crypto:sign(Alg, none, Msg, Priv, []),
+         Expected = (Alg =:= KeyAlg),
+         {Alg, KeyAlg, Expected} =
+             {Alg, KeyAlg, crypto:verify(Alg, none, Msg, Sig, Pub, [])}
+     end
+     || {Alg, _} <- Group, {KeyAlg, Priv, Pub} <- Keys],
+    ok.
+
+%% Raw SLH-DSA private keys generated with openssl like this:
+%% openssl genpkey -algorithm Alg -outform DER | tail -c $((4*n)) | \
+%% od -An -v -tx1 | tr -d ' \n' | fold -w 64
+%% where 'n' can be found in FIPS 205 table 2 for each algorithm
+slh_dsa_openssl_groups() ->
+    [[{slh_dsa_shake_128s, %% SLH-DSA-SHAKE-128s
+       <<"48ad1c53b6d5bf80e56adda27f60549f0ed442f64c7c8af7d996d2498b2321b1"
+         "7feacc6d0f84148d7e0445d25c9a97cab8795e93eb30b2aff8e3dc3e8fec3367">>},
+      {slh_dsa_shake_128f, %% SLH-DSA-SHAKE-128f
+       <<"b6046891485fbbde1062725865aed48cc568a75df7f7e1a456934dcab85f1b67"
+         "5e89ef8922bb2d53a8ac61ef227873587ab66cd65125edf1c899035c21ea3d9b">>},
+      {slh_dsa_sha2_128s, %% SLH-DSA-SHA2-128s
+       <<"076b6cbb64337dd800cb6ed551ff6e2e27e3154b60cf4d2c1762a7cab86b5985"
+         "3c332e61021ea6d5b6191888601109f5f339d3bd21c4d6ecbff1b645a3e4828b">>},
+      {slh_dsa_sha2_128f, %% SLH-DSA-SHA2-128f
+       <<"1dc38b9033ae7364ee649e3cd8fd6d3dd039d105f9a0aba787b32394c53c9dc1"
+         "e37359d1b375cfc0698e6b14bf50803a0f4d46a7e5c7d4b01f1d901fea63d4f9">>}],
+     [{slh_dsa_shake_192s, %% SLH-DSA-SHAKE-192s
+       <<"250615ba42c1d6b44fa565af888fe2eb9ec7f7941cd0ef18561a9f3aa334a8a6"
+         "9ccf771fc82fc4b9521e146758c19b490588cf1369760040a1e350bf55a29398"
+         "00cda2a218f53e13989f06b8bb49400644f34fba46a62092d556eef47717531b">>},
+      {slh_dsa_shake_192f, %% SLH-DSA-SHAKE-192f
+       <<"1a2ccab9b8d9fb9eaddf7435f0b991d542f42178fd2bc53b0a2b1cc6e2f0774e"
+         "9aa2e7e9b8e28f100fe92fef4f1c2bed4328d9cc5a9e86023edd9a614d35b889"
+         "eaa70dd4c4c7251cc2b394418ff90d5220ed4c9b3f7bba1895082626a7031e15">>},
+      {slh_dsa_sha2_192s, %% SLH-DSA-SHA2-192s
+       <<"90dc103f7108415a1c1b0ca80717c8b63dca8dd6ae07ea3c5eb98f2df84ffe37"
+         "e82faee1ccaa5b252a49505c7be020b8ae3bd6cd68d7ed503308b2264d5a195a"
+         "c56231794b196b5c030d6f1db1f517e13527be0978888e1d8935540db4af8399">>},
+      {slh_dsa_sha2_192f, %% SLH-DSA-SHA2-192f
+       <<"c36cf5ba16b7c81803d1e3563794a68482959da00f50e12d2423a246de7e7dc2"
+         "1840f7f09df9af32d3490dee490ce2c8accc1d9200f103fe676fb8f04d27dc6d"
+         "95666e87acc916b90c435052949889ea444787a0d170b73507b8be299424f51a">>}],
+     [{slh_dsa_shake_256s, %% SLH-DSA-SHAKE-256s
+       <<"b6383b783826a6011f0cd0293b71ebec5822c357b5b73e1156feb461c252ca7e"
+         "939fbca358632a7877cb02d5c757a91bf3e2f3e6b66d3cd41d3eddebc08b06ed"
+         "78638025d00d760f1231cd3e7b998a7812e01ac3baf38d9c917b7cf5e535bcd7"
+         "8278c2b9b4924f9bfd89dff6748bf70334a0d42f61d321c4d2546e210db5326f">>},
+      {slh_dsa_shake_256f, %% SLH-DSA-SHAKE-256f
+       <<"5ab65fb1aaee48c96f44712e17f8dbbc30e7d9e907239ce7218ebd1e39d19505"
+         "83efbd1641bcf320478157532789e5cc96e8a262ad20d17e65a517885272d7dd"
+         "111b8ba16d64759ab5be99565394c7a816d0c1ad2b9e923cb0647f7bf675e5ec"
+         "6f4f393a28c137f7097a3ce5876aaa2b836b9fd0e79dfcbe22c13e9da56aacb5">>},
+      {slh_dsa_sha2_256s, %% SLH-DSA-SHA2-256s
+       <<"4cf3c2fe978a0630807f989a642c33d40f7e6abcd254944bb6b347d6f5e7a009"
+         "5d4258de38ecf626979387b324b771781a2f86b3dda6a97667f6f633bc57e37a"
+         "aaf924a5f905c2376fd01beb82dfc695433959123aa45e6cad6633251c8a7802"
+         "8de930202502f5560b7cf58603fae971d3edd081712c74fafb6d5f3b0e43636b">>},
+      {slh_dsa_sha2_256f, %% SLH-DSA-SHA2-256f
+       <<"13e59c1581b5ffa7a40abb5e9fcecd58e7737c5e0ad971642d606681a9a3e475"
+         "89c3602594077990952aeb26304c2e552b019dcf2b0c2759e19f4429dfd1c77f"
+         "31b91035a2a374e6bf7ab69b89b1e3a5c5b1638e659b3fd8013c0c959eba80f8"
+         "9c6a349660f6efef22bbe1e520fd4d2542d4d07bd9fdd25597ad7a7d4c998a4b">>}]].
+
+%%--------------------------------------------------------------------
+sign_verify_oqs_wrong_alg() ->
+    [{doc, "Check that an ML-DSA or SLH-DSA signature does not verify with "
+      "any other ML-DSA or SLH-DSA algorithm"}].
+
+sign_verify_oqs_wrong_alg(_Config) ->
+    case openssl_version() of
+        V when V < {3,5,0} ->
+            {skip, "Requires OpenSSL 3.5"};
+        _ ->
+            Supported = crypto:supports(public_keys),
+            Msg = <<"m">>,
+            Signed = [begin
+                          true = lists:member(Alg, Supported),
+                          {Pub, Priv} = crypto:generate_key(Alg, []),
+                          {Alg, Pub, crypto:sign(Alg, none, Msg, Priv, [])}
+                      end
+                      || Alg <- quantum_sign_ciphers()],
+            PubSizes = #{Alg => byte_size(Pub) || {Alg, Pub, _} <- Signed},
+            [begin
+                 io:format("Signed with ~p, verified with ~p\n", [Alg, Alg2]),
+                 sign_verify_oqs_wrong_alg_do(Alg2, maps:get(Alg2, PubSizes),
+                                              Msg, Sig, Pub)
+             end
+             || {Alg, Pub, Sig} <- Signed, {Alg2, _, _} <- Signed, Alg2 =/= Alg],
+            ok
+    end.
+
+%% This only makes sense if the key size is the same between two algorithms, otherwise we get an error
+sign_verify_oqs_wrong_alg_do(Alg, PubSize, Msg, Sig, Pub)
+  when byte_size(Pub) =:= PubSize ->
+    {Alg, false} = {Alg, crypto:verify(Alg, none, Msg, Sig, Pub, [])};
+sign_verify_oqs_wrong_alg_do(Alg, _PubSize, Msg, Sig, Pub) ->
+    try crypto:verify(Alg, none, Msg, Sig, Pub, []) of
+        Result -> ct:fail({Alg, Result})
+    catch
+        error:{_, {"pkey.c", _}, _} -> ok
+    end.
 
 %%--------------------------------------------------------------------
 use_all_ec_sign_verify(_Config) ->
@@ -5518,6 +5753,102 @@ bad_verify_name(_Config) ->
     ?chk_api_name(crypto:verify(foobar, sha, "nothing", <<"nothing">>, <<1:1024>>),
                   error:{_, {"pkey.c",_}, _}).
 
+bad_sign_option(_Config) ->
+    ?chk_api_name(crypto:sign(rsa, sha, "nothing", <<1:1024>>, [{rsa_padding, foobar}]),
+                  error:{badarg,{"pkey.c",_},"Bad value in option rsa_padding"++_}),
+    ?chk_api_name(crypto:sign(rsa, sha, "nothing", <<1:1024>>, [{rsa_pss_saltlen, -3}]),
+                  error:{badarg,{"pkey.c",_},"Bad value in option rsa_pss_saltlen"++_}),
+    ?chk_api_name(crypto:sign(rsa, sha, "nothing", <<1:1024>>, [{foobar, 1}]),
+                  error:{badarg,{"pkey.c",_},"Bad option"++_}),
+    ?chk_api_name(crypto:sign(rsa, sha, "nothing", <<1:1024>>, [foobar]),
+                  error:{badarg,{"pkey.c",_},"Expects only two-tuples in the list"++_}),
+    OnlyMsg = only_supported_options_msg(),
+    ?chk_api_name(crypto:sign(ecdsa, sha, "nothing", <<1:1024>>,
+                              [{rsa_padding, rsa_pkcs1_padding}]),
+                  error:{badarg,{"pkey.c",_},OnlyMsg}).
+
+bad_verify_option(_Config) ->
+    ?chk_api_name(crypto:verify(rsa, sha, "nothing", <<"nothing">>, <<1:1024>>,
+                                [{rsa_padding, foobar}]),
+                  error:{badarg,{"pkey.c",_},"Bad value in option rsa_padding"++_}),
+    ?chk_api_name(crypto:verify(rsa, sha, "nothing", <<"nothing">>, <<1:1024>>,
+                                [{rsa_pss_saltlen, -3}]),
+                  error:{badarg,{"pkey.c",_},"Bad value in option rsa_pss_saltlen"++_}),
+    ?chk_api_name(crypto:verify(rsa, sha, "nothing", <<"nothing">>, <<1:1024>>,
+                                [{foobar, 1}]),
+                  error:{badarg,{"pkey.c",_},"Bad option"++_}),
+    ?chk_api_name(crypto:verify(rsa, sha, "nothing", <<"nothing">>, <<1:1024>>,
+                                [foobar]),
+                  error:{badarg,{"pkey.c",_},"Expects only two-tuples in the list"++_}),
+    OnlyMsg = only_supported_options_msg(),
+    ?chk_api_name(crypto:verify(ecdsa, sha, "nothing", <<"nothing">>, <<1:1024>>,
+                                [{rsa_padding, rsa_pkcs1_padding}]),
+                  error:{badarg,{"pkey.c",_},OnlyMsg}).
+
+%% Options are accepted for ML-DSA and SLH-DSA only when crypto is built
+%% with support for at least one of them (OpenSSL 3.5 or later)
+only_supported_options_msg() ->
+    case pqc_sign_built() of
+        true -> "Only RSA, ML-DSA and SLH-DSA support Options";
+        false -> "Only RSA supports Options"
+    end.
+
+pqc_sign_built() ->
+    case crypto:info_fips() of
+        enabled ->
+            openssl_version() >= {3,5,0};
+        _ ->
+            Supported = crypto:supports(public_keys),
+            lists:any(fun(Alg) -> lists:member(Alg, Supported) end,
+                      quantum_sign_ciphers())
+    end.
+
+context_string_option() ->
+    [{doc, "Validation of the context_string option for ML-DSA and SLH-DSA"}].
+
+context_string_option(_Config) ->
+    case openssl_version() of
+        V when V < {3,5,0} ->
+            {skip, "Requires OpenSSL 3.5"};
+        _ ->
+            [context_string_option_do(Alg) || Alg <- quantum_sign_ciphers()],
+            %% Only ml-dsa and slh-dsa support context
+            Context = <<"a">>,
+            ?chk_api_name(crypto:sign(rsa, sha, "nothing", <<1:1024>>, [{context_string, Context}]),
+                          error:{badarg,{"pkey.c",_},"Bad option"++_}),
+            ?chk_api_name(crypto:verify(rsa, sha, "nothing", <<"nothing">>, <<1:1024>>,
+                                        [{context_string, Context}]),
+                          error:{badarg,{"pkey.c",_},"Bad option"++_}),
+            ?chk_api_name(crypto:verify(rsa, sha, "nothing", <<"nothing">>, <<1:1024>>,
+                                        [{context_string, <<>>}]),
+                          error:{badarg,{"pkey.c",_},"Bad option"++_})
+    end.
+
+context_string_option_do(Alg) ->
+    io:format("Alg = ~p\n", [Alg]),
+    true = lists:member(Alg, crypto:supports(public_keys)),
+    {Pub, Priv} = crypto:generate_key(Alg, []),
+    Msg = "Hejsan",
+    %% Max length of context_string is 255 bytes
+    Max = crypto:strong_rand_bytes(255),
+    MaxSign = crypto:sign(Alg, none, Msg, {expandedkey, Priv},
+                          [{context_string, Max}]),
+    true = crypto:verify(Alg, none, Msg, MaxSign, Pub,
+                         [{context_string, Max}]),
+    %% Too long context, and invalid value in option will fail
+    TooLong = crypto:strong_rand_bytes(256),
+    ?chk_api_name(crypto:sign(Alg, none, Msg, {expandedkey, Priv},
+                              [{context_string, TooLong}]),
+                  error:{badarg,{"pkey.c",_},
+                         "Bad value in option context_string"++_}),
+    ?chk_api_name(crypto:verify(Alg, none, Msg, MaxSign, Pub,
+                                [{context_string, TooLong}]),
+                  error:{badarg,{"pkey.c",_},
+                         "Bad value in option context_string"++_}),
+    ?chk_api_name(crypto:sign(Alg, none, Msg, {expandedkey, Priv},
+                              [{context_string, foobar}]),
+                  error:{badarg,{"pkey.c",_},
+                         "Bad value in option context_string"++_}).
 
 %%%----------------------------------------------------------------
 try_enable_fips_mode(Config) ->

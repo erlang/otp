@@ -184,6 +184,8 @@ ERL_NIF_TERM atom_secret;
 ERL_NIF_TERM atom_ad;
 #endif
 
+ERL_NIF_TERM atom_context_string;
+
 int init_atoms(ErlNifEnv *env) {
     atom_true  = enif_make_atom(env,"true");
     atom_false = enif_make_atom(env,"false");
@@ -338,5 +340,7 @@ int init_atoms(ErlNifEnv *env) {
     atom_secret = enif_make_atom(env,"secret");
     atom_ad = enif_make_atom(env,"ad");
 #endif
+
+    atom_context_string = enif_make_atom(env,"context_string");
     return 1;
 }

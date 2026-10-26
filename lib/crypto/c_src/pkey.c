@@ -29,6 +29,8 @@
 #include "engine.h"
 #include "rsa.h"
 
+#define MAX_CONTEXT_STRING_SIZE 255
+
 typedef struct PKeyCryptOptions {
     const EVP_MD *rsa_mgf1_md;
     ErlNifBinary rsa_oaep_label;
@@ -41,6 +43,8 @@ typedef struct PKeySignOptions {
     const EVP_MD *rsa_mgf1_md;
     int rsa_padding;
     int rsa_pss_saltlen;
+    ErlNifBinary context_string;
+    bool context_string_has_value;
 } PKeySignOptions;
 
 
@@ -93,81 +97,96 @@ struct pkey_type_t pkey_types[] = {
         .name.atom_str = "mldsa44",
         .evp_pkey_id = EVP_PKEY_ML_DSA_44,
         .sign.alg_str = "mldsa44",
-        .allow_seed = true
+        .allow_seed = true,
+        .allow_context_string = true
     },
     {
         .name.atom_str = "mldsa65",
         .evp_pkey_id = EVP_PKEY_ML_DSA_65,
         .sign.alg_str = "mldsa65",
-        .allow_seed = true
+        .allow_seed = true,
+        .allow_context_string = true
     },
     {
         .name.atom_str = "mldsa87",
         .evp_pkey_id = EVP_PKEY_ML_DSA_87,
         .sign.alg_str = "mldsa87",
-        .allow_seed = true
+        .allow_seed = true,
+        .allow_context_string = true
     },
 #endif
 #ifdef HAVE_SLH_DSA
     {
         .name.atom_str = "slh_dsa_shake_128s",
         .evp_pkey_id = EVP_PKEY_SLH_DSA_SHAKE_128S,
-        .sign.alg_str = "SLH-DSA-SHAKE-128s"
+        .sign.alg_str = "SLH-DSA-SHAKE-128s",
+        .allow_context_string = true
     },
     {
         .name.atom_str = "slh_dsa_shake_128f",
         .evp_pkey_id = EVP_PKEY_SLH_DSA_SHAKE_128F,
-        .sign.alg_str = "SLH-DSA-SHAKE-128f"
+        .sign.alg_str = "SLH-DSA-SHAKE-128f",
+        .allow_context_string = true
     },
     {
         .name.atom_str = "slh_dsa_sha2_128s",
         .evp_pkey_id = EVP_PKEY_SLH_DSA_SHA2_128S,
-        .sign.alg_str = "SLH-DSA-SHA2-128s"
+        .sign.alg_str = "SLH-DSA-SHA2-128s",
+        .allow_context_string = true
     },
     {
         .name.atom_str = "slh_dsa_sha2_128f",
         .evp_pkey_id = EVP_PKEY_SLH_DSA_SHA2_128F,
-        .sign.alg_str = "SLH-DSA-SHA2-128f"
+        .sign.alg_str = "SLH-DSA-SHA2-128f",
+        .allow_context_string = true
     },
     {
         .name.atom_str = "slh_dsa_shake_192s",
         .evp_pkey_id = EVP_PKEY_SLH_DSA_SHAKE_192S,
-        .sign.alg_str = "SLH-DSA-SHAKE-192s"
+        .sign.alg_str = "SLH-DSA-SHAKE-192s",
+        .allow_context_string = true
     },
     {
         .name.atom_str = "slh_dsa_shake_192f",
         .evp_pkey_id = EVP_PKEY_SLH_DSA_SHAKE_192F,
-        .sign.alg_str = "SLH-DSA-SHAKE-192f"
+        .sign.alg_str = "SLH-DSA-SHAKE-192f",
+        .allow_context_string = true
     },
     {
         .name.atom_str = "slh_dsa_sha2_192s",
         .evp_pkey_id = EVP_PKEY_SLH_DSA_SHA2_192S,
-        .sign.alg_str = "SLH-DSA-SHA2-192s"
+        .sign.alg_str = "SLH-DSA-SHA2-192s",
+        .allow_context_string = true
     },
     {
         .name.atom_str = "slh_dsa_sha2_192f",
         .evp_pkey_id = EVP_PKEY_SLH_DSA_SHA2_192F,
-        .sign.alg_str = "SLH-DSA-SHA2-192f"
+        .sign.alg_str = "SLH-DSA-SHA2-192f",
+        .allow_context_string = true
     },
     {
         .name.atom_str = "slh_dsa_shake_256s",
         .evp_pkey_id = EVP_PKEY_SLH_DSA_SHAKE_256S,
-        .sign.alg_str = "SLH-DSA-SHAKE-256s"
+        .sign.alg_str = "SLH-DSA-SHAKE-256s",
+        .allow_context_string = true
     },
     {
         .name.atom_str = "slh_dsa_shake_256f",
         .evp_pkey_id = EVP_PKEY_SLH_DSA_SHAKE_256F,
-        .sign.alg_str = "SLH-DSA-SHAKE-256f"
+        .sign.alg_str = "SLH-DSA-SHAKE-256f",
+        .allow_context_string = true
     },
     {
         .name.atom_str = "slh_dsa_sha2_256s",
         .evp_pkey_id = EVP_PKEY_SLH_DSA_SHA2_256S,
-        .sign.alg_str = "SLH-DSA-SHA2-256s"
+        .sign.alg_str = "SLH-DSA-SHA2-256s",
+        .allow_context_string = true
     },
     {
         .name.atom_str = "slh_dsa_sha2_256f",
         .evp_pkey_id = EVP_PKEY_SLH_DSA_SHA2_256F,
-        .sign.alg_str = "SLH-DSA-SHA2-256f"
+        .sign.alg_str = "SLH-DSA-SHA2-256f",
+        .allow_context_string = true
     },
 #endif
 
@@ -409,12 +428,18 @@ static int get_pkey_sign_options(ErlNifEnv *env,
 	opt->rsa_padding = 0;
 	opt->rsa_pss_saltlen = 0;
     }
+    opt->context_string_has_value = false;
 
     if (enif_is_empty_list(env, argv[options_arg_num]))
 	return 1;
 
-    if (argv[algorithm_arg_num] != atom_rsa)
+    if (argv[algorithm_arg_num] != atom_rsa && (pkey_type == NULL || !pkey_type->allow_context_string)) {
+#if defined(HAVE_ML_DSA) || defined(HAVE_SLH_DSA)
+        assign_goto(*err_return, err, EXCP_BADARG_N(env, options_arg_num, "Only RSA, ML-DSA and SLH-DSA support Options"));
+#else
         assign_goto(*err_return, err, EXCP_BADARG_N(env, options_arg_num, "Only RSA supports Options"));
+#endif
+    }
 
     tail = argv[options_arg_num];
     while (enif_get_list_cell(env, tail, &head, &tail)) {
@@ -422,7 +447,7 @@ static int get_pkey_sign_options(ErlNifEnv *env,
             (tpl_arity != 2))
             assign_goto(*err_return, err, EXCP_BADARG_N(env, options_arg_num, "Expects only two-tuples in the list"));
 
-        if (tpl_terms[0] == atom_rsa_mgf1_md) {
+        if (tpl_terms[0] == atom_rsa_mgf1_md && argv[algorithm_arg_num] == atom_rsa) {
             if (!enif_is_atom(env, tpl_terms[1]))
                 assign_goto(*err_return, err, EXCP_BADARG_N(env, options_arg_num, "Atom expected as argument to option rsa_mgf1_md"));
 
@@ -434,7 +459,7 @@ static int get_pkey_sign_options(ErlNifEnv *env,
             
             opt->rsa_mgf1_md = opt_md;
 
-        } else if (tpl_terms[0] == atom_rsa_padding) {
+        } else if (tpl_terms[0] == atom_rsa_padding && argv[algorithm_arg_num] == atom_rsa) {
             if (tpl_terms[1] == atom_rsa_pkcs1_padding) {
                 opt->rsa_padding = RSA_PKCS1_PADDING;
 
@@ -457,10 +482,17 @@ static int get_pkey_sign_options(ErlNifEnv *env,
                 assign_goto(*err_return, err, EXCP_BADARG_N(env, options_arg_num, "Bad value in option rsa_padding"));
             }
 
-        } else if (tpl_terms[0] == atom_rsa_pss_saltlen) {
+        } else if (tpl_terms[0] == atom_rsa_pss_saltlen && argv[algorithm_arg_num] == atom_rsa) {
             if (!enif_get_int(env, tpl_terms[1], &(opt->rsa_pss_saltlen)) ||
                 (opt->rsa_pss_saltlen < -2) )
                 assign_goto(*err_return, err, EXCP_BADARG_N(env, options_arg_num, "Bad value in option rsa_pss_saltlen"));
+
+        } else if (tpl_terms[0] == atom_context_string && pkey_type != NULL && pkey_type->allow_context_string) {
+            if (!enif_inspect_binary(env, tpl_terms[1], &(opt->context_string)) ||
+                (opt->context_string.size > MAX_CONTEXT_STRING_SIZE)) {
+                assign_goto(*err_return, err, EXCP_BADARG_N(env, options_arg_num, "Bad value in option context_string"));
+            }
+            opt->context_string_has_value = true;
 
         } else {
             assign_goto(*err_return, err, EXCP_BADARG_N(env, options_arg_num, "Bad option"));
@@ -770,6 +802,11 @@ ERL_NIF_TERM pkey_sign_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
     struct pkey_type_t *pkey_type = get_pkey_type(argv[0]);
     EVP_PKEY_CTX *ctx = NULL;
     size_t siglen;
+# ifdef HAS_PREFETCH_SIGN_INIT
+    OSSL_PARAM *p = NULL;
+    OSSL_PARAM params[2];
+    int i = 0;
+# endif
 #else
     int len;
     unsigned int siglen;
@@ -833,12 +870,20 @@ ERL_NIF_TERM pkey_sign_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[])
         }
 # ifdef HAS_PREFETCH_SIGN_INIT
         if (pkey_type && pkey_type->sign.alg) {
-            if (EVP_PKEY_sign_message_init(ctx, pkey_type->sign.alg, NULL) != 1)
+            if (sig_opt.context_string_has_value) {
+                params[i++] = OSSL_PARAM_construct_octet_string("context-string", sig_opt.context_string.data, sig_opt.context_string.size);
+                params[i++] = OSSL_PARAM_construct_end();
+                p = params;
+            }
+            if (EVP_PKEY_sign_message_init(ctx, pkey_type->sign.alg, p) != 1)
                 assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_PKEY_sign_message_init"));
         }
         else
 # endif
         {
+            if (sig_opt.context_string_has_value) {
+                assign_goto(ret, err, EXCP_NOTSUP_N(env, 4, "context_string unsupported for this algorithm/provider"));
+            }
             if (EVP_PKEY_sign_init(ctx) != 1) {
                 assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_PKEY_sign_init"));
             }
@@ -1016,6 +1061,11 @@ ERL_NIF_TERM pkey_verify_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]
 #ifdef HAS_EVP_PKEY_CTX
     struct pkey_type_t *pkey_type = get_pkey_type(argv[0]);
     EVP_PKEY_CTX *ctx = NULL;
+# ifdef HAS_PREFETCH_SIGN_INIT
+    OSSL_PARAM *p = NULL;
+    OSSL_PARAM params[2];
+    int i = 0;
+# endif
 #else
     RSA *rsa = NULL;
 # ifdef HAVE_DSA
@@ -1068,12 +1118,20 @@ ERL_NIF_TERM pkey_verify_nif(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]
         }
 # ifdef HAS_PREFETCH_SIGN_INIT
         if (pkey_type && pkey_type->sign.alg) {
-            if (EVP_PKEY_verify_message_init(ctx, pkey_type->sign.alg, NULL) != 1)
+            if (sig_opt.context_string_has_value) {
+                params[i++] = OSSL_PARAM_construct_octet_string("context-string", sig_opt.context_string.data, sig_opt.context_string.size);
+                params[i++] = OSSL_PARAM_construct_end();
+                p = params;
+            }
+            if (EVP_PKEY_verify_message_init(ctx, pkey_type->sign.alg, p) != 1)
                 assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_PKEY_verify_message_init"));
         }
         else
 # endif
         {
+            if (sig_opt.context_string_has_value) {
+                assign_goto(ret, err, EXCP_NOTSUP_N(env, 5, "context_string unsupported for this algorithm/provider"));
+            }
             if (EVP_PKEY_verify_init(ctx) != 1) {
                 assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_PKEY_verify_init"));
             }

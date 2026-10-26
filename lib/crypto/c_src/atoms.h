@@ -182,6 +182,8 @@ extern ERL_NIF_TERM atom_secret;
 extern ERL_NIF_TERM atom_ad;
 #endif
 
+extern ERL_NIF_TERM atom_context_string;
+
 int init_atoms(ErlNifEnv *env);
 
 #endif /* E_ATOMS_H__ */
