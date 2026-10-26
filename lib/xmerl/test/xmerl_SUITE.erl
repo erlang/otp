@@ -60,7 +60,7 @@ groups() ->
        pe_ref1, copyright, testXSEIF, export_simple1, export,
        export_cdata, export_comments,
        default_attrs_bug, xml_ns, scan_splits_string_bug,
-       allow_entities_test]},
+       allow_entities_test, reserved_pi_target, reserved_pi_target_stream]},
      {eventp_tests, [], [sax_parse_and_export]},
      {ticket_tests, [],
       [ticket_5998, ticket_7211, ticket_7214, ticket_7430,
@@ -672,6 +672,60 @@ allow_entities_test(Config) ->
     {'EXIT',{fatal, {{error,entities_not_allowed}, _, _, _}}} =
         (catch xmerl_scan:file(File, [{allow_entities, false}])),
     ok.
+
+reserved_pi_target(_Config) ->
+    Doc = "<?xml version=\"1.0\"?>"
+        "<?xml-model href=\"a.xsd\"?><?XMLfoo?><a/>",
+    {#xmlDocument{content = [#xmlPI{name = 'xml-model', value = "href=\"a.xsd\""},
+                             #xmlPI{name = 'XMLfoo', value = ""},
+                             #xmlElement{name = a}]},
+     []} = xmerl_scan:string(Doc, [{document, true}]),
+    Doc2 = "<?xml version=\"1.0\"?><?xml-stylesheet href=\"a.xsl\"?><a/>",
+    {#xmlDocument{content = [#xmlPI{name = "xml-stylesheet"}, #xmlElement{}]}, []} =
+        xmerl_scan:string(Doc2, [{document, true}]),
+    Doc3 = "<?xml version=\"1.0\"?><?XML-STYLESHEET x?><?xml-stylesheetx?><a/>",
+    {#xmlDocument{content = [#xmlPI{name = 'XML-STYLESHEET', value = "x"},
+                             #xmlPI{name = 'xml-stylesheetx'},
+                             #xmlElement{}]},
+     []} = xmerl_scan:string(Doc3, [{document, true}]),
+    {'EXIT', {fatal, {{invalid_target_name, _}, _, _, _}}} =
+        (catch xmerl_scan:string("<a/><?xml version=\"1.0\"?>", [{quiet, true}])),
+    {'EXIT', {fatal, {{invalid_target_name, _}, _, _, _}}} =
+        (catch xmerl_scan:string("<?xml version=\"1.0\"?><?XmL?><a/>", [{quiet, true}])),
+    ErrorCol =
+        fun(Target) ->
+                {'EXIT', {fatal, {{endtag_does_not_match, _}, _, _, {col, Col}}}} =
+                    (catch xmerl_scan:string("<?" ++ Target ++ " x?><a></b>", [{quiet, true}])),
+                Col
+        end,
+    ExpectedCol = ErrorCol("foo-model"),
+    ExpectedCol = ErrorCol("xml-model"),
+    ExpectedCol = ErrorCol("xfo-model"),
+    StylesheetCol = ErrorCol("foo-stylesheet"),
+    StylesheetCol = ErrorCol("xml-stylesheet"),
+    ok.
+
+reserved_pi_target_stream(_Config) ->
+    {#xmlDocument{content = [#xmlPI{name = 'xml-stylesheetx'}, #xmlElement{name = a}]}, []} =
+        scan_chunks(["<?xml-stylesheet", "x?><a/>"]),
+    {#xmlDocument{content = [#xmlPI{name = "xml-stylesheet", value = "href=\"a\""},
+                             #xmlElement{name = a}]},
+     []} = scan_chunks(["<?xml-style", "sheet href=\"a\"?><a/>"]),
+    {#xmlDocument{content = [#xmlPI{name = "xml-stylesheet", value = "href=\"a\""},
+                             #xmlElement{name = a}]},
+     []} = scan_chunks(["<?xm", "l-stylesheet href=\"a\"?><a/>"]),
+    ok.
+
+scan_chunks(Chunks) ->
+    Cont = fun(Continue, Exception, GlobalState) ->
+                   case xmerl_scan:cont_state(GlobalState) of
+                       [Chunk | Rest] ->
+                           Continue(Chunk, xmerl_scan:cont_state(Rest, GlobalState));
+                       [] ->
+                           Exception(GlobalState)
+                   end
+           end,
+    xmerl_scan:string([], [{continuation_fun, Cont, Chunks}, {document, true}]).
 
 %%======================================================================
 %% Support Functions

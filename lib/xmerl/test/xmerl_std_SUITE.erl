@@ -4953,11 +4953,10 @@ end_per_testcase(_Func,_Config) ->
   {A,_} = xmerl_scan:file(datadir_join(Config,[oasis,"o-p16pass2.xml"]),[{allow_entities, true}]),
   xmerl:export([A],xmerl_test).
 
-'o-p16pass1'(_Config) ->
-%   file:set_cwd(datadir(Config)),
-%   {A,_} = xmerl_scan:file(datadir_join(Config,[oasis,"o-p16pass1.xml"]),[{allow_entities, true}]),
-%   xmerl:export([A],xmerl_test).
-    {skip,["Hard to interpret the meaning of the XML1.0 spec. See section 2.6 and 2.3."]}.
+'o-p16pass1'(Config) ->
+  file:set_cwd(datadir(Config)),
+  {A,_} = xmerl_scan:file(datadir_join(Config,[oasis,"o-p16pass1.xml"]),[{allow_entities, true}]),
+  xmerl:export([A],xmerl_test).
 
 'o-p15pass1'(Config) ->
   file:set_cwd(datadir(Config)),
