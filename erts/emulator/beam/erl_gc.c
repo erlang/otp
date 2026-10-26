@@ -3291,13 +3291,13 @@ sweep_off_heap(Process *p, int fullsweep)
         }
     }
 
+    p->bin_vheap_sz     = next_vheap_size(p, bin_vheap, p->bin_vheap_sz);
     if (fullsweep) {
         ASSERT(p->bin_old_vheap == orig_bin_old_vheap);
         p->bin_old_vheap = 0;
-        p->bin_old_vheap_sz = next_vheap_size(p, MSO(p).overhead,
-                                              p->bin_old_vheap_sz);
+        p->bin_old_vheap_sz = next_vheap_size(p, p->bin_vheap_sz,
+                                              p->bin_vheap_sz);
     }
-    p->bin_vheap_sz     = next_vheap_size(p, bin_vheap, p->bin_vheap_sz);
     MSO(p).overhead     = bin_vheap;
 }
 
