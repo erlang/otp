@@ -997,18 +997,29 @@ offset_string_adjustment(_Time, _Unit, "z") ->
     0;
 offset_string_adjustment(_Time, _Unit, Tz) ->
     [Sign, H1, H2 | MinutesDiff] = Tz,
-    Hour = list_to_integer([H1, H2]),
+    Hour = digits([H1, H2]),
     Min = case MinutesDiff of
               [$:, M1, M2] ->
-                  list_to_integer([M1, M2]);
+                  digits([M1, M2]);
               [] ->
                   0
           end,
-    Adjustment = 3600 * Hour + 60 * Min,
+    Adjustment = offset_seconds(Hour, Min),
     case Sign of
         $- -> -Adjustment;
         $+ -> Adjustment
     end.
+
+offset_seconds(Hour, Min) when is_integer(Hour, 0, 23), is_integer(Min, 0, 59) ->
+    3600 * Hour + 60 * Min.
+
+digits(Digits) ->
+    digits(Digits, 0).
+
+digits([D | Ds], N) when is_integer(D, $0, $9) ->
+    digits(Ds, 10 * N + (D - $0));
+digits([], N) ->
+    N.
 
 local_offset(SystemTime, Unit) ->
     %% Not optimized for special cases.
