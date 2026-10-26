@@ -63,6 +63,13 @@ ASMJIT_API Info info() noexcept;
 [[nodiscard]]
 ASMJIT_API size_t large_page_size() noexcept;
 
+//! Returns 2MB when that transparent huge page size is enabled on Linux/AArch64, or 0 otherwise.
+//!
+//! The per-size policy is used, including inheritance from the global policy. This is separate from
+//! explicit large pages returned by \ref large_page_size().
+[[nodiscard]]
+ASMJIT_API size_t transparent_huge_page_size() noexcept;
+
 //! Virtual memory access and mmap-specific flags.
 enum class MemoryFlags : uint32_t {
   //! No flags.
@@ -150,6 +157,13 @@ enum class MemoryFlags : uint32_t {
   //! regular pages must be done by the user in this case. Higher level API such as \ref JitAllocator provides an
   //! additional mechanism to allocate regular page(s) when large page(s) allocation fails.
   kMMapLargePages = 0x00000200u,
+
+  //! Request anonymous memory aligned for transparent huge pages and advised with `MADV_HUGEPAGE`.
+  //!
+  //! Only supported on Linux/AArch64 for single mappings. The size must be a multiple of
+  //! \ref transparent_huge_page_size(). This does not use `MAP_HUGETLB` or guarantee huge page backing.
+  //! If unavailable or allocation fails, the caller must fall back to regular pages.
+  kMMapTransparentHugePages = 0x00000400u,
 
   //! Not an access flag, only used by `alloc_dual_mapping()` to override the default allocation strategy to always use
   //! a 'tmp' directory instead of "/dev/shm" (on POSIX platforms). Please note that this flag will be ignored if the

@@ -663,20 +663,26 @@ static Error JitAllocator_new_block(JitAllocatorPrivateImpl* impl, JitAllocatorB
   }
   else {
     bool allocate_regular_pages = true;
-    if (Support::test(impl->options, JitAllocatorOptions::kUseLargePages)) {
-      size_t large_page_size = VirtMem::large_page_size();
+    bool use_thp = Support::test(impl->options, JitAllocatorOptions::kUseTransparentHugePages);
+    if (use_thp || Support::test(impl->options, JitAllocatorOptions::kUseLargePages)) {
+      size_t large_page_size = use_thp ? VirtMem::transparent_huge_page_size() : VirtMem::large_page_size();
       bool try_large_page = block_size >= large_page_size || Support::test(impl->options, JitAllocatorOptions::kAlignBlockSizeToLargePage);
 
       // Only proceed if we can actually allocate large pages.
       if (large_page_size && try_large_page) {
         size_t large_block_size = Support::align_up(block_size, large_page_size);
-        Error err = VirtMem::alloc(&virt_mem.rx, large_block_size, mem_flags | VirtMem::MemoryFlags::kMMapLargePages);
+        VirtMem::MemoryFlags page_flags = use_thp ? VirtMem::MemoryFlags::kMMapTransparentHugePages
+                                                : VirtMem::MemoryFlags::kMMapLargePages;
+        Error err = VirtMem::alloc(&virt_mem.rx, large_block_size, mem_flags | page_flags);
 
         // Fallback to regular pages if large page(s) allocation failed.
         if (err == Error::kOk) {
           allocate_regular_pages = false;
           block_size = large_block_size;
-          block_flags |= JitAllocatorBlock::kFlagLargePages;
+          // Transparent huge page advice does not guarantee large page backing.
+          if (!use_thp) {
+            block_flags |= JitAllocatorBlock::kFlagLargePages;
+          }
         }
       }
     }
@@ -1638,6 +1644,31 @@ UNIT(jit_allocator) {
   test_jit_allocator_reset_empty();
   test_jit_allocator_alloc_release();
   test_jit_allocator_query();
+}
+
+UNIT(jit_allocator_thp) {
+  VirtMem::HardenedRuntimeInfo runtime_info = VirtMem::hardened_runtime_info();
+  for (JitAllocatorOptions mapping_option : {JitAllocatorOptions::kNone, JitAllocatorOptions::kUseDualMapping}) {
+    if (mapping_option == JitAllocatorOptions::kUseDualMapping &&
+        !runtime_info.has_flag(VirtMem::HardenedRuntimeFlags::kDualMapping)) {
+      continue;
+    }
+    JitAllocator::CreateParams params;
+    params.options = mapping_option | JitAllocatorOptions::kUseTransparentHugePages;
+    params.block_size = 2u * 1024u * 1024u;
+    JitAllocator allocator(&params);
+    JitAllocator::Span span;
+
+    EXPECT_EQ(allocator.alloc(Out(span), 1024), Error::kOk);
+    EXPECT_NOT_NULL(span.rx());
+    EXPECT_NOT_NULL(span.rw());
+    {
+      VirtMem::ProtectJitReadWriteScope scope(span.rw(), span.size());
+      memset(span.rw(), 0xA5, span.size());
+    }
+    EXPECT_EQ(static_cast<uint8_t*>(span.rx())[span.size() - 1], uint8_t(0xA5));
+    EXPECT_EQ(allocator.release(span.rx()), Error::kOk);
+  }
 }
 #endif // ASMJIT_TEST
 

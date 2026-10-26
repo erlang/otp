@@ -149,10 +149,42 @@ get_page_size(void)
 #endif
 }
 
+#ifdef HAVE_LINUX_THP
+static int
+is_linux_thp_enabled(const char *path, int allow_inherit)
+{
+    FILE *fp;
+    char modes[128];
+    char *result;
+
+    fp = fopen(path, "r");
+    if (fp == NULL)
+        return 0;
+    result = fgets(modes, sizeof(modes), fp);
+    fclose(fp);
+    if (result == NULL)
+        return 0;
+
+    if (allow_inherit && strstr(modes, "[inherit]") != NULL)
+        return is_linux_thp_enabled(
+            "/sys/kernel/mm/transparent_hugepage/enabled", 0);
+
+    return strstr(modes, "[always]") != NULL
+        || strstr(modes, "[madvise]") != NULL;
+}
+#endif
+
 static UWord
 get_large_page_size(void)
 {
-#ifdef HAVE_LINUX_THP
+#if defined(HAVE_LINUX_THP) && defined(__aarch64__)
+    /* On 64 KiB-page kernels the PMD size is 512 MiB. Align for 2 MiB
+     * multi-size THP instead, when that size is enabled. */
+    if (is_linux_thp_enabled(
+            "/sys/kernel/mm/transparent_hugepage/hugepages-2048kB/enabled", 1))
+        return 2*1024*1024;
+    return 0;
+#elif defined(HAVE_LINUX_THP)
     FILE *fp;
     UWord result;
     int matched;
@@ -254,24 +286,7 @@ thr_create_cleanup(void *vtcdp)
     erts_free(ERTS_ALC_T_TMP, tcdp);
 }
 
-#ifdef HAVE_LINUX_THP
-static int
-is_linux_thp_enabled(void)
-{
-    FILE *fp;
-    char always[9], madvise[10], never[8];
-    int matched;
-
-    fp = fopen("/sys/kernel/mm/transparent_hugepage/enabled", "r");
-    if (fp == NULL)
-        return 0;
-    matched = fscanf(fp, "%8s %9s %7s", always, madvise, never);
-    fclose(fp);
-    if (matched != 3 || strcmp("[never]", never) == 0)
-        return 0;
-    return strcmp("[always]", always) != 0 || strcmp("[madvise]", madvise) != 0;
-}
-
+#if defined(HAVE_LINUX_THP) && defined(__x86_64__)
 #define ALIGN_DOWN(x, a) ((void*)(((UWord)(x)) & ~((a) - 1)))
 
 static void
@@ -295,7 +310,8 @@ enable_linux_thp_for_text(void)
      * behavior is set to the default of [madvise].  Check that we are in this
      * mode and exit if we are not.
      */
-    if (is_linux_thp_enabled() == 0)
+    if (!is_linux_thp_enabled(
+            "/sys/kernel/mm/transparent_hugepage/enabled", 0))
         return;
 
     fp = fopen("/proc/self/maps", "r");
@@ -351,7 +367,7 @@ erts_sys_pre_init(void)
     sys_page_size = get_page_size();
     sys_large_page_size = get_large_page_size();
 
-#ifdef HAVE_LINUX_THP
+#if defined(HAVE_LINUX_THP) && defined(__x86_64__)
     enable_linux_thp_for_text();
 #endif
 
