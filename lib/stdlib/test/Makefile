@@ -136,6 +136,7 @@ MODULES= \
 	random_iolist \
 	error_logger_forwarder \
 	maps_SUITE \
+	maps_property_test_SUITE \
 	zstd_SUITE \
 	zzz_SUITE
 
