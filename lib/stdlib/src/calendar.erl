@@ -610,22 +610,22 @@ rfc3339_to_system_time(List, Options) when is_list(List) ->
 rfc3339_to_system_time_bin(
     <<$-, Year0:4/binary, $-, Month0:2/binary, $-, Day0:2/binary, _T,
       Hour0:2/binary, $:, Min0:2/binary, $:, Sec0:2/binary, TimeStr/binary>> = DateTimeBin, Options) ->
-    Hour = binary_to_integer(Hour0),
-    Min = binary_to_integer(Min0),
-    Sec = binary_to_integer(Sec0),
-    Year = -binary_to_integer(Year0),
-    Month = binary_to_integer(Month0),
-    Day = binary_to_integer(Day0),
+    Hour = digits(Hour0),
+    Min = digits(Min0),
+    Sec = digits(Sec0),
+    Year = -digits(Year0),
+    Month = digits(Month0),
+    Day = digits(Day0),
     rfc3339_to_system_time_1(DateTimeBin, Options, Year, Month, Day, Hour, Min, Sec, 0, binary_to_list(TimeStr));
 rfc3339_to_system_time_bin(
     <<Year0:4/binary, $-, Month0:2/binary, $-, Day0:2/binary, _T,
       Hour0:2/binary, $:, Min0:2/binary, $:, Sec0:2/binary, TimeStr/binary>> = DateTimeBin, Options) ->
-    Hour = binary_to_integer(Hour0),
-    Min = binary_to_integer(Min0),
-    Sec = binary_to_integer(Sec0),
-    Year = binary_to_integer(Year0),
-    Month = binary_to_integer(Month0),
-    Day = binary_to_integer(Day0),
+    Hour = digits(Hour0),
+    Min = digits(Min0),
+    Sec = digits(Sec0),
+    Year = digits(Year0),
+    Month = digits(Month0),
+    Day = digits(Day0),
     rfc3339_to_system_time_1(DateTimeBin, Options, Year, Month, Day, Hour, Min, Sec, 0, binary_to_list(TimeStr)).
 
 %% _T is the character separating the date and the time:
@@ -633,22 +633,22 @@ rfc3339_to_system_time_bin(
 rfc3339_to_system_time_list(
     [$-, Y1, Y2, Y3, Y4, $-, Mon1, Mon2, $-, D1, D2, _T,
      H1, H2, $:, Min1, Min2, $:, S1, S2 | TimeStr] = DateTimeString, Options) ->
-    Hour = list_to_integer([H1, H2]),
-    Min = list_to_integer([Min1, Min2]),
-    Sec = list_to_integer([S1, S2]),
-    Year = -list_to_integer([Y1, Y2, Y3, Y4]),
-    Month = list_to_integer([Mon1, Mon2]),
-    Day = list_to_integer([D1, D2]),
+    Hour = digits([H1, H2]),
+    Min = digits([Min1, Min2]),
+    Sec = digits([S1, S2]),
+    Year = -digits([Y1, Y2, Y3, Y4]),
+    Month = digits([Mon1, Mon2]),
+    Day = digits([D1, D2]),
     rfc3339_to_system_time_1(DateTimeString, Options, Year, Month, Day, Hour, Min, Sec, 0, TimeStr);
 rfc3339_to_system_time_list(
     [Y1, Y2, Y3, Y4, $-, Mon1, Mon2, $-, D1, D2, _T,
      H1, H2, $:, Min1, Min2, $:, S1, S2 | TimeStr] = DateTimeString, Options) ->
-    Hour = list_to_integer([H1, H2]),
-    Min = list_to_integer([Min1, Min2]),
-    Sec = list_to_integer([S1, S2]),
-    Year = list_to_integer([Y1, Y2, Y3, Y4]),
-    Month = list_to_integer([Mon1, Mon2]),
-    Day = list_to_integer([D1, D2]),
+    Hour = digits([H1, H2]),
+    Min = digits([Min1, Min2]),
+    Sec = digits([S1, S2]),
+    Year = digits([Y1, Y2, Y3, Y4]),
+    Month = digits([Mon1, Mon2]),
+    Day = digits([D1, D2]),
     rfc3339_to_system_time_1(DateTimeString, Options, Year, Month, Day, Hour, Min, Sec, 0, TimeStr).
 
 rfc3339_to_system_time_1(DateTimeIn, Options, Year, Month, Day, 23, 59, 60, 0, TimeStr) ->
@@ -1013,6 +1013,8 @@ offset_string_adjustment(_Time, _Unit, Tz) ->
 offset_seconds(Hour, Min) when is_integer(Hour, 0, 23), is_integer(Min, 0, 59) ->
     3600 * Hour + 60 * Min.
 
+digits(Digits) when is_binary(Digits) ->
+    digits(binary_to_list(Digits), 0);
 digits(Digits) ->
     digits(Digits, 0).
 
