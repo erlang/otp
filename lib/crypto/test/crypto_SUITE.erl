@@ -2453,6 +2453,14 @@ do_generate({rsa = Type, Mod, Exp}) ->
         FIPS ->
             ct:log("do_generate ~p FIPS=~p, Mod=~p  Exp=~p", [Type, FIPS, Mod, Exp]),
             {Pub,Priv} = crypto:generate_key(Type, {Mod,Exp}),
+            %% Verify that key generated has the requested exponent
+            [E | _] = Pub,
+            case crypto:bytes_to_integer(E) of
+                Exp ->
+                    ok;
+                OtherExp ->
+                    ct:fail("Wrong exponent, requested: ~p, got: ~p~n", [Exp, OtherExp])
+            end,
             do_sign_verify({rsa, sha256, Pub, Priv, rsa_plain()})
     end.
 
@@ -2819,7 +2827,7 @@ group_config(rsa, Config) ->
      {pub_priv_encrypt, gen_rsa_pub_priv_tests(PublicS, PrivateS, MsgPubEnc, PrivEnc_OptsToTry)},
      {pub_pub_encrypt,  gen_rsa_pub_priv_tests(PublicS, PrivateS, MsgPubEnc, PubEnc_OptsToTry)},
      {privkey_to_pubkey, get_priv_pub_from_sign_verify(RsaSignVerify)},
-     {generate, [{rsa, 1024, 3},  {rsa, 2048, 17},  {rsa, 3072, 65537}]}
+     {generate, [{rsa, 1024, 3},  {rsa, 2048, 17},  {rsa, 3072, 65537}, {rsa, 1024, 65539}]}
      | Config];
 group_config(dss = Type, Config) ->
     Msg = dss_plain(),
