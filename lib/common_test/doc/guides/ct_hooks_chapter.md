@@ -436,10 +436,12 @@ specification. The following two CTHs are delivered with `Common Test`:
   in-between test cases.
 
   The log events are handled using a [Logger](`m:logger`) handler called
-  cth_log_redirect. The formatting and level is copied from the current
-  `default` handler when the cth is started. If you want to use another level
-  either change the `default` handler level before starting common_test, or use
-  the `logger:set_handler_config/3` API.
+  cth_log_redirect. The formatting, level, and filters are copied from the
+  current `default` handler when the cth is started. The `remote_gl` filter is
+  not copied, because `cth_log_redirect` handles events from remote group
+  leaders itself. If you want to use another level either change the `default`
+  handler level before starting common_test, or use the
+  `logger:set_handler_config/3` API.
 
   This hook supports the following options:
 
