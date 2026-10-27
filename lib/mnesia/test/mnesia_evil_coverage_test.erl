@@ -2388,7 +2388,7 @@ subscriber_exit_after_table_deleted(Config) when is_list(Config) ->
     MonRef = monitor(process, whereis(mnesia_subscr)),
 
     %% Kill subscriber
-    exit(Subscriber, kill),
+    exit_signal(Subscriber, kill),
     ?match([{client_pid, Subscriber}, {what, {table, Tab, simple}}], receive {handle_exit, Ctx} -> Ctx end),
     receive {'EXIT', Subscriber, killed} -> ok end,
 
