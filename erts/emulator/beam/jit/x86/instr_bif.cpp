@@ -511,6 +511,14 @@ void BeamGlobalAssembler::emit_call_light_bif_shared() {
             a.lea(ARG1, x86::qword_ptr(HTOP, ARG2, 0, 3));
             a.cmp(E, ARG1);
             a.jl(gc_after_bif_call);
+
+            /* No GC is needed, so a saved live_hf_end marker is no longer
+             * valid. Clear it unless it is already cleared. */
+            a.cmp(x86::qword_ptr(c_p, offsetof(Process, live_hf_end)),
+                  imm((Sint)ERTS_INVALID_HFRAG_PTR));
+            a.short_().je(check_bif_return);
+            a.mov(x86::qword_ptr(c_p, offsetof(Process, live_hf_end)),
+                  imm((Sint)ERTS_INVALID_HFRAG_PTR));
         }
 
         /* ! FALL THROUGH ! */
