@@ -70,29 +70,26 @@ print(Term) ->
                 | {'record_print_fun', rec_print_fun()}
                 | {'strings', boolean()}
                 | {'maps_order', maps:iterator_order()}.
--type options() :: [option()].
+-type options() :: [option()] | options_map().
 -type options_map() :: map().
 
 -spec print_bin(term(), options_map()) -> {unicode:unicode_binary(), Sz::integer(), Col::integer()}.
-print_bin(Term, Options) when is_map(Options) ->
-    Col = maps:get(column, Options, 1),
-    Ll = maps:get(line_length, Options, 80),
-    D = maps:get(depth, Options, -1),
-    M = maps:get(line_max_chars, Options, -1),
-    T = maps:get(chars_limit, Options, -1),
-    RecDefFun = maps:get(record_print_fun, Options, no_fun),
-    InEncoding = maps:get(encoding, Options, epp:default_encoding()),
-    Strings = maps:get(strings, Options, true),
-    MapsOrder = maps:get(maps_order, Options, undefined),
-    print_bin(Term, Col, Ll, D, M, T, RecDefFun, {InEncoding, utf8}, Strings, MapsOrder);
-print_bin(Term, Options) when is_list(Options) ->
-    print_bin(Term, maps:from_list(Options)).
-
+print_bin(Term, Options) when is_list(Options); is_map(Options) ->
+    Col = get_option(column, Options, 1),
+    Ll = get_option(line_length, Options, 80),
+    D = get_option(depth, Options, -1),
+    M = get_option(line_max_chars, Options, -1),
+    T = get_option(chars_limit, Options, -1),
+    RecDefFun = get_option(record_print_fun, Options, no_fun),
+    InEncoding = get_option(encoding, Options, epp:default_encoding()),
+    Strings = get_option(strings, Options, true),
+    MapsOrder = get_option(maps_order, Options, undefined),
+    print_bin(Term, Col, Ll, D, M, T, RecDefFun, {InEncoding, utf8}, Strings, MapsOrder).
 
 -spec print(term(), rec_print_fun()) -> chars();
            (term(), options()) -> chars().
 
-print(Term, Options) when is_list(Options) ->
+print(Term, Options) when is_list(Options); is_map(Options) ->
     Col = get_option(column, Options, 1),
     Ll = get_option(line_length, Options, 80),
     D = get_option(depth, Options, -1),
@@ -1635,9 +1632,11 @@ chars(C, N) ->
     S = chars(C, N bsr 1),
     [C, S | S].
 
-get_option(Key, TupleList, Default) ->
+get_option(Key, TupleList, Default) when is_list(TupleList) ->
     case lists:keyfind(Key, 1, TupleList) of
 	false -> Default;
 	{Key, Value} -> Value;
 	_ -> Default
-    end.
+    end;
+get_option(Key, Map, Default) when is_map(Map) ->
+    maps:get(Key, Map, Default).
