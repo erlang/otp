@@ -885,6 +885,8 @@ reuse_driver_data(DriverData *dp, HANDLE ifd, HANDLE ofd, int read_write, ErlDrv
     dp->in.fd = ifd;
     dp->out.fd = ofd;
     dp->report_exit = 0;
+    dp->outbuf = NULL;
+    dp->outBufSize = 0;
 
     if (read_write & DO_READ) {
 	result = driver_select(dp->port_num, (ErlDrvEvent)dp->in.ov.hEvent,
@@ -2694,7 +2696,7 @@ ready_output(ErlDrvData drv_data, ErlDrvEvent ready_event)
     DWORD bytesWritten;
     DriverData *dp = (DriverData *) drv_data;
     int error;
-    ErlDrvSizeT qsz;
+    ErlDrvSSizeT qsz;
 
     if(dp->out.thread == (HANDLE) -1) {
 	dp->out.async_io_active = 0;
@@ -2707,6 +2709,7 @@ ready_output(ErlDrvData drv_data, ErlDrvEvent ready_event)
     }
     
     qsz = driver_deq(dp->port_num, dp->outBufSize);
+    ASSERT(qsz >= 0);
     dp->outBufSize = 0;
     dp->outbuf = NULL;
 #ifdef HARD_POLL_DEBUG
@@ -2737,6 +2740,7 @@ ready_output(ErlDrvData drv_data, ErlDrvEvent ready_event)
         dp->out.ov.Offset += dp->outBufSize; /* For vanilla driver. */
         /* XXX OffsetHigh should be changed too. */
         qsz = driver_deq(dp->port_num, dp->outBufSize);
+        ASSERT(qsz >= 0);
         dp->outbuf = NULL;
         dp->outBufSize = 0;
     }
