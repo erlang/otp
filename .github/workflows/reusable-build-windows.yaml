@@ -37,23 +37,27 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        # The OpenSSL installer hashes are published by
+        # https://github.com/slproweb/opensslhashes.
         include:
           - arch: x64
             runs-on: windows-2025
             wsl_packages: make autoconf unzip
             wx_nmake_args: TARGET_CPU=amd64 DIR_SUFFIX_CPU=
+            openssl_installer: Win64OpenSSL
+            openssl_sha256: 5fe338c81d62515df7292f16542a0eef2a29db3efc023cd5a8c08ec3c97027ae
             artifact: otp_win32_installer
           - arch: arm64
             runs-on: windows-11-arm
             wsl_packages: make unzip wget
             wx_nmake_args: TARGET_CPU=ARM64
+            openssl_installer: Win64ARMOpenSSL
+            openssl_sha256: 9c22cbd16c9f3238e4a0a7cad93c4d4e796f2f778193ef462f7ef70a4b52d31d
             artifact: otp_win_arm64_installer
     defaults:
       run:
         shell: wsl-bash {0}
     env:
-      # Published by https://github.com/slproweb/opensslhashes.
-      OPENSSL_SHA256: 5fe338c81d62515df7292f16542a0eef2a29db3efc023cd5a8c08ec3c97027ae
       OPENSSL_VERSION: 3.5.9
       WXWIDGETS_VERSION: 3.2.6
       UBUNTU_ROOTFS_URL: https://cloud-images.ubuntu.com/wsl/releases/noble/current/ubuntu-noble-wsl-arm64-wsl.rootfs.tar.gz
@@ -108,14 +112,17 @@ jobs:
       # versions in C:\OpenSSL-Win64. Downloading the upstream installer lets
       # us verify its checksum and install into a clean, predictable directory.
       - name: Install OpenSSL
-        if: matrix.arch == 'x64'
         shell: powershell
+        env:
+          OPENSSL_INSTALLER: ${{ matrix.openssl_installer }}
+          OPENSSL_SHA256: ${{ matrix.openssl_sha256 }}
         run: |
           $version = $env:OPENSSL_VERSION.Replace('.', '_')
-          $installer = Join-Path $env:RUNNER_TEMP "Win64OpenSSL-$version.exe"
+          $file = "$($env:OPENSSL_INSTALLER)-$version.exe"
+          $installer = Join-Path $env:RUNNER_TEMP $file
           $ProgressPreference = 'SilentlyContinue'
           Invoke-WebRequest `
-              "https://slproweb.com/download/Win64OpenSSL-$version.exe" `
+              "https://slproweb.com/download/$file" `
               -OutFile $installer
           $actualHash = (Get-FileHash $installer -Algorithm SHA256).Hash
           $actualHash = $actualHash.ToLowerInvariant()
@@ -140,13 +147,6 @@ jobs:
           if ($installedVersion -notmatch "^OpenSSL $expectedVersion ") {
               throw "Unexpected OpenSSL version: $installedVersion"
           }
-
-      # The windows-11-arm runner image contains an arm64 OpenSSL build.
-      - name: Set up OpenSSL
-        if: matrix.arch == 'arm64'
-        shell: cmd
-        run: |
-          IF EXIST "c:\\Program Files\\OpenSSL-Win64" (move "c:\\Program Files\\OpenSSL-Win64" "c:\\OpenSSL-Win64") ELSE (move "c:\\Program Files\\OpenSSL" "c:\\OpenSSL-Win64")
 
       - name: Identify the runner image
         id: image
