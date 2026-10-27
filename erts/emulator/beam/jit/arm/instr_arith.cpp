@@ -1541,6 +1541,18 @@ void BeamModuleAssembler::emit_i_bnot(const ArgLabel &Fail,
                                       const ArgWord &Live,
                                       const ArgSource &Src,
                                       const ArgRegister &Dst) {
+    if (always_small(Src)) {
+        comment("skipped test for small operand since it is always small");
+        auto src = load_source(Src, TMP2);
+        auto dst = init_destination(Dst, ARG1);
+
+        /* The complement of a small is always a small. Invert everything
+         * except the tag so we don't have to tag it again. */
+        a.eor(dst.reg, src.reg, imm(~_TAG_IMMED1_MASK));
+        flush_var(dst);
+        return;
+    }
+
     Label next = a.new_label();
     auto src = load_source(Src, TMP2);
     auto dst = init_destination(Dst, ARG1);

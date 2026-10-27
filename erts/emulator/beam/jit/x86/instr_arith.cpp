@@ -1607,6 +1607,17 @@ void BeamGlobalAssembler::emit_i_bnot_body_shared() {
 void BeamModuleAssembler::emit_i_bnot(const ArgLabel &Fail,
                                       const ArgSource &Src,
                                       const ArgRegister &Dst) {
+    if (always_small(Src)) {
+        comment("skipped test for small operand since it is always small");
+        mov_arg(RET, Src);
+
+        /* The complement of a small is always a small. Invert everything
+         * except the tag so we don't have to tag it again. */
+        a.xor_(RET, imm(~_TAG_IMMED1_MASK));
+        mov_arg(Dst, RET);
+        return;
+    }
+
     Label next = a.new_label();
 
     mov_arg(RET, Src);
