@@ -358,8 +358,12 @@ handle_info({CloseTag, Socket}, StateName,
             %% active_n_toggle here which will cause
             %% this to happen when tls_connection:activate_socket/1
             %% is called after all data has been deliver.
+            %% Remember that the transport is closed as with
+            %% {exit_on_close, false} the tcp port stays open and
+            %% will not report the close again.
             {next_state, StateName, State#state{protocol_specific =
-                                                    PS#{active_n_toggle => true}}, []}
+                                                    PS#{active_n_toggle => true,
+                                                        transport_closed => true}}, []}
     end;
 handle_info({ssl_tls, Port, Type, {Major, Minor}, Data}, StateName,
             #state{static_env = #static_env{data_tag = Protocol},
@@ -721,6 +725,10 @@ activate_socket(#state{protocol_specific = #{active_n_toggle := true} = Protocol
     PS = do_activate_socket(ProtocolSpec, StatEnv),
     {no_record, State#state{protocol_specific = PS, protocol_buffers = PBuffers}}.
 
+do_activate_socket(#{transport_closed := true} = PS,
+                   #static_env{socket = Socket, close_tag = CloseTag}) ->
+    self() ! {CloseTag, Socket},
+    PS#{active_n_toggle => false};
 do_activate_socket(#{active_n := N} = PS,
                    #static_env{socket = Socket, close_tag = CloseTag, transport_cb = Transport}) ->
     case tls_socket:setopts(Transport, Socket, [{active, N}]) of
