@@ -179,6 +179,13 @@ typedef ERTS_SYS_FD_TYPE ErtsSysFdType;
 #  define ERTS_UNLIKELY(BOOL) (BOOL)
 #endif
 
+/* Prefetch instructions never fault, so PTR may be stale or dangling. */
+#if (ERTS_AT_LEAST_GCC_VSN__(3, 1, 0) || __has_builtin(__builtin_prefetch))
+#  define ERTS_PREFETCH(PTR) __builtin_prefetch((PTR))
+#else
+#  define ERTS_PREFETCH(PTR) ((void) (PTR))
+#endif
+
 #if (ERTS_AT_LEAST_GCC_VSN__(5, 1, 0) || __has_builtin(__builtin_unreachable))
 #  define ERTS_UNREACHABLE __builtin_unreachable()
 #elif defined(_MSC_VER)
