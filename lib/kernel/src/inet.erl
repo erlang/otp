@@ -2594,6 +2594,7 @@ with the specified `Name`, restricted to the specified address `Family`.
 
 See also `gethostbyname/1`.
 """.
+-doc(#{since => <<"OTP 30.0">>}).
 -spec gethostbyname(Name :: hostname(),
 	            Family :: address_family(),
 	            Timeout :: non_neg_integer() | 'infinity') ->
@@ -2639,6 +2640,7 @@ with the specified address.
 
 `Timeout` specifies a time-out in milliseconds, or the atom `infinity`.
 """.
+-doc(#{since => <<"OTP 30.0">>}).
 -spec gethostbyaddr(Address :: string() | ip_address(),
 	            Timeout :: non_neg_integer() | 'infinity') ->
 	{'ok', #hostent{}} | {'error', posix()}.
@@ -2845,6 +2847,7 @@ or a fully qualified `t:hostname/0`.
 
 `Timeout` specifies a time-out in milliseconds, or the atom `infinity`.
 """.
+-doc(#{since => <<"OTP 30.0">>}).
 -spec getaddr(Host :: ip_address() | hostname(),
           Family :: address_family(),
           Timeout :: non_neg_integer() | 'infinity') ->
@@ -2889,6 +2892,7 @@ a single `t:hostname/0`, or a fully qualified `t:hostname/0`.
 
 `Timeout` specifies a time-out in milliseconds, or the atom `infinity`.
 """.
+-doc(#{since => <<"OTP 30.0">>}).
 -spec getaddrs(Host :: ip_address() | hostname(),
 	       Family :: address_family(),
 	       Timeout :: non_neg_integer() | 'infinity') ->
