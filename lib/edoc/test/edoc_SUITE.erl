@@ -39,13 +39,15 @@
 %% Test cases
 -export([app/1,appup/1,build_std/1,build_map_module/1,otp_12008/1,
          build_app/1, otp_14285/1, infer_module_app_test/1,
-         module_with_feature/1, module_with_maybe/1, module_with_nominal/1]).
+         module_with_feature/1, module_with_maybe/1, module_with_nominal/1,
+         module_with_bin_literal/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
 all() ->
     [app,appup,build_std,build_map_module,otp_12008, build_app, otp_14285,
-     infer_module_app_test, module_with_feature, module_with_nominal].
+     infer_module_app_test, module_with_feature, module_with_nominal,
+     module_with_bin_literal].
 
 groups() -> 
     [].
@@ -195,4 +197,19 @@ module_with_nominal(Config) ->
     ok = edoc:files([Source], DodgerOpts),
     PreprocessOpts = [{preprocess, true}, {dir, PrivDir}],
     ok = edoc:files([Source], PreprocessOpts),
+    ok.
+
+module_with_bin_literal(Config) ->
+    DataDir = ?config(data_dir, Config),
+    PrivDir = ?config(priv_dir, Config),
+    Source = filename:join(DataDir, "module_with_bin_literal.erl"),
+    DodgerOpts = [{dir, PrivDir}],
+    ok = edoc:files([Source], DodgerOpts),
+    PreprocessOpts = [{preprocess, true}, {dir, PrivDir}],
+    ok = edoc:files([Source], PreprocessOpts),
+    PrettyOpts = [{pretty_printer, erl_pp}, {dir, PrivDir}],
+    ok = edoc:files([Source], PrettyOpts),
+    {ok, Html} = file:read_file(filename:join(PrivDir, "module_with_bin_literal.html")),
+    {match, _} = re:run(Html, "&lt;&lt;\"start\"&gt;&gt;"),
+    {match, _} = re:run(Html, "/utf8&gt;&gt;"),
     ok.

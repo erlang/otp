@@ -86,6 +86,8 @@
 
 -record(t_binary, {a=[], base_size = 0, unit_size = 0}).
 
+-record(t_binary_literal, {a=[], val}). % binary literal '<<"...">>'
+
 -record(t_float, {a=[], val}).		% floating-point constant
 
 -record(t_record, {a=[],                 % record "type" '#r{f1,...,fN}'

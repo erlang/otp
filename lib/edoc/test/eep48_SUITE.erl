@@ -79,6 +79,7 @@
 	 f_spec_bounded_multiple_clause_fun/1,
 	 f_spec_bounded_singleton_atom/1,
 	 f_spec_bounded_singleton_int/1,
+         f_spec_bounded_singleton_bin/1,
 	 f_spec_rettype_constraint/1,
 	 f_spec_indirect_constraint/1,
 	 f_spec_arg_type_in_retval/1,
@@ -133,6 +134,7 @@ all() -> [edoc_app_should_pass_shell_docs_validation,
 	  f_spec_bounded_multiple_clause_fun,
 	  f_spec_bounded_singleton_atom,
 	  f_spec_bounded_singleton_int,
+          f_spec_bounded_singleton_bin,
 	  f_spec_rettype_constraint,
 	  f_spec_indirect_constraint,
 	  f_spec_arg_type_in_retval,
@@ -432,6 +434,11 @@ f_spec_bounded_singleton_int(Config) ->
     %?debugVal(Docs, 1000),
     ?assertEqual( <<"-spec f_spec_bounded_singleton_int(I, 1) -> ok when I :: integer().\n">>,
 		  get_pp_spec({function, ?FUNCTION_NAME, 2}, Docs) ).
+
+f_spec_bounded_singleton_bin(Config) ->
+    Docs = get_docs(Config, eep48_specs),
+    ?assertEqual( <<"-spec f_spec_bounded_singleton_bin(I, <<\"a\">>) -> ok when I :: integer().\n">>,
+                  get_pp_spec({function, ?FUNCTION_NAME, 2}, Docs) ).
 
 f_spec_rettype_constraint(Config) ->
     Docs = get_docs(Config, eep48_specs),

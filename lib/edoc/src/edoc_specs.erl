@@ -414,6 +414,8 @@ d2e({type,_,binary,[Base,Unit]}, _Prec) ->
     {integer,_,B} = erl_eval:partial_eval(Base),
     {integer,_,U} = erl_eval:partial_eval(Unit),
     #t_binary{base_size = B, unit_size = U};
+d2e({bin_type,_,Bin}, _Prec) ->
+    #t_binary_literal{val = Bin};
 d2e({type,_,map,any}, _Prec) ->
     #t_type{name = #t_name{name = map}, args = []};
 d2e({type,_,map,Es}, _Prec) ->
@@ -586,6 +588,8 @@ xrecs(#t_integer{}=T, _P) ->
 xrecs(#t_integer_range{}=T, _P) ->
     T;
 xrecs(#t_binary{}=T, _P) ->
+    T;
+xrecs(#t_binary_literal{}=T, _P) ->
     T;
 xrecs(#t_float{}=T, _P) ->
     T;
