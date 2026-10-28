@@ -122,6 +122,10 @@
          tls_reject_unoffered_cipher_suite/1,
          tls_reject_unoffered_alpn/0,
          tls_reject_unoffered_alpn/1,
+         tls13_reject_unsolicited_psk/0,
+         tls13_reject_unsolicited_psk/1,
+         tls13_reject_unsolicited_alpn/0,
+         tls13_reject_unsolicited_alpn/1,
          tls_reject_non_null_compression/0,
          tls_reject_non_null_compression/1,
          tls13_reject_unsolicited_psk/0,
@@ -230,7 +234,9 @@ rogue_server_tests() ->
     [tls_reject_unoffered_cipher_suite,
      tls_reject_unoffered_alpn,
      tls_reject_non_null_compression,
-     tls13_reject_unsolicited_psk].
+     tls13_reject_unsolicited_psk,
+     tls13_reject_unsolicited_alpn,
+     tls_reject_non_null_compression].
 
 init_per_suite(Config0) ->
     catch application:stop(crypto),
@@ -1075,17 +1081,73 @@ rogue_tls13_psk(ClientOpts0, ExtraOpts) ->
                     [ExtraOpts, Other, Observed])
     end.
 
+tls13_reject_unsolicited_alpn() ->
+    [{doc, "An on-path/malicious TLS-1.3 server sends an application_layer_"
+      "protocol_negotiation extension in EncryptedExtensions while the client "
+      "advertised no ALPN at all. RFC 8446 4.2 forbids a server from sending an "
+      "extension the client did not offer; the client must abort with "
+      "unsupported_extension. Defense-in-depth check in the 1.3 client "
+      "(OTP-20486). The remaining server flight is otherwise well-formed so "
+      "that only the unsolicited ALPN can be the reason for rejection."}].
+tls13_reject_unsolicited_alpn(Config) when is_list(Config) ->
+    %% NOTE: the client does NOT advertise alpn_advertised_protocols, so any
+    %% ALPN in the server's EncryptedExtensions is unsolicited.
+    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    AlpnExt = rogue_alpn_extension(<<"unsolicited/1">>),
+    {ok, LSock} = gen_tcp:listen(0, [binary, {active, false},
+                                     {reuseaddr, true}, {packet, 0}]),
+    {ok, Port} = inet:port(LSock),
+    Parent = self(),
+    Attacker = spawn_link(
+                 fun() ->
+                         O = rogue_tls13_server(LSock, #{psk => false,
+                                                         ee_exts => AlpnExt}),
+                         Parent ! {attacker, O}
+                 end),
+    ClientOpts = [{versions, ['tlsv1.3']},
+                  {ciphers, ["TLS_AES_128_GCM_SHA256"]},
+                  {supported_groups, [x25519]},
+                  {server_name_indication, disable},
+                  {active, false} | ClientOpts0],
+    Result = ssl:connect("localhost", Port, ClientOpts, 5000),
+    gen_tcp:close(LSock),
+    Observed = receive {attacker, O} -> O after 5000 -> unlink(Attacker), timeout end,
+    ct:log("ssl:connect -> ~p~n attacker -> ~p", [Result, Observed]),
+    %% A patched client aborts with unsupported_extension when it decodes an
+    %% ALPN it never advertised. A vulnerable/old client would instead accept
+    %% the extension and connect.
+    case Result of
+        {error, {tls_alert, {unsupported_extension, _}}} ->
+            ok;
+        {ok, Sock} ->
+            ssl:close(Sock),
+            ct:fail("Client accepted an unsolicited ALPN extension and connected "
+                    "(attacker observed ~p)", [Observed]);
+        Other ->
+            ct:fail("Expected unsupported_extension for unsolicited ALPN; got ~p "
+                    "(attacker ~p)", [Other, Observed])
+    end.
+
 %% Raw-TCP rogue TLS-1.3 server. No certificate. Sends a valid ServerHello +
 %% CCS + encrypted {EncryptedExtensions, Finished} using the RFC 8446 7.1 key
 %% schedule so that an UNPATCHED client would complete the handshake.
+%%
+%% The unsolicited-PSK flight: ServerHello echoes a pre_shared_key and the
+%% EncryptedExtensions body is empty.
 rogue_tls13_server(LSock) ->
+    rogue_tls13_server(LSock, #{psk => true, ee_exts => <<>>}).
+
+%% Generalised raw-TCP rogue TLS-1.3 server. Opts:
+%%   psk     => whether the ServerHello echoes a pre_shared_key extension
+%%   ee_exts => the raw extensions blob placed inside EncryptedExtensions
+rogue_tls13_server(LSock, #{psk := Psk, ee_exts := EEExts}) ->
     {ok, Sock} = gen_tcp:accept(LSock, 5000),
     {?HANDSHAKE, CHHandshake} = rogue_read_record(Sock),
     ClientShare = rogue_tls13_client_x25519(CHHandshake),
     SessionId = rogue_tls13_client_session_id(CHHandshake),
 
     {ServerPub, ServerPriv} = crypto:generate_key(ecdh, x25519),
-    SHBody = rogue_tls13_server_hello_body(ServerPub, SessionId),
+    SHBody = rogue_tls13_server_hello_body(ServerPub, SessionId, Psk),
     SHHandshake = rogue_handshake(?SERVER_HELLO, SHBody),
 
     %% RFC 8446 7.1 handshake secrets (transcript = ClientHello ++ ServerHello).
@@ -1101,7 +1163,8 @@ rogue_tls13_server(LSock) ->
     Key = tls_v1:hkdf_expand_label(ServerHS, <<"key">>, <<>>, 16, Alg),
     IV  = tls_v1:hkdf_expand_label(ServerHS, <<"iv">>,  <<>>, 12, Alg),
 
-    EE = <<?ENCRYPTED_EXTENSIONS, 2:24, 0:16>>,
+    EE = <<?ENCRYPTED_EXTENSIONS, (byte_size(EEExts) + 2):24,
+           (byte_size(EEExts)):16, EEExts/binary>>,
     Transcript1 = <<Transcript0/binary, EE/binary>>,
     FinKey = tls_v1:hkdf_expand_label(ServerHS, <<"finished">>, <<>>, HashLen, Alg),
     THash = crypto:hash(Alg, Transcript1),
@@ -1119,12 +1182,15 @@ rogue_tls13_server(LSock) ->
     gen_tcp:close(Sock),
     Obs.
 
-rogue_tls13_server_hello_body(ServerPub, SessionId) ->
+rogue_tls13_server_hello_body(ServerPub, SessionId, Psk) ->
     Random = crypto:strong_rand_bytes(32),
     SVExt  = <<?TLS13_SUPPORTED_VERSIONS_EXT:16, 2:16, 16#03, 16#04>>,
     KSData = <<?TLS13_GROUP_X25519:16, (byte_size(ServerPub)):16, ServerPub/binary>>,
     KSExt  = <<?TLS13_KEY_SHARE_EXT:16, (byte_size(KSData)):16, KSData/binary>>,
-    PSKExt = <<?TLS13_PRE_SHARED_KEY_EXT:16, 2:16, 0:16>>,  %% selected_identity = 0
+    PSKExt = case Psk of
+                 true  -> <<?TLS13_PRE_SHARED_KEY_EXT:16, 2:16, 0:16>>;  %% selected_identity = 0
+                 false -> <<>>
+             end,
     Exts   = <<SVExt/binary, KSExt/binary, PSKExt/binary>>,
     %% RFC 8446 4.1.3: the ServerHello MUST echo the client's
     %% legacy_session_id, otherwise the client aborts with
