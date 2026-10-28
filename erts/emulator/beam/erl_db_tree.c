@@ -3654,6 +3654,27 @@ Eterm db_get_dbterm_key_tree_common(DbTable* tb, void* db_term)
 }
 
 /*
+ * Called with the node a traversal matches after the current one, whose first
+ * cache line find_prev or find_next has just loaded. Prefetches that node's
+ * next two lines and the first two lines of the child the traversal descends
+ * into after it, so those misses overlap with matching the current node.
+ */
+static ERTS_INLINE void prefetch_traversal(TreeDbTerm *next, int forward)
+{
+    TreeDbTerm *child;
+
+    if (next == NULL)
+        return;
+    ERTS_PREFETCH((char*)next + ERTS_CACHE_LINE_SIZE);
+    ERTS_PREFETCH((char*)next + 2 * ERTS_CACHE_LINE_SIZE);
+    child = forward ? next->right : next->left;
+    if (child != NULL) {
+        ERTS_PREFETCH(child);
+        ERTS_PREFETCH((char*)child + ERTS_CACHE_LINE_SIZE);
+    }
+}
+
+/*
  * Traverse the tree with a callback function, used by db_match_xxx
  */
 static void traverse_backwards(DbTableCommon *tb,
@@ -3691,6 +3712,7 @@ static void traverse_backwards(DbTableCommon *tb,
             this = next;
             lastkey = GETKEY(tb, this->dbterm.tpl);
             next = find_prev(tb, *root, stack, lastkey);
+            prefetch_traversal(next, 0);
             if (!((*doit)(tb, this, context, 0)))
                 return;
         }
@@ -3745,6 +3767,7 @@ static void traverse_forward(DbTableCommon *tb,
             this = next;
             lastkey = GETKEY(tb, this->dbterm.tpl);
             next = find_next(tb, *root, stack, lastkey);
+            prefetch_traversal(next, 1);
             if (!((*doit)(tb, this, context, 1)))
                 return;
         }
