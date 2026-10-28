@@ -1300,6 +1300,127 @@ types(Config) ->
            {warnings,[{{1,22},erl_lint,
                        {redefine_builtin_type,{nonempty_bitstring,0}}}]}},
 
+          %% Singleton binary literal types.
+          {bin_type1,
+           <<"-type cmd() :: <<\"start\">> | <<\"stop\">>.\n">>,
+           [nowarn_unused_type],
+           []},
+
+          {bin_type2,
+           <<"-export([f/1]).\n"
+             "-spec f(<<\"hello\">> | <<\"world\">>) -> ok.\n"
+             "f(<<\"hello\">>) -> ok;\n"
+             "f(<<\"world\">>) -> ok.\n">>,
+           [],
+           []},
+
+          {bin_type3,
+           <<"-callback cb(<<\"x\">>) -> ok.\n">>,
+           [nowarn_unused_type],
+           []},
+
+          {bin_type4,
+           <<"-type empty() :: <<\"\">>.\n">>,
+           [nowarn_unused_type],
+           []},
+
+          {bin_type5,
+           <<"-record(msg, {tag :: <<\"hello\">> | <<\"world\">>}).\n"
+             "-export([f/0]).\n"
+             "f() -> #msg{tag = <<\"hello\">>}.\n">>,
+           [],
+           []},
+
+          %% Singleton binary literal types with encoding.
+          {bin_type6,
+           <<"-type utf8_str() :: <<\"é\"/utf8>>.\n"/utf8>>,
+           [nowarn_unused_type],
+           []},
+
+          {bin_type7,
+           <<"-type greeting() :: ~\"hello\".\n">>,
+           [nowarn_unused_type],
+           []},
+
+          {bin_type8,
+           <<"-type t() :: ~\"café\".\n"/utf8>>,
+           [nowarn_unused_type],
+           []},
+
+          {bin_type9,
+           <<"-type t() :: <<\"hello\"/utf16>>.\n">>,
+           [nowarn_unused_type],
+           []},
+
+          {bin_type10,
+           <<"-type t() :: <<\"hello\"/integer>>.\n">>,
+           [nowarn_unused_type],
+           {errors,[{{1,34},erl_parse,
+                     "unsupported encoding in binary literal type"}],
+            []}},
+
+          {bin_type11,
+           <<"-type t() :: <<\"\\x{1F600}\">>.\n">>,
+           [nowarn_unused_type],
+           {errors,[{{1,34},erl_parse,
+                     "binary literal type with characters > 255"}],
+            []}},
+
+          {bin_type12,
+           <<"-type t() :: <<\"a\"/utf8-little>>.\n">>,
+           [nowarn_unused_type],
+           {errors,[{{1,34},erl_parse,
+                     "unsupported encoding in binary literal type"}],
+            []}},
+
+          {bin_type13,
+           <<"-type t() :: <<\"a\"/unit:8>>.\n">>,
+           [nowarn_unused_type],
+           {errors,[{{1,34},erl_parse,
+                     "unsupported encoding in binary literal type"}],
+            []}},
+
+          {bin_type14,
+           <<"-type t() :: ~s\"hello\".\n">>,
+           [nowarn_unused_type],
+           {errors,[{{1,36},erl_parse,
+                     "illegal sigil prefix in type spec"}],
+            []}},
+
+          {bin_type15,
+           <<"-type t() :: ~S\"hello\".\n">>,
+           [nowarn_unused_type],
+           {errors,[{{1,36},erl_parse,
+                     "illegal sigil prefix in type spec"}],
+            []}},
+
+          {bin_type16,
+           <<"-type t() :: ~\"hello\"foo.\n">>,
+           [nowarn_unused_type],
+           {errors,[{{1,42},erl_parse,
+                     "illegal sigil suffix"}],
+            []}},
+
+          {bin_type17,
+           <<"-type t() :: <<$h, $i>>.\n">>,
+           [nowarn_unused_type],
+           {errors,[{{1,36},erl_parse,
+                     ["syntax error before: ","$h"]}],
+            []}},
+
+          %% Singleton binary literal types in all type positions.
+          {bin_type18,
+           <<"-opaque o() :: <<\"a\">>.\n"
+             "-nominal n() :: ~\"b\".\n"
+             "-export_type([o/0, n/0]).\n"
+             "-type tl() :: {<<\"a\">>, [<<\"b\">>], X :: <<\"c\">>}.\n"
+             "-type r() :: lists:my(<<\"z\">>).\n"
+             "-spec f(A) -> A when A :: <<\"x\">> | <<\"y\">>.\n"
+             "-export([f/1]).\n"
+             "f(A) -> A.\n">>,
+           [nowarn_unused_type],
+           []},
+
           %% Test for bad types.
           {bad_export_type1,
            <<"-export_type(no_arity).
