@@ -522,7 +522,8 @@ typedef union float_def
 
 #define GET_DOUBLE(x, f) FLOAT_VAL_GET_DOUBLE(float_val(x), f)
 
-#define DOUBLE_DATA_WORDS (sizeof(ieee754_8)/sizeof(Eterm))
+#define DOUBLE_DATA_WORDS \
+    ((sizeof(ieee754_8) + sizeof(Eterm) - 1) / sizeof(Eterm))
 #define FLOAT_SIZE_OBJECT (DOUBLE_DATA_WORDS+1)
 
 /* tuple access methods */
