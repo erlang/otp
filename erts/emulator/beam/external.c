@@ -4721,8 +4721,7 @@ dec_term_atom_common:
 
 	    ref_ext_common:
 
-		if (ref_words > ERTS_MAX_REF_NUMBERS)
-		    goto error;
+                ASSERT(ref_words >= 1 && ref_words <= ERTS_MAX_REF_NUMBERS);
 
 		node = dec_get_node(sysname, cre, make_boxed(hp));
 		if(node == erts_this_node) {
@@ -5983,7 +5982,7 @@ init_done:
 		CHKSIZE(2);
 		id_words = get_int16(ep);
 		    
-		if (id_words > ERTS_MAX_REF_NUMBERS)
+                if (id_words < 1 || id_words > ERTS_MAX_REF_NUMBERS)
 		    goto error;
 
 		ep += 2;
