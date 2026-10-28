@@ -174,6 +174,8 @@ Nothing is said about whether the disk log files exist or not.
 
 -type dlog_state_error() :: 'ok' | {'error', term()}.
 
+-type from() :: {pid(), reference()}.
+
 -record(state, {queue = [],
 		messages = [],
 		parent,
@@ -1354,7 +1356,7 @@ handle({From, write_cache}, S) when From =:= self() ->
         Error ->
 	    loop(S#state{cache_error = Error})
     end;
-handle({From, {log, Format, B}}=Message, S) ->
+handle({{FromPid, _}=From, {log, Format, B}}=Message, S) ->
     case get(log) of
 	#log{mode = read_only}=L ->
 	    reply(From, {error, {read_only_mode, L#log.name}}, S);
@@ -1364,7 +1366,7 @@ handle({From, {log, Format, B}}=Message, S) ->
 	    log_loop(S, From, [B], [], iolist_size(B), LogFormat);
 	#log{status = {blocked, false}}=L ->
 	    reply(From, {error, {blocked_log, L#log.name}}, S);
-	#log{blocked_by = From}=L ->
+	#log{blocked_by = FromPid}=L ->
 	    reply(From, {error, {blocked_log, L#log.name}}, S);
 	_ ->
 	    enqueue(Message, S)
@@ -1385,29 +1387,29 @@ handle({alog, Format, B}=Message, S) ->
 	_ ->
 	    enqueue(Message, S)
     end;
-handle({From, {block, QueueLogRecs}}=Message, S) ->
+handle({{FromPid, _}=From, {block, QueueLogRecs}}=Message, S) ->
     case get(log) of
 	#log{status = ok}=L ->
-	    do_block(From, QueueLogRecs, L),
+	    do_block(FromPid, QueueLogRecs, L),
 	    reply(From, ok, S);
 	#log{status = {blocked, false}}=L ->
 	    reply(From, {error, {blocked_log, L#log.name}}, S);
-	#log{blocked_by = From}=L ->
+	#log{blocked_by = FromPid}=L ->
 	    reply(From, {error, {blocked_log, L#log.name}}, S);
 	_ ->
 	    enqueue(Message, S)
     end;
-handle({From, unblock}, S) ->
+handle({{FromPid, _}=From, unblock}, S) ->
     case get(log) of
 	#log{status = ok}=L ->
 	    reply(From, {error, {not_blocked, L#log.name}}, S);
-	#log{blocked_by = From}=L ->
+	#log{blocked_by = FromPid}=L ->
 	    S2 = do_unblock(L, S),
 	    reply(From, ok, S2);
 	L ->
 	    reply(From, {error, {not_blocked_by_pid, L#log.name}}, S)
     end;
-handle({From, sync}=Message, S) ->
+handle({{FromPid, _}=From, sync}=Message, S) ->
     case get(log) of
 	#log{mode = read_only}=L ->
 	    reply(From, {error, {read_only_mode, L#log.name}}, S);
@@ -1415,12 +1417,12 @@ handle({From, sync}=Message, S) ->
             log_loop(S, [], [], [From], 0, LogFormat);
 	#log{status = {blocked, false}}=L ->
 	    reply(From, {error, {blocked_log, L#log.name}}, S);
-	#log{blocked_by = From}=L ->
+	#log{blocked_by = FromPid}=L ->
 	    reply(From, {error, {blocked_log, L#log.name}}, S);
 	_ ->
 	    enqueue(Message, S)
     end;
-handle({From, {truncate, Head, F, A}}=Message, S) ->
+handle({{FromPid, _}=From, {truncate, Head, F, A}}=Message, S) ->
     case get(log) of
 	#log{mode = read_only}=L ->
 	    reply(From, {error, {read_only_mode, L#log.name}}, S);
@@ -1439,19 +1441,19 @@ handle({From, {truncate, Head, F, A}}=Message, S) ->
 	    end;
 	#log{status = {blocked, false}}=L ->
 	    reply(From, {error, {blocked_log, L#log.name}}, S);
-	#log{blocked_by = From}=L ->
+	#log{blocked_by = FromPid}=L ->
 	    reply(From, {error, {blocked_log, L#log.name}}, S);
 	_ ->
 	    enqueue(Message, S)
     end;
-handle({From, {chunk, Pos, B, N}}=Message,  S) ->
+handle({{FromPid, _}=From, {chunk, Pos, B, N}}=Message,  S) ->
     case get(log) of
 	#log{status = ok} when S#state.cache_error =/= ok ->
 	    loop(cache_error(S, [From]));
 	#log{status = ok}=L ->
 	    R = do_chunk(L, Pos, B, N),
 	    reply(From, R, S);
-	#log{blocked_by = From}=L ->
+	#log{blocked_by = FromPid}=L ->
 	    R = do_chunk(L, Pos, B, N),
 	    reply(From, R, S);
 	#log{status = {blocked, false}}=L ->
@@ -1459,14 +1461,14 @@ handle({From, {chunk, Pos, B, N}}=Message,  S) ->
 	_L ->
 	    enqueue(Message, S)
     end;
-handle({From, {chunk_step, Pos, N}}=Message,  S) ->
+handle({{FromPid, _}=From, {chunk_step, Pos, N}}=Message,  S) ->
     case get(log) of
 	#log{status = ok} when S#state.cache_error =/= ok ->
 	    loop(cache_error(S, [From]));
 	#log{status = ok}=L ->
 	    R = do_chunk_step(L, Pos, N),
 	    reply(From, R, S);
-	#log{blocked_by = From}=L ->
+	#log{blocked_by = FromPid}=L ->
 	    R = do_chunk_step(L, Pos, N),
 	    reply(From, R, S);
 	#log{status = {blocked, false}}=L ->
@@ -1474,7 +1476,7 @@ handle({From, {chunk_step, Pos, N}}=Message,  S) ->
 	_ ->
 	    enqueue(Message, S)
     end;
-handle({From, {change_notify, Pid, NewNotify}}=Message, S) ->
+handle({{FromPid, _}=From, {change_notify, Pid, NewNotify}}=Message, S) ->
     case get(log) of
 	#log{status = ok}=L ->
 	    case do_change_notify(L, Pid, NewNotify) of
@@ -1486,12 +1488,12 @@ handle({From, {change_notify, Pid, NewNotify}}=Message, S) ->
 	    end;
 	#log{status = {blocked, false}}=L ->
 	    reply(From, {error, {blocked_log, L#log.name}}, S);
-	#log{blocked_by = From}=L ->
+	#log{blocked_by = FromPid}=L ->
 	    reply(From, {error, {blocked_log, L#log.name}}, S);
 	_ ->
 	    enqueue(Message, S)
     end;
-handle({From, {change_header, NewHead}}=Message, S) ->
+handle({{FromPid, _}=From, {change_header, NewHead}}=Message, S) ->
     case get(log) of
 	#log{mode = read_only}=L ->
 	    reply(From, {error, {read_only_mode, L#log.name}}, S);
@@ -1505,12 +1507,12 @@ handle({From, {change_header, NewHead}}=Message, S) ->
 	    end;
 	#log{status = {blocked, false}}=L ->
 	    reply(From, {error, {blocked_log, L#log.name}}, S);
-	#log{blocked_by = From}=L ->
+	#log{blocked_by = FromPid}=L ->
 	    reply(From, {error, {blocked_log, L#log.name}}, S);
 	_ ->
 	    enqueue(Message, S)
     end;
-handle({From, {change_size, NewSize}}=Message, S) ->
+handle({{FromPid, _}=From, {change_size, NewSize}}=Message, S) ->
     case get(log) of
 	#log{mode = read_only}=L ->
 	    reply(From, {error, {read_only_mode, L#log.name}}, S);
@@ -1533,12 +1535,12 @@ handle({From, {change_size, NewSize}}=Message, S) ->
 	    end;
 	#log{status = {blocked, false}}=L ->
 	    reply(From, {error, {blocked_log, L#log.name}}, S);
-	#log{blocked_by = From}=L ->
+	#log{blocked_by = FromPid}=L ->
 	    reply(From, {error, {blocked_log, L#log.name}}, S);
 	_ ->
 	    enqueue(Message, S)
     end;
-handle({From, inc_wrap_file}=Message, S) ->
+handle({{FromPid, _}=From, inc_wrap_file}=Message, S) ->
     case get(log) of
 	#log{mode = read_only}=L ->
 	    reply(From, {error, {read_only_mode, L#log.name}}, S);
@@ -1560,12 +1562,12 @@ handle({From, inc_wrap_file}=Message, S) ->
 	    end;
 	#log{status = {blocked, false}}=L ->
 	    reply(From, {error, {blocked_log, L#log.name}}, S);
-	#log{blocked_by = From}=L ->
+	#log{blocked_by = FromPid}=L ->
 	    reply(From, {error, {blocked_log, L#log.name}}, S);
 	_ ->
 	    enqueue(Message, S)
     end;
-handle({From, next_file}=Message, S) ->
+handle({{FromPid, _}=From, next_file}=Message, S) ->
     case get(log) of
 	#log{mode = read_only}=L ->
 	    reply(From, {error, {read_only_mode, L#log.name}}, S);
@@ -1589,7 +1591,7 @@ handle({From, next_file}=Message, S) ->
 	    reply(From, ok, S);
 	#log{status = {blocked, false}}=L ->
 	    reply(From, {error, {blocked_log, L#log.name}}, S);
-	#log{blocked_by = From}=L ->
+	#log{blocked_by = FromPid}=L ->
 	    reply(From, {error, {blocked_log, L#log.name}}, S);
 	_ ->
 	    enqueue(Message, S)
@@ -1679,8 +1681,8 @@ handle({Server, {internal_open, A}}, S) ->
 		    reply(Server, Error, S)
 	    end
     end;
-handle({From, close}, S) ->
-    case do_close(From, S) of
+handle({{FromPid, _}=From, close}, S) ->
+    case do_close(FromPid, S) of
 	{stop, S1} ->
 	    do_exit(S1, From, ok, normal);
 	{continue, S1} ->
@@ -1859,7 +1861,7 @@ system_code_change(State, _Module, _OldVsn, _Extra) ->
 %%%----------------------------------------------------------------------
 %%% Internal functions
 %%%----------------------------------------------------------------------
--spec do_exit(#state{}, pid(), _, _) -> no_return().
+-spec do_exit(#state{}, from(), _, _) -> no_return().
 do_exit(S, From, Message0, Reason) ->
     R = do_stop(S),
     Message = case S#state.cache_error of
@@ -1873,10 +1875,10 @@ do_exit(S, From, Message0, Reason) ->
     ?PROFILE(ep:done()),
     exit(Reason).
 
--spec do_fast_exit(#state{}, pid(), _) -> no_return().
-do_fast_exit(S, Server, Message) ->
+-spec do_fast_exit(#state{}, from(), _) -> no_return().
+do_fast_exit(S, {Server, Ref}, Message) ->
     _ = do_stop(S),
-    Server ! {disk_log, self(), Message},
+    Server ! {disk_log, Ref, Message},
     exit(normal).
 
 %% -> closed | Error
@@ -1884,8 +1886,11 @@ do_stop(S) ->
     proc_q(S#state.queue ++ S#state.messages),
     close_disk_log(get(log)).
 
-proc_q([{From, _R}|Tail]) when is_pid(From) ->
-    From ! {disk_log, self(), {error, disk_log_stopped}},
+%% Queued requests get the documented disk_log_stopped message. It is
+%% not tagged with the request reference, so monitor_request/2 ignores
+%% it and returns {error, no_such_log} when the log process terminates.
+proc_q([{{Pid, _Ref}, _R}|Tail]) when is_pid(Pid) ->
+    Pid ! {disk_log, self(), {error, disk_log_stopped}},
     proc_q(Tail);
 proc_q([_|T]) -> %% async stuff 
     proc_q(T);
@@ -2609,21 +2614,20 @@ do_chunk_step(Log, _Pos, _N) ->
     {error, {not_internal_wrap, Log#log.name}}.
 
 %% Inlined.
-replies(Pids, Reply) ->
-    M = {disk_log, self(), Reply},
-    send_reply(Pids, M).
+replies(Froms, Reply) ->
+    send_reply(Froms, Reply).
 
-send_reply(Pid, M) when is_pid(Pid) ->
-    Pid ! M,
+send_reply({Pid, Ref}, Reply) ->
+    Pid ! {disk_log, Ref, Reply},
     ok;
-send_reply([Pid | Pids], M) ->
-    Pid ! M,
-    send_reply(Pids, M);
-send_reply([], _M) ->
+send_reply([{Pid, Ref} | Froms], Reply) ->
+    Pid ! {disk_log, Ref, Reply},
+    send_reply(Froms, Reply);
+send_reply([], _Reply) ->
     ok.
 
-reply(To, Reply, S) ->
-    To ! {disk_log, self(), Reply},
+reply({Pid, Ref}, Reply, S) ->
+    Pid ! {disk_log, Ref, Reply},
     loop(S).
 
 req(Log, R) ->
@@ -2636,12 +2640,11 @@ req(Log, R) ->
 
 monitor_request(Pid, Req) ->
     Ref = erlang:monitor(process, Pid),
-    Pid ! {self(), Req},
-    receive 
+    Pid ! {{self(), Ref}, Req},
+    receive
 	{'DOWN', Ref, process, Pid, _Info} ->
 	    {error, no_such_log};
-	{disk_log, Pid, Reply} when not is_tuple(Reply) orelse
-                                    element(2, Reply) =/= disk_log_stopped ->
+	{disk_log, Ref, Reply} ->
 	    erlang:demonitor(Ref, [flush]),
 	    Reply
     end.
