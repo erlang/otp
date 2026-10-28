@@ -181,13 +181,14 @@ Uint size_object_x(Eterm obj, erts_literal_area_t *litopt)
                                 ASSERT(flatmap_get_size(mp) <= MAP_SMALL_MAP_LIMIT);
                                 sum += n + 2;
                                 ptr += 2; /* hdr + size words */
-                                while (n--) {
+                                while (--n) {
                                     obj = *ptr++;
                                     if (!IS_CONST(obj)) {
                                         ESTACK_PUSH(s, obj);
                                     }
                                 }
-                                goto pop_next;
+                                obj = *ptr;
+                                break;
                             }
 			case MAP_HEADER_TAG_HAMT_HEAD_BITMAP :
 			case MAP_HEADER_TAG_HAMT_HEAD_ARRAY :
