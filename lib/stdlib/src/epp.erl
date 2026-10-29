@@ -1491,14 +1491,14 @@ scan_module_1([{atom,_,_}=A,{',',Anno}|Ts], Ms) ->
     scan_module_1([A,{')',Anno}|Ts], Ms);
 scan_module_1([{atom,Anno,A}=ModAtom,{')',_Ar}|_Ts], Ms0) ->
     ModString = atom_to_list(A),
-    Ms = Ms0#{'MODULE':={none,[ModAtom]}},
-    Ms#{'MODULE_STRING':={none,[{string,Anno,ModString}]}};
+    Ms0#{'MODULE':={none,[ModAtom]},
+         'MODULE_STRING':={none,[{string,Anno,ModString}]}};
 scan_module_1(_Ts, Ms) -> Ms.
 
 scan_extends([{atom,Anno,A}=ModAtom,{')',_Ar}|_Ts], Ms0) ->
     ModString = atom_to_list(A),
-    Ms = Ms0#{'BASE_MODULE':={none,[ModAtom]}},
-    Ms#{'BASE_MODULE_STRING':={none,[{string,Anno,ModString}]}};
+    Ms0#{'BASE_MODULE':={none,[ModAtom]},
+         'BASE_MODULE_STRING':={none,[{string,Anno,ModString}]}};
 scan_extends(_Ts, Ms) -> Ms.
 
 scan_err_warn([{'(',_}|_]=Toks0, {atom,_,Tag}=Token, From, St) ->

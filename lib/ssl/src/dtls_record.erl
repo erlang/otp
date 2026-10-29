@@ -76,8 +76,7 @@
 %%--------------------------------------------------------------------
 init_connection_states(Role, BeastMitigation) ->
     ConnectionEnd = ssl_record:record_protocol_role(Role),
-    Initial = initial_connection_state(ConnectionEnd),
-    Current = Initial#{epoch := 0},
+    Current = initial_connection_state(ConnectionEnd),
     %% No need to pass Version to ssl_record:empty_connection_state since
     %% random nonce is generated with same algorithm for DTLS version
     %% Might require a change for DTLS-1.3
@@ -413,7 +412,7 @@ hello_version(Version, Versions) ->
 %%--------------------------------------------------------------------
 initial_connection_state(ConnectionEnd) ->
     #{security_parameters => ssl_record:initial_security_params(ConnectionEnd),
-      epoch => undefined,
+      epoch => 0,
       sequence_number => 0,
       replay_window => init_replay_window(),
       cipher_state  => undefined,
