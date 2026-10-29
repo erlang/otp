@@ -373,6 +373,12 @@
 # endif
 #endif
 
+// Keyed BLAKE2 via the EVP_MAC "BLAKE2BMAC" and "BLAKE2SMAC" interfaces
+// (OpenSSL 3.0+).
+#if defined(HAS_3_0_API) && defined(HAVE_BLAKE2)
+# define HAVE_BLAKE2_MAC
+#endif
+
 #ifdef HAS_LIBRESSL
 # if LIBRESSL_VERSION_NUMBER >= 0x3070000fL
 #   define HAVE_CHACHA20_POLY1305
