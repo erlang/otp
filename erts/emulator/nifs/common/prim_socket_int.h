@@ -536,6 +536,13 @@ typedef struct {
     SOCKET             sock;
     SOCKET             origFD; // A 'socket' created from this FD
     BOOLEAN_T          closeOnClose; // Have we dup'ed or not
+    /* TRUE only for a lingering close, SO_LINGER {true, > 0}, which is the
+     * one case where close() can block and therefore needs the dirty
+     * scheduler and blocking mode (SET_BLOCKING is F_GETFL + F_SETFL, two
+     * more system calls).  Maintained where the option is set, and starts
+     * out TRUE so that a socket whose linger state was never established
+     * takes the blocking path. */
+    BOOLEAN_T          closeMayBlock;
     BOOLEAN_T          selectRead; // Try to have read select active
     /* +++ The dbg flag for SSDBG +++ */
     BOOLEAN_T          dbg;
@@ -576,6 +583,8 @@ extern BOOLEAN_T esock_open_use_registry(ErlNifEnv*   env,
                                          ERL_NIF_TERM eopts,
                                          BOOLEAN_T    def);
 extern BOOLEAN_T esock_open_which_protocol(SOCKET sock, int* proto);
+
+extern BOOLEAN_T esock_close_may_block(SOCKET sock);
 
 extern BOOLEAN_T esock_getopt_int(SOCKET sock,
                                   int    level,
