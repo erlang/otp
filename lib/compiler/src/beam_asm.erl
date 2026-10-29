@@ -853,36 +853,31 @@ encode_alloc_list_1([], Dict, Acc) ->
 
 -spec encode(non_neg_integer(), integer()) -> iolist() | integer().
 
-encode(Tag, N) when is_integer(N), N < 0 ->
-    encode1(Tag, negative_to_bytes(N));
-encode(Tag, N) when is_integer(N), N < 16 ->
+encode(Tag, N) when is_integer(N, 0, 15) ->
+    %% Bit layout:
+    %%
+    %% nnnn_0ttt
+    %%
+    %% (where nnnn is the N and ttt is Tag)
     (N bsl 4) bor Tag;
-encode(Tag, N) when is_integer(N), N < 16#800  ->
-    [((N bsr 3) band 2#11100000) bor Tag bor 2#00001000, N band 16#ff];
-encode(Tag, N) when is_integer(N) ->
-    encode1(Tag, to_bytes(N)).
-
-encode1(Tag, Bytes) ->
-    case iolist_size(Bytes) of
-	Num when 2 =< Num, Num =< 8 ->
-	    [((Num-2) bsl 5) bor 2#00011000 bor Tag| Bytes];
-	Num when 8 < Num ->
-	    [2#11111000 bor Tag, encode(?tag_u, Num-9)| Bytes]
-    end.
-
-to_bytes(N) ->
-    Bin = binary:encode_unsigned(N),
-    case Bin of
-	<<0:1,_/bits>> -> Bin;
-	<<1:1,_/bits>> -> [0,Bin]
-    end.
-
-negative_to_bytes(N) when N >= -16#8000 ->
-    <<N:16>>;
-negative_to_bytes(N) ->
-    Bytes = byte_size(binary:encode_unsigned(-N)),
-    Bin = <<N:Bytes/unit:8>>,
-    case Bin of
-	<<0:1,_/bits>> -> [16#ff,Bin];
-	<<1:1,_/bits>> -> Bin
+encode(Tag, N) when is_integer(N, 16, 16#800-1) ->
+    %% nnn0_1ttt nnnn_nnnn
+    [((N bsr 3) band 2#1110_0000) bor Tag bor 2#0000_1000, N band 16#ff];
+encode(Tag, N) when is_integer(N, -16#8000, -1) ->
+    %% 0001_1ttt nnnn_nnnn nnnn_nnnn
+    Header = 2#0001_1000 bor Tag,
+    <<Header,N:2/unit:8>>;
+encode(Tag, N) ->
+    NumBytes = (integer_signed_width(N) + 7) div 8,
+    if
+        is_integer(NumBytes, 2, 8) ->
+            %% sss1_1ttt nnnn_nnnn nnnn_nnnn ...
+            %%
+            %% (where sss is NumBytes-2)
+            Header = ((NumBytes-2) bsl 5) bor 2#00011000 bor Tag,
+            <<Header,N:NumBytes/unit:8>>;
+        NumBytes >= 9 ->
+            %% 1111_1ttt encode(NumBytes-9) nnnn_nnnn nnnn_nnnn nnnn_nnnn ...
+            Header = 2#11111000 bor Tag,
+            [Header, encode(?tag_u, NumBytes-9), <<N:NumBytes/unit:8>>]
     end.
