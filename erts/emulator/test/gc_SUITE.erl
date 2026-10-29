@@ -39,7 +39,8 @@
     minor_major_gc_option_self/1,
     gc_signal_order/1,
     gc_dirty_exec_proc/1,
-    alias_signals_in_gc/1
+    alias_signals_in_gc/1,
+    trapping_bif_live_hf_end/1
 ]).
 
 suite() ->
@@ -50,7 +51,7 @@ all() ->
      max_heap_size_large_hfrag,
     minor_major_gc_option_self,
     minor_major_gc_option_async, gc_signal_order, gc_dirty_exec_proc,
-    alias_signals_in_gc].
+    alias_signals_in_gc, trapping_bif_live_hf_end].
 
 
 %% Produce a growing list of elements,
@@ -410,3 +411,29 @@ do_gc(N) ->
     garbage_collect(),
     receive after 100 -> ok end,
     do_gc(N-1).
+
+%% A BIF that traps with GC disabled saves a live_hf_end marker. The marker
+%% must be consumed when the BIF returns, even if no GC is needed, or it
+%% would be reused by a later unrelated GC (GH-11923). Builds assert
+%% that no marker is left when a GC starts.
+trapping_bif_live_hf_end(Config) when is_list(Config) ->
+    Map = maps:from_list([{I, I} || I <- lists:seq(1, 2500)]),
+    Self = self(),
+    Fun = fun() ->
+                  Self ! {self(), trapping_bif_loop(Map, 200)}
+          end,
+    Pids = [spawn_opt(Fun, [{min_heap_size, Sz}, {message_queue_data, MQD}])
+            || Sz <- [233, 100000, 4000000],
+               MQD <- [on_heap, off_heap]],
+    [receive {Pid, ok} -> ok end || Pid <- Pids],
+    ok.
+
+trapping_bif_loop(_Map, 0) ->
+    ok;
+trapping_bif_loop(Map, N) ->
+    2500 = length(maps:keys(Map)),
+    case N rem 50 of
+        0 -> erlang:garbage_collect();
+        _ -> ok
+    end,
+    trapping_bif_loop(Map, N - 1).
