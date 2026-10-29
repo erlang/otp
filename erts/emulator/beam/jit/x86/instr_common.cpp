@@ -1891,7 +1891,7 @@ void BeamModuleAssembler::emit_is_eq_exact(const ArgLabel &Fail,
             } else {
                 a.and_(RETd, imm(_BITSTRING_TAG_MASK));
                 a.sub(RETd, imm(_TAG_HEADER_HEAP_BITS));
-                a.or_(RETd, ARG1d);
+                a.or_(RET, ARG1);
             }
             a.jne(resolve_beam_label(Fail));
 
@@ -2050,7 +2050,7 @@ void BeamModuleAssembler::emit_is_ne_exact(const ArgLabel &Fail,
             } else {
                 a.and_(RETd, imm(_BITSTRING_TAG_MASK));
                 a.sub(RETd, imm(_TAG_HEADER_HEAP_BITS));
-                a.or_(RETd, ARG1d);
+                a.or_(RET, ARG1);
             }
             a.je(resolve_beam_label(Fail));
 
