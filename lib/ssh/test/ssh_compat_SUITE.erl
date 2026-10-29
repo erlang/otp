@@ -47,6 +47,7 @@
          check_docker_present/1,
          login_otp_is_client/1,
          login_otp_is_server/1,
+         no_images_to_test/1,
          renegotiation_otp_is_server/1,
          send_recv_big_with_renegotiate_otp_is_client/1
         ]).
@@ -54,18 +55,29 @@
 -define(USER,"sshtester").
 -define(PASSWD, "foobar").
 -define(BAD_PASSWD, "NOT-"?PASSWD).
--define(DOCKER_PFX, "ssh_compat_suite-ssh").
+-define(DOCKER_PFX, "ssh_compat_suite_img-ssh").
+-define(VERSIONS_FILE, "versions.txt").
+-define(DEFAULT_TIMETRAP, {minutes, 2}).
+-define(IMAGE_BUILD_TIMETRAP, {minutes, 10}).
+%% Max wait for one test process in test_erl_client_reneg/2 (ms)
+-define(RENEG_TEST_TIMEOUT, 30000).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
 %%--------------------------------------------------------------------
 
 suite() ->
-    [{timetrap,{seconds,90}}].
+    [{timetrap, ?DEFAULT_TIMETRAP}].
 
 all() ->
-%%    [check_docker_present] ++
-    [{group,G} || G <- ssh_image_versions()].
+    case ssh_image_versions() of
+        [] ->
+            %% Keep one case so that init_per_suite/1 runs and the
+            %% reason is visible as a skip instead of an empty run
+            [no_images_to_test];
+        Vs ->
+            [{group,G} || G <- Vs]
+    end.
 
 groups() ->
     [{otp_client, [], [login_otp_is_client,
@@ -78,35 +90,79 @@ groups() ->
      [{G, [], [{group,otp_client}, {group,otp_server}]} || G <- ssh_image_versions()]
     ].
 
+%% Located like the CT data_dir: next to the suite's beam file. This works
+%% both in a development tree and in a released test tree, where the ssh
+%% application directory has no test/ subdirectory.
+versions_file() ->
+    filename:join([filename:dirname(code:which(?MODULE)),
+                   "ssh_compat_SUITE_data", ?VERSIONS_FILE]).
 
+%% Group names are the docker image tags derived from the versions.txt
+%% lines, e.g. 'openssh10.2p1-openssl3.5.4-22.04'. They contain no spaces,
+%% so they are usable with -group and do not depend on column alignment.
 ssh_image_versions() ->
-    try
-        %% Find all useful containers in such a way that undefined command, too low
-        %% privileges, no containers and containers found give meaningful result:
-        L0 = ["REPOSITORY"++_|_] = string:tokens(os:cmd("docker images"), "\r\n"),
-        [["REPOSITORY","TAG"|_]|L1] = [string:tokens(E, " ") || E<-L0],
-        [list_to_atom(V) || [?DOCKER_PFX,V|_] <- L1]
-    of
-        Vs ->
-            lists:sort(Vs)
-    catch
-        error:{badmatch,_} ->
+    lists:sort([Tag || {Tag, _Tokens} <- read_versions()]).
+
+%% [{Tag, Tokens}] where Tokens are the words of the versions.txt line
+read_versions() ->
+    case file:read_file(versions_file()) of
+        {ok, Content} ->
+            parse_versions(Content);
+        {error, _Reason} ->
+            %% Reported as a skip by init_per_suite/1
             []
     end.
+
+parse_versions(Content) ->
+    Lines = string:lexemes(unicode:characters_to_list(Content), "\r\n"),
+    [{list_to_atom(version_tag(Tokens)), Tokens}
+     || Line <- Lines,
+        not lists:prefix("#", string:trim(Line)),
+        Tokens <- [string:lexemes(Line, " \t")],
+        Tokens =/= []].
+
+version_tag(["openssh", SshVer, SslType, SslVer, BaseVer]) ->
+    lists:concat(["openssh", SshVer, "-", SslType, SslVer, "-", BaseVer]);
+version_tag(["dropbear", SshVer, BaseVer]) ->
+    lists:concat(["dropbear", SshVer, "-", BaseVer]);
+version_tag(Tokens) ->
+    %% Unknown format: keep it visible, create_all will reject it
+    lists:flatten(lists:join("-", Tokens)).
 
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
     ?CHECK_CRYPTO(
-       case os:find_executable("docker") of
-           false ->
+       case {os:find_executable("docker"), file:read_file_info(versions_file())} of
+           {false, _} ->
                {skip, "No docker"};
+           {_, {error, Reason}} ->
+               {skip, lists:flatten(io_lib:format("Cannot read ~ts: ~p",
+                                                  [versions_file(), Reason]))};
            _ ->
-               ssh:start(),
-               log_image_versions(ssh_image_versions(), Config),
-               ct:log("Crypto info: ~p",[crypto:info_lib()]),
-               ct:log("ssh image versions: ~p",[ssh_image_versions()]),
-               Config
+               case docker_usable() of
+                   ok ->
+                       ssh:start(),
+                       log_image_versions(ssh_image_versions(), Config),
+                       ct:log("Crypto info: ~p",[crypto:info_lib()]),
+                       ct:log("ssh image versions: ~p",[ssh_image_versions()]),
+                       Config;
+                   {error, Msg} ->
+                       {skip, "docker daemon not usable: " ++ Msg}
+               end
        end).
+
+%% The docker executable may exist while the daemon is down or not
+%% accessible to the user (e.g. permission denied on docker.sock).
+docker_usable() ->
+    Out = string:trim(os:cmd("docker info --format '{{.ServerVersion}}' 2>&1")),
+    case re:run(Out, "^[0-9]+\\.[0-9]", [{capture, none}]) of
+        match ->
+            ok;
+        nomatch when Out == "" ->
+            {error, "no output from docker info"};
+        nomatch ->
+            {error, Out}
+    end.
 
 end_per_suite(_Config) ->
     %% Remove all containers that are not running:
@@ -123,71 +179,75 @@ init_per_group(otp_server, Config) ->
             SSHver = proplists:get_value(ssh_version, Config, ""),
             {skip,"No "++SSHver++ " client found in docker"};
         _ ->
-            Config
+            [{role, server} | Config]
     end;
 
 init_per_group(otp_client, Config) ->
-    Config;
+    [{role, client} | Config];
 
 init_per_group(G, Config0) ->
     case lists:member(G, ssh_image_versions()) of
-	true ->
+        true ->
             %% This group is for one of the images
-            Vssh = atom_to_list(G),
-            Cmnt = io_lib:format("+++ ~s +++",[Vssh]),
-            ct:comment("~s",[Cmnt]),
-            try start_docker(G) of
-                {ok,ID} ->
-                    ct:log("==> ~p started",[G]),
-                    %% Find the algorithms that both client and server supports:
-                    {IP,Port} = ip_port([{id,ID}]),
-                    ct:log("Try contact ~p:~p",[IP,Port]),
-                    Config1 = [{id,ID},
-                               {ssh_version,Vssh}
-                               | Config0],
-                    try common_algs(Config1, IP, Port) of
-                        {ok, ServerHello, RemoteServerCommon, ClientHello, RemoteClientCommon} ->
-                            case chk_hellos([ServerHello,ClientHello], Cmnt) of
-                                Cmnt ->
-                                    ok;
-                                NewCmnt ->
-                                    ct:comment("~s",[NewCmnt])
-                            end,
-                            AuthMethods =
-                                %% This should be obtained by querying the peer, but that
-                                %% is a bit hard. It is possible with ssh_protocol_SUITE
-                                %% techniques, but it can wait.
-                                case Vssh of
-                                    "dropbear" ++ _ ->
-                                        [password, publickey];
-                                    _ ->
-                                        [password, 'keyboard-interactive', publickey]
-                                end,
-                            [{common_remote_server_algs,RemoteServerCommon},
-                             {common_remote_client_algs,RemoteClientCommon},
-                             {common_authmethods,AuthMethods}
-                             |Config1];
-                        Other ->
-                            ct:log("Error in init_per_group: ~p",[Other]),
-                            stop_docker(ID),
-                            {fail, "Can't contact docker sshd"}
+            case build_image(Config0, G) of
+                ok ->
+                    Vssh = atom_to_list(G),
+                    Cmnt = io_lib:format("+++ ~s +++",[Vssh]),
+                    ct:comment("~s",[Cmnt]),
+                    try start_docker(G) of
+                        {ok,ID} ->
+                            ct:log("==> ~p started",[G]),
+                            %% Find the algorithms that both client and server supports:
+                            {IP,Port} = ip_port([{id,ID}]),
+                            ct:log("Try contact ~p:~p",[IP,Port]),
+                            Config1 = [{id,ID},
+                                       {ssh_version,Vssh}
+                                      | Config0],
+                            try common_algs(Config1, IP, Port) of
+                                {ok, ServerHello, RemoteServerCommon, ClientHello, RemoteClientCommon} ->
+                                    case chk_hellos([ServerHello,ClientHello], Cmnt) of
+                                        Cmnt ->
+                                            ok;
+                                        NewCmnt ->
+                                            ct:comment("~s",[NewCmnt])
+                                    end,
+                                    AuthMethods =
+                                        %% This should be obtained by querying the peer, but that
+                                        %% is a bit hard. It is possible with ssh_protocol_SUITE
+                                        %% techniques, but it can wait.
+                                        case Vssh of
+                                            "dropbear" ++ _ ->
+                                                [password, publickey];
+                                            _ ->
+                                                [password, 'keyboard-interactive', publickey]
+                                        end,
+                                    [{common_remote_server_algs,RemoteServerCommon},
+                                     {common_remote_client_algs,RemoteClientCommon},
+                                     {common_authmethods,AuthMethods}
+                                    |Config1];
+                                Other ->
+                                    ct:log("Error in init_per_group: ~p",[Other]),
+                                    stop_docker(ID),
+                                    {fail, "Can't contact docker sshd"}
+                            catch
+                                Class:Exc:ST ->
+                                    ct:log("common_algs: ~p:~p~n~p",[Class,Exc,ST]),
+                                    stop_docker(ID),
+                                    {fail, "Failed during setup"}
+                            end
                     catch
-                        Class:Exc:ST ->
-                            ct:log("common_algs: ~p:~p~n~p",[Class,Exc,ST]),
-                            stop_docker(ID),
-                            {fail, "Failed during setup"}
-                    end
-            catch
-                cant_start_docker ->
-                    {skip, "Can't start docker"};
+                        cant_start_docker ->
+                            {skip, "Can't start docker"};
 
-                C:E:ST ->
-                    ct:log("No ~p~n~p:~p~n~p",[G,C,E,ST]),
-                    {skip, "Can't start docker"}
+                        C:E:ST ->
+                            ct:log("No ~p~n~p:~p~n~p",[G,C,E,ST]),
+                            {skip, "Can't start docker"}
+                    end;
+                Other ->
+                    Other
             end;
-
-	false ->
-	    Config0
+        false ->
+            Config0
     end.
 
 end_per_group(G, Config) ->
@@ -198,16 +258,17 @@ end_per_group(G, Config) ->
             ok
     end.
 
-
-init_per_testcase(TC, Config) when TC==login_otp_is_client ; 
-				   TC==all_algorithms_sftp_exec_reneg_otp_is_client ->
-    case proplists:get_value(ssh_version, Config) of
-        "openssh4.4p1-openssl0.9.8c"  -> {skip, "Not tested"};
-        "openssh4.5p1-openssl0.9.8m"  -> {skip, "Not tested"};
-        "openssh5.0p1-openssl0.9.8za" -> {skip, "Not tested"};
-        "openssh6.2p2-openssl0.9.8c"  -> {skip, "Not tested"};
-        "openssh6.3p1-openssl0.9.8zh" -> {skip, "Not tested"};
-        "openssh6.6p1-openssl1.0.2n"  -> {skip, "Not tested"};
+init_per_testcase(all_algorithms_sftp_exec_reneg_otp_is_client, Config) ->
+    %% One connection per common algorithm (~20), each may take up to
+    %% ?RENEG_TEST_TIMEOUT if the peer misbehaves
+    ct:timetrap({minutes, 15}),
+    case get_list_version(proplists:get_value(ssh_version, Config)) of
+        ["openssh", "6.2p2", "openssl", "0.9.8c", "16.04"] ->
+            {skip, "Openssh 6.x disabled diffie-hellman-group1-sha1 but 6.2p2 still advertises it."};
+        ["openssh", "6.3p1", "openssl", "0.9.8zh", "16.04"] ->
+            {skip, "Openssh 6.x disabled diffie-hellman-group1-sha1 but 6.3p1 still advertises it."};
+        ["dropbear", "2025.88", "22.04"] ->
+            {skip, "Fails with error \"No common compress algorithm\""};
         _ ->
             Config
     end;
@@ -220,6 +281,10 @@ end_per_testcase(_TC, _Config) ->
 
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
+%%--------------------------------------------------------------------
+no_images_to_test(_Config) ->
+    {skip, "No ssh versions to test in " ++ versions_file()}.
+
 %%--------------------------------------------------------------------
 check_docker_present(_Config) ->
     ct:log("This testcase is just to show in Monitor that we have a test host with docker installed",[]),
@@ -295,6 +360,8 @@ login_otp_is_server(Config) ->
                                                    {preferred_algorithms, ssh_transport:supported_algorithms()},
                                                    {system_dir, SysDir},
                                                    {user_dir, UsrDir},
+                                                   %% exec is disabled by default since OTP 29
+                                                   {exec, erlang_eval},
                                                    {failfun, fun ssh_test_lib:failfun/2}
                                                    | Opts
                                                   ]),
@@ -522,7 +589,7 @@ exec_from_docker(C, DestIP, DestPort, Command, Expects, ExtraSshArg, Config) whe
           ["sshpass -p ",?PASSWD," "
            | case proplists:get_value(ssh_version,Config) of
                  "dropbear" ++ _ ->
-                     ["dbclient -y -y -p ",DestPort," ",ExtraSshArg," ",iptoa(DestIP)," "];
+                     ["/buildroot/ssh/bin/dbclient -y -y -p ",DestPort," ",ExtraSshArg," ",iptoa(DestIP)," "];
 
                  _ -> %% OpenSSH or compatible
                      ["/buildroot/ssh/bin/ssh -o 'CheckHostIP=no' -o 'StrictHostKeyChecking=no' ",
@@ -642,11 +709,11 @@ setup_local_hostdirs(KeyAlgs, HostDir, Config) ->
 setup_local_hostdir(KeyAlg, Config) ->
     setup_local_hostdir(KeyAlg, new_dir(Config), Config).
 setup_local_hostdir(KeyAlg, HostDir, Config) ->
-    {ok, {Priv,Publ}} = host_priv_pub_keys(Config, KeyAlg),
+    {ok, {Pub, PrivOpenSsh, _Priv}} = host_priv_pub_keys(Config, KeyAlg),
     %% Local private and public key
     DstFile = filename:join(HostDir, dst_filename(host,KeyAlg)),
-    ok = file:write_file(DstFile,         Priv),
-    ok = file:write_file(DstFile++".pub", Publ),
+    ok = file:write_file(DstFile,         PrivOpenSsh),
+    ok = file:write_file(DstFile++".pub", Pub),
     HostDir.
 
 
@@ -655,11 +722,11 @@ setup_remote_auth_keys_and_local_priv(KeyAlg, Config) ->
     setup_remote_auth_keys_and_local_priv(KeyAlg, IP, Port, new_dir(Config), Config).
 
 setup_remote_auth_keys_and_local_priv(KeyAlg, IP, Port, UserDir, Config) ->
-    {ok, {Priv,Publ}} = user_priv_pub_keys(Config, KeyAlg),
+    {ok, {Pub, PrivOpenSsh, _Priv}} = user_priv_pub_keys(Config, KeyAlg),
     %% Local private and public keys
     DstFile = filename:join(UserDir, dst_filename(user,KeyAlg)),
-    ok = file:write_file(DstFile,         Priv),
-    ok = file:write_file(DstFile++".pub", Publ),
+    ok = file:write_file(DstFile,         PrivOpenSsh),
+    ok = file:write_file(DstFile++".pub", Pub),
     %% Remote auth_methods with public key
     {ok,Ch,Cc} = ssh_sftp:start_channel(IP, Port, [{user,     ?USER  },
                                                    {password, ?PASSWD   },
@@ -670,7 +737,7 @@ setup_remote_auth_keys_and_local_priv(KeyAlg, IP, Port, UserDir, Config) ->
                                                    {user_interaction,false}
                                                   ]),
     _ = ssh_sftp:make_dir(Ch, ".ssh"),
-    ok = ssh_sftp:write_file(Ch, ".ssh/authorized_keys", Publ),
+    ok = ssh_sftp:write_file(Ch, ".ssh/authorized_keys", Pub),
     ok = ssh_sftp:write_file_info(Ch, ".ssh/authorized_keys",  #file_info{mode=8#700}),
     ok = ssh_sftp:write_file_info(Ch, ".ssh",  #file_info{mode=8#700}),
     ok = ssh_sftp:stop_channel(Ch),
@@ -683,10 +750,10 @@ setup_remote_priv_and_local_auth_keys(KeyAlg, Config) ->
     setup_remote_priv_and_local_auth_keys(KeyAlg, IP, Port, new_dir(Config), Config).
 
 setup_remote_priv_and_local_auth_keys(KeyAlg, IP, Port, UserDir, Config) ->
-    {ok, {Priv,Publ}} = user_priv_pub_keys(Config, KeyAlg),
+    {ok, {Pub, PrivOpenSsh, Priv}} = user_priv_pub_keys(Config, KeyAlg),
     %% Local auth_methods with public key
     AuthKeyFile = filename:join(UserDir, "authorized_keys"),
-    ok = file:write_file(AuthKeyFile, Publ),
+    ok = file:write_file(AuthKeyFile, Pub),
     %% Remote private and public key
     {ok,Ch,Cc} = ssh_sftp:start_channel(IP, Port, [{user,     ?USER  },
                                                    {password, ?PASSWD   },
@@ -697,11 +764,19 @@ setup_remote_priv_and_local_auth_keys(KeyAlg, IP, Port, UserDir, Config) ->
                                                   ]),
     rm_id_in_remote_dir(Ch, ".ssh"),
     _ = ssh_sftp:make_dir(Ch, ".ssh"),
-    DstFile = filename:join(".ssh", dst_filename(user,KeyAlg)),
-    ok = ssh_sftp:write_file(Ch, DstFile, Priv),
+    DstFile = filename:join(".ssh", dst_filename(user, KeyAlg)),
+    ok = ssh_sftp:write_file(Ch, DstFile, PrivOpenSsh),
     ok = ssh_sftp:write_file_info(Ch, DstFile,  #file_info{mode=8#700}),
-    ok = ssh_sftp:write_file(Ch, DstFile++".pub", Publ),
+    ok = ssh_sftp:write_file(Ch, DstFile++".pub", Pub),
     ok = ssh_sftp:write_file_info(Ch, ".ssh",  #file_info{mode=8#700}),
+    case proplists:get_value(ssh_version, Config) of
+        "dropbear" ++ _ ->
+            DropbearDstFile = filename:join(".ssh", "id_dropbear"),
+            ok = ssh_sftp:write_file(Ch, DropbearDstFile, Priv),
+            ok = ssh_sftp:write_file_info(Ch, DropbearDstFile, #file_info{mode=8#700});
+        _ ->
+            ok
+    end,
     ok = ssh_sftp:stop_channel(Ch),
     ok = ssh:close(Cc),
     UserDir.
@@ -723,9 +798,29 @@ host_priv_pub_keys(Config, KeyAlg) -> priv_pub_keys("host_keys",  host, Config, 
 
 priv_pub_keys(KeySubDir, Type, Config, KeyAlg) ->
     KeyDir = filename:join(proplists:get_value(data_dir,Config), KeySubDir),
-    {ok,Priv} = file:read_file(filename:join(KeyDir,src_filename(Type,KeyAlg))),
-    {ok,Publ} = file:read_file(filename:join(KeyDir,src_filename(Type,KeyAlg)++".pub")),
-    {ok, {Priv,Publ}}.
+    SshVersion = proplists:get_value(ssh_version, Config),
+    case {Type, SshVersion} of
+        {user, "dropbear" ++ _} ->
+            {ok, Pub} = file:read_file(filename:join([KeyDir, "dropbear", src_filename(Type, KeyAlg) ++ ".pub"])),
+            {ok, PrivOpenSsh} = file:read_file(filename:join([KeyDir, "dropbear", src_filename(Type, KeyAlg) ++ "_openssh"])),
+            {ok, Priv} = file:read_file(filename:join([KeyDir, "dropbear", src_filename(Type, KeyAlg)])),
+            {ok, {remove_comment(Pub), remove_comment(PrivOpenSsh), remove_comment(Priv)}};
+        {user, "openssh" ++ _} ->
+            {ok, Pub} = file:read_file(filename:join([KeyDir, "openssh", src_filename(Type, KeyAlg) ++ ".pub"])),
+            {ok, Priv} = file:read_file(filename:join([KeyDir, "openssh", src_filename(Type, KeyAlg)])),
+            PrivNoComment = remove_comment(Priv),
+            {ok, {remove_comment(Pub), PrivNoComment, PrivNoComment}};
+        _ ->
+            {ok, Pub} = file:read_file(filename:join([KeyDir, src_filename(Type, KeyAlg) ++ ".pub"])),
+            {ok, Priv} = file:read_file(filename:join([KeyDir, src_filename(Type, KeyAlg)])),
+            PrivNoComment = remove_comment(Priv),
+            {ok, {remove_comment(Pub), PrivNoComment, PrivNoComment}}
+    end.
+
+remove_comment(Bin) ->
+    Lines = string:split(Bin, "\n", all),
+    FilteredLines = [L || L <- Lines, string:prefix(L, "#") == nomatch],
+    lists:join("\n", FilteredLines).
 
 
 %%%---------------- The default filenames
@@ -805,9 +900,9 @@ format_result_table_use_all_algos(FunctionName, Config, CommonAlgs, Failed) ->
 %% Docker handling: start_docker/1 and stop_docker/1
 %% 
 start_docker(Ver) ->
-    Cmnd = lists:concat(["docker run -itd --rm -p 1234 ",?DOCKER_PFX,":",Ver]),
-    Id0 = os:cmd(Cmnd),
-    ct:log("Ver = ~p, Cmnd ~p~n-> ~p",[Ver,Cmnd,Id0]),
+    Cmd = lists:concat(["docker run -itd --rm -p 1234 ",?DOCKER_PFX,":",get_docker_version(Ver)]),
+    Id0 = os:cmd(Cmd),
+    ct:log("Ver = ~p, Cmd ~p~n-> ~p",[Ver,Cmd,Id0]),
     case is_docker_sha(Id0) of
         true ->
             Id = hd(string:tokens(Id0, "\n")),
@@ -820,8 +915,8 @@ start_docker(Ver) ->
 
 
 stop_docker({_Ver,_,Id}) ->
-    Cmnd = lists:concat(["docker kill ",Id]),
-    os:cmd(Cmnd).
+    Cmd = lists:concat(["docker kill ",Id]),
+    os:cmd(Cmd).
 
 is_docker_sha(L) ->
     lists:all(fun(C) when $a =< C,C =< $z -> true;
@@ -839,10 +934,10 @@ ip_port(Config) ->
     {IP,Port}.
 
 ip(Id) ->
-    Cmnd = lists:concat(["docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ",
+    Cmd = lists:concat(["docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' ",
 			 Id]),
-    IPstr0 = os:cmd(Cmnd),
-    ct:log("Cmnd ~p~n-> ~p",[Cmnd,IPstr0]),
+    IPstr0 = os:cmd(Cmd),
+    ct:log("Cmd ~p~n-> ~p",[Cmd,IPstr0]),
     IPstr = hd(string:tokens(IPstr0, "\n")),
     {ok,IP} = inet:parse_address(IPstr),
     IP.
@@ -851,13 +946,31 @@ ip(Id) ->
 %%
 %%  Normalize the host returned from ssh_test_lib
 
+iptoa({0,0,0,0,0,0,0,0}) -> inet_parse:ntoa(host_ip());
 iptoa({0,0,0,0}) -> inet_parse:ntoa(host_ip());
 iptoa(IP) -> inet_parse:ntoa(IP).
 
 host_ip() ->
-    {ok,Name} = inet:gethostname(),
-    {ok,IP} = inet:ip(Name),
-    IP.
+    DockerAddr = get_docker_if_address(inet:getifaddrs()),
+    case inet:is_ip_address(DockerAddr) of
+        true ->
+            DockerAddr;
+        false ->
+            {ok, Name} = inet:gethostname(),
+            {ok, IP} = inet:ip(Name),
+            IP
+    end.
+
+get_docker_if_address({ok, Addrs}) ->
+    Fun = fun({Name, _}) -> string:prefix(Name, "docker") /= nomatch end,
+    get_docker_if_address_from_opts(lists:search(Fun, Addrs));
+get_docker_if_address(Other) ->
+    Other.
+
+get_docker_if_address_from_opts({value, {_Name, Opts}}) ->
+    proplists:get_value(addr, Opts);
+get_docker_if_address_from_opts(Other) ->
+    Other.
 
 %%--------------------------------------------------------------------
 %%
@@ -1106,7 +1219,7 @@ receive_kexinit(_S, <<PacketLen:32, PaddingLen:8, PayloadAndPadding/binary>>)
        ->
     ct:log("Has all ~p packet bytes",[PacketLen]),
     PayloadLen = PacketLen - PaddingLen - 1,
-    <<Payload:PayloadLen/binary, _Padding:PaddingLen/binary>> = PayloadAndPadding,
+    Payload = binary:part(PayloadAndPadding, 0, PayloadLen),
     ssh_message:decode(Payload);
 
 receive_kexinit(S, Ack) ->
@@ -1223,8 +1336,14 @@ call_sftp_in_docker(Config, ServerIP, ServerPort, Cmnds, UserDir, Ref) ->
                           {user_interaction,false}
                          ]),
 
-    %% Make commands for "expect" in the docker:
-    PreExpectCmnds = ["spawn /buildroot/ssh/bin/sftp -oPort="++integer_to_list(ServerPort)++
+    SftpPath = case proplists:get_value(ssh_version, Config) of
+        "dropbear" ++ _ ->
+            "/usr/bin/sftp";
+        "openssh" ++ _ ->
+            "/buildroot/ssh/bin/sftp"
+    end,
+
+    PreExpectCmnds = ["spawn "++SftpPath++" -oPort="++integer_to_list(ServerPort)++
                           " -oCheckHostIP=no -oStrictHostKeyChecking=no " ++
                           iptoa(ServerIP)++"\n"
                      ],
@@ -1293,19 +1412,27 @@ recv_log_msgs(C, Ch) ->
 %%%----------------------------------------------------------------
 %%%----------------------------------------------------------------
 test_erl_client_reneg({ok,C}, Spec) ->
-    %% Start the test processes on the connection C:
+    %% Start the test processes on the connection C. A crash is reported
+    %% as a result, so that the collector below never waits for a
+    %% process that is gone.
     Parent = self(),
     Pids = [spawn(
               fun() ->
-                      Parent ! {self(), TestType, Id, one_test_erl_client(TestType,Id,C)}
+                      Result = try one_test_erl_client(TestType,Id,C)
+                               catch Class:Reason:St -> {crashed,Class,Reason,St}
+                               end,
+                      Parent ! {self(), TestType, Id, Result}
               end
-             ) 
+             )
             || {TestType,N} <- Spec,
                Id <- lists:seq(1,N)],
 
     Kex1 = renegotiate_test(init, C),
 
-    %% Collect the results:
+    %% Collect the results. Test processes still running after
+    %% ?RENEG_TEST_TIMEOUT are killed, so the remaining algorithms are
+    %% still tested. One deadline for all processes of this connection.
+    Deadline = erlang:monotonic_time(millisecond) + ?RENEG_TEST_TIMEOUT,
     case lists:filter(
            fun(R) -> R=/=ok end,
            [receive
@@ -1315,14 +1442,27 @@ test_erl_client_reneg({ok,C}, Spec) ->
                 {Pid,TestType,Id,OtherResult} ->
                     ct:log("~p:~p ~p ~p~n~p",[?MODULE,?LINE,TestType,Id,OtherResult]),
                     {error,TestType,Id}
+            after max(0, Deadline - erlang:monotonic_time(millisecond)) ->
+                    exit(Pid, kill),
+                    ct:log("~p:~p test process ~p did not reply within ~p ms",
+                           [?MODULE,?LINE,Pid,?RENEG_TEST_TIMEOUT]),
+                    {error,timeout,Pid}
             end || Pid <- Pids])
     of
         [] ->
             renegotiate_test(Kex1, C),
             {ok,C};
         Other ->
-            renegotiate_test(Kex1, C),
-            Other
+            case is_process_alive(C) of
+                true ->
+                    renegotiate_test(Kex1, C),
+                    Other;
+                false ->
+                    %% The peer closed the whole connection; report it as
+                    %% a failure for this algorithm and go on with the next
+                    ct:log("~p:~p connection ~p closed during the tests", [?MODULE,?LINE,C]),
+                    [{error,connection_closed} | Other]
+            end
     end;
 
 test_erl_client_reneg(Error, _) ->
@@ -1492,10 +1632,10 @@ renegotiate_test(Kex1, ConnectionRef) ->
     end.
 
 %%%----------------------------------------------------------------
-%% ImageVersions = ['dropbearv2016.72',
-%%                  'openssh4.4p1-openssl0.9.8c',
+%% ImageVersions = ['dropbear v2016.72 22.04',
+%%                  'openssh 4.4p1 openssl 0.9.8c 16.04',
 %%                  ...
-%%                  'openssh8.8p1-openssl1.1.1l']
+%%                  'openssh 8.8p1 openssl 1.1.1l 22.04']
 
 log_image_versions(ImageVersions, Config) ->
     case true == (catch
@@ -1526,14 +1666,86 @@ fix_entry(HostPfx) ->
     end.
 
 fix_version(E) ->
-    case string:tokens(atom_to_list(E), "-") of
-        ["openssh"++Vs, "openssl"++Vc ] -> lists:concat(["OpenSSH_",Vs," OpenSSL ",Vc]);
-        ["openssh"++Vs, "libressl"++Vc] -> lists:concat(["OpenSSH_",Vs," LibreSSL ",Vc]);
-        _ -> atom_to_list(E)
+    case get_list_version(E) of
+        ["openssh", Vs, "openssl", Vc, BaseVer] -> lists:concat(["OpenSSH_", Vs," OpenSSL ", Vc, " ", BaseVer]);
+        ["openssh", Vs, "libressl", Vc, BaseVer] -> lists:concat(["OpenSSH_", Vs," LibreSSL ", Vc, " ", BaseVer]);
+        ["dropbear", Vs, BaseVer] -> lists:concat(["Dropbear ", Vs, " ", BaseVer])
     end.
+
+%% Words of the versions.txt line for a group/tag (atom or string)
+get_list_version(Tag) when is_list(Tag) ->
+    get_list_version(list_to_atom(Tag));
+get_list_version(Tag) when is_atom(Tag) ->
+    {Tag, Tokens} = lists:keyfind(Tag, 1, read_versions()),
+    Tokens.
 
 hostname() ->
     case inet:gethostname() of
 	{ok,Name} -> string:to_lower(Name);
 	_ -> "undefined"
     end.
+
+image_exists(Ver) ->
+    Cmd = lists:concat(["docker images -q ", ?DOCKER_PFX, ":", Ver, " 2>/dev/null"]),
+    os:cmd(Cmd) /= "".
+
+build_image(Config, Ver) ->
+    DockerVer = get_docker_version(Ver),
+    case image_exists(DockerVer) of
+        true ->
+            ct:log("Image ~p is already built.~n", [Ver]),
+            ok;
+        false ->
+            ct:timetrap(?IMAGE_BUILD_TIMETRAP),
+            try
+                DataDir = proplists:get_value(data_dir, Config),
+                BuildAll = filename:join([DataDir, "build_scripts", "create_all"]),
+                %% The build output goes to a file so that it can be
+                %% followed while the build runs (os:cmd/2 only returns
+                %% it at the end). A plain redirect keeps the exit status.
+                LogFile = build_log_file(Config, DockerVer),
+                Cmd = lists:flatten(["BUILDKIT_PROGRESS=plain ", BuildAll, " build_one ",
+                                     lists:join(" ", get_list_version(Ver)),
+                                     " > ", LogFile, " 2>&1"]),
+                ct:pal("Building ~p, follow with:~n  tail -f ~ts~n", [Ver, LogFile]),
+                ct:log("Cmd: ~p~n", [Cmd]),
+                os:cmd(Cmd, #{exception_on_failure => true}),
+                ct:pal("Built ~p.~n", [Ver]),
+                ok
+            catch
+                error : {command_failed, _Output, ExitCode} : _ST ->
+                    ct:log("Cannot build image, exit code: ~p, last lines of ~ts:~n~ts~n",
+                           [ExitCode, build_log_file(Config, DockerVer),
+                            log_tail(build_log_file(Config, DockerVer), 50)]),
+                    {skip, io_lib:format("Cannot build image, exit code: ~p", [ExitCode])}
+            after
+                ct:timetrap(?DEFAULT_TIMETRAP)
+            end
+    end.
+
+build_log_file(Config, DockerVer) ->
+    filename:join(proplists:get_value(priv_dir, Config),
+                  "build-" ++ DockerVer ++ ".log").
+
+%% Last N lines of a file, for the CT log when a build fails
+log_tail(File, N) ->
+    case file:read_file(File) of
+        {ok, Bin} ->
+            Lines = string:split(string:trim(Bin, trailing), "\n", all),
+            lists:join("\n", lists:nthtail(max(0, length(Lines) - N), Lines));
+        {error, Reason} ->
+            io_lib:format("(cannot read build log: ~p)", [Reason])
+    end.
+
+%% The docker image tag is the group name plus the build recipe version,
+%% e.g. 'openssh10.2p1-openssl3.5.4-22.04' -> "openssh10.2p1-openssl3.5.4-22.04-r1"
+get_docker_version(Tag) ->
+    atom_to_list(Tag) ++ "-r" ++ recipe_version().
+
+%% Same file and parsing as in the build scripts (build_scripts/RECIPE_VERSION)
+recipe_version() ->
+    File = filename:join([filename:dirname(code:which(?MODULE)),
+                          "ssh_compat_SUITE_data", "build_scripts", "RECIPE_VERSION"]),
+    {ok, Bin} = file:read_file(File),
+    Lines = string:lexemes(unicode:characters_to_list(Bin), "\r\n"),
+    lists:append([string:trim(L) || L <- Lines, not lists:prefix("#", L)]).
