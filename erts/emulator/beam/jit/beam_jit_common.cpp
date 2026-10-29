@@ -648,6 +648,8 @@ Eterm beam_jit_call_bif(Process *c_p,
                                             result,
                                             reg,
                                             arity);
+    } else if (c_p->live_hf_end != ERTS_INVALID_HFRAG_PTR) {
+        c_p->live_hf_end = ERTS_INVALID_HFRAG_PTR;
     }
 
     return result;
@@ -704,6 +706,9 @@ Eterm beam_jit_call_nif(Process *c_p,
                                                     nif_bif_result,
                                                     reg,
                                                     bif_nif_arity);
+    } else {
+        /* NIFs cannot disable GC, so there is no marker to clear. */
+        ASSERT(c_p->live_hf_end == ERTS_INVALID_HFRAG_PTR);
     }
 
     return nif_bif_result;

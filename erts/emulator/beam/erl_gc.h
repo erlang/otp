@@ -139,7 +139,8 @@ ERTS_GLB_INLINE Eterm follow_moved(Eterm term, Eterm xptr_tag)
 
 /* ERTS_IS_GC_AFTER_BIF_DESIRED also triggers for flag F_DISABLE_GC,
  * not to actually do GC but we need to call erts_gc_after_bif_call_lhf
- * for some bookkeeping of live_hf_end. */
+ * for some bookkeeping of live_hf_end. When it is false, a saved
+ * live_hf_end marker must be cleared by the caller. */
 #define ERTS_IS_GC_AFTER_BIF_DESIRED(Proc)			        \
     ERTS_IS_GC_DESIRED_INTERNAL((Proc), (Proc)->htop, (Proc)->stop, F_DISABLE_GC)
 
