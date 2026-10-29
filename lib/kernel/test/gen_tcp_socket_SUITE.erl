@@ -22,6 +22,8 @@
 
 -module(gen_tcp_socket_SUITE).
 
+-behaviour(ct_suite).
+
 -compile([export_all, nowarn_export_all]).
 
 -include_lib("common_test/include/ct_event.hrl").

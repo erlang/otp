@@ -21,6 +21,8 @@
 %%
 -module(ssh_upgrade_SUITE).
 
+-behaviour(ct_suite).
+
 -export([
          suite/0,
          all/0,

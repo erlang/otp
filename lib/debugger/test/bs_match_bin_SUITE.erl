@@ -23,6 +23,8 @@
 
 -module(bs_match_bin_SUITE).
 
+-behaviour(ct_suite).
+
 -author('bjorn@erix.ericsson.se').
 -export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,
 	 init_per_testcase/2,end_per_testcase/2,

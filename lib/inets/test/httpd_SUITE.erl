@@ -27,6 +27,8 @@
 -compile({no_auto_import,[alias/1]}).
 -module(httpd_SUITE).
 
+-behaviour(ct_suite).
+
 -include_lib("kernel/include/file.hrl").
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").

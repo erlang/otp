@@ -21,6 +21,8 @@
 %%
 -module(gen_sctp_SUITE).
 
+-behaviour(ct_suite).
+
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/inet_sctp.hrl").
 -include_lib("kernel/src/inet_int.hrl").

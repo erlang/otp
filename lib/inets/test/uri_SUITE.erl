@@ -27,6 +27,8 @@
 
 -module(uri_SUITE).
 
+-behaviour(ct_suite).
+
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("common_test/include/ct.hrl").
 -include("inets_test_lib.hrl").

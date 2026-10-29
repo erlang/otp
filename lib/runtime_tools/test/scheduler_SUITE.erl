@@ -22,6 +22,8 @@
 
 -module(scheduler_SUITE).
 
+-behaviour(ct_suite).
+
 -export([suite/0, all/0]).
 
 %% Test cases

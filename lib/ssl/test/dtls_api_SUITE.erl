@@ -23,6 +23,8 @@
 %%
 -module(dtls_api_SUITE).
 
+-behaviour(ct_suite).
+
 %% Callback functions
 -export([all/0,
          groups/0,

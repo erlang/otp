@@ -27,6 +27,8 @@
 
 -module(diameter_traffic_SUITE).
 
+-behaviour(ct_suite).
+
 %% all tests, no common_test dependency
 -export([run/0,
          run/1]).

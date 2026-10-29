@@ -22,6 +22,8 @@
 
 -module(ttb_SUITE).
 
+-behaviour(ct_suite).
+
 -compile([{nowarn_possibly_unsafe_function, {file, consult, 1}}]).
 
 -compile(export_all).

@@ -21,6 +21,8 @@
 %%
 -module(test_server_skip_SUITE).
 
+-behaviour(ct_suite).
+
 -export([all/1, init_per_suite/1, end_per_suite/1]).
 -export([dummy/1]).
 

@@ -21,6 +21,8 @@
 %%
 -module(match_SUITE).
 
+-behaviour(ct_suite).
+
 %% The main point of this test suite is testing aliased patterns.
 -compile([nowarn_match_alias_pats]).
 

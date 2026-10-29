@@ -21,6 +21,9 @@
 %%
 
 -module(multi_load_SUITE).
+
+-behaviour(ct_suite).
+
 -export([all/0,suite/0,groups/0,init_per_suite/1,end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
 	 basic_atomic_load/1,basic_errors/1,sticky_dir/1,

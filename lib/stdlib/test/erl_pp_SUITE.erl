@@ -24,6 +24,8 @@
 %%%-----------------------------------------------------------------
 -module(erl_pp_SUITE).
 
+-behaviour(ct_suite).
+
 %%-define(debug, true).
 
 -ifdef(debug).

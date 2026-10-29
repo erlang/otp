@@ -22,6 +22,8 @@
 
 -module(bs_construct_SUITE).
 
+-behaviour(ct_suite).
+
 %% Copied from bs_construct_SUITE in the emulator test suite.
 %% The following test cases have been omitted since they don't
 %% make much sense for the debugger:

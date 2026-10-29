@@ -26,6 +26,8 @@
 
 -module(diameter_sync_SUITE).
 
+-behaviour(ct_suite).
+
 %% testcases, no common_test depedency
 -export([run/0,
          run/1]).

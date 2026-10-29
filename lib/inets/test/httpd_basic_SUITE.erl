@@ -22,6 +22,8 @@
 %%
 -module(httpd_basic_SUITE).
 
+-behaviour(ct_suite).
+
 -include_lib("kernel/include/file.hrl").
 -include_lib("common_test/include/ct.hrl").
 -include("inets_test_lib.hrl").

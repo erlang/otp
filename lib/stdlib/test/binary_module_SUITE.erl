@@ -21,6 +21,8 @@
 %%
 -module(binary_module_SUITE).
 
+-behaviour(ct_suite).
+
 -export([all/0, suite/0,
          interesting/1,ac_simd_root_skip/1,scope_return/1,random_ref_comp/1,random_ref_sr_comp/1,
 	 random_ref_fla_comp/1,parts/1, bin_to_list/1, list_to_bin/1,

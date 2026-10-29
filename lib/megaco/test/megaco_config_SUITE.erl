@@ -27,6 +27,8 @@
 
 -module(megaco_config_SUITE).
 
+-behaviour(ct_suite).
+
 -export([
          suite/0, all/0, groups/0,
 	 init_per_suite/1,    end_per_suite/1, 

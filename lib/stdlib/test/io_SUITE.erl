@@ -21,6 +21,8 @@
 %%
 -module(io_SUITE).
 
+-behaviour(ct_suite).
+
 -export([all/0, suite/0]).
 
 -export([error_1/1, float_g/1, float_w/1, otp_5403/1, otp_5813/1, otp_6230/1, 

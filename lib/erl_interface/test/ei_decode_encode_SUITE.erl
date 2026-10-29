@@ -23,6 +23,8 @@
 %%
 -module(ei_decode_encode_SUITE).
 
+-behaviour(ct_suite).
+
 -include_lib("common_test/include/ct.hrl").
 -include("ei_decode_encode_SUITE_data/ei_decode_encode_test_cases.hrl").
 
