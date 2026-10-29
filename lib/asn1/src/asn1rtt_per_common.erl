@@ -144,38 +144,12 @@ encode_relative_oid(Val) when is_list(Val) ->
 
 encode_unconstrained_number(Val) when not is_integer(Val) ->
     exit({error,{asn1,{illegal_integer,Val}}});
-encode_unconstrained_number(Val) when Val >= 0 ->
-    if
-	Val < 16#80 ->
-	    [1,Val];
-	Val < 16#100 ->
-	    [<<2,0>>,Val];
-	true ->
-	    case binary:encode_unsigned(Val) of
-		<<0:1,_/bitstring>>=Bin ->
-		    case byte_size(Bin) of
-			Sz when Sz < 128 ->
-			    [Sz,Bin];
-			Sz when Sz < 16384 ->
-			    [<<2:2,Sz:14>>,Bin]
-		    end;
-		<<1:1,_/bitstring>>=Bin ->
-		    case byte_size(Bin)+1 of
-			Sz when Sz < 128 ->
-			    [Sz,0,Bin];
-			Sz when Sz < 16384 ->
-			    [<<2:2,Sz:14,0:8>>,Bin]
-		    end
-	    end
-    end;
-encode_unconstrained_number(Val) ->
-    Oct = enint(Val, []),
-    Len = length(Oct),
-    if
-        Len < 128 ->
-            [Len|Oct];
-        Len < 16384 ->
-            [<<2:2,Len:14>>|Oct]
+encode_unconstrained_number(Val) when is_integer(Val) ->
+    case (integer_signed_width(Val) + 7) bsr 3 of
+        NumBytes when NumBytes < 128 ->
+            <<NumBytes:8,Val:NumBytes/unit:8>>;
+        NumBytes when NumBytes < 16384 ->
+            <<2:2,NumBytes:14,Val:NumBytes/unit:8>>
     end.
 
 %% bitstring_from_positions([Position]) -> BitString
@@ -450,11 +424,6 @@ e_o_e(Num) when Num < 128 ->
 e_o_e(Num) ->
     [e_o_e(Num bsr 7)|[(Num band 2#1111111) bor 2#10000000]].
 
-enint(-1, [B1|T]) when B1 > 127 ->
-    [B1|T];
-enint(N, Acc) ->
-    enint(N bsr 8, [N band 16#ff|Acc]).
-
 diff([H|T], Prev) ->
     [H-Prev|diff(T, H)];
 diff([], _) -> [].
@@ -514,28 +483,9 @@ bs_drop_trailing_zeroes(Bs0, Sz0) ->
 	    Bs
     end.
 
-%% ntz(Byte) -> Number of trailing zeroes.
-ntz(Byte) ->
-    %% The table was calculated like this:
-    %%   NTZ = fun (B, N, NTZ) when B band 1 =:= 0 -> NTZ(B bsr 1, N+1, NTZ); (_, N, _) -> N end.
-    %%   io:format("~w\n", [list_to_tuple([NTZ(B+256, 0, NTZ) || B <- lists:seq(0, 255)])]).
-    T = {8,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,
-	 4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,
-	 5,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,
-	 4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,
-	 6,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,
-	 4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,
-	 5,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,
-	 4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,
-	 7,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,
-	 4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,
-	 5,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,
-	 4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,
-	 6,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,
-	 4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,
-	 5,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0,
-	 4,0,1,0,2,0,1,0,3,0,1,0,2,0,1,0},
-    element(Byte+1, T).
+%% ntz(Byte) -> Number of trailing zeroes, or 8 if Byte is zero.
+ntz(0) -> 8;
+ntz(N) -> integer_trailing_zeroes(N).
 
 is_default_bitstring_list([H|Def], [H|Val]) ->
     is_default_bitstring_list(Def, Val);
