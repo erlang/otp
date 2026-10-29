@@ -19,6 +19,9 @@
 %% %CopyrightEnd%
 
 -module(beam_doc_SUITE).
+
+-behaviour(ct_suite).
+
 -export([all/0, groups/0, init_per_group/2, end_per_group/2,
          singleton_moduledoc/1, singleton_doc/1, binary_doc/1,
          docmodule_with_doc_attributes/1, hide_moduledoc/1, docformat/1,

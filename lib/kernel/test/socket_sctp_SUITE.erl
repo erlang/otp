@@ -65,6 +65,8 @@
 
 -module(socket_sctp_SUITE).
 
+-behaviour(ct_suite).
+
 -include_lib("common_test/include/ct.hrl").
 -include_lib("common_test/include/ct_event.hrl").
 -include("socket_test_evaluator.hrl").
@@ -7216,4 +7218,3 @@ i(F, A) ->
     FStr = ?F("[~s] " ++ F, [?FTS()|A]),
     io:format(user, FStr ++ "~n", []),
     io:format(FStr, []).
-

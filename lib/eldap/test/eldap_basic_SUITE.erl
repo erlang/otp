@@ -22,6 +22,8 @@
 
 -module(eldap_basic_SUITE).
 
+-behaviour(ct_suite).
+
 -export([
          add_already_exists/1,
          add_referral/1,

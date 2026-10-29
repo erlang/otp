@@ -24,6 +24,8 @@
 
 -module(ssh_collect_labmachine_info_SUITE).
 
+-behaviour(ct_suite).
+
 -include_lib("common_test/include/ct.hrl").
 
 -export([save_ssh_data/3]).

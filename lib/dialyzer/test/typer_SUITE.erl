@@ -21,6 +21,8 @@
 %%
 -module(typer_SUITE).
 
+-behaviour(ct_suite).
+
 -export([all/0,suite/0,
          smoke/1,
          smoke_incremental_plt/1,

@@ -21,6 +21,8 @@
 %%
 -module(beam_lib_SUITE).
 
+-behaviour(ct_suite).
+
 %%-define(debug, true).
 
 -ifdef(debug).

@@ -20,6 +20,9 @@
 %% %CopyrightEnd%
 %%
 -module(overridden_bif_SUITE).
+
+-behaviour(ct_suite).
+
 -compile({no_auto_import,[is_reference/1,size/1]}).
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,

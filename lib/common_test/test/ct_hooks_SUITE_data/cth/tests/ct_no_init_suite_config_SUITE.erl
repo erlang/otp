@@ -22,6 +22,8 @@
 
 -module(ct_no_init_suite_config_SUITE).
 
+-behaviour(ct_suite).
+
 -compile(export_all).
 
 -include("ct.hrl").

@@ -24,6 +24,8 @@
 
 -module(crypto_collect_labmachine_info_SUITE).
 
+-behaviour(ct_suite).
+
 %% This test suite collects information about the OpenSSL version
 %% used by crypto application.
 

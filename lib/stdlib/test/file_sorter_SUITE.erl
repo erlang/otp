@@ -21,6 +21,8 @@
 %%
 -module(file_sorter_SUITE).
 
+-behaviour(ct_suite).
+
 %%-define(debug, true).
 
 -ifdef(debug).

@@ -22,6 +22,8 @@
 
 -module(lc_SUITE).
 
+-behaviour(ct_suite).
+
 %% Copied from lc_SUITE in the compiler application.
 
 -export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,

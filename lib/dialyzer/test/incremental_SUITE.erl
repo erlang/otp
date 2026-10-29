@@ -26,6 +26,8 @@
 
 -module(incremental_SUITE).
 
+-behaviour(ct_suite).
+
 -include_lib("common_test/include/ct.hrl").
 -include_lib("stdlib/include/assert.hrl").
 -include("dialyzer_test_constants.hrl").

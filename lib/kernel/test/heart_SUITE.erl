@@ -21,6 +21,8 @@
 %%
 -module(heart_SUITE).
 
+-behaviour(ct_suite).
+
 -include_lib("common_test/include/ct.hrl").
 
 %% Test suite exports

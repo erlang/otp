@@ -21,6 +21,8 @@
 %%
 -module(digraph_utils_SUITE).
 
+-behaviour(ct_suite).
+
 %%-define(debug, true).
 -ifdef(debug).
 -define(line, put(line, ?LINE), ).

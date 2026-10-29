@@ -30,6 +30,8 @@
 
 -module(snmp_to_snmpnet_SUITE).
 
+-behaviour(ct_suite).
+
 -export([
          netsnmp_init/1,
          suite/0, all/0, groups/0,

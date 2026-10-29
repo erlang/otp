@@ -22,6 +22,8 @@
 
 -module(wrap_log_reader_SUITE).
 
+-behaviour(ct_suite).
+
 %%-define(debug, true).
 
 -ifdef(debug).

@@ -21,6 +21,8 @@
 %%
 -module(beam_ssa_check_SUITE).
 
+-behaviour(ct_suite).
+
 %% Runs tests checking the structure of BEAM SSA code.
 
 -include_lib("common_test/include/ct.hrl").

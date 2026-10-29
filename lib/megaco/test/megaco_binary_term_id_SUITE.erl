@@ -27,6 +27,7 @@
 
 -module(megaco_binary_term_id_SUITE).
 
+-behaviour(ct_suite).
 
 %%----------------------------------------------------------------------
 %% External exports

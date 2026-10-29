@@ -22,6 +22,8 @@
 
 -module(beam_types_SUITE).
 
+-behaviour(ct_suite).
+
 -define(BEAM_TYPES_INTERNAL, true).
 -include_lib("compiler/src/beam_types.hrl").
 

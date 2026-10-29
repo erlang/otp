@@ -24,6 +24,8 @@
 %%%-----------------------------------------------------------------
 -module(qlc_SUITE).
 
+-behaviour(ct_suite).
+
 -define(QLC, qlc).
 -define(QLCs, "qlc").
 

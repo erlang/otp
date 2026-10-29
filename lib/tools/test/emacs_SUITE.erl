@@ -21,6 +21,8 @@
 %%
 -module(emacs_SUITE).
 
+-behaviour(ct_suite).
+
 %%-define(line_trace, 1).
 
 -export([all/0, init_per_testcase/2, end_per_testcase/2]).

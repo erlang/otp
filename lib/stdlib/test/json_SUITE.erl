@@ -25,6 +25,9 @@
 %%%-----------------------------------------------------------------
 
 -module(json_SUITE).
+
+-behaviour(ct_suite).
+
 -include_lib("stdlib/include/assert.hrl").
 
 %% Test server specific exports

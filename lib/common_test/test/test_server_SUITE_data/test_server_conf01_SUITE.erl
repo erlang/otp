@@ -24,6 +24,9 @@
 %%% Test Server self test. 
 %%%------------------------------------------------------------------
 -module(test_server_conf01_SUITE).
+
+-behaviour(ct_suite).
+
 -include_lib("common_test/include/ct.hrl").
 
 -compile(export_all).

@@ -21,6 +21,8 @@
 %%
 -module(tools_SUITE).
 
+-behaviour(ct_suite).
+
 -include_lib("common_test/include/ct.hrl").
 
 -define(application, tools).

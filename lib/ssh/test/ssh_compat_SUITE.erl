@@ -24,6 +24,8 @@
 
 -module(ssh_compat_SUITE).
 
+-behaviour(ct_suite).
+
 -include_lib("common_test/include/ct.hrl").
 -include("ssh_transport.hrl"). % #ssh_msg_kexinit{}
 -include_lib("kernel/include/inet.hrl"). % #hostent{}

@@ -21,6 +21,8 @@
 %%
 -module(user_skip_13_SUITE).
 
+-behaviour(ct_suite).
+
 -compile(export_all).
 -define(TOP1_KEY, top1_key).
 

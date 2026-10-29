@@ -21,6 +21,8 @@
 %%
 -module(sofs_SUITE).
 
+-behaviour(ct_suite).
+
 %%-define(debug, true).
 
 -ifdef(debug).

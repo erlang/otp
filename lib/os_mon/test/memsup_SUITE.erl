@@ -20,6 +20,9 @@
 %% %CopyrightEnd%
 %%
 -module(memsup_SUITE).
+
+-behaviour(ct_suite).
+
 -include_lib("common_test/include/ct.hrl").
 
 -compile([{nowarn_unsafe_function, {os, cmd, 1}},
