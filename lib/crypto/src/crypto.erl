@@ -3622,10 +3622,6 @@ generate_key(Type, Params) ->
 -doc """
 Generate a public key.
 
-For ML-DSA, `PrivKeyIn` can be an expanded key as a binary or a seed as
-`{seed, Seed}`. The returned public key is derived from the supplied private
-key, which is returned in the same representation.
-
 See also `public_key:generate_key/1`.
 
 Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.

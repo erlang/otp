@@ -1015,7 +1015,7 @@ connect_mldsa(MLDSA, Config) ->
     {_MLDSA, SshAlg, _PublicKeySize, _SignatureSize} =
         lists:keyfind(MLDSA, 1, mldsa_parameters()),
     Seed = crypto:strong_rand_bytes(32),
-    {RawPublicKey, {seed, Seed}} =
+    {RawPublicKey, _ExpandedKey} =
         crypto:generate_key(MLDSA, [], {seed, Seed}),
     PublicKey = #'ML-DSAPublicKey'{algorithm = MLDSA, key = RawPublicKey},
     PrivateKey = #'ML-DSAPrivateKey'{algorithm = MLDSA, seed = Seed},

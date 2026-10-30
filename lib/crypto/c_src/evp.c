@@ -231,7 +231,6 @@ ERL_NIF_TERM evp_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     size_t key_len;
     unsigned char *out_pub = NULL, *out_priv = NULL;
     struct pkey_type_t *pkey_type = get_pkey_type(argv[0]);
-    int private_is_seed = 0;
 
     if (pkey_type) {
         type = pkey_type->evp_pkey_id;
@@ -291,8 +290,6 @@ ERL_NIF_TERM evp_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
                                         PKEY_PRIV_SEED, pkey_type, &pkey, &ret)) {
             goto err;
         }
-        ret_prv = argv[1];
-        private_is_seed = 1;
     }
 #endif
     else {
@@ -309,14 +306,12 @@ ERL_NIF_TERM evp_generate_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM a
     if (EVP_PKEY_get_raw_public_key(pkey, out_pub, &key_len) != 1)
         assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_PKEY_get_raw_public_key"));
 
-    if (!private_is_seed) {
-        if (EVP_PKEY_get_raw_private_key(pkey, NULL, &key_len) != 1)
-            assign_goto(ret, err, EXCP_ERROR_N(env, 1, "Can't get max size"));
-        if ((out_priv = enif_make_new_binary(env, key_len, &ret_prv)) == NULL)
-            assign_goto(ret, err, EXCP_ERROR(env, "Can't allocate"));
-        if (EVP_PKEY_get_raw_private_key(pkey, out_priv, &key_len) != 1)
-            assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_PKEY_get_raw_private_key"));
-    }
+    if (EVP_PKEY_get_raw_private_key(pkey, NULL, &key_len) != 1)
+        assign_goto(ret, err, EXCP_ERROR_N(env, 1, "Can't get max size"));
+    if ((out_priv = enif_make_new_binary(env, key_len, &ret_prv)) == NULL)
+        assign_goto(ret, err, EXCP_ERROR(env, "Can't allocate"));
+    if (EVP_PKEY_get_raw_private_key(pkey, out_priv, &key_len) != 1)
+        assign_goto(ret, err, EXCP_ERROR(env, "Can't EVP_PKEY_get_raw_private_key"));
 
     ret = enif_make_tuple2(env, ret_pub, ret_prv);
     goto done;

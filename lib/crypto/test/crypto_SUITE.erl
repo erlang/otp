@@ -1438,12 +1438,21 @@ mldsa_key_derivation(_Config) ->
 mldsa_key_derivation_do(Alg, PublicSize, Seed, PublicHash) ->
     Msg = <<"ML-DSA private key representation test">>,
 
-    {SeedPublic, {seed, Seed}} =
+    {SeedPublic, SeedExpandedKey} =
         crypto:generate_key(Alg, [], {seed, Seed}),
     PublicSize = byte_size(SeedPublic),
     PublicHash = crypto:hash(sha256, SeedPublic),
+    ExpandedSize = proplists:get_value(Alg, [{mldsa44, 2560},
+                                           {mldsa65, 4032},
+                                           {mldsa87, 4896}]),
+    ExpandedSize = byte_size(SeedExpandedKey),
+    {SeedPublic, SeedExpandedKey} =
+        crypto:generate_key(Alg, [], SeedExpandedKey),
     SeedSignature = crypto:sign(Alg, none, Msg, {seed, Seed}),
     true = crypto:verify(Alg, none, Msg, SeedSignature, SeedPublic),
+    SeedExpandedSignature = crypto:sign(Alg, none, Msg,
+                                        {expandedkey, SeedExpandedKey}),
+    true = crypto:verify(Alg, none, Msg, SeedExpandedSignature, SeedPublic),
 
     {ExpandedPublic, ExpandedKey} = crypto:generate_key(Alg, []),
     {ExpandedPublic, ExpandedKey} =
