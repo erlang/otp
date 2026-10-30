@@ -1775,7 +1775,7 @@ lc_tq2({lc,Es}, St0) ->
 %%   1. All values are exactly the same, if comprehension has multiple values
 %%   2. Value is safe
 %%   3. Value is simple (no pre-expressions generated)
-%%   4. Value doesn't use any variables bound in generators
+%%   4. Value doesn't use any variables bound in comprehension
 mc_pairs([{map_field_assoc,Lf,Key,Val}|Pairs], BoundVars, Keys, Pre, PrevVal, St0) ->
     {ValExpr,ValPre,St1} = expr(Val, St0),
     {KeyExpr,KeyPre,St2} = safe(Key, St1),
@@ -2112,7 +2112,9 @@ bzip_tq1(Line, E, #izip{anno=#a{anno=_GA}=GAnno,
                   [#iapply{anno=LAnno,op=F,args=Args++[Mc]}]},[],St4}.
 
 mc_tq(Line, Pairs, Qs, Mc, St0) ->
-    {Lc, Pre0, OptInfo, St1} = lc_tq(Line, {mc, Pairs, []}, Qs, Mc, St0),
+    Pres = [Pre || #ifilter{arg={Pre,_Arg}} <- Qs],
+    BoundVars = ordsets:from_list(lists:flatten([pre_expr_vars(E) || Pre <- Pres, E <- Pre])),
+    {Lc, Pre0, OptInfo, St1} = lc_tq(Line, {mc, Pairs, BoundVars}, Qs, Mc, St0),
     {LcVar, St2} = new_var(St1),
     Anno = #a{anno=lineno_anno(Line, St2)},
     Pre = Pre0 ++ [#iset{var=LcVar,arg=Lc}],
@@ -2803,6 +2805,8 @@ add_pre_bound_vars({mc, Pairs, BoundVars}, Pre) ->
 %%  Extract variables bound in a list of pre-expressions.
 pre_expr_vars(#iset{var=#c_var{name=N}}) -> [N];
 pre_expr_vars(#imatch{pat=Pat}) -> lit_vars(Pat);
+pre_expr_vars(#iexprs{bodies=Bs}) ->
+    ordsets:from_list(lists:flatten([pre_expr_vars(Pre) || B <- Bs, Pre <- B]));
 pre_expr_vars(_) -> [].
 
 %% uses_bound_vars(Expr, BoundVars) -> boolean().

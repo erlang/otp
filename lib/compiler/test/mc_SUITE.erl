@@ -362,6 +362,10 @@ from_keys_optimization(_Config) ->
     A = id(1), B = id(0),
     #{} = #{K => A div B || K <- [], K > 0},
 
+    %% Value is bound in a filter, no generator in comprehension
+    %% - should NOT use from_keys
+    #{ok := ok} = #{ok => V1 || true, (V1 = ok) =< self()},
+
     ok.
 
 id(I) -> I.
