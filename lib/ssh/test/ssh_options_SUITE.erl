@@ -62,6 +62,8 @@
 	 server_userpassword_option/1, 
 	 server_userpassword_timing/0,
 	 server_userpassword_timing/1,
+         server_passwd_checker_input_types/0,
+         server_passwd_checker_input_types/1,
 	 server_pubkey_timing/1,
 	 server_pwdfun_option/1,
 	 server_pwdfun_4_option/1,
@@ -132,6 +134,7 @@ all() ->
      server_password_option,
      server_userpassword_option,
      server_userpassword_timing,
+     server_passwd_checker_input_types,
      server_pubkey_timing,
      server_pwdfun_option,
      server_pwdfun_4_option,
@@ -2336,6 +2339,44 @@ test_not_connect(Config, Host, Port, Opts) ->
         error:{badmatch, {error,_}} -> ok
     end.
 
+
+%%--------------------------------------------------------------------
+%% The fake password checker (used for unknown users) must behave like
+%% a real checker for every password input, so that the result does not
+%% reveal whether a user exists (GHSA-3w6p-vwhf-wvp4). Non-UTF-8 input
+%% must not raise in either checker.
+server_passwd_checker_input_types() ->
+    [{timetrap, {seconds, 60 * ssh_test_lib:timetrap_scale()}}].
+
+server_passwd_checker_input_types(Config) when is_list(Config) ->
+    #{user_passwords := [{"alice", Real}],
+      internal_options := #{fake_passwd_checker := Fake}} =
+        ssh_options:handle_options(server,
+                                   [{user_passwords, [{"alice", "s3cret"}]}]),
+    %% Correct password: only the real checker accepts it
+    true = Real(<<"s3cret">>),
+    true = Real("s3cret"),
+    false = Fake(<<"s3cret">>),
+    %% Anything else: both return false and none raises
+    Inputs = [<<"wrong">>,               % valid UTF-8 binary (wire format)
+              "wrong",                   % list
+              <<>>, "",                  % empty
+              <<255>>,                   % invalid UTF-8
+              <<$a, 16#c3>>,             % truncated UTF-8 sequence
+              [16#110000],               % code point out of range
+              [-1],                      % not a character
+              pubkey, 42],               % not a password at all
+    [begin
+         R = {try_check(Real, In), try_check(Fake, In)},
+         ?CT_LOG("~w -> {real, fake} = ~p", [In, R]),
+         {false, false} = R
+     end || In <- Inputs],
+    ok.
+
+try_check(Checker, In) ->
+    try Checker(In)
+    catch Class:Reason -> {Class, Reason}
+    end.
 
 %%--------------------------------------------------------------------
 %% Verify that password auth timing does not reveal username validity.
