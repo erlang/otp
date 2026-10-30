@@ -1775,71 +1775,87 @@ static Boolean decode_params(db_state *state, char *buffer, int *index, param_ar
 
     switch (param->type.c) {
     case SQL_C_CHAR:
-	    if (binary_strings(state)) {
-		    ei_decode_binary(buffer, index,
-				     &(param->values.string[param->offset]), &bin_size);
-		    param->offset += param->type.len;
-	    } else {
-		    if(erl_type != ERL_STRING_EXT) {
-			    return FALSE;
-		    }
-		    ei_decode_string(buffer, index, (char*)&(param->values.string[param->offset]));
-		    param->offset += param->type.len;
-	    }
-	    break;
+        if (binary_strings(state)) {
+            /* Guard against a value larger than the slot allocated
+             * from the declared maximum (param->type.len). Without
+             * this ei_decode_binary would write past the slot and
+             * corrupt the port program heap. */
+            if (size < 0 || size > param->type.len) {
+                return FALSE;
+            }
+            ei_decode_binary(buffer, index,
+                             &(param->values.string[param->offset]), &bin_size);
+            param->offset += param->type.len;
+        } else {
+            if(erl_type != ERL_STRING_EXT) {
+                return FALSE;
+            }
+            /* ei_decode_string writes size bytes plus a NUL
+             * terminator; both must fit in the slot. */
+            if (size < 0 || size + 1 > param->type.len) {
+                return FALSE;
+            }
+            ei_decode_string(buffer, index, (char*)&(param->values.string[param->offset]));
+            param->offset += param->type.len;
+        }
+        break;
     case SQL_C_WCHAR:
-	    ei_decode_binary(buffer, index, &(param->values.string[param->offset]), &bin_size);
-	    param->offset += param->type.len;
-	    break;
+        /* Same bound as the binary_strings SQL_C_CHAR case. */
+        if (size < 0 || size > param->type.len) {
+            return FALSE;
+        }
+        ei_decode_binary(buffer, index, &(param->values.string[param->offset]), &bin_size);
+        param->offset += param->type.len;
+        break;
     case SQL_C_TYPE_TIMESTAMP:
-	    ts = (TIMESTAMP_STRUCT*) param->values.string;
-	    ei_decode_tuple_header(buffer, index, &size);
-	    ei_decode_long(buffer, index, &val);
-	    ts[j].year = (SQLUSMALLINT)val;
-	    ei_decode_long(buffer, index, &val);
-	    ts[j].month = (SQLUSMALLINT)val;
-	    ei_decode_long(buffer, index, &val);
-	    ts[j].day = (SQLUSMALLINT)val;
-	    ei_decode_long(buffer, index, &val);
-	    ts[j].hour = (SQLUSMALLINT)val;
-	    ei_decode_long(buffer, index, &val);
-	    ts[j].minute = (SQLUSMALLINT)val;
-	    ei_decode_long(buffer, index, &val);
-	    ts[j].second = (SQLUSMALLINT)val;
-	    ts[j].fraction = (SQLINTEGER)0;
-	    break;
+        ts = (TIMESTAMP_STRUCT*) param->values.string;
+        ei_decode_tuple_header(buffer, index, &size);
+        ei_decode_long(buffer, index, &val);
+        ts[j].year = (SQLUSMALLINT)val;
+        ei_decode_long(buffer, index, &val);
+        ts[j].month = (SQLUSMALLINT)val;
+        ei_decode_long(buffer, index, &val);
+        ts[j].day = (SQLUSMALLINT)val;
+        ei_decode_long(buffer, index, &val);
+        ts[j].hour = (SQLUSMALLINT)val;
+        ei_decode_long(buffer, index, &val);
+        ts[j].minute = (SQLUSMALLINT)val;
+        ei_decode_long(buffer, index, &val);
+        ts[j].second = (SQLUSMALLINT)val;
+        ts[j].fraction = (SQLINTEGER)0;
+        break;
     case SQL_C_SLONG:
-	    if(!((erl_type == ERL_SMALL_INTEGER_EXT) ||
-		 (erl_type == ERL_INTEGER_EXT) ||
-		 (erl_type == ERL_SMALL_BIG_EXT) ||
-		 (erl_type == ERL_LARGE_BIG_EXT))) {
-		    return FALSE;
-	    }
+        if(!((erl_type == ERL_SMALL_INTEGER_EXT) ||
+             (erl_type == ERL_INTEGER_EXT) ||
+             (erl_type == ERL_SMALL_BIG_EXT) ||
+             (erl_type == ERL_LARGE_BIG_EXT))) {
+            return FALSE;
+        }
 	    
-	    if(ei_decode_long(buffer, index, &l64)) {
-		    return FALSE;
-	    }
+        if(ei_decode_long(buffer, index, &l64)) {
+            return FALSE;
+        }
 	    
-	    /* For 64-bit platforms we downcast 8-byte long
-	     * to 4-byte SQLINTEGER, checking for overflow */
+        /* For 64-bit platforms we downcast 8-byte long
+         * to 4-byte SQLINTEGER, checking for overflow */
 	    
-	    if(l64>INT_MAX || l64<INT_MIN) {
-		    return FALSE;
-	    }
+        if(l64>INT_MAX || l64<INT_MIN) {
+            return FALSE;
+        }
 
 	param->values.integer[j]=(SQLINTEGER)l64;
 	break;
 	
     case SQL_C_DOUBLE: 
-	    if((erl_type != ERL_FLOAT_EXT)) { 
-		    return FALSE;
-	    } 
-	    ei_decode_double(buffer, index, &(param->values.floating[j])); 
-	    break;
+        if((erl_type != ERL_FLOAT_EXT)) { 
+            return FALSE;
+        } 
+        ei_decode_double(buffer, index, &(param->values.floating[j])); 
+        break;
 	    
     case SQL_C_BIT:
 	if((erl_type != ERL_ATOM_EXT)) {
-		return FALSE;
+            return FALSE;
 	}
 	if (strncmp((char*)atomarray,"true",4) == 0)
 	    param->values.boolean[j] = TRUE;
@@ -1849,7 +1865,7 @@ static Boolean decode_params(db_state *state, char *buffer, int *index, param_ar
 	    return -1;
 	break;
     default:
-	    return FALSE;
+        return FALSE;
     }
     
     return TRUE;
@@ -2359,11 +2375,17 @@ static void init_param_column(param_array *params, char *buffer, int *index,
     case USER_CHAR:
     case USER_VARCHAR:
 	if(user_type == USER_CHAR) {
-	     params->type.sql = SQL_CHAR;
+            params->type.sql = SQL_CHAR;
 	} else {
-	     params->type.sql = SQL_VARCHAR;
+            params->type.sql = SQL_VARCHAR;
 	}
-	ei_decode_long(buffer, index, &length);
+        ei_decode_long(buffer, index, &length);
+        /* A negative declared maximum is malformed; clamp to 0 so the slot
+         * is just the terminator and decode_params rejects any non-empty
+         * value rather than under-allocating the values buffer. */
+        if (length < 0) {
+            length = 0;
+        }
 	/* Max string length + string terminator */
 	 params->type.len = length+1;
 	 params->type.c = SQL_C_CHAR;
@@ -2387,6 +2409,11 @@ static void init_param_column(param_array *params, char *buffer, int *index,
 		params->type.sql = SQL_WLONGVARCHAR; break;
 	}
 	ei_decode_long(buffer, index, &length);
+        /* A negative declared maximum is malformed; clamp to 0 (see the
+         * USER_VARCHAR case above). */
+        if (length < 0) {
+            length = 0;
+        }
 	/* Max string length + string terminator */
 	params->type.len = (length+1)*sizeof(SQLWCHAR);
         params->type.c = SQL_C_WCHAR;
