@@ -33,6 +33,7 @@ MODULES= \
 	odbc_start_SUITE \
 	odbc_connect_SUITE \
 	odbc_query_SUITE \
+        odbc_param_limit_SUITE \
 	odbc_data_type_SUITE \
 	odbc_test_lib \
 	oracle \
