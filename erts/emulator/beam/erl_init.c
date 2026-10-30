@@ -138,6 +138,7 @@ Uint32 verbose;             /* See erl_debug.h for information about verbose */
 #endif
 
 int erts_atom_table_size = ATOM_LIMIT;	/* Maximum number of atoms */
+int erts_atom_table_initial_size = 0;   /* Expected number of atoms (+zatis) */
 
 int erts_pd_initial_size = 8;  /* must be power of 2 */
 
@@ -722,6 +723,9 @@ __decl_noreturn void __noreturn  erts_usage(void)
                  ERTS_MAX_PROCESSES);
     erts_fprintf(stderr, "-zhft timeout  set halt flush timeout,\n");
     erts_fprintf(stderr, "               valid range [0-%d] or infinity\n", INT_MAX);
+    erts_fprintf(stderr, "-zatis count   size the atom table for count atoms at start,\n");
+    erts_fprintf(stderr, "               valid range [1-%d], at most the atom limit (-t)\n",
+                 MAX_ATOM_TABLE_INITIAL_SIZE);
     erts_fprintf(stderr, "\n");
     erts_fprintf(stderr, "Note that if the emulator is started with erlexec (typically\n");
     erts_fprintf(stderr, "from the erl script), these flags should be specified with +.\n");
@@ -2477,6 +2481,19 @@ erl_start(int argc, char **argv)
                     erts_usage();
                 }
                 export_tab_sz = (int) val;
+            }
+            else if (has_prefix("atis", sub_param)) {
+                long val;
+                char *endptr;
+                arg = get_arg(sub_param+4, argv[i+1], &i);
+                errno = 0;
+                val = strtol(arg, &endptr, 10);
+                if (errno != 0 || *arg == '\0' || *endptr != '\0'
+                    || val < 1 || MAX_ATOM_TABLE_INITIAL_SIZE < val) {
+                    erts_fprintf(stderr, "Invalid initial atom table size %s\n", arg);
+                    erts_usage();
+                }
+                erts_atom_table_initial_size = (int) val;
             }
 	    else {
 		erts_fprintf(stderr, "bad -z option %s\n", argv[i]);

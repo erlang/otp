@@ -100,13 +100,14 @@ void* hash_erase(Hash*, void*);
 void* hash_remove(Hash*, void*);
 void  hash_foreach(Hash*, HFOREACH_FUN, void *);
 
+ERTS_GLB_INLINE Uint hash_slot_from_shift(int shift, HashValue hv);
 ERTS_GLB_INLINE Uint hash_get_slot(Hash *h, HashValue hv);
 ERTS_GLB_INLINE void* hash_fetch(Hash *, void*, H_FUN, HCMP_FUN);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
 ERTS_GLB_INLINE Uint
-hash_get_slot(Hash *h, HashValue hv)
+hash_slot_from_shift(int shift, HashValue hv)
 {
     /* This slot mapping function uses fibonacci hashing in order to
      * protect itself against a very bad hash function. This is not
@@ -120,14 +121,20 @@ hash_get_slot(Hash *h, HashValue hv)
     /* This is not strictly part of the fibonacci hashing algorithm
      * but it does help to spread the values of the mapping function better.
      */
-    hv ^= hv >> h->shift;
+    hv ^= hv >> shift;
 #ifdef ARCH_64
     /* 2^64 / 1.61803398875 = 11400714819323198485.... */
-    return (UWORD_CONSTANT(11400714819323198485) * hv) >> h->shift;
+    return (UWORD_CONSTANT(11400714819323198485) * hv) >> shift;
 #else
     /* 2^32 / 1.61803398875 = 2654435769.... */
-    return (UWORD_CONSTANT(2654435769) * hv) >> h->shift;
+    return (UWORD_CONSTANT(2654435769) * hv) >> shift;
 #endif
+}
+
+ERTS_GLB_INLINE Uint
+hash_get_slot(Hash *h, HashValue hv)
+{
+    return hash_slot_from_shift(h->shift, hv);
 }
 
 ERTS_GLB_INLINE void* hash_fetch(Hash *h, void* tmpl, H_FUN hash, HCMP_FUN cmp)
