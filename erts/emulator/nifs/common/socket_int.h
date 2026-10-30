@@ -659,6 +659,7 @@ ress-of-packed-member]
     GLOBAL_ATOM_DEF(retopts);                  \
     GLOBAL_ATOM_DEF(reuseaddr);                \
     GLOBAL_ATOM_DEF(reuseport);                \
+    GLOBAL_ATOM_DEF(reuseport_lb);             \
     GLOBAL_ATOM_DEF(rights);                   \
     GLOBAL_ATOM_DEF(rm);                       \
     GLOBAL_ATOM_DEF(router_alert);             \
