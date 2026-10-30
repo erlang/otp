@@ -757,7 +757,7 @@ static int db_prev_lookup_tree(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
 
 static ERTS_INLINE int cmp_key_eq(DbTableCommon* tb, Eterm key, TreeDbTerm* obj) {
     Eterm obj_key = GETKEY(tb,obj->dbterm.tpl);
-    return is_same(key, obj_key) || CMP(key, obj_key) == 0;
+    return CMP_EQ(key, obj_key);
 }
 
 /* 
