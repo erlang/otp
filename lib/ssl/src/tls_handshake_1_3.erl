@@ -1340,7 +1340,7 @@ calculate_shared_secret(OthersKey, MyKey, Group)
   when is_binary(OthersKey) andalso is_binary(MyKey) ->
     Params = #'DHParameter'{prime = P} = ssl_dh_groups:dh_params(Group),
     S = public_key:compute_key(OthersKey, MyKey, Params),
-    Size = byte_size(binary:encode_unsigned(P)),
+    Size = (integer_unsigned_width(P) + 7) bsr 3,
     ssl_cipher:add_zero_padding(S, Size);
 %% ECDHE
 calculate_shared_secret(OthersKey, MyKey = #'ECPrivateKey'{}, _Group)

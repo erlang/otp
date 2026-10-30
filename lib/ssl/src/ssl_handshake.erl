@@ -1909,7 +1909,7 @@ get_cert_params(Cert) ->
         case PublicKey of
             #'RSAPublicKey'{modulus = Modulus} ->
                 %% Get RSA key size in bytes
-                byte_size(binary:encode_unsigned(Modulus));
+                (integer_unsigned_width(Modulus) + 7) bsr 3;
             _ ->
                 undefined
         end,
