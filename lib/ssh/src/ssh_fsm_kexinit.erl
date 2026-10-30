@@ -81,14 +81,6 @@ handle_event(internal, {#ssh_msg_kexinit{}=Kex, Payload}, {kexinit,Role,ReNeg},
     {next_state, {key_exchange,Role,ReNeg}, D#data{ssh_params=Ssh}};
 
 %%% ######## {key_exchange, client|server, init|renegotiate} ####
-%%%---- RFC 4253 section 7 guess was wrong
-handle_event(internal, Msg, {key_exchange,server,_ReNeg},
-             D = #data{ssh_params = Ssh0 = #ssh{ignore_initial_kex_message = true}}) when
-      is_record(Msg, ssh_msg_kexdh_init);
-      is_record(Msg, ssh_msg_kex_ecdh_init);
-      is_record(Msg, ssh_msg_kex_hybrid_init) ->
-    Ssh = Ssh0#ssh{ignore_initial_kex_message = false},
-    {keep_state, D#data{ssh_params = Ssh}};
 %%%---- diffie-hellman
 handle_event(internal, #ssh_msg_kexdh_init{} = Msg, {key_exchange,server,ReNeg}, D) ->
     ok = check_kex_strict(Msg, D),
@@ -162,6 +154,25 @@ handle_event(internal, #ssh_msg_kex_hybrid_init{} = Msg, {key_exchange,server,Re
 handle_event(internal, #ssh_msg_kex_hybrid_reply{} = Msg, {key_exchange,client,ReNeg}, D) ->
     ok = check_kex_strict(Msg, D),
     {ok, NewKeys, Ssh1} = ssh_transport:handle_kex_hybrid_reply(Msg, D#data.ssh_params),
+    ssh_connection_handler:send_bytes(NewKeys, D),
+    {ok, ExtInfo, Ssh} = ssh_transport:ext_info_message(Ssh1),
+    ssh_connection_handler:send_bytes(ExtInfo, D),
+    {next_state, {new_keys,client,ReNeg}, D#data{ssh_params=Ssh}};
+
+%%%---- Pure ML-KEM Key Exchange Method
+handle_event(internal, #ssh_msg_kex_kem_init{} = Msg, {key_exchange,server,ReNeg}, D) ->
+    ok = check_kex_strict(Msg, D),
+    {ok, KexKemReply, Ssh1} = ssh_transport:handle_kex_kem_init(Msg, D#data.ssh_params),
+    ssh_connection_handler:send_bytes(KexKemReply, D),
+    {ok, NewKeys, Ssh2} = ssh_transport:new_keys_message(Ssh1),
+    ssh_connection_handler:send_bytes(NewKeys, D),
+    {ok, ExtInfo, Ssh} = ssh_transport:ext_info_message(Ssh2),
+    ssh_connection_handler:send_bytes(ExtInfo, D),
+    {next_state, {new_keys,server,ReNeg}, D#data{ssh_params=Ssh}};
+
+handle_event(internal, #ssh_msg_kex_kem_reply{} = Msg, {key_exchange,client,ReNeg}, D) ->
+    ok = check_kex_strict(Msg, D),
+    {ok, NewKeys, Ssh1} = ssh_transport:handle_kex_kem_reply(Msg, D#data.ssh_params),
     ssh_connection_handler:send_bytes(NewKeys, D),
     {ok, ExtInfo, Ssh} = ssh_transport:ext_info_message(Ssh1),
     ssh_connection_handler:send_bytes(ExtInfo, D),
@@ -328,7 +339,11 @@ get_alg_group(Kex) when Kex == 'curve25519-sha256';
                         Kex == 'ecdh-sha2-nistp256' ->
     ecdh_alg;
 get_alg_group(Kex) when Kex == 'mlkem768x25519-sha256' ->
-    mlkem_alg.
+    mlkem_alg;
+get_alg_group(Kex) when Kex == 'mlkem512-sha256';
+                        Kex == 'mlkem768-sha256';
+                        Kex == 'mlkem1024-sha384' ->
+    kem_alg.
 
 check_msg_group(_Msg, _AlgGroup, false) -> ok;
 check_msg_group(#ssh_msg_kexdh_init{},  dh_alg, true) -> ok;
@@ -342,6 +357,8 @@ check_msg_group(#ssh_msg_kex_ecdh_init{},  ecdh_alg, true) -> ok;
 check_msg_group(#ssh_msg_kex_ecdh_reply{}, ecdh_alg, true) -> ok;
 check_msg_group(#ssh_msg_kex_hybrid_init{},  mlkem_alg, true) -> ok;
 check_msg_group(#ssh_msg_kex_hybrid_reply{}, mlkem_alg, true) -> ok;
+check_msg_group(#ssh_msg_kex_kem_init{},  kem_alg, true) -> ok;
+check_msg_group(#ssh_msg_kex_kem_reply{}, kem_alg, true) -> ok;
 check_msg_group(_Msg, _AlgGroup, _) -> error.
 
 %%%################################################################
@@ -357,15 +374,6 @@ ssh_dbg_on(connection_events) -> dbg:tp(?MODULE,   handle_event, 4, x).
 
 ssh_dbg_off(connection_events) -> dbg:ctpg(?MODULE, handle_event, 4).
 
-ssh_dbg_format(connection_events, {call, {?MODULE,handle_event,
-                                          [internal, Msg, {key_exchange,server,_ReNeg},
-                                           #data{ssh_params = #ssh{ignore_initial_kex_message = true}}]}})
-  when is_record(Msg, ssh_msg_kexdh_init);
-       is_record(Msg, ssh_msg_kex_ecdh_init);
-       is_record(Msg, ssh_msg_kex_hybrid_init) ->
-    ["Connection event - Dropped message due to incorrect guess\n",
-     io_lib:format("[~w] Message: ~p~nState: {key_exchange,server,_}~n", [?MODULE, element(1, Msg)])
-    ];
 ssh_dbg_format(connection_events, {call, {?MODULE,handle_event, [EventType, EventContent, State, _Data]}}) ->
     ["Connection event\n",
      io_lib:format("[~w] EventType: ~p~nEventContent: ~p~nState: ~p~n", [?MODULE, EventType, EventContent, State])

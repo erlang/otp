@@ -81,6 +81,8 @@
          kex_strict_violation/1,
          kex_strict_violation_2/1,
          kex_strict_msg_unknown/1,
+         mlkem_wrong_guess_ignored/1,
+         mlkem_invalid_ciphertext_disconnects/1,
          dh_kexdh_init_e_out_of_bounds/1,
          gex_client_init_option_groups/1,
          gex_client_init_option_groups_file/1,
@@ -265,6 +267,8 @@ groups() ->
                 kex_strict_violation,
                 kex_strict_violation_2,
                 kex_strict_msg_unknown,
+                mlkem_wrong_guess_ignored,
+                mlkem_invalid_ciphertext_disconnects,
                 dh_kexdh_init_e_out_of_bounds]},
      {service_requests, [], [bad_service_name,
 			     bad_long_service_name,
@@ -391,6 +395,17 @@ init_per_testcase(TC, Config) when TC == kex_strict_negotiated;
     Level = ssh_test_lib:get_log_level(),
     ssh_test_lib:set_log_level(debug),
     [{saved_log_level, Level} | Config];
+init_per_testcase(mlkem_wrong_guess_ignored, Config) ->
+    case lists:all(fun(Kem) -> lists:member(Kem, crypto:supports(kems)) end,
+                   [mlkem512, mlkem768]) of
+        true -> Config;
+        false -> {skip, "ML-KEM-512 or ML-KEM-768 is not supported"}
+    end;
+init_per_testcase(mlkem_invalid_ciphertext_disconnects, Config) ->
+    case lists:member(mlkem768, crypto:supports(kems)) of
+        true -> Config;
+        false -> {skip, "ML-KEM-768 is not supported"}
+    end;
 init_per_testcase(TC, Config) when TC == gex_client_rejects_small_group;
                                    TC == gex_client_rejects_bad_generator ->
     Config;
@@ -1716,6 +1731,88 @@ kex_strict_msg_unknown(Config) ->
          {match, #ssh_msg_kexdh_reply{_='_'}, receive_msg},
          {match, disconnect(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED), receive_msg}],
     kex_strict_helper(Config, TestMessages, ExpectedReason).
+
+%% The guessed ML-KEM-512 INIT has the right wire size for that algorithm,
+%% but the wrong size for the negotiated ML-KEM-768 algorithm. It must be
+%% dropped before decoding; the following ML-KEM-768 INIT must be processed.
+mlkem_wrong_guess_ignored(Config0) ->
+    Config = start_std_daemon(
+               Config0,
+               [{preferred_algorithms, [{kex, ['mlkem768-sha256']}]}]),
+    try
+        {PublicKey, _PrivateKey} = crypto:generate_key(mlkem768, []),
+        {ok, _} =
+            ssh_trpt_test_lib:exec(
+              [{set_options, [print_ops, print_messages]},
+               {connect, ssh_test_lib:server_host(Config),
+                ssh_test_lib:server_port(Config),
+                [{preferred_algorithms,
+                  [{kex, ['mlkem512-sha256', 'mlkem768-sha256']}]},
+                 {silently_accept_hosts, true},
+                 {user_dir, ssh_test_lib:user_dir(Config)},
+                 {user_interaction, false}]},
+               receive_hello,
+               {send, hello},
+               {send, ssh_msg_kexinit_guess},
+               {match, #ssh_msg_kexinit{_='_'}, receive_msg},
+               {send, #ssh_msg_kex_kem_init{
+                         c_init = binary:copy(<<0>>, ?MLKEM512_PUBLICKEY_SIZE)}},
+               {send, #ssh_msg_kex_kem_init{c_init = PublicKey}},
+               {match, #ssh_msg_kex_kem_reply{_='_'}, receive_msg},
+               close_socket])
+    after
+        stop_std_daemon(Config)
+    end.
+
+%% A ciphertext of the wrong size must cause KEY_EXCHANGE_FAILED, not a
+%% generic protocol-error disconnect from the packet decoder.
+mlkem_invalid_ciphertext_disconnects(Config) ->
+    Ciphertext = binary:copy(<<0>>, ?MLKEM768_CIPHERTEXT_SIZE - 1),
+    BadReply = <<?BYTE(?SSH_MSG_KEX_KEM_REPLY),
+                 ?STRING(<<>>), ?STRING(Ciphertext), ?STRING(<<>>) >>,
+    PacketFun = fun(_Msg, Ssh) -> ssh_transport:pack(BadReply, Ssh) end,
+    {ok, InitialState} = ssh_trpt_test_lib:exec(listen),
+    HostPort = ssh_trpt_test_lib:server_host_port(InitialState),
+    Parent = self(),
+    DisconnectRef = make_ref(),
+    Pid =
+        spawn_link(
+          fun() ->
+                  Parent !
+                      {result, self(),
+                       ssh_trpt_test_lib:exec(
+                         [{set_options, [print_ops, print_messages]},
+                          {accept,
+                           [{system_dir, ssh_test_lib:system_dir(Config)},
+                            {user_dir, ssh_test_lib:user_dir(Config)},
+                            {preferred_algorithms,
+                             [{kex, ['mlkem768-sha256']}]}]},
+                          receive_hello,
+                          {send, hello},
+                          {send, ssh_msg_kexinit},
+                          {match, #ssh_msg_kexinit{_='_'}, receive_msg},
+                          {match, #ssh_msg_kex_kem_init{_='_'}, receive_msg},
+                          {send, {special, #ssh_msg_kex_kem_reply{}, PacketFun}},
+                          {match, disconnect(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED),
+                           receive_msg}],
+                         InitialState)}
+          end),
+    {error, _} =
+        std_connect(HostPort, Config,
+                    [{preferred_algorithms,
+                      [{kex, ['mlkem768-sha256']}]},
+                     {disconnectfun, test_disconnectfun(Parent, DisconnectRef)}]),
+    receive
+        {result, Pid, {ok, _}} ->
+            assert_disconnect_callback(
+              DisconnectRef,
+              "Disconnects with code = 3 [RFC4253 11.1]: Key exchange failed");
+        {result, Pid, {error, {Op, Reason, State}}} ->
+            ct:fail("~p failed: ~p~n~s",
+                    [Op, Reason, ssh_trpt_test_lib:format_msg(State)])
+    after
+        30000 -> ct:fail("Timed out waiting for the client disconnect")
+    end.
 
 %% RFC 4253 §8 / RFC 4419 §3: a peer's DH value must satisfy 1 < e < p-1.
 %% A peer driving e (or, on the client side, f) to one of {0, 1, p-1, p}
