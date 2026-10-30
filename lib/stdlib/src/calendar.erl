@@ -814,7 +814,9 @@ system_time_to_rfc3339(Time, Options) ->
 
 system_time_to_rfc3339_do(Time, Options, Unit, OffsetOption) ->
     T = proplists:get_value(time_designator, Options, $T),
-    AdjustmentSecs = offset_adjustment(Time, Unit, OffsetOption),
+    %% An RFC 3339 offset has no seconds, so leave them out of the
+    %% adjustment too, or the time would not match the offset
+    AdjustmentSecs = offset_adjustment(Time, Unit, OffsetOption) div 60 * 60,
     Offset = offset(OffsetOption, AdjustmentSecs),
     Adjustment = erlang:convert_time_unit(AdjustmentSecs, second, Unit),
     AdjustedTime = Time + Adjustment,
