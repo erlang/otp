@@ -24,6 +24,7 @@ limitations under the License.
 
 1. [License](#license)
 2. [Reporting a bug](#reporting-a-bug)
+    1. [AI created issues](#ai-created-issues)
 3. [Submitting Pull Requests](#submitting-pull-requests)
     1. [Fixing a bug](#fixing-a-bug)
     2. [Adding a new feature](#adding-a-new-feature)
@@ -68,6 +69,17 @@ Erlang/OTP is licensed under the Apache License 2.0, as stated in: [LICENSE.txt]
 Report bugs at https://github.com/erlang/otp/issues.
 See [Bug reports](https://github.com/erlang/otp/wiki/Bug-reports) for more information.
 
+### AI created issues
+
+Erlang/OTP only accepts Issues created by humans. Any AI created issue will be immediately
+closed. Users who submit many issues at once may be AI be placed under a
+throttle list, e.g., a user who creates 100 issues in 24 h.
+### AI created issues
+
+Erlang/OTP only accepts Issues created by humans. Any AI created
+issue will be immediately closed. You are of course allowed to use AI
+to explore and help write the contents of an issue, but we expect you
+yourself to have reviewed the contents of the issue before submitting it.
 ## Submitting Pull Requests
 
 You can contribute to Erlang/OTP by opening a Pull Request.
