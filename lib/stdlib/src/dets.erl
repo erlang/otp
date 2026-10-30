@@ -449,10 +449,9 @@ is returned if the table is empty.
 -spec foldr(Function, Acc0, Name) -> Acc | {'error', Reason} when
       Name :: tab_name(),
       Function :: fun((Object :: object(), AccIn) -> AccOut),
-      Acc0 :: term(),
-      Acc :: term(),
-      AccIn :: term(),
-      AccOut :: term(),
+      Acc0 :: Acc,
+      AccIn :: Acc,
+      AccOut :: Acc,
       Reason :: term().
 
 foldr(Fun, Acc, Tab) ->
@@ -462,10 +461,9 @@ foldr(Fun, Acc, Tab) ->
 -spec foldl(Function, Acc0, Name) -> Acc | {'error', Reason} when
       Name :: tab_name(),
       Function :: fun((Object :: object(), AccIn) -> AccOut),
-      Acc0 :: term(),
-      Acc :: term(),
-      AccIn :: term(),
-      AccOut :: term(),
+      Acc0 :: Acc,
+      AccIn :: Acc,
+      AccOut :: Acc,
       Reason :: term().
 
 foldl(Fun, Acc, Tab) ->

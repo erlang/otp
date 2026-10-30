@@ -2502,10 +2502,10 @@ true
 -spec foldl(Function, Acc0, Table) -> Acc1 when
       Function :: fun((Element :: term(), AccIn) -> AccOut),
       Table :: table(),
-      Acc0 :: term(),
-      Acc1 :: term(),
-      AccIn :: term(),
-      AccOut :: term().
+      Acc0 :: Acc,
+      Acc1 :: Acc,
+      AccIn :: Acc,
+      AccOut :: Acc.
 
 foldl(F, Accu, Tab) ->
     T = soft_whereis(Tab),
@@ -2544,10 +2544,10 @@ true
 -spec foldr(Function, Acc0, Table) -> Acc1 when
       Function :: fun((Element :: term(), AccIn) -> AccOut),
       Table :: table(),
-      Acc0 :: term(),
-      Acc1 :: term(),
-      AccIn :: term(),
-      AccOut :: term().
+      Acc0 :: Acc,
+      Acc1 :: Acc,
+      AccIn :: Acc,
+      AccOut :: Acc.
 
 foldr(F, Accu, Tab) ->
     T = soft_whereis(Tab),
