@@ -45,7 +45,7 @@
 -export([encode_handshake/2]).
 
 %% Handshake decoding
--export([get_tls_handshakes/4, decode_handshake/3]).
+-export([assemble_tls_handshakes/4, assemble_server_hello/4, decode_handshake/3]).
 
 %% Handshake helper
 -export([ocsp_nonce/1, get_signature_ext/3]).
@@ -292,7 +292,7 @@ encode_handshake(Package, Version) ->
 %%--------------------------------------------------------------------
 
 %%--------------------------------------------------------------------
--spec get_tls_handshakes(tls_record:tls_version(), binary(), binary() | iolist(),
+-spec assemble_tls_handshakes(tls_record:tls_version(), binary(), binary(),
                         ssl_options()) ->
      {[{tls_handshake(), binary()}], binary()}.
 %%
@@ -300,11 +300,35 @@ encode_handshake(Package, Version) ->
 %% and returns it as a list of handshake messages, also returns leftover
 %% data.
 %%--------------------------------------------------------------------
-get_tls_handshakes(Version, Data, <<>>, Options) ->
+assemble_tls_handshakes(Version, Data, <<>>, Options) ->
     get_tls_handshakes_aux(Version, Data, Options, []);
-get_tls_handshakes(Version, Data, Buffer, Options) ->
+assemble_tls_handshakes(Version, Data, Buffer, Options) ->
     get_tls_handshakes_aux(Version, <<Buffer/binary, Data/binary>>,
                            Options, []).
+
+%%--------------------------------------------------------------------
+-spec assemble_server_hello(tls_record:tls_version(), binary(),
+                            binary(), ssl_options()) ->
+          buffer_handshake | {[{tls_handshake(), binary()}], binary()}.
+
+%% Description: Isolates and decodes the first complete server hello
+%% message in Buffer ++ Data with the given Version, returning the
+%% decoded message together with possible raw trailing bytes (coalesced
+%% record data) that must be decoded later with the negotiated version.
+%% Returns buffer_handshake when the first messages needs more data
+%% to be assembled.
+%%--------------------------------------------------------------------
+assemble_server_hello(Version, Data, Buffer, Options) ->
+    case <<Buffer/binary, Data/binary>> of
+        <<?BYTE(Type), ?UINT24(Length), Body:Length/binary, RecordRest/binary>> ->
+            {HSPackets, <<>>} =
+                get_tls_handshakes_aux(Version,
+                                       <<?BYTE(Type), ?UINT24(Length), Body/binary>>,
+                                       Options, []),
+            {HSPackets, RecordRest};
+        _ ->
+            buffer_handshake
+    end.
 
 %%--------------------------------------------------------------------
 %%% Handshake helper
