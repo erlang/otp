@@ -75,6 +75,6 @@ jobs:
             exit 0
           fi
 
-          MESSAGE="Thanks for your report, @${AUTHOR}. To keep the amount of triage work manageable, this repository limits your account to ${LIMIT} open issues at a time. Check the [contributions guidelines](https://github.com/erlang/otp/blob/master/CONTRIBUTING.md) for how to contribute with Issues.This one has been closed automatically because you already have ${LIMIT} other open issues. Please close or resolve some of them and open this one again. A maintainer can adjust the limit if you think it was applied by mistake."
+          MESSAGE="Thanks for your report, @${AUTHOR}. To keep the amount of triage work manageable, this repository limits your account to ${LIMIT} open issues at a time. Check the [contributions guidelines](https://github.com/erlang/otp/blob/master/CONTRIBUTING.md) for how to contribute with Issues. This one has been closed automatically because you already have ${LIMIT} other open issues. Please close or resolve some of them and open this one again. A maintainer can adjust the limit if you think it was applied by mistake."
 
           gh issue close "${NUMBER}" --repo "${GITHUB_REPOSITORY}" --reason "not planned" --comment "${MESSAGE}"
