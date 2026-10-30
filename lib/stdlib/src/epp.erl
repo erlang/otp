@@ -2368,8 +2368,13 @@ interpret_file_attr([{attribute,Anno,file,{File,Line}}=Form | Forms],
     end;
 interpret_file_attr([Form0 | Forms], Delta, Fs) ->
     F = fun(Anno) ->
-                Line = erl_anno:line(Anno),
-                erl_anno:set_line(Line + Delta, Anno)
+                case erl_anno:line(Anno) of
+                    0 ->
+                        %% Zero denotes an unknown location, not a source line.
+                        Anno;
+                    Line ->
+                        erl_anno:set_line(Line + Delta, Anno)
+                end
         end,
     Form = erl_parse:map_anno(F, Form0),
     [Form | interpret_file_attr(Forms, Delta, Fs)];
