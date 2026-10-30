@@ -34,28 +34,75 @@ permissions:
 # NOTE: This job should only be executed on the callee with `needs: pack`
 jobs:
   build-windows:
+    strategy:
+      fail-fast: false
+      matrix:
+        # The OpenSSL installer hashes are published by
+        # https://github.com/slproweb/opensslhashes.
+        include:
+          - arch: x64
+            runs-on: windows-2025
+            wsl_packages: make autoconf unzip
+            wx_nmake_args: TARGET_CPU=amd64 DIR_SUFFIX_CPU=
+            openssl_installer: Win64OpenSSL
+            openssl_sha256: 5fe338c81d62515df7292f16542a0eef2a29db3efc023cd5a8c08ec3c97027ae
+            artifact: otp_win32_installer
+          - arch: arm64
+            runs-on: windows-11-arm
+            wsl_packages: make unzip wget
+            wx_nmake_args: TARGET_CPU=ARM64
+            openssl_installer: Win64ARMOpenSSL
+            openssl_sha256: 9c22cbd16c9f3238e4a0a7cad93c4d4e796f2f778193ef462f7ef70a4b52d31d
+            artifact: otp_win_arm64_installer
     defaults:
       run:
         shell: wsl-bash {0}
     env:
-      # Published by https://github.com/slproweb/opensslhashes.
-      OPENSSL_SHA256: 5fe338c81d62515df7292f16542a0eef2a29db3efc023cd5a8c08ec3c97027ae
       OPENSSL_VERSION: 3.5.9
       WXWIDGETS_VERSION: 3.2.6
-    name: Build Erlang/OTP (Windows)
-    runs-on: windows-2025
+      UBUNTU_ROOTFS_URL: https://cloud-images.ubuntu.com/wsl/releases/noble/current/ubuntu-noble-wsl-arm64-wsl.rootfs.tar.gz
+    name: Build Erlang/OTP (Windows ${{ matrix.arch }})
+    runs-on: ${{ matrix.runs-on }}
     permissions:
       contents: read   # actions/cache (restore/save wxWidgets cache)
       actions:  write  # actions/download-artifact + actions/upload-artifact
     steps:
       - uses: Vampire/setup-wsl@4c48163d9f981914dd8caa0fc335fe19cca5bff4 # v7.2.0
+        if: matrix.arch == 'x64'
         with:
           distribution: Ubuntu-18.04
 
+      # The windows-11-arm runners have no nested virtualization, so WSL2 does
+      # not work (error 0x80370102). WSL1 does, but the Ubuntu distributions
+      # that Vampire/setup-wsl installs are x64, so we import an arm64 Ubuntu
+      # rootfs ourselves and create a wsl-bash wrapper for the steps below.
+      - name: Install WSL1 + Ubuntu arm64
+        if: matrix.arch == 'arm64'
+        shell: pwsh
+        run: |
+          Start-Process wsl -ArgumentList '--install','--no-distribution'
+          $ok = $false
+          for ($i = 0; $i -lt 60; $i++) {
+            wsl --set-default-version 1 2>&1 | Out-Null
+            if ($LASTEXITCODE -eq 0) { $ok = $true; break }
+            Start-Sleep -Seconds 5
+          }
+          if (-not $ok) { wsl --status; throw "WSL did not become available" }
+          curl.exe -sSL -o "$env:RUNNER_TEMP\ubuntu-arm64.tar.gz" "$env:UBUNTU_ROOTFS_URL"
+          New-Item -ItemType Directory -Force -Path C:\wsl | Out-Null
+          wsl --import Ubuntu C:\wsl\Ubuntu "$env:RUNNER_TEMP\ubuntu-arm64.tar.gz" --version 1
+          wsl --set-default Ubuntu
+          wsl -- uname -a
+          # The runner writes the step script with CRLF line endings, so strip the CRs before running it.
+          Set-Content -Path C:\wsl\wsl-bash.bat -Value '@echo off' -Encoding ascii
+          Add-Content -Path C:\wsl\wsl-bash.bat -Value 'wsl.exe --distribution Ubuntu --user root --exec bash -c "f=$(wslpath ''%~1''); tr -d ''\r'' < $f > $f.lf; exec bash --noprofile --norc -eo pipefail $f.lf"' -Encoding ascii
+          Add-Content -Path $env:GITHUB_PATH -Value 'C:\wsl'
+
       - name: Install WSL dependencies
-        run: apt update && apt install -y make autoconf unzip
+        run: apt update && apt install -y ${{ matrix.wsl_packages }}
 
       - name: Install NSIS
+        if: matrix.arch == 'x64'
         shell: cmd
         run: |
           choco install nsis --version 3.11.0
@@ -66,12 +113,16 @@ jobs:
       # us verify its checksum and install into a clean, predictable directory.
       - name: Install OpenSSL
         shell: powershell
+        env:
+          OPENSSL_INSTALLER: ${{ matrix.openssl_installer }}
+          OPENSSL_SHA256: ${{ matrix.openssl_sha256 }}
         run: |
           $version = $env:OPENSSL_VERSION.Replace('.', '_')
-          $installer = Join-Path $env:RUNNER_TEMP "Win64OpenSSL-$version.exe"
+          $file = "$($env:OPENSSL_INSTALLER)-$version.exe"
+          $installer = Join-Path $env:RUNNER_TEMP $file
           $ProgressPreference = 'SilentlyContinue'
           Invoke-WebRequest `
-              "https://slproweb.com/download/Win64OpenSSL-$version.exe" `
+              "https://slproweb.com/download/$file" `
               -OutFile $installer
           $actualHash = (Get-FileHash $installer -Algorithm SHA256).Hash
           $actualHash = $actualHash.ToLowerInvariant()
@@ -112,7 +163,7 @@ jobs:
           #
           # We hash the workflow file so any change to those build-affecting inputs
           # invalidates the cache (otherwise it would be silently skipped by the cache-hit on the build steps).
-          key: wxWidgets-${{ env.WXWIDGETS_VERSION }}-${{ steps.image.outputs.os }}-${{ hashFiles('.github/workflows/reusable-build-windows.yaml') }}
+          key: wxWidgets-${{ env.WXWIDGETS_VERSION }}-${{ steps.image.outputs.os }}-${{ matrix.arch }}-${{ hashFiles('.github/workflows/reusable-build-windows.yaml') }}
 
       # actions/cache on Windows sometimes does not set cache-hit even though there was one. Setting it manually.
       - name: Set wxWidgets cache
@@ -151,8 +202,8 @@ jobs:
           FOR /F "delims=" %%P IN ('%VSWHERE% -latest -property installationPath') DO (
             SET "VCVARSALL=%%P\VC\Auxiliary\Build\vcvarsall.bat"
           )
-          call "%VCVARSALL%" x64
-          nmake TARGET_CPU=amd64 BUILD=release SHARED=0 DIR_SUFFIX_CPU= -f makefile.vc
+          call "%VCVARSALL%" ${{ matrix.arch }}
+          nmake ${{ matrix.wx_nmake_args }} BUILD=release SHARED=0 -f makefile.vc
 
       - name: Download source archive
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
@@ -174,7 +225,7 @@ jobs:
           export MAKEFLAGS=-j$(($(nproc) + 2))
           export ERLC_USE_SERVER=true
           export ERTS_SKIP_DEPEND=true
-          eval `./otp_build env_win32 x64`
+          eval `./otp_build env_win32 ${{ matrix.arch }}`
           ./otp_build configure --with-wxdir="$WXDIR" \
              --with-ssl=/mnt/c/OpenSSL-Win64 --disable-dynamic-ssl-lib
 
@@ -189,6 +240,7 @@ jobs:
           fi
 
           ./otp_build boot -a
+          ./bin/win32/erl.exe -noshell -eval 'io:format("~s~n~p~n~p~n", [erlang:system_info(system_version), erlang:system_info(system_architecture), crypto:info_lib()]), halt().'
           ./otp_build release -a
           ./otp_build debuginfo_win32
           ./otp_build installer_win32
@@ -196,7 +248,7 @@ jobs:
       - name: Upload installer
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: otp_win32_installer
+          name: ${{ matrix.artifact }}
           path: otp/release/win32/otp*.exe
           # Fail the build if installer_win32 produced no installer;
           # the default 'warn' would let a build that shipped nothing
