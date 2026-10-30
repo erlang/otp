@@ -316,27 +316,25 @@ collect_cc([$i|Fmt], [A|Args]) -> {$i,[A],Fmt,Args}.
 %%  number of characters of other print (small) requests.
 
 count_small(Cs) ->
-    count_small(Cs, #{p => 0, s => 0, w => 0, other => 0}).
+    count_small(Cs, 0, 0, 0, 0).
 
-count_small([#{control_char := $p}|Cs], #{p := P} = Cnts) ->
-    count_small(Cs, Cnts#{p := P + 1});
-count_small([#{control_char := $P}|Cs], #{p := P} = Cnts) ->
-    count_small(Cs, Cnts#{p := P + 1});
-count_small([#{control_char := $w}|Cs], #{w := W} = Cnts) ->
-    count_small(Cs, Cnts#{w := W + 1});
-count_small([#{control_char := $W}|Cs], #{w := W} = Cnts) ->
-    count_small(Cs, Cnts#{w := W + 1});
-count_small([#{control_char := $s}|Cs], #{w := W} = Cnts) ->
-    count_small(Cs, Cnts#{w := W + 1});
-count_small([S|Cs], #{other := Other} = Cnts)
-  when is_list(S) ->
-    count_small(Cs, Cnts#{other := Other + io_lib:chars_length(S)});
-count_small([S|Cs], #{other := Other} = Cnts)
-  when is_binary(S) ->
-    count_small(Cs, Cnts#{other := Other + string:length(S)});
-count_small([C|Cs], #{other := Other} = Cnts) when is_integer(C) ->
-    count_small(Cs, Cnts#{other := Other + 1});
-count_small([], #{p := P, s := S, w := W, other := Other}) ->
+count_small([#{control_char := $p}|Cs], P, S, W, Other) ->
+    count_small(Cs, P + 1, S, W, Other);
+count_small([#{control_char := $P}|Cs], P, S, W, Other) ->
+    count_small(Cs, P + 1, S, W, Other);
+count_small([#{control_char := $w}|Cs], P, S, W, Other) ->
+    count_small(Cs, P, S, W + 1, Other);
+count_small([#{control_char := $W}|Cs], P, S, W, Other) ->
+    count_small(Cs, P, S, W + 1, Other);
+count_small([#{control_char := $s}|Cs], P, S, W, Other) ->
+    count_small(Cs, P, S, W + 1, Other);
+count_small([Str|Cs], P, S, W, Other) when is_list(Str) ->
+    count_small(Cs, P, S, W, Other + io_lib:chars_length(Str));
+count_small([Str|Cs], P, S, W, Other) when is_binary(Str) ->
+    count_small(Cs, P, S, W, Other + string:length(Str));
+count_small([C|Cs], P, S, W, Other) when is_integer(C) ->
+    count_small(Cs, P, S, W, Other + 1);
+count_small([], P, S, W, Other) ->
     {P, S, W, Other}.
 
 %% build_small([Control]) -> io_lib:chars().
