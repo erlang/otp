@@ -22,6 +22,8 @@
 
 -module(etop_SUITE).
 
+-behaviour(ct_suite).
+
 -compile([{nowarn_possibly_unsafe_function, {erlang, binary_to_atom, 1}}]).
 
 -define(ERASE_ALL, <<"\e[;H\e[2J">>).

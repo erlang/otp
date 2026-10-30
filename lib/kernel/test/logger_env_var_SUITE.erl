@@ -21,6 +21,8 @@
 %%
 -module(logger_env_var_SUITE).
 
+-behaviour(ct_suite).
+
 -compile(export_all).
 
 -include_lib("kernel/include/logger.hrl").

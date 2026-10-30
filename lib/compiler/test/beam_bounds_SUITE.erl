@@ -21,8 +21,11 @@
 %%
 
 -module(beam_bounds_SUITE).
+
 -feature(compr_assign, enable).
 -include_lib("stdlib/include/assert.hrl").
+
+-behaviour(ct_suite).
 
 -export([all/0, suite/0, groups/0, init_per_suite/1, end_per_suite/1,
          init_per_group/2, end_per_group/2,

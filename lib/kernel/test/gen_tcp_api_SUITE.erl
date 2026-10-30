@@ -21,6 +21,8 @@
 %%
 -module(gen_tcp_api_SUITE).
 
+-behaviour(ct_suite).
+
 %% Tests the documented API for the gen_tcp functions.  The "normal" cases
 %% are not tested here, because they are tested indirectly in this and
 %% and other test suites.

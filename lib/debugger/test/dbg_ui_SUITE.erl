@@ -23,6 +23,7 @@
 %%
 -module(dbg_ui_SUITE).
 
+-behaviour(ct_suite).
 
 -include_lib("common_test/include/ct.hrl").
 

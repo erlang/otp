@@ -22,6 +22,8 @@
 
 -module(observer_SUITE).
 
+-behaviour(ct_suite).
+
 -compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}}]).
 
 -include_lib("common_test/include/ct.hrl").

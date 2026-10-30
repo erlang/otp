@@ -22,6 +22,8 @@
 
 -module(bs_match_SUITE).
 
+-behaviour(ct_suite).
+
 %% Limiting error locations to lines makes it more likely that unsafe
 %% reordering of clauses will be noticed.
 -compile([nowarn_shadow_vars, {error_location,line}]).

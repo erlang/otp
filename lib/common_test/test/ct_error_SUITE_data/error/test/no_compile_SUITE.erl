@@ -21,6 +21,8 @@
 %%
 -module(no_compile_SUITE).
 
+-behaviour(ct_suite).
+
 -compile(export_all).
 
 -include("ct.hrl")

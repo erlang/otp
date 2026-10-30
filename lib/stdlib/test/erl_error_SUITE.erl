@@ -20,6 +20,9 @@
 %% %CopyrightEnd%
 %%
 -module(erl_error_SUITE).
+
+-behaviour(ct_suite).
+
 -moduledoc false.
 
 %% Tests for erl_error:format_exception/3,4.

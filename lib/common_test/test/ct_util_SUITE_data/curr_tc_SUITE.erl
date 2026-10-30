@@ -22,6 +22,8 @@
 
 -module(curr_tc_SUITE).
 
+-behaviour(ct_suite).
+
 -suite_defaults([{timetrap, {seconds, 3}}]).
 
 %% Note: This directive should only be used in test suites.

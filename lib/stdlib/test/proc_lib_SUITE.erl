@@ -21,6 +21,8 @@
 %%
 -module(proc_lib_SUITE).
 
+-behaviour(ct_suite).
+
 %%
 %% Define to run outside of test server
 %%

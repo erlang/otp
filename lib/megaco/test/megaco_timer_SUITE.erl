@@ -26,6 +26,8 @@
 %%----------------------------------------------------------------------
 -module(megaco_timer_SUITE).
 
+-behaviour(ct_suite).
+
 -compile({no_auto_import,[error/1]}).
 
 -export([

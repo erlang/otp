@@ -29,6 +29,8 @@
 
 -module(diameter_gen_sctp_SUITE).
 
+-behaviour(ct_suite).
+
 %% testcases, no common_test dependency
 -export([run/0,
          run/1]).

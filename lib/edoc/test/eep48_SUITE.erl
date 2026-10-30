@@ -35,6 +35,8 @@
 %% =====================================================================
 -module(eep48_SUITE).
 
+-behaviour(ct_suite).
+
 -include_lib("common_test/include/ct.hrl").
 -include_lib("eunit/include/eunit.hrl").
 -include_lib("kernel/include/eep48.hrl").

@@ -22,6 +22,8 @@
 
 -module(random_code_SUITE).
 
+-behaviour(ct_suite).
+
 -export([all/0, suite/0,
          init_per_suite/1, end_per_suite/1]).
 

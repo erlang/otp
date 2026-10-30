@@ -21,6 +21,8 @@
 %%
 -module(eprof_SUITE).
 
+-behaviour(ct_suite).
+
 -include_lib("common_test/include/ct.hrl").
 
 -export([all/0, suite/0]).

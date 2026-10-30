@@ -21,6 +21,8 @@
 
 -module(bad_SUITE).
 
+-behaviour(ct_suite).
+
 -compile(export_all).
 
 bad_bad_suite

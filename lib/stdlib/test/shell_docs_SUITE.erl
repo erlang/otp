@@ -21,6 +21,9 @@
 %%
 
 -module(shell_docs_SUITE).
+
+-behaviour(ct_suite).
+
 -moduledoc false.
 
 -export([all/0, suite/0, groups/0, init_per_suite/1, end_per_suite/1,

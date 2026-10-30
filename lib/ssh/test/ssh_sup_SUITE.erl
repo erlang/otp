@@ -22,6 +22,9 @@
 %%
 
 -module(ssh_sup_SUITE).
+
+-behaviour(ct_suite).
+
 -include_lib("common_test/include/ct.hrl").
 -include("ssh.hrl").
 -include("ssh_test_lib.hrl").

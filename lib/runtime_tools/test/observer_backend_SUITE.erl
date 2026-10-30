@@ -20,6 +20,9 @@
 %% %CopyrightEnd%
 %%
 -module(observer_backend_SUITE).
+
+-behaviour(ct_suite).
+
 -include_lib("runtime_tools/include/observer_backend.hrl").
 
 %% Test server specific exports

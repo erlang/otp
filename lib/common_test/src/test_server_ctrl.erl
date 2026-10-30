@@ -4462,9 +4462,8 @@ do_format_exception(Reason={Error,Stack}, Shift) ->
         {'EXIT',_R} ->
             {"~tp",Reason};
         Formatted0 ->
-            Flat = lists:flatten(Formatted0),
-            case string:prefix(Flat, ?exception_prefix) of
-                nomatch   -> {"~ts", Flat};
+            case string:prefix(Formatted0, ?exception_prefix) of
+                nomatch   -> {"~ts", Formatted0};
                 Formatted -> {"~ts", Formatted}
             end
     end.

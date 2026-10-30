@@ -28,6 +28,7 @@
 
 -module(snmp_agent_mibs_SUITE).
 
+-behaviour(ct_suite).
 
 %%----------------------------------------------------------------------
 %% Include files

@@ -33,6 +33,8 @@
 
 -module(cprof_SUITE).
 
+-behaviour(ct_suite).
+
 %% Exported end user tests
 -export([basic_test/0, on_load_test/1, modules_test/1]).
 

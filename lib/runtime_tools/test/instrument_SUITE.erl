@@ -21,6 +21,8 @@
 %%
 -module(instrument_SUITE).
 
+-behaviour(ct_suite).
+
 -export([all/0, suite/0, init_per_suite/1, end_per_suite/1]).
 
 -export([allocations_enabled/1, allocations_disabled/1, allocations_ramv/1,

@@ -25,6 +25,9 @@
 %%% Smoke tests for peer node controller
 %%% @end
 -module(peer_SUITE).
+
+-behaviour(ct_suite).
+
 -author("maximfca@gmail.com").
 
 %% Common Test headers

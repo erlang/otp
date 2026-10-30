@@ -23,6 +23,8 @@
 
 -module(openssl_sni_SUITE).
 
+-behaviour(ct_suite).
+
 -include_lib("common_test/include/ct.hrl").
 %% Callback functions
 -export([all/0,

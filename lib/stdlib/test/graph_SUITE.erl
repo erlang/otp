@@ -21,6 +21,8 @@
 %%
 -module(graph_SUITE).
 
+-behaviour(ct_suite).
+
 %%-define(STANDALONE,1).
 
 -ifdef(STANDALONE).

@@ -21,6 +21,9 @@
 %%
 
 -module(error_SUITE).
+
+-behaviour(ct_suite).
+
 -export([suite/0,all/0,groups/0,
 	 already_defined/1,
          bad_config_exclusive/1,bad_config_selective/1,
