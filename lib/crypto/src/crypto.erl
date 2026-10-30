@@ -3180,6 +3180,7 @@ jump_iv(<<X, Rest/binary>>, JumpIV) ->
 -type pk_sign_verify_algs() :: rsa | dss | ecdsa | eddsa | mldsa() | slh_dsa().
 -type mldsa() :: mldsa44 | mldsa65 | mldsa87.
 -type mldsa_private() :: {seed | expandedkey, binary()}.
+-type mldsa_keygen_private() :: binary() | {seed, binary()}.
 -type mldsa_public() :: binary().
 -type slh_dsa() :: slh_dsa_shake_128s | slh_dsa_shake_128f | slh_dsa_sha2_128s | slh_dsa_sha2_128f
                  | slh_dsa_shake_192s | slh_dsa_shake_192f | slh_dsa_sha2_192s | slh_dsa_sha2_192f
@@ -3654,8 +3655,8 @@ pkey_crypt_nif(_Algorithm, _In, _Key, _Options, _IsPrivate, _IsEncrypt) -> ?nif_
 -spec generate_key(Type, Params)
                  -> {PublicKey, PrivKeyOut}
                         when Type :: dh | ecdh | eddh | eddsa | rsa | mldsa() | mlkem512 | mlkem768 | mlkem1024 | slh_dsa() | srp,
-                             PublicKey :: dh_public() | ecdh_public() | rsa_public() | srp_public(),
-                             PrivKeyOut :: dh_private() | ecdh_private() | rsa_private() | {srp_public(),srp_private()},
+                             PublicKey :: dh_public() | ecdh_public() | rsa_public() | mldsa_public() | srp_public(),
+                             PrivKeyOut :: dh_private() | ecdh_private() | rsa_private() | mldsa_keygen_private() | {srp_public(),srp_private()},
                              Params :: dh_params() | ecdh_params() | eddsa_params() | rsa_params() | srp_gen_params() | [].
 generate_key(Type, Params) ->
     generate_key(Type, Params, undefined).
@@ -3697,9 +3698,9 @@ Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 -spec generate_key(Type, Params, PrivKeyIn)
                  -> {PublicKey, PrivKeyOut}
                         when Type :: dh | ecdh | eddh | eddsa | rsa | mldsa() | mlkem512 | mlkem768 | mlkem1024 | srp | slh_dsa(),
-                             PublicKey :: dh_public() | ecdh_public() | rsa_public() | srp_public(),
-                             PrivKeyIn :: undefined | dh_private() | ecdh_private() | rsa_private() | {srp_public(),srp_private()},
-                             PrivKeyOut :: dh_private() | ecdh_private() | rsa_private() | {srp_public(),srp_private()},
+                             PublicKey :: dh_public() | ecdh_public() | rsa_public() | mldsa_public() | srp_public(),
+                             PrivKeyIn :: undefined | dh_private() | ecdh_private() | rsa_private() | mldsa_keygen_private() | {srp_public(),srp_private()},
+                             PrivKeyOut :: dh_private() | ecdh_private() | rsa_private() | mldsa_keygen_private() | {srp_public(),srp_private()},
                              Params :: dh_params() | ecdh_params() | eddsa_params() | rsa_params() | srp_comp_params() | []
                                        .
 
