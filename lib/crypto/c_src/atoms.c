@@ -163,8 +163,10 @@ ERL_NIF_TERM atom_mlkem768;
 ERL_NIF_TERM atom_mlkem1024;
 #endif
 
-#ifdef HAVE_KDF
 ERL_NIF_TERM atom_salt;
+ERL_NIF_TERM atom_personalization;
+
+#ifdef HAVE_KDF
 ERL_NIF_TERM atom_info;
 ERL_NIF_TERM atom_iterations;
 ERL_NIF_TERM atom_n;
@@ -320,8 +322,10 @@ int init_atoms(ErlNifEnv *env) {
     atom_mlkem1024 = enif_make_atom(env,"mlkem1024");
 #endif
 
-#ifdef HAVE_KDF
     atom_salt = enif_make_atom(env,"salt");
+    atom_personalization = enif_make_atom(env,"personalization");
+
+#ifdef HAVE_KDF
     atom_info = enif_make_atom(env,"info");
     atom_iterations = enif_make_atom(env,"iterations");
     atom_n = enif_make_atom(env,"n");

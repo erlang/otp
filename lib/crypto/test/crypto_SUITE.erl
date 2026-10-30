@@ -113,6 +113,8 @@
          no_poly1305/1,
          no_siphash/0,
          no_siphash/1,
+         no_blake2_mac/0,
+         no_blake2_mac/1,
          no_sign_verify/0,
          no_sign_verify/1,
          no_support/0,
@@ -122,6 +124,8 @@
          poly1305/1,
          siphash/0,
          siphash/1,
+         blake2_mac/0,
+         blake2_mac/1,
          private_encrypt/0,
          private_encrypt/1,
          public_encrypt/0,
@@ -480,10 +484,10 @@ groups() ->
      {shake128,             [], [hash_xof]},
      {shake256,             [], [hash_xof]},
      {sm3,                  [], [hash, hmac]},
-     {blake2b,              [], [hash, hmac, hmac_update]},
-     {blake2s,              [], [hash, hmac, hmac_update]},
-     {no_blake2b,           [], [no_hash, no_hmac]},
-     {no_blake2s,           [], [no_hash, no_hmac]},
+     {blake2b,              [], [hash, hmac, hmac_update, blake2_mac]},
+     {blake2s,              [], [hash, hmac, hmac_update, blake2_mac]},
+     {no_blake2b,           [], [no_hash, no_hmac, no_blake2_mac]},
+     {no_blake2s,           [], [no_hash, no_hmac, no_blake2_mac]},
      {rsa,                  [], [sign_verify,
                                  public_encrypt,
                                  private_encrypt,
@@ -1101,6 +1105,91 @@ no_siphash(_Config) ->
     Key = <<0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15>>,
     Txt = <<"Cryptographic Forum Research Group">>,
     notsup(fun crypto:mac/3, [siphash,Key,Txt]).
+
+%%--------------------------------------------------------------------
+blake2_mac() ->
+    [{doc, "Test keyed BLAKE2 (RFC 7693) MAC with configurable size, salt and personalization"}].
+blake2_mac(Config) ->
+    Type = ?config(type, Config),
+    case lists:member(Type, crypto:supports(macs)) of
+        true ->
+            lists:foreach(fun(V) -> blake2_mac_check_vector(Type, V) end,
+                          blake2_mac_vectors(Type)),
+            blake2_mac_extra_checks(Type);
+        false ->
+            {skip, "keyed BLAKE2 requires OpenSSL 3.0"}
+    end.
+
+%% Each vector is {SubType, Key, Txt, Expect}, checked one-shot (mac/4) and
+%% streaming (mac_init/3); the default SubType also through mac/3 and
+%% mac_init/2.
+blake2_mac_check_vector(Type, {SubType, Key, Txt, Expect}) ->
+    blake2_mac_eq(crypto:mac(Type, SubType, Key, Txt), Expect,
+                  {mac, [Type, SubType, Key, Txt]}),
+    Streamed = crypto:mac_final(
+                 crypto:mac_update(crypto:mac_init(Type, SubType, Key), Txt)),
+    blake2_mac_eq(Streamed, Expect,
+                  {"mac_init/update/final", [Type, SubType, Key, Txt]}),
+    case SubType of
+        undefined ->
+            blake2_mac_eq(crypto:mac(Type, Key, Txt), Expect,
+                          {mac, [Type, Key, Txt]}),
+            Streamed2 = crypto:mac_final(
+                          crypto:mac_update(crypto:mac_init(Type, Key), Txt)),
+            blake2_mac_eq(Streamed2, Expect,
+                          {"mac_init/update/final", [Type, Key, Txt]});
+        _ ->
+            ok
+    end.
+
+blake2_mac_eq(Got, Expect, Ctx) ->
+    case Got of
+        Expect -> ok;
+        _ -> ct:fail({blake2_mac, Ctx, {expected, Expect}, {got, Got}})
+    end.
+
+blake2_mac_extra_checks(Type) ->
+    Max = case Type of blake2b -> 64; blake2s -> 32 end,
+    Key = list_to_binary(lists:seq(0, Max - 1)),
+    Txt = <<"abc">>,
+    %% the BLAKE2 size parameter is not truncation
+    <<Trunc:16/binary, _/binary>> = Full = crypto:mac(Type, Key, Txt),
+    Trunc = crypto:macN(Type, Key, Txt, 16),
+    true = Trunc =/= crypto:mac(Type, #{size => 16}, Key, Txt),
+    Full = crypto:mac(Type, #{}, Key, Txt),
+    %% 1 byte keys are accepted
+    Max = byte_size(crypto:mac(Type, <<1>>, Txt)),
+    %% salt and personalization are zero padded; an empty one equals the default
+    Padded = crypto:mac(Type, #{salt => <<"ab">>}, Key, Txt),
+    Padded = crypto:mac(Type, #{salt => <<"ab",0>>}, Key, Txt),
+    Full = crypto:mac(Type, #{salt => <<>>, personalization => <<>>}, Key, Txt),
+    TooLong = binary:copy(<<1>>, Max div 4 + 1),
+    [ blake2_mac_expect_badarg(fun() -> crypto:mac(Type, Opts, Key, Txt) end)
+      || Opts <- [#{size => 0}, #{size => Max + 1}, #{size => -1},
+                  #{size => 32.0}, #{unknown => 1}, not_a_map,
+                  #{salt => TooLong}, #{personalization => TooLong},
+                  #{salt => "abc"}, #{personalization => abc}] ],
+    [ blake2_mac_expect_badarg(fun() -> crypto:mac(Type, K, Txt) end)
+      || K <- [<<>>, binary:copy(<<0>>, Max + 1)] ],
+    [ blake2_mac_expect_badarg(fun() -> crypto:mac_init(Type, K) end)
+      || K <- [<<>>, binary:copy(<<0>>, Max + 1)] ],
+    blake2_mac_expect_badarg(fun() -> crypto:mac_init(Type, #{size => Max + 1}, Key) end),
+    ok.
+
+blake2_mac_expect_badarg(F) ->
+    try F() of
+        R -> ct:fail({blake2_mac, expected_badarg, {got, R}})
+    catch
+        error:badarg -> ok;
+        error:{badarg, _, _} -> ok
+    end.
+
+%%--------------------------------------------------------------------
+no_blake2_mac() ->
+    [{doc, "Test disabled keyed BLAKE2 MAC"}].
+no_blake2_mac(Config) ->
+    Type = ?config(type, Config),
+    notsup(fun crypto:mac/3, [Type, <<1,2,3,4>>, <<"Cryptographic Forum Research Group">>]).
 
 %%--------------------------------------------------------------------
 api_ng() ->
@@ -3375,6 +3464,54 @@ blake2_test_vectors(blake2s) ->
      , <<53,141,210,237,7,128,212,5,78,118,203,111,58,91,206,40,65,232,226,245,71,67,29,77,9,219,33,182,109,148,31,199>>
      , <<190,192,192,230,205,229,182,122,203,115,184,31,121,166,122,64,121,174,28,96,218,201,210,102,26,241,142,159,139,80,223,165>>
      ]}.
+
+%% Base keyed BLAKE2 KATs from:
+%% https://github.com/BLAKE2/BLAKE2/blob/master/testvectors/blake2b-kat.txt
+blake2_mac_vectors(blake2b) ->
+    blake2_mac_vectors(
+      64,
+      [{0,"10ebb67700b1868efb4417987acf4690ae9d972fb7a590c2f02871799aaa4786b5e996e8f0f4eb981fc214b005f42d2ff4233499391653df7aefcbc13fc51568"},
+       {1,"961f6dd1e4dd30f63901690c512e78e4b45e4742ed197c3c5e45c549fd25f2e4187b0bc9fe30492b16b0d0bc4ef9b0f34c7003fac09a5ef1532e69430234cebd"},
+       {2,"da2cfbe2d8409a0f38026113884f84b50156371ae304c4430173d08a99d9fb1b983164a3770706d537f49e0c916d9f32b95cc37a95b99d857436f0232c88a965"},
+       {128,"72065ee4dd91c2d8509fa1fc28a37c7fc9fa7d5b3f8ad3d0d7a25626b57b1b44788d4caf806290425f9890a3a2a35a905ab4b37acfd0da6e4517b2525c9651e4"},
+       {255,"142709d62e28fcccd0af97fad0f8465b971e82201dc51070faa0372aa43e92484be1c1e73ba10906d5d1853db6a4106e0a7bf9800d373d6dee2d46d62ef2a461"}],
+      [{1,"4c"},
+       {20,"1b812937899516cac9617bc0d341c3067ef79e0e"},
+       {32,"1047e1d63f6bed47ce6b7fe88fdd25955d0377e47182f6921cff1395032fd251"},
+       {56,"aba89621ad2b70e4e0892e4776a95d21557ed52147f613fa42466fc55f2645a8c75671756c6ae2dea584c86af30b81f8b10c71c57a90603f"}],
+      [{salt,"cdf594b868d6494ac39f6c046b8bbce68b4daf891b5671cf7c799dd6242fd5b7e277e2bab3007257597a5b259db3c1145dd571da51abf271bacd938b8d5f7577"},
+       {personalization,"2c094dda26c9a3bb3f25c7a6d5757bbc45b36fcbf6c751bee475fb310c3b3ba7ffcc0492c2265e42ea16570c36fa3822c06d608b058403ae21df106974cfc0f1"},
+       {both,"0d4090caa30993d912af4ae707d57b6602fb5ba4b1aa5d5219f07b5522478f43"},
+       {short,"39d15a2b8d42ca8177e4c4ec66d28cd3af38e02a5805c142f5b1278f20dc472af351bd4f24a6b2b2519e7c12f0edce9ce30e09851ac5290fbc79cc73390198ad"}]);
+%% https://github.com/BLAKE2/BLAKE2/blob/master/testvectors/blake2s-kat.txt
+blake2_mac_vectors(blake2s) ->
+    blake2_mac_vectors(
+      32,
+      [{0,"48a8997da407876b3d79c0d92325ad3b89cbb754d86ab71aee047ad345fd2c49"},
+       {1,"40d15fee7c328830166ac3f918650f807e7e01e177258cdc0a39b11f598066f1"},
+       {2,"6bb71300644cd3991b26ccd4d274acd1adeab8b1d7914546c1198bbe9fc9d803"},
+       {64,"8975b0577fd35566d750b362b0897a26c399136df07bababbde6203ff2954ed4"},
+       {255,"3fb735061abc519dfe979e54c1ee5bfad0a9d858b3315bad34bde999efd724dd"}],
+      [{1,"59"},
+       {16,"6ab839b48fcfb38301b23006592b6b8c"},
+       {20,"31b102aacbffaf9cd36dac801f7e2145eb638107"}],
+      [{salt,"373610675e3678e3d57d9b891c0da72473b07104a4d54b4eadf0523b1e5f6107"},
+       {personalization,"98dcf78972e0718db3ad4aa2723bdbb10e1700e07e91a9f1f435e6cea5cb21e7"},
+       {both,"6bd6af20c3a3eb44d452a13c380aa052"},
+       {short,"afe5a653659379648dbd5abc599c2a3518c945032a68ed0be290ca7ab113bdbb"}]).
+
+blake2_mac_vectors(Max, Kat, Sized, Params) ->
+    Msg = fun(Len) -> list_to_binary(lists:seq(0, Len - 1)) end,
+    Salt = list_to_binary(lists:seq(16#10, 16#10 + Max div 4 - 1)),
+    Personalization = list_to_binary(lists:seq(16#20, 16#20 + Max div 4 - 1)),
+    Opts = #{salt => #{salt => Salt},
+             personalization => #{personalization => Personalization},
+             both => #{salt => Salt, personalization => Personalization, size => Max div 2},
+             short => #{salt => <<"ab">>, personalization => <<"cd">>}},
+    [ {undefined, Msg(Max), Msg(N), hexstr2bin(H)} || {N, H} <- Kat ]
+        ++ [ {#{size => Max}, Msg(Max), Msg(N), hexstr2bin(H)} || {N, H} <- Kat ]
+        ++ [ {#{size => S}, Msg(Max div 2), Msg(10), hexstr2bin(H)} || {S, H} <- Sized ]
+        ++ [ {maps:get(P, Opts), Msg(Max div 2), Msg(10), hexstr2bin(H)} || {P, H} <- Params ].
 
 blake2_hmac(Type) ->
     [{hmac, Type, hexstr2bin(K), hexstr2bin(D), H}
