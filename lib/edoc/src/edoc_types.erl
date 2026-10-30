@@ -54,7 +54,8 @@
                           defs :: [t_def()]}.
 %% Function specification.
 
--type type() :: t_atom() | t_binary() | t_float() | t_fun() | t_integer()
+-type type() :: t_atom() | t_binary() | t_binary_literal() | t_float()
+              | t_fun() | t_integer()
 	      | t_integer_range() | t_list() | t_nil()| t_nonempty_list()
 	      | t_record() | t_tuple() | t_type() | t_union() | t_var()
 	      | t_paren().
@@ -125,6 +126,10 @@
 -type t_binary() :: #t_binary{a :: list(),
 			      base_size :: integer(),
 			      unit_size :: integer()}.
+
+-type t_binary_literal() :: #t_binary_literal{a :: list(),
+                                              val :: binary()}.
+%% Binary literal `<<"...">>'.
 
 -type t_float() :: #t_float{a :: list(),
 			    val :: float()}.
@@ -252,6 +257,8 @@ to_xml(#t_binary{base_size = 0, unit_size = U}, _Env, _Opts) ->
     {binary, [{value, io_lib:fwrite("<<_:_*~w>>", [U])}], []};
 to_xml(#t_binary{base_size = B, unit_size = U}, _Env, _Opts) ->
     {binary, [{value, io_lib:fwrite("<<_:~w, _:_*~w>>", [B, U])}], []};
+to_xml(#t_binary_literal{val = V}, _Env, _Opts) ->
+    {binary_literal, [{value, binary_literal(V)}], []};
 to_xml(#t_float{val = V}, _Env, _Opts) ->
     {float, [{value, io_lib:write(V)}], []};
 to_xml(#t_union{types = Ts}, Env, Opts) ->
@@ -281,6 +288,15 @@ to_xml(#t_typedef{name = N, args = As, type = T, defs = Ds}, Env, Opts) ->
 to_xml(#t_throws{type = T, defs = Ds}, Env, Opts) ->
     {throws, [wrap_type(T, Env, Opts)
 	      | map(fun to_xml/3, Ds, Env, Opts)]}.
+
+%% Must be printed as by erl_pp, see edoc_layout:format_type/5.
+binary_literal(Bin) ->
+    case unicode:characters_to_list(Bin, utf8) of
+        Chars when is_list(Chars), length(Chars) < byte_size(Bin) ->
+            "<<" ++ io_lib:write_string(Chars) ++ "/utf8>>";
+        _ ->
+            "<<" ++ io_lib:write_string(binary_to_list(Bin)) ++ ">>"
+    end.
 
 wrap_type(T, Env, Opts) ->
     {type, [to_xml(T, Env, Opts)]}.

@@ -1,0 +1,33 @@
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+
+bin_type.erl:53:1: Function bad_handle/0 has no local return
+bin_type.erl:53:24: The call bin_type:handle(<<112,97,117,115,101>>) breaks the contract (cmd()) -> 'ok'
+bin_type.erl:55:2: Invalid type specification for function bin_type:bad_status/0.
+ The success typing is bin_type:bad_status() -> <<"oops">>
+ But the spec is bin_type:bad_status() -> <<"ok">> | <<"error">>
+ The return types do not overlap
+bin_type.erl:87:1: Function bad_size/0 has no local return
+bin_type.erl:87:22: The call bin_type:handle(<<115,116,97,114>>) breaks the contract (cmd()) -> 'ok'
+bin_type.erl:90:2: Invalid type specification for function bin_type:big/0.
+ The success typing is bin_type:big() -> <<_:520>>
+ But the spec is bin_type:big() -> <<"ok">>
+ The return types do not overlap

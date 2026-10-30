@@ -699,6 +699,8 @@ type({integer,Anno,I}) ->
     {integer,Anno,I};
 type({char,Anno,C}) ->
     {char,Anno,C};
+type({bin_type,Anno,B}) ->
+    {bin_type,Anno,B};
 type({op,Anno,Op,T}) ->
     T1 = type(T),
     {op,Anno,Op,T1};

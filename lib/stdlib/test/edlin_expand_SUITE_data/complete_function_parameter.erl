@@ -41,6 +41,7 @@
     list_parameter_function/2,
     non_empty_list_parameter_function/2,
     binary_parameter_function/2,
+    binary_literal_parameter_function/2,
     neg_integer_parameter_function/2,
     non_neg_integer_parameter_function/2,
     integer_parameter_function/2,
@@ -123,6 +124,10 @@ map_variable_parameter_function(_, _) ->
 
 -spec binary_parameter_function(binary(), any()) -> boolean().
 binary_parameter_function(_,_) -> false.
+
+-spec binary_literal_parameter_function(<<"start">> | ~"stop", boolean()) ->
+          boolean().
+binary_literal_parameter_function(_,_) -> false.
 
 -spec tuple_parameter_function(tuple(), any()) -> boolean().
 tuple_parameter_function(_,_) -> false.
