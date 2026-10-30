@@ -2564,7 +2564,7 @@ validate_dh_gex_group(_P, _G, _PBits, _MinBits) ->
 
 %% Number of significant bits in a positive integer.
 nbits(N) when is_integer(N), N > 0 ->
-    bit_size(binary:encode_unsigned(N));
+    (integer_unsigned_width(N) + 7) band -8;
 nbits(_) ->
     0.
 

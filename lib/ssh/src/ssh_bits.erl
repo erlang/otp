@@ -37,27 +37,11 @@ name_list(NamesList) -> list_to_binary(lists:join($,, NamesList)).
 
 %%%----------------------------------------------------------------
 %%% Multi Precision Integer encoding
-mpint(-1) -> <<0,0,0,1,16#ff>>;
-mpint(0) -> <<0,0,0,0>>;
-mpint(I) when I>0 ->
-    <<B1,V/binary>> = binary:encode_unsigned(I),
-    case B1 band 16#80 of
-	16#80 ->
-	    <<(byte_size(V)+2):32/unsigned-big-integer, 0,B1,V/binary >>;
-	_ ->
-	    <<(byte_size(V)+1):32/unsigned-big-integer, B1,V/binary >>
-    end;
-mpint(N) when N<0 -> 
-    Sxn =  bit_size(binary:encode_unsigned(-N)),
-    Sxn1 = Sxn+8,
-    <<W:Sxn1>> = <<1, 0:Sxn>>,
-    <<B1,V/binary>> = binary:encode_unsigned(W+N),
-    case B1 band 16#80 of
-	16#80 ->
-	    <<(byte_size(V)+1):32/unsigned-big-integer, B1,V/binary >>;
-	_ ->
-	    <<(byte_size(V)+2):32/unsigned-big-integer, 255,B1,V/binary >>
-    end.
+mpint(0) ->
+    <<0:32>>;
+mpint(N) ->
+    NumBytes = (integer_signed_width(N) + 7) bsr 3,
+    <<NumBytes:32,N:NumBytes/unit:8>>.
 
 %%%----------------------------------------------------------------
 %% random/1
