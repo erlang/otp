@@ -149,20 +149,156 @@ get_page_size(void)
 #endif
 }
 
-static UWord
-get_large_page_size(void)
-{
 #ifdef HAVE_LINUX_THP
+#define LINUX_THP_DIR "/sys/kernel/mm/transparent_hugepage"
+
+enum linux_thp_mode {
+    LINUX_THP_UNKNOWN,
+    LINUX_THP_NEVER,
+    LINUX_THP_ALWAYS,
+    LINUX_THP_MADVISE,
+    LINUX_THP_INHERIT
+};
+
+/* Returns LINUX_THP_UNKNOWN unless the policy file can be read and selects
+ * exactly one known mode. */
+static enum linux_thp_mode
+read_linux_thp_mode(const char *path)
+{
+    static const struct {
+        const char *name;
+        enum linux_thp_mode mode;
+    } modes[] = {
+        {"[never]", LINUX_THP_NEVER},
+        {"[always]", LINUX_THP_ALWAYS},
+        {"[madvise]", LINUX_THP_MADVISE},
+        {"[inherit]", LINUX_THP_INHERIT}
+    };
+    char buf[128];
+    char *selected;
+    FILE *fp;
+    size_t i;
+
+    fp = fopen(path, "r");
+    if (fp == NULL)
+        return LINUX_THP_UNKNOWN;
+    selected = fgets(buf, sizeof(buf), fp);
+    fclose(fp);
+    if (selected == NULL)
+        return LINUX_THP_UNKNOWN;
+
+    selected = strchr(buf, '[');
+    if (selected == NULL || strchr(selected + 1, '[') != NULL)
+        return LINUX_THP_UNKNOWN;
+    for (i = 0; i < sizeof(modes) / sizeof(modes[0]); i++) {
+        if (strncmp(selected, modes[i].name, strlen(modes[i].name)) == 0)
+            return modes[i].mode;
+    }
+    return LINUX_THP_UNKNOWN;
+}
+
+static UWord
+get_linux_thp_pmd_size(void)
+{
     FILE *fp;
     UWord result;
     int matched;
 
-    fp = fopen("/sys/kernel/mm/transparent_hugepage/hpage_pmd_size", "r");
+    fp = fopen(LINUX_THP_DIR "/hpage_pmd_size", "r");
     if (fp == NULL)
         return 0;
     matched = fscanf(fp, "%lu", &result);
     fclose(fp);
     return matched == 1 ? result : 0;
+}
+
+#ifdef __aarch64__
+#include <dirent.h>
+
+#define LINUX_THP_SIZE (2*1024*1024)
+
+static int
+is_linux_thp_mode_enabled(enum linux_thp_mode mode)
+{
+    return mode == LINUX_THP_ALWAYS || mode == LINUX_THP_MADVISE;
+}
+
+/*
+ * Returns true only when a safe policy can be established: the requested
+ * size is enabled and every larger size is known to be disabled. Unreadable
+ * or unrecognized policies return 0. Kernels before Linux 6.8 have no
+ * per-size policies; there, the requested size must be the PMD size.
+ */
+int
+erts_sys_is_thp_size_safe(UWord size)
+{
+    enum linux_thp_mode global, selected = LINUX_THP_UNKNOWN;
+    UWord pmd_size = get_linux_thp_pmd_size();
+    int has_per_size = 0, has_pmd_size = 0, safe = 1;
+    struct dirent *entry;
+    DIR *dir;
+
+    if (size <= sys_page_size || (size & (size - 1)) != 0
+        || pmd_size < size || (pmd_size & (pmd_size - 1)) != 0)
+        return 0;
+    global = read_linux_thp_mode(LINUX_THP_DIR "/enabled");
+    dir = opendir(LINUX_THP_DIR);
+    if (dir == NULL)
+        return 0;
+    while (safe) {
+        char path[sizeof(LINUX_THP_DIR) + sizeof(entry->d_name) + 16];
+        enum linux_thp_mode mode;
+        unsigned long kb;
+        int end;
+
+        errno = 0;
+        entry = readdir(dir);
+        if (entry == NULL) {
+            safe = errno == 0;
+            break;
+        }
+        if (strncmp(entry->d_name, "hugepages-", 10) != 0)
+            continue;
+        has_per_size = 1;
+        if (!isdigit((unsigned char) entry->d_name[10])
+            || sscanf(entry->d_name, "hugepages-%lu%n", &kb, &end) != 1
+            || strcmp(entry->d_name + end, "kB") != 0) {
+            safe = 0;
+            break;
+        }
+        if (kb < size / 1024)
+            continue;
+        if (kb == pmd_size / 1024)
+            has_pmd_size = 1;
+
+        snprintf(path, sizeof(path), LINUX_THP_DIR "/%s/enabled",
+                 entry->d_name);
+        mode = read_linux_thp_mode(path);
+        if (mode == LINUX_THP_INHERIT)
+            mode = global == LINUX_THP_INHERIT ? LINUX_THP_UNKNOWN : global;
+        if (kb == size / 1024)
+            selected = mode;
+        else if (mode != LINUX_THP_NEVER)
+            safe = 0;
+    }
+    closedir(dir);
+
+    if (!safe)
+        return 0;
+    if (has_per_size)
+        return has_pmd_size && is_linux_thp_mode_enabled(selected);
+    return pmd_size == size && is_linux_thp_mode_enabled(global);
+}
+#endif
+#endif
+
+static UWord
+get_large_page_size(void)
+{
+#if defined(HAVE_LINUX_THP) && defined(__aarch64__)
+    return erts_sys_is_thp_size_safe(LINUX_THP_SIZE) ? LINUX_THP_SIZE : 0;
+#elif defined(HAVE_LINUX_THP)
+    return get_linux_thp_pmd_size();
 #else
     return 0;
 #endif
@@ -254,29 +390,13 @@ thr_create_cleanup(void *vtcdp)
     erts_free(ERTS_ALC_T_TMP, tcdp);
 }
 
-#ifdef HAVE_LINUX_THP
-static int
-is_linux_thp_enabled(void)
-{
-    FILE *fp;
-    char always[9], madvise[10], never[8];
-    int matched;
-
-    fp = fopen("/sys/kernel/mm/transparent_hugepage/enabled", "r");
-    if (fp == NULL)
-        return 0;
-    matched = fscanf(fp, "%8s %9s %7s", always, madvise, never);
-    fclose(fp);
-    if (matched != 3 || strcmp("[never]", never) == 0)
-        return 0;
-    return strcmp("[always]", always) != 0 || strcmp("[madvise]", madvise) != 0;
-}
-
+#if defined(HAVE_LINUX_THP) && defined(__x86_64__)
 #define ALIGN_DOWN(x, a) ((void*)(((UWord)(x)) & ~((a) - 1)))
 
 static void
 enable_linux_thp_for_text(void)
 {
+    enum linux_thp_mode mode;
     FILE *fp;
     char *from, *to;
     extern char etext;  /* see end(3) for details */
@@ -295,7 +415,8 @@ enable_linux_thp_for_text(void)
      * behavior is set to the default of [madvise].  Check that we are in this
      * mode and exit if we are not.
      */
-    if (is_linux_thp_enabled() == 0)
+    mode = read_linux_thp_mode(LINUX_THP_DIR "/enabled");
+    if (mode != LINUX_THP_ALWAYS && mode != LINUX_THP_MADVISE)
         return;
 
     fp = fopen("/proc/self/maps", "r");
@@ -351,7 +472,7 @@ erts_sys_pre_init(void)
     sys_page_size = get_page_size();
     sys_large_page_size = get_large_page_size();
 
-#ifdef HAVE_LINUX_THP
+#if defined(HAVE_LINUX_THP) && defined(__x86_64__)
     enable_linux_thp_for_text();
 #endif
 
