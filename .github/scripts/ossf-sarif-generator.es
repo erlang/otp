@@ -25,28 +25,30 @@
 
 main([CompilerFlagsJson]) ->
     io:format(standard_error,"~p",[os:env()]),
-    CFLAGS = proplists:get_value(cflags, erlang:system_info(compile_info)) ++ " " ++ os:getenv("SKIPPED_OSSF_CFLAGS"),
-    LDFLAGS = proplists:get_value(ldflags, erlang:system_info(compile_info)) ++ " " ++ os:getenv("SKIPPED_OSSF_LDFLAGS"),
+    CFLAGS = proplists:get_value(cflags, erlang:system_info(compile_info)) ++ " " ++ os:getenv("SKIPPED_OSSF_CFLAGS", ""),
+    CXXFLAGS = proplists:get_value(cxxflags, erlang:system_info(compile_info)) ++ " " ++ os:getenv("SKIPPED_OSSF_CXXFLAGS", ""),
+    LDFLAGS = proplists:get_value(ldflags, erlang:system_info(compile_info)) ++ " " ++ os:getenv("SKIPPED_OSSF_LDFLAGS", ""),
     {gnuc, {Vsn, _, _} } = erlang:system_info(c_compiler_used),
     #{ ~"options" := #{ ~"recommended" := Opts } } = json:decode(unicode:characters_to_binary(CompilerFlagsJson)),
-    io:format(standard_error, ~s'CFLAGS="~ts"~nLDFLAGS="~ts"~n',[CFLAGS, LDFLAGS]),
-    Missing = [Opt || Opt <- Opts, check_option(Opt, string:split(CFLAGS, " ", all), string:split(LDFLAGS, " ", all), Vsn)],
+    io:format(standard_error, ~s'CFLAGS="~ts"~nCXXFLAGS="~ts"~nLDFLAGS="~ts"~n',[CFLAGS, CXXFLAGS, LDFLAGS]),
+    Missing = [Opt || Opt <- Opts, check_option(Opt, string:split(CFLAGS, " ", all), string:split(CXXFLAGS, " ", all), string:split(LDFLAGS, " ", all), Vsn)],
     io:format("~ts~n",[sarif(Missing)]),
     ok.
-check_option(#{ ~"requires" := #{ ~"gcc" := GccVsn }, ~"opt" := Opt }, CFLAGS, _LDFLAGS, CurrentGccVsn) ->
+
+check_option(#{ ~"requires" := #{ ~"gcc" := GccVsn }, ~"opt" := Opt }, CFLAGS, _CXXFLAGS, _LDFLAGS, CurrentGccVsn) ->
     io:format(standard_error, "Looking for ~ts...",[Opt]),
     case binary_to_integer(hd(string:split(GccVsn, "."))) > CurrentGccVsn of
         true -> io:format(standard_error, "skipped!~n",[]), false;
         false ->
             check_for_flags(Opt, CFLAGS)
     end;
-check_option(#{ ~"requires" := #{ ~"binutils" := _ }, ~"opt" := Opt }, _CFLAGS, LDFLAGS, _CurrentGccVsn) ->
+check_option(#{ ~"requires" := #{ ~"binutils" := _ }, ~"opt" := Opt }, _CFLAGS, _CXXFLAGS,LDFLAGS, _CurrentGccVsn) ->
     io:format(standard_error, "Looking for ~ts...",[Opt]),
     check_for_flags(Opt, LDFLAGS);
-check_option(#{ ~"requires" := #{ ~"libstdc++" := _ }, ~"opt" := Opt }, _CFLAGS, LDFLAGS, _CurrentGccVsn) ->
+check_option(#{ ~"requires" := #{ ~"libstdc++" := _ }, ~"opt" := Opt }, _CFLAGS, CXXFLAGS, LDFLAGS, _CurrentGccVsn) ->
     io:format(standard_error, "Looking for ~ts...",[Opt]),
-    check_for_flags(Opt, LDFLAGS);
-check_option(#{ ~"requires" := Tool, ~"opt" := Opt }, _CFLAGS, _LDFLAGS, _CurrentGccVsn) ->
+    check_for_flags(Opt, CXXFLAGS ++ LDFLAGS);
+check_option(#{ ~"requires" := Tool, ~"opt" := Opt }, _CFLAGS, _CXXFLAGS, _LDFLAGS, _CurrentGccVsn) ->
     io:format(standard_error, "~ts not implemented yet using ~p!~n",[Opt, Tool]),
     true.
 
@@ -86,7 +88,7 @@ sarif(Missing) ->
                  ~"artifacts" =>
                      [ #{
                          ~"location" => #{
-                                          ~"uri" => ~".github/docker/Dockerfile.64-bit"
+                                          ~"uri" => ~".github/dockerfiles/Dockerfile.64-bit"
                                          },
                          ~"length" => -1
                         }
@@ -100,7 +102,7 @@ sarif(Missing) ->
                          ~"locations" =>
                              [ #{ ~"physicalLocation" =>
                                       #{ ~"artifactLocation" =>
-                                             #{ ~"uri" => ~".github/docker/Dockerfile.64-bit" }
+                                             #{ ~"uri" => ~".github/dockerfiles/Dockerfile.64-bit" }
                                        }
                                 } ]
                         } || {Id, #{ ~"opt" := Opt }} <- Zip]

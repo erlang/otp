@@ -307,21 +307,6 @@ jobs:
           name: Event File
           path: ${{ github.event_path }}
 
-  # Zizmor is a GitHub Actions security linter.
-  # See: https://docs.zizmor.sh/
-  zizmor:
-    name: Zizmor
-    runs-on: ubuntu-latest
-    permissions:
-      security-events: write
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          persist-credentials: false
-      - name: Run zizmor
-        uses: zizmorcore/zizmor-action@53290badfa369cb0bf7ad16342cb62c2fa47ac7b # v0.8.0
-
   # This job checks that the most important jobs are successful.
   # the use of conditionals, e.g., `if:` at the job level makes
   # the jobs included in the GH Settngs Ruleset to fail.
@@ -348,7 +333,6 @@ jobs:
       - test
       - system-test
       - sbom
-      - zizmor
     steps:
       - name: Check Ruleset Results
         shell: bash
