@@ -185,8 +185,10 @@ whereis_shell() ->
             case user_drv:whereis_group() of
                 undefined -> undefined;
                 GroupPid ->
-                    {dictionary, Dict} = erlang:process_info(GroupPid, dictionary),
-                    proplists:get_value(shell, Dict)
+                    case erlang:process_info(GroupPid, dictionary) of
+                        {dictionary, Dict} -> proplists:get_value(shell, Dict);
+                        undefined -> undefined
+                    end
             end;
         OtherNode ->
             erpc:call(OtherNode, group, whereis_shell, [])
