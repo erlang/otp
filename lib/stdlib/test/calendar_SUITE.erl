@@ -575,6 +575,15 @@ rfc3339(Config) when is_list(Config) ->
     "2000-01-01T10:02:00.000+00:02" =
         do_format(TO * NaPerSec, [{offset, 120 * NaPerSec}]++Na),
 
+    %% The seconds of an offset can't be written, so they are left out
+    "2000-01-01T10:02:00+00:02" = do_format(TO, [{offset, 150}]),
+    "2000-01-01T09:58:00-00:02" = do_format(TO, [{offset, -150}]),
+    "2000-01-01T10:00:00+00:00" = do_format(TO, [{offset, 30}]),
+    "2000-01-01T10:00:00+00:00" = do_format(TO, [{offset, -30}]),
+    "2000-01-01T10:02:00.000+00:02" =
+        do_format(TO * 1000, [{offset, 150_500}]++Ms),
+    TO = do_parse(do_format(TO, [{offset, -150}]), []),
+
     1656147840 = do_parse("2022-06-25 11:04:00+02", []),
     1656155040 = do_parse("2022-06-25 11:04:00-00", []),
 
