@@ -1,0 +1,80 @@
+## %CopyrightBegin%
+##
+## SPDX-License-Identifier: Apache-2.0
+##
+## Copyright Ericsson AB 2026. All Rights Reserved.
+##
+## Licensed under the Apache License, Version 2.0 (the "License");
+## you may not use this file except in compliance with the License.
+## You may obtain a copy of the License at
+##
+##     http://www.apache.org/licenses/LICENSE-2.0
+##
+## Unless required by applicable law or agreed to in writing, software
+## distributed under the License is distributed on an "AS IS" BASIS,
+## WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+## See the License for the specific language governing permissions and
+## limitations under the License.
+##
+## %CopyrightEnd%
+
+name: Throttle Users from Opening Issues Using AI
+
+# Users in the repository variable LIMITED_CONTRIBUTORS cannot have more than
+# LIMIT open issues at the same time. When such a user opens (or reopens) an
+# issue that goes over the limit, it is closed immediately with an
+# explanatory comment.
+#
+# LIMITED_CONTRIBUTORS is a comma separated list of GitHub users, for
+# example "kikofernandezreyes,dgud" (case insensitive).
+# Update the limited/throttle contributors when a user floods projects using AI.
+# Changing the variable takes effect on the next issue, no PR is needed.
+# If it is unset or empty nothing happens.
+#
+on:
+  issues:
+    types: [opened, reopened]
+
+# Serialize per author so that several issues opened at once are counted
+# one after the other.
+concurrency:
+  group: issue-limit-${{ github.event.issue.user.login }}
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  limit:
+    runs-on: ubuntu-latest
+    if: github.repository == 'erlang/otp'
+    permissions:
+      issues: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      LIMIT: '10'
+      LIMITED_CONTRIBUTORS: ${{ vars.LIMITED_CONTRIBUTORS }}
+      AUTHOR: ${{ github.event.issue.user.login }}
+      NUMBER: ${{ github.event.issue.number }}
+    steps:
+      - name: Close the issue if the author is over the limit
+        run: |
+          # Comma separated list, whole line match, case insensitive
+          if ! echo "${LIMITED_CONTRIBUTORS}" | tr -s ',[:space:]' '\n' | grep -qxiF "${AUTHOR}"; then
+            echo "${AUTHOR} is not throttled"
+            exit 0
+          fi
+
+          # The issues API lists PRs as well, they have a pull_request field.
+          # The REST list is used instead of search as search lags behind.
+          COUNT=$(gh api --paginate \
+            "repos/${GITHUB_REPOSITORY}/issues?state=open&creator=${AUTHOR}&per_page=100" \
+            --jq '.[] | select(.pull_request == null) | .number' | wc -l)
+          echo "${AUTHOR} has ${COUNT} open issues (limit ${LIMIT})"
+
+          if [ "${COUNT}" -le "${LIMIT}" ]; then
+            exit 0
+          fi
+
+          MESSAGE="Thanks for your report, @${AUTHOR}. To keep the amount of triage work manageable, this repository limits your account to ${LIMIT} open issues at a time. Check the [contributions guidelines](https://github.com/erlang/otp/blob/master/CONTRIBUTING.md) for how to contribute with Issues.This one has been closed automatically because you already have ${LIMIT} other open issues. Please close or resolve some of them and open this one again. A maintainer can adjust the limit if you think it was applied by mistake."
+
+          gh issue close "${NUMBER}" --repo "${GITHUB_REPOSITORY}" --reason "not planned" --comment "${MESSAGE}"
