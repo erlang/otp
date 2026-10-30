@@ -43,6 +43,7 @@
          t_map_get/1,
          t_is_map/1,
          t_is_map_key/1,
+         t_is_map_key_guard/1,
 
          %% Specific Map BIFs
          t_bif_map_get/1,
@@ -100,6 +101,9 @@
 %% algorithm changes.
 -export([find_colliding_keys/1]).
 
+%% Keep the argument types unknown to the compiler in these JIT tests.
+-export([map_key_guard/2, map_key_guard_spill/2, map_key_body/2]).
+
 -include_lib("stdlib/include/ms_transform.hrl").
 
 -include_lib("common_test/include/ct_event.hrl").
@@ -149,7 +153,7 @@ groups() ->
        %% erlang
        t_erlang_hash, t_map_encode_decode,
        t_gc_rare_map_overflow,
-       t_map_size, t_map_get, t_is_map,
+       t_map_size, t_map_get, t_is_map, t_is_map_key, t_is_map_key_guard,
 
        %% non specific BIF related
        t_bif_build_and_check,
@@ -887,6 +891,63 @@ t_is_map_key(Config) when is_list(Config) ->
         (T) -> false = is_map(T)
     end),
     ok.
+
+t_is_map_key_guard(Config) when is_list(Config) ->
+    Keys = [a, 1, 1.0, 1 bsl 80, [], [a,b], {a,b}, <<"key">>,
+            #{a => b}, make_ref(), self(), fun id/1],
+    lists:foreach(
+      fun(Size) ->
+              Base = maps:from_list([{I,I} || I <- lists:seq(1, Size)]),
+              lists:foreach(
+                fun(Key) ->
+                        Hit = Base#{Key => value},
+                        Miss = maps:remove(Key, Base),
+                        present = ?MODULE:map_key_guard(Key, Hit),
+                        absent = ?MODULE:map_key_guard(Key, Miss),
+                        true = ?MODULE:map_key_body(Key, Hit),
+                        false = ?MODULE:map_key_body(Key, Miss),
+                        {Ref, present, {Key, Hit}} =
+                            ?MODULE:map_key_guard_spill(Key, Hit),
+                        true = is_reference(Ref),
+                        {_, absent, {Key, Miss}} =
+                            ?MODULE:map_key_guard_spill(Key, Miss)
+                end, Keys)
+      end, [0,1,8,31,32,33,256]),
+    %% Integer and float keys must remain distinct.
+    absent = ?MODULE:map_key_guard(1.0, #{1 => value}),
+    absent = ?MODULE:map_key_guard(1, #{1.0 => value}),
+    %% Aliasing the key and map must not clobber either operand.
+    Alias = id(#{a => b}),
+    absent = ?MODULE:map_key_guard(Alias, Alias),
+    do_badmap(
+      fun(Term) ->
+              not_map = ?MODULE:map_key_guard(a, Term),
+              {_, not_map, {a, Term}} =
+                  ?MODULE:map_key_guard_spill(a, Term),
+              try ?MODULE:map_key_body(a, Term) of
+                  _ -> error(expected_badmap)
+              catch
+                  error:{badmap,Term} -> ok
+              end
+      end),
+    ok.
+
+map_key_guard(Key, Map) when is_map_key(Key, Map) -> present;
+map_key_guard(Key, Map) when not is_map_key(Key, Map) -> absent;
+map_key_guard(_, _) -> not_map.
+
+map_key_guard_spill(Key, Map) ->
+    Ref = make_ref(),
+    erlang:yield(),
+    Result = if
+                 is_map_key(Key, Map) -> present;
+                 not is_map_key(Key, Map) -> absent;
+                 true -> not_map
+             end,
+    {Ref, Result, {Key, Map}}.
+
+map_key_body(Key, Map) ->
+    is_map_key(Key, Map).
 
 build_and_check_size([K|Ks],N,M0) ->
     N = map_size(M0),
