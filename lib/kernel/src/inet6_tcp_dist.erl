@@ -25,7 +25,7 @@
 %% Handles the connection setup phase with other Erlang nodes.
 
 -export([listen/2, accept/1, accept_connection/5,
-         setup/5, close/1, select/1, address/0, is_node_name/1]).
+         setup/5, close/1, select/1, address/0]).
 
 -export([setopts/2, getopts/2]).
 
@@ -82,9 +82,6 @@ setup(Node, Type, MyNode, LongOrShortNames,SetupTime) ->
 close(Socket) ->
     inet6_tcp:close(Socket).
     
-is_node_name(Node) when is_atom(Node) ->
-    inet_tcp_dist:is_node_name(Node).
-
 setopts(S, Opts) ->
     inet_tcp_dist:setopts(S, Opts).
 

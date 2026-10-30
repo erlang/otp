@@ -41,7 +41,7 @@
 
 %% gen_tcp_dist interface
 -export([listen/1, accept/1, accept_connection/5,
-         setup/5, close/1, select/1, is_node_name/1,
+         setup/5, close/1, select/1,
          address/0]).
 
 %% Optional
@@ -522,14 +522,6 @@ check_ip([{OwnIP, _, Netmask}|IFs], PeerIP) ->
     end;
 check_ip([], PeerIP) ->
     {false, PeerIP}.
-
-is_node_name(Node) when is_atom(Node) ->
-    case split_node(atom_to_list(Node), $@, []) of
-        [_, _Host] -> true;
-        _ -> false
-    end;
-is_node_name(_Node) ->
-    false.
 
 hs_data_common(DistCtrl) ->
     TickHandler = call_ctrlr(DistCtrl, tick_handler),

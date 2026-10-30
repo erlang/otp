@@ -27,7 +27,7 @@
 -export([block_select/0, unblock_select/0]).
 
 -export([listen/1, accept/1, accept_connection/5,
-	 setup/5, close/1, select/1, is_node_name/1,
+	 setup/5, close/1, select/1,
          address/0, setopts/2, getopts/2]).
 
 block_select() ->
@@ -61,8 +61,6 @@ setup(A1, A2, A3, A4, A5) ->
     gen_tcp_dist:setup(A1, A2, A3, A4, A5).
 close(A1) ->
     gen_tcp_dist:close(A1).
-is_node_name(A1) ->
-    gen_tcp_dist:is_node_name(A1).
 address() ->
     gen_tcp_dist:address().
 setopts(A1, A2) ->
