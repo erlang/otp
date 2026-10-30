@@ -1486,7 +1486,7 @@ maybe_add_pre_shared_key(HelloExtensions, TicketData) ->
                                    binders = Binders}},
                      psk_key_exchange_modes =>
                          #psk_key_exchange_modes{
-                            ke_modes = [psk_ke, psk_dhe_ke]}}.
+                            ke_modes = [psk_dhe_ke]}}.
 
 maybe_add_certificate_auths(HelloExtensions,_,_,false) ->
     HelloExtensions;
