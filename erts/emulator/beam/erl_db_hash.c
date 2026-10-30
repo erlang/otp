@@ -629,6 +629,40 @@ static ERTS_INLINE void SET_SEGTAB(DbTableHash* tb,
 	erts_atomic_set_nob(&tb->segtab, (erts_aint_t) segtab);
 }
 
+/*
+ * Slots whose indexes differ by a multiple of nlocks share a lock, because
+ * nlocks is a power of two, and nlocks only changes under the table write
+ * lock. So every bucket prefetch_slots reads is guarded by the lock the
+ * traversal holds for slot ix.
+ */
+static ERTS_INLINE void prefetch_slots(DbTableHash* tb, UWord ix)
+{
+    UWord nactive = NACTIVE(tb);
+    UWord half = ix + (DB_HASH_PREFETCH_DISTANCE / 2) * tb->nlocks;
+    UWord ahead = ix + DB_HASH_PREFETCH_DISTANCE * tb->nlocks;
+    HashDbTerm* b;
+
+    if (half < nactive && (b = BUCKET(tb, half)) != NULL && b->next != NULL) {
+        ERTS_PREFETCH(b->next);
+    }
+    if (ahead < nactive && (b = BUCKET(tb, ahead)) != NULL) {
+        /* At any alignment, the header and the first 13 words of the tuple */
+        ERTS_PREFETCH(b);
+        ERTS_PREFETCH((char*)b + ERTS_CACHE_LINE_SIZE);
+        ERTS_PREFETCH((char*)b + 2 * ERTS_CACHE_LINE_SIZE);
+    }
+}
+
+/* Below this many buckets, a traversal gains nothing from prefetching and the
+ * lookahead only adds work. */
+#define DB_HASH_PREFETCH_MIN_SLOTS 6144
+
+static ERTS_INLINE int traversal_prefetch_enabled(DbTableHash* tb)
+{
+    return DB_HASH_PREFETCH_DISTANCE > 0
+        && NACTIVE(tb) >= DB_HASH_PREFETCH_MIN_SLOTS;
+}
+
 /* Used by select_replace on analyze_pattern */
 typedef bool ExtraMatchValidatorF(int keypos, Eterm match, Eterm guard, Eterm body);
 
@@ -1850,6 +1884,7 @@ static int match_traverse(traverse_context_t* ctx,
     Sint got = 0;                  /* Matched terms counter */
     erts_rwmtx_t* lck;         /* Slot lock */
     int ret_value;
+    int prefetch = traversal_prefetch_enabled(tb);
 
     if ((ret_value = analyze_pattern(tb, pattern, ctx->on_match_validation, &mpi))
             != DB_ERROR_NONE)
@@ -1898,6 +1933,9 @@ static int match_traverse(traverse_context_t* ctx,
      */
     for(;;) {
         if (*current_ptr != NULL) {
+            if (prefetch && (*current_ptr)->next != NULL) {
+                ERTS_PREFETCH((*current_ptr)->next);
+            }
             if (!is_pseudo_deleted(*current_ptr)) {
                 DbTerm* obj = &(*current_ptr)->dbterm;
                 if (tb->common.compress)
@@ -1947,6 +1985,9 @@ static int match_traverse(traverse_context_t* ctx,
                 goto done;
             }
             current_ptr = &BUCKET(tb,slot_ix);
+            if (prefetch) {
+                prefetch_slots(tb, slot_ix);
+            }
         }
     }
 
@@ -1986,6 +2027,7 @@ static int match_traverse_continue(traverse_context_t* ctx,
     Eterm match_res;
     erts_rwmtx_t* lck;
     int ret_value;
+    int prefetch = traversal_prefetch_enabled(tb);
 
     if (got < 0) {
         *ret = NIL;
@@ -2015,6 +2057,9 @@ static int match_traverse_continue(traverse_context_t* ctx,
     current_ptr = &BUCKET(tb,slot_ix);
     for(;;) {
         if (*current_ptr != NULL) {
+            if (prefetch && (*current_ptr)->next != NULL) {
+                ERTS_PREFETCH((*current_ptr)->next);
+            }
             if (!is_pseudo_deleted(*current_ptr)) {
                 DbTerm* obj = &(*current_ptr)->dbterm;
                 if (tb->common.compress)
@@ -2051,6 +2096,9 @@ static int match_traverse_continue(traverse_context_t* ctx,
                 goto done;
             }
             current_ptr = &BUCKET(tb,slot_ix);
+            if (prefetch) {
+                prefetch_slots(tb, slot_ix);
+            }
         }
     }
 

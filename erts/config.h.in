@@ -40,6 +40,9 @@
 /* Define to override the default number of write_concurrency locks */
 #undef ERTS_DB_HASH_LOCK_CNT
 
+/* Define to override the default ets hash traversal prefetch distance */
+#undef ERTS_DB_HASH_PREFETCH_DISTANCE
+
 /* The only reason ERTS_EMU_CMDLINE_FLAGS exists is to force modification of
    config.h when the emulator command line flags are modified by configure */
 #undef ERTS_EMU_CMDLINE_FLAGS

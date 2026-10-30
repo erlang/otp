@@ -415,6 +415,25 @@ if test X"$with_ets_write_concurrency_locks" != X""; then
 		      [Define to override the default number of write_concurrency locks])
 fi
 
+AC_ARG_WITH(ets-prefetch-distance,
+AS_HELP_STRING([--with-ets-prefetch-distance=N],
+               [specify how many buckets ahead full-table traversals of ets hash tables prefetch. 0 disables prefetching.])
+AS_HELP_STRING([--without-ets-prefetch-distance],
+               [disable prefetching in full-table traversals of ets hash tables]))
+
+case "$with_ets_prefetch_distance" in
+    ""|yes)
+        ;;
+    no)
+        AC_DEFINE(ERTS_DB_HASH_PREFETCH_DISTANCE, 0,
+                  [Define to override the default ets hash traversal prefetch distance])
+        ;;
+    *)
+        AC_DEFINE_UNQUOTED(ERTS_DB_HASH_PREFETCH_DISTANCE,$with_ets_prefetch_distance,
+                  [Define to override the default ets hash traversal prefetch distance])
+        ;;
+esac
+
 AC_ARG_WITH(spectre-mitigation,
     AS_HELP_STRING([--with-spectre-mitigation={yes|incomplete}],
                    [enable spectre mitigation, either fully or with mitigations
