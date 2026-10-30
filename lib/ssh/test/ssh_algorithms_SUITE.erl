@@ -25,6 +25,7 @@
 -module(ssh_algorithms_SUITE).
 
 -include_lib("common_test/include/ct.hrl").
+-include_lib("public_key/include/public_key.hrl").
 -include("ssh_transport.hrl").
 -include("ssh_test_lib.hrl").
 
@@ -43,6 +44,10 @@
 -export([
          interpolate/1,
          mlkem768x25519_hybrid_secret_encoding/1,
+         mlkem768nistp256_sha256/1,
+         mlkem1024nistp384_sha384/1,
+         mlkem_nist_message_sizes/1,
+         mlkem_nist_secret_encoding/1,
          simple_connect/1,
          simple_exec/1,
          simple_exec_groups/0,
@@ -64,7 +69,10 @@ suite() ->
 
 all() ->
     %% [{group,kex},{group,cipher}... etc
-    [mlkem768x25519_hybrid_secret_encoding | [{group,C} || C <- tags()]].
+    [mlkem768x25519_hybrid_secret_encoding,
+     mlkem768nistp256_sha256, mlkem1024nistp384_sha384,
+     mlkem_nist_message_sizes, mlkem_nist_secret_encoding |
+     [{group,C} || C <- tags()]].
 
 
 groups() ->
@@ -235,6 +243,17 @@ init_per_testcase(mlkem768x25519_hybrid_secret_encoding, Config) ->
         false -> {skip, "X25519 or ML-KEM768 not supported"};
         true -> Config
     end;
+init_per_testcase(mlkem768nistp256_sha256, Config) ->
+    init_mlkem_nist_test(mlkem768, secp256r1, sha256, Config);
+init_per_testcase(mlkem1024nistp384_sha384, Config) ->
+    init_mlkem_nist_test(mlkem1024, secp384r1, sha384, Config);
+init_per_testcase(mlkem_nist_secret_encoding, Config) ->
+    Curves = crypto:supports(curves),
+    case lists:member(secp256r1, Curves) andalso
+        lists:member(secp384r1, Curves) of
+        true -> Config;
+        false -> {skip, "P-256 or P-384 unsupported"}
+    end;
 init_per_testcase(sshd_simple_exec, Config) ->
     case proplists:get_value(tag_alg, Config) of
         {public_key, Algs} ->
@@ -260,6 +279,16 @@ init_per_testcase(_TC, Config) ->
 
 end_per_testcase(_TC, _Config) ->
     ok.
+
+init_mlkem_nist_test(Kem, Curve, Hash, Config) ->
+    case lists:member(Kem, crypto:supports(kems)) andalso
+        lists:member(Curve, crypto:supports(curves)) andalso
+        lists:member(ecdh, crypto:supports(public_keys)) andalso
+        lists:member(Hash, crypto:supports(hashs)) of
+        true -> Config;
+        false -> {skip, io_lib:format("~p, ~p, or ~p unsupported",
+                                     [Kem, Curve, Hash])}
+    end.
 
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
@@ -291,6 +320,146 @@ mlkem768x25519_hybrid_secret_encoding(_Config) ->
     Raw = crypto:compute_key(ecdh, PeerPublic, MyPrivate, x25519),
     Expected = crypto:hash(sha256, <<K_pq/binary, Raw/binary>>),
     Expected = ssh_transport:hybrid_common(K_pq, x25519, PeerPublic, MyPrivate).
+
+%% Keep the negotiated NIST hybrid method across a forced rekey and verify
+%% that the resulting connection can still carry an authenticated exec.
+mlkem768nistp256_sha256(Config) ->
+    mlkem_nist_rekey(Config, 'mlkem768nistp256-sha256').
+
+mlkem1024nistp384_sha384(Config) ->
+    mlkem_nist_rekey(Config, 'mlkem1024nistp384-sha384').
+
+mlkem_nist_rekey(Config, Alg) ->
+    true = lists:member(Alg,
+                        proplists:get_value(kex,
+                                            ssh_transport:supported_algorithms())),
+    {Host, Port} = proplists:get_value(srvr_addr, Config),
+    ConnectionRef = ssh_test_lib:std_connect(
+                      Config, Host, Port,
+                      [{preferred_algorithms, [{kex, [Alg]}]}]),
+    try
+        mlkem_nist_assert_negotiated(ConnectionRef, Alg),
+        KexInit = ssh_test_lib:get_kex_init(ConnectionRef),
+        ok = ssh_connection_handler:renegotiate(ConnectionRef),
+        ?wait_match(false,
+                    KexInit == ssh_test_lib:get_kex_init(ConnectionRef),
+                    [], 200, 20),
+        mlkem_nist_assert_negotiated(ConnectionRef, Alg),
+        {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
+        success = ssh_connection:exec(ConnectionRef, ChannelId, "21+21.", infinity),
+        Expected = {ssh_cm, ConnectionRef, {data, ChannelId, 0, <<"42">>}},
+        expected = ssh_test_lib:receive_exec_result(Expected),
+        ssh_test_lib:receive_exec_end(ConnectionRef, ChannelId)
+    after
+        ssh:close(ConnectionRef)
+    end.
+
+mlkem_nist_assert_negotiated(ConnectionRef, Alg) ->
+    {algorithms, Negotiated} = ssh:connection_info(ConnectionRef, algorithms),
+    Alg = proplists:get_value(kex, Negotiated).
+
+%% The chosen scalar pairs yield ECDH secrets beginning with 0x00 and a
+%% following byte below 0x80. A trimmed mpint encoding would lose that zero
+%% byte and derive a different hybrid secret than RFC 10042 specifies.
+mlkem_nist_secret_encoding(_Config) ->
+    Kpq = binary:copy(<<16#A5>>, 32),
+    lists:foreach(
+      fun({Curve, Bits, PeerScalar, Hash}) ->
+              MyPrivate = <<1:Bits>>,
+              {PeerPublic, _} = crypto:generate_key(
+                                  ecdh, Curve, <<PeerScalar:Bits>>),
+              Bytes = Bits div 8,
+              <<4, X:Bytes/binary, Y:Bytes/binary>> = PeerPublic,
+              Compressed = <<(2 bor (binary:last(Y) band 1)), X/binary>>,
+              Raw = crypto:compute_key(ecdh, PeerPublic, MyPrivate, Curve),
+              Raw = crypto:compute_key(ecdh, Compressed, MyPrivate, Curve),
+              <<0, Next, _/binary>> = Raw,
+              true = Next < 16#80,
+              Bits = bit_size(Raw),
+              Expected = crypto:hash(Hash, <<Kpq/binary, Raw/binary>>),
+              Expected = ssh_transport:hybrid_common(
+                           Kpq, Curve, PeerPublic, MyPrivate),
+              Expected = ssh_transport:hybrid_common(
+                           Kpq, Curve, Compressed, MyPrivate)
+      end,
+      [{secp256r1, 256, 379, sha256},
+       {secp384r1, 384, 197, sha384}]).
+
+%% RFC 10042 permits compressed and uncompressed NIST curve points. Check
+%% both wire lengths for each method, plus one byte short/long and trailing
+%% data. The public-key and ciphertext octets need not be valid for decoding.
+mlkem_nist_message_sizes(_Config) ->
+    HostKey = #'RSAPublicKey'{modulus = 3233, publicExponent = 17},
+    EncHostKey = iolist_to_binary(ssh_message:ssh2_pubkey_encode(HostKey)),
+    Signature = <<12:32, "rsa-sha2-256", 3:32, 1, 2, 3>>,
+    lists:foreach(
+      fun({Prefix, InitSizes, ReplySizes}) ->
+              lists:foreach(
+                fun(Size) ->
+                        Init = mlkem_nist_init_message(Prefix,
+                                                        binary:copy(<<0>>, Size)),
+                        #ssh_msg_kex_hybrid_init{c_init = CInit} =
+                            ssh_message:decode(Init),
+                        Size = byte_size(CInit),
+                        mlkem_nist_reject_trailing(<<Init/binary, 0>>)
+                end, InitSizes),
+              lists:foreach(
+                fun(Size) ->
+                        Reply = mlkem_nist_reply_message(
+                                  Prefix, EncHostKey,
+                                  binary:copy(<<0>>, Size), Signature),
+                        #ssh_msg_kex_hybrid_reply{s_reply = SReply,
+                                                  h_sig = {"rsa-sha2-256",
+                                                           <<1, 2, 3>>}} =
+                            ssh_message:decode(Reply),
+                        Size = byte_size(SReply),
+                        mlkem_nist_reject_trailing(<<Reply/binary, 0>>)
+                end, ReplySizes),
+              [SmallInit, LargeInit] = InitSizes,
+              [SmallReply, LargeReply] = ReplySizes,
+              mlkem_nist_reject_size(
+                mlkem_nist_init_message(Prefix, binary:copy(<<0>>, SmallInit - 1)),
+                mlkem_init_invalid_size, SmallInit - 1, InitSizes),
+              mlkem_nist_reject_size(
+                mlkem_nist_init_message(Prefix, binary:copy(<<0>>, LargeInit + 1)),
+                mlkem_init_invalid_size, LargeInit + 1, InitSizes),
+              mlkem_nist_reject_size(
+                mlkem_nist_reply_message(Prefix, EncHostKey,
+                                         binary:copy(<<0>>, SmallReply - 1),
+                                         Signature),
+                mlkem_reply_invalid_size, SmallReply - 1, ReplySizes),
+              mlkem_nist_reject_size(
+                mlkem_nist_reply_message(Prefix, EncHostKey,
+                                         binary:copy(<<0>>, LargeReply + 1),
+                                         Signature),
+                mlkem_reply_invalid_size, LargeReply + 1, ReplySizes)
+      end,
+      [{<<"mlkem768nistp256">>, [1217, 1249], [1121, 1153]},
+       {<<"mlkem1024nistp384">>, [1617, 1665], [1617, 1665]}]).
+
+mlkem_nist_init_message(Prefix, CInit) ->
+    <<Prefix/binary, 30, (byte_size(CInit)):32, CInit/binary>>.
+
+mlkem_nist_reply_message(Prefix, HostKey, SReply, Signature) ->
+    <<Prefix/binary, 31,
+      (byte_size(HostKey)):32, HostKey/binary,
+      (byte_size(SReply)):32, SReply/binary,
+      (byte_size(Signature)):32, Signature/binary>>.
+
+mlkem_nist_reject_size(Message, Error, Actual, Allowed) ->
+    try ssh_message:decode(Message) of
+        Decoded -> ct:fail({accepted_invalid_mlkem_nist_size, Decoded})
+    catch
+        throw:{error, {Error, Actual, Allowed}} -> ok
+    end.
+
+mlkem_nist_reject_trailing(Message) ->
+    try ssh_message:decode(Message) of
+        Decoded -> ct:fail({accepted_mlkem_nist_trailing_data, Decoded})
+    catch
+        error:function_clause -> ok;
+        throw:{error, _} -> ok
+    end.
 
 %%--------------------------------------------------------------------
 %% A simple sftp transfer
