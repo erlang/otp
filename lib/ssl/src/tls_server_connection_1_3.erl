@@ -475,8 +475,19 @@ do_handle_client_hello(#client_hello{cipher_suites = ClientCiphers,
         %% contain sufficient information.
         {Group, ClientPubKey} = select_client_public_key(Groups, ClientShares),
 
-        %% Generate server_share
-        KeyShare = generate_server_share(Group, ClientPubKey),
+        %% Generate server_share.  When the client offered the
+        %% selected group in supported_groups but sent no usable
+        %% key_share for it, ClientPubKey is 'no_suitable_key' and a
+        %% HelloRetryRequest is sent below. The HelloRetryRequest only
+        %% needs the selected group, so a minimal key_share carrying
+        %% just the group is sufficient in that case.
+        KeyShare = case ClientPubKey of
+                       no_suitable_key ->
+                           #key_share_server_hello{
+                              server_share = #key_share_entry{group = Group}};
+                       _ ->
+                           generate_server_share(Group, ClientPubKey)
+                   end,
 
         State2 = case maps:get(max_frag_enum, Extensions, undefined) of
                       MaxFragEnum when is_record(MaxFragEnum, max_frag_enum) ->
