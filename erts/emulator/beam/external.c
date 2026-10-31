@@ -959,6 +959,8 @@ erts_prepare_dist_ext(ErtsDistExternal *edep,
     else if (ep[1] == DIST_FRAG_CONT) {
         if (!(dep->dflags & DFLAG_FRAGMENTS))
             goto bad_hdr;
+        if (size < 1 + 1 + 8 + 8)
+            goto bad_hdr;
         edep->attab.size = 0;
 	edep->data->extp = ext + 1 + 1 + 8 + 8;
         edep->data->seq_id = get_int64(&ep[2]);
@@ -975,6 +977,8 @@ erts_prepare_dist_ext(ErtsDistExternal *edep,
 
         if (ep[1] == DIST_FRAG_HEADER) {
             if (!(dep->dflags & DFLAG_FRAGMENTS))
+                goto bad_hdr;
+            if (size < 1 + 1 + 8 + 8)
                 goto bad_hdr;
             edep->data->seq_id = get_int64(&ep[2]);
             edep->data->frag_id = get_int64(&ep[2+8]);
