@@ -3785,8 +3785,10 @@ validate_cipher_suite(CipherSuite, ClientCipherSuites) ->
     end.
 
 validate_application_protocol(_, undefined) ->
-    %% Server sent ALPN protocol not requested by client
-    throw(?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER, unexpected_alpn));
+    %% Server sent an ALPN extension the client did not request at all.
+    %% RFC 5246 7.2: an unrequested extension MUST be rejected with
+    %% unsupported_extension (matches the TLS-1.3 client, RFC 8446 4.2).
+    throw(?ALERT_REC(?FATAL, ?UNSUPPORTED_EXTENSION, unexpected_alpn));
 validate_application_protocol(Alpn, ClientAlpn) ->
     case lists:member(Alpn, ClientAlpn) of
         true -> ok;

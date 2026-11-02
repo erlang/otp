@@ -122,6 +122,8 @@
          tls_reject_unoffered_cipher_suite/1,
          tls_reject_unoffered_alpn/0,
          tls_reject_unoffered_alpn/1,
+         tls_reject_unsolicited_alpn/0,
+         tls_reject_unsolicited_alpn/1,
          tls13_reject_unsolicited_psk/0,
          tls13_reject_unsolicited_psk/1,
          tls13_reject_unsolicited_alpn/0,
@@ -234,6 +236,7 @@ rogue_server_tests() ->
     [tls_reject_unoffered_cipher_suite,
      tls_reject_unoffered_alpn,
      tls_reject_non_null_compression,
+     tls_reject_unsolicited_alpn,
      tls13_reject_unsolicited_psk,
      tls13_reject_unsolicited_alpn,
      tls_reject_non_null_compression].
@@ -874,6 +877,22 @@ tls_reject_unoffered_alpn(Config) when is_list(Config) ->
     rogue_server_illegal_parameter(alpn, ClientOpts).
 
 %%--------------------------------------------------------------------
+tls_reject_unsolicited_alpn() ->
+    [{doc, "An on-path attacker forges a TLS-1.2 ServerHello carrying an ALPN "
+      "extension when the client advertised no ALPN at all. RFC 5246 7.2 "
+      "requires an unrequested extension to be rejected with a fatal "
+      "unsupported_extension alert (matches the TLS-1.3 client). Regression "
+      "test for the pre TLS-1.3 client unsolicited-ALPN check."}].
+tls_reject_unsolicited_alpn(Config) when is_list(Config) ->
+    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    %% Do NOT advertise any ALPN; the attacker still answers with one. Pin the
+    %% offered cipher suite so the forged ServerHello can echo an *offered*
+    %% suite and thereby isolate the unsolicited-ALPN check as the sole reason
+    %% for rejection.
+    ClientOpts = [{ciphers, [?ALPN_TEST_SUITE_MAP]} | ClientOpts0],
+    rogue_server_alert(alpn_unsolicited, ClientOpts, unsupported_extension).
+
+%%--------------------------------------------------------------------
 tls_reject_non_null_compression() ->
     [{doc, "An on-path attacker forges a TLS ServerHello whose "
       "legacy_compression_method is not null (0). RFC 8446 4.1.3 / RFC 5246 "
@@ -891,6 +910,10 @@ tls_reject_non_null_compression(Config) when is_list(Config) ->
 %% Drive a real ssl client against a raw-TCP attacker that hand-forges a
 %% TLS-1.2 server flight, and assert the client aborts with illegal_parameter.
 rogue_server_illegal_parameter(Kind, ClientOpts) ->
+    rogue_server_alert(Kind, ClientOpts, illegal_parameter).
+
+%% As rogue_server_illegal_parameter/2 but asserts a specific fatal alert.
+rogue_server_alert(Kind, ClientOpts, ExpectedAlert) ->
     {ok, LSock} = gen_tcp:listen(0, [binary, {active, false},
                                      {reuseaddr, true}, {packet, 0}]),
     {ok, Port} = inet:port(LSock),
@@ -904,11 +927,11 @@ rogue_server_illegal_parameter(Kind, ClientOpts) ->
     ct:log("ssl:connect returned: ~p~nattacker observed: ~p", [Result, Observed]),
     %% Primary assertion: the client aborts the handshake with the mandated alert.
     case Result of
-        {error, {tls_alert, {illegal_parameter, _}}} ->
+        {error, {tls_alert, {ExpectedAlert, _}}} ->
             ok;
         Other ->
-            ct:fail("Expected illegal_parameter alert, client returned ~p "
-                    "(attacker observed ~p)", [Other, Observed])
+            ct:fail("Expected ~p alert, client returned ~p "
+                    "(attacker observed ~p)", [ExpectedAlert, Other, Observed])
     end,
     %% Secondary assertion: the client must not have proceeded past ServerHello
     %% into the handshake (e.g. ClientKeyExchange, msg type 16).
@@ -946,6 +969,13 @@ rogue_server_flight(alpn) ->
     %% ServerHello echoing an *offered* cipher suite but whose ALPN extension
     %% selects a protocol the client never advertised.
     AlpnExt = rogue_alpn_extension(<<"unoffered/1">>),
+    SH = rogue_server_hello(?ALPN_TEST_SUITE_BIN, AlpnExt),
+    rogue_record(?HANDSHAKE, SH);
+rogue_server_flight(alpn_unsolicited) ->
+    %% ServerHello echoing an *offered* cipher suite but carrying an ALPN
+    %% extension when the client advertised no ALPN at all. RFC 5246 7.2:
+    %% an unrequested extension must be rejected with unsupported_extension.
+    AlpnExt = rogue_alpn_extension(<<"unsolicited/1">>),
     SH = rogue_server_hello(?ALPN_TEST_SUITE_BIN, AlpnExt),
     rogue_record(?HANDSHAKE, SH);
 rogue_server_flight(compression) ->
