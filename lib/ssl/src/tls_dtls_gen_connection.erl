@@ -66,6 +66,10 @@
          connection/3,
          downgrade/3]).
 
+%% Shared by the SNI config-swap path in
+%% ssl_gen_statem:handle_sni_hostname/2.
+-export([mark_auth_tightened/3]).
+
 %%--------------------------------------------------------------------
 -spec internal_renegotiation(pid(), ssl_record:connection_states()) ->
                                     ok.
@@ -272,7 +276,14 @@ user_hello({call, From}, {handshake_continue, NewOptions, Timeout},
            #state{static_env = #static_env{role = Role},
                   ssl_options = Options0} = State0) ->
     try ssl_config:update_options(NewOptions, Role, Options0) of
-        Options ->
+        Options0Resolved ->
+            %% OTP-20486: if the continue step tightens the server's
+            %% client-auth policy (verify_none -> verify_peer, or
+            %% fail_if_no_peer_cert false -> true), mark the resolved
+            %% options so a lax-origin TLS-1.2 session / TLS-1.3 ticket is
+            %% not resumed under the now-strict policy (a full handshake
+            %% re-runs the client-cert check instead).
+            Options = mark_auth_tightened(Options0, Options0Resolved, State0),
             State = #state{handshake_env = HSEnv} =
                 ssl_gen_statem:ssl_config(Options, Role, State0),
             {next_state, hello,
@@ -291,6 +302,49 @@ user_hello(info, {'DOWN', _, _, _, _} = Event, State) ->
     ssl_gen_statem:handle_info(Event, ?STATE(user_hello), State);
 user_hello(_, _, _) ->
     {keep_state_and_data, [postpone]}.
+
+%% ---------------------------------------------------------
+%% Record on the connection when its effective client-auth policy is
+%% tightened at runtime (handshake_continue/3 or an sni_fun/sni_hosts
+%% config swap) from not-requiring to requiring a client certificate.
+%% Called from both option-reresolution points:
+%%   - handshake_continue (user_hello, below)
+%%   - the sni_fun/sni_hosts path (ssl_gen_statem:handle_sni_hostname)
+%%
+%% The flag is per-connection; the server later declines session
+%% resumption (TLS-1.2 abbreviated handshake and TLS-1.3 PSK) only for
+%% connections that set it, so a full handshake re-runs client-cert
+%% verification under the new policy. Steady-state deployments with a
+%% stable policy never set the flag and resume normally.
+%%
+%% Why decline rather than flush the (per-listener, shared) session
+%% store: a per-connection decline closes the gap without disturbing
+%% concurrent connections / other SNI names on the same listener.
+-spec mark_auth_tightened(map(), map(), #state{}) ->
+          map().
+mark_auth_tightened(OldOptions, NewOptions,
+                    #state{static_env = #static_env{role = server}}) ->
+    case auth_policy_tightened(OldOptions, NewOptions) of
+        true ->
+            NewOptions#{internal_auth_tightened => true};
+        false ->
+            NewOptions
+    end;
+mark_auth_tightened(_OldOptions, NewOptions, _State) ->
+    %% Client role: no server-side resumption policy to protect.
+    NewOptions.
+
+%% Auth tightened if a client certificate went from not-required to
+%% required: verify_none -> verify_peer, or fail_if_no_peer_cert
+%% false -> true.
+auth_policy_tightened(OldOptions, NewOptions) ->
+    OldVerify = maps:get(verify, OldOptions, verify_none),
+    NewVerify = maps:get(verify, NewOptions, verify_none),
+    OldFail = maps:get(fail_if_no_peer_cert, OldOptions, false),
+    NewFail = maps:get(fail_if_no_peer_cert, NewOptions, false),
+    (OldVerify =:= verify_none andalso NewVerify =:= verify_peer)
+        orelse (OldFail =:= false andalso NewFail =:= true).
+%% END OTP-20486 -----------------------------------------------------
 
 %%--------------------------------------------------------------------
 -spec abbreviated(gen_statem:event_type(),

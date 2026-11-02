@@ -232,8 +232,14 @@ resumable(new) ->
 resumable(IsResumable) ->
     IsResumable.
 
+%% This connection tightened its client-auth policy at runtime
+%% (handshake_continue/3 or an sni_fun/sni_hosts config swap). Decline
+%% abbreviated-handshake resumption so a full handshake re-runs the
+%% client-cert check under the new policy.
+reusable_options(#{internal_auth_tightened := true},_,_) ->
+    false;
 reusable_options(#{fail_if_no_peer_cert := true,
-                   verify := verify_peer}, _, #session{peer_certificate = undefined}) ->
+                      verify := verify_peer}, _, #session{peer_certificate = undefined}) ->
     %% Can not resume session without a peer cert if current negotiation requires one.
     false;
 reusable_options(_Opts, HelloExt, #session{sni = SessionSNI}) ->
