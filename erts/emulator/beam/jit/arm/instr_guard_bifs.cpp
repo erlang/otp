@@ -801,7 +801,7 @@ void BeamModuleAssembler::emit_bif_is_map_key(const ArgWord &Bif,
                                               const ArgSource &Key,
                                               const ArgSource &Src,
                                               const ArgRegister &Dst) {
-    if (!exact_type<BeamTypeId::Map>(Src)) {
+    if (!exact_type<BeamTypeId::Map>(Src) && Fail.get() == 0) {
         emit_i_bif2(Key, Src, Fail, Bif, Dst);
         return;
     }
@@ -810,6 +810,17 @@ void BeamModuleAssembler::emit_bif_is_map_key(const ArgWord &Bif,
 
     mov_arg(ARG1, Src);
     mov_arg(ARG2, Key);
+
+    if (!exact_type<BeamTypeId::Map>(Src)) {
+        emit_is_boxed(resolve_beam_label(Fail, dispUnknown), Src, ARG1);
+        if (masked_types<BeamTypeId::MaybeBoxed>(Src) != BeamTypeId::Map) {
+            a64::Gp boxed_ptr = emit_ptr_val(TMP1, ARG1);
+            a.ldur(TMP1, emit_boxed_val(boxed_ptr));
+            a.and_(TMP1, TMP1, imm(_TAG_HEADER_MASK));
+            a.cmp(TMP1, imm(_TAG_HEADER_MAP));
+            a.b_ne(resolve_beam_label(Fail, disp1MB));
+        }
+    }
 
     if (maybe_one_of<BeamTypeId::MaybeImmediate>(Key)) {
         fragment_call(ga->get_i_get_map_element_shared());
