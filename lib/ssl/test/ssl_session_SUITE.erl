@@ -65,11 +65,16 @@
           server_max_session_table/1,
           session_table_stable_size_on_tcp_close/0,
           session_table_stable_size_on_tcp_close/1,
+          decline_reuse_on_auth_tightened/0,
+          decline_reuse_on_auth_tightened/1,
+          decline_reuse_on_auth_tightened_continue/0,
+          decline_reuse_on_auth_tightened_continue/1,
           session_server_restart/0,
           session_server_restart/1,
           sni_cross_ca_no_session_reuse/0,
           sni_cross_ca_no_session_reuse/1
          ]).
+
 -export([accept_socket/2]).
 
 -define(SLEEP, 500).
@@ -111,7 +116,9 @@ session_tests() ->
     ].
 
 tls_session_tests() ->
-       [session_table_stable_size_on_tcp_close].
+       [session_table_stable_size_on_tcp_close,
+        decline_reuse_on_auth_tightened,
+        decline_reuse_on_auth_tightened_continue].
 
 init_per_suite(Config0) ->
     case application:ensure_started(crypto) of
@@ -203,6 +210,220 @@ end_per_testcase(_, Config) ->
 
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
+%%--------------------------------------------------------------------
+decline_reuse_on_auth_tightened() ->
+    [{doc, "A pre-TLS-1.3 session established for an SNI host under "
+      "verify_none must not be reused (abbreviated handshake) after that SAME "
+      "host's client-auth policy is tightened to verify_peer at runtime (via "
+      "an sni_fun config swap). The host name is identical for mint and "
+      "resumption; only the auth-tightening gate can decline. Reuse is turned "
+      "ON explicitly with {reuse_sessions, true} so the test applies despite "
+      "the current default of disabling reuse under verify_peer (pending "
+      "Extended Master Secret). The server must decline reuse "
+      "(session_resumption = false)"}].
+decline_reuse_on_auth_tightened(Config) when is_list(Config) ->
+    Version = ssl_test_lib:protocol_version(Config),
+    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    %% Single SNI host; sni_fun consults a toggle so the SAME host resolves
+    %% to verify_none initially and verify_peer after the "upgrade". Reuse
+    %% is explicitly enabled so it stays on under verify_peer.
+    Key = {?MODULE, ?FUNCTION_NAME, self()},
+    persistent_term:put(Key, verify_none),
+    SNIFun =
+        fun(_SNI) ->
+                case persistent_term:get(Key, verify_none) of
+                    verify_peer ->
+                        [{versions, [Version]}, {reuse_sessions, true},
+                         {verify, verify_peer},
+                         {fail_if_no_peer_cert, true} | ServerOpts0];
+                    verify_none ->
+                        [{versions, [Version]}, {reuse_sessions, true},
+                         {verify, verify_none} | ServerOpts0]
+                end
+        end,
+
+    ClientOpts = [{versions, [Version]},
+                  {server_name_indication, Hostname} | ClientOpts0],
+    ServerOpts = [{versions, [Version]}, {reuse_sessions, true},
+                  {verify, verify_none}, {sni_fun, SNIFun} | ServerOpts0],
+
+    Server0 =
+        ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+                                   {from, self()},
+                                   {mfa, {ssl_test_lib, no_result, []}},
+                                   {tcp_options, [{active, false}]},
+                                   {options, ServerOpts}]),
+    Port0 = ssl_test_lib:inet_port(Server0),
+
+    %% 1) Establish + save a session under verify_none.
+    Client0 =
+        ssl_test_lib:start_client([{node, ClientNode}, {port, Port0},
+                                   {host, Hostname},
+                                   {mfa, {ssl_test_lib, session_id, []}},
+                                   {from, self()},
+                                   {options, [{reuse_sessions, save} | ClientOpts]}]),
+    SID = receive {Client0, Id0} -> Id0 end,
+    true = is_binary(SID) andalso SID =/= <<>>,
+
+    %% 2) Positive control: reuse under the same host while still
+    %%    verify_none -> session_resumption = true (session is reusable).
+    Server0 ! listen,
+    ClientCtrl =
+        ssl_test_lib:start_client([{node, ClientNode}, {port, Port0},
+                                   {host, Hostname},
+                                   {mfa, {ssl, connection_information,
+                                          [[session_resumption]]}},
+                                   {from, self()},
+                                   {options, [{reuse_sessions, true} | ClientOpts]}]),
+    receive
+        {ClientCtrl, {ok, [{session_resumption, true}]}} ->
+            ok;
+        {ClientCtrl, CtrlOther} ->
+            ct:fail("control: expected reuse, got ~p", [CtrlOther])
+    after ?SLEEP ->
+            ct:fail(control_session_not_reused)
+    end,
+
+    %% UPGRADE the same host to verify_peer.
+    persistent_term:put(Key, verify_peer),
+
+    %% 3) Reuse attempt under the now-tightened host. The session is still
+    %%    cache-valid; only the auth gate can act -> decline -> full
+    %%    handshake (session_resumption = false).
+    Server0 ! listen,
+    Client1 =
+        ssl_test_lib:start_client([{node, ClientNode}, {port, Port0},
+                                   {host, Hostname},
+                                   {mfa, {ssl, connection_information,
+                                          [[session_resumption]]}},
+                                   {from, self()},
+                                   {options, [{reuse_sessions, true} | ClientOpts]}]),
+    receive
+        {Client1, {ok, [{session_resumption, false}]}} ->
+            ok;
+        {Client1, {ok, [{session_resumption, true}]}} ->
+            ct:fail("session REUSED under tightened verify_peer policy, "
+                    "skipping client-cert exchange");
+        {Client1, Other} ->
+            ct:fail("unexpected result on tightened reuse: ~p", [Other])
+    after ?SLEEP ->
+            ct:fail(no_result_tightened)
+    end,
+
+    persistent_term:erase(Key),
+    ssl_test_lib:close(Server0),
+    ssl_test_lib:close(Client0),
+    ssl_test_lib:close(ClientCtrl),
+    ssl_test_lib:close(Client1).
+
+%%--------------------------------------------------------------------
+decline_reuse_on_auth_tightened_continue() ->
+    [{doc, "The handshake_continue/3 (paused handshake) tightening "
+      "path for pre-TLS-1.3 session reuse. One listen socket paused at hello; "
+      "each accept is continued with the verify level from a toggle. Mint + "
+      "control reuse run verify_none; the third connection continues "
+      "verify_peer, so -- having tightened its own client-auth policy at the "
+      "continue step -- it must decline reuse (session_resumption = false) and "
+      "run a full handshake. Exercises the shared pre-TLS-1.3 user_hello hook "
+      "(tls_dtls_gen_connection)."}].
+decline_reuse_on_auth_tightened_continue(Config) when is_list(Config) ->
+    Version = ssl_test_lib:protocol_version(Config),
+    {_ClientNode, _ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    ClientOpts = [{reuse_sessions, true}, {versions, [Version]},
+                  {server_name_indication, Hostname}
+                  | ssl_test_lib:ssl_options(client_rsa_verify_opts, Config)],
+    ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    Host = Hostname,
+
+    %% One listen socket (shared session cache), paused at hello; reuse on.
+    {ok, LSock} = ssl:listen(0, [{reuse_sessions, true},
+                                 {verify, verify_none},
+                                 {versions, [Version]},
+                                 {handshake, hello},
+                                 {active, false}, {reuseaddr, true}
+                                 | ServerOpts0]),
+    {ok, {_, Port}} = ssl:sockname(LSock),
+    Key = {?MODULE, ?FUNCTION_NAME, self()},
+    persistent_term:put(Key, verify_none),
+
+    Acceptor = spawn_link(fun() -> reuse_continue_acceptor(LSock, Version, ServerOpts0, Key) end),
+
+    %% 1) Mint under verify_none; client saves the session.
+    ok = reuse_continue_connect(Key, verify_none, Host, Port,
+                                [{reuse_sessions, save} | ClientOpts], false),
+    %% 2) Positive control: verify_none -> RESUMED.
+    ok = reuse_continue_connect(Key, verify_none, Host, Port, ClientOpts, true),
+    %% 3) Tightened: verify_peer -> DECLINED -> full handshake.
+    ok = reuse_continue_connect(Key, verify_peer, Host, Port, ClientOpts, false),
+
+    unlink(Acceptor),
+    exit(Acceptor, kill),
+    persistent_term:erase(Key),
+    ssl:close(LSock).
+
+%% Set the toggle, drive one client connection, assert observed resumption.
+reuse_continue_connect(Key, Verify, Host, Port, ClientOpts, ExpectResumed) ->
+    persistent_term:put(Key, Verify),
+    {ok, Sock} = ssl:connect(Host, Port, ClientOpts, 5000),
+    {ok, [{session_resumption, Got}]} =
+        ssl:connection_information(Sock, [session_resumption]),
+    ct:sleep(100),
+    ssl:close(Sock),
+    case Got =:= ExpectResumed of
+        true ->
+            ok;
+        false ->
+            ct:fail("verify=~p: expected session_resumption=~p, got ~p",
+                    [Verify, ExpectResumed, Got])
+    end.
+
+%% Continuous acceptor: spawn a handler per accept so the accept loop is
+%% never blocked. Each handler does its own transport_accept so it owns the
+%% socket it runs the paused handshake + continue on.
+reuse_continue_acceptor(LSock, Version, ServerOpts0, Key) ->
+    Parent = self(),
+    Handler = spawn(fun() -> reuse_continue_handler(LSock, Version, ServerOpts0, Key, Parent) end),
+    receive
+        {Handler, accepted} ->
+            reuse_continue_acceptor(LSock, Version, ServerOpts0, Key);
+        {Handler, {error, closed}} ->
+            ok
+    end.
+
+reuse_continue_handler(LSock, Version, ServerOpts0, Key, Parent) ->
+    case ssl:transport_accept(LSock) of
+        {ok, ASock} ->
+            Parent ! {self(), accepted},
+            ContOpts = case persistent_term:get(Key, verify_none) of
+                           verify_peer ->
+                               [{versions, [Version]}, {reuse_sessions, true},
+                                {verify, verify_peer},
+                                {fail_if_no_peer_cert, true} | ServerOpts0];
+                           verify_none ->
+                               [{versions, [Version]}, {reuse_sessions, true},
+                                {verify, verify_none} | ServerOpts0]
+                       end,
+            case ssl:handshake(ASock, 5000) of
+                {ok, Sock0, _Ext} ->
+                    case ssl:handshake_continue(Sock0, ContOpts, 5000) of
+                        {ok, Conn} ->
+                            ct:sleep(100),
+                            catch ssl:close(Conn);
+                        CE ->
+                            ct:log("reuse_continue_handler: continue -> ~p", [CE])
+                    end;
+                HE ->
+                    ct:log("reuse_continue_handler: handshake -> ~p", [HE])
+            end;
+        {error, closed} = E ->
+            Parent ! {self(), E};
+        {error, _} ->
+            Parent ! {self(), accepted}
+    end.
+
 %%--------------------------------------------------------------------
 reuse_session() ->
     [{doc,"Test reuse of sessions (short handshake)"}].
