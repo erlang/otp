@@ -272,8 +272,8 @@ validate_binder(Binder, HandshakeHist, PSK, Prf, AlertDetail) ->
               {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER, AlertDetail)}
       end.
 
-%% Defense-in-depth for SNI-guided TLS-1.3 ticket resumption (OTP-20445
-%% analogue). When an sni_fun selects the server certificate / per-host
+%% Defense-in-depth for SNI-guided TLS-1.3 ticket resumption.
+%% When an sni_fun selects the server certificate / per-host
 %% configuration on the basis of SNI, several SNI names represent
 %% different trust domains. Resuming a ticket issued for one name under
 %% a different name would resume under the wrong host's configuration
