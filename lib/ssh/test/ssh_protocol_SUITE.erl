@@ -198,6 +198,7 @@ suite() ->
            (max_auth_tries_almost_exceeded, 1) ->
                 ok;
            (max_auth_tries_infinity, 10) ->
+                ok;
            (password_not_utf8, 2) ->
                 %% one failfun report per user (known and unknown)
                 ok;
