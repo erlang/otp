@@ -22,6 +22,8 @@
 
 -module(run_erl_SUITE).
 
+-behaviour(ct_suite).
+
 -export([all/0, suite/0]).
 -export([basic/1,heavy/1,heavier/1,defunct/1]).
 -export([sleepy_child/1]).

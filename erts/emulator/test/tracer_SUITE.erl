@@ -22,6 +22,8 @@
 
 -module(tracer_SUITE).
 
+-behaviour(ct_suite).
+
 %%%
 %%% Tests the tracer module interface
 %%%

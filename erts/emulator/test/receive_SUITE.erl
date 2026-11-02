@@ -22,6 +22,8 @@
 
 -module(receive_SUITE).
 
+-behaviour(ct_suite).
+
 %% Tests receive after.
 
 -include_lib("common_test/include/ct.hrl").

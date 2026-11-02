@@ -28,6 +28,9 @@
 %%% Created : 17 Jun 2004 by Rickard Green <rickard.s.green@ericsson.com>
 %%%-------------------------------------------------------------------
 -module(ethread_SUITE).
+
+-behaviour(ct_suite).
+
 -author('rickard.s.green@ericsson.com').
 
 -export([all/0, suite/0, init_per_testcase/2, end_per_testcase/2]).

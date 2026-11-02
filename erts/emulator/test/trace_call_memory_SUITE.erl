@@ -20,6 +20,9 @@
 %% %CopyrightEnd%
 %%
 -module(trace_call_memory_SUITE).
+
+-behaviour(ct_suite).
+
 -author("maximfca@gmail.com").
 
 -include_lib("stdlib/include/assert.hrl").

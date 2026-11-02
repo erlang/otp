@@ -33,6 +33,8 @@
 
 -module(trace_meta_SUITE).
 
+-behaviour(ct_suite).
+
 %% Exported end user tests
 -export([basic_test/0, return_test/0, on_and_off_test/0, stack_grow_test/0,
 	 info_test/0, tracer_test/0, combo_test/0, nosilent_test/0]).

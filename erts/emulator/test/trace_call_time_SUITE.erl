@@ -33,6 +33,8 @@
 
 -module(trace_call_time_SUITE).
 
+-behaviour(ct_suite).
+
 %% Exported end user tests
 
 -export([seq/3, seq_r/3]).

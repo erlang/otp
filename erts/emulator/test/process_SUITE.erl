@@ -22,6 +22,8 @@
 
 -module(process_SUITE).
 
+-behaviour(ct_suite).
+
 %% Tests processes, trapping exit messages and the BIFs:
 %% 	exit/1
 %%	exit/2

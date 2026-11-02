@@ -22,6 +22,8 @@
 
 -module(port_SUITE).
 
+-behaviour(ct_suite).
+
 %%%
 %%% Author: Bjorn Gustavsson; iter_max_ports contributed by Peter Hogfeldt.
 %%%

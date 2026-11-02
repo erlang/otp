@@ -22,6 +22,8 @@
 
 -module(exception_SUITE).
 
+-behaviour(ct_suite).
+
 -export([all/0, suite/0,
          init_per_testcase/2, end_per_testcase/2,
          badmatch/1, pending_errors/1, nil_arith/1, top_of_stacktrace/1,
