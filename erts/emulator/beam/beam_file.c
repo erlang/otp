@@ -1478,7 +1478,7 @@ static int parse_literal_chunk(BeamFile *beam, IFF_Chunk *chunk) {
     compressed_size = chunk->size;
 
     LoadAssert(beamreader_read_i32(&reader, &uncompressed_size));
-    LoadAssert(compressed_size >= 0);
+    LoadAssert(uncompressed_size >= 0);
 
     success = 0;
 
