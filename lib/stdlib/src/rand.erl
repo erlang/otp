@@ -1949,72 +1949,82 @@ shuffle_s(List, {AlgHandler, R0})
     {ShuffledList, _P1, [R1|_]=_S1} = shuffle_r(List, [], P0, S0),
     {ShuffledList, {AlgHandler, R1}}.
 
-%% Random-split-and-shuffle algorithm suggested by Richard A. O'Keefe
-%% on ErlangForums, as I interpreted it...  "basically a randomized
-%% quicksort", shall we name it Quickshuffle?
+%% Rao-Sandelius shuffle
 %%
-%% Randomly split the list in two lists, and recursively shuffle
-%% the two smaller lists.
+%% This divide-and-conquer shuffle algorithm is the result of me
+%% misunderstanding a vague suggestion by Richard A. O'Keefe on ErlangForums,
+%% "basically a randomized quicksort".  After the fact it turned out to be
+%% an optimized variant of the Rao-Sandelius shuffle [Wikipedia],
+%% in a functional setting.
 %%
-%% How the algorithm works and why it is correct can be explained like this:
+%% [Rao] and [Sandelius] describes an algorithm using random decimal digits,
+%% and proves that it gives all permutations with equal probabilities.
+%% [Sandelius] adds an optimization to shortcut recursion by immediately
+%% permuting 2-element lists, and elaborates with a variant that uses
+%% random bits instead of decimal digits.
 %%
-%% The objective is, given a list of elements, to return a random
-%% permutation of those elements so that every possible permutation
-%% has the same probability to be returned.
-%%
-%% One of the two correct and bias free algorithms described on the Wikipedia
-%% page for Fisher-Yates shuffling is to assign a random number to each
-%% element in the list and order the elements according to the numbers.
-%% For this to be correct the generated numbers must not have duplicates.
-%%
-%% This algorithm does that, but assigning a number and ordering
-%% the elements is more or less the same step, which is taken
-%% one binary bit at the time.
-%%
-%% It can be seen as, to each element, assign a fixpoint number
-%% of infinite length starting with bit weight 1/2, continuing with 1/4,
-%% and so on..., but reveal it incrementally.
-%%
-%% The list to shuffle is traversed, and a random bit is generated
-%% for each element.  If it is a 0, the element is assigned the zero bit
-%% by moving it to the head of the list Zero, and if it is a 1,
-%% to the head of the list One.
-%%
-%% Then the list Zero is recursively shuffled onto the accumulator list Acc,
-%% after that the list One.  By that all elements in Zero are ordered
-%% before the ones in One, according to the generated numbers.
-%% The order is actually not important as long as it is consistent.
-%%
-%% The algorithm recurses until the Zero or One list has length
-%% 0 or 1, which is when the generated fixpoint number has no duplicate.
-%% The fixpoint number in itself only exists in the guise of the
-%% recursion call stack, that is whether an element belongs to list
-%% Zero or One on each recursion level.
 %% Here is the bare algorithm:
 %%
-%% quickshuffle([], Acc) -> Acc;
-%% quickshuffle([X], Acc) -> [X | Acc];
-%% quickshuffle([_|_] = L, Acc) ->
-%%     {Zero, One} = quickshuffle_split(L, [], []),
-%%     quickshuffle(One, quickshuffle(Zero, Acc)).
-%%
-%% quickshuffle_split([], Zero, One) ->
-%%     {Zero, One};
-%% quickshuffle_split([X | L], Zero, One) ->
+%% shuffle([], Acc) -> Acc;
+%% shuffle([X], Acc) -> [X | Acc];
+%% shuffle([X,Y], Acc) ->
 %%     case random_bit() of
-%%         0 -> quickshuffle_split(L, [X | Zero], One);
-%%         1 -> quickshuffle_split(L, Zero, [X | One])
+%%         0 -> [Y,X | Acc];
+%%         1 -> [X,Y | Acc]
+%%     end;
+%% shuffle([_|_] = L, Acc) ->
+%%     {Zero, One} = split(L, [], []),
+%%     shuffle(One, shuffle(Zero, Acc)).
+%%
+%% split([], Zero, One) ->
+%%     {Zero, One};
+%% split([X | L], Zero, One) ->
+%%     case random_bit() of
+%%         0 -> split(L, [X | Zero], One);
+%%         1 -> split(L, Zero, [X | One])
 %%     end.
 %%
-%% As an optimization, since the algorithm is equivalent to its objective
-%% to randomly permute a list, we can when reaching a small enough list
-%% as in 3 or 2 instead do an explicit random permutation of the list.
+%% The algorithm implemented below takes that one step further by instead
+%% using random quaternary digits to split into four lists, and to also
+%% immediately permute 3-element lists from random octal digits.
 %%
-%% The `random_bit()` can be generated with small overhead by generating
-%% a random word and cache it, then shift out one bit at the time.
+%% Furthermore it uses a bitstream in the guise of a cached PRNG
+%% word from which the digits are extracted.
 %%
-%% Also, it is faster to do a 4-way split by 2 bits instead of,
-%% as described above, a 2-way split by 1 bit.
+%% In this form, this algorithm uses far less PRNG calls than
+%% both the infamous Fisher-Yates and the tag-and-sort algorithms,
+%% that both need one PRNG call per list element, while this
+%% algorithm needs about log2(N)/PRNGBits calls which is about 0.4 calls
+%% for a one million element list, and only 0.1 for a 30 element list.
+%%
+%% This algorithm also creates much less garbage than them,
+%% since it does not have to update a tree structure (as we
+%% do not have a true functional array) for each shuffled element.
+%%
+%% The immediate permutation optimization is effective because
+%% without it, recursively shuffling a 2-element list needs
+%% 2 quarternary digits and has the probability 1/4 that they
+%% are equal and require another recursion.  That becomes
+%% an infinite sum and ends up needing 4 * 4/3 or 5.33 bits,
+%% instead of only 1 bit with immediate permutation.  Doing the same
+%% with a 3 element list and octal digits results in, after some
+%% probability calculations that hopefully came out right, 8 vs. 4 bits.
+%%
+%% How often the recursion tree ends in a 2 or a 3 element list
+%% is harder to calculate, but should be often enough.
+%%
+%% [Wikipedia]:
+%%     https://www.wikipedia.com "Rao-Sandelius shuffle"
+%%
+%% [Rao]:
+%%     Rao, C. Radhakrishna (August 1961). "Generation of random permutations
+%%     of given number of elements using random sampling numbers"
+%%     https://gwern.net/doc/cs/algorithm/1961-rao.pdf
+%%
+%% [Sandelius]:
+%%     Sandelius, Martin (July 1962). "A Simple Randomization Procedure".
+%%     Journal of the Royal Statistical Society. 24 (2): 472–481.
+%%     https://doi.org/10.1111%2Fj.2517-6161.1962.tb00474.x
 
 %% Leaf cases - random permutations for 0 .. 3 elements
 shuffle_r([], Acc, P, S) ->
