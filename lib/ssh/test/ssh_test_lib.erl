@@ -882,7 +882,7 @@ installed_ssh_version(TimeoutReturn) ->
         {open_ssh_version, V} ->
             V
     after ?TIMEOUT ->
-            exit(Pid, kill),
+            exit_signal(Pid, kill),
             TimeoutReturn
     end.
 

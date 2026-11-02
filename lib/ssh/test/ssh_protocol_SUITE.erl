@@ -1938,7 +1938,7 @@ client_close_after_hello(Config0) ->
             length(Parents), Parents]),
     if
         length(Handshakers)>0 ->
-            lists:foreach(fun(P) -> exit(P,some_reason) end, Parents),
+            lists:foreach(fun(P) -> exit_signal(P,some_reason) end, Parents),
             ct:log("After sending exits; now going to sleep", []),
             timer:sleep((SleepSec+15)*1000),
             ct:log("After sleeping", []),

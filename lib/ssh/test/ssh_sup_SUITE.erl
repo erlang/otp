@@ -236,7 +236,7 @@ killed_acceptor_restarts(Config) ->
 
     %% Make acceptor restart:
     ct:log("Expect a SUPERVISOR REPORT with offender {pid,~p}....~n", [AccPid]),
-    exit(AccPid, kill),
+    exit_signal(AccPid, kill),
     ?wait_match(undefined, process_info(AccPid)),
 
     %% Check it is a new acceptor and wait if it is not:
@@ -462,7 +462,7 @@ check_sshc_system_tree(ConnectionSup, Connection, _Config) ->
                 [ChPid1,ChPid2]),
 
     ct:log("Expect a SUPERVISOR REPORT with offender {pid,~p}....~n", [ChPid1]),
-    exit(ChPid1, kill),
+    exit_signal(ChPid1, kill),
     ?wait_match([{_,FwdAccSup, supervisor,[ssh_tcpip_forward_acceptor_sup]},
                  {_,ChSup,supervisor, [ssh_channel_sup]},
                  {connection,Connection,worker,[ssh_connection_handler]}
@@ -476,7 +476,7 @@ check_sshc_system_tree(ConnectionSup, Connection, _Config) ->
                 [ChPid2]),
 
     ct:log("Expect a SUPERVISOR REPORT with offender {pid,~p}....~n", [ChPid2]),
-    exit(ChPid2, kill),
+    exit_signal(ChPid2, kill),
     ?wait_match([{_,FwdAccSup, supervisor,[ssh_tcpip_forward_acceptor_sup]},
                  {_,ChSup,supervisor, [ssh_channel_sup]},
                  {connection,Connection,worker,[ssh_connection_handler]}
