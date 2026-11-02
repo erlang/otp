@@ -38,7 +38,8 @@
          funs/1,will_succeed/1,float_confusion/1,
          cover_convert_ext/1, catch_setelement/1,gh_11368/1,gh_11413/1,
          rem_bounds/1,
-         gh_11686/1,float_widens/1,huge_number_bounds/1]).
+         gh_11686/1,float_widens/1,huge_number_bounds/1,
+         bool_element_widens/1]).
 
 %% Force id/1 to return 'any'.
 -export([id/1]).
@@ -93,7 +94,8 @@ groups() ->
        rem_bounds,
        gh_11686,
        float_widens,
-       huge_number_bounds
+       huge_number_bounds,
+       bool_element_widens
       ]}].
 
 init_per_suite(Config) ->
@@ -1878,6 +1880,36 @@ huge_number_bounds_1(I) -> huge_number_bounds_2(I).
 
 huge_number_bounds_2(0) -> 0;
 huge_number_bounds_2(I) -> huge_number_bounds_2(I div 3).
+
+%% Failed to compile with an argument_widened exception.
+bool_element_widens(_Config) ->
+    a = bool_element_widens_1(id(a)),
+    b = bool_element_widens_1(id(b)),
+    false = bool_element_widens_1(id(c)),
+    {task,d} = bool_element_widens_1(id(d)),
+    e = bool_element_widens_1(id(e)),
+    f = bool_element_widens_1(id(f)),
+    ok.
+
+bool_element_widens_1(M) ->
+    {Type,Skip} = bool_element_widens_2(M),
+    case Skip of
+        S when S /= nil andalso S /= false -> false;
+        _ -> bool_element_widens_3(M, Type)
+    end.
+
+bool_element_widens_2(M) ->
+    case M of
+        a -> {exception,false};
+        b -> {protocol,false};
+        c -> {impl,true};
+        d -> {task,false};
+        e -> {behaviour,false};
+        _ -> {module,false}
+    end.
+
+bool_element_widens_3(M, task) -> {task,M};
+bool_element_widens_3(M, _) -> M.
 
 %%%
 %%% Common utilities.
