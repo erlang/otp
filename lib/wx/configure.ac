@@ -517,7 +517,7 @@ AS_IF(
         case $host_cpu in
           aarch64)
             VC_LIB=lib/vc_arm64_lib
-            WX_ARCH=aarch64
+            WX_ARCH=arm64
             ;;
           *)
             VC_LIB=lib/vc_x64_lib

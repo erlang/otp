@@ -36,7 +36,7 @@ permissions:
 
 jobs:
   upload-windows-zip:
-    runs-on: windows-2025
+    runs-on: ${{ inputs.target == 'arm64' && 'windows-11-arm' || 'windows-2025' }}
     ## Needed to upload assets to releases
     permissions:
         contents: write
@@ -67,8 +67,11 @@ jobs:
             win64)
               vc_redist_target=x64
               ;;
+            arm64)
+              vc_redist_target=arm64
+              ;;
             *)
-              echo "invalid target $target"
+              echo "invalid target ${INPUTS_TARGET}"
               exit 1
               ;;
           esac
