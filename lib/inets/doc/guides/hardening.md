@@ -339,16 +339,14 @@ list. The default is:
 Review this list and remove modules you do not need:
 
 - **`mod_cgi`** and **`mod_actions`** - Enable CGI script execution.
-  Deprecated in OTP 29 and scheduled for removal in OTP 30. If you still
-  need CGI support, add them explicitly to your module list. CGI introduces a
-  large attack surface (arbitrary process execution, environment variable
-  injection).
+  Removed in OTP 30. CGI introduces a large attack surface (arbitrary process
+  execution, environment variable injection).
 
 - **`mod_dir`** - Enables directory listing. Remove it to prevent information
   disclosure about your file structure.
 
 - **`mod_esi`** - Enables Erlang Scripting Interface. If used, restrict it
-  with [`erl_script_alias`](`m:httpd#prop_esi_alias`) to a whitelist of allowed modules.
+  with [`erl_script_alias`](`m:mod_esi#prop_esi_alias`) to a whitelist of allowed modules.
 
 - **`mod_trace`** - Handles HTTP TRACE requests. TRACE can be exploited in
   cross-site tracing (XST) attacks. This module is not in the default list
@@ -364,17 +362,17 @@ A minimal module chain for a static file server:
 
 If using `mod_auth`:
 
-- **Avoid [`{auth_type, plain}`](`m:httpd#prop_auth_type`)** in production. It stores passwords in
+- **Avoid [`{auth_type, plain}`](`m:mod_auth#prop_auth_type`)** in production. It stores passwords in
   cleartext files. Prefer `dets` or `mnesia`.
 
-- **Place auth files outside `document_root`**. The [`auth_user_file`](`m:httpd#prop_auth_user_file`) and
-  [`auth_group_file`](`m:httpd#prop_auth_group_file`) must not be accessible via HTTP.
+- **Place auth files outside `document_root`**. The [`auth_user_file`](`m:mod_auth#prop_auth_user_file`) and
+  [`auth_group_file`](`m:mod_auth#prop_auth_group_file`) must not be accessible via HTTP.
 
-- **Set [`auth_access_password`](`m:httpd#prop_auth_access_passwd`)** to a strong value. When not set or set to
+- **Set [`auth_access_password`](`m:mod_auth#prop_auth_access_passwd`)** to a strong value. When not set or set to
   `"NoPassword"`, no password is required for the authentication management
   API.
 
-- **Use IP-based restrictions** ([`allow_from`](`m:httpd#prop_allow_from`), [`deny_from`](`m:httpd#prop_deny_from`)) as an additional
+- **Use IP-based restrictions** ([`allow_from`](`m:mod_auth#prop_allow_from`), [`deny_from`](`m:mod_auth#prop_deny_from`)) as an additional
   layer, not as the sole access control mechanism.
 
 > #### Warning {: .warning }
@@ -401,21 +399,21 @@ Enable `mod_security` to throttle authentication brute force attempts:
 ]}}
 ```
 
-- **[`data_file`](`m:httpd#prop_data_file`)** - Path to the persistent security
+- **[`data_file`](`m:mod_security#prop_data_file`)** - Path to the persistent security
   data file. Store this outside `document_root`. Required for `mod_security`
   to persist blocked-user state across server restarts.
 
-- **[`max_retries`](`m:httpd#prop_max_retries`)** - Maximum failed authentication
+- **[`max_retries`](`m:mod_security#prop_max_retries`)** - Maximum failed authentication
   attempts before the user is blocked. Default: `3`.
 
-- **[`block_time`](`m:httpd#prop_block_time`)** - Minutes a blocked user remains
+- **[`block_time`](`m:mod_security#prop_block_time`)** - Minutes a blocked user remains
   locked out. Default: `60`.
 
-- **[`fail_expire_time`](`m:httpd#prop_fail_exp_time`)** - Minutes before a
+- **[`fail_expire_time`](`m:mod_security#prop_fail_exp_time`)** - Minutes before a
   failed attempt is forgotten. If the user does not retry within this window,
   the failure counter resets. Default: `30`.
 
-- **[`auth_timeout`](`m:httpd#prop_auth_timeout`)** - Seconds a successful
+- **[`auth_timeout`](`m:mod_security#prop_auth_timeout`)** - Seconds a successful
   authentication is remembered. After expiry the user must re-authenticate.
   Default: `30`.
 
@@ -428,13 +426,13 @@ Enable `mod_security` to throttle authentication brute force attempts:
 For runtime inspection and manual blocking, see `m:mod_security`
 ([`list_blocked_users/1`](`mod_security:list_blocked_users/1`), [`block_user/5`](`mod_security:block_user/5`), [`unblock_user/4`](`mod_security:unblock_user/4`)).
 
-### CGI and ESI Execution
+### ESI Execution
 
-- **[`script_alias`](`m:httpd#prop_script_alias`)** maps URL paths to CGI script directories. Ensure the
+- **`script_alias`** maps URL paths to ESI script directories. Ensure the
   mapped directory contains only intended scripts and is not writable by the
   web server process.
 
-- **[`erl_script_alias`](`m:httpd#prop_esi_alias`)** controls which Erlang modules can be called via ESI.
+- **[`erl_script_alias`](`m:mod_esi#prop_esi_alias`)** controls which Erlang modules can be called via ESI.
   Always specify an explicit whitelist:
 
   ```erlang
@@ -443,10 +441,10 @@ For runtime inspection and manual blocking, see `m:mod_security`
 
   Never use a wildcard or overly broad module list.
 
-- **[`script_timeout`](`m:httpd#prop_script_timeout`)** and **[`erl_script_timeout`](`m:httpd#prop_esi_timeout`)** default to 15 seconds.
+- **`script_timeout`** and **[`erl_script_timeout`](`m:mod_esi#prop_esi_timeout`)** default to 15 seconds.
   Review whether this is appropriate for your use case.
 
-- **[`script_nocache`](`m:httpd#prop_script_nocache`)** and **[`erl_script_nocache`](`m:httpd#prop_esi_nocache`)** - When set to `true`, the
+- **`script_nocache`** and **[`erl_script_nocache`](`m:mod_esi#prop_esi_nocache`)** - When set to `true`, the
   server adds HTTP header fields preventing proxies from caching dynamic
   responses. Default: `false`. Enable these to prevent stale or sensitive
   dynamic content from being served from proxy caches.
@@ -455,8 +453,8 @@ For runtime inspection and manual blocking, see `m:mod_security`
 >
 > The `script_alias` path resolution can bypass `mod_auth` directory
 > protections depending on module ordering. Ensure `mod_auth` appears
-> before `mod_cgi` in the module chain, and test that authentication
-> is enforced on CGI paths.
+> before `mod_esi` in the module chain, and test that authentication
+> is enforced on ESI paths.
 
 ### Logging
 
