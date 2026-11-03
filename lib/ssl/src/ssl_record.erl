@@ -49,7 +49,8 @@
          record_protocol_role/1,
          step_encryption_state/1,
          step_encryption_state_read/1,
-         step_encryption_state_write/1]).
+         step_encryption_state_write/1,
+         drop_aead_handles/1]).
 
 %% Payload encryption/decryption
 -export([cipher/4, cipher/5, decipher/4,
@@ -147,6 +148,22 @@ step_encryption_state_write(#state{connection_states =
     NewWrite = PendingWrite#{sequence_number => 0},
     State#state{connection_states =
                     ConnStates#{current_write => maps:remove(aead_handle, NewWrite)}}.
+
+%%--------------------------------------------------------------------
+-spec drop_aead_handles(connection_states()) -> connection_states().
+%%
+%% Description: Drops the cached AEAD cipher handles of the current read
+%% and write states. A handle is a NIF resource of about one kilobyte
+%% that is only a cache: the next record recreates it from the key. Call
+%% this before an idle process hibernates so that an idle connection does
+%% not hold them.
+%%--------------------------------------------------------------------
+drop_aead_handles(ConnectionStates) ->
+    maps:map(fun(Key, State) when Key =:= current_read; Key =:= current_write ->
+                     maps:remove(aead_handle, State);
+                (_Key, State) ->
+                     State
+             end, ConnectionStates).
 
 %%--------------------------------------------------------------------
 -spec set_security_params(#security_parameters{}, #security_parameters{},
