@@ -1477,8 +1477,9 @@ endif
 
 # QNX's qcc tries to link when using -MM, use the underlying gcc instead
 ifeq ($(findstring nto-qnx,$(TARGET)),nto-qnx)
-DEP_CC=ntox86_64-gcc
-DEP_CXX=ntox86_64-g++
+QNX_CPU=$(firstword $(subst -, ,$(TARGET)))
+DEP_CC=nto$(QNX_CPU)-gcc
+DEP_CXX=nto$(QNX_CPU)-g++
 else
 DEP_CC=$(CC)
 DEP_CXX=$(CXX)
