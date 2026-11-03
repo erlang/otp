@@ -188,12 +188,21 @@ eval_exp_field(Val, Size, Unit, binary, _, _) ->
 %% succeeds a new environment and what remains of the binary is
 %% returned. If the match fails what remains of the binary is returned.
 %% If nothing remains of the binary the atom 'done' is returned.
+%% If the pattern matches zero bits, which would cause the comprehension
+%% to loop forever, a bad_generator error is raised.
 
-bin_gen({bin,_,Fs}, Bin, Bs0, BBs0, Mfun, Efun) ->
-    bin_gen(Fs, Bin, Bs0, BBs0, Mfun, Efun, fun default_error/3, true).
+bin_gen(P, Bin, Bs0, BBs0, Mfun, Efun) ->
+    bin_gen(P, Bin, Bs0, BBs0, Mfun, Efun, fun default_error/3).
 
-bin_gen({bin,_,Fs}, Bin, Bs0, BBs0, Mfun, Efun, ErrorFun) ->
-    bin_gen(Fs, Bin, Bs0, BBs0, Mfun, Efun, ErrorFun, true).
+bin_gen({bin,Anno,Fs}, Bin, Bs0, BBs0, Mfun, Efun, ErrorFun) ->
+    case bin_gen(Fs, Bin, Bs0, BBs0, Mfun, Efun, ErrorFun, true) of
+        {match, Rest, _} when bit_size(Rest) =:= bit_size(Bin) ->
+            ErrorFun(Anno, {bad_generator, Bin}, ?STACKTRACE);
+        {nomatch, Rest} when bit_size(Rest) =:= bit_size(Bin) ->
+            ErrorFun(Anno, {bad_generator, Bin}, ?STACKTRACE);
+        Result ->
+            Result
+    end.
 
 bin_gen([F|Fs], Bin, Bs0, BBs0, Mfun, Efun, ErrorFun, Flag)
   when is_function(Mfun, 2), is_function(Efun, 2) ->

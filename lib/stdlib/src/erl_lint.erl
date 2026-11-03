@@ -603,6 +603,8 @@ format_error_1({bad_bitsize,Type}) ->
     {~"bad ~s bit size", [Type]};
 format_error_1(unsized_binary_in_bin_gen_pattern) ->
     ~"binary fields without size are not allowed in patterns of bit string generators";
+format_error_1(zero_width_bin_gen_pattern) ->
+    ~"patterns of bit string generators must not match zero bits";
 format_error_1(latin1_binary) ->
     ~"""
      binary string will be Latin-1 encoded.
@@ -4869,10 +4871,10 @@ filter_generators([{generate,_,_,_}=Q|Qs], Acc, St) ->
     filter_generators(Qs, [Q|Acc], St);
 filter_generators([{generate_strict,_,_,_}=Q|Qs], Acc, St) ->
     filter_generators(Qs, [Q|Acc], St);
-filter_generators([{b_generate,_,_,_}=Q|Qs], Acc, St) ->
-    filter_generators(Qs, [Q|Acc], St);
-filter_generators([{b_generate_strict,_,_,_}=Q|Qs], Acc, St) ->
-    filter_generators(Qs, [Q|Acc], St);
+filter_generators([{b_generate,_,P,_}=Q|Qs], Acc, St) ->
+    filter_generators(Qs, [Q|Acc], handle_bitstring_gen_pat(P, St));
+filter_generators([{b_generate_strict,_,P,_}=Q|Qs], Acc, St) ->
+    filter_generators(Qs, [Q|Acc], handle_bitstring_gen_pat(P, St));
 filter_generators([{m_generate,_,_,_}=Q|Qs], Acc, St) ->
     filter_generators(Qs, [Q|Acc], St);
 filter_generators([{m_generate_strict,_,_,_}=Q|Qs], Acc, St) ->
@@ -4938,8 +4940,12 @@ comprehension_pattern({map_field_exact,_,K,V}, Vt, St) ->
 comprehension_pattern(P, Vt, St) ->
     pattern(P, Vt, [], St).
 
-handle_bitstring_gen_pat({bin,_,Segments=[_|_]},St) ->
-    case lists:last(Segments) of
+handle_bitstring_gen_pat({bin,Anno0,Segments},St0) ->
+    St = case all(fun is_zero_width_bin_element/1, Segments) of
+             true -> add_error(Anno0, zero_width_bin_gen_pattern, St0);
+             false -> St0
+         end,
+    case Segments =/= [] andalso lists:last(Segments) of
         {bin_element,Anno,_,default,Flags} when is_list(Flags) ->
             case member(binary, Flags) orelse member(bytes, Flags)
               orelse member(bits, Flags) orelse member(bitstring, Flags) of
@@ -4953,6 +4959,17 @@ handle_bitstring_gen_pat({bin,_,Segments=[_|_]},St) ->
     end;
 handle_bitstring_gen_pat(_,St) ->
     St.
+
+%% A bitstring generator pattern that matches zero bits would loop forever.
+is_zero_width_bin_element({bin_element,_,{string,_,[]},default,_}) ->
+    true;
+is_zero_width_bin_element({bin_element,_,_,Size,_}) when Size =/= default ->
+    case erl_eval:partial_eval(Size) of
+        {integer,_,0} -> true;
+        _ -> false
+    end;
+is_zero_width_bin_element(_) ->
+    false.
 
 %% fun_clauses(Clauses, ImportVarTable, State) ->
 %%      {UsedVars, State}.

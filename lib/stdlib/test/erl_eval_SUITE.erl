@@ -63,7 +63,7 @@
          otp_16439/1,
          otp_14708/1,
          otp_16545/1,
-         otp_16865/1,
+         otp_16865/1, zero_width_bin_gen_pattern/1,
          eep49/1,
          binary_and_map_aliases/1,
          eep58/1,
@@ -111,7 +111,7 @@ all() ->
      otp_8133, otp_10622, otp_13228, otp_14826,
      funs, custom_stacktrace, try_catch, eval_expr_5, zero_width,
      eep37, eep43, otp_15035, otp_16439, otp_14708, otp_16545, otp_16865,
-     eep49, binary_and_map_aliases, eep58, strict_generators, binary_skip,
+     zero_width_bin_gen_pattern, eep49, binary_and_map_aliases, eep58, strict_generators, binary_skip,
      assignment_generators, zlc, zbc, zmc, multi_lc, multi_mc].
 
 groups() ->
@@ -2098,8 +2098,36 @@ otp_16865(Config) when is_list(Config) ->
           <<>>),
     %% The order of evaluation is important. Follow the example set by
     %% compiled code:
-    error_check("<< <<>> || <<>> <= <<1:(-1), (fun() -> a = b end())>> >>.",
+    error_check("<< <<>> || <<_>> <= <<1:(-1), (fun() -> a = b end())>> >>.",
                 {badmatch, b}),
+    ok.
+
+%% Patterns of bit string generators that match zero bits would loop
+%% forever, so they raise an exception instead.
+zero_width_bin_gen_pattern(Config) when is_list(Config) ->
+    %% Patterns with a literal size of zero are rejected by erl_lint.
+    error_check("begin N = 0, [X || <<X:N>> <= <<42>>] end.",
+                {bad_generator,<<42>>}),
+    error_check("begin N = 0, [X || <<X:N>> <= <<>>] end.",
+                {bad_generator,<<>>}),
+    error_check("begin N = 0, [X || <<X:N>> <:= <<42>>] end.",
+                {bad_generator,<<42>>}),
+    error_check("begin N = 0, [ok || <<1:N>> <= <<42>>] end.",
+                {bad_generator,<<42>>}),
+    error_check("begin N = 0, [ok || <<1:N>> <:= <<42>>] end.",
+                {bad_generator,<<42>>}),
+    error_check("begin N = 0, << <<X>> || <<X:N>> <= <<42>> >> end.",
+                {bad_generator,<<42>>}),
+    error_check("begin N = 0, [X || <<X:N, _:X>> <= <<42>>] end.",
+                {bad_generator,<<42>>}),
+    error_check("begin N = 0, [{X,Y} || <<X:N>> <= <<42>> && Y <- [a]] end.",
+                {bad_generator,<<42>>}),
+    check(fun() -> [X || <<X:0, _:8>> <= <<1,2>>] end,
+          "[X || <<X:0, _:8>> <= <<1,2>>].",
+          [0,0]),
+    check(fun() -> [X || <<Size:8, X:Size>> <= <<0,0>>] end,
+          "[X || <<Size:8, X:Size>> <= <<0,0>>].",
+          [0,0]),
     ok.
 
 eep49(Config) when is_list(Config) ->
