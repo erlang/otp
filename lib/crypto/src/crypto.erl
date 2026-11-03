@@ -5071,12 +5071,7 @@ rsa_opts_algorithms() -> ?nif_stub.
 
 
 int_to_bin(X) when X < 0 -> int_to_bin_neg(X, []);
-int_to_bin(X) -> int_to_bin_pos(X, []).
-
-int_to_bin_pos(0,Ds=[_|_]) ->
-    list_to_binary(Ds);
-int_to_bin_pos(X,Ds) ->
-    int_to_bin_pos(X bsr 8, [(X band 255)|Ds]).
+int_to_bin(X) -> binary:encode_unsigned(X).
 
 int_to_bin_neg(-1, Ds=[MSB|_]) when MSB >= 16#80 ->
     list_to_binary(Ds);
@@ -5161,7 +5156,7 @@ mpint_neg(X) ->
     <<?UINT32(Sz), Bin/binary>>.
 
 mpint_pos(X) ->
-    Bin = int_to_bin_pos(X, []),
+    Bin = binary:encode_unsigned(X),
     <<MSB,_/binary>> = Bin,
     Sz = byte_size(Bin),
     if MSB band 16#80 == 16#80 ->
