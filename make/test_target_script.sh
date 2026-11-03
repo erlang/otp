@@ -31,8 +31,14 @@ NC='\033[0m'
 
 
 print_highlighted_msg_with_printer () {
-    COLOR=$1
-    MSG_PRINTER=$2
+    if [ -t 1 ]; then
+        local COLOR=$1
+        local NC=$NC
+    else
+        local COLOR=''
+        local NC=''
+    fi
+    local MSG_PRINTER=$2
     printf "\n${COLOR}======================================================================${NC}\n"
     echo
     $MSG_PRINTER
@@ -346,13 +352,28 @@ else
         ${ERL_ARGS}
 fi
 
+
 CT_RUN_STATUS=$?
+
+# Latest-run log. When stdout is a terminal, emit it as a clickable OSC 8
+# hyperlink, underlined so it reads as a link even in terminals that show no
+# affordance until a modifier key is pressed.
+LATEST_LOG_URL="file://$MAKE_TEST_CT_LOGS/suite.log.latest.html"
+if [ -t 1 ]; then
+    LATEST_LOG_LINK=$(printf '\033]8;;%s\007\033[4m%s\033[24m\033]8;;\007' "$LATEST_LOG_URL" "$LATEST_LOG_URL")
+else
+    LATEST_LOG_LINK="$LATEST_LOG_URL"
+fi
+
 if [ $CT_RUN_STATUS = "0" ]
 then
-    print_highlighted_msg $GREEN "The test(s) ran successfully (ct_run returned a success code)\nTest logs: file://$MAKE_TEST_CT_LOGS/index.html"
+    print_highlighted_msg $GREEN "The test(s) ran successfully (ct_run returned a success code)
+Latest test logs: $LATEST_LOG_LINK"
+
     exit 0
 else
     print_on_error_note
-    print_highlighted_msg $RED "ct_run returned the error code $CT_RUN_STATUS\nTest logs: file://$MAKE_TEST_CT_LOGS/index.html"
+    print_highlighted_msg $RED "ct_run returned the error code $CT_RUN_STATUS
+Latest test logs: $LATEST_LOG_LINK"
     exit $CT_RUN_STATUS
 fi
