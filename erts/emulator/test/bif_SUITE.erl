@@ -36,6 +36,7 @@
 	 t_list_to_existing_atom/1,os_env/1,otp_7526/1,
 	 t_binary_to_atom/1,t_binary_to_existing_atom/1,
 	 t_atom_to_binary/1,min_max/1, erlang_halt/1,
+         atom_concurrent_lookup/1,
          halt_flush_timeout/1, erl_crash_dump_bytes/1,
 	 is_builtin/1, error_stacktrace/1,
 	 error_stacktrace_during_call_trace/1,
@@ -50,6 +51,8 @@
          apply_system_limit/1,
          external_fun_apply3/1,
          node_1/1,doctests/1,is_integer_3_test/1]).
+-export([atom_concurrent_lookup_do/3, atom_colliding_lookup_do/2,
+         atom_growth_lookup_do/3]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
@@ -61,6 +64,7 @@ all() ->
      t_list_to_existing_atom, os_env, otp_7526,
      display, display_string, list_to_utf8_atom,
      t_atom_to_binary, t_binary_to_atom, t_binary_to_existing_atom,
+     atom_concurrent_lookup,
      erl_crash_dump_bytes, min_max, erlang_halt, halt_flush_timeout,
      is_builtin, error_stacktrace, error_stacktrace_during_call_trace,
      group_leader_prio, group_leader_prio_dirty,
@@ -608,6 +612,137 @@ fail_binary_to_atom(Bin) ->
             ok
     end.
 	
+
+%% Atoms are looked up without the atom table lock. Create and look up the
+%% same names from several processes while the table grows through a few
+%% rehashes, and with a hash chain longer than the lock-free walk handles,
+%% and check that every call returns the atom for its name.
+atom_concurrent_lookup(Config) when is_list(Config) ->
+    {ok, Peer, Node} = ?CT_PEER(["+S", "8"]),
+    try
+        ok = erpc:call(Node, ?MODULE, atom_concurrent_lookup_do, [8, 25000, 3]),
+        ok = erpc:call(Node, ?MODULE, atom_colliding_lookup_do, [8, 10]),
+        ok = erpc:call(Node, ?MODULE, atom_growth_lookup_do, [6, 4, 150000])
+    after
+        peer:stop(Peer)
+    end.
+
+atom_concurrent_lookup_do(Procs, N, Rounds) ->
+    lists:foreach(
+      fun(Round) ->
+              Prefix = <<"atom_lookup_", (integer_to_binary(Round))/binary, "_">>,
+              %% Some names are not Latin-1, to cover UTF-8 lookups.
+              Names = list_to_tuple(
+                        [<<Prefix/binary, (integer_to_binary(I))/binary,
+                           (unicode:characters_to_binary([16#3b1 + I rem 3]))/binary>>
+                         || I <- lists:seq(1, N)]),
+              atom_lookup_round(Names, Procs)
+      end, lists:seq(1, Rounds)).
+
+%% hashpjw gives "aQ" and "bA" the same value (97*16+81 = 98*16+65), so all
+%% 2^K concatenations of K such blocks share one hash value and one chain.
+atom_colliding_lookup_do(Procs, K) ->
+    Names = lists:foldl(fun(_, Acc) -> [<<X/binary, B/binary>> || X <- Acc, B <- [<<"aQ">>, <<"bA">>]] end,
+                        [<<"atom_collide_">>], lists:seq(1, K)),
+    atom_lookup_round(list_to_tuple(Names), Procs).
+
+%% Readers look up existing atoms while writers make the table grow. A
+%% growth relinks the hash chains while lock-free readers may be walking
+%% them, so a reader can miss; the miss must then be confirmed under the
+%% lock and never reported as a missing atom.
+atom_growth_lookup_do(Readers, Writers, PerWriter) ->
+    Names = list_to_tuple([<<"atom_known_", (integer_to_binary(I))/binary>>
+                           || I <- lists:seq(1, 20000)]),
+    Atoms = list_to_tuple([binary_to_atom(B) || B <- tuple_to_list(Names)]),
+    Stop = atomics:new(1, []),
+    Parent = self(),
+    Rs = [spawn_link(fun() ->
+                             Parent ! {self(), atom_growth_reader(Names, Atoms, Stop, R, 0, [])}
+                     end) || R <- lists:seq(1, Readers)],
+    Ws = [spawn_link(fun() ->
+                             Prefix = <<"atom_growth_", (integer_to_binary(W))/binary, "_">>,
+                             _ = [binary_to_atom(<<Prefix/binary, (integer_to_binary(I))/binary>>)
+                                  || I <- lists:seq(1, PerWriter)],
+                             Parent ! {self(), done}
+                     end) || W <- lists:seq(1, Writers)],
+    [receive {W, done} -> ok end || W <- Ws],
+    atomics:put(Stop, 1, 1),
+    Results = [receive {R, Result} -> Result end || R <- Rs],
+    [] = lists:append([Errors || {_, Errors} <- Results]),
+    true = lists:all(fun({Lookups, _}) -> Lookups > 0 end, Results),
+    ok.
+
+atom_growth_reader(Names, Atoms, Stop, R, K, Errors) ->
+    case K band 255 =:= 0 andalso atomics:get(Stop, 1) =:= 1 of
+        true ->
+            {K, Errors};
+        false ->
+            I = ((K * 7919 + R) rem tuple_size(Names)) + 1,
+            Name = element(I, Names),
+            Atom = element(I, Atoms),
+            Found = try binary_to_existing_atom(Name)
+                    catch error:badarg -> missing end,
+            Made = binary_to_atom(Name),
+            Errors1 = case {Found, Made} of
+                          {Atom, Atom} -> Errors;
+                          Other -> [{Name, Other} | Errors]
+                      end,
+            atom_growth_reader(Names, Atoms, Stop, R, K + 1, Errors1)
+    end.
+
+atom_lookup_round(Names, Procs) ->
+    N = tuple_size(Names),
+    Count0 = erlang:system_info(atom_count),
+    Parent = self(),
+    Pids = [spawn_link(fun() -> Parent ! {self(), atom_lookup_worker(Names, N, W)} end)
+            || W <- lists:seq(1, Procs)],
+    Results = [receive {Pid, Result} -> Result end || Pid <- Pids],
+    [] = lists:append([Errors || {Errors, _} <- Results]),
+    %% Every process got the same atom for each name (no name was
+    %% inserted twice), and it is the one binary_to_existing_atom/1 finds.
+    Seen = [Seen || {_, Seen} <- Results],
+    [] = [I || I <- lists:seq(1, N),
+               begin
+                   Atom = binary_to_existing_atom(element(I, Names)),
+                   lists:any(fun(M) -> maps:get(I, M) =/= Atom end, Seen)
+               end],
+    true = erlang:system_info(atom_count) - Count0 >= N,
+    ok.
+
+%% Each worker visits every name in its own order, creating or finding it,
+%% and checks a name it handled earlier with the existing-atom BIF.
+atom_lookup_worker(Names, N, W) ->
+    Stride = atom_lookup_stride(N, 7919 * W + 1),
+    Ix = fun(K) -> ((K * Stride + W) rem N) + 1 end,
+    lists:foldl(
+      fun(K, {Errors, Seen}) ->
+              I = Ix(K),
+              Name = element(I, Names),
+              Atom = case (K + W) rem 3 of
+                         0 -> binary_to_atom(Name);
+                         1 -> binary_to_atom(Name, utf8);
+                         2 -> list_to_atom(unicode:characters_to_list(Name))
+                     end,
+              Prev = element(Ix(max(0, K - 64)), Names),
+              Existing = try binary_to_existing_atom(Prev)
+                         catch error:badarg -> missing end,
+              {[E || {false, _} = E <- [{atom_matches(Name, Atom), Name},
+                                          {atom_matches(Prev, Existing), Prev}]]
+               ++ Errors,
+               Seen#{I => Atom}}
+      end, {[], #{}}, lists:seq(0, N - 1)).
+
+atom_lookup_stride(N, S) ->
+    case atom_lookup_gcd(S, N) of
+        1 -> S;
+        _ -> atom_lookup_stride(N, S + 1)
+    end.
+
+atom_lookup_gcd(A, 0) -> A;
+atom_lookup_gcd(A, B) -> atom_lookup_gcd(B, A rem B).
+
+atom_matches(Name, Atom) when is_atom(Atom) -> atom_to_binary(Atom) =:= Name;
+atom_matches(_, _) -> false.
 
 t_binary_to_existing_atom(Config) when is_list(Config) ->
     UnlikelyBin = <<"ou0897979655678dsfj923874390867er869fds973qerueoru">>,

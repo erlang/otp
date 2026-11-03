@@ -1356,7 +1356,8 @@ behavior of earlier flags.
     > This flag can be removed or changed at any time without prior notice.
 
 - **`+t size`{: #+t_size }** - Sets the maximum number of atoms the virtual machine
-  can handle. Defaults to 1,048,576.
+  can handle. Defaults to 1,048,576. To size the atom table for many atoms at
+  startup, see [`+zatis`](#+zatis).
 
 - **`+T Level`{: #+T_level }** - Enables modified timing and sets the modified timing
   level. Valid range is 0-9. The timing of the runtime system is changed. A high
@@ -1479,6 +1480,19 @@ behavior of earlier flags.
 
     The current (effective) value can be read by Erlang code by calling
     [`erlang:system_info(export_limit)`](`m:erlang#system_info_export_limit`).
+
+  - **`+zatis count`{: #+zatis }** - Sizes the atom table at startup for
+    `count` atoms, so that it does not have to grow until the runtime system
+    holds that many. Growing rehashes the whole table while the atom table
+    lock is held for writing, which blocks atom creation and some lookups
+    on all schedulers; with millions of atoms each growth step takes tens
+    of milliseconds. Useful for nodes known to create many atoms, such as
+    language servers and build tools that scan large code bases. Valid
+    range is `[1, 134217728]`. A value above the atom limit
+    ([`+t`](#+t_size)) is reduced to that limit. By default the table starts
+    small and grows on demand. The table costs 6 to 12 bytes per atom of
+    `count` on 64-bit systems, allocated at startup and included in
+    [`erlang:memory(atom)`](`erlang:memory/0`).
 
 ## Environment Variables
 
