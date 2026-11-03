@@ -25,6 +25,8 @@ AC_INIT
 AC_CONFIG_SRCDIR([conf_vars.in])
 AC_PREREQ([2.72])
 
+m4_include([otp.m4])
+
 AC_CANONICAL_HOST
 
 dnl Checks for programs.
@@ -76,6 +78,12 @@ fi
 AC_SYS_YEAR2038_RECOMMENDED
 
 AC_CHECK_LIB(m, sin)
+
+#--------------------------------------------------------------------
+# Test for gmp availability
+#--------------------------------------------------------------------
+
+ERL_WITH_GMP
 
 #--------------------------------------------------------------------
 #	Interactive UNIX requires -linet instead of -lsocket, plus it

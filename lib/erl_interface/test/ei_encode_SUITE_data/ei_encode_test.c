@@ -20,6 +20,10 @@
  * %CopyrightEnd%
  */
 
+#if defined(HAVE_GMP_H) && defined(HAVE_LIBGMP)
+#include <gmp.h>
+#endif
+
 #include "ei_runner.h"
 
 /*
@@ -518,6 +522,39 @@ TESTCASE(test_ei_encode_ulonglong)
     report(1);
 }
 
+/* ******************************************************************** */
+
+TESTCASE(test_ei_encode_bignum)
+{
+    ei_init();
+
+#if defined(__GNU_MP_VERSION) \
+    && ((__GNU_MP_VERSION == 4 && __GNU_MP_VERSION_MINOR >= 1) || __GNU_MP_VERSION > 4)
+
+    send_buffer("run", 3);
+
+    {
+        mpz_t obj;
+        mpz_init(obj);
+        mpz_set_str(obj, "1234567890123456789012345678901234567890", 10);
+        EI_ENCODE_1(encode_bignum, obj);
+        mpz_clear(obj);
+    }
+
+    {
+        mpz_t obj;
+        mpz_init(obj);
+        mpz_set_str(obj, "1234567890123456789012345678901234567890", 10);
+        mpz_neg(obj, obj);
+        EI_ENCODE_1(encode_bignum, obj);
+        mpz_clear(obj);
+    }
+    
+#else
+    send_buffer("skip", 4);
+#endif /* __GNU_MP_VERSION */
+    report(1);
+}
 
 /* ******************************************************************** */
 
