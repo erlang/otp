@@ -1203,7 +1203,7 @@ arrange(Tid, Store, Type) ->
     Prep =
 	case Type of
 	    async -> #prep{protocol = sym_trans, records = Recs};
-	    sync -> #prep{protocol = sync_sym_trans, records = Recs}
+            sync -> #prep{protocol = sync_sym_trans, sync = true, records = Recs}
 	end,
     {New, Prepared} = do_arrange(Tid, Store, Key, Prep, N),
     {New, Prepared#prep{records = reverse(Prepared#prep.records)}}.
