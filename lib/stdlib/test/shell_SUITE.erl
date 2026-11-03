@@ -38,7 +38,7 @@
 -export([ start_restricted_from_shell/1,
 	  start_restricted_on_command_line/1,restricted_local/1]).
 
--export([ start_interactive/1, whereis/1 ]).
+-export([ start_interactive/1, whereis/1, whereis_session_shell/1 ]).
 
 %% Internal export.
 -export([otp_5435_2/0, prompt1/1, prompt2/1, prompt3/1, prompt4/1,
@@ -81,7 +81,7 @@ all() ->
     [forget, known_bugs, otp_5226, otp_5327,
      otp_5435, otp_5195, otp_5915, otp_5916,
      prompt_width,local_definitions_save_to_module_and_forget,
-     start_interactive, whereis, {group, bits},
+     start_interactive, whereis, whereis_session_shell, {group, bits},
      {group, refman}, {group, progex}, {group, tickets},
      {group, restricted}, {group, records}, {group, definitions}].
 
@@ -3438,6 +3438,42 @@ whereis(_Config) ->
     peer:stop(Peer),
 
     ok.
+
+%% A session that is not user_drv's, such as one started by ssh_cli, finds
+%% its own shell, both from within the session and from an expand_fun
+whereis_session_shell(_Config) ->
+    Self = self(),
+    Drv = spawn(fun fake_drv/0),
+    Shell = spawn(fun() -> receive _ -> ok end end),
+    Expand = fun(_Before, _Opts) ->
+                     Self ! {expand_fun, shell:whereis()},
+                     {no, "", []}
+             end,
+    Group = group:start(Drv, Shell, [{expand_fun, Expand}]),
+    spawn(fun() ->
+                  group_leader(Group, self()),
+                  Self ! {session, shell:whereis()},
+                  io:get_line("")
+          end),
+    Shell = receive {session, SessionShell} -> SessionShell end,
+    Group ! {Drv, {data, "\t"}},
+    Shell = receive {expand_fun, ExpandShell} -> ExpandShell end,
+    exit(Group, kill),
+    ok.
+
+fake_drv() ->
+    receive
+        {Group, tty_geometry} ->
+            Group ! {self(), tty_geometry, {80, 24}};
+        {Group, get_unicode_state} ->
+            Group ! {self(), get_unicode_state, true};
+        {Group, get_terminal_state} ->
+            Group ! {self(), get_terminal_state,
+                     #{stdin => true, stdout => true, stderr => true}};
+        _ ->
+            ok
+    end,
+    fake_drv().
 
 quit_hosting_node() ->
     [{putline, "\^g"},
