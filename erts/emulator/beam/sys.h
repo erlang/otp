@@ -685,6 +685,10 @@ UWord erts_sys_get_page_size(void);
 
 UWord erts_sys_get_large_page_size(void);
 
+#if defined(HAVE_LINUX_THP) && defined(__aarch64__)
+int erts_sys_is_thp_size_safe(UWord size);
+#endif
+
 /* Size of misc memory allocated from system dependent code */
 Uint erts_sys_misc_mem_sz(void);
 

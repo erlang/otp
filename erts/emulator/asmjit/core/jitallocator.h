@@ -89,6 +89,13 @@ enum class JitAllocatorOptions : uint32_t {
   //! allocation would be the same as a minimum large page when large pages are enabled and can be allocated.
   kAlignBlockSizeToLargePage = 0x00000040u,
 
+  //! Request transparent huge page advice for single mappings on Linux.
+  //!
+  //! Uses anonymous mappings aligned to \ref VirtMem::large_page_size(), without inspecting kernel policy.
+  //! Failed mappings or advice fall back to unadvised mappings.
+  //! Dual mappings are unchanged. This option takes precedence over \ref kUseLargePages.
+  kUseTransparentHugePages = 0x00000080u,
+
   //! Use a custom fill pattern, must be combined with `kFlagFillUnusedMemory`.
   kCustomFillPattern = 0x10000000u
 };
