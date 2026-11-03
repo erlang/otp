@@ -21,7 +21,7 @@
 %%
 -module(core_fold_SUITE).
 
--export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
+-export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2,
 	 t_element/1,setelement/1,t_length/1,append/1,t_apply/1,bifs/1,
 	 eq/1,nested_call_in_case/1,guard_try_catch/1,coverage/1,
@@ -32,7 +32,7 @@
          redundant_stack_frame/1,export_from_case/1,
          empty_values/1,cover_letrec_effect/1,
          receive_effect/1,nested_lets/1,
-         map_effect/1]).
+         map_effect/1,lc_append/1]).
 
 -export([foo/0,foo/1,foo/2,foo/3]).
 
@@ -55,7 +55,7 @@ groups() ->
        redundant_stack_frame,export_from_case,
        empty_values,cover_letrec_effect,
        receive_effect,nested_lets,
-       map_effect]}].
+       map_effect,lc_append]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -874,6 +874,49 @@ map_effect_1() ->
 map_effect_2(Map) ->
     Map#{key := value},
     ok.
+
+lc_append(_Config) ->
+    %% Basic: intermediate variable LC ++ Tail
+    [1,2,3,4,5] = lc_append_var([1,2,3], [4,5]),
+    [4,5] = lc_append_var([], [4,5]),
+    [1,2,3] = lc_append_var([1,2,3], []),
+    [] = lc_append_var([], []),
+
+    %% Inline: [E || Qs] ++ Tail
+    [1,2,3,4,5] = lc_append_inline([1,2,3], [4,5]),
+    [4,5] = lc_append_inline([], [4,5]),
+
+    %% With filter
+    [2,3,4,5] = lc_append_filter([1,2,3], [4,5]),
+
+    %% Multi-use variable must NOT be optimized (still correct)
+    [1,2,3,4,5] = lc_append_multi_use([1,2,3], [4,5]),
+
+    %% Multi-generator
+    [{1,a},{1,b},{2,a},{2,b},done] =
+        lc_append_multi_gen([1,2], [a,b], [done]),
+
+    ok.
+
+lc_append_var(List, Tail) ->
+    Expanded = id([X || X <- List]),
+    Expanded ++ Tail.
+
+lc_append_inline(List, Tail) ->
+    [X || X <- List] ++ Tail.
+
+lc_append_filter(List, Tail) ->
+    Expanded = id([X || X <- List, X > 1]),
+    Expanded ++ Tail.
+
+lc_append_multi_use(List, Tail) ->
+    Expanded = id([X || X <- List]),
+    _ = length(Expanded),
+    Expanded ++ Tail.
+
+lc_append_multi_gen(L1, L2, Tail) ->
+    Expanded = id([{X,Y} || X <- L1, Y <- L2]),
+    Expanded ++ Tail.
 
 %%% Common utility functions.
 
