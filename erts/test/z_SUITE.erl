@@ -421,24 +421,38 @@ win32_search_2(true, DBTop0) ->
     DBTop = search_dir(DBTop0),
     Dir = "c:/ldisk/daily_build",
     io:format("Find and move 'dmp' files in: ~s to ~s~n",[Dir, DBTop]),
-    case filelib:wildcard("*.dmp", Dir) of
+    Dumps = filelib:wildcard("*.dmp", Dir),
+    OTPDumps = filter_terminal(Dumps),
+    move_dumps(Dumps, Dir, DBTop),
+    case OTPDumps of
         [] -> ok;
-        Dumps ->
-            %% We move the "daily" dmp files to this test-run
-            Str = lists:flatten(["Core-files found:", lists:join($\s, lists:reverse(Dumps))]),
-            Rename = fun(File) ->
-                             FP = filename:join(Dir, File),
-                             _ = file:rename(FP, filename:join(DBTop, File))
-                     end,
-            [Rename(File) || File <- Dumps],
+        _ ->
+            Str = lists:flatten(["Core-files found:", lists:join($\s, lists:reverse(OTPDumps))]),
             ct:fail(Str)
     end;
 win32_search_2(false, _DBTop0) ->
     DBTop = search_dir("c:/ldisk/daily_build"),
     io:format("Search for 'dmp' files in: ~s~n",[DBTop]),
-    case filelib:wildcard("*.dmp", DBTop) of
+    case filter_terminal(filelib:wildcard("*.dmp", DBTop)) of
         [] -> "Core-files found: Ignored core-files found:";
         Dumps ->
             io:format("The dmp files must be removed manually\n", []),
             lists:flatten(["Core-files found:", lists:join($\s, lists:reverse(Dumps))])
     end.
+
+%% Move all dumps to the current testrun dir, so we know which dump
+%% comes from which testrun, and that they are deleted when the
+%% testrun dir is deleted.
+move_dumps(Dumps, Dir, DBTop) ->
+    Rename = fun(File) ->
+                     FP = filename:join(Dir, File),
+                     _ = file:rename(FP, filename:join(DBTop, File))
+             end,
+    [Rename(File) || File <- Dumps].
+
+%% Ignore WindowsTerminal crashes, when printing errors
+filter_terminal(Dumps) ->
+    SkipTerminal = fun(FileName) ->
+                           string:prefix(FileName, "WindowsTerminal") =:= nomatch
+                   end,
+    lists:filter(SkipTerminal, Dumps).
