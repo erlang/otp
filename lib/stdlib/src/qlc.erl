@@ -393,10 +393,10 @@ eval(QH, Options) ->
                Acc1 | Error when
       QH :: query_handle_or_list(),
       Function :: fun((answer(), AccIn) -> AccOut),
-      Acc0 :: term(),
-      Acc1 :: term(),
-      AccIn :: term(),
-      AccOut :: term(),
+      Acc0 :: Acc,
+      Acc1 :: Acc,
+      AccIn :: Acc,
+      AccOut :: Acc,
       Error :: {error, module(), Reason},
       Reason :: file_sorter:reason()).
 fold(Fun, Acc0, QH) ->
@@ -422,10 +422,10 @@ qlc:fold(fun(X, Sum) -> X + Sum end, 0, QH).
                Acc1 | Error when
       QH :: query_handle_or_list(),
       Function :: fun((answer(), AccIn) -> AccOut),
-      Acc0 :: term(),
-      Acc1 :: term(),
-      AccIn :: term(),
-      AccOut :: term(),
+      Acc0 :: Acc,
+      Acc1 :: Acc,
+      AccIn :: Acc,
+      AccOut :: Acc,
       Options :: [Option] | Option,
       Option :: {cache_all, cache()} | cache_all
               | {max_list_size, max_list_size()}

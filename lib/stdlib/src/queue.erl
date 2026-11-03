@@ -843,10 +843,10 @@ accumulator. `Acc0` is returned if the queue is empty.
 -doc(#{group => <<"Original API">>,since => <<"OTP 24.0">>}).
 -spec fold(Fun, Acc0, Q :: queue(Item)) -> Acc1 when
       Fun :: fun((Item, AccIn) -> AccOut),
-      Acc0 :: term(),
-      Acc1 :: term(),
-      AccIn :: term(),
-      AccOut :: term().
+      Acc0 :: Acc,
+      Acc1 :: Acc,
+      AccIn :: Acc,
+      AccOut :: Acc.
 fold(Fun, Acc0, {R, F}) when is_function(Fun, 2), is_list(R), is_list(F) ->
     Acc1 = lists:foldl(Fun, Acc0, F),
     lists:foldr(Fun, Acc1, R);
