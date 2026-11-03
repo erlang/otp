@@ -309,7 +309,29 @@ rootset(Config) when is_list(Config) ->
     {ok, ProfAll} = tprof:profile(Fun, #{rootset => all, report => return, type => call_memory}),
     %% at least tprof, pg2 and new profiled processes are traced
     ?assert(map_size(tprof:inspect(ProfAll)) >= 3),
-    gen_server:stop(Scope).
+    gen_server:stop(Scope),
+
+    %% Processes spawned by a rootset process must honor set_on_spawn too.
+    Root = spawn_link(fun() ->
+        receive
+            {spawn_child, From} ->
+                _ = lists:seq(1, 32),
+                {Child, MRef} = spawn_monitor(fun() -> lists:seq(1, 32) end),
+                receive
+                    {'DOWN', MRef, process, Child, normal} ->
+                        From ! {spawned, Child}
+                end
+        end
+    end),
+    {Child, NoSpawnProfile} = tprof:profile(
+        fun() ->
+            Root ! {spawn_child, self()},
+            receive {spawned, Pid} -> Pid end
+        end, #{rootset => [Root], set_on_spawn => false,
+               pattern => {lists, seq_loop, 3}, report => return, type => call_memory}),
+    Inspected = tprof:inspect(NoSpawnProfile),
+    ?assert(maps:is_key(Root, Inspected)),
+    ?assertNot(maps:is_key(Child, Inspected)).
 
 set_on_spawn() ->
     [{doc, "Tests tprof running with extra spawned processes"}].
