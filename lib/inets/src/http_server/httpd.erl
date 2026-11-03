@@ -167,17 +167,18 @@ property list.
   Instructs the server whether to use persistent connections when the client
   claims to be HTTP/1.1 compliant. Default is `true`.
 
-- [](){: #prop_keep_alive_timeout } **`{keep_alive_timeout, integer() | infinity}`**
+- [](){: #prop_keep_alive_timeout } **`{keep_alive_timeout, integer()}`**
   The number of seconds the server waits for a subsequent request from the
   client before closing the connection. This timer covers the waiting time
   for the request to arrive, starting from the connection opening or the
   moment the server sent a response to a previous request.
   Default is `150` seconds.
 
-- [](){: #prop_max_body_size } **`{max_body_size, integer() | nolimit}`**
-  Limits the size of the message body of an HTTP request. Default is no limit.
+- [](){: #prop_max_body_size } **`{max_body_size, integer()}`**  
+  Limits the size of the message body of an HTTP request.
+  Default is `100000000` (100 MB).
 
-- [](){: #prop_request_timeout } **`{request_timeout, pos_integer() | infinity}`**
+- [](){: #prop_request_timeout } **`{request_timeout, pos_integer()}`**
   Limits the time the server is allowed to be idle waiting for the next chunk
   of an HTTP request. Refreshes on every incoming chunk within the same request.
   Default is `60` seconds.
@@ -194,8 +195,8 @@ property list.
   larger than this are answered with status 413. Default is `100000000` (100
   MB).
 
-- [](){: #prop_max_uri } **`{max_uri_size, integer() | nolimit}`**
-  Limits the size of the HTTP request URI. Default is no limit.
+- [](){: #prop_max_uri } **`{max_uri_size, integer()}`**  
+  Limits the size of the HTTP request URI. Default is `8192` (8 KB).
 
 - [](){: #prop_max_keep_alive_req } **`{max_keep_alive_request, integer()}`**  
   The number of requests that a client can do on one connection. When the server
@@ -725,7 +726,7 @@ The properties for the security directories are as follows:
   relative to the `server_root`. This file is used to store persistent data for
   module `mod_security`.
 
-- [](){: #prop_max_retries } **`{max_retries, integer()}`**  
+- [](){: #prop_max_retries } **`{max_retries, integer() | infinity}`**  
   Specifies the maximum number of attempts to authenticate a user before the
   user is blocked out. If a user successfully authenticates while blocked, the
   user receives a 403 (Forbidden) response from the server. If the user makes a
