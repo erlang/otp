@@ -94,6 +94,9 @@ the key `config`, and can contain the following parameters:
   user can also call the [`filesync/1`](`filesync/1`) function to perform a
   disk_log sync.
 
+Log entries are written UTF-8 encoded. Plain binaries returned by the formatter
+are written unchanged (see `c:logger_formatter:format/2`).
+
 Other configuration parameters exist, to be used for customizing the overload
 protection behaviour. The same parameters are used both in the standard handler
 and the disk_log handler, and are documented in the
