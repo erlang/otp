@@ -462,6 +462,11 @@ is_guess_wrong(true, _, _) ->
 kexinit_error(Class, Error, Role, Own, CounterPart, Ssh) ->
     {Fmt,Args} =
         case {Class,Error} of
+            {error, {badmatch,{false,"kex_strict"}}} ->
+                %% Strict KEX violation (not an algorithm-negotiation
+                %% failure): skip alg_info/2, which has no "kex_strict"
+                %% clause and would crash into a misleading "Internal error".
+                {"Strict KEX violation: KEXINIT was not the first message", []};
             {error, {badmatch,{false,Alg}}} ->
                 {Txt,W,C} = alg_info(Role, Alg),
                 MsgFun =
