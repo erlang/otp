@@ -134,14 +134,17 @@ start_log_handler(Options) ->
         _Pid ->
             ok
     end,
-    {DefaultFormatter, DefaultLevel} =
+    HandlerConfig =
         case logger:get_handler_config(default) of
-            {ok, Default} ->
-                {maps:get(formatter, Default), maps:get(level, Default)};
+            {ok, #{filters := Filters} = Default} ->
+                %% Events from remote group leaders are handled by
+                %% this handler, see handle_remote_events/1
+                (maps:with([level, formatter, filter_default], Default))
+                    #{filters => lists:keydelete(remote_gl, 1, Filters)};
             _Else ->
-                {{?DEFAULT_FORMATTER,?DEFAULT_FORMAT_CONFIG},info}
+                #{level => info,
+                  formatter => {?DEFAULT_FORMATTER,?DEFAULT_FORMAT_CONFIG}}
         end,
-    HandlerConfig = #{level => DefaultLevel, formatter => DefaultFormatter},
     HandlerName = case proplists:get_value(mode, Options, add) of
                       add ->
                           ?MODULE;
