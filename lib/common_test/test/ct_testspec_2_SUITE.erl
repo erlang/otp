@@ -170,11 +170,11 @@ basic_compatible_no_nodes(_Config) ->
     {ok,SpecDir} = file:get_cwd(),
     
     ListResult = ct_testspec:collect_tests_from_list(Spec, false),
-    ct:pal("TESTSPEC RECORD FROM LIST:~n~p~n", [rec2proplist(ListResult)]),	
+    ct:log("TESTSPEC RECORD FROM LIST:~n~p~n", [rec2proplist(ListResult)]),	
     SpecFile = ct_test_support:write_testspec(Spec,SpecDir,
 					      "basic_compatible_no_nodes.spec"),
     FileResult = ct_testspec:collect_tests_from_file([SpecFile], false),
-    ct:pal("TESTSPEC RECORD FROM FILE:~n~p~n", [rec2proplist(FileResult)]),
+    ct:log("TESTSPEC RECORD FROM FILE:~n~p~n", [rec2proplist(FileResult)]),
     
     Node = node(),
     LogDirV = get_absdir(filename:join(SpecDir,"../logs")),
@@ -227,7 +227,7 @@ basic_compatible_no_nodes(_Config) ->
     verify_result(Verify,ListResult,FileResult),
 
     {ok,Tests} = ct_testspec:get_tests([SpecFile]),
-    ct:pal("ct_testspec:get_tests/1:~n~p~n", [Tests]),
+    ct:log("ct_testspec:get_tests/1:~n~p~n", [Tests]),
     [{[SpecFile],[{Node,Run,Skip}]}] = Tests,
     [{Alias1V,x_SUITE,all},
      {Alias1V,y_SUITE,[{g1,all},{g2,all},tc1,tc2]},
@@ -294,11 +294,11 @@ basic_compatible_nodes(_Config) ->
     {ok,SpecDir} = file:get_cwd(),
     
     ListResult = ct_testspec:collect_tests_from_list(Spec, false),
-    ct:pal("TESTSPEC RECORD FROM LIST:~n~p~n", [rec2proplist(ListResult)]),	
+    ct:log("TESTSPEC RECORD FROM LIST:~n~p~n", [rec2proplist(ListResult)]),	
     SpecFile = ct_test_support:write_testspec(Spec,SpecDir,
 					      "basic_compatible_nodes.spec"),
     FileResult = ct_testspec:collect_tests_from_file([SpecFile], false),
-    ct:pal("TESTSPEC RECORD FROM FILE:~n~p~n", [rec2proplist(FileResult)]),
+    ct:log("TESTSPEC RECORD FROM FILE:~n~p~n", [rec2proplist(FileResult)]),
     
     Node = node(),
     LogDirV = get_absdir(filename:join(SpecDir,"../logs")),
@@ -372,7 +372,7 @@ basic_compatible_nodes(_Config) ->
     verify_result(Verify,ListResult,FileResult),
 
     {ok,Tests} = ct_testspec:get_tests([SpecFile]),
-    ct:pal("ct_testspec:get_tests/1:~n~p~n", [Tests]),
+    ct:log("ct_testspec:get_tests/1:~n~p~n", [Tests]),
     [{[SpecFile],[{Node,[],[]},
                   {Node1,Run1,Skip1},
                   {Node2,Run2,Skip2}]}] = Tests,
@@ -448,11 +448,11 @@ no_merging(_Config) ->
     {ok,SpecDir} = file:get_cwd(),
     
     ListResult = ct_testspec:collect_tests_from_list(Spec, false),
-    ct:pal("TESTSPEC RECORD FROM LIST:~n~p~n", [rec2proplist(ListResult)]),	
+    ct:log("TESTSPEC RECORD FROM LIST:~n~p~n", [rec2proplist(ListResult)]),	
     SpecFile = ct_test_support:write_testspec(Spec,SpecDir,
 					      "no_merging.spec"),
     FileResult = ct_testspec:collect_tests_from_file([SpecFile], false),
-    ct:pal("TESTSPEC RECORD FROM FILE:~n~p~n", [rec2proplist(FileResult)]),
+    ct:log("TESTSPEC RECORD FROM FILE:~n~p~n", [rec2proplist(FileResult)]),
     
     Node = node(),
     TO1V = get_absdir(filename:join(SpecDir,TODir1)),
@@ -483,7 +483,7 @@ no_merging(_Config) ->
     verify_result(Verify,ListResult,FileResult),
 
     {ok,Tests} = ct_testspec:get_tests([SpecFile]),
-    ct:pal("ct_testspec:get_tests/1:~n~p~n", [Tests]),
+    ct:log("ct_testspec:get_tests/1:~n~p~n", [Tests]),
     [{[SpecFile],[{Node,[],[]},
                   {Node1,Run1,Skip1},
                   {Node2,Run2,Skip2}]}] = Tests,
@@ -544,7 +544,7 @@ multiple_specs(_Config) ->
 					      "multiple_specs.2.spec"),
     FileResult = ct_testspec:collect_tests_from_file([[SpecFile1,SpecFile2]],
 						     false),
-    ct:pal("TESTSPEC RECORD FROM FILE:~n~p~n", [rec2proplist(FileResult)]),
+    ct:log("TESTSPEC RECORD FROM FILE:~n~p~n", [rec2proplist(FileResult)]),
     
     Node = node(),
     TO1V = get_absdir(filename:join(SpecDir,TODir1)),
@@ -575,7 +575,7 @@ multiple_specs(_Config) ->
     verify_result(Verify,FileResult,FileResult),
 
     {ok,Tests} = ct_testspec:get_tests([[SpecFile1,SpecFile2]]),
-    ct:pal("ct_testspec:get_tests/1:~n~p~n", [Tests]),
+    ct:log("ct_testspec:get_tests/1:~n~p~n", [Tests]),
     [{[SpecFile1,SpecFile2],[{Node,[],[]},
                              {Node1,Run1,Skip1},
                              {Node2,Run2,Skip2}]}] = Tests,
@@ -634,11 +634,11 @@ misc_config_terms(_Config) ->
     {ok,SpecDir} = file:get_cwd(),
     
     ListResult = ct_testspec:collect_tests_from_list(Spec, false),
-    ct:pal("TESTSPEC RECORD FROM LIST:~n~p~n", [rec2proplist(ListResult)]),	
+    ct:log("TESTSPEC RECORD FROM LIST:~n~p~n", [rec2proplist(ListResult)]),	
     SpecFile = ct_test_support:write_testspec(Spec,SpecDir,
 					      "misc_config_terms.spec"),
     FileResult = ct_testspec:collect_tests_from_file([SpecFile], false),
-    ct:pal("TESTSPEC RECORD FROM FILE:~n~p~n", [rec2proplist(FileResult)]),
+    ct:log("TESTSPEC RECORD FROM FILE:~n~p~n", [rec2proplist(FileResult)]),
     
     Node = node(),
     CfgA = get_absdir(filename:join(filename:join(SpecDir,CfgDir), "a.cfg")),
@@ -722,11 +722,11 @@ define_names_1(_Config) ->
     {ok,SpecDir} = file:get_cwd(),
     
     ListResult = ct_testspec:collect_tests_from_list(Spec, false),
-    ct:pal("TESTSPEC RECORD FROM LIST:~n~p~n", [rec2proplist(ListResult)]),	
+    ct:log("TESTSPEC RECORD FROM LIST:~n~p~n", [rec2proplist(ListResult)]),	
     SpecFile = ct_test_support:write_testspec(Spec,SpecDir,
 					      "define_names_1.spec"),
     FileResult = ct_testspec:collect_tests_from_file([SpecFile], false),
-    ct:pal("TESTSPEC RECORD FROM FILE:~n~p~n", [rec2proplist(FileResult)]),
+    ct:log("TESTSPEC RECORD FROM FILE:~n~p~n", [rec2proplist(FileResult)]),
     
     N = node(),
     N1 = testnode1@eniac,

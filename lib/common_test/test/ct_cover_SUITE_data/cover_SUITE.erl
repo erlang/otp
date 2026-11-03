@@ -80,11 +80,13 @@ slave(_Config) ->
     cover_compiled = code:which(cover_test_mod),
     cover_test_mod:foo(),
     N1 = nodename(slave,1),
-    {ok,Node} = start_slave(N1),
-    cover_compiled = rpc:call(Node,code,which,[cover_test_mod]),
+    {ok, Controller, Node} = start_slave(N1),
+    cover_compiled = erpc:call(Node,code,which,[cover_test_mod]),
     rpc:call(Node,cover_test_mod,foo,[]),
-    {ok,Node} = ct_slave:stop(N1),
+    ok = cover:flush(Node),
+    ok = peer:stop(Controller),
     ok.
+
 slave(cleanup,_Config) ->
     kill_slaves([nodename(slave,1)]).
 
@@ -93,14 +95,17 @@ slave_start_slave(_Config) ->
     cover_test_mod:foo(),
     N1 = nodename(slave_start_slave,1),
     N2 = nodename(slave_start_slave,2),
-    {ok,Node} = start_slave(N1),
+    {ok, Controller, Node} = start_slave(N1),
     cover_compiled = rpc:call(Node,code,which,[cover_test_mod]),
-    rpc:call(Node,cover_test_mod,foo,[]),
-    {ok,Node2} = start_slave(Node,N2), % start slave N2 from node Node
-    rpc:call(Node2,cover_test_mod,foo,[]),
-    {ok,Node2} = rpc:call(Node,ct_slave,stop,[N2]),
-    {ok,Node} = ct_slave:stop(N1),
+    erpc:call(Node,cover_test_mod,foo,[]),
+    {ok, Controller2, Node2} = start_slave(Node,N2), % start slave N2 from node Node
+    erpc:call(Node2,cover_test_mod,foo,[]),
+    ok = cover:flush(Node2),
+    ok = erpc:call(Node, peer, stop, [Controller2]),
+    ok = cover:flush(Node),
+    ok = peer:stop(Controller),
     ok.
+
 slave_start_slave(cleanup,_Config) ->
     kill_slaves([nodename(slave_start_slave,1),
 		 nodename(slave_start_slave,2)]).
@@ -162,10 +167,19 @@ start_slave(Name) ->
     start_slave(node(),Name).
 
 start_slave(FromNode,Name) ->
-    {ok, HostStr}=inet:gethostname(),
-    Host = list_to_atom(HostStr),
-    rpc:call(FromNode,ct_slave,start,
-	     [Host,Name,
-	      [{boot_timeout,15}, % extending some timers for slow test hosts
-	       {init_timeout,15},
-	       {startup_timeout,15}]]).
+    {ok, Host} = inet:gethostname(),
+    PeerOpts = #{
+        host => Host,
+        name => Name,
+        % extending some timers for slow test hosts
+        timeout => timer:seconds(15),
+        wait_boot => timer:seconds(15)
+    },
+    {ok, _Controller, Node} = StartPeer = erpc:call(FromNode, peer, start, [PeerOpts]),
+    % Previously, cover was started automatically by ct_slave, peer won't do
+    % that for us, so we have to start cover ourselves.
+    case test_server:is_cover() of
+        true -> {ok, [Node]} = cover:start(Node);
+        false -> ok
+    end,
+    StartPeer.
