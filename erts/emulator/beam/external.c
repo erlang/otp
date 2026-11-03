@@ -3021,6 +3021,30 @@ enc_pid(ErtsAtomCacheMap *acmp, Eterm pid, byte* ep, Uint64 dflags)
     return enc_external_pid(acmp, pid, ep, dflags);
 }
 
+static byte*
+enc_int32(Sint32 val, byte* ep)
+{
+    if ((Uint32)val < 256) {
+        *ep++ = SMALL_INTEGER_EXT;
+        put_int8(val, ep);
+        ep++;
+    } else {
+        *ep++ = INTEGER_EXT;
+        put_int32(val, ep);
+        ep += 4;
+    }
+    return ep;
+}
+
+static Uint
+encode_int32_size(Sint32 val)
+{
+    if ((Uint32)val < 256)
+        return 1 + 1;		/* SMALL_INTEGER_EXT */
+    else
+        return 1 + 4;		/* INTEGER_EXT */
+}
+
 /* Expect an atom in plain text or cached */
 static const byte*
 dec_atom(ErtsDistExternal *edep, const byte* ep, Eterm* objp, int internal_nc)
@@ -3283,7 +3307,10 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
         }
     }
 
-    /* We only pass here once at the start of the encoding... */
+    /*
+     * We only pass here once at the start of the encoding
+     * as long as NO RECURSIVE CALLS to enc_term() are done.
+     */
     if (dflags & DFLAG_LOCAL_EXT) {
         *ep++ = LOCAL_EXT;
         lext_hash = ep;
@@ -3966,8 +3993,8 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
                     put_int32((Uint32)fun_num_free(funp), ep);
                     ep += 4;
                     ep = enc_atom(acmp, fe->module, ep, dflags);
-                    ep = enc_term(acmp, make_small(fe->old_index), ep, dflags, off_heap);
-                    ep = enc_term(acmp, make_small(fe->old_uniq), ep, dflags, off_heap);
+                    ep = enc_int32((Sint32)fe->old_index, ep);
+                    ep = enc_int32((Sint32)fe->old_uniq, ep);
                     ep = enc_pid(acmp, erts_init_process_id, ep, dflags);
 
                     for (ei = fun_num_free(funp)-1; ei >= 0; ei--) {
@@ -3979,8 +4006,7 @@ enc_term_int(TTBEncodeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj, byte* ep,
                     *ep++ = EXPORT_EXT;
                     ep = enc_atom(acmp, exp->info.mfa.module, ep, dflags);
                     ep = enc_atom(acmp, exp->info.mfa.function, ep, dflags);
-                    ep = enc_term(acmp, make_small(exp->info.mfa.arity),
-                                 ep, dflags, off_heap);
+                    ep = enc_int32((Sint32)exp->info.mfa.arity, ep);
 
                 }
             }
@@ -5682,8 +5708,8 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
                             + 4 /* index */
                             + 4; /* free variables */
                     result += encode_atom_size(acmp, fe->module, dflags);
-                    result += encode_small_size(acmp, make_small(fe->old_index), dflags);
-                    result += encode_small_size(acmp, make_small(fe->old_uniq), dflags);
+                    result += encode_int32_size((Sint32)fe->old_index);
+                    result += encode_int32_size((Sint32)fe->old_uniq);
                     result += encode_pid_size(acmp, erts_init_process_id, dflags);
 
                     if (fun_num_free(funp) > 1) {
@@ -5701,7 +5727,7 @@ encode_size_struct_int(TTBSizeContext* ctx, ErtsAtomCacheMap *acmp, Eterm obj,
                     result += 1;
                     result += encode_atom_size(acmp, ep->info.mfa.module, dflags);
                     result += encode_atom_size(acmp, ep->info.mfa.function, dflags);
-                    result += encode_small_size(acmp, make_small(ep->info.mfa.arity), dflags);
+                    result += encode_int32_size((Sint32)ep->info.mfa.arity);
                 }
                 break;
         }

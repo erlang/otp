@@ -2399,7 +2399,9 @@ local_ext(Config) when is_list(Config) ->
                                    "hej",
                                    [],
                                    {processes(), Bin3, erlang:ports(), Bin3},
-                                   #{pid => LocalPid, ref => LocalRef, port => LocalPort}
+                                   #{pid => LocalPid, ref => LocalRef, port => LocalPort},
+                                   fun lists:map/2,
+                                   fun(X) -> X+1 end
                                   ],
                           {ok, FD} = file:open(FileName, [write]),
                           ETs = lists:map(fun (Term) ->
