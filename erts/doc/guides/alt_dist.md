@@ -169,6 +169,11 @@ The following functions are mandatory:
   either an atom or a string. The argument `Host` is the part of the node name
   after the `@` sign in the full node name. It is always a string.
 
+  Only one of `listen/1` and `listen/2` needs to be exported. `listen/2` is
+  called if it is exported; otherwise, `listen/1` is called with only the `Name`
+  argument. Neither is called if the node does not listen for incoming
+  connections (see [`address/0`](alt_dist.md#address)).
+
   The return value consists of a `Listen` handle (which is later passed to the
   [`accept/1`](alt_dist.md#accept) callback), `Address` which is a
   `#net_address{}` record with information about the address for the node (the
@@ -182,12 +187,22 @@ The following functions are mandatory:
 - ```
   address() ->
     Address
+  address(Host) ->
+    Address
   ```
   {: #address }
   
   `address/0` is called in order to get the `Address` part of the
   [`listen/2`](alt_dist.md#listen) function without creating a listen socket.
   All fields except `address` have to be set in the returned record
+
+  It is only called when the node does not listen for incoming connections,
+  that is, when the distribution is started with
+  [`-dist_listen false`](erl_cmd.md#dist_listen) or with a dynamic node name
+  (`-sname undefined`). It is mandatory only for distribution modules that are
+  to be used in that mode. If `address/1` is exported (since OTP 26), it is
+  called instead of `address/0`, with `Host` being the part of the node name
+  after the `@` sign.
 
   Example:
 
@@ -208,7 +223,7 @@ The following functions are mandatory:
   process should be returned.
 
   The `Listen` argument will be the same as the `Listen` handle part of the
-  return value of the [`listen/1`](alt_dist.md#listen) callback above.
+  return value of the [`listen/1,2`](alt_dist.md#listen) callback above.
   `accept/1` is called only once when the distribution protocol is started.
 
   The caller of this function is a representative for `net_kernel` (this may or
@@ -344,7 +359,7 @@ The following functions are mandatory:
   {: #close }
   
   Called in order to close the `Listen` handle that originally was passed from
-  the [`listen/1`](alt_dist.md#listen) callback.
+  the [`listen/1,2`](alt_dist.md#listen) callback.
 
 - ```
   select(NodeName) ->
@@ -355,7 +370,19 @@ The following functions are mandatory:
   Return `true` if the host name part of the `NodeName` is valid for use with
   this protocol; otherwise, `false`.
 
-There are also two optional functions that may be exported:
+  `select/1` is called from a temporary process, not from `net_kernel`, and the
+  connection setup fails if it does not return within the connection setup time.
+
+There are also three optional functions that may be exported:
+
+- ```
+  childspecs() ->
+    {ok, ChildSpecs}
+  ```
+  {: #childspecs }
+
+  Return a list of child specifications for processes that are started under
+  the distribution supervisor, before `net_kernel`.
 
 - ```
   setopts(Listen, Opts) ->
@@ -364,7 +391,8 @@ There are also two optional functions that may be exported:
   {: #setopts }
   
   The argument `Listen` is the handle originally passed from the
-  [`listen/1`](alt_dist.md#listen) callback. The argument `Opts` is a list of
+  [`listen/1,2`](alt_dist.md#listen) callback, or `undefined` if the node does
+  not listen for incoming connections. The argument `Opts` is a list of
   options to set on future connections.
 
 - ```
@@ -374,8 +402,12 @@ There are also two optional functions that may be exported:
   {: #getopts }
   
   The argument `Listen` is the handle originally passed from the
-  [`listen/1`](alt_dist.md#listen) callback. The argument `Opts` is a list of
+  [`listen/1,2`](alt_dist.md#listen) callback. The argument `Opts` is a list of
   options to read for future connections.
+
+  This function is currently not called by `net_kernel`;
+  [`net_kernel:getopts/2`](`net_kernel:getopts/2`) uses the
+  [`mf_getopts`](alt_dist.md#hs_data_mf_getopts) fun of the connection instead.
 
 [](){: #hs_data_record }
 
