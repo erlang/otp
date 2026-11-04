@@ -1472,7 +1472,8 @@ public_key_algorithm_binding(Config) ->
                                          [{user_dir, UserDir},
                                           {auth_methods, "publickey"}]),
     Ssh = #ssh{opts = Options,
-               userauth_supported_methods = "publickey"},
+               userauth_supported_methods = "publickey",
+               auth_tries_left = infinity},
     SessionId = <<"test-session-id">>,
 
     ValidRequest = signed_public_key_request(User, SessionId,
