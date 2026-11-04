@@ -26,7 +26,7 @@
 -export([default/1,setbag/1,badnew/1,verybadnew/1,named/1,keypos2/1,
 	 privacy/1]).
 -export([empty/1,badinsert/1]).
--export([badlookup/1,lookup_order/1]).
+-export([badlookup/1,lookup_order/1,ordered_set_cached_key/1]).
 -export([delete_elem/1,delete_tab/1,delete_large_tab/1,
 	 delete_large_named_table/1,
 	 evil_delete/1,baddelete/1,match_delete/1,table_leak/1]).
@@ -215,7 +215,7 @@ groups() ->
       [default, setbag, badnew, verybadnew, named, keypos2,
        privacy]},
      {insert, [], [empty, badinsert]},
-     {lookup, [], [badlookup, lookup_order]},
+     {lookup, [], [badlookup, lookup_order, ordered_set_cached_key]},
      {lookup_element, [], [lookup_element_mult, lookup_element_default]},
      {delete, [],
       [delete_elem, delete_tab, delete_large_tab,
@@ -4432,6 +4432,54 @@ badinsert_do(Opts) ->
 
 %% Check proper return values from bad lookups in existing/non existing
 %% ets tables.
+%% Iteration seeds the ordered_set path cache. A subsequent operation can
+%% compare against that cached key without needing a full ordering result.
+ordered_set_cached_key(Config) when is_list(Config) ->
+    Prefix = binary:copy(<<97>>, 4096),
+    Keys = [1, 1.0, {1}, {1.0}, [1], [1.0], #{a => 1}, #{a => 1.0},
+            #{1 => a}, #{1.0 => a}, <<>>, Prefix, <<Prefix/binary, 98>>,
+            <<3:5>>, a, [], [a | b]],
+    lists:foreach(
+      fun(Concurrent) ->
+              Tab = ets:new(cached_key, [ordered_set, private,
+                                        {write_concurrency, Concurrent}]),
+              try
+                  lists:foreach(
+                    fun(Key) ->
+                            true = ets:delete_all_objects(Tab),
+                            true = ets:insert(Tab, {Key, found}),
+                            lists:foreach(
+                              fun(Query) ->
+                                      Equal = Key == Query,
+                                      Expected = case Equal of
+                                                     true -> found;
+                                                     false -> missing
+                                                 end,
+                                      Key = ets:first(Tab),
+                                      Expected = ets:lookup_element(Tab, Query,
+                                                                    2, missing),
+                                      Key = ets:last(Tab),
+                                      Equal = ets:member(Tab, Query),
+                                      Next = case Key > Query of
+                                                 true -> Key;
+                                                 false -> '$end_of_table'
+                                             end,
+                                      Key = ets:first(Tab),
+                                      Next = ets:next(Tab, Query),
+                                      Prev = case Key < Query of
+                                                 true -> Key;
+                                                 false -> '$end_of_table'
+                                             end,
+                                      Key = ets:last(Tab),
+                                      Prev = ets:prev(Tab, Query)
+                              end, Keys)
+                    end, Keys)
+              after
+                  ets:delete(Tab)
+              end
+      end, [false, true]),
+    ok.
+
 badlookup(Config) when is_list(Config) ->
     EtsMem = etsmem(),
     {'EXIT',{badarg,_}} = (catch ets:lookup(foo,key)),
