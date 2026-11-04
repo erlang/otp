@@ -38,7 +38,7 @@
          funs/1,will_succeed/1,float_confusion/1,
          cover_convert_ext/1, catch_setelement/1,gh_11368/1,gh_11413/1,
          rem_bounds/1,
-         gh_11686/1,float_widens/1]).
+         gh_11686/1,float_widens/1,huge_number_bounds/1]).
 
 %% Force id/1 to return 'any'.
 -export([id/1]).
@@ -92,7 +92,8 @@ groups() ->
        gh_11413,
        rem_bounds,
        gh_11686,
-       float_widens
+       float_widens,
+       huge_number_bounds
       ]}].
 
 init_per_suite(Config) ->
@@ -1863,6 +1864,20 @@ prefix_1(Cs0, [Pre|PreR]) ->
         [Pre|Cs] ->  prefix_1(Cs,PreR);
         _ -> nomatch
     end.
+
+%% Number ranges with bounds beyond the float range crashed
+%% beam_types:norm_number/1 with badarg when the validator checked the
+%% arguments of a local call.
+huge_number_bounds(_Config) ->
+    5 = huge_number_bounds_1(id(5)),
+    0 = huge_number_bounds_1(id(1 bsl 1100)),
+    ok.
+
+huge_number_bounds_1(I) when I < 1 bsl 1100 -> I;
+huge_number_bounds_1(I) -> huge_number_bounds_2(I).
+
+huge_number_bounds_2(0) -> 0;
+huge_number_bounds_2(I) -> huge_number_bounds_2(I div 3).
 
 %%%
 %%% Common utilities.

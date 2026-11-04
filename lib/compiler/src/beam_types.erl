@@ -1093,11 +1093,15 @@ norm_number_range(any) ->
     #t_number{}.
 
 norm_number(N) when is_number(N) ->
-    {F0,F1,F2} = {float(N-1), float(N), float(N+1)},
-    if
-        F0 =:= F1; F1 =:= F2 ->
+    try {float(N-1), float(N), float(N+1)} of
+        {F0,F1,F2} when F0 =:= F1; F1 =:= F2 ->
             floor(F1);
-        true ->
+        {_,_,_} ->
+            N
+    catch
+        error:badarg ->
+            %% Integers beyond the float range have no float neighbours
+            %% to normalize to.
             N
     end;
 norm_number(Other) ->
