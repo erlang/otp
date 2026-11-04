@@ -866,3 +866,12 @@ bif records:get_definition/2
 bif erlang:pid_to_binary/1
 bif erlang:port_to_binary/1
 bif erlang:ref_to_binary/1
+
+#
+# Bit manipulation BIFs
+#
+
+ubif erlang:integer_trailing_zeroes/1
+ubif erlang:integer_set_bits/1
+ubif erlang:integer_unsigned_width/1
+ubif erlang:integer_signed_width/1

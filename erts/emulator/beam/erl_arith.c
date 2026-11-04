@@ -1362,3 +1362,270 @@ Eterm erts_bnot(Process* p, Eterm arg)
 double erts_get_positive_zero_float(void) {
     return 0.0f;
 }
+
+/* Bit operations exposed as BIFs: erlang:integer_trailing_zeroes/1, erlang:integer_set_bits/1,
+ * erlang:integer_unsigned_width/1, erlang:integer_signed_width/1.
+ *
+ * For 64-bit inputs (small/immediate integers): deterministic 64-bit semantics.
+ * For bignums: operate on the arbitrary-precision bit representation.
+ */
+
+BIF_RETTYPE integer_trailing_zeroes_1(BIF_ALIST_1)
+{
+    Eterm result = erts_ctz(BIF_ARG_1);
+    if (!is_value(result)) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+    BIF_RET(result);
+}
+
+BIF_RETTYPE integer_set_bits_1(BIF_ALIST_1)
+{
+    Eterm result = erts_popcount(BIF_ARG_1);
+    if (!is_value(result)) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+    BIF_RET(result);
+}
+
+BIF_RETTYPE integer_unsigned_width_1(BIF_ALIST_1)
+{
+    Eterm result = erts_unsigned_width(BIF_ARG_1);
+    if (!is_value(result)) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+    BIF_RET(result);
+}
+
+BIF_RETTYPE integer_signed_width_1(BIF_ALIST_1)
+{
+    Eterm result = erts_signed_width(BIF_ARG_1);
+    if (!is_value(result)) {
+        BIF_ERROR(BIF_P, BADARG);
+    }
+    BIF_RET(result);
+}
+
+/* Helper: count trailing zeros in a big digit (limb) */
+static inline unsigned count_trailing_zeros_digit(ErtsDigit d)
+{
+#if ERTS_AT_LEAST_GCC_VSN__(3, 4, 0) || __has_builtin(__builtin_ctzll)
+#if (SIZEOF_VOID_P == 8)
+    return __builtin_ctzll((unsigned long long)d);
+#else
+    return __builtin_ctz((unsigned int)d);
+#endif
+#else
+    unsigned res = 0;
+    while ((d & 1) == 0) { res++; d >>= 1; }
+    return res;
+#endif
+}
+
+/* ctz/1: count trailing zeros in integer (small integers and bignums) */
+Eterm
+erts_ctz(Eterm arg)
+{
+    Uint64 v64;
+    unsigned res;
+
+    /* Fast path: smalls. */
+    if (is_small(arg)) {
+        v64 = (Uint64) signed_val(arg);
+        if (v64 == 0) {
+            return THE_NON_VALUE;
+        }
+#if ERTS_AT_LEAST_GCC_VSN__(3, 4, 0) || __has_builtin(__builtin_ctzll)
+        res = __builtin_ctzll(v64);
+        return make_small((Sint)res);
+#else
+        res = 0;
+        while ((v64 & 1ULL) == 0ULL) { res++; v64 >>= 1; }
+        return make_small((Sint)res);
+#endif
+    }
+
+    /* Slow path: handle bignum */
+    if (is_big(arg)) {
+        Eterm* big_ptr = big_val(arg);
+        dsize_t size = big_size(arg);
+        ErtsDigit* digits = BIG_V(big_ptr);
+        dsize_t i;
+        Sint res = 0;
+
+        /* Scan through digits from least significant to most significant. */
+        for (i = 0; i < size; i++) {
+            if (digits[i] != 0) {
+                /* Found first non-zero digit, count its trailing zeros */
+                res = i * D_EXP + count_trailing_zeros_digit(digits[i]);
+                return make_small(res);
+            }
+        }
+        ERTS_INTERNAL_ERROR("bignum with all-zero digits");
+    }
+
+    return THE_NON_VALUE;
+}
+
+/* Helper: count set bits (popcount) in a big digit (limb) */
+static inline unsigned popcount_digit_local(ErtsDigit d)
+{
+#if ERTS_AT_LEAST_GCC_VSN__(3, 4, 0) || __has_builtin(__builtin_popcountll)
+#if (SIZEOF_VOID_P == 8)
+    return __builtin_popcountll((unsigned long long)d);
+#else
+    return __builtin_popcount((unsigned int)d);
+#endif
+#else
+    unsigned cnt = 0;
+    while (d) {
+        cnt++;
+        d = d & (d - 1);
+    }
+    return cnt;
+#endif
+}
+
+/* popcount/1: count set bits in integer (small integers and bignums) */
+Eterm
+erts_popcount(Eterm arg)
+{
+    Uint64 v64;
+
+    /* Fast path: try 64-bit decode first (common case for small integers) */
+    if (term_to_Uint64(arg, &v64)) {
+#if ERTS_AT_LEAST_GCC_VSN__(3, 4, 0) || __has_builtin(__builtin_popcountll)
+        unsigned res = __builtin_popcountll(v64);
+        return make_small((Sint)res);
+#else
+        unsigned cnt = 0;
+        while (v64) {
+            cnt++;
+            v64 = v64 & (v64 - 1);
+        }
+        return make_small((Sint)cnt);
+#endif
+    }
+
+    /* Slow path: handle bignum */
+    if (is_big(arg) && !big_sign(arg)) {
+        Eterm* big_ptr = big_val(arg);
+        dsize_t size = big_size(arg);
+        ErtsDigit* digits = BIG_V(big_ptr);
+        Sint total = 0;
+        dsize_t i;
+
+        for (i = 0; i < size; i++) {
+            total += popcount_digit_local(digits[i]);
+        }
+
+        return make_small(total);
+    }
+
+    return THE_NON_VALUE;
+}
+
+/* Helper: count setleading zeros in a big digit (limb) */
+static inline unsigned clz_digit_local(ErtsDigit d)
+  {
+  #if ERTS_AT_LEAST_GCC_VSN__(3, 4, 0) || __has_builtin(__builtin_clzll)
+  #if (SIZEOF_VOID_P == 8)
+      return __builtin_clzll((unsigned long long)d);
+  #else
+      return __builtin_clz((unsigned int)d);
+  #endif
+  #else
+      unsigned res = 0;
+      while ((d & ((ErtsDigit)1 << (D_EXP-1))) == 0) { res++; d <<= 1; }
+      return res;
+  #endif
+  }
+
+Eterm
+erts_unsigned_width(Eterm arg)
+{
+    Uint64 v64;
+
+    if (arg == SMALL_ZERO) {
+        return make_small(0);
+    }
+
+    /* Fast path: try 64-bit decode first (common case for small integers) */
+    if (term_to_Uint64(arg, &v64)) {
+#if ERTS_AT_LEAST_GCC_VSN__(3, 4, 0) || __has_builtin(__builtin_clzll)
+        unsigned res = __builtin_clzll(v64);
+        return make_small(64-(Sint)res);
+#else
+        unsigned cnt = 0;
+        while (v64) { cnt += 1; v64 >>= 1; }
+        return make_small((Sint)cnt);
+#endif
+    }
+
+    /* Slow path: handle bignum */
+    if (is_big(arg) && !big_sign(arg)) {
+        Eterm* big_ptr = big_val(arg);
+        dsize_t size = big_size(arg);
+        ErtsDigit* digits = BIG_V(big_ptr);
+
+        return make_small(size * D_EXP - clz_digit_local(digits[size-1]));
+    }
+
+    return THE_NON_VALUE;
+}
+
+Eterm
+erts_signed_width(Eterm arg)
+{
+    Uint64 v64;
+    unsigned res;
+
+    if (arg == SMALL_ZERO) {
+        return make_small(1);
+    }
+
+    /* Fast path: try 64-bit decode first (common case for small integers) */
+    if (is_small(arg)) {
+        Uint is_pow2;
+        Sint64 val = signed_val(arg);
+        v64 = (Uint64) (val < 0 ? -(Sint64)val : (Sint64)val);
+        is_pow2 = (v64 & (v64 - 1)) == 0;
+#if ERTS_AT_LEAST_GCC_VSN__(3, 4, 0) || __has_builtin(__builtin_clzll)
+        res = 64 - __builtin_clzll(v64);
+#else
+        res = 0;
+        while (v64) {
+            res += 1;
+            v64 >>= 1;
+        }
+#endif
+        if (val > 0) {
+            return make_small(res + 1);
+        } else {
+            return make_small(res + (is_pow2 ? 0 : 1));
+        }
+    }
+
+    /* Slow path: handle bignum */
+    if (is_big(arg)) {
+        Eterm* big_ptr = big_val(arg);
+        dsize_t size = big_size(arg);
+        ErtsDigit* digits = BIG_V(big_ptr);
+
+        res = size * D_EXP - clz_digit_local(digits[size-1]);
+
+        if (!big_sign(arg)) {
+            return make_small(res + 1);
+        } else {
+            Sint total = 0;
+            dsize_t i;
+            for (i = 0; i < size; i++) {
+                total += popcount_digit_local(digits[i]);
+            }
+
+            return make_small(res + (total == 1 ? 0 : 1));
+        }
+    }
+
+    return THE_NON_VALUE;
+}

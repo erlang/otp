@@ -3045,6 +3045,10 @@ is_gc_bif(is_map_key, [_,_]) -> false;
 is_gc_bif(is_integer, [_,_,_]) -> false;
 is_gc_bif(map_get, [_,_]) -> false;
 is_gc_bif(tuple_size, [_]) -> false;
+is_gc_bif(integer_trailing_zeroes, [_]) -> false;
+is_gc_bif(integer_set_bits, [_]) -> false;
+is_gc_bif(integer_unsigned_width, [_]) -> false;
+is_gc_bif(integer_signed_width, [_]) -> false;
 is_gc_bif(Bif, Args) ->
     Arity = length(Args),
     not (erl_internal:bool_op(Bif, Arity) orelse

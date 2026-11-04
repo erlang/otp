@@ -41,6 +41,7 @@ MODULES= \
 	bif_SUITE \
 	big_SUITE \
 	binary_SUITE \
+	bitops_SUITE \
 	bs_bincomp_SUITE \
 	bs_bit_binaries_SUITE \
 	bs_construct_SUITE \

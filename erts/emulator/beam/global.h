@@ -1548,6 +1548,11 @@ Eterm erts_bnot(Process* p, Eterm arg);
 Eterm erts_bor(Process* p, Eterm arg1, Eterm arg2);
 Eterm erts_band(Process* p, Eterm arg1, Eterm arg2);
 
+Eterm erts_ctz(Eterm arg);
+Eterm erts_popcount(Eterm arg);
+Eterm erts_unsigned_width(Eterm arg);
+Eterm erts_signed_width(Eterm arg);
+
 Eterm erts_gc_mixed_plus(Process* p, Eterm* reg, Uint live);
 Eterm erts_gc_mixed_minus(Process* p, Eterm* reg, Uint live);
 Eterm erts_gc_mixed_times(Process* p, Eterm* reg, Uint live);
