@@ -781,6 +781,20 @@ value are listed.
   record definitions. Default is to emit warnings for unused locally defined
   records.
 
+- **`warn_unused_macro`**{: #warn_unused_macro } - Emits warnings for macros
+  that are defined in the source file but never used. Macros defined in
+  included files are not reported. A macro counts as used if it is expanded,
+  tested by `-ifdef`, `-ifndef` or `defined/1` in `-if` and `-elif`, removed
+  by `-undef`, or used by the definition of another macro that is used.
+  Notice that a macro only used in code excluded by a conditional (such as
+  `-ifdef(TEST)`) is reported as unused when the condition is false. Default
+  is to emit no warnings for unused macros.
+
+- **`{nowarn_unused_macro, Macros}`** - Turns off warnings for the given
+  unused macros. Each element in `Macros` is either a macro name, which
+  covers all definitions of the macro, or `{Name, Arity}`, where `Arity` is
+  `none` for a macro defined without parentheses.
+
 - **`nowarn_unused_type`** - Turns off warnings for unused type declarations.
   Default is to emit warnings for unused local type declarations.
 
@@ -1394,6 +1408,7 @@ format_error_reason(Class, Reason, Stack) ->
                  encoding=none    :: none | epp:source_encoding(),
                  errors=[]        :: errors(),
                  warnings=[]      :: warnings(),
+                 epp_warnings=[]  :: [{warning, term()}],
                  extra_chunks=[]  :: [{binary(), binary()}]}.
 
 internal({forms,Forms}, Opts0) ->
@@ -2141,6 +2156,7 @@ do_parse_string(Fd, Opts0) ->
                        {location, StartLocation},
                        {reserved_word_fun, ResWordFun},
                        {features, Features},
+                       {report_unused_macros, true},
                        extra |
                        PathOpenOpt ++
                        case member(check_ssa, Opts0) of
@@ -2151,7 +2167,7 @@ do_parse_string(Fd, Opts0) ->
                        end],
             {ok, Epp, Extra0} = epp:open(EppOpts),
             try
-                Forms0 = epp:parse_file(Epp),
+                {Forms0, EppWs} = split_epp_warnings(epp:parse_file(Epp)),
                 Epp ! {get_features, self()},
                 UsedFtrs = receive {features, X} -> X end,
                 Extra = [{features, UsedFtrs} | Extra0],
@@ -2162,7 +2178,8 @@ do_parse_string(Fd, Opts0) ->
                 Compile0 = build_compile(Opts1),
                 St0 = metadata_add_features(UsedFtrs, Compile0),
                 Opts2 = [{features, UsedFtrs} | St0#compile.options],
-                St1 = St0#compile{encoding=Encoding, options=Opts2},
+                St1 = St0#compile{encoding=Encoding, options=Opts2,
+                                  epp_warnings=EppWs},
                 Forms = case with_columns(Opts2 ++ compile_options(Forms0)) of
                             true ->
                                 Forms0;
@@ -2215,6 +2232,7 @@ do_parse_module(DefEncoding, #compile{ifile=File,options=Opts,dir=Dir}=St) ->
                                 {location,StartLocation},
                                 {reserved_word_fun, ResWordFun},
                                 {features, Features},
+                                {report_unused_macros, true},
                                 extra|
                                 case member(check_ssa, Opts) of
                                     true ->
@@ -2223,7 +2241,8 @@ do_parse_module(DefEncoding, #compile{ifile=File,options=Opts,dir=Dir}=St) ->
                                         []
                                 end]),
             case R of
-                {ok,Forms0,Extra} ->
+                {ok,Forms1,Extra} ->
+                    {Forms0,EppWs} = split_epp_warnings(Forms1),
                     Encoding = proplists:get_value(encoding, Extra),
                     %% epp reports final set of features used by the module,
                     %% including those given by `-feature(...)` declarations
@@ -2236,6 +2255,7 @@ do_parse_module(DefEncoding, #compile{ifile=File,options=Opts,dir=Dir}=St) ->
                                     strip_columns(Forms0)
                             end,
                     {ok,Forms,St1#compile{encoding=Encoding,
+                                          epp_warnings=EppWs,
                                           options=[{features, UsedFtrs}|Opts]}};
                 {error,E} ->
                     Es = [{St#compile.ifile,[{none,?MODULE,{epp,E}}]}],
@@ -2475,8 +2495,18 @@ add_default_base(St, Forms) ->
 	    St
     end.
 
-lint_module(Code, St) ->
-    case erl_lint:module(Code, St#compile.ifile, St#compile.options) of
+%% Warnings for unused macros are taken out of the forms after
+%% preprocessing, so that parse transforms don't see them, and are
+%% given back to erl_lint, which decides whether they should be
+%% reported.
+
+split_epp_warnings(Forms) ->
+    lists:partition(fun({warning,{_,epp,{unused_macro,_,_}}}) -> false;
+                       (_) -> true
+                    end, Forms).
+
+lint_module(Code, #compile{epp_warnings=EppWs}=St) ->
+    case erl_lint:module(Code ++ EppWs, St#compile.ifile, St#compile.options) of
 	{ok,Ws} ->
 	    %% Insert name of module as base name, if needed. This is
 	    %% for compile:forms to work with listing files.
