@@ -156,6 +156,7 @@ static int db_select_replace_continue_catree(Process *p, DbTable *tbl,
                                              Eterm continuation, Eterm *ret,
                                              enum DbIterSafety*);
 static int db_take_catree(Process *, DbTable *, Eterm, Eterm *);
+static int db_take_one_catree(Process *, DbTable *, Eterm, Eterm *);
 static void db_print_catree(fmtfn_t to, void *to_arg,
                             bool show, DbTable *tbl);
 static int db_free_table_catree(DbTable *tbl);
@@ -223,6 +224,7 @@ DbTableMethod db_catree =
     db_select_replace_catree,
     db_select_replace_continue_catree,
     db_take_catree,
+    db_take_one_catree,
     db_delete_all_objects_catree,
     db_delete_all_objects_get_nitems_from_holder_catree,
     db_free_table_catree,
@@ -2240,6 +2242,12 @@ static int db_take_catree(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
                                      ret, NULL);
     wunlock_adapt_base_node(tb, node, fbn.parent, fbn.current_level);
     return result;
+}
+
+// Ordered-set tables hold at most one object per key, so behave like take.
+static int db_take_one_catree(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
+{
+    return db_take_catree(p, tbl, key, ret);
 }
 
 /*
