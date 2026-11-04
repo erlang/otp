@@ -421,8 +421,9 @@ reassemble(Version,  #handshake_fragment{message_seq = Seq} = Fragment,
 	    {more_data,  Buffers0#protocol_buffers{dtls_handshake_next_fragments = Fragments}};
 	{raw, RawHandshake} ->
 	    Handshake = decode_handshake(Version, RawHandshake),
-	    {NextFragments, LaterFragments} = next_fragments(LaterFragments0),
-	    {{Handshake, RawHandshake}, Buffers0#protocol_buffers{dtls_handshake_next_seq = Seq + 1,
+            NextSeq = Seq + 1,
+            {NextFragments, LaterFragments} = next_fragments(NextSeq, LaterFragments0),
+            {{Handshake, RawHandshake}, Buffers0#protocol_buffers{dtls_handshake_next_seq = NextSeq,
 						  dtls_handshake_next_fragments = NextFragments,
 						  dtls_handshake_later_fragments = LaterFragments}}
     end;
@@ -436,8 +437,11 @@ reassemble(_, _, Buffers) ->
     %% Disregard fragments FragSeq < Seq
     {more_data, Buffers}.
 
-reassemble_fragments(Current, Fragments0) ->
-    [Frag1 | Frags] = lists:keysort(#handshake_fragment.fragment_offset, [Current | Fragments0]),
+reassemble_fragments(#handshake_fragment{message_seq = Seq} = Current, Fragments0) ->
+    %% Defence in depth: only ever merge fragments that belong to the same
+    %% handshake message (same message_seq).
+    SameSeq = [F || #handshake_fragment{message_seq = S} = F <- Fragments0, S =:= Seq],
+    [Frag1 | Frags] = lists:keysort(#handshake_fragment.fragment_offset, [Current | SameSeq]),
     [Fragment | _] = Fragments = merge_fragment(Frag1, Frags),
     case is_complete_handshake(Fragment) of
 	true ->
@@ -587,12 +591,18 @@ merge_fragments(#handshake_fragment{
 merge_fragments(Previous, Current) ->
     [Previous, Current].
 
-next_fragments(LaterFragments) ->
+%% Promote only the buffered fragments that belong to the message that is
+%% now expected (NextSeq).
+next_fragments(NextSeq, LaterFragments) ->
     case lists:keysort(#handshake_fragment.message_seq, LaterFragments) of
 	[] ->
-	    {[], []}; 
-	[#handshake_fragment{message_seq = Seq} | _] = Fragments ->
-	    split_frags(Fragments, Seq, [])
+            {[], []};
+        [#handshake_fragment{message_seq = NextSeq} | _] = Fragments ->
+            split_frags(Fragments, NextSeq, []);
+        [#handshake_fragment{} | _] ->
+            %% Lowest buffered message_seq is not the one expected next:
+            %% keep everything buffered as later fragments.
+            {[], LaterFragments}
     end.
 
 split_frags([#handshake_fragment{message_seq = Seq} = Frag | Rest], Seq, Acc) ->
@@ -604,8 +614,3 @@ is_complete_handshake(#handshake_fragment{length = Length, fragment_length = Len
     true;
 is_complete_handshake(_) ->
     false.
-
-
-
-
-	    
