@@ -505,29 +505,29 @@ _Example:_
 foldl(Fun, Acc0, {_Filename, Binary}) ->
     foldl(Fun, Acc0, Binary);
 foldl(Fun, Acc0, Archive) when is_function(Fun, 4) ->
-    case zip_open(Archive,[memory]) of
-	{ok, Handle} ->
-            {ok, Files} = zip_list_dir(Handle),
-            Acc1 =
-                lists:foldl(
-                  fun(#zip_comment{}, Acc) ->
-                          Acc;
-                     (#zip_file{ name = Name, info = Info }, Acc) ->
-                          GetInfo = fun() -> Info end,
-                          GetBin = case lists:last(Name) of
-                                       $/ -> fun() -> <<>> end;
-                                       _ ->
-                                           fun() ->
-                                                   case zip_get(Name, Handle) of
-                                                       {ok, {Name, Data}} -> Data;
-                                                       {error, Error} -> throw({Name, Error})
-                                                   end
-                                           end
-                                   end,
-                          Fun(Name, GetInfo, GetBin, Acc)
-                  end, Acc0, Files),
-	    ok = zip_close(Handle),
-	    {ok, Acc1};
+    case openzip_open(Archive, [memory]) of
+        {ok, #openzip{files = Files} = OpenZip} ->
+            try
+                Acc1 =
+                    lists:foldl(
+                      fun({#zip_file{ name = Name, info = Info }, _} = ZFile, Acc) ->
+                              GetInfo = fun() -> Info end,
+                              GetBin = case lists:last(Name) of
+                                           $/ -> fun() -> <<>> end;
+                                           _ ->
+                                               fun() ->
+                                                       case ?CATCH(do_openzip_get_entry(ZFile, OpenZip)) of
+                                                           {ok, {Name, Data}} -> Data;
+                                                           Error -> throw({Name, Error})
+                                                       end
+                                               end
+                                       end,
+                              Fun(Name, GetInfo, GetBin, Acc)
+                      end, Acc0, Files),
+                {ok, Acc1}
+            after
+                openzip_close(OpenZip)
+            end;
 	{error, bad_eocd} ->
 	    {error, "Not an archive file"};
 	{error, Reason} ->
@@ -1776,21 +1776,24 @@ openzip_get(FileName, OpenZip) ->
 	Error -> {error, Error}
     end.
 
-do_openzip_get(F, #openzip{files = Files, in = In0, input = Input,
-			   output = Output, zlib = Z, cwd = CWD, extra = ExtraOpts}) ->
-    %%case lists:keysearch(F, #zip_file.name, Files) of
+do_openzip_get(F, #openzip{files = Files} = OpenZip) ->
     case file_name_search(F, Files) of
-	{#zip_file{offset = Offset},_}=ZFile ->
-	    In1 = Input({seek, bof, Offset}, In0),
-	    case get_z_file(In1, Z, Input, Output, [], fun silent/1,
-			    CWD, ZFile, fun all/1, false, ExtraOpts) of
-                {file, R, _In2} -> {ok, Output(flush, R)};
-		_ -> throw(file_not_found)
-	    end;
+        {#zip_file{},_}=ZFile ->
+            do_openzip_get_entry(ZFile, OpenZip);
 	_ -> throw(file_not_found)
     end;
 do_openzip_get(_, _) ->
     throw(einval).
+
+do_openzip_get_entry({#zip_file{offset = Offset},_}=ZFile,
+                     #openzip{in = In0, input = Input, output = Output,
+                              zlib = Z, cwd = CWD, extra = ExtraOpts}) ->
+    In1 = Input({seek, bof, Offset}, In0),
+    case get_z_file(In1, Z, Input, Output, [], fun silent/1,
+                    CWD, ZFile, fun all/1, false, ExtraOpts) of
+        {file, R, _In2} -> {ok, Output(flush, R)};
+        _ -> throw(file_not_found)
+    end.
 
 file_name_search(Name,Files) ->
     Fun = fun({ZipFile,_}) ->
