@@ -26,7 +26,7 @@
 
 -export([all/0, suite/0, groups/0,
          init_per_testcase/2, end_per_testcase/2,
-         test_size/1,flat_size_big/1,df/1,term_type/1,
+         test_size/1,flat_size_big/1,flat_size_maps/1,df/1,term_type/1,
          instructions/1, stack_check/1, alloc_blocks_size/1,
          t_copy_shared/1,
          interpreter_size_bench/1]).
@@ -39,7 +39,7 @@ suite() ->
      {timetrap, {minutes, 2}}].
 
 all() -> 
-    [test_size, flat_size_big, df, instructions, term_type,
+    [test_size, flat_size_big, flat_size_maps, df, instructions, term_type,
      t_copy_shared,
      stack_check, alloc_blocks_size].
 
@@ -56,6 +56,36 @@ interpreter_size_bench(_Config) ->
     ct_event:notify(#event{name=benchmark_data,
                            data=[{value,Size}]}),
     {comment,integer_to_list(Size)++" bytes"}.
+
+flat_size_maps(Config) when is_list(Config) ->
+    Shared = lists:seq(1, 2),
+    3 = erts_debug:flat_size(#{}),
+    10 = erts_debug:flat_size(#{1 => Shared}),
+    16 = erts_debug:flat_size(#{1 => Shared, 2 => Shared}),
+    Nested = lists:foldl(fun(_, Acc) -> #{1 => Acc} end,
+                        Shared, lists:seq(1, 100)),
+    604 = erts_debug:flat_size(Nested),
+    Binary = binary:copy(<<42>>, 256),
+    Values = [atom, [], {}, [a | b], {a, Shared}, Binary,
+              <<3:5>>, 1 bsl 100, fun() -> Shared end, #{a => Shared}],
+    Maps = [maps:from_list([{I, Value} || I <- lists:seq(1, N)]) ||
+               N <- [0, 1, 2, 3, 16, 31, 32, 33, 64], Value <- Values],
+    Tab = ets:new(flat_size_maps, [set, private]),
+    try
+        lists:foreach(
+          fun(Term) ->
+                  Size = erts_debug:flat_size(Term),
+                  true = ets:insert(Tab, {key, Term}),
+                  [{key, Copied}] = ets:lookup(Tab, key),
+                  true = Term =:= Copied,
+                  Size = erts_debug:flat_size(Copied),
+                  true = erlang:garbage_collect(),
+                  Size = erts_debug:flat_size(Term)
+          end, [Nested | Maps])
+    after
+        ets:delete(Tab)
+    end,
+    ok.
 
 %% White box testing of term heap sizes
 test_size(Config) when is_list(Config) ->
