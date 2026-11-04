@@ -91,8 +91,10 @@
          keylog_hs_secret_order/0,
          keylog_hs_secret_order/1,
          tls13_supported_group_brainpool/0,
-         tls13_supported_group_brainpool/1]).
-
+         tls13_supported_group_brainpool/1,
+         hrr_mlkem_missing_key_share/0,
+         hrr_mlkem_missing_key_share/1
+        ]).
 
 %% Test callback
 -export([check_session_id/2]).
@@ -107,7 +109,8 @@ all() ->
 
 groups() ->
     [
-     {rsa, [parallel], [reject_legacy_cert | tls_1_3_1_2_tests() ++ legacy_tests()]},
+     {rsa, [parallel], [reject_legacy_cert, hrr_mlkem_missing_key_share
+                        | tls_1_3_1_2_tests() ++ legacy_tests()]},
      {ecdsa, [parallel], tls_1_3_1_2_tests()}
     ].
 
@@ -848,6 +851,47 @@ keylog_hs_secret_order(Config) when is_list(Config) ->
                       {client_server_hs_secret, ClientSHS}]})
     end.
 
+%%--------------------------------------------------------------------
+hrr_mlkem_missing_key_share() ->
+    [{doc, "A TLS-1.3 client offers an ML-KEM group in supported_groups but "
+      "sends a key_share for a different group. The server, which only "
+      "accepts the ML-KEM group, must respond with a HelloRetryRequest and "
+      "the handshake must then complete with the ML-KEM group selected. "}].
+hrr_mlkem_missing_key_share(Config) when is_list(Config) ->
+    case lists:member(mlkem512, crypto:supports(kems)) of
+        false ->
+            {skip, "ML-KEM not supported by the crypto backend"};
+        true ->
+            {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+            ClientOpts = ssl_test_lib:ssl_options(client_cert_opts, Config),
+            ServerOpts = ssl_test_lib:ssl_options(server_cert_opts, Config),
+            %% Server accepts only mlkem512.
+            Server = ssl_test_lib:start_server(
+                       [{node, ServerNode}, {port, 0}, {from, self()},
+                        {mfa, {ssl_test_lib, send_recv_result_active, []}},
+                        {options, [{versions, ['tlsv1.3']},
+                                   {supported_groups, [mlkem512]} | ServerOpts]}]),
+            Port = ssl_test_lib:inet_port(Server),
+            %% Client offers mlkem512 but sends a key_share only for x25519
+            %% (psk_groups controls which groups get a pre-generated share),
+            %% so the server must send a HelloRetryRequest for mlkem512.
+            {Client, _CSock} = ssl_test_lib:start_client(
+                                [return_socket, {node, ClientNode}, {port, Port},
+                                 {host, Hostname}, {from, self()},
+                                 {mfa, {ssl_test_lib, send_recv_result_active, []}},
+                                 {options, [{versions, ['tlsv1.3']},
+                                            {supported_groups, [x25519, mlkem512]},
+                                            {psk_groups, [x25519]} | ClientOpts]}]),
+            %% A completed handshake (both sides exchange app data) proves
+            %% the server sent a HelloRetryRequest for mlkem512 and completed
+            %% rather than crashing in generate_server_share/2. (The
+            %% negotiated ML-KEM group is not exposed via
+            %% connection_information/selected_group, so success of the
+            %% send/recv is the regression signal.)
+            ssl_test_lib:check_result(Server, ok, Client, ok),
+            ssl_test_lib:close(Server),
+            ssl_test_lib:close(Client)
+    end.
 %%--------------------------------------------------------------------
 %% Internal functions and callbacks -----------------------------------
 %%--------------------------------------------------------------------
