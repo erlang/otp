@@ -54,10 +54,11 @@ erts_ihash_t hashmap_bitcount(erts_ihash_t x);
 
 /* MAP */
 
-typedef struct flatmap_s {
+typedef struct {
     Eterm thing_word;
     Uint  size;
     Eterm keys;      /* tuple */
+    Eterm values[];
 } flatmap_t;
 /* map node
  *
@@ -86,7 +87,7 @@ typedef struct flatmap_s {
      (Hx) >> 4)
 
 /* erl_term.h stuff */
-#define flatmap_get_values(x)        (((Eterm *)(x)) + sizeof(flatmap_t)/sizeof(Eterm))
+#define flatmap_get_values(x)        (((flatmap_t*)(x))->values)
 #define flatmap_get_keys(x)          (((Eterm *)tuple_val(((flatmap_t *)(x))->keys)) + 1)
 #define flatmap_get_size(x)          (((flatmap_t*)(x))->size)
 
@@ -122,9 +123,10 @@ Eterm  erts_hashmap_from_array(ErtsHeapFactory*, Eterm *leafs, Uint n, int rejec
 #define erts_hashmap_from_ks_and_vs(F, KS, VS, N) \
     erts_hashmap_from_ks_and_vs_extra((F), (KS), (VS), (N), THE_NON_VALUE, THE_NON_VALUE, 0);
 
-Eterm erts_map_from_ks_and_vs(ErtsHeapFactory *factory, Eterm *ks, Eterm *vs, Uint n);
+Eterm erts_map_from_ks_and_vs(ErtsHeapFactory *factory,
+                              const Eterm *ks, const Eterm *vs, Uint n);
 Eterm  erts_hashmap_from_ks_and_vs_extra(ErtsHeapFactory *factory,
-                                         Eterm *ks, Eterm *vs, Uint n,
+                                         const Eterm *ks, const Eterm *vs, Uint n,
                                          Eterm k, Eterm v,
                                          int reject_dupkeys);
 

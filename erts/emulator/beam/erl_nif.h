@@ -101,11 +101,11 @@ extern "C" {
 
 typedef ErlNapiUInt64 ErlNifUInt64;
 typedef ErlNapiSInt64 ErlNifSInt64;
-typedef ErlNapiUInt ErlNifUInt;
-typedef ErlNapiSInt ErlNifSInt;
+typedef ErlNapiUInt ErlNifUInt; // Undocumented, do not use
+typedef ErlNapiSInt ErlNifSInt; // Undocumented, do not use
 
 #define ERL_NIF_VM_VARIANT "beam.vanilla"
-typedef ErlNifUInt ERL_NIF_TERM;
+typedef ErlNapiUInt ERL_NIF_TERM;
 
 typedef ERL_NIF_TERM ERL_NIF_UINT;
 

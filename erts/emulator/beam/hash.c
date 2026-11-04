@@ -36,7 +36,7 @@
 **
 */
 
-#define MAX_SHIFT (ERTS_SIZEOF_TERM * 8)
+#define MAX_SHIFT (ERTS_SIZEOF_ETERM * 8)
 
 static int hash_get_slots(Hash *h) {
     return UWORD_CONSTANT(1) << (MAX_SHIFT - h->shift);

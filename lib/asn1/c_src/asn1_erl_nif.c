@@ -23,6 +23,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <stddef.h>
 #include <erl_nif.h>
 
 /* #define ASN1_DEBUG 1 */
@@ -952,7 +953,7 @@ static int ber_decode_value(ErlNifEnv* env, ERL_NIF_TERM *value, unsigned char *
     ERL_NIF_TERM term = 0, curr_head = 0;
 
     /* Recursion depth limitation, borrow a signed int: maybe_ret */
-    maybe_ret = (int) (ErlNifSInt) ((char *)value - (char *)ib_index);
+    maybe_ret = (int) (ptrdiff_t) ((char *)value - (char *)ib_index);
     maybe_ret = maybe_ret < 0 ? -maybe_ret : maybe_ret;
     if (maybe_ret >= sizeof(void *) * 8192) /* 8 k pointer words */
         return ASN1_ERROR;

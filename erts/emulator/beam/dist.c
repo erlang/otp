@@ -365,7 +365,7 @@ typedef struct {
     Eterm visability;
     Eterm reason;
     ErlOffHeap oh;
-    Eterm heap[1];
+    Eterm heap[];
 } ErtsConMonLnkSeqCleanup;
 
 static void
@@ -493,11 +493,10 @@ schedule_con_monitor_link_seq_cleanup(DistEntry* dep,
 
         if (is_non_value(reason) || is_immed(reason)) {
             rsz = 0;
-            size -= sizeof(Eterm);
         }
         else {
             rsz = size_object(reason);
-            size += sizeof(Eterm) * (rsz - 1);
+            size += rsz * sizeof(Eterm);
         }
 
         cmlcp = erts_alloc(ERTS_ALC_T_CML_CLEANUP, size);

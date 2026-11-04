@@ -2240,7 +2240,7 @@ typedef struct {
     Eterm flag;
     Eterm value;
     ErlOffHeap oh;
-    Eterm heap[1];
+    Eterm heap[];
 } ErtsProcessFlag3Args;
 
 static Eterm
@@ -2279,7 +2279,7 @@ BIF_RETTYPE erts_internal_process_flag_3(BIF_ALIST_3)
 
    pf3a = erts_alloc(ERTS_ALC_T_PF3_ARGS,
                      sizeof(ErtsProcessFlag3Args)
-                     + sizeof(Eterm)*(flag_sz+value_sz-1));
+                     + sizeof(Eterm)*(flag_sz+value_sz));
 
    ohp = &pf3a->oh;
    ERTS_INIT_OFF_HEAP(&pf3a->oh);

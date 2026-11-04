@@ -128,7 +128,7 @@ struct AOFF_Carrier_t_ {
 #ifdef HARD_DEBUG
 #  define HARD_CHECK_IS_MEMBER(ROOT,NODE) ASSERT(rbt_is_member(ROOT,NODE))
 #  define HARD_CHECK_TREE(CRR,ORDER,ROOT,SZ) check_tree(CRR, ORDER, ROOT, SZ)
-static AOFF_RBTree_t * check_tree(Carrier_t*, enum AOFFSortOrder, AOFF_RBTree_t*, Uint);
+static AOFF_RBTree_t * check_tree(Carrier_t*, enum AOFFSortOrder, AOFF_RBTree_t*, size_t);
 #else
 #  define HARD_CHECK_IS_MEMBER(ROOT,NODE)
 #  define HARD_CHECK_TREE(CRR,ORDER,ROOT,SZ)
@@ -138,9 +138,9 @@ static AOFF_RBTree_t * check_tree(Carrier_t*, enum AOFFSortOrder, AOFF_RBTree_t*
 /* Calculate 'max_sz' of tree node x by only looking at 'max_sz' of the
  * direct children of x and the size x itself.
  */
-static ERTS_INLINE Uint node_max_size(AOFF_RBTree_t *x)
+static ERTS_INLINE size_t node_max_size(AOFF_RBTree_t *x)
 {
-    Uint sz = AOFF_BLK_SZ(x);
+    size_t sz = AOFF_BLK_SZ(x);
     if (x->left && x->left->max_sz > sz) {
 	sz = x->left->max_sz;
     }
@@ -156,8 +156,8 @@ static ERTS_INLINE void lower_max_size(AOFF_RBTree_t *node,
 				       AOFF_RBTree_t* stop_at)
 {
     AOFF_RBTree_t* x = node;
-    Uint old_max = x->max_sz;
-    Uint new_max = node_max_size(x);
+    size_t old_max = x->max_sz;
+    size_t new_max = node_max_size(x);
 
     if (new_max < old_max) {
 	x->max_sz = new_max;
@@ -175,7 +175,7 @@ static ERTS_INLINE void lower_max_size(AOFF_RBTree_t *node,
 void erts_aoff_larger_max_size(AOFF_RBTree_t *node)
 {
     AOFF_RBTree_t* x = node;
-    const Uint new_sz = node->hdr.bhdr;
+    const size_t new_sz = node->hdr.bhdr;
 
     ASSERT(!x->left  || x->left->max_sz  <= x->max_sz);
     ASSERT(!x->right || x->right->max_sz <= x->max_sz);
@@ -231,7 +231,7 @@ static ERTS_INLINE SWord cmp_cand_blk(enum AOFFSortOrder order,
 
 
 /* Prototypes of callback functions */
-static Block_t*	aoff_get_free_block(Allctr_t *, Uint, Block_t *, Uint);
+static Block_t*	aoff_get_free_block(Allctr_t *, size_t, Block_t *, size_t);
 static void aoff_link_free_block(Allctr_t *, Block_t*);
 static void aoff_unlink_free_block(Allctr_t *allctr, Block_t *del);
 static void aoff_creating_mbc(Allctr_t*, Carrier_t*);
@@ -248,7 +248,7 @@ static Block_t *aoff_next_fblk_in_mbc(Allctr_t *, Carrier_t *, Block_t *);
 /* Generic tree functions used by both carrier and block trees. */
 static void rbt_delete(AOFF_RBTree_t** root, AOFF_RBTree_t* del);
 static void rbt_insert(enum AOFFSortOrder, AOFF_RBTree_t** root, AOFF_RBTree_t* blk);
-static AOFF_RBTree_t* rbt_search(AOFF_RBTree_t* root, Uint size);
+static AOFF_RBTree_t* rbt_search(AOFF_RBTree_t* root, size_t size);
 
 static Eterm info_options(Allctr_t *, char *, fmtfn_t *, void *, Uint **, Uint *);
 static void init_atoms(void);
@@ -589,7 +589,7 @@ aoff_unlink_free_block(Allctr_t *allctr, Block_t *blk)
 static void
 rbt_delete(AOFF_RBTree_t** root, AOFF_RBTree_t* del)
 {
-    Uint spliced_is_black;
+    bool spliced_is_black;
     AOFF_RBTree_t *x, *y, *z = del;
     AOFF_RBTree_t null_x; /* null_x is used to get the fixup started when we
 			splice out a node without children. */
@@ -763,7 +763,7 @@ aoff_link_free_block(Allctr_t *allctr, Block_t *block)
     AOFF_RBTree_t *blk = (AOFF_RBTree_t *) block;
     AOFF_RBTree_t *crr_node;
     AOFF_Carrier_t *blk_crr = (AOFF_Carrier_t*) FBLK_TO_MBC(block);
-    Uint blk_sz = AOFF_BLK_SZ(blk);
+    size_t blk_sz = AOFF_BLK_SZ(blk);
 
     (void)allctr;
 
@@ -792,7 +792,7 @@ aoff_link_free_block(Allctr_t *allctr, Block_t *block)
 static void
 rbt_insert(enum AOFFSortOrder order, AOFF_RBTree_t** root, AOFF_RBTree_t* blk)
 {
-    Uint blk_sz = AOFF_BLK_SZ(blk);
+    size_t blk_sz = AOFF_BLK_SZ(blk);
 
 #ifdef DEBUG
     blk->flags  = (order == FF_BF) ? IS_BF_FLG : 0;
@@ -860,7 +860,7 @@ rbt_insert(enum AOFFSortOrder order, AOFF_RBTree_t** root, AOFF_RBTree_t* blk)
 }
 
 static AOFF_RBTree_t*
-rbt_search(AOFF_RBTree_t* root, Uint size)
+rbt_search(AOFF_RBTree_t* root, size_t size)
 {
     AOFF_RBTree_t* x = root;
 
@@ -881,7 +881,7 @@ rbt_search(AOFF_RBTree_t* root, Uint size)
     }
 }
 
-Carrier_t* aoff_lookup_pooled_mbc(Allctr_t* allctr, Uint size)
+Carrier_t* aoff_lookup_pooled_mbc(Allctr_t* allctr, size_t size)
 {
     AOFF_RBTree_t* node;
 
@@ -892,8 +892,8 @@ Carrier_t* aoff_lookup_pooled_mbc(Allctr_t* allctr, Uint size)
 }
 
 static Block_t *
-aoff_get_free_block(Allctr_t *allctr, Uint size,
-		    Block_t *cand_blk, Uint cand_size)
+aoff_get_free_block(Allctr_t *allctr, size_t size,
+                    Block_t *cand_blk, size_t cand_size)
 {
     AOFFAllctr_t *alc = (AOFFAllctr_t *) allctr;
     AOFF_RBTree_t *crr_node = alc->mbc_root;
@@ -1222,7 +1222,7 @@ erts_aoffalc_test(UWord op, UWord a1, UWord a2)
     case 0x500: return (UWord) ((AOFFAllctr_t *) a1)->blk_order == FF_AOBF;
     case 0x501: {
 	AOFF_RBTree_t *node = ((AOFFAllctr_t *) a1)->mbc_root;
-	Uint size = (Uint) a2;
+        size_t size = (size_t) a2;
 	node = node ? rbt_search(node, size) : NULL;
 	return (UWord) (node ? RBT_NODE_TO_MBC(node)->root : NULL);
     }
@@ -1295,14 +1295,14 @@ static void print_tree(AOFF_RBTree_t*);
  */
 
 static AOFF_RBTree_t *
-check_tree(Carrier_t* within_crr, enum AOFFSortOrder order, AOFF_RBTree_t* root, Uint size)
+check_tree(Carrier_t* within_crr, enum AOFFSortOrder order, AOFF_RBTree_t* root, size_t size)
 {
     AOFF_RBTree_t *res = NULL;
     Sint blacks;
     Sint curr_blacks;
     AOFF_RBTree_t *x;
     Carrier_t* crr;
-    Uint depth, max_depth, node_cnt;
+    size_t depth, max_depth, node_cnt;
 
 #ifdef PRINT_TREE
     print_tree(root);
@@ -1443,9 +1443,9 @@ print_tree_aux(AOFF_RBTree_t *x, int indent)
 	for (i = 0; i < indent; i++) {
 	    putc(' ', stderr);
 	}
-	fprintf(stderr, "%s: sz=%lu addr=0x%lx max_size=%u\r\n",
+        fprintf(stderr, "%s: sz=%zu addr=%p max_size=%u\r\n",
 		IS_BLACK(x) ? "BLACK" : "RED",
-		AOFF_BLK_SZ(x), (Uint)x, (unsigned)x->max_sz);
+                AOFF_BLK_SZ(x), x, (unsigned)x->max_sz);
 	print_tree_aux(x->left,  indent + INDENT_STEP);
     }
 }

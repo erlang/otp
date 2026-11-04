@@ -185,7 +185,7 @@ typedef struct {
 #  define HARD_CHECK_IS_MEMBER(ROOT,NODE) rbt_assert_is_member(ROOT,NODE)
 #  define HARD_CHECK_TREE(TREE,SZ) check_tree(TREE, SZ)
 static int rbt_assert_is_member(RBTNode* root, RBTNode* node);
-static RBTNode* check_tree(RBTree* tree, Uint);
+static RBTNode* check_tree(RBTree* tree, size_t size);
 #else
 #  define HARD_CHECK_IS_MEMBER(ROOT,NODE)
 #  define HARD_CHECK_TREE(TREE,SZ)
@@ -377,7 +377,7 @@ struct ErtsMemMapper_ {
 	char *unused_start;
 	char *unused_end;
 	char *new_area_hint;
-        Uint reserved;
+        size_t reserved;
     } desc;
     struct {
 	UWord free_seg_descs;
@@ -768,7 +768,7 @@ tree_insert_fixup(RBTNode** root, RBTNode *node)
 static void
 rbt_delete(RBTree* tree, RBTNode* del)
 {
-    Uint spliced_is_black;
+    bool spliced_is_black;
     RBTNode *x, *y, *z = del, *papa_y;
     RBTNode null_x; /* null_x is used to get the fixup started when we
 			splice out a node without children. */
@@ -1320,7 +1320,7 @@ os_mmap(void *hint_ptr, UWord size)
 }
 
 static ERTS_INLINE void
-os_munmap(void *ptr, UWord size)
+os_munmap(void *ptr, size_t size)
 {
 #if HAVE_MMAP
 #ifdef ERTS_MMAP_DEBUG
@@ -1614,10 +1614,10 @@ alloc_desc_insert_free_seg(ErtsMemMapper* mm,
 }
 
 void *
-erts_mmap(ErtsMemMapper* mm, Uint32 flags, UWord *sizep)
+erts_mmap(ErtsMemMapper* mm, Uint32 flags, size_t *sizep)
 {
     char *seg;
-    UWord asize = ERTS_PAGEALIGNED_CEILING(*sizep);
+    size_t asize = ERTS_PAGEALIGNED_CEILING(*sizep);
 
     /* Map in premapped supercarrier */
     if (mm->supercarrier && !(ERTS_MMAPFLG_OS_ONLY & flags)) {
@@ -1800,7 +1800,7 @@ supercarrier_reserve_failure:
 }
 
 void
-erts_munmap(ErtsMemMapper* mm, Uint32 flags, void *ptr, UWord size)
+erts_munmap(ErtsMemMapper* mm, Uint32 flags, void *ptr, size_t size)
 {
     ERTS_MMAP_ASSERT(ERTS_IS_PAGEALIGNED(ptr));
     ERTS_MMAP_ASSERT(ERTS_IS_PAGEALIGNED(size));
@@ -1900,23 +1900,23 @@ erts_munmap(ErtsMemMapper* mm, Uint32 flags, void *ptr, UWord size)
 
 static void *
 remap_move(ErtsMemMapper* mm,
-           Uint32 flags, void *ptr, UWord old_size, UWord *sizep)
+           Uint32 flags, void *ptr, size_t old_size, size_t *sizep)
 {
-    UWord size = *sizep;
+    size_t size = *sizep;
     void *new_ptr = erts_mmap(mm, flags, &size);
     if (!new_ptr)
 	return NULL;
     *sizep = size;
     if (old_size < size)
 	size = old_size;
-    sys_memcpy(new_ptr, ptr, (size_t) size);
+    sys_memcpy(new_ptr, ptr, size);
     erts_munmap(mm, flags, ptr, old_size);
     return new_ptr;
 }
 
 void *
 erts_mremap(ErtsMemMapper* mm,
-            Uint32 flags, void *ptr, UWord old_size, UWord *sizep)
+            Uint32 flags, void *ptr, size_t old_size, size_t *sizep)
 {
     void *new_ptr = NULL;
     Uint32 superaligned;
@@ -2572,7 +2572,7 @@ Eterm erts_mmap_info_options(ErtsMemMapper* mm,
         if (mm->supercarrier) {
             erts_print(to, arg, "%ssco: %T\n", prefix, sco);
             erts_print(to, arg, "%sscrpm: %T\n", prefix, scrpm);
-            erts_print(to, arg, "%sscrfsd: %beu\n", prefix, mm->desc.reserved);
+            erts_print(to, arg, "%sscrfsd: %bpu\n", prefix, mm->desc.reserved);
         }
     }
 
@@ -2584,7 +2584,7 @@ Eterm erts_mmap_info_options(ErtsMemMapper* mm,
         res = NIL;
         if (mm->supercarrier) {
             add_2tup(hpp, szp, &res, am.scrfsd,
-                     erts_bld_uint(hpp,szp, mm->desc.reserved));
+                     erts_bld_uword(hpp,szp, mm->desc.reserved));
             add_2tup(hpp, szp, &res, am.scrpm, scrpm);
             add_2tup(hpp, szp, &res, am.sco, sco);
         }
@@ -2687,14 +2687,14 @@ static void print_tree(enum SortOrder order, RBTNode*);
 struct check_arg_t {
     RBTree* tree;
     ErtsFreeSegDesc* prev_seg;
-    Uint size;
+    size_t size;
     RBTNode *res;
 };
 static void check_node_callback(RBTNode* x, void* arg);
 
 
 static RBTNode *
-check_tree(RBTree* tree, Uint size)
+check_tree(RBTree* tree, size_t size)
 {
     struct check_arg_t carg;
     carg.tree = tree;

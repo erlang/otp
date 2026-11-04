@@ -51,7 +51,7 @@ typedef union {
 
 typedef struct {
     int vsize;         /* length of vectors */
-    Uint size;         /* total size in bytes */
+    size_t size;       /* total size in bytes */
     SysIOVec* iov;
     ErtsIOQBinary** binv;
 } ErtsIOVecCommon;
@@ -69,7 +69,7 @@ typedef union {
 typedef struct erts_io_queue {
     ErtsAlcType_t alct;
     bool driver;
-    Uint size;       /* total size in bytes */
+    size_t size;       /* total size in bytes */
 
     SysIOVec* v_start;
     SysIOVec* v_end;
@@ -95,43 +95,42 @@ typedef struct erts_io_queue {
 
 void erts_ioq_init(ErtsIOQueue *q, ErtsAlcType_t alct, bool driver);
 void erts_ioq_clear(ErtsIOQueue *q);
-Uint erts_ioq_size(const ErtsIOQueue *q);
-int erts_ioq_enqv(ErtsIOQueue *q, ErtsIOVec *vec, Uint skip);
-int erts_ioq_pushqv(ErtsIOQueue *q, ErtsIOVec *vec, Uint skip);
-int erts_ioq_deq(ErtsIOQueue *q, Uint Uint);
-Uint erts_ioq_peekqv(const ErtsIOQueue *q, ErtsIOVec *ev);
+size_t erts_ioq_size(const ErtsIOQueue *q);
+int erts_ioq_enqv(ErtsIOQueue *q, ErtsIOVec *vec, size_t skip);
+int erts_ioq_pushqv(ErtsIOQueue *q, ErtsIOVec *vec, size_t skip);
+int erts_ioq_deq(ErtsIOQueue *q, size_t size);
+size_t erts_ioq_peekqv(const ErtsIOQueue *q, ErtsIOVec *ev);
 SysIOVec *erts_ioq_peekq(const ErtsIOQueue *q, int *vlenp);
-Uint erts_ioq_sizeq(const ErtsIOQueue *q);
 
-int erts_ioq_iolist_vec_len(Eterm obj, int* vsize, Uint* csize,
-                            Uint* pvsize, Uint* pcsize,
-                            size_t* total_size, Uint blimit);
+int erts_ioq_iolist_vec_len(Eterm obj, int* vsize, size_t* csize,
+                            size_t* pvsize, size_t* pcsize,
+                            size_t* total_size, size_t blimit);
 int erts_ioq_iolist_to_vec(Eterm obj, SysIOVec* iov,
                            ErtsIOQBinary** binv, ErtsIOQBinary* cbin,
-                           Uint bin_limit, int driver_binary);
+                           size_t bin_limit, int driver_binary);
 
 ERTS_GLB_INLINE
-int erts_ioq_iodata_vec_len(Eterm obj, int* vsize, Uint* csize,
-                            Uint* pvsize, Uint* pcsize,
-                            size_t* total_size, Uint blimit);
+int erts_ioq_iodata_vec_len(Eterm obj, int* vsize, size_t* csize,
+                            size_t* pvsize, size_t* pcsize,
+                            size_t* total_size, size_t blimit);
 ERTS_GLB_INLINE
 int erts_ioq_iodata_to_vec(Eterm obj, SysIOVec* iov,
                            ErtsIOQBinary** binv, ErtsIOQBinary* cbin,
-                           Uint bin_limit, int driver_binary);
+                           size_t bin_limit, int driver_binary);
 
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
 ERTS_GLB_INLINE
-int erts_ioq_iodata_vec_len(Eterm obj, int* vsize, Uint* csize,
-                            Uint* pvsize, Uint* pcsize,
-                            size_t* total_size, Uint blimit) {
+int erts_ioq_iodata_vec_len(Eterm obj, int* vsize, size_t* csize,
+                            size_t* pvsize, size_t* pcsize,
+                            size_t* total_size, size_t blimit) {
     if (is_bitstring(obj)) {
         /* We optimize for when we get a binary without a bit-offset that fits
          * in one iov slot */
         ERTS_DECLARE_DUMMY(Eterm br_flags);
         ERTS_DECLARE_DUMMY(byte *base);
-        Uint offset, size;
+        size_t offset, size;
         BinRef *br;
 
         ERTS_GET_BITSTRING_REF(obj, br_flags, br, base, offset, size);
@@ -165,12 +164,12 @@ int erts_ioq_iodata_to_vec(Eterm obj,
                            SysIOVec *iov,
                            ErtsIOQBinary **binv,
                            ErtsIOQBinary  *cbin,
-                           Uint bin_limit,
+                           size_t bin_limit,
                            int driver)
 {
     if (is_bitstring(obj)) {
         ERTS_DECLARE_DUMMY(Eterm br_flags);
-        Uint offset, size;
+        size_t offset, size;
         byte *base;
         BinRef *br;
 

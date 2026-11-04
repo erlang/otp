@@ -1577,7 +1577,7 @@ Eterm
 erts_debug_ptab_list_bif_info(Process *c_p, ErtsPTab *ptab)
 {
     ERTS_DECL_AM(ptab_list_bif_info);
-    Eterm elements[] = {
+    const Eterm elements[] = {
 	AM_ptab_list_bif_info,
 	make_small((Uint) ERTS_PTAB_LIST_BIF_MIN_START_REDS),
 	make_small((Uint) ptab->list.data.chunks),

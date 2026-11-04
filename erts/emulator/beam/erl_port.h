@@ -1015,7 +1015,7 @@ ErtsPortOpResult erts_port_connect(Process *, int, Port *, Eterm, Eterm, Eterm *
 ErtsPortOpResult erts_port_link(Process *, Port *, ErtsLink *, Eterm *);
 ErtsPortOpResult erts_port_unlink(Process *, Port *, ErtsSigUnlinkOp *, Eterm *);
 ErtsPortOpResult erts_port_unlink_ack(Process *, Port *, ErtsSigUnlinkOp *);
-ErtsPortOpResult erts_port_control(Process *, Port *, unsigned int, Eterm, Eterm *);
+ErtsPortOpResult erts_port_control(Process *, Port *, Uint32, Eterm, Eterm *);
 ErtsPortOpResult erts_port_call(Process *, Port *, unsigned int, Eterm, Eterm *);
 ErtsPortOpResult erts_port_info(Process *, Port *, Eterm, Eterm *);
 ErtsPortOpResult erts_port_monitor(Process *, Port *, ErtsMonitor *);

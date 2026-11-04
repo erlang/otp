@@ -139,9 +139,9 @@ typedef struct ErtsMemMapper_ ErtsMemMapper;
 #define ERTS_MMAPFLG_SUPERCARRIER_ONLY		(((Uint32) 1) << 1)
 #define ERTS_MMAPFLG_SUPERALIGNED		(((Uint32) 1) << 2)
 
-void *erts_mmap(ErtsMemMapper*, Uint32 flags, UWord *sizep);
-void erts_munmap(ErtsMemMapper*, Uint32 flags, void *ptr, UWord size);
-void *erts_mremap(ErtsMemMapper*, Uint32 flags, void *ptr, UWord old_size, UWord *sizep);
+void *erts_mmap(ErtsMemMapper*, Uint32 flags, size_t *sizep);
+void erts_munmap(ErtsMemMapper*, Uint32 flags, void *ptr, size_t size);
+void *erts_mremap(ErtsMemMapper*, Uint32 flags, void *ptr, size_t old_size, size_t *sizep);
 int erts_mmap_in_supercarrier(ErtsMemMapper*, void *ptr);
 void erts_mmap_init(ErtsMemMapper*, ErtsMMapInit*);
 struct erts_mmap_info_struct

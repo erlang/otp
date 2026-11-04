@@ -949,17 +949,17 @@ extern const char pre_loaded_code[];
 extern Preload pre_loaded[];
 
 #if ERTS_HAVE_ERTS_SYS_ALIGNED_ALLOC
-void *erts_sys_aligned_alloc(UWord alignment, UWord size)
+void *erts_sys_aligned_alloc(size_t alignment, size_t size)
 {
 #ifdef HAVE_POSIX_MEMALIGN
     void *ptr = NULL;
     int error;
     ASSERT(alignment && (alignment & (alignment-1)) == 0); /* power of 2 */
-    error = posix_memalign(&ptr, (size_t) alignment, (size_t) size);
+    error = posix_memalign(&ptr, alignment, size);
 #if HAVE_ERTS_MSEG
     if (error || !ptr) {
 	erts_mseg_clear_cache();
-	error = posix_memalign(&ptr, (size_t) alignment, (size_t) size);
+        error = posix_memalign(&ptr, alignment, size);
     }
 #endif
     if (error) {
@@ -975,18 +975,18 @@ void *erts_sys_aligned_alloc(UWord alignment, UWord size)
 #endif
 }
 
-void erts_sys_aligned_free(UWord alignment, void *ptr)
+void erts_sys_aligned_free(size_t alignment, void *ptr)
 {
     ASSERT(alignment && (alignment & (alignment-1)) == 0); /* power of 2 */
     free(ptr);
 }
 
-void *erts_sys_aligned_realloc(UWord alignment, void *ptr, UWord size, UWord old_size)
+void *erts_sys_aligned_realloc(size_t alignment, void *ptr, size_t size, size_t old_size)
 {
     void *new_ptr = erts_sys_aligned_alloc(alignment, size);
     if (new_ptr) {
-	UWord copy_size = old_size < size ? old_size : size;
-	sys_memcpy(new_ptr, ptr, (size_t) copy_size);
+        size_t copy_size = old_size < size ? old_size : size;
+        sys_memcpy(new_ptr, ptr, copy_size);
 	erts_sys_aligned_free(alignment, ptr);
     }
     return new_ptr;
@@ -994,25 +994,25 @@ void *erts_sys_aligned_realloc(UWord alignment, void *ptr, UWord size, UWord old
 
 #endif
 
-void *erts_sys_alloc(ErtsAlcType_t t, void *x, Uint sz)
+void *erts_sys_alloc(ErtsAlcType_t t, void *x, size_t sz)
 {
-    void *res = malloc((size_t) sz);
+    void *res = malloc(sz);
 #if HAVE_ERTS_MSEG
     if (!res) {
 	erts_mseg_clear_cache();
-	return malloc((size_t) sz);
+        return malloc(sz);
     }
 #endif
     return res;
 }
 
-void *erts_sys_realloc(ErtsAlcType_t t, void *x, void *p, Uint sz)
+void *erts_sys_realloc(ErtsAlcType_t t, void *x, void *p, size_t sz)
 {
-    void *res = realloc(p, (size_t) sz);
+    void *res = realloc(p, sz);
 #if HAVE_ERTS_MSEG
     if (!res) {
 	erts_mseg_clear_cache();
-	return realloc(p, (size_t) sz);
+        return realloc(p, sz);
     }
 #endif
     return res;

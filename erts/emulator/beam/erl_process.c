@@ -479,11 +479,11 @@ struct ErtsProcSysTask_ {
     Uint req_id_sz;
     Eterm arg[ERTS_MAX_PROC_SYS_TASK_ARGS];
     ErlOffHeap off_heap;
-    Eterm heap[1];
+    Eterm heap[];
 };
 
 #define ERTS_PROC_SYS_TASK_SIZE(HSz) \
-    (sizeof(ErtsProcSysTask) - sizeof(Eterm) + sizeof(Eterm)*(HSz))
+    (sizeof(ErtsProcSysTask) + sizeof(Eterm)*(HSz))
 
 struct ErtsProcSysTaskQs_ {
     int qmask;

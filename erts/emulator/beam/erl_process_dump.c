@@ -979,7 +979,6 @@ dump_module_literals(fmtfn_t to, void *to_arg, ErtsLiteralArea* lit_area)
             } else if (is_map_header(w)) {
                 if (is_flatmap_header(w)) {
                     flatmap_t* fmp = (flatmap_t *) flatmap_val(term);
-                    Eterm* values = htop + sizeof(flatmap_t) / sizeof(Eterm);
                     Uint map_size = fmp->size;
                     int i;
 
@@ -987,7 +986,7 @@ dump_module_literals(fmtfn_t to, void *to_arg, ErtsLiteralArea* lit_area)
                     dump_element(to, to_arg, fmp->keys);
                     erts_putc(to, to_arg, ':');
                     for (i = 0; i < map_size; i++) {
-                        dump_element(to, to_arg, values[i]);
+                        dump_element(to, to_arg, fmp->values[i]);
                         if (i < map_size-1) {
                             erts_putc(to, to_arg, ',');
                         }

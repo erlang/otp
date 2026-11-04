@@ -76,8 +76,8 @@ typedef enum {
    ERTS_ALC_T2N((T)) - ERTS_ALC_N_MIN_A_FIXED_SIZE)
 
 void erts_sys_alloc_init(void);
-void *erts_sys_alloc(ErtsAlcType_t, void *, Uint);
-void *erts_sys_realloc(ErtsAlcType_t, void *, void *, Uint);
+void *erts_sys_alloc(ErtsAlcType_t, void *, size_t);
+void *erts_sys_realloc(ErtsAlcType_t, void *, void *, size_t);
 void erts_sys_free(ErtsAlcType_t, void *, void *);
 #if ERTS_HAVE_ERTS_SYS_ALIGNED_ALLOC
 /*
@@ -85,9 +85,9 @@ void erts_sys_free(ErtsAlcType_t, void *, void *);
  * 'erts_sys_aligned_realloc()' and 'erts_sys_aligned_free()'
  * as in the initial call to 'erts_sys_aligned_alloc()'.
  */
-void *erts_sys_aligned_alloc(UWord alignment, UWord size);
-void *erts_sys_aligned_realloc(UWord alignment, void *ptr, UWord size, UWord old_size);
-void erts_sys_aligned_free(UWord alignment, void *ptr);
+void *erts_sys_aligned_alloc(size_t alignment, size_t size);
+void *erts_sys_aligned_realloc(size_t alignment, void *ptr, size_t size, size_t old_size);
+void erts_sys_aligned_free(size_t alignment, void *ptr);
 #endif
 
 Eterm erts_memory(fmtfn_t *, void *, void *, Eterm);
@@ -144,8 +144,8 @@ typedef struct {
 } ErtsAllocatorInfo_t;
 
 typedef struct {
-    void *	(*alloc)	(ErtsAlcType_t, void *, Uint);
-    void *	(*realloc)	(ErtsAlcType_t, void *, void *, Uint);
+    void *	(*alloc)	(ErtsAlcType_t, void *, size_t);
+    void *	(*realloc)	(ErtsAlcType_t, void *, void *, size_t);
     void	(*free)		(ErtsAlcType_t, void *, void *);
     void *extra;
 } ErtsAllocatorFunctions_t;
@@ -177,13 +177,13 @@ void erts_alloc_handle_delayed_dealloc(ErtsThrAllocData *thr_alloc_data,
 				       int *more_work);
 erts_aint32_t erts_alloc_fix_alloc_shrink(int ix, erts_aint32_t flgs);
 
-__decl_noreturn void erts_alloc_enomem(ErtsAlcType_t,Uint)		
+__decl_noreturn void erts_alloc_enomem(ErtsAlcType_t,size_t)
      __noreturn;
-__decl_noreturn void erts_alloc_n_enomem(ErtsAlcType_t,Uint)		
+__decl_noreturn void erts_alloc_n_enomem(ErtsAlcType_t,size_t)
      __noreturn;
-__decl_noreturn void erts_realloc_enomem(ErtsAlcType_t,void*,Uint)	
+__decl_noreturn void erts_realloc_enomem(ErtsAlcType_t,void*,size_t)
      __noreturn;
-__decl_noreturn void erts_realloc_n_enomem(ErtsAlcType_t,void*,Uint)	
+__decl_noreturn void erts_realloc_n_enomem(ErtsAlcType_t,void*,size_t)
      __noreturn;
 __decl_noreturn void erts_alc_fatal_error(int,int,ErtsAlcType_t,...)	
      __noreturn;
@@ -218,13 +218,13 @@ Eterm erts_alloc_set_dyn_param(struct process*, Eterm);
 #if !ERTS_ALC_DO_INLINE
 
 void erts_free(ErtsAlcType_t type, void *ptr);
-void *erts_alloc(ErtsAlcType_t type, Uint size) ERTS_ATTR_MALLOC_USD(2,erts_free,2);
-void *erts_realloc(ErtsAlcType_t type, void *ptr, Uint size) ERTS_ATTR_ALLOC_SIZE(3);
-void *erts_alloc_fnf(ErtsAlcType_t type, Uint size) ERTS_ATTR_MALLOC_USD(2,erts_free,2);
-void *erts_realloc_fnf(ErtsAlcType_t type, void *ptr, Uint size) ERTS_ATTR_ALLOC_SIZE(3);
+void *erts_alloc(ErtsAlcType_t type, size_t size) ERTS_ATTR_MALLOC_USD(2,erts_free,2);
+void *erts_realloc(ErtsAlcType_t type, void *ptr, size_t size) ERTS_ATTR_ALLOC_SIZE(3);
+void *erts_alloc_fnf(ErtsAlcType_t type, size_t size) ERTS_ATTR_MALLOC_USD(2,erts_free,2);
+void *erts_realloc_fnf(ErtsAlcType_t type, void *ptr, size_t size) ERTS_ATTR_ALLOC_SIZE(3);
 int erts_is_allctr_wrapper_prelocked(void);
 #ifdef ERTS_HAVE_IS_IN_LITERAL_RANGE
-int erts_is_in_literal_range(void* ptr);
+bool erts_is_in_literal_range(void* ptr);
 #endif
 ErtsThrAllocData *erts_get_thr_alloc_data(void);
 int erts_get_thr_alloc_ix(void);
@@ -232,8 +232,8 @@ int erts_get_thr_alloc_ix(void);
 #endif /* #if !ERTS_ALC_DO_INLINE */
 
 void *erts_alloc_permanent_aligned(ErtsAlcType_t type,
-                                   Uint size,
-                                   Uint alignment) ERTS_ATTR_MALLOC_US(2);
+                                   size_t size,
+                                   size_t alignment) ERTS_ATTR_MALLOC_US(2);
 #define erts_alloc_permanent_cache_aligned(type, size)                        \
     erts_alloc_permanent_aligned(type, size, ERTS_CACHE_LINE_SIZE)
 
@@ -246,7 +246,7 @@ void *erts_alloc_permanent_aligned(ErtsAlcType_t type,
 #if ERTS_ALC_DO_INLINE || defined(ERTS_ALC_INTERNAL__)
 
 ERTS_ALC_INLINE
-void *erts_alloc(ErtsAlcType_t type, Uint size)
+void *erts_alloc(ErtsAlcType_t type, size_t size)
 {
     void *res;
     ERTS_MSACC_PUSH_AND_SET_STATE_X(ERTS_MSACC_STATE_ALLOC);
@@ -261,7 +261,7 @@ void *erts_alloc(ErtsAlcType_t type, Uint size)
 }
 
 ERTS_ALC_INLINE
-void *erts_realloc(ErtsAlcType_t type, void *ptr, Uint size)
+void *erts_realloc(ErtsAlcType_t type, void *ptr, size_t size)
 {
     void *res;
     ERTS_MSACC_PUSH_AND_SET_STATE_X(ERTS_MSACC_STATE_ALLOC);
@@ -289,7 +289,7 @@ void erts_free(ErtsAlcType_t type, void *ptr)
 
 
 ERTS_ALC_INLINE
-void *erts_alloc_fnf(ErtsAlcType_t type, Uint size)
+void *erts_alloc_fnf(ErtsAlcType_t type, size_t size)
 {
     void *res;
     ERTS_MSACC_PUSH_AND_SET_STATE_X(ERTS_MSACC_STATE_ALLOC);
@@ -303,7 +303,7 @@ void *erts_alloc_fnf(ErtsAlcType_t type, Uint size)
 
 
 ERTS_ALC_INLINE
-void *erts_realloc_fnf(ErtsAlcType_t type, void *ptr, Uint size)
+void *erts_realloc_fnf(ErtsAlcType_t type, void *ptr, size_t size)
 {
     void *res;
     ERTS_MSACC_PUSH_AND_SET_STATE_X(ERTS_MSACC_STATE_ALLOC);
@@ -334,7 +334,7 @@ int erts_get_thr_alloc_ix(void)
 #ifdef ERTS_HAVE_IS_IN_LITERAL_RANGE
 
 ERTS_ALC_FORCE_INLINE
-int erts_is_in_literal_range(void* ptr)
+bool erts_is_in_literal_range(void* ptr)
 {
 #if defined(ARCH_32)
     Uint ix = (UWord)ptr >> ERTS_MMAP_SUPERALIGNED_BITS;
