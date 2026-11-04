@@ -5378,6 +5378,54 @@ eep49(Config) when is_list(Config) ->
            {errors,[{{10,19},erl_lint,{unsafe_var,'A',{'else',{4,19}}}}],
             []}},
 
+          %% A maybe expression must not mark the variables already in
+          %% scope as used.
+          {unused_var1,
+           <<"t(Unused, X) ->
+                  case X of
+                      a -> maybe ok end;
+                      _ -> b
+                  end.
+           ">>,
+           [EnableMaybe],
+           {warnings,[{{1,23},erl_lint,{unused_var,'Unused'}}]}},
+          {unused_var2,
+           <<"t(Unused, X) ->
+                  case X of
+                      a -> maybe ok ?= X else _ -> error end;
+                      _ -> b
+                  end.
+           ">>,
+           [EnableMaybe],
+           {warnings,[{{1,23},erl_lint,{unused_var,'Unused'}}]}},
+          {unused_var3,
+           <<"t(X) ->
+                  Unused = X(),
+                  receive
+                      a -> maybe ok end
+                  end.
+           ">>,
+           [EnableMaybe],
+           {warnings,[{{2,19},erl_lint,{unused_var,'Unused'}}]}},
+          {used_var1,
+           <<"t(Used, X) ->
+                  case X of
+                      a -> maybe Used end;
+                      _ -> b
+                  end.
+           ">>,
+           [EnableMaybe],
+           []},
+          {used_var2,
+           <<"t(Used, X) ->
+                  case X of
+                      a -> maybe ok ?= X else _ -> Used end;
+                      _ -> b
+                  end.
+           ">>,
+           [EnableMaybe],
+           []},
+
           %% Using '?=' not at the top-level of a 'maybe' ... 'else' is forbidden.
           {illegal_maybe_match1,
            <<"t(X) ->
