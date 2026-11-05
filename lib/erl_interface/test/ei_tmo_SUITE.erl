@@ -34,6 +34,7 @@
          ei_send_failure_tmo/1,
 	 ei_connect_unreachable_tmo/0, ei_connect_unreachable_tmo/1,
          ei_recv_tmo/1,
+         ei_high_fd_tmo/1,
          ei_dflags/1]).
 
 suite() ->
@@ -52,6 +53,7 @@ groups() ->
                ei_accept_tmo,
                ei_connect_tmo,
                ei_send_tmo,
+               ei_high_fd_tmo,
                ei_dflags],
     [{default, [], Members},
      {ussi, [], Members}].
@@ -426,6 +428,45 @@ make_and_check_dummy() ->
     end,
 
     list_to_atom("dummy@"++HostNotReachable).
+
+%% Check that the timeout variants of connect, receive and send work
+%% when the socket gets a file descriptor >= FD_SETSIZE (GH-11714).
+ei_high_fd_tmo(Config) when is_list(Config) ->
+    CNode = c_node_high_fd_tmo_1,
+    P = runner:start(Config, ?high_fd_tmo),
+    runner:send_term(P,{CNode,
+                        erlang:get_cookie(),
+                        node(),
+                        get_group(Config)}),
+    case runner:get_term(P, 10000) of
+        {term, {skip, Reason}} ->
+            runner:recv_eot(P),
+            {skip, Reason};
+        {term, {error, Op, Ret, Errno}} ->
+            runner:recv_eot(P),
+            ct:fail({Op, Ret, Errno});
+        {term, {ok, Fd, FdSetSize, CNodeName}} ->
+            io:format("C node ~p, socket fd ~p, FD_SETSIZE ~p\n",
+                      [CNodeName, Fd, FdSetSize]),
+            true = Fd >= FdSetSize,
+            Term1 = {hej,[hopp,{i,[lingon,"skogen"]}]},
+            {test,CNodeName} ! Term1,
+            case runner:get_term(P, 10000) of
+                {term, ok} ->
+                    ok;
+                {term, {error, Op2, Ret2, Errno2}} ->
+                    runner:recv_eot(P),
+                    ct:fail({Op2, Ret2, Errno2})
+            end,
+            receive
+                Term1 ->
+                    ok
+            after 5000 ->
+                    ct:fail(no_echo_received)
+            end,
+            runner:recv_eot(P),
+            ok
+    end.
 
 %% Test that erl_interface sets the appropriate distributions flags.
 ei_dflags(Config) ->
