@@ -72,6 +72,12 @@
          tls_client_closes_socket/1,
          tls_closed_in_active_once/0,
          tls_closed_in_active_once/1,
+         tls_closed_in_passive_recv/0,
+         tls_closed_in_passive_recv/1,
+         tls_closed_in_passive_active_once/0,
+         tls_closed_in_passive_active_once/1,
+         tls_closed_in_passive_send/0,
+         tls_closed_in_passive_send/1,
          tls_password_incorrect/0,
          tls_password_incorrect/1,
          tls_password_correct/0,
@@ -206,6 +212,9 @@ api_tests() ->
      tls_password_badarg,
      tls_client_closes_socket,
      tls_closed_in_active_once,
+     tls_closed_in_passive_recv,
+     tls_closed_in_passive_active_once,
+     tls_closed_in_passive_send,
      tls_reset_in_active_once,
      tls_tcp_msg,
      tls_tcp_msg_big,
@@ -677,6 +686,50 @@ tls_closed_in_active_once(Config) when is_list(Config) ->
     Result = tls_closed_in_active_once_loop(Socket),
     ssl:close(Socket),
     ok = Result.
+
+%%--------------------------------------------------------------------
+tls_closed_in_passive_recv() ->
+    [{doc, "The peer sends data and a TCP FIN without close_notify while the"
+      " socket, with {exit_on_close, false}, is passive and no recv is"
+      " pending. Test that ssl:recv/3 then returns the data followed by"
+      " {error, closed}."}].
+
+tls_closed_in_passive_recv(Config) when is_list(Config) ->
+    {Socket, Server} = tls_closed_in_passive_setup(Config),
+    Result = tls_closed_in_passive_recv_loop(Socket, []),
+    tls_closed_in_passive_cleanup(Socket, Server),
+    {ok, "Hej"} = Result.
+
+%%--------------------------------------------------------------------
+tls_closed_in_passive_active_once() ->
+    [{doc, "The peer sends data and a TCP FIN without close_notify while the"
+      " socket, with {exit_on_close, false}, is passive and no recv is"
+      " pending. Test that {active, once} then delivers the data followed by"
+      " ssl_closed."}].
+
+tls_closed_in_passive_active_once(Config) when is_list(Config) ->
+    {Socket, Server} = tls_closed_in_passive_setup(Config),
+    Result = tls_closed_in_passive_active_once_loop(Socket, []),
+    tls_closed_in_passive_cleanup(Socket, Server),
+    {ok, "Hej"} = Result.
+
+%%--------------------------------------------------------------------
+tls_closed_in_passive_send() ->
+    [{doc, "The peer sends data and a TCP FIN without close_notify while the"
+      " socket, with {exit_on_close, false}, is passive and no recv is"
+      " pending. Test that data can still be sent to the half-closed peer,"
+      " and that ssl:recv/3 then returns the data followed by"
+      " {error, closed}."}].
+
+tls_closed_in_passive_send(Config) when is_list(Config) ->
+    {Socket, Server} = tls_closed_in_passive_setup(Config),
+    ok = ssl:send(Socket, "Hopp"),
+    Server ! {self(), recv, 4},
+    PeerResult = receive {Server, R} -> R end,
+    Result = tls_closed_in_passive_recv_loop(Socket, []),
+    tls_closed_in_passive_cleanup(Socket, Server),
+    {ok, "Hopp"} = PeerResult,
+    {ok, "Hej"} = Result.
 
 %%--------------------------------------------------------------------
 tls_monitor_listener() ->
@@ -1900,6 +1953,68 @@ tls_closed_in_active_once_loop(Socket) ->
             end;
         {error, closed} ->
             {error, ssl_setopt_failed}
+    end.
+
+%% Returns a passive client socket with {exit_on_close, false} whose peer has
+%% sent "Hej" and then a TCP FIN without close_notify, with the close already
+%% received by the connection process while no recv was pending. The peer
+%% can still read: send it {From, recv, Length} and it replies
+%% {Peer, ssl:recv/3 result}.
+tls_closed_in_passive_setup(Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    {_ClientNode, _ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    {ok, Listen} = ssl:listen(0, [{active, false}, {mode, list} | ServerOpts]),
+    {ok, {_, Port}} = ssl:sockname(Listen),
+    Self = self(),
+    Server = spawn_link(
+               fun() ->
+                       {ok, TSocket} = ssl:transport_accept(Listen),
+                       {ok, ServerSocket} = ssl:handshake(TSocket),
+                       ok = ssl:send(ServerSocket, "Hej"),
+                       ok = ssl:shutdown(ServerSocket, write),
+                       Self ! {self(), peer_closed},
+                       tls_closed_in_passive_peer(ServerSocket, Listen)
+               end),
+    {ok, Socket} = ssl:connect(Hostname, Port, [{active, false}, {mode, list},
+                                                {exit_on_close, false} | ClientOpts]),
+    receive {Server, peer_closed} -> ok end,
+    ct:sleep(?SLEEP),
+    {Socket, Server}.
+
+tls_closed_in_passive_peer(Socket, Listen) ->
+    receive
+        {From, recv, Length} ->
+            From ! {self(), ssl:recv(Socket, Length, 2000)},
+            tls_closed_in_passive_peer(Socket, Listen);
+        stop ->
+            ssl:close(Listen)
+    end.
+
+tls_closed_in_passive_cleanup(Socket, Server) ->
+    ssl:close(Socket),
+    unlink(Server),
+    Server ! stop.
+
+tls_closed_in_passive_recv_loop(Socket, Acc) ->
+    case ssl:recv(Socket, 0, 2000) of
+        {ok, Data} ->
+            tls_closed_in_passive_recv_loop(Socket, Acc ++ Data);
+        {error, closed} ->
+            {ok, Acc};
+        Other ->
+            {Other, Acc}
+    end.
+
+tls_closed_in_passive_active_once_loop(Socket, Acc) ->
+    ok = ssl:setopts(Socket, [{active, once}]),
+    receive
+        {ssl, Socket, Data} ->
+            tls_closed_in_passive_active_once_loop(Socket, Acc ++ Data);
+        {ssl_closed, Socket} ->
+            {ok, Acc}
+    after 2000 ->
+            {no_ssl_closed, Acc}
     end.
 
 receive_msg(_) ->
