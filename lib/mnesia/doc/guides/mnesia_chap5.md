@@ -241,6 +241,11 @@ table as fragmented. The fragmentation properties are as follows:
   later be changed with `{add_frag, NodesOrDist}` or `del_frag`. `n_fragments`
   defaults to `1`.
 
+  Note that how evenly records are distributed among the fragments depends on
+  the configured `hash_module`. With the default `m:mnesia_frag_hash` module,
+  the number of fragments should be a power of two for a more uniform
+  distribution.
+
 - **`{node_pool, List}`** - The node pool contains a list of nodes and can
   explicitly be set at table creation and later be changed with
   `{add_node, Node}` or `{del_node, Node}`. At table creation `Mnesia` tries to
