@@ -3114,6 +3114,10 @@ chars_limit(_Config) ->
     Test(Map, 1000, 1000),
     Test(Record, 1000, 1000),
 
+    %% Invalid UTF-8 bytes after a valid grapheme are handled as Latin-1.
+    Invalid = <<169/utf8, 180>>,
+    [169, 180] = lists:flatten(io_lib:format("~ts", [Invalid], [{chars_limit, 100}])),
+
     %% Misc sizes and char limits:
     _ = [Test(What, N, CL) ||
             N <- lists:seq(1, 50),

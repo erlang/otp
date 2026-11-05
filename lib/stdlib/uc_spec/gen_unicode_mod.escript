@@ -874,8 +874,8 @@ gen_gc(Fd, GBP) ->
                  "    end;\n"
                  "gc_ext_pict([], T0, Acc) ->\n"
                  "    add_acc(Acc, T0);\n"
-                 "gc_ext_pict({error,R}, T, Acc) ->\n"
-                 "    gc_ext_pict([], T, Acc) ++ [R].\n\n"),
+                 "gc_ext_pict({error,R}, _, Acc) ->\n"
+                 "    add_acc(Acc, R).\n\n"),
     io:put_chars(Fd,
                  "gc_ext_pict_zwj([CP|R1], T0, Acc) ->\n"
                  "    case is_ext_pict(CP) of\n"
@@ -884,8 +884,8 @@ gen_gc(Fd, GBP) ->
                  "    end;\n"
                  "gc_ext_pict_zwj([], T0, Acc) ->\n"
                  "    add_acc(Acc, T0);\n"
-                 "gc_ext_pict_zwj({error,R}, T, Acc) ->\n"
-                 "    gc_ext_pict_zwj([], T, Acc) ++ [R].\n\n"),
+                 "gc_ext_pict_zwj({error,R}, _, Acc) ->\n"
+                 "    add_acc(Acc, R).\n\n"),
 
     GenExtPict = fun(Range) -> io:format(Fd, "is_ext_pict~s true;\n", [gen_single_clause(Range)]) end,
     [GenExtPict(CP) || CP <- ExtendedPictographic0],
