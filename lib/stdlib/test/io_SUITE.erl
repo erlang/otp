@@ -3229,6 +3229,10 @@ chars_limit(_Config) ->
     %% Without chars_limit, field width is not capped.
     100 = iolist_size(io_lib:format("~100n", [])),
     100 = iolist_size(io_lib:format("~100c", [$x])),
+
+    %% Invalid UTF-8 bytes after a valid grapheme are handled as Latin-1.
+    Invalid = <<169/utf8, 180>>,
+    [169, 180] = lists:flatten(io_lib:format("~ts", [Invalid], [{chars_limit, 100}])),
     ok.
 
 error_info(Config) ->
