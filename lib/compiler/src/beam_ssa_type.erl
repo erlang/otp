@@ -1200,22 +1200,12 @@ update_arith_types_1(#b_set{op={bif,_}=Op,args=BifArgs}=I,
                     {Type,UnstableVars};
                 {unsafe,UnstableVars} ->
                     %% This variable doesn't seem to converge to a
-                    %% stable range.
-                    {update_arith_types_2(I, ArgTypes),UnstableVars}
+                    %% stable range. Fall back to using a more
+                    %% conservative widening approach (setting one end
+                    %% of the range to infinity).
+                    {any,UnstableVars}
             end
     end.
-
-update_arith_types_2(#b_set{op={bif,'-'}=Op,args=[_,#b_literal{val=1}]},
-                     [#t_integer{elements={Min,_Max}}=ArgType|_])
-  when is_integer(Min), Min > 0 ->
-    %% We have almost given up on this operation. As a final attempt,
-    %% subtract a number that will set the minimum value to 0.
-    Args = [ArgType,#t_integer{elements={Min,Min}}],
-    beam_call_types:arith_type(Op, Args);
-update_arith_types_2(#b_set{}, _) ->
-    %% Fall back to using more conservative update_types/3 approach
-    %% (setting one end of the range to infinity).
-    any.
 
 update_arith_types_safe(#b_set{}, _ArgTypes, _Type, none) ->
     %% Not running the signatures sub pass; it is always safe to
@@ -1246,17 +1236,7 @@ update_arith_types_safe(#b_set{dst=Dst}=I, ArgTypes, Type, UnstableVars0) ->
 init_counter(#b_set{op=Op}, ArgTypes) ->
     case Op of
         {bif,'+'} -> 64;
-        {bif,'-'} ->
-            Def = 64,
-            case ArgTypes of
-                [#t_integer{elements={_Min,Max}},
-                 #t_integer{elements={1,1}}] ->
-                    %% Avoid passing zero because it is unlikely to
-                    %% improve the range.
-                    max(1, min(Def, Max));
-                _ ->
-                    Def
-            end;
+        {bif,'-'} -> 64;
         {bif,'bnot'} -> 60;
         {bif,'*'} ->
             case ArgTypes of
