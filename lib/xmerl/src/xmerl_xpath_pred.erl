@@ -166,15 +166,15 @@ comp_expr('>', E1, E2, C) ->
 comp_expr('<', E1, E2, C) ->
     N1 = expr(E1,C),
     N2 = expr(E2,C),
-    ?boolean(compare_ineq_format(N1,N2,C) > compare_ineq_format(N2,N1,C));
+    ?boolean(compare_ineq_format(N1,N2,C) < compare_ineq_format(N2,N1,C));
 comp_expr('>=', E1, E2, C) ->
     N1 = expr(E1,C),
     N2 = expr(E2,C),
-    ?boolean(compare_ineq_format(N1,N2,C) > compare_ineq_format(N2,N1,C));
+    ?boolean(compare_ineq_format(N1,N2,C) >= compare_ineq_format(N2,N1,C));
 comp_expr('<=', E1, E2, C) ->
     N1 = expr(E1,C),
     N2 = expr(E2,C),
-    ?boolean(compare_ineq_format(N1,N2,C) > compare_ineq_format(N2,N1,C));
+    ?boolean(compare_ineq_format(N1,N2,C) =< compare_ineq_format(N2,N1,C));
 comp_expr('=', E1, E2, C) ->
     N1 = expr(E1,C),
     N2 = expr(E2,C),
@@ -508,8 +508,12 @@ contains(C, [A1, A2]) ->
 'substring-before'(C, [A1, A2]) ->
     S1 = mk_string(C, A1),
     S2 = mk_string(C, A2),
-    Pos = string:str(S1, S2),
-    ?string(string:substr(S1, 1, Pos)).
+    case string:str(S1, S2) of
+        0 ->
+            ?string([]);
+        Pos ->
+            ?string(string:substr(S1, 1, Pos - 1))
+    end.
 
 %% string: substring-after(string, string)
 'substring-after'(C, [A1, A2]) ->
@@ -536,10 +540,10 @@ substring(C, [A1, A2, A3]) ->
 
 %% number: string-length(string?)
 'string-length'(C = #xmlContext{context_node = N}, []) ->
-    length(mk_string(C, string_value(N)));
+    ?number(length(mk_string(C, string_value(N))));
 
 'string-length'(C, [A]) ->
-    length(mk_string(C, A)).
+    ?number(length(mk_string(C, A))).
 
 
 %% string: normalize-space(string?)
@@ -633,17 +637,17 @@ match_lang(_, _) ->
 
 %% number: number(object)
 number(C = #xmlContext{context_node = N}, []) ->
-    ?number(mk_number(C, string(C, N)));
+    ?number(mk_number(C, string_value(N)));
 number(C, [Arg]) ->
     ?number(mk_number(C, Arg)).
 
 
 sum(C, [Arg]) ->
     NS = mk_nodeset(C, Arg),
-    lists:foldl(
-      fun(N, Sum) ->
-	      Sum + mk_number(C, string(C, N))
-      end, 0, NS).
+    ?number(lists:foldl(
+              fun(N, Sum) ->
+                      Sum + mk_number(C, string_value(N))
+              end, 0, NS)).
 
 floor(C, [Arg]) ->
     Num = mk_number(C, Arg),
@@ -665,14 +669,14 @@ ceiling(C, [Arg]) ->
 
 
 round(C, [Arg]) ->
-    case mk_number(C, Arg) of
+    ?number(case mk_number(C, Arg) of
 	A when is_atom(A) ->
 	    A;
 	N when is_integer(N) ->
 	    N;
 	F when is_float(F) ->
 	    round(F)
-    end.
+    end).
 
 
 select_on_attribute([E = #xmlElement{attributes = Attrs}|T], K, V, Acc) ->
