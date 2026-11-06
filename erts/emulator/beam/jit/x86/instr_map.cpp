@@ -707,6 +707,53 @@ void BeamGlobalAssembler::emit_update_map_single_exact_body_shared() {
     }
 }
 
+/* ARG2 = untagged flat map
+ * RET = size
+ *
+ * Copies the flat map to HTOP, sharing its keys, without bumping HTOP.
+ * Clobbers ARG1, ARG2, RET, TMP1, and xmm0. */
+void BeamGlobalAssembler::emit_copy_flatmap_shared() {
+    Label pairs = a.new_label(), copy = a.new_label(), copied = a.new_label();
+
+    /* Share the key tuple with the old map. */
+    ERTS_CT_ASSERT(offsetof(flatmap_t, thing_word) == 0);
+    ERTS_CT_ASSERT(offsetof(flatmap_t, size) == sizeof(Eterm));
+    ERTS_CT_ASSERT(offsetof(flatmap_t, keys) == 2 * sizeof(Eterm));
+    ERTS_CT_ASSERT(sizeof(flatmap_t) == 3 * sizeof(Eterm));
+    mov_imm(TMP1, MAP_HEADER_FLATMAP);
+    a.mov(x86::qword_ptr(HTOP, offsetof(flatmap_t, thing_word)), TMP1);
+    a.mov(x86::qword_ptr(HTOP, offsetof(flatmap_t, size)), RET);
+    a.mov(TMP1, x86::qword_ptr(ARG2, offsetof(flatmap_t, keys)));
+    a.mov(x86::qword_ptr(HTOP, offsetof(flatmap_t, keys)), TMP1);
+
+    /* Copy all values. We must not over-read, as the old map may be a
+     * literal at the very end of a mapping. */
+    a.add(ARG2, imm(sizeof(flatmap_t)));
+    a.lea(ARG1, x86::qword_ptr(HTOP, sizeof(flatmap_t)));
+
+    a.test(RET, imm(1));
+    a.short_().jz(pairs);
+    a.mov(TMP1, x86::qword_ptr(ARG2));
+    a.add(ARG2, imm(sizeof(Eterm)));
+    a.mov(x86::qword_ptr(ARG1), TMP1);
+    a.add(ARG1, imm(sizeof(Eterm)));
+
+    a.bind(pairs);
+    a.shr(RET, imm(1));
+    a.short_().jz(copied);
+
+    a.bind(copy);
+    vmovups(x86::xmm0, x86::xmmword_ptr(ARG2));
+    vmovups(x86::xmmword_ptr(ARG1), x86::xmm0);
+    a.add(ARG2, imm(sizeof(Eterm[2])));
+    a.add(ARG1, imm(sizeof(Eterm[2])));
+    a.dec(RET);
+    a.short_().jnz(copy);
+
+    a.bind(copied);
+    a.ret();
+}
+
 void BeamModuleAssembler::emit_update_map_exact(
         const ArgSource &Src,
         const ArgLabel &Fail,
@@ -714,7 +761,174 @@ void BeamModuleAssembler::emit_update_map_exact(
         const ArgWord &Live,
         const ArgWord &Size,
         const Span<const ArgVal> &args) {
+    Label generic = a.new_label(), next = a.new_label();
+
     ASSERT(Size.get() == args.size());
+    ASSERT((Size.get() % 2) == 0);
+
+    /* Inline updates of a handful of immediate keys in a flatmap. Note that
+     * the arguments come in flattened pairs of `{Key, Value}`.
+     *
+     * As we may garbage collect with the map in the register just past the
+     * live ones, the map must be at or below that register and any values in
+     * X registers must be live. This always holds for compiler-generated
+     * code. */
+    bool can_inline = args.size() < (8 * 2);
+
+    if (Src.isXRegister() && Src.as<ArgXRegister>().get() > Live.get()) {
+        can_inline = false;
+    }
+
+    for (size_t i = 0; i < args.size(); i += 2) {
+        const auto &Value = args[i + 1];
+
+        can_inline &= args[i].isImmed();
+
+        if (Value.isXRegister() &&
+            Value.as<ArgXRegister>().get() >= Live.get()) {
+            can_inline = false;
+        }
+    }
+
+    if (can_inline) {
+        Label retry = a.new_label(), changed = a.new_label(),
+              gc = a.new_label();
+        std::vector<Label> store, resume;
+
+        comment("simplified flatmap update");
+
+        mov_arg(ARG1, Src);
+
+        a.bind(retry);
+        emit_is_boxed(generic, Src, ARG1);
+
+        {
+            x86::Gp boxed_ptr = emit_ptr_val(ARG2, ARG1);
+            a.lea(ARG2, x86::qword_ptr(boxed_ptr, -TAG_PRIMARY_BOXED));
+        }
+
+        a.mov(RETd, x86::dword_ptr(ARG2, offsetof(flatmap_t, thing_word)));
+        a.and_(RETb, imm(_HEADER_MAP_SUBTAG_MASK));
+        a.cmp(RETb, imm(HAMT_SUBTAG_HEAD_FLATMAP));
+        a.jne(generic);
+
+        /* The loader sorts the update keys in the same order as the keys of
+         * a flatmap (see `map_key_sort`), so a single forward pass suffices.
+         *
+         * ARG2 = old map, ARG4 = index of the next key, ARG5 = first key. */
+        a.mov(RET, x86::qword_ptr(ARG2, offsetof(flatmap_t, keys)));
+
+        {
+            x86::Gp keys_ptr = emit_ptr_val(ARG5, RET);
+            a.lea(ARG5,
+                  x86::qword_ptr(keys_ptr, sizeof(Eterm) - TAG_PRIMARY_BOXED));
+        }
+
+        mov_imm(ARG4, 0);
+
+        /* Look for the first value that changes, returning the map as is if
+         * there is none. */
+        for (size_t i = 0; i < args.size(); i += 2) {
+            Label search = a.new_label();
+
+            store.push_back(a.new_label());
+            resume.push_back(a.new_label());
+
+            a.bind(search);
+            a.cmp(ARG4, x86::qword_ptr(ARG2, offsetof(flatmap_t, size)));
+            a.jae(generic);
+            a.inc(ARG4);
+            cmp_arg(x86::qword_ptr(ARG5, ARG4, 3, -(Sint)sizeof(Eterm)),
+                    args[i],
+                    TMP1);
+            a.short_().jne(search);
+
+            mov_arg(RET, args[i + 1]);
+            a.cmp(RET,
+                  x86::qword_ptr(ARG2,
+                                 ARG4,
+                                 3,
+                                 sizeof(flatmap_t) - sizeof(Eterm)));
+            a.jne(resume.back());
+        }
+
+        a.mov(RET, ARG1);
+        mov_arg(Dst, RET);
+        a.jmp(next);
+
+        for (size_t i = 0; i < resume.size(); i++) {
+            a.bind(resume[i]);
+            a.lea(ARG6, x86::qword_ptr(store[i]));
+
+            if (i + 1 < resume.size()) {
+                a.jmp(changed);
+            }
+        }
+
+        /* Copy the map and resume at the store of the changed value. */
+        a.bind(changed);
+        {
+            a.mov(RET, x86::qword_ptr(ARG2, offsetof(flatmap_t, size)));
+
+            /* ARG3 = HTOP + S_RESERVED + bytes needed, as expected by the GC
+             * fragment. */
+            a.lea(ARG3,
+                  x86::qword_ptr(HTOP,
+                                 RET,
+                                 3,
+                                 (MAP_HEADER_FLATMAP_SZ + S_RESERVED) *
+                                         sizeof(Eterm)));
+            a.cmp(ARG3, E);
+            a.ja(gc);
+
+            fragment_call(ga->get_copy_flatmap_shared());
+            a.jmp(ARG6);
+        }
+
+        /* Store the remaining values in the new map. */
+        for (size_t i = 0; i < args.size(); i += 2) {
+            if (i > 0) {
+                Label search = a.new_label();
+
+                a.bind(search);
+                a.cmp(ARG4, x86::qword_ptr(HTOP, offsetof(flatmap_t, size)));
+                a.jae(generic);
+                a.inc(ARG4);
+                cmp_arg(x86::qword_ptr(ARG5, ARG4, 3, -(Sint)sizeof(Eterm)),
+                        args[i],
+                        TMP1);
+                a.short_().jne(search);
+            }
+
+            a.bind(store[i / 2]);
+            mov_arg(RET, args[i + 1]);
+            a.mov(x86::qword_ptr(HTOP,
+                                 ARG4,
+                                 3,
+                                 sizeof(flatmap_t) - sizeof(Eterm)),
+                  RET);
+        }
+
+        /* The result must be in RET like on the generic path, as both paths
+         * share the register cache at `next`. */
+        a.lea(RET, x86::qword_ptr(HTOP, TAG_PRIMARY_BOXED));
+        a.lea(HTOP, x86::qword_ptr(ARG3, -S_RESERVED * (Sint)sizeof(Eterm)));
+        mov_arg(Dst, RET);
+        a.jmp(next);
+
+        /* Keep the map alive in the register just past the live ones, like
+         * the generic path does. */
+        a.bind(gc);
+        {
+            mov_arg(ArgXRegister(Live.get()), ARG1);
+            mov_imm(ARG4, Live.get() + 1);
+            fragment_call(ga->get_garbage_collect());
+            mov_arg(ARG1, ArgXRegister(Live.get()));
+            a.jmp(retry);
+        }
+    }
+
+    a.bind(generic);
 
     if (args.size() == 2 && Fail.get() == 0) {
         mov_arg(ARG2, args[0]);
@@ -737,4 +951,6 @@ void BeamModuleAssembler::emit_update_map_exact(
     }
 
     mov_arg(Dst, RET);
+
+    a.bind(next);
 }
