@@ -1381,3 +1381,298 @@ void BeamModuleAssembler::emit_bif_tuple_size(const ArgLabel &Fail,
     }
     flush_var(dst);
 }
+
+/* ================================================================
+ *  integer_trailing_zeroes/1
+ *  integer_set_bits/1
+ *  integer_unsigned_width/1
+ *  integer_signed_width/1
+ * ================================================================
+ */
+
+template<typename T, T Func>
+void BeamGlobalAssembler::emit_bitops_body(const ErtsCodeMFA *bif_mfa) {
+    Label error = a.new_label();
+
+    /* Save original arguments for the error path. */
+    a.str(ARG1, TMP_MEM1q);
+
+    emit_enter_runtime_frame();
+
+    runtime_call<T, Func>();
+
+    emit_leave_runtime_frame();
+
+    emit_branch_if_not_value(ARG1, error);
+    a.ret(a64::x30);
+
+    a.bind(error);
+    {
+        emit_leave_runtime(0);
+
+        /* Place the original argument in x0. */
+        a.ldr(XREG0, TMP_MEM1q);
+
+        /* Need to set up freason here. */
+        mov_imm(TMP1, EXC_BADARG);
+        a.str(TMP1, a64::Mem(c_p, offsetof(Process, freason)));
+
+        mov_imm(ARG4, bif_mfa);
+        a.b(labels[raise_exception]);
+    }
+}
+
+void BeamGlobalAssembler::emit_i_ctz_body_shared() {
+    static const ErtsCodeMFA bif_mfa = {am_erlang,
+                                        am_integer_trailing_zeroes,
+                                        1};
+    emit_bitops_body<Eterm (*)(Eterm), erts_ctz>(&bif_mfa);
+}
+
+void BeamGlobalAssembler::emit_i_popcount_body_shared() {
+    static const ErtsCodeMFA bif_mfa = {am_erlang, am_integer_set_bits, 1};
+    emit_bitops_body<Eterm (*)(Eterm), erts_popcount>(&bif_mfa);
+}
+
+void BeamGlobalAssembler::emit_i_signed_width_body_shared() {
+    static const ErtsCodeMFA bif_mfa = {am_erlang, am_integer_signed_width, 1};
+    emit_bitops_body<Eterm (*)(Eterm), erts_signed_width>(&bif_mfa);
+}
+
+void BeamGlobalAssembler::emit_i_unsigned_width_body_shared() {
+    static const ErtsCodeMFA bif_mfa = {am_erlang,
+                                        am_integer_unsigned_width,
+                                        1};
+    emit_bitops_body<Eterm (*)(Eterm), erts_unsigned_width>(&bif_mfa);
+}
+
+void BeamModuleAssembler::emit_i_ctz(const ArgLabel &Fail,
+                                     const ArgSource &Src,
+                                     const ArgRegister &Dst) {
+    Label generic = a.new_label(), next = a.new_label();
+
+    auto src = load_source(Src, ARG1);
+    auto dst = init_destination(Dst, ARG1);
+
+    ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == 15);
+    a.eor(TMP1, src.reg, imm(_TAG_IMMED1_SMALL));
+    a.cbz(TMP1, generic);
+
+    a.rbit(TMP1, TMP1);
+    a.clz(TMP1, TMP1);
+    a.subs(TMP1, TMP1, imm(_TAG_IMMED1_SIZE));
+    a.b_mi(generic);
+
+    a.lsl(TMP1, TMP1, imm(_TAG_IMMED1_SIZE));
+    a.orr(dst.reg, TMP1, imm(_TAG_IMMED1_SMALL));
+    a.b(next);
+
+    a.bind(generic);
+    mov_var(ARG1, src);
+
+    /* Bignums and error cases go through the runtime function. */
+    if (Fail.get() != 0) {
+        emit_enter_runtime<Update::eReductions>();
+        runtime_call<Eterm (*)(Eterm), erts_ctz>();
+        emit_leave_runtime<Update::eReductions>();
+        emit_branch_if_not_value(ARG1, resolve_beam_label(Fail, dispUnknown));
+    } else {
+        emit_enter_runtime<Update::eReductions>();
+        fragment_call(ga->get_i_ctz_body_shared());
+        emit_leave_runtime<Update::eReductions>();
+    }
+
+    mov_var(dst, ARG1);
+
+    a.bind(next);
+    flush_var(dst);
+}
+
+void BeamModuleAssembler::emit_i_popcount(const ArgLabel &Fail,
+                                          const ArgSource &Src,
+                                          const ArgRegister &Dst) {
+    Label generic = a.new_label(), next = a.new_label();
+    bool need_generic =
+            !always_small(Src) || std::get<0>(getClampedRange(Src)) < 0;
+
+    auto src = load_source(Src, ARG1);
+    auto dst = init_destination(Dst, ARG1);
+
+    if (!hasCpuFeature(CpuFeatures::ARM::kASIMD) &&
+        !hasCpuFeature(CpuFeatures::ARM::kCSSC)) {
+        need_generic = true;
+    } else {
+        if (always_small(Src)) {
+            /* TMP2 is still needed for subtraction and tagging. */
+            comment("skipped small test because the operand is always small");
+            mov_imm(TMP2, make_small(0));
+        } else {
+            a.and_(TMP2, src.reg, imm(_TAG_IMMED1_MASK));
+            a.cmp(TMP2, imm(_TAG_IMMED1_MASK));
+            a.b_ne(generic);
+        }
+
+        /* Subtract the tag bits and ensure the result is positive. */
+        a.subs(TMP1, src.reg, TMP2);
+        if (!need_generic) {
+            comment("skipped unnecesary test for positive small");
+        } else {
+            a.b_mi(generic);
+        }
+
+        /* Do the population counting. */
+        if (hasCpuFeature(CpuFeatures::ARM::kCSSC)) {
+            a.cnt(TMP1, TMP1);
+        } else {
+            a.fmov(a64::d0, TMP1);
+            a.cnt(a64::v0.b8(), a64::v0.b8());
+            a.addv(a64::b0, a64::v0.b8());
+            a.fmov(TMP1, a64::d0);
+        }
+
+        a.orr(dst.reg, TMP2, TMP1, a64::lsl(_TAG_IMMED1_SIZE));
+        if (need_generic) {
+            a.b(next);
+        }
+    }
+
+    a.bind(generic);
+    if (need_generic) {
+        mov_var(ARG1, src);
+
+        /* Bignums and error cases go through the runtime function. */
+        if (Fail.get() != 0) {
+            emit_enter_runtime<Update::eReductions>();
+            runtime_call<Eterm (*)(Eterm), erts_popcount>();
+            emit_leave_runtime<Update::eReductions>();
+            emit_branch_if_not_value(ARG1,
+                                     resolve_beam_label(Fail, dispUnknown));
+        } else {
+            emit_enter_runtime<Update::eReductions>();
+            fragment_call(ga->get_i_popcount_body_shared());
+            emit_leave_runtime<Update::eReductions>();
+        }
+
+        mov_var(dst, ARG1);
+    }
+
+    a.bind(next);
+    flush_var(dst);
+}
+
+void BeamModuleAssembler::emit_i_signed_width(const ArgLabel &Fail,
+                                              const ArgSource &Src,
+                                              const ArgRegister &Dst) {
+    Label generic = a.new_label(), next = a.new_label();
+    bool need_generic = !always_small(Src);
+
+    auto src = load_source(Src, ARG1);
+    auto dst = init_destination(Dst, ARG1);
+
+    if (always_small(Src)) {
+        comment("skipped small test because the operand is always small");
+        /* TMP2 is still needed for tagging. */
+        mov_imm(TMP2, make_small(0));
+    } else {
+        a.and_(TMP2, src.reg, imm(_TAG_IMMED1_MASK));
+        a.cmp(TMP2, imm(_TAG_IMMED1_MASK));
+        a.b_ne(generic);
+    }
+
+    /* Invert the payload bits if the small is negative, leaving the
+     * tag alone. Once inverted, both signs can be measured the same
+     * way. */
+    a.asr(TMP1, src.reg, imm(63));
+    a.and_(TMP1, TMP1, imm(~_TAG_IMMED1_MASK));
+    a.eor(TMP1, TMP1, src.reg);
+
+    /* The signed width is the unsigned width of the (possibly inverted)
+     * payload plus one for the sign bit. */
+    a.clz(TMP1, TMP1);
+    a.neg(TMP1, TMP1);
+    a.add(TMP1, TMP1, imm(65 - _TAG_IMMED1_SIZE));
+
+    a.orr(dst.reg, TMP2, TMP1, a64::lsl(_TAG_IMMED1_SIZE));
+
+    if (need_generic) {
+        a.b(next);
+    }
+
+    a.bind(generic);
+    if (need_generic) {
+        mov_var(ARG1, src);
+
+        /* Bignums and error cases go through the runtime function. */
+        if (Fail.get() != 0) {
+            emit_enter_runtime<Update::eReductions>();
+            runtime_call<Eterm (*)(Eterm), erts_signed_width>();
+            emit_leave_runtime<Update::eReductions>();
+            emit_branch_if_not_value(ARG1,
+                                     resolve_beam_label(Fail, dispUnknown));
+        } else {
+            emit_enter_runtime<Update::eReductions>();
+            fragment_call(ga->get_i_signed_width_body_shared());
+            emit_leave_runtime<Update::eReductions>();
+        }
+
+        mov_var(dst, ARG1);
+    }
+
+    a.bind(next);
+    flush_var(dst);
+}
+
+void BeamModuleAssembler::emit_i_unsigned_width(const ArgLabel &Fail,
+                                                const ArgSource &Src,
+                                                const ArgRegister &Dst) {
+    Label generic = a.new_label(), next = a.new_label();
+    bool need_generic =
+            !always_small(Src) || std::get<0>(getClampedRange(Src)) < 0;
+
+    auto src = load_source(Src, ARG1);
+    auto dst = init_destination(Dst, ARG1);
+
+    if (!need_generic) {
+        comment("skipped unnecessary test for positive small");
+    } else {
+        /* Test that Src is a positive small. */
+        ERTS_CT_ASSERT(_TAG_IMMED1_SMALL == 15);
+        a.eor(TMP1, src.reg, imm(_TAG_IMMED1_SMALL));
+        a.tst(TMP1, imm(_TAG_IMMED1_MASK | (1ull << 63)));
+        a.b_ne(generic);
+    }
+
+    a.clz(TMP1, src.reg);
+    a.neg(TMP1, TMP1);
+    a.add(TMP1, TMP1, imm(64 - _TAG_IMMED1_SIZE));
+
+    a.lsl(TMP1, TMP1, imm(_TAG_IMMED1_SIZE));
+    a.orr(dst.reg, TMP1, imm(_TAG_IMMED1_SMALL));
+
+    if (need_generic) {
+        a.b(next);
+    }
+
+    a.bind(generic);
+    if (need_generic) {
+        mov_var(ARG1, src);
+
+        /* Bignums and error cases go through the runtime function. */
+        if (Fail.get() != 0) {
+            emit_enter_runtime<Update::eReductions>();
+            runtime_call<Eterm (*)(Eterm), erts_unsigned_width>();
+            emit_leave_runtime<Update::eReductions>();
+            emit_branch_if_not_value(ARG1,
+                                     resolve_beam_label(Fail, dispUnknown));
+        } else {
+            emit_enter_runtime<Update::eReductions>();
+            fragment_call(ga->get_i_unsigned_width_body_shared());
+            emit_leave_runtime<Update::eReductions>();
+        }
+
+        mov_var(dst, ARG1);
+    }
+
+    a.bind(next);
+    flush_var(dst);
+}
