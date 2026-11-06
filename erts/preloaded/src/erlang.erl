@@ -1136,25 +1136,24 @@ big_binary_to_int(Bin0, Base)
     end.
 
 segmentize(Bin, Size, Base, LogRadix) ->
-    case Size rem LogRadix of
-        0 ->
-            segmentize_1(Bin, LogRadix, Base, []);
-        NumFirst ->
-            <<First:NumFirst/binary,T/binary>> = Bin,
-            case erts_internal:binary_to_integer(First, Base) of
-                FirstInt when erlang:is_integer(FirstInt) ->
-                    segmentize_1(T, LogRadix, Base, [FirstInt]);
-                badarg ->
-                    badarg
-            end
-    end.
+    First = case Size rem LogRadix of
+                0 -> LogRadix;
+                NumFirst -> NumFirst
+            end,
+    segmentize_1(Bin, First, LogRadix, Base, []).
 
-segmentize_1(Bin, LogRadix, Base, Acc) ->
+%% erts_internal:binary_to_integer/2 accepts a leading sign, but a sign
+%% is never valid at the start of a segment (the sign of the whole
+%% number has already been stripped by get_sign/1).
+segmentize_1(<<S:8,_/binary>>, _Len, _LogRadix, _Base, _Acc)
+  when S =:= $-; S =:= $+ ->
+    badarg;
+segmentize_1(Bin, Len, LogRadix, Base, Acc) ->
     case Bin of
-        <<B:LogRadix/binary,T/binary>> ->
+        <<B:Len/binary,T/binary>> ->
             case erts_internal:binary_to_integer(B, Base) of
                 Int when erlang:is_integer(Int) ->
-                    segmentize_1(T, LogRadix, Base, [Int|Acc]);
+                    segmentize_1(T, LogRadix, LogRadix, Base, [Int|Acc]);
                 badarg ->
                     badarg
             end;
