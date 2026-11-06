@@ -1751,11 +1751,27 @@ type_opt_1(active) ->
 	   {true, ?INET_ACTIVE}, 
 	   {once, ?INET_ONCE},
            {multi, ?INET_MULTI}]};
-type_opt_1(packet) -> 
+type_opt_1(packet) ->
+    {Native2, Native3, Native4} =
+        case erlang:system_info(endian) of
+            big -> {?TCP_PB_2_BIG, ?TCP_PB_3_BIG, ?TCP_PB_4_BIG};
+            little -> {?TCP_PB_2_LITTLE, ?TCP_PB_3_LITTLE,
+                       ?TCP_PB_4_LITTLE}
+        end,
     {enum,[{0, ?TCP_PB_RAW},
 	   {1, ?TCP_PB_1},
-	   {2, ?TCP_PB_2},
-	   {4, ?TCP_PB_4},
+           {2, ?TCP_PB_2_BIG},
+           {{2, big}, ?TCP_PB_2_BIG},
+           {{2, little}, ?TCP_PB_2_LITTLE},
+           {{2, native}, Native2},
+           {3, ?TCP_PB_3_BIG},
+           {{3, big}, ?TCP_PB_3_BIG},
+           {{3, little}, ?TCP_PB_3_LITTLE},
+           {{3, native}, Native3},
+           {4, ?TCP_PB_4_BIG},
+           {{4, big}, ?TCP_PB_4_BIG},
+           {{4, little}, ?TCP_PB_4_LITTLE},
+           {{4, native}, Native4},
 	   {raw,?TCP_PB_RAW},
 	   {sunrm, ?TCP_PB_RM},
 	   {asn1, ?TCP_PB_ASN1},
@@ -1943,6 +1959,8 @@ type_value_1(Q, {record,Types}, undefined) ->
 type_value_1(Q, {record,Types}, Values)
   when tuple_size(Types) =:= tuple_size(Values) ->
     type_value_record(Q, Types, Values, 2);
+type_value_1(_, {enum, _} = Type, Value) ->
+    type_value_2(Type, Value);
 type_value_1(Q, Types, Values)
   when tuple_size(Types) =:= tuple_size(Values) ->
     type_value_tuple(Q, Types, Values, 1);
@@ -2145,6 +2163,8 @@ enc_value_1(Q, {record,Types}, undefined) ->
 enc_value_1(Q, {record,Types}, Values)
   when tuple_size(Types) =:= tuple_size(Values) ->
     enc_value_tuple(Q, Types, Values, 2);
+enc_value_1(_, {enum, _} = Type, Value) ->
+    enc_value_2(Type, Value);
 enc_value_1(Q, Types, Values) when tuple_size(Types) =:= tuple_size(Values) ->
     enc_value_tuple(Q, Types, Values, 1);
 enc_value_1(_, Type, Value) ->

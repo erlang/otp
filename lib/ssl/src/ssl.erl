@@ -3958,10 +3958,28 @@ encode_packet(Packet, Data) ->
     case Packet of
         1 when Len < (1 bsl 8) ->  [<<Len:8>>|Data];
         2 when Len < (1 bsl 16) -> [<<Len:16>>|Data];
+        3 when Len < (1 bsl 24) -> [<<Len:24>>|Data];
         4 when Len < (1 bsl 32) -> [<<Len:32>>|Data];
-        N when N =:= 1; N =:= 2; N =:= 4 ->
+        {N, big}
+          when (N =:= 2 orelse N =:= 3 orelse N =:= 4),
+               Len < (1 bsl (N bsl 3)) ->
+            [<<Len:N/big-unit:8>>|Data];
+        {N, little}
+          when (N =:= 2 orelse N =:= 3 orelse N =:= 4),
+               Len < (1 bsl (N bsl 3)) ->
+            [<<Len:N/little-unit:8>>|Data];
+        {N, native}
+          when (N =:= 2 orelse N =:= 3 orelse N =:= 4),
+               Len < (1 bsl (N bsl 3)) ->
+            [<<Len:N/native-unit:8>>|Data];
+        N when N =:= 1; N =:= 2; N =:= 3; N =:= 4 ->
             {error,
              {badarg, {packet_to_large, Len, (1 bsl (Packet bsl 3)) - 1}}};
+        {N, Endian}
+          when (N =:= 2 orelse N =:= 3 orelse N =:= 4),
+               (Endian =:= big orelse Endian =:= little orelse Endian =:= native) ->
+            {error,
+             {badarg, {packet_to_large, Len, (1 bsl (N bsl 3)) - 1}}};
         _ ->
             Data
     end.
@@ -3976,4 +3994,3 @@ handle_trace(rle, {call, {?MODULE, listen, Args}}, Stack0) ->
 handle_trace(rle, {call, {?MODULE, connect, Args}}, Stack0) ->
     Role = client,
     {io_lib:format("(*~w) Args = ~W", [Role, Args, 10]), [{role, Role} | Stack0]}.
-
