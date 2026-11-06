@@ -1391,7 +1391,7 @@ doctests(Config) ->
     "uri_string_usage.md"),
     ok = ct_doctest:file(Path),
     ok = ct_doctest:module(uri_string, [{skipped_blocks, 0},
-                                        {missing_tests, [{allowed_characters, 0}]}]).
+                                        {missing_tests, []}]).
 
 %%-------------------------------------------------------------------------
 %% Quote tests
