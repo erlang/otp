@@ -149,8 +149,41 @@ gc(Config) ->
     ?assertError(_, Get([[-1, $a], $a])),
     ?assertError(_, Get([<<$a>>, [-1, $a], $a])), %% Current impl
 
+    [true = verify_gc(Str, Res, N, "gc_extra") andalso
+         verify_gc(unicode:characters_to_binary(Str), Res, N, "gc_extra")
+     || {N, {Str, Res}} <- lists:enumerate(gc_extra())],
+
     0 = fold(fun verify_gc/3, 0, DataDir ++ "/GraphemeBreakTest.txt"),
     ok.
+
+%% Sequences not covered by GraphemeBreakTest.txt (GH-12087)
+gc_extra() ->
+    EP1 = 16#1F468, EP2 = 16#1F469,             %% Extended_Pictographic
+    ZWJ = 16#200D, ZWNJ = 16#200C,              %% ZWJ, Extend (InCB=None)
+    Ext = 16#301, SM = 16#17C7,                 %% Extend, SpacingMark
+    KA = 16#915, Virama = 16#94D, Visarga = 16#903, %% InCB Consonant, Linker, SpacingMark
+    [%% GB9/GB9a: no break before Extend, ZWJ or SpacingMark after ExtPict ZWJ
+     {[EP1,ZWJ,Ext], [[EP1,ZWJ,Ext]]},
+     {[EP1,ZWJ,ZWJ], [[EP1,ZWJ,ZWJ]]},
+     {[EP1,ZWJ,SM], [[EP1,ZWJ,SM]]},
+     {[EP1,ZWJ,Ext,Ext,$a], [[EP1,ZWJ,Ext,Ext],$a]},
+     %% GB11: ExtPict Extend* ZWJ x ExtPict, only Extend allowed before ZWJ
+     {[EP1,Ext,ZWJ,EP2], [[EP1,Ext,ZWJ,EP2]]},
+     {[EP1,ZWNJ,ZWJ,EP2], [[EP1,ZWNJ,ZWJ,EP2]]}, %% ZWNJ is gcb=Extend
+     {[EP1,16#9BE,ZWJ,EP2], [[EP1,16#9BE,ZWJ,EP2]]}, %% Mc but gcb=Extend
+     {[EP1,ZWJ,Ext,ZWJ,EP2], [[EP1,ZWJ,Ext,ZWJ],EP2]},
+     {[EP1,ZWJ,ZWJ,EP2], [[EP1,ZWJ,ZWJ],EP2]},
+     {[EP1,SM,ZWJ,EP2], [[EP1,SM,ZWJ],EP2]},
+     %% GB9c: only InCB=Extend|Linker allowed between consonants
+     {[KA,Virama,KA], [[KA,Virama,KA]]},
+     {[KA,Visarga,Virama,KA], [[KA,Visarga,Virama],KA]},
+     {[KA,Virama,Visarga,KA], [[KA,Virama,Visarga],KA]},
+     {[KA,ZWNJ,Virama,KA], [[KA,ZWNJ,Virama],KA]},
+     {[KA,Virama,ZWNJ,KA], [[KA,Virama,ZWNJ],KA]}, %% ZWNJ: explicit virama, no conjunct
+     {[KA,ZWJ,Virama,KA], [[KA,ZWJ,Virama,KA]]},
+     %% Bengali KA, VOWEL SIGN AA (Mc but InCB=Extend), VIRAMA, KA
+     {[16#995,16#9BE,16#9CD,16#995], [[16#995,16#9BE,16#9CD,16#995]]}
+    ].
 
 verify_gc(Line0, N, Acc) ->
     Line = unicode:characters_to_list(Line0),

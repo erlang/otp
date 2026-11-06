@@ -807,6 +807,28 @@ nth_lexeme(_) ->
     ?TEST([<<"aae">>,778,"äöoo"], [2,[[$e,778]]], "äöoo"),
     ?TEST([<<"aae">>,778,"äöo21"], [2,[[$e,778],$o]], "äö"),
     ?TEST([<<"aae">>,778,"öeeåäö"], [2,"e"], "åäö"),
+
+    %% Prepend and Hangul are not handled (see module doc), but
+    %% nth_lexeme/3 must be consistent with lexemes/2
+    Prepend = 16#11A84, HangulL = 16#1100, HangulV = 16#1161,
+    ?TEST([$,,Prepend,$,,$\r], [2, ","], [$\r]),
+    ?TEST([$x,$,,Prepend,$,,$y], [2, ","], [Prepend]),
+    %% Not normalized, NFC composes L+V
+    test(?LINE, ?FUNCTION_NAME, [HangulL,HangulV,$b,HangulV,$c], [2, [HangulV]], "b", false),
+    [nth_lexeme_consistent(Str, Seps) ||
+        {Str, Seps} <- [{[$,,Prepend,$,,$\r], ","},
+                        {[$a,Prepend,$,,$b,$,,$c], ","},
+                        {[HangulL,HangulV,$b,HangulV,$c], [HangulV]},
+                        {[$,,[Prepend],[[$,,$\r]]], ","}]],
+    ok.
+
+nth_lexeme_consistent(Str, Seps) ->
+    [begin
+         Lexemes = [unicode:characters_to_list(L) || L <- string:lexemes(S, Seps)],
+         Nth = [unicode:characters_to_list(string:nth_lexeme(S, N, Seps)) ||
+                   N <- lists:seq(1, erlang:length(Lexemes))],
+         ?assertEqual(Lexemes, Nth)
+     end || S <- [Str, unicode:characters_to_binary(Str)]],
     ok.
 
 jaro_similarity(_Config) ->
