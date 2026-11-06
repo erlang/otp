@@ -46,6 +46,7 @@ MODULES = \
 	ssl_api_SUITE\
 	tls_api_SUITE\
 	dtls_api_SUITE\
+	dtls_fragment_SUITE\
         ssl_basic_SUITE \
 	ssl_bench_SUITE \
 	ssl_cipher_SUITE \
