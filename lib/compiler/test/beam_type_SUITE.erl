@@ -37,6 +37,7 @@
          not_equal/1,infer_relops/1,binary_unit/1,premature_concretization/1,
          funs/1,will_succeed/1,float_confusion/1,
          cover_convert_ext/1, catch_setelement/1,gh_11368/1,gh_11413/1,
+         gh_12149/1,
          rem_bounds/1,
          gh_11686/1,float_widens/1,huge_number_bounds/1,
          bool_element_widens/1]).
@@ -91,6 +92,7 @@ groups() ->
        catch_setelement,
        gh_11368,
        gh_11413,
+       gh_12149,
        rem_bounds,
        gh_11686,
        float_widens,
@@ -1690,6 +1692,33 @@ prepare_request(Msg0, Seq) ->
     Flags = element(3, Msg0),
     Msg1 = setelement(3, Msg0, [request | Flags]),
     setelement(4, Msg1, Seq).
+
+gh_12149(Config) ->
+    {Pid,Ref} = spawn_monitor(fun gh_12149_foo/0),
+    receive after 1 -> ok end,
+    exit_signal(Pid, halted),
+    receive
+        Any ->
+            {'DOWN',Ref,process,Pid,halted} = Any,
+            ok
+    end.
+
+%% The signature pass would calculate some arbitrary finite limits for
+%% gh_12149_foo/1 and gh_12149_bar/1. The following optimization pass
+%% would widen those limits, causing an assertion failure. Without the
+%% widening assertion, beam_validator would complain.
+gh_12149_foo() ->
+    gh_12149_foo(1).
+
+gh_12149_foo(0) ->
+    exit(foo);
+gh_12149_foo(N) ->
+    gh_12149_bar(N+2).
+
+gh_12149_bar(0) ->
+    exit(bar);
+gh_12149_bar(N) ->
+    gh_12149_foo(N-1).
 
 rem_bounds(_Config) ->
     %% Don't call the rem_bounds_1/1 function, because it will never
