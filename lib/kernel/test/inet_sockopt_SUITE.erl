@@ -68,7 +68,8 @@
 	 ipv6_v6only_udp/1, ipv6_v6only_tcp/1, ipv6_v6only_sctp/1,
 	 use_ipv6_v6only_udp/1,
 	 type_errors/1,
-         windows_reuseaddr/1]).
+         windows_reuseaddr/1,
+         reuseport_lb/1]).
 
 
 suite() ->
@@ -122,7 +123,8 @@ all_std_cases() ->
      ipv6_v6only_udp, ipv6_v6only_tcp, ipv6_v6only_sctp,
      use_ipv6_v6only_udp,
      type_errors,
-     windows_reuseaddr
+     windows_reuseaddr,
+     reuseport_lb
     ].
 
 init_per_suite(Config0) ->
@@ -1131,6 +1133,45 @@ windows_reuseaddr_test(Config, {SolSocket, SoReuseaddr}, LOpts, COpts) ->
     gen_tcp:close(A),
     gen_tcp:close(C),
     {LReuseaddr, CReuseaddr}.
+
+%% Check that reuseport_lb lets several sockets bind the same port,
+%% with all backends. On Linux it is the same option as reuseport.
+reuseport_lb(Config) when is_list(Config) ->
+    Cond = fun() ->
+                   case mandatory_reuseport_lb(os:type(), os:version()) of
+                       true ->
+                           ok;
+                       false ->
+                           {skip, "reuseport_lb not known to be supported"}
+                   end
+           end,
+    ?TC_TRY(?FUNCTION_NAME, Cond,
+            fun() ->
+                    reuseport_lb_udp(Config),
+                    reuseport_lb_tcp(Config)
+            end).
+
+reuseport_lb_udp(Config) ->
+    Opts = [{reuseport_lb, true}],
+    {ok, S1} = ?OPEN(Config, 0, Opts),
+    {ok, Port} = inet:port(S1),
+    ?P("UDP socket 1 bound to port ~w, open socket 2 on same port", [Port]),
+    {ok, S2} = ?OPEN(Config, Port, Opts),
+    {ok, [{reuseport_lb, true}]} = inet:getopts(S1, [reuseport_lb]),
+    {ok, [{reuseport_lb, true}]} = inet:getopts(S2, [reuseport_lb]),
+    ok = gen_udp:close(S1),
+    ok = gen_udp:close(S2).
+
+reuseport_lb_tcp(Config) ->
+    Opts = [{reuseport_lb, true}],
+    {ok, L1} = ?LISTEN(Config, 0, Opts),
+    {ok, Port} = inet:port(L1),
+    ?P("TCP listen socket 1 bound to port ~w, listen on same port", [Port]),
+    {ok, L2} = ?LISTEN(Config, Port, Opts),
+    {ok, [{reuseport_lb, true}]} = inet:getopts(L1, [reuseport_lb]),
+    {ok, [{reuseport_lb, true}]} = inet:getopts(L2, [reuseport_lb]),
+    ok = gen_tcp:close(L1),
+    ok = gen_tcp:close(L2).
 
 
 all_ok([]) ->

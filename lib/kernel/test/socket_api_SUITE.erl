@@ -225,6 +225,7 @@
          api_opt_sock_rcvlowat_udp4/1,
          api_opt_sock_rcvtimeo_udp4/1,
          api_opt_sock_reuseaddr/1,
+         api_opt_sock_reuseport_lb/1,
          api_opt_sock_exclusiveaddruse/1,
          api_opt_sock_bsp_state/1,
          api_opt_sock_sndbuf_udp4/1,
@@ -540,6 +541,7 @@ api_options_socket_cases() ->
      {group, option_sock_timestamp},
      {group, option_sock_timestampns},
      api_opt_sock_reuseaddr,
+     api_opt_sock_reuseport_lb,
      api_opt_sock_exclusiveaddruse,
      api_opt_sock_bsp_state
 
@@ -13969,6 +13971,30 @@ api_opt_sock_reuseaddr() ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+%% Tests the socket option reuseport_lb (SO_REUSEPORT_LB).
+%% This is the most basic of tests. We only test that we can set the
+%% option and then read back.
+
+api_opt_sock_reuseport_lb(_Config) when is_list(_Config) ->
+    ?TT(?SECS(10)),
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   %% [IPv4] Nothing to do with the option,
+                   %% [IPv4] but we use it the test so make
+                   %% [IPv4] use we have it.
+                   has_support_ipv4(),
+                   has_support_sock_reuseport_lb()
+           end,
+           fun() -> api_opt_sock_reuseport_lb() end).
+
+
+api_opt_sock_reuseport_lb() ->
+    api_opt_simple_bool(inet, socket, dgram, reuseport_lb,
+                       #{bind => false}).
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 %% Tests the socket option exclusiveaddruse.
 %% This is the most basic of tests. We only test that we can set the
 %% option and then read back.
@@ -27146,6 +27172,9 @@ has_support_sock_keepalive() ->
 
 has_support_sock_reuseaddr() ->
     has_support_socket_option_sock(reuseaddr).
+
+has_support_sock_reuseport_lb() ->
+    has_support_socket_option_sock(reuseport_lb).
 
 has_support_sock_bsp_state() ->
     has_support_socket_option_sock(bsp_state).
