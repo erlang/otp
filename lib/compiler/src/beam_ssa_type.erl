@@ -2787,6 +2787,9 @@ infer_types_br_1(V, Ts, Ds) ->
     #{V:=#b_set{op=Op0,args=Args}} = Ds,
 
     case inv_relop(Op0) of
+        none when Op0 =:= get_tuple_element ->
+            %% Branching on a tuple element tests `Element =:= true`.
+            infer_relop_types('=:=', '=/=', [V,#b_literal{val=true}], Ts, Ds);
         none ->
             %% Not a relational operator.
             {PosTypes, NegTypes} = infer_type(Op0, Args, Ts, Ds),
@@ -2796,28 +2799,30 @@ infer_types_br_1(V, Ts, Ds) ->
         InvOp ->
             %% This is a relational operator.
             {bif,Op} = Op0,
-
-            %% Infer the types for both sides of operator succeeding.
-            Types = concrete_types(Args, Ts),
-            {TruePos, TrueNeg} = infer_relop(Op, Args, Types, Ds),
-            TrueTypes = maybe
-                           TrueTypes0 = #{} ?= meet_types(TruePos, Ts),
-                           subtract_types(TrueNeg, TrueTypes0)
-                        else
-                            none -> none
-                        end,
-
-            %% Infer the types for both sides of operator failing.
-            {FalsePos, FalseNeg} = infer_relop(InvOp, Args, Types, Ds),
-            FalseTypes = maybe
-                            FalseTypes0 = #{} ?= meet_types(FalsePos, Ts),
-                            subtract_types(FalseNeg, FalseTypes0)
-                         else
-                             none -> none
-                         end,
-
-            {TrueTypes, FalseTypes}
+            infer_relop_types(Op, InvOp, Args, Ts, Ds)
     end.
+
+infer_relop_types(Op, InvOp, Args, Ts, Ds) ->
+    %% Infer the types for both sides of operator succeeding.
+    Types = concrete_types(Args, Ts),
+    {TruePos, TrueNeg} = infer_relop(Op, Args, Types, Ds),
+    TrueTypes = maybe
+                   TrueTypes0 = #{} ?= meet_types(TruePos, Ts),
+                   subtract_types(TrueNeg, TrueTypes0)
+                else
+                    none -> none
+                end,
+
+    %% Infer the types for both sides of operator failing.
+    {FalsePos, FalseNeg} = infer_relop(InvOp, Args, Types, Ds),
+    FalseTypes = maybe
+                    FalseTypes0 = #{} ?= meet_types(FalsePos, Ts),
+                    subtract_types(FalseNeg, FalseTypes0)
+                 else
+                     none -> none
+                 end,
+
+    {TrueTypes, FalseTypes}.
 
 infer_relop('=:=', [LHS,RHS],
             [#t_bitstring{appendable=LHSApp}=LType0,
