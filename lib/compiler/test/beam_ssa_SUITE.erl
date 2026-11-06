@@ -33,8 +33,6 @@
          coverage/1,normalize/1,
          trycatch/1,gh_6599/1,cs_div/1,gh_11494/1,
          gh_12046/1]).
-         trycatch/1,gh_6599/1,gh_11494/1,gh_12046/1]).
->>>>>>> maint
 
 -import_record(beam_ssa, [b_set, b_var, b_literal]).
 
