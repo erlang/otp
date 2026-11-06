@@ -48,6 +48,9 @@
 	 equal_and_high_with_part_time_max/1,
 	 equal_with_high/1,
 	 equal_with_high_max/1,
+         compaction_after_rise/1,
+         compaction_follows_load/1,
+         balance_check_without_load/1,
 	 bound_process/1,
 	
 	 scheduler_bind_types/1,
@@ -76,6 +79,9 @@ all() ->
      equal_with_part_time_max,
      equal_and_high_with_part_time_max, equal_with_high,
      equal_with_high_max,
+     compaction_after_rise,
+     compaction_follows_load,
+     balance_check_without_load,
      bound_process,
      {group, scheduler_bind}, scheduler_threads,
      scheduler_suspend_basic, scheduler_suspend,
@@ -229,6 +235,44 @@ equal_with_high_max(Config) when is_list(Config) ->
     chk_result(Res, LW, NW, HW, MW, LNExe, HExe, true),
     workers_exit([Low, Normal, Max]),
     ok(Res, Config).
+
+compaction_after_rise(Config) when is_list(Config) ->
+    ct:timetrap({minutes, 5}),
+    {ok, Peer, Node} = ?CT_PEER(["+S", "8:8"]),
+    enable_internal_state(Node),
+    Ticker = start_ticker(Node, 1),
+    1 = wait_active_run_queues(Node, 1, 90000),
+    Rise = provoke_rise(Node, Ticker, 5),
+    io:format("rise: ~p~n", [Rise]),
+    true = maps:get(rise_active_run_queues, Rise) >= 2,
+    1 = wait_active_run_queues(Node, 1, 60000),
+    stop_ticker(Ticker),
+    peer:stop(Peer),
+    ok.
+
+compaction_follows_load(Config) when is_list(Config) ->
+    ct:timetrap({minutes, 5}),
+    {ok, Peer, Node} = ?CT_PEER(["+S", "8:8"]),
+    enable_internal_state(Node),
+    Ticker = start_ticker(Node, 50),
+    1 = wait_active_run_queues(Node, 1, 30000),
+    Hogs = [spawn(Node, fun hog/0) || _ <- lists:seq(1, 16)],
+    8 = wait_active_run_queues(Node, 8, 5000),
+    lists:foreach(fun (Hog) -> true = exit(Hog, kill) end, Hogs),
+    1 = wait_active_run_queues(Node, 1, 30000),
+    stop_ticker(Ticker),
+    peer:stop(Peer),
+    ok.
+
+balance_check_without_load(Config) when is_list(Config) ->
+    ct:timetrap({minutes, 1}),
+    {ok, Peer, Node} = ?CT_PEER(["+S", "8:8"]),
+    enable_internal_state(Node),
+    Checks = count_balance_checks(Node, 100, 100),
+    io:format("balance checks: ~p~n", [Checks]),
+    true = Checks >= 5,
+    peer:stop(Peer),
+    ok.
 
 bound_process(Config) when is_list(Config) ->
     case erlang:system_info(run_queues) == erlang:system_info(schedulers) of
@@ -2563,6 +2607,102 @@ active_schedulers() ->
 		enabled -> N
 	    end
     end.
+
+enable_internal_state(Node) ->
+    erpc:call(Node, erts_debug, set_internal_state,
+              [available_internal_state, true]).
+
+balance_info(Node) ->
+    erpc:call(Node, erts_debug, get_internal_state, [balance_info]).
+
+wait_active_run_queues(Node, N, Timeout) ->
+    Deadline = erlang:monotonic_time(millisecond) + Timeout,
+    wait_active_run_queues_until(Node, N, Deadline).
+
+wait_active_run_queues_until(Node, N, Deadline) ->
+    case balance_info(Node) of
+        #{active_run_queues := N} ->
+            N;
+        #{active_run_queues := Other} = Info ->
+            case erlang:monotonic_time(millisecond) < Deadline of
+                true ->
+                    receive after 100 -> ok end,
+                    wait_active_run_queues_until(Node, N, Deadline);
+                false ->
+                    io:format("balance_info: ~p~n", [Info]),
+                    Other
+            end
+    end.
+
+provoke_rise(Node, Ticker, Attempts) ->
+    #{rise_at_check := Before} = balance_info(Node),
+    Ticker ! {burst, 3, 300},
+    Deadline = erlang:monotonic_time(millisecond) + 20000,
+    case wait_rise_until(Node, Before, Deadline) of
+        no_rise when Attempts > 1 ->
+            provoke_rise(Node, Ticker, Attempts - 1);
+        no_rise ->
+            ct:fail(no_rise);
+        Info ->
+            Info
+    end.
+
+wait_rise_until(Node, Before, Deadline) ->
+    case balance_info(Node) of
+        #{rise_at_check := Before} ->
+            case erlang:monotonic_time(millisecond) < Deadline of
+                true ->
+                    receive after 100 -> ok end,
+                    wait_rise_until(Node, Before, Deadline);
+                false ->
+                    no_rise
+            end;
+        Info ->
+            Info
+    end.
+
+start_ticker(Node, IntervalMs) ->
+    spawn_link(Node, fun () -> ticker(IntervalMs) end).
+
+stop_ticker(Ticker) ->
+    true = unlink(Ticker),
+    true = exit(Ticker, kill).
+
+ticker(IntervalMs) ->
+    receive
+        {burst, N, Iterations} ->
+            spawn_jobs(N, Iterations)
+    after 0 ->
+        spawn_jobs(12, 0)
+    end,
+    receive after IntervalMs -> ok end,
+    ticker(IntervalMs).
+
+spawn_jobs(N, Iterations) ->
+    lists:foreach(fun (_) -> spawn(fun () -> burn(Iterations) end) end,
+                  lists:seq(1, N)).
+
+burn(0) ->
+    ok;
+burn(N) ->
+    5050 = lists:sum(lists:seq(1, 100)),
+    burn(N - 1).
+
+hog() ->
+    burn(100),
+    hog().
+
+count_balance_checks(Node, Polls, IntervalMs) ->
+    #{checks := Start} = balance_info(Node),
+    #{checks := End} = poll_balance_info(Node, Polls, IntervalMs),
+    End - Start.
+
+poll_balance_info(Node, 1, _IntervalMs) ->
+    balance_info(Node);
+poll_balance_info(Node, Polls, IntervalMs) ->
+    #{} = balance_info(Node),
+    receive after IntervalMs -> ok end,
+    poll_balance_info(Node, Polls - 1, IntervalMs).
 
 enable_internal_state() ->
     case catch erts_debug:get_internal_state(available_internal_state) of

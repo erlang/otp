@@ -63,6 +63,9 @@
 #define ERTS_RUNQ_CHECK_BALANCE_REDS_PER_SCHED (2000*CONTEXT_REDS)
 #define ERTS_RUNQ_CALL_CHECK_BALANCE_REDS \
   (ERTS_RUNQ_CHECK_BALANCE_REDS_PER_SCHED/2)
+#define ERTS_RUNQ_CHECK_BALANCE_TIME ERTS_SEC_TO_MONOTONIC(1)
+#define ERTS_RUNQ_CALL_CHECK_BALANCE_TIME \
+  (ERTS_RUNQ_CHECK_BALANCE_TIME/2)
 
 #define ERTS_PROC_MIN_CONTEXT_SWITCH_REDS_COST (CONTEXT_REDS/10)
 
@@ -318,6 +321,7 @@ static struct {
 	int active_runqs;
 	int reds;
 	erts_aint32_t max_len;
+        Uint n;
     } prev_rise;
     Uint n;
 } balance_info;
@@ -327,7 +331,18 @@ do {							\
     balance_info.prev_rise.active_runqs = (ACTIVE);	\
     balance_info.prev_rise.max_len = (MAX_LEN);		\
     balance_info.prev_rise.reds = (REDS);		\
+    balance_info.prev_rise.n = balance_info.n;		\
 } while (0)
+
+#define ERTS_BLNCE_RISE_HOLD_CHECKS ERTS_FULL_REDS_HISTORY_SIZE
+
+static ERTS_INLINE ErtsMonotonicTime
+next_check_balance_timeout(ErtsMonotonicTime now)
+{
+    if (!erts_sched_compact_load)
+        return ERTS_MONOTONIC_TIME_MAX;
+    return now + ERTS_RUNQ_CALL_CHECK_BALANCE_TIME;
+}
 
 
 erts_sched_stat_t erts_sched_stat;
@@ -4244,6 +4259,8 @@ resume_run_queue(ErtsRunQueue *rq)
 	erts_aint32_t len;
 
 	rq->check_balance_reds = ERTS_RUNQ_CALL_CHECK_BALANCE_REDS;
+        rq->check_balance_timeout
+            = next_check_balance_timeout(erts_get_monotonic_time(NULL));
 	for (pix = 0; pix < ERTS_NO_PROC_PRIO_LEVELS; pix++) {
 	    len = erts_atomic32_read_dirty(&rq->procs.prio_info[pix].len);
 	    rq->procs.prio_info[pix].max_len = len;
@@ -4901,18 +4918,23 @@ check_balance(ErtsRunQueue *c_rq)
     Sint64 scheds_reds, full_scheds_reds;
     int forced, active, current_active, half_full_scheds, full_scheds,
 	mmax_len, blnc_no_rqs, qix, pix, freds_hist_ix;
+    ErtsMonotonicTime now;
 #if ERTS_HAVE_SCHED_UTIL_BALANCING_SUPPORT
     int sched_util_balancing;
 #endif
 
     if (erts_atomic32_xchg_nob(&balance_info.checking_balance, 1)) {
 	c_rq->check_balance_reds = INT_MAX;
+        c_rq->check_balance_timeout = ERTS_MONOTONIC_TIME_MAX;
 	return;
     }
+
+    now = erts_get_monotonic_time(c_rq->scheduler);
 
     get_no_runqs(NULL, &blnc_no_rqs);
     if (blnc_no_rqs == 1) {
 	c_rq->check_balance_reds = INT_MAX;
+        c_rq->check_balance_timeout = ERTS_MONOTONIC_TIME_MAX;
 	erts_atomic32_set_nob(&balance_info.checking_balance, 0);
 	return;
     }
@@ -4929,6 +4951,7 @@ check_balance(ErtsRunQueue *c_rq)
 	    else
 		(void) ERTS_RUNQ_FLGS_UNSET(rq, ERTS_RUNQ_FLG_HALFTIME_OUT_OF_WORK);
 	    rq->check_balance_reds = ERTS_RUNQ_CALL_CHECK_BALANCE_REDS;
+            rq->check_balance_timeout = next_check_balance_timeout(now);
 	});
 
 	erts_runq_lock(c_rq);
@@ -4955,6 +4978,7 @@ check_balance(ErtsRunQueue *c_rq)
 	erts_mtx_unlock(&balance_info.update_mtx);
 	erts_runq_lock(c_rq);
 	c_rq->check_balance_reds = INT_MAX;
+        c_rq->check_balance_timeout = ERTS_MONOTONIC_TIME_MAX;
 	erts_atomic32_set_nob(&balance_info.checking_balance, 0);
 	return;
     }
@@ -4992,6 +5016,7 @@ check_balance(ErtsRunQueue *c_rq)
 
 	run_queue_info[qix].max_len = rq->max_len;
 	rq->check_balance_reds = INT_MAX;
+        rq->check_balance_timeout = ERTS_MONOTONIC_TIME_MAX;
 
 #if ERTS_HAVE_SCHED_UTIL_BALANCING_SUPPORT
 	if (erts_sched_balance_util)
@@ -5113,7 +5138,9 @@ check_balance(ErtsRunQueue *c_rq)
 	    ERTS_BLNCE_SAVE_RISE(current_active, mmax_len, scheds_reds);
 	    active = current_active;
 	}
-	else if (active < balance_info.prev_rise.active_runqs) {
+        else if (active < balance_info.prev_rise.active_runqs
+                 && (balance_info.n - balance_info.prev_rise.n
+                     <= ERTS_BLNCE_RISE_HOLD_CHECKS)) {
 	    if (ERTS_PERCENT(mmax_len,
 			     balance_info.prev_rise.max_len) >= 90
 		&& ERTS_PERCENT(scheds_reds,
@@ -5460,6 +5487,7 @@ erts_fprintf(stderr, "--------------------------------\n");
 	}
 
 	rq->check_balance_reds = ERTS_RUNQ_CALL_CHECK_BALANCE_REDS;
+        rq->check_balance_timeout = next_check_balance_timeout(now);
 	erts_runq_unlock(rq);
     }
 
@@ -5542,6 +5570,20 @@ erts_debug_nbalance(void)
     n = balance_info.n;
     erts_mtx_unlock(&balance_info.update_mtx);
     return n;
+}
+
+void
+erts_debug_balance_info(ErtsDebugBalanceInfo *info)
+{
+    erts_mtx_lock(&balance_info.update_mtx);
+    get_no_runqs(&info->active_runqs, &info->used_runqs);
+    info->last_active_runqs = balance_info.last_active_runqs;
+    info->checks = balance_info.n;
+    info->rise_active_runqs = balance_info.prev_rise.active_runqs;
+    info->rise_max_len = (int) balance_info.prev_rise.max_len;
+    info->rise_reds = balance_info.prev_rise.reds;
+    info->rise_check = balance_info.prev_rise.n;
+    erts_mtx_unlock(&balance_info.update_mtx);
 }
 
 /* Wakeup other schedulers */
@@ -6157,6 +6199,8 @@ erts_init_scheduling(int no_schedulers, int no_schedulers_online, int no_poll_th
 	rq->woken = 0;
 	ERTS_RUNQ_FLGS_INIT(rq, ERTS_RUNQ_FLG_NONEMPTY);
 	rq->check_balance_reds = ERTS_RUNQ_CALL_CHECK_BALANCE_REDS;
+        rq->check_balance_timeout
+            = next_check_balance_timeout(erts_get_monotonic_time(NULL));
 	rq->full_reds_history_sum = 0;
 	for (rix = 0; rix < ERTS_FULL_REDS_HISTORY_SIZE; rix++) {
 	    rq->full_reds_history_sum += ERTS_RUNQ_CHECK_BALANCE_REDS_PER_SCHED;
@@ -6338,6 +6382,7 @@ erts_init_scheduling(int no_schedulers, int no_schedulers_online, int no_poll_th
     balance_info.prev_rise.active_runqs = 0;
     balance_info.prev_rise.max_len = 0;
     balance_info.prev_rise.reds = 0;
+    balance_info.prev_rise.n = 0;
     balance_info.n = 0;
 
     init_migration_paths();
@@ -9809,7 +9854,8 @@ Process *erts_schedule(ErtsSchedulerData *esdp, Process *p, int calls)
 		erts_runq_lock(rq);
 	    }
 
-	    if (rq->check_balance_reds <= 0)
+            if (rq->check_balance_reds <= 0
+                || esdp->last_monotonic_time >= rq->check_balance_timeout)
 		check_balance(rq);
 
 	    ERTS_LC_ASSERT(!erts_thr_progress_is_blocking());
