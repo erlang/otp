@@ -31,7 +31,7 @@
          mapfoldl/0,mapfoldl/1,
          grab_bag/1,redundant_br/1,
          coverage/1,normalize/1,
-         trycatch/1,gh_6599/1,gh_11494/1]).
+         trycatch/1,gh_6599/1,gh_11494/1,gh_12046/1]).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
 
@@ -56,7 +56,8 @@ groups() ->
        normalize,
        trycatch,
        gh_6599,
-       gh_11494
+       gh_11494,
+       gh_12046
       ]}].
 
 init_per_suite(Config) ->
@@ -1571,6 +1572,59 @@ inspect(Value) ->
         Res when is_integer(Res);
                  is_bitstring(Res) -> Res;
         [Num] -> inspect(Num)
+    end.
+
+%% GH-12046: ssa_opt_try added a new block for each try on every
+%% pass, even when it had nothing to hoist, so the code never stopped
+%% changing and beam_ssa_opt's fixpoint ran until the iteration limit.
+gh_12046(_Config) ->
+    Src = "-module(gh_12046).\n"
+          "-export([f/1]).\n"
+          "f(X) -> try g(X) of R -> R catch error:_ -> error end.\n"
+          "g(X) -> X + 1.\n",
+    {ok,Tokens,_} = erl_scan:string(Src),
+    Forms = gh_12046_forms(Tokens, []),
+
+    %% Count the calls to beam_ssa_opt:fixpoint/6. A process cannot
+    %% trace itself, so a separate process collects the trace messages.
+    {module,beam_ssa_opt} = code:ensure_loaded(beam_ssa_opt),
+    Counter = spawn_link(fun() -> gh_12046_count(0) end),
+    Session = trace:session_create(?FUNCTION_NAME, Counter, []),
+    try
+        1 = trace:function(Session, {beam_ssa_opt,fixpoint,6}, true, [local]),
+        1 = trace:process(Session, self(), true, [call,arity]),
+        {ok,gh_12046,_} = compile:forms(Forms, [binary,report,
+                                                no_spawn_compiler_process])
+    after
+        trace:session_destroy(Session)
+    end,
+    Counter ! {done,self()},
+    Calls = receive {Counter,Count} -> Count end,
+
+    %% Each call is one pass over the repeated passes. 17 calls (the
+    %% first pass and 16 repetitions) means that the fixpoint was never
+    %% reached.
+    {true,Calls} = {Calls < 16,Calls},
+    ok.
+
+gh_12046_forms([{dot,_}=Dot|Ts], Acc) ->
+    {Form,Rest} = gh_12046_form(Ts, [Dot|Acc]),
+    [Form|gh_12046_forms(Rest, [])];
+gh_12046_forms([T|Ts], Acc) ->
+    gh_12046_forms(Ts, [T|Acc]);
+gh_12046_forms([], []) ->
+    [].
+
+gh_12046_form(Rest, Acc) ->
+    {ok,Form} = erl_parse:parse_form(lists:reverse(Acc)),
+    {Form,Rest}.
+
+gh_12046_count(N) ->
+    receive
+        {trace,_,call,{beam_ssa_opt,fixpoint,6}} ->
+            gh_12046_count(N + 1);
+        {done,From} ->
+            From ! {self(),N}
     end.
 
 %% The identity function.

@@ -1794,8 +1794,25 @@ shrink_try([{TryLbl0, #b_blk{is=[#b_set{op=new_try_tag,dst=Dst}],
             {SuccLbl, #b_blk{is=SuccIs0,last=SuccLast}=SuccBlk0} | Bs],
            Count0, Acc0) ->
     %% Hoist leading known-safe instructions before `new_try_tag` instructions.
-    {HoistIs, SuccIs} = hoist_try_is(SuccIs0, SuccLast, Dst, []),
+    case hoist_try_is(SuccIs0, SuccLast, Dst, []) of
+        {[], _} ->
+            %% Nothing to hoist. Leave the blocks as they are. Adding an
+            %% empty block here would change the code on every pass, and
+            %% the fixpoint in repeated_passes/1 would never converge.
+            shrink_try([{SuccLbl, SuccBlk0} | Bs], Count0,
+                       [{TryLbl0, TryBlk} | Acc0]);
+        {HoistIs, SuccIs} ->
+            shrink_try_hoist(TryLbl0, TryBlk, SuccLbl, SuccBlk0, Bs,
+                             HoistIs, SuccIs, Count0, Acc0)
+    end;
+shrink_try([{L, #b_blk{is=Is}=Blk0} | Bs], Count, Acc) ->
+    Blk = Blk0#b_blk{is=sink_try_is(Is)},
+    shrink_try(Bs, Count, [{L, Blk} | Acc]);
+shrink_try([], Count, Acc) ->
+    {Count, reverse(Acc)}.
 
+shrink_try_hoist(TryLbl0, TryBlk, SuccLbl, SuccBlk0, Bs,
+                 HoistIs, SuccIs, Count0, Acc0) ->
     HoistLbl = TryLbl0,
     TryLbl = Count0,
     Count = Count0 + 1,
@@ -1809,12 +1826,7 @@ shrink_try([{TryLbl0, #b_blk{is=[#b_set{op=new_try_tag,dst=Dst}],
     Acc = [{TryLbl, TryBlk},
            {HoistLbl, HoistBlk} | Acc0],
 
-    shrink_try([{SuccLbl, SuccBlk} | Bs], Count, Acc);
-shrink_try([{L, #b_blk{is=Is}=Blk0} | Bs], Count, Acc) ->
-    Blk = Blk0#b_blk{is=sink_try_is(Is)},
-    shrink_try(Bs, Count, [{L, Blk} | Acc]);
-shrink_try([], Count, Acc) ->
-    {Count, reverse(Acc)}.
+    shrink_try([{SuccLbl, SuccBlk} | Bs], Count, Acc).
 
 hoist_try_is([#b_set{dst=Dst},
               #b_set{op={succeeded,_},args=[Dst]}]=Is,
