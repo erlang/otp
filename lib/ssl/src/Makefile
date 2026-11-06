@@ -93,6 +93,7 @@ MODULES= \
 	ssl_server_session_cache_sup \
 	ssl_upgrade_server_session_cache_sup \
 	ssl_session \
+	ssl_shared_opts \
 	ssl_srp_primes \
 	ssl_sup \
 	tls_bloom_filter \
