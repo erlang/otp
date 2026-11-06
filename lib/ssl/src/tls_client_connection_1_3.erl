@@ -881,11 +881,14 @@ handle_server_hello(#server_hello{cipher_suite = SelectedCipherSuite,
             Alert
     end.
 
-handle_encrypted_extensions(Extensions, State0) ->
+handle_encrypted_extensions(Extensions, #state{ssl_options = SslOpts} = State0) ->
     {Ref, Maybe} = tls_gen_connection_1_3:do_maybe(),
     try
         ALPNProtocol0 = maps:get(alpn, Extensions, undefined),
         ALPNProtocol = Maybe(decode_alpn(ALPNProtocol0)),
+        AdvertisedALPN = maps:get(alpn_advertised_protocols, SslOpts, undefined),
+        Maybe(validate_alpn(ALPNProtocol, AdvertisedALPN)),
+
         EarlyDataIndication = maps:get(early_data, Extensions, undefined),
 
         %% RFC 6066: handle received/expected maximum fragment length
@@ -1076,6 +1079,19 @@ decode_alpn(Encoded) ->
             {ok, Decoded};
         _  ->
             {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER, invalid_alpn)}
+    end.
+
+validate_alpn(undefined, _) ->
+    ok;
+validate_alpn(_, undefined) ->
+    %% Client did not send ALPN, but server did see RFC 8446 Section 4.2"
+    {error, ?ALERT_REC(?FATAL, ?UNSUPPORTED_EXTENSION, unexpected_alpn)};
+validate_alpn(Selected, Advertised) ->
+    case lists:member(Selected, Advertised) of
+        true  ->
+            ok;
+        false ->
+            {error, ?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER, not_advertised_alpn)}
     end.
 
 %% Verify that selected group is offered by the client.

@@ -35,6 +35,12 @@
 %% Testcases
 -export([basic/0,
          basic/1,
+         decline_ticket_on_auth_tightened/0,
+         decline_ticket_on_auth_tightened/1,
+         decline_ticket_on_auth_tightened_continue/0,
+         decline_ticket_on_auth_tightened_continue/1,
+         resume_new_ticket_after_auth_tightened/0,
+         resume_new_ticket_after_auth_tightened/1,
          ticketage_smaller_than_windowsize_anti_replay/0,
          ticketage_smaller_than_windowsize_anti_replay/1,
          ticketage_bigger_than_windowsize_anti_replay/0,
@@ -116,6 +122,9 @@ groups() ->
 
 session_tests() ->
     [basic,
+     decline_ticket_on_auth_tightened,
+     decline_ticket_on_auth_tightened_continue,
+     resume_new_ticket_after_auth_tightened,
      hello_retry_request,
      multiple_tickets,
      multiple_tickets_2hash,
@@ -269,6 +278,299 @@ basic(Config) when is_list(Config) ->
     process_flag(trap_exit, false),
     ssl_test_lib:close(Server0),
     ssl_test_lib:close(Client1).
+
+decline_ticket_on_auth_tightened() ->
+    [{doc, "TLS-1.3 ticket issued for an SNI host under "
+      "verify_none must not be used for PSK resumption after that SAME host's "
+      "client-auth policy is tightened to verify_peer at runtime. The host "
+      "name is identical for mint and resumption (so the SNI-binding gate "
+      "usable_sni/3 does NOT decline it); only the new auth-tightening gate "
+      "can decline. A PSK resumption relies on previous handshake certification, so the "
+      "server must decline and run a full handshake (session_resumption = "
+      "false) that requests + verifies the client certificate. A positive "
+      "control resumes the same ticket under the same host BEFORE the tighten, "
+      "proving the ticket is otherwise resumable."}].
+decline_ticket_on_auth_tightened(Config) when is_list(Config) ->
+    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    ServerTicketMode = proplists:get_value(server_ticket_mode, Config),
+
+    %% ONE SNI host. The sni_fun consults a per-test toggle so the SAME host
+    %% resolves to verify_none initially and verify_peer after the "upgrade"
+    %% -- a genuine runtime policy change for one host, not a cross-SNI
+    %% emulation. Client and server run on the same node, so persistent_term
+    %% is reachable from the sni_fun.
+    SNIHost = Hostname,
+    Key = {?MODULE, ?FUNCTION_NAME, self()},
+    persistent_term:put(Key, verify_none),
+    SNIFun =
+        fun(_SNI) ->
+                case persistent_term:get(Key, verify_none) of
+                    verify_peer ->
+                        [{versions, ['tlsv1.3']}, {verify, verify_peer},
+                         {fail_if_no_peer_cert, true} | ServerOpts0];
+                    verify_none ->
+                        [{versions, ['tlsv1.3']}, {verify, verify_none}
+                         | ServerOpts0]
+                end
+        end,
+
+    ClientOpts = [{session_tickets, auto},
+                  {server_name_indication, SNIHost},
+                  {versions, ['tlsv1.3']} | ClientOpts0],
+    ServerOpts = [{session_tickets, ServerTicketMode}, {verify, verify_none},
+                  {sni_fun, SNIFun}, {versions, ['tlsv1.3']} | ServerOpts0],
+
+    Server0 =
+        ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+                                   {from, self()},
+                                   {mfa, {ssl_test_lib,
+                                          verify_active_session_resumption,
+                                          [false]}},
+                                   {options, ServerOpts}]),
+    Port0 = ssl_test_lib:inet_port(Server0),
+
+    %% 1) Full handshake for SNIHost under verify_none; ticket auto-stored.
+    Client0 = ssl_test_lib:start_client([{node, ClientNode},
+                                         {port, Port0}, {host, Hostname},
+                                         {mfa, {ssl_test_lib,
+                                                verify_active_session_resumption,
+                                                [false]}},
+                                         {from, self()},
+                                         {options, ClientOpts}]),
+    ssl_test_lib:check_result(Server0, ok, Client0, ok),
+
+    %% Positive control: resume for the SAME host while still verify_none ->
+    %% session_resumption = true. Proves the ticket is resumable (same SNI,
+    %% usable_sni passes) so a later decline is attributable to the policy
+    %% tightening, not to an unusable/cross-SNI ticket.
+    Server0 ! {listen, {mfa, {ssl_test_lib,
+                              verify_active_session_resumption,
+                              [true]}}},
+    ct:sleep(100),
+    ClientCtrl = ssl_test_lib:start_client([{node, ClientNode},
+                                            {port, Port0}, {host, Hostname},
+                                            {mfa, {ssl_test_lib,
+                                                   verify_active_session_resumption,
+                                                   [true]}},
+                                            {from, self()},
+                                            {options, ClientOpts}]),
+    ssl_test_lib:check_result(Server0, ok, ClientCtrl, ok),
+    ssl_test_lib:close(ClientCtrl),
+
+    %% UPGRADE: tighten the SAME host's policy to verify_peer.
+    persistent_term:put(Key, verify_peer),
+
+    %% 2) Resume for the SAME host, now tightened. The ticket is still
+    %%    SNI-usable (same host), so only the auth gate can act: the server
+    %%    declines the ticket -> FULL handshake (session_resumption = false)
+    %%    that requests + verifies the client cert. Without the fix the
+    %%    server would resume (true), skipping the client-cert exchange.
+    Server0 ! {listen, {mfa, {ssl_test_lib,
+                              verify_active_session_resumption,
+                              [false]}}},
+    ct:sleep(100),
+    ssl_test_lib:close(Client0),
+    Client1 = ssl_test_lib:start_client([{node, ClientNode},
+                                         {port, Port0}, {host, Hostname},
+                                         {mfa, {ssl_test_lib,
+                                                verify_active_session_resumption,
+                                                [false]}},
+                                         {from, self()},
+                                         {options, ClientOpts}]),
+    ssl_test_lib:check_result(Server0, ok, Client1, ok),
+
+    persistent_term:erase(Key),
+    process_flag(trap_exit, false),
+    ssl_test_lib:close(Server0),
+    ssl_test_lib:close(Client1).
+
+resume_new_ticket_after_auth_tightened() ->
+    [{doc, "A ticket minted under a verify_peer policy "
+      "(a strict-origin ticket, e.g. the one issued by the forced full "
+      "handshake after an upgrade) MUST remain usable for PSK resumption. The "
+      "decline gate is per-connection and only blocks a connection that is "
+      "itself mid-upgrade (verify_none baseline -> verify_peer resolved); a "
+      "connection whose baseline is already verify_peer is not tightening, so "
+      "it must resume normally. Establishes under a stable verify_peer host "
+      "(full handshake + client cert, strict ticket) then resumes under the "
+      "same host and asserts session_resumption = true."}].
+resume_new_ticket_after_auth_tightened(Config) when is_list(Config) ->
+    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_verify_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    ServerTicketMode = proplists:get_value(server_ticket_mode, Config),
+
+    SNI = Hostname,
+    %% The sni_fun returns a strict (verify_peer) config for the tighten
+    %% name. Here BOTH connections target that name, so each connection's
+    %% baseline already resolves to verify_peer: auth_policy_tightened is
+    %% false and the decline gate does NOT fire -> legitimate resumption of
+    %% a strict-origin ticket is allowed.
+    SNIFun =
+        fun(_SNI) ->
+                [{versions, ['tlsv1.3']}, {verify, verify_peer},
+                 {fail_if_no_peer_cert, true} | ServerOpts0]
+        end,
+    ClientOpts = [{session_tickets, auto},
+                  {versions, ['tlsv1.3']} | ClientOpts0],
+    ServerOpts = [{session_tickets, ServerTicketMode}, {verify, verify_peer},
+                  {sni_fun, SNIFun}, {versions, ['tlsv1.3']} | ServerOpts0],
+
+    Server0 =
+        ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+                                   {from, self()},
+                                   {mfa, {ssl_test_lib,
+                                          verify_active_session_resumption,
+                                          [false]}},
+                                   {options, ServerOpts}]),
+    Port0 = ssl_test_lib:inet_port(Server0),
+
+    %% 1) Full handshake under the strict policy; a strict-origin ticket is
+    %%    minted and auto-stored by the client.
+    Client0 = ssl_test_lib:start_client([{node, ClientNode},
+                                         {port, Port0}, {host, Hostname},
+                                         {mfa, {ssl_test_lib,
+                                                verify_active_session_resumption,
+                                                [false]}},
+                                         {from, self()},
+                                         {options, [{server_name_indication, SNI}
+                                                    | ClientOpts]}]),
+    ssl_test_lib:check_result(Server0, ok, Client0, ok),
+
+    %% 2) Re-listen and resume the strict-origin ticket under the same
+    %%    strict SNI -> resumption MUST succeed (session_resumption = true).
+    Server0 ! {listen, {mfa, {ssl_test_lib,
+                              verify_active_session_resumption,
+                              [true]}}},
+    ct:sleep(100),
+    ssl_test_lib:close(Client0),
+
+    Client1 = ssl_test_lib:start_client([{node, ClientNode},
+                                         {port, Port0}, {host, Hostname},
+                                         {mfa, {ssl_test_lib,
+                                                verify_active_session_resumption,
+                                                [true]}},
+                                         {from, self()},
+                                         {options, [{server_name_indication, SNI}
+                                                    | ClientOpts]}]),
+    ssl_test_lib:check_result(Server0, ok, Client1, ok),
+
+    process_flag(trap_exit, false),
+    ssl_test_lib:close(Server0),
+    ssl_test_lib:close(Client1).
+
+decline_ticket_on_auth_tightened_continue() ->
+    [{doc, "OTP-20486: the handshake_continue/3 (paused handshake) tightening "
+      "path. The server pauses every accept at hello and continues with "
+      "verify_none for the first two connections (mint + positive-control "
+      "resume) and with verify_peer for the third. The third connection offers "
+      "the verify_none-origin ticket but, because this connection tightened "
+      "its own client-auth policy at the continue step, the server must "
+      "decline the ticket (session_resumption = false) and run a full "
+      "handshake. Complements the sni_fun-path test by exercising the OTHER "
+      "option re-resolution point (tls_dtls_gen_connection:user_hello)."}].
+decline_ticket_on_auth_tightened_continue(Config) when is_list(Config) ->
+    ServerTicketMode = proplists:get_value(server_ticket_mode, Config),
+    %% Client has a cert (client_rsa_opts base is verify_none), so the forced
+    %% full handshake under verify_peer succeeds as a FULL handshake.
+    ClientOpts = [{session_tickets, auto}, {versions, ['tlsv1.3']}
+                  | ssl_test_lib:ssl_options(client_rsa_opts, Config)],
+    ServerOpts0 = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    Host = net_adm:localhost(),
+
+    %% One listen socket (shared ticket tracker). Base verify_none; each
+    %% accept is paused at hello and continued with a per-connection verify
+    %% level read from a toggle, so the handshake_continue step itself does
+    %% the tightening (the user_hello re-resolution point).
+    {ok, LSock} = ssl:listen(0, [{session_tickets, ServerTicketMode},
+                                 {verify, verify_none},
+                                 {versions, ['tlsv1.3']},
+                                 {handshake, hello},
+                                 {active, false}, {reuseaddr, true}
+                                 | ServerOpts0]),
+    {ok, {_, Port}} = ssl:sockname(LSock),
+    Key = {?MODULE, ?FUNCTION_NAME, self()},
+    persistent_term:put(Key, verify_none),
+
+    %% Continuous acceptor: never blocks on control messages. For each
+    %% accept it spawns a handler that pauses at hello and continues with
+    %% the verify level currently set in the toggle.
+    Acceptor = spawn_link(fun() -> continue_acceptor(LSock, ServerOpts0, Key) end),
+
+    %% 1) Mint: toggle verify_none, expect full handshake.
+    ok = continue_connect(Key, verify_none, Host, Port, ClientOpts, false),
+    %% 2) Positive control: verify_none, expect RESUMED.
+    ok = continue_connect(Key, verify_none, Host, Port, ClientOpts, true),
+    %% 3) Tightened: verify_peer, expect DECLINED -> full handshake.
+    ok = continue_connect(Key, verify_peer, Host, Port, ClientOpts, false),
+
+    unlink(Acceptor),
+    exit(Acceptor, kill),
+    persistent_term:erase(Key),
+    ssl:close(LSock).
+
+%% Set the toggle, drive one client connection, assert observed resumption.
+continue_connect(Key, Verify, Host, Port, ClientOpts, ExpectResumed) ->
+    persistent_term:put(Key, Verify),
+    {ok, Sock} = ssl:connect(Host, Port, ClientOpts, 5000),
+    {ok, [{session_resumption, Got}]} =
+        ssl:connection_information(Sock, [session_resumption]),
+    %% Let the server issue NewSessionTickets before closing.
+    ct:sleep(100),
+    ssl:close(Sock),
+    case Got =:= ExpectResumed of
+        true ->
+            ok;
+        false ->
+            ct:fail("verify=~p: expected session_resumption=~p, got ~p",
+                    [Verify, ExpectResumed, Got])
+    end.
+
+%% Continuous acceptor: spawn a handler per accept so the accept loop is
+%% never blocked by an in-progress handshake. Each handler does its own
+%% transport_accept so it owns the socket it runs the handshake on
+%% (ssl:handshake/handshake_continue must be called by the socket owner).
+continue_acceptor(LSock, ServerOpts0, Key) ->
+    Parent = self(),
+    Handler = spawn(fun() -> continue_handler(LSock, ServerOpts0, Key, Parent) end),
+    receive
+        {Handler, accepted} ->
+            %% One accept consumed; spawn the next acceptor iteration.
+            continue_acceptor(LSock, ServerOpts0, Key);
+        {Handler, {error, closed}} ->
+            ok
+    end.
+
+continue_handler(LSock, ServerOpts0, Key, Parent) ->
+    case ssl:transport_accept(LSock) of
+        {ok, ASock} ->
+            Parent ! {self(), accepted},
+            ContOpts = case persistent_term:get(Key, verify_none) of
+                           verify_peer ->
+                               [{verify, verify_peer},
+                                {fail_if_no_peer_cert, true} | ServerOpts0];
+                           verify_none ->
+                               [{verify, verify_none} | ServerOpts0]
+                       end,
+            case ssl:handshake(ASock, 5000) of
+                {ok, Sock0, _Ext} ->
+                    case ssl:handshake_continue(Sock0, ContOpts, 5000) of
+                        {ok, Conn} ->
+                            ct:sleep(150),
+                            catch ssl:close(Conn);
+                        CE ->
+                            ct:log("continue_handler: continue -> ~p", [CE])
+                    end;
+                HE ->
+                    ct:log("continue_handler: handshake -> ~p", [HE])
+            end;
+        {error, closed} = E ->
+            Parent ! {self(), E};
+        {error, _} ->
+            Parent ! {self(), accepted}
+    end.
 
 ticketage_smaller_than_windowsize_anti_replay() ->
     [{doc, "Session resumption with stateless tickets and anti_replay enabled."

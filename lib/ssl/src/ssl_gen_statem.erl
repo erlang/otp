@@ -1352,6 +1352,14 @@ handle_sni_hostname(Hostname,
                    cert_key_alts := CertKeyAlts,
                    dh_params := DHParams}} =
                 ssl_config:init(NewOptions, server),
+            %% OTP-20486: if an sni_fun/sni_hosts-returned config tightens
+            %% client-auth (verify_none -> verify_peer, or
+            %% fail_if_no_peer_cert false -> true), mark the resolved
+            %% options so a lax-origin TLS-1.2 session / TLS-1.3 ticket is
+            %% not resumed under the stricter policy (full handshake re-runs
+            %% the client-cert check). Per-connection, non-destructive.
+            MarkedOptions = tls_dtls_gen_connection:mark_auth_tightened(
+                              Opts, NewOptions, State0),
             State0#state{
               static_env = InitStatEnv0#static_env{
                              file_ref_db = FileRefHandle,
@@ -1361,7 +1369,7 @@ handle_sni_hostname(Hostname,
                              session_cache = CacheHandle
                             },
               connection_env = CEnv#connection_env{cert_key_alts = CertKeyAlts},
-              ssl_options = NewOptions,
+              ssl_options = MarkedOptions,
               handshake_env = HsEnv#handshake_env{sni_hostname = Hostname,
                                                   sni_guided_cert_selection = true,
                                                   diffie_hellman_params = DHParams}

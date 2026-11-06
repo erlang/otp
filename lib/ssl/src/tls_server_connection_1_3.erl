@@ -171,7 +171,14 @@ user_hello({call, From}, {handshake_continue, NewOptions, Timeout},
            #state{handshake_env = #handshake_env{continue_status = {pause, ClientVersions}},
                   ssl_options = Options0} = State0) ->
     try ssl_config:update_options(NewOptions, ?SERVER_ROLE, Options0) of
-        Options = #{versions := Versions} ->
+        Options0Resolved = #{versions := Versions} ->
+            %% OTP-20486: if the continue step tightens client-auth
+            %% (verify_none -> verify_peer, or fail_if_no_peer_cert
+            %% false -> true), mark the resolved options so a lax-origin
+            %% ticket is declined by session_resumption/2 under the new
+            %% policy (full handshake re-runs the client-cert check).
+            Options = tls_dtls_gen_connection:mark_auth_tightened(
+                        Options0, Options0Resolved, State0),
             State1 = ssl_gen_statem:ssl_config(Options, ?SERVER_ROLE, State0),
             #state{handshake_env = HsEnv0} = State1,
             HsEnv = HsEnv0#handshake_env{continue_status = continue},
@@ -645,6 +652,15 @@ validate_cookie(_,_) ->
 session_resumption({#state{ssl_options = #{session_tickets := disabled}} = State,
                     negotiated}, _) ->
     {ok, {State, negotiated, undefined}}; % Resumption prohibited
+%% OTP-20486: this connection tightened its client-auth policy at runtime
+%% (handshake_continue/3 or an sni_fun/sni_hosts config swap). A PSK
+%% resumption skips the CertificateRequest, so decline it and fall through
+%% to a full handshake that re-runs the client-cert check under the new
+%% policy. Per-connection; steady-state connections never hit this.
+session_resumption({#state{ssl_options =
+                               #{internal_auth_tightened := true}} = State,
+                    negotiated}, _) ->
+    {ok, {State, negotiated, undefined}};
 session_resumption({#state{ssl_options = #{session_tickets := Tickets}} = State,
                     negotiated}, undefined = PSK)
   when Tickets =/= disabled ->
@@ -720,14 +736,33 @@ maybe_send_session_ticket(#state{connection_states = ConnectionStates,
 
 new_session_ticket(Tracker, HKDF, RMS,
                    #state{ssl_options = #{session_tickets := stateful_with_cert},
+                          handshake_env =
+                              #handshake_env{sni_hostname = SNIHostname,
+                                             sni_guided_cert_selection =
+                                                 SNIGuided},
                           session = #session{peer_certificate = PeerCert}}) ->
-    tls_server_session_ticket:new(Tracker, HKDF, RMS, PeerCert);
+    tls_server_session_ticket:new(Tracker, HKDF, RMS, PeerCert, SNIHostname,
+                                  SNIGuided);
 new_session_ticket(Tracker, HKDF, RMS,
                    #state{ssl_options = #{session_tickets := stateless_with_cert},
+                          handshake_env =
+                              #handshake_env{sni_hostname = SNIHostname,
+                                             sni_guided_cert_selection =
+                                                 SNIGuided},
                           session = #session{peer_certificate = PeerCert}}) ->
-    tls_server_session_ticket:new(Tracker, HKDF, RMS, PeerCert);
-new_session_ticket(Tracker, HKDF, RMS, _) ->
-    tls_server_session_ticket:new(Tracker, HKDF, RMS, undefined).
+    tls_server_session_ticket:new(Tracker, HKDF, RMS, PeerCert, SNIHostname,
+                                  SNIGuided);
+new_session_ticket(Tracker, HKDF, RMS,
+                   #state{handshake_env =
+                              #handshake_env{sni_hostname = SNIHostname,
+                                             sni_guided_cert_selection =
+                                                 SNIGuided}}) ->
+    %% Plain stateful/stateless: no peer certificate is stored, but the
+    %% establishing SNI and sni_guided flag are still bound so an
+    %% SNI-guided connection's ticket is gated on SNI (the trust
+    %% boundary is the per-host config, not the stored client cert).
+    tls_server_session_ticket:new(Tracker, HKDF, RMS, undefined, SNIHostname,
+                                  SNIGuided).
 
 select_server_cert_key_pair(_,[], _,_,_,_, #session{}=Session) ->
     %% Conformant Cert-Key pair with advertised signature algorithm is
