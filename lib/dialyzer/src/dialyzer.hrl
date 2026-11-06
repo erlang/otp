@@ -67,7 +67,7 @@
 -define(WARN_RETURN_ONLY_EXIT, warn_return_only_exit).
 -define(WARN_UNDEFINED_CALLBACK, warn_undefined_callbacks).
 -define(WARN_UNKNOWN, warn_unknown).
--define(WARN_UNMATCHED_RETURN, warn_umatched_return).
+-define(WARN_UNMATCHED_RETURN, warn_unmatched_return).
 
 %%
 %% The following type has double role:
