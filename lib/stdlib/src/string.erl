@@ -80,8 +80,9 @@ The string length of "ß↑e̊" is 3, even though it is represented by the codep
 `[223,8593,101,778]` or the UTF-8 binary `<<195,159,226,134,145,101,204,138>>`.
 
 Grapheme clusters for codepoints of class `prepend` and non-modern (or
-decomposed) Hangul is not handled for performance reasons in `find/3`,
-`replace/3`, `split/2`, `split/3` and `trim/3`.
+decomposed) Hangul are not handled for performance reasons in the searching
+functions `find/3`, `replace/3`, `split/2`, `split/3`, `trim/3`,
+`lexemes/2`, `nth_lexeme/3`, `take/2`, `take/3` and `take/4`.
 
 Splitting and appending strings is to be done on grapheme clusters borders.
 There is no verification that the results of appending strings are valid or
@@ -2013,7 +2014,7 @@ nth_lexeme_m(Cs0, {GCs, _, _}=Seps0, N) when is_list(Cs0) ->
                 true ->
                     nth_lexeme_m(Cs, Seps0, N);
                 false when N > 1 ->
-                    Cs1 = lexeme_skip(Cs, Seps0),
+                    Cs1 = lexeme_skip(Cs0, Seps0),
                     nth_lexeme_m(Cs1, Seps0, N-1);
                 false ->
                     Seps = search_compile(Seps0),

@@ -263,7 +263,7 @@ gen_file(Fd, Data, ExclData, Props, WideCs, UpdateTests) ->
     gen_norm(Fd),
     gen_props(Fd, Props, Data),
     gen_cp(Fd),
-    gen_gc(Fd, Props),
+    gen_gc(Fd, Props, Data),
     gen_compose_pairs(Fd, ExclData, Data),
     gen_case_table(Fd, Data),
     gen_unicode_table(Fd, Data, UpdateTests),
@@ -754,7 +754,7 @@ gen_cp(Fd) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-gen_gc(Fd, GBP) ->
+gen_gc(Fd, GBP, Data) ->
     %% see http://www.unicode.org/reports/tr29/#Grapheme_Cluster_Boundary_Rules
     io:put_chars(Fd,
                  "-spec gc(String::unicode:chardata()) ->"
@@ -928,13 +928,42 @@ gen_gc(Fd, GBP) ->
     [GenExtend(CP) || CP <- Extends],
     io:put_chars(Fd, "is_extend(_) -> false.\n\n"),
 
+    %% is_extend/1 is true for both Extend and SpacingMark, but GB11 and
+    %% GB9c need to know the difference. Only used in the slow paths
+    %% (ExtPict and Indic), keep it small: SpacingMark is (almost)
+    %% General_Category=Mc, so use category/1 and list the exceptions only.
+    ExtendSet = gc_range_set(maps:get(extend, GBP)),
+    SMSet = gc_range_set(maps:get(spacingmark, GBP)),
+    IsMc = fun(CP) ->
+                   case array:get(CP, Data) of
+                       #cp{cat="Mc"} -> true;
+                       _ -> false
+                   end
+           end,
+    true = sets:is_element(16#200C, ExtendSet), %% ZWNJ, see gc_indic
+    SMNotMc = [{CP,undefined} || CP <- lists:sort(sets:to_list(SMSet)), not IsMc(CP)],
+    McExtend = [{CP,undefined} || CP <- lists:sort(sets:to_list(ExtendSet)), IsMc(CP)],
+    io:put_chars(Fd, "%% Only valid when is_extend(CP) =:= true\n"),
+    [io:format(Fd, "is_spacing_mark~s true;\n", [gen_single_clause(R)]) ||
+        R <- merge_ranges(SMNotMc, true)],
+    [io:format(Fd, "is_spacing_mark~s false;\n", [gen_single_clause(R)]) ||
+        R <- merge_ranges(McExtend, true)],
+    io:put_chars(Fd,
+                 "is_spacing_mark(CP) ->\n"
+                 "    #{category := Cat} = lookup(CP),\n"
+                 "    Cat =:= {mark,spacing_combining}.\n\n"),
+
     io:put_chars(Fd,
                  "gc_ext_pict(T, Acc) ->\n"
                  "    gc_ext_pict(cp(T), T, Acc).\n\n"
                  "gc_ext_pict([CP|R1], T0, Acc) ->\n"
                  "    case is_extend(CP) of\n"
                  "        zwj -> gc_ext_pict_zwj(cp(R1), R1, [CP|Acc]);\n"
-                 "        true -> gc_ext_pict(R1, [CP|Acc]);\n"
+                 "        true ->\n"
+                 "            case is_spacing_mark(CP) of\n"
+                 "                true -> gc_extend2(cp(R1), R1, [CP|Acc]); % GB9a, not GB11\n"
+                 "                false -> gc_ext_pict(R1, [CP|Acc])\n"
+                 "            end;\n"
                  "        false -> add_acc(Acc, T0)\n"
                  "    end;\n"
                  "gc_ext_pict([], T0, Acc) ->\n"
@@ -945,7 +974,11 @@ gen_gc(Fd, GBP) ->
                  "gc_ext_pict_zwj([CP|R1], T0, Acc) ->\n"
                  "    case is_ext_pict(CP) of\n"
                  "        true -> gc_ext_pict(R1, [CP|Acc]);\n"
-                 "        false -> add_acc(Acc, T0)\n"
+                 "        false ->\n"
+                 "            case is_extend(CP) of\n"
+                 "                false -> add_acc(Acc, T0);\n"
+                 "                _ -> gc_extend2(cp(R1), R1, [CP|Acc]) % GB9, GB9a\n"
+                 "            end\n"
                  "    end;\n"
                  "gc_ext_pict_zwj([], T0, Acc) ->\n"
                  "    add_acc(Acc, T0);\n"
@@ -1048,8 +1081,16 @@ gen_gc(Fd, GBP) ->
                                      end;
                                  false ->
                                      add_acc(CPs, R0);
-                                 _ ->
-                                     gc_indic(cp(R1), R1, FetchedLinker, [CP|CPs])
+                                 zwj ->
+                                     gc_indic(cp(R1), R1, FetchedLinker, [CP|CPs]);
+                                 true ->
+                                     %% SpacingMark and ZWNJ are InCB=None, GB9c not possible
+                                     case CP =:= 16#200C orelse is_spacing_mark(CP) of
+                                         false ->
+                                             gc_indic(cp(R1), R1, FetchedLinker, [CP|CPs]);
+                                         true ->
+                                             gc_extend2(cp(R1), R1, [CP|CPs])
+                                     end
                              end
                      end;
                  gc_indic([], R0, _, CPs) ->
@@ -1399,6 +1440,13 @@ gen_single_clause({R0, R1}) ->
 
 merge_ranges(List) ->
     merge_ranges(List, true).
+
+%% Expand a list of {CP,undefined} | {First,Last} into a set of codepoints
+gc_range_set(Ranges) ->
+    sets:from_list(lists:append([case R of
+                                     {CP, undefined} -> [CP];
+                                     {F, L} -> lists:seq(F, L)
+                                 end || R <- Ranges])).
 
 merge_ranges(List, Opt) ->
     Res0 = merge_ranges_1(lists:usort(List), []),
