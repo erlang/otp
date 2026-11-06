@@ -449,6 +449,8 @@ represented in the same way as the corresponding expression.
 - If T is an atom, a character, or an integer literal L, then Rep(T) = Rep(L).
 - If T is a bitstring type `<<_:M,_:_*N>>`, where `M` and `N` are singleton
   integer types, then Rep(T) = `{type,ANNO,binary,[Rep(M),Rep(N)]}`.
+- If T is a singleton binary type `<<"bytes">>`, then Rep(T) =
+  `{bin_type,ANNO,Bin}`, where `Bin` is the binary value.
 - If T is the empty list type `[]`, then Rep(T) = `{type,ANNO,nil,[]}`, that is,
   the empty list type `[]` cannot be distinguished from the predefined type
   `t:nil/0`.

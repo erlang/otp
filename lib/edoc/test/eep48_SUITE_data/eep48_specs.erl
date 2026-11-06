@@ -49,6 +49,7 @@
        f_spec_bounded_multiple_clause_fun/4,
        f_spec_bounded_singleton_atom/2,
        f_spec_bounded_singleton_int/2,
+       f_spec_bounded_singleton_bin/2,
        f_spec_rettype_constraint/0,
        f_spec_indirect_constraint/2,
        f_spec_arg_type_in_retval/2]).
@@ -108,6 +109,10 @@ f_spec_bounded_singleton_atom(I, a) -> ok.
 -spec f_spec_bounded_singleton_int(I, 1) -> ok when
       I :: integer().
 f_spec_bounded_singleton_int(I, 1) -> ok.
+
+-spec f_spec_bounded_singleton_bin(I, <<"a">>) -> ok when
+      I :: integer().
+f_spec_bounded_singleton_bin(I, <<"a">>) -> ok.
 
 -spec f_spec_rettype_constraint() -> R when R :: atom().
 f_spec_rettype_constraint() -> ok.
