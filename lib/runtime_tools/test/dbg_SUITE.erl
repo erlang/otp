@@ -31,7 +31,7 @@
          with_seq_trace/1, dead_suspend/1, local_trace/1,
          saved_patterns/1, tracer_exit_on_stop/1,
          erl_tracer/1, distributed_erl_tracer/1,
-         session_parent_down/1]).
+         session_parent_down/1, tracer_proc_lib_no_user_drv/1]).
 -export([tracee1/1, tracee2/1]).
 -export([dummy/0, exported/1]).
 -export([enabled/3, trace/5, load_nif/1]).
@@ -54,7 +54,7 @@ groups() ->
                 wrap_port, wrap_port_time, with_seq_trace, dead_suspend,
                 local_trace, saved_patterns, tracer_exit_on_stop,
                 erl_tracer, distributed_erl_tracer,
-                session_parent_down
+                session_parent_down, tracer_proc_lib_no_user_drv
                ]}].
 
 init_per_suite(Config) ->
@@ -991,6 +991,27 @@ session_parent_down(_Config) ->
       ]),
     ExpectedMessages = lists:sort(flush()),
 
+    ok.
+
+%% Test that dbg:tracer() can be started from a proc_lib process on a
+%% node without user_drv, such as a peer started with -user peer
+tracer_proc_lib_no_user_drv(_Config) ->
+    {ok, Peer, _Node} = ?CT_PEER(#{connection => standard_io}),
+    StartTracer =
+        fun() ->
+                Parent = self(),
+                proc_lib:spawn(
+                  fun() ->
+                          Result = try dbg:tracer()
+                                   catch Class:Reason:Stack ->
+                                           {Class, Reason, Stack}
+                                   end,
+                          Parent ! {tracer, Result}
+                  end),
+                receive {tracer, Result} -> Result end
+        end,
+    {ok, _} = peer:call(Peer, erlang, apply, [StartTracer, []]),
+    peer:stop(Peer),
     ok.
 
 load_nif(Config) ->
