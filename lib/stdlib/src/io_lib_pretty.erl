@@ -1114,23 +1114,23 @@ print_length_binary(Bin, D, T, RF, {InEnc, utf8} = Enc, Str, Ord) ->
         printable_bin0(Bin, D1, tsub(T, 6), InEnc, binary)
     of
         {true, _Bin} ->
-            {Utf8, Len} = io_lib:write_string_bin(Bin, [], latin1),
-            {[$<,$<,$",Utf8,$",$>,$>], 6 + Len, 0, no_more};
+            {Utf8, Len} = io_lib:write_string_bin(Bin, $", latin1), %"
+            {[$<,$<,Utf8,$>,$>], 4 + Len, 0, no_more};
         {false, _Bin} ->
-            {Utf8, Len} = io_lib:write_string_bin(Bin, [], unicode),
-            {[$<,$<,$",Utf8,"\"/utf8>>"], 11 + Len, 0, no_more};
+            {Utf8, Len} = io_lib:write_string_bin(Bin, $", unicode), %"
+            {[$<,$<,Utf8,"/utf8>>"], 9 + Len, 0, no_more};
         {true, true, Prefix} ->
-            {S, Len} = io_lib:write_string_bin(Prefix, [], latin1), %"
+            {S, Len} = io_lib:write_string_bin(Prefix, $", latin1), %"
             More = fun(T1, Dd) ->
                            ?FUNCTION_NAME(Bin, D+Dd, T1, RF, Enc, Str, Ord)
                    end,
-            {[$<,$<,$",S|"\"...>>"], 9 + Len, 3, More};
+            {[$<,$<,S|"...>>"], 7 + Len, 3, More};
         {false, true, Prefix} ->
-            {S, Len} = io_lib:write_string_bin(Prefix, [], unicode), %"
+            {S, Len} = io_lib:write_string_bin(Prefix, $", unicode), %"
             More = fun(T1, Dd) ->
                            ?FUNCTION_NAME(Bin, D+Dd, T1, RF, Enc, Str, Ord)
                    end,
-            {[$<,$<,$",S|"\"/utf8...>>"], 14 + Len, 3, More};
+            {[$<,$<,S|"/utf8...>>"], 12 + Len, 3, More};
         false ->
             case io_lib:write_binary_bin(Bin, D, T, <<>>) of
                 {S, <<>>} ->
