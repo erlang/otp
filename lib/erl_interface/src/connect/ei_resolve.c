@@ -400,7 +400,7 @@ struct hostent *ei_gethostbyaddr_r(const char *addr,
   return gethostbyaddr(addr, length, type);
 #elif !defined(HAVE_GETHOSTBYNAME_R)
   return my_gethostbyaddr_r(addr,length,type,hostp,buffer,buflen,h_errnop);
-#elif (defined(__GLIBC__) || defined(__linux__) || (defined(__FreeBSD_version) && (__FreeBSD_version >= 602000)) || defined(__DragonFly__))
+#elif (defined(__GLIBC__) || defined(__linux__) || (defined(__FreeBSD_version) && (__FreeBSD_version >= 602000)) || defined(__DragonFly__) || defined(__QNXNTO__))
   struct hostent *result;
 
   gethostbyaddr_r(addr, length, type, hostp, buffer, buflen, &result,
@@ -423,7 +423,7 @@ struct hostent *ei_gethostbyname_r(const char *name,
   return gethostbyname(name);
 #elif !defined(HAVE_GETHOSTBYNAME_R)
   return my_gethostbyname_r(name,hostp,buffer,buflen,h_errnop);
-#elif (defined(__GLIBC__) || defined(__linux__) || (defined(__FreeBSD_version) && (__FreeBSD_version >= 602000)) || defined(__DragonFly__) || defined(__ANDROID__))
+#elif (defined(__GLIBC__) || defined(__linux__) || (defined(__FreeBSD_version) && (__FreeBSD_version >= 602000)) || defined(__DragonFly__) || defined(__ANDROID__) || defined(__QNXNTO__))
   struct hostent *result;
   int err;
 

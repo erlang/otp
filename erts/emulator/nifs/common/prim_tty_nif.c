@@ -342,7 +342,23 @@ static ERL_NIF_TERM wcswidth_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
         }
 #endif
 #ifndef __WIN32__
-        width = wcswidth(chars, bin.size / sizeof(wchar_t));
+        /*
+         * Use wcwidth() to calculate the width of each character.
+         * This is more portable than wcswidth() which is not available
+         * on all systems (e.g., QNX).
+         */
+        {
+            size_t i, n = bin.size / sizeof(wchar_t);
+            width = 0;
+            for (i = 0; i < n && chars[i] != L'\0'; i++) {
+                int w = wcwidth(chars[i]);
+                if (w == -1) {
+                    width = -1;
+                    break;
+                }
+                width += w;
+            }
+        }
 #else
         width = bin.size / sizeof(wchar_t);
 #endif
