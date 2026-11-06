@@ -113,6 +113,18 @@
 -define(STR_TERMINATOR, 0).
 -define(MAX_SEQ_TIMEOUTS, 10).
 
+%% Upper bound for the declared maximum length (Max) of a string
+%% parameter (sql_char/varchar/wchar/... in param_query/2,3). The
+%% odbcserver port program allocates num_param_values * (Max + 1)
+%% bytes per column; an unbounded Max lets the application drive that
+%% allocation into overflow/truncation territory. This cap rejects
+%% such values early with a clear error instead of relying on the port
+%% program's defensive allocation checks. The value must comfortably
+%% exceed any real bound-column width while staying well below the
+%% 32-bit SQLLEN limit used on some platforms; 16 MiB is a deliberate,
+%% revisable choice (team decision).
+-define(MAX_PARAM_STRING_LEN, 16#FFFFFF).
+
 %% Handling of C exit codes
 -define(ENCODE_EXIT_FUN, 
 	(fun(?EXIT_SUCCESS) ->

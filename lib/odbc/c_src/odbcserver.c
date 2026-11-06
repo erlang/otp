@@ -135,6 +135,7 @@
 #endif
 
 #include <limits.h>
+#include <stdint.h>
 
 #include "ei.h"
 #include "odbcserver.h"
@@ -218,8 +219,9 @@ static void clean_socket_lib(void);
 
 /*------------- Memory handling functions --------------------------------*/
 
-static void * safe_malloc(int size);
-static void * safe_realloc(void * ptr, int size);
+static void * safe_malloc(size_t size);
+static void * safe_realloc(void * ptr, size_t size);
+static void * safe_array_malloc(size_t nmemb, size_t size);
 static db_column * alloc_column_buffer(int n);
 static void free_column_buffer(db_column **columns, int n);
 static void free_params(param_array **params, int cols);
@@ -1776,71 +1778,87 @@ static Boolean decode_params(db_state *state, char *buffer, int *index, param_ar
 
     switch (param->type.c) {
     case SQL_C_CHAR:
-	    if (binary_strings(state)) {
-		    ei_decode_binary(buffer, index,
-				     &(param->values.string[param->offset]), &bin_size);
-		    param->offset += param->type.len;
-	    } else {
-		    if(erl_type != ERL_STRING_EXT) {
-			    return FALSE;
-		    }
-		    ei_decode_string(buffer, index, (char*)&(param->values.string[param->offset]));
-		    param->offset += param->type.len;
-	    }
-	    break;
+        if (binary_strings(state)) {
+            /* Guard against a value larger than the slot allocated
+             * from the declared maximum (param->type.len). Without
+             * this ei_decode_binary would write past the slot and
+             * corrupt the port program heap. */
+            if (size < 0 || size > param->type.len) {
+                return FALSE;
+            }
+            ei_decode_binary(buffer, index,
+                             &(param->values.string[param->offset]), &bin_size);
+            param->offset += param->type.len;
+        } else {
+            if(erl_type != ERL_STRING_EXT) {
+                return FALSE;
+            }
+            /* ei_decode_string writes size bytes plus a NUL
+             * terminator; both must fit in the slot. */
+            if (size < 0 || size + 1 > param->type.len) {
+                return FALSE;
+            }
+            ei_decode_string(buffer, index, (char*)&(param->values.string[param->offset]));
+            param->offset += param->type.len;
+        }
+        break;
     case SQL_C_WCHAR:
-	    ei_decode_binary(buffer, index, &(param->values.string[param->offset]), &bin_size);
-	    param->offset += param->type.len;
-	    break;
+        /* Same bound as the binary_strings SQL_C_CHAR case. */
+        if (size < 0 || size > param->type.len) {
+            return FALSE;
+        }
+        ei_decode_binary(buffer, index, &(param->values.string[param->offset]), &bin_size);
+        param->offset += param->type.len;
+        break;
     case SQL_C_TYPE_TIMESTAMP:
-	    ts = (TIMESTAMP_STRUCT*) param->values.string;
-	    ei_decode_tuple_header(buffer, index, &size);
-	    ei_decode_long(buffer, index, &val);
-	    ts[j].year = (SQLUSMALLINT)val;
-	    ei_decode_long(buffer, index, &val);
-	    ts[j].month = (SQLUSMALLINT)val;
-	    ei_decode_long(buffer, index, &val);
-	    ts[j].day = (SQLUSMALLINT)val;
-	    ei_decode_long(buffer, index, &val);
-	    ts[j].hour = (SQLUSMALLINT)val;
-	    ei_decode_long(buffer, index, &val);
-	    ts[j].minute = (SQLUSMALLINT)val;
-	    ei_decode_long(buffer, index, &val);
-	    ts[j].second = (SQLUSMALLINT)val;
-	    ts[j].fraction = (SQLINTEGER)0;
-	    break;
+        ts = (TIMESTAMP_STRUCT*) param->values.string;
+        ei_decode_tuple_header(buffer, index, &size);
+        ei_decode_long(buffer, index, &val);
+        ts[j].year = (SQLUSMALLINT)val;
+        ei_decode_long(buffer, index, &val);
+        ts[j].month = (SQLUSMALLINT)val;
+        ei_decode_long(buffer, index, &val);
+        ts[j].day = (SQLUSMALLINT)val;
+        ei_decode_long(buffer, index, &val);
+        ts[j].hour = (SQLUSMALLINT)val;
+        ei_decode_long(buffer, index, &val);
+        ts[j].minute = (SQLUSMALLINT)val;
+        ei_decode_long(buffer, index, &val);
+        ts[j].second = (SQLUSMALLINT)val;
+        ts[j].fraction = (SQLINTEGER)0;
+        break;
     case SQL_C_SLONG:
-	    if(!((erl_type == ERL_SMALL_INTEGER_EXT) ||
-		 (erl_type == ERL_INTEGER_EXT) ||
-		 (erl_type == ERL_SMALL_BIG_EXT) ||
-		 (erl_type == ERL_LARGE_BIG_EXT))) {
-		    return FALSE;
-	    }
+        if(!((erl_type == ERL_SMALL_INTEGER_EXT) ||
+             (erl_type == ERL_INTEGER_EXT) ||
+             (erl_type == ERL_SMALL_BIG_EXT) ||
+             (erl_type == ERL_LARGE_BIG_EXT))) {
+            return FALSE;
+        }
 	    
-	    if(ei_decode_long(buffer, index, &l64)) {
-		    return FALSE;
-	    }
+        if(ei_decode_long(buffer, index, &l64)) {
+            return FALSE;
+        }
 	    
-	    /* For 64-bit platforms we downcast 8-byte long
-	     * to 4-byte SQLINTEGER, checking for overflow */
+        /* For 64-bit platforms we downcast 8-byte long
+         * to 4-byte SQLINTEGER, checking for overflow */
 	    
-	    if(l64>INT_MAX || l64<INT_MIN) {
-		    return FALSE;
-	    }
+        if(l64>INT_MAX || l64<INT_MIN) {
+            return FALSE;
+        }
 
 	param->values.integer[j]=(SQLINTEGER)l64;
 	break;
 	
     case SQL_C_DOUBLE: 
-	    if((erl_type != ERL_FLOAT_EXT)) { 
-		    return FALSE;
-	    } 
-	    ei_decode_double(buffer, index, &(param->values.floating[j])); 
-	    break;
+        if((erl_type != ERL_FLOAT_EXT)) {
+            return FALSE;
+        }
+        ei_decode_double(buffer, index, &(param->values.floating[j]));
+        break;
 	    
     case SQL_C_BIT:
 	if((erl_type != ERL_ATOM_EXT)) {
-		return FALSE;
+            return FALSE;
 	}
 	if (strncmp((char*)atomarray,"true",4) == 0)
 	    param->values.boolean[j] = TRUE;
@@ -1850,7 +1868,7 @@ static Boolean decode_params(db_state *state, char *buffer, int *index, param_ar
 	    return -1;
 	break;
     default:
-	    return FALSE;
+        return FALSE;
     }
     
     return TRUE;
@@ -2152,7 +2170,7 @@ static void clean_socket_lib(void)
     
 
 /*------------- Memory handling functions -------------------------------*/
-static void *safe_malloc(int size)
+static void *safe_malloc(size_t size)
 {
     void *memory;
   
@@ -2163,7 +2181,22 @@ static void *safe_malloc(int size)
     return memory;
 }
 
-static void *safe_realloc(void *ptr, int size)
+/* Allocate nmemb * size bytes, rejecting a multiplication that would
+ * overflow size_t. Without this an attacker-independent but
+ * application-chosen combination of row count (num_param_values) and
+ * declared column width (type.len) can wrap the product to a small
+ * value, under-allocate the values buffer, and cause out-of-bounds
+ * writes when the slots are filled. Overflow is treated like an
+ * allocation failure (controlled port exit), not silently truncated. */
+static void *safe_array_malloc(size_t nmemb, size_t size)
+{
+    if (size != 0 && nmemb > SIZE_MAX / size)
+        DO_EXIT(EXIT_ALLOC);
+
+    return safe_malloc(nmemb * size);
+}
+
+static void *safe_realloc(void *ptr, size_t size)
 {
     void *memory;
 
@@ -2183,7 +2216,7 @@ static db_column * alloc_column_buffer(int n)
     int i;
     db_column *columns;
   
-    columns = (db_column *)safe_malloc(n * sizeof(db_column));
+    columns = (db_column *)safe_array_malloc(n, sizeof(db_column));
     for(i = 0; i < n; i++)
 	columns[i].buffer = NULL;
   
@@ -2240,7 +2273,7 @@ static void clean_state(db_state *state)
 static SQLLEN* alloc_strlen_indptr(int n, int val)
 {
     int i;
-    SQLLEN* arr = (SQLLEN*)safe_malloc(n * sizeof(SQLLEN));
+    SQLLEN* arr = (SQLLEN*)safe_array_malloc(n, sizeof(SQLLEN));
 
     for( i=0; i < n; ++i )
 	arr[i] = val;
@@ -2315,7 +2348,7 @@ static void init_param_column(param_array *params, char *buffer, int *index,
 	params->type.len = sizeof(SQLINTEGER);
 	params->type.col_size = COL_SQL_SMALLINT;
 	params->values.integer =
-	    (SQLINTEGER*)safe_malloc(num_param_values * params->type.len);
+            (SQLINTEGER*)safe_array_malloc(num_param_values, params->type.len);
 	break;
     case USER_INT:
 	params->type.sql = SQL_INTEGER;
@@ -2323,7 +2356,7 @@ static void init_param_column(param_array *params, char *buffer, int *index,
 	params->type.len = sizeof(SQLINTEGER);
 	params->type.col_size = COL_SQL_INTEGER;
 	params->values.integer =
-	    (SQLINTEGER*)safe_malloc(num_param_values * params->type.len);
+            (SQLINTEGER*)safe_array_malloc(num_param_values, params->type.len);
 	break;
     case USER_TINY_INT:
 	params->type.sql = SQL_TINYINT;
@@ -2331,7 +2364,7 @@ static void init_param_column(param_array *params, char *buffer, int *index,
 	params->type.len = sizeof(SQLINTEGER);
 	params->type.col_size = COL_SQL_TINYINT;
 	params->values.integer =
-	    (SQLINTEGER*)safe_malloc(num_param_values * params->type.len);
+            (SQLINTEGER*)safe_array_malloc(num_param_values, params->type.len);
 	break;
     case USER_DECIMAL:
     case USER_NMERIC:
@@ -2345,35 +2378,45 @@ static void init_param_column(param_array *params, char *buffer, int *index,
 	map_dec_num_2_c_column(&params->type, (int)precision, (int)scale);
 	if( params->type.c == SQL_C_SLONG) {
 	    params->values.integer =
-		(SQLINTEGER *)safe_malloc(num_param_values * params->type.len);
+                (SQLINTEGER *)safe_array_malloc(num_param_values, params->type.len);
 	} else if( params->type.c == SQL_C_DOUBLE) {
 	    params->values.floating =
-		(double *)safe_malloc(num_param_values * params->type.len);
+                (double *)safe_array_malloc(num_param_values, params->type.len);
 	} else if(params->type.c == SQL_C_CHAR) {
 	    params->type.strlen_or_indptr_array
 		= alloc_strlen_indptr(num_param_values, SQL_NTS);
 	    params->values.string =
-		(byte *)safe_malloc(num_param_values *
-				    sizeof(byte)* params->type.len);
+                (byte *)safe_array_malloc(num_param_values, params->type.len);
 	}    
 	break;
     case USER_CHAR:
     case USER_VARCHAR:
 	if(user_type == USER_CHAR) {
-	     params->type.sql = SQL_CHAR;
+            params->type.sql = SQL_CHAR;
 	} else {
-	     params->type.sql = SQL_VARCHAR;
+            params->type.sql = SQL_VARCHAR;
 	}
-	ei_decode_long(buffer, index, &length);
-	/* Max string length + string terminator */
-	 params->type.len = length+1;
-	 params->type.c = SQL_C_CHAR;
-	 params->type.col_size = (SQLUINTEGER)length;
+        ei_decode_long(buffer, index, &length);
+        /* A negative declared maximum is malformed; clamp to 0 so the slot
+         * is just the terminator and decode_params rejects any non-empty
+         * value rather than under-allocating the values buffer. */
+        if (length < 0) {
+            length = 0;
+        }
+        /* Slot holds up to `length` characters plus two NUL bytes.
+         * Only one NUL is actually wanted: odbc.erl NUL-terminates the
+         * value so the driver can read it as SQL_NTS. The second NUL is
+         * unavoidable - ei_decode_string always writes its own trailing
+         * NUL after the (already NUL-terminated) data. So a value of
+         * exactly `length` characters needs length+2 bytes; sizing the
+         * slot at length+1 made the last row overrun by one byte. */
+         params->type.len = length+2;
+         params->type.c = SQL_C_CHAR;
+         params->type.col_size = (SQLUINTEGER)length;
 	 params->type.strlen_or_indptr_array
 	     = alloc_strlen_indptr(num_param_values, SQL_NTS);
 	 params->values.string =
-	    (byte *)safe_malloc(num_param_values *
-				sizeof(byte)* params->type.len);
+            (byte *)safe_array_malloc(num_param_values, params->type.len);
 	
 	break;
     case USER_WCHAR:
@@ -2388,6 +2431,11 @@ static void init_param_column(param_array *params, char *buffer, int *index,
 		params->type.sql = SQL_WLONGVARCHAR; break;
 	}
 	ei_decode_long(buffer, index, &length);
+        /* A negative declared maximum is malformed; clamp to 0 (see the
+         * USER_VARCHAR case above). */
+        if (length < 0) {
+            length = 0;
+        }
 	/* Max string length + string terminator */
 	params->type.len = (length+1)*sizeof(SQLWCHAR);
         params->type.c = SQL_C_WCHAR;
@@ -2395,7 +2443,7 @@ static void init_param_column(param_array *params, char *buffer, int *index,
 	params->type.strlen_or_indptr_array
 	    = alloc_strlen_indptr(num_param_values, SQL_NTS);
         params->values.string =
-          (byte *)safe_malloc(num_param_values * sizeof(byte) * params->type.len);
+          (byte *)safe_array_malloc(num_param_values, params->type.len);
 	
 	break;
     case USER_TIMESTAMP:
@@ -2404,7 +2452,7 @@ static void init_param_column(param_array *params, char *buffer, int *index,
       params->type.c = SQL_C_TYPE_TIMESTAMP;
       params->type.col_size = (SQLUINTEGER)COL_SQL_TIMESTAMP;
       params->values.string =
-        (byte *)safe_malloc(num_param_values * params->type.len);
+        (byte *)safe_array_malloc(num_param_values, params->type.len);
       break;
     case USER_FLOAT:
 	params->type.sql = SQL_FLOAT;
@@ -2413,7 +2461,7 @@ static void init_param_column(param_array *params, char *buffer, int *index,
 	ei_decode_long(buffer, index, &length);
 	params->type.col_size = (SQLUINTEGER)length;
 	params->values.floating =
-	    (double *)safe_malloc(num_param_values * params->type.len);
+            (double *)safe_array_malloc(num_param_values, params->type.len);
 	break;
     case USER_REAL:
 	params->type.sql = SQL_REAL;
@@ -2421,7 +2469,7 @@ static void init_param_column(param_array *params, char *buffer, int *index,
 	params->type.len = sizeof(double);
 	params->type.col_size = COL_SQL_REAL;
 	params->values.floating =
-	    (double *)safe_malloc(num_param_values * params->type.len);
+            (double *)safe_array_malloc(num_param_values, params->type.len);
 	break;
     case USER_DOUBLE:
 	params->type.sql = SQL_DOUBLE;
@@ -2429,7 +2477,7 @@ static void init_param_column(param_array *params, char *buffer, int *index,
 	params->type.len = sizeof(double);
 	params->type.col_size = COL_SQL_DOUBLE;
 	params->values.floating =
-	    (double *)safe_malloc(num_param_values * params->type.len);
+            (double *)safe_array_malloc(num_param_values, params->type.len);
 	break;
     case USER_BOOLEAN:
 	params->type.sql = SQL_BIT;
@@ -2437,7 +2485,7 @@ static void init_param_column(param_array *params, char *buffer, int *index,
 	params->type.len = sizeof(byte);
 	params->type.col_size = params->type.len;
 	params->values.boolean =
-		(byte *)safe_malloc(num_param_values * params->type.len);
+                (byte *)safe_array_malloc(num_param_values, params->type.len);
 	break;
     }
     params->offset = 0;
@@ -2463,7 +2511,7 @@ static void init_param_statement(int cols, SQLLEN num_param_values,
     int i;
 
     status -> param_status_array =
-	(SQLUSMALLINT *)safe_malloc(num_param_values * sizeof(SQLUSMALLINT));
+        (SQLUSMALLINT *)safe_array_malloc(num_param_values, sizeof(SQLUSMALLINT));
 
     for(i=0; i<num_param_values; i++) {
     	status -> param_status_array[i] = SQL_PARAM_PROCEED;
@@ -2617,7 +2665,7 @@ static param_array * bind_parameter_arrays(char *buffer, int *index,
     void *Values;
     param_array *params;
     
-    params = (param_array *)safe_malloc(cols * sizeof(param_array)); 
+    params = (param_array *)safe_array_malloc(cols, sizeof(param_array));
     
     for (i = 0; i < cols; i++) {
     
