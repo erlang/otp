@@ -1767,9 +1767,9 @@ no_sensitive_leak(Config) ->
 						       {user_dir, UserDir}]),
     %% Kill acceptor to make it restart:
     [true|_] =
-        [exit(Pacc,kill) || {{ssh_system_sup,_},P1,supervisor,_} <- supervisor:which_children(sshd_sup),
-                            {{ssh_acceptor_sup,_},P2,supervisor,_} <- supervisor:which_children(P1),
-                            {{ssh_acceptor_sup,_},Pacc,worker,_} <- supervisor:which_children(P2)],
+        [exit_signal(Pacc,kill) || {{ssh_system_sup,_},P1,supervisor,_} <- supervisor:which_children(sshd_sup),
+                                   {{ssh_acceptor_sup,_},P2,supervisor,_} <- supervisor:which_children(P1),
+                                   {{ssh_acceptor_sup,_},Pacc,worker,_} <- supervisor:which_children(P2)],
     
     %% Remove the test handler and reset the logger level:
     timer:sleep(500),
@@ -2229,7 +2229,7 @@ do_ensure_channels(ConnRef, NumExpected, _ChannelListLen) ->
 
 channel_down_sequence(DownChannelPid, ExecChannelPid, ExecChannelId, MonRef, ConnRef, Peer) ->
     ct:log("~p:~p sending order to ~p to go down", [?MODULE, ?LINE, DownChannelPid]),
-    exit(DownChannelPid, die),
+    exit_signal(DownChannelPid, die),
     receive {'DOWN', MonRef, _, _, _} -> ok end,
     ct:log("~p:~p order executed, sending order to ~p to proceed", [?MODULE, ?LINE, Peer]),
     %% Resume the peer connection to let it clean up among its channels

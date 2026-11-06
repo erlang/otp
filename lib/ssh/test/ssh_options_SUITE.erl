@@ -1235,7 +1235,7 @@ ssh_connect_arg4_timeout(_Config) ->
     receive
 	{done, Client, {error,timeout}, T0} ->
 	    Msp = ms_passed(T0),
-	    exit(Server,hasta_la_vista___baby),
+            exit_signal(Server,hasta_la_vista___baby),
 	    Low = 0.9*Timeout,
 	    High =  4.0*Timeout,
 	    ct:log("Timeout limits: ~.4f - ~.4f ms, timeout "
@@ -1253,8 +1253,8 @@ ssh_connect_arg4_timeout(_Config) ->
 	    {fail,"ssh-connected ???"}
     after
 	5000 ->
-	    exit(Server,hasta_la_vista___baby),
-	    exit(Client,hasta_la_vista___baby),
+            exit_signal(Server,hasta_la_vista___baby),
+            exit_signal(Client,hasta_la_vista___baby),
 	    {fail, "Didn't timeout"}
     end.
 
@@ -1465,7 +1465,7 @@ ssh_connect_nonegtimeout_connected(Config, Parallel) ->
     after 
 	10000 -> ct:fail("timeout ~p:~p",[?MODULE,?LINE])
     end,
-    exit(Shell, kill).
+    exit_signal(Shell, kill).
 
 
 one_shell_op(IO, TimeOut) ->
