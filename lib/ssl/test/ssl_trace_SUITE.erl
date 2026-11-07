@@ -24,6 +24,8 @@
 
 -module(ssl_trace_SUITE).
 
+-behaviour(ct_suite).
+
 -include("ssl_test_lib.hrl").
 -include_lib("common_test/include/ct.hrl").
 -include_lib("ssl/src/ssl_api.hrl").

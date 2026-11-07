@@ -22,6 +22,8 @@
 
 -module(beam_SUITE).
 
+-behaviour(ct_suite).
+
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2, 
 	 packed_registers/1, apply_last/1, apply_last_bif/1,

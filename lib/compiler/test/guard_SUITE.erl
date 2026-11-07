@@ -21,6 +21,8 @@
 %%
 -module(guard_SUITE).
 
+-behaviour(ct_suite).
+
 -include_lib("syntax_tools/include/merl.hrl").
 -include_lib("stdlib/include/assert.hrl").
 

@@ -23,6 +23,9 @@
 %% @author Maxim Fedorov <maximfca@gmail.com>
 %% Basic process tracing profiler tests.
 -module(tprof_SUITE).
+
+-behaviour(ct_suite).
+
 -author("maximfca@gmail.com").
 
 %% Test server callbacks

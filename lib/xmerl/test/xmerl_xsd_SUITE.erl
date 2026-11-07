@@ -24,6 +24,8 @@
 
 -module(xmerl_xsd_SUITE).
 
+-behaviour(ct_suite).
+
 -compile(export_all).
 %%-export([Function/Arity, ...]).
 

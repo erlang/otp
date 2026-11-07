@@ -25,6 +25,8 @@
 
 -module(system_profile_SUITE).
 
+-behaviour(ct_suite).
+
 -export([all/0, suite/0,
 	system_profile_on_and_off/1,
 	runnable_procs/1, runnable_ports/1,

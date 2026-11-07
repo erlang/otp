@@ -27,6 +27,8 @@
 
 -module(megaco_codec_v1_SUITE).
 
+-behaviour(ct_suite).
+
 %% ----
 
 -compile({no_auto_import,[error/1]}).

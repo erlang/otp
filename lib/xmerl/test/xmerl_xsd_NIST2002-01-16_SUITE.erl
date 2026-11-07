@@ -27,6 +27,8 @@
 
 -module('xmerl_xsd_NIST2002-01-16_SUITE').
 
+-behaviour(ct_suite).
+
 -compile(export_all).
 
 -include_lib("common_test/include/ct.hrl").

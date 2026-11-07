@@ -21,6 +21,9 @@
 %%
 %%
 -module(ftp_format_SUITE).
+
+-behaviour(ct_suite).
+
 -author('ingela@erix.ericsson.se').
 
 -include_lib("common_test/include/ct.hrl").

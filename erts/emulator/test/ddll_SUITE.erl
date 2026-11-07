@@ -22,6 +22,8 @@
 
 -module(ddll_SUITE).
 
+-behaviour(ct_suite).
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% Checks if the dynamic driver and linker loader works.
 %%%

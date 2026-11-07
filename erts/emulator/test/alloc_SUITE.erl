@@ -20,6 +20,9 @@
 %% %CopyrightEnd%
 
 -module(alloc_SUITE).
+
+-behaviour(ct_suite).
+
 -author('rickard.green@uab.ericsson.se').
 -export([all/0, suite/0, init_per_testcase/2, end_per_testcase/2,
 	 init_per_suite/1, end_per_suite/1]).

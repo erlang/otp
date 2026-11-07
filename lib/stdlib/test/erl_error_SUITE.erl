@@ -22,6 +22,8 @@
 -module(erl_error_SUITE).
 -moduledoc false.
 
+-behaviour(ct_suite).
+
 %% Tests for erl_error:format_exception/3,4.
 %%
 %% Besides asserting formatting correctness, every test case also

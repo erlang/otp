@@ -21,6 +21,8 @@
 %%
 -module(erl_boot_server_SUITE).
 
+-behaviour(ct_suite).
+
 -include_lib("common_test/include/ct.hrl").
 -include("kernel_test_lib.hrl").
 

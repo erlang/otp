@@ -20,6 +20,9 @@
 %% %CopyrightEnd%
 %%
 -module(id_transform_SUITE).
+
+-behaviour(ct_suite).
+
 -author('pan@erix.ericsson.se').
 
 -include_lib("kernel/include/file.hrl").

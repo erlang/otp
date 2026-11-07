@@ -21,6 +21,8 @@
 %%
 -module(erl_prim_loader_SUITE).
 
+-behaviour(ct_suite).
+
 -include_lib("kernel/include/file.hrl").
 -include_lib("common_test/include/ct.hrl").
 

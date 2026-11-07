@@ -28,6 +28,8 @@
 
 -module(diameter_3xxx_SUITE).
 
+-behaviour(ct_suite).
+
 %% testcases, no common_test dependency
 -export([run/0]).
 

@@ -21,6 +21,8 @@
 %%
 -module(dbg_SUITE).
 
+-behaviour(ct_suite).
+
 %% Test functions
 -export([all/0, suite/0, init_per_suite/1, end_per_suite/1,
          groups/0, init_per_group/2, end_per_group/2]).

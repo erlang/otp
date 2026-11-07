@@ -22,6 +22,8 @@
 
 -module(all_and_groups_SUITE).
 
+-behaviour(ct_suite).
+
 -suite_defaults([{timetrap, {minutes, 10}}]).
 
 %% Note: This directive should only be used in test suites.

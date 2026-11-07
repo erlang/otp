@@ -20,6 +20,9 @@
 %% %CopyrightEnd%
 %%
 -module(sys_SUITE).
+
+-behaviour(ct_suite).
+
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,log/1,log_to_file/1,
 	 stats/1,trace/1,suspend/1,install/1,special_process/1]).

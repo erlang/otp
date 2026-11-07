@@ -28,6 +28,8 @@
 
 -module(diameter_event_SUITE).
 
+-behaviour(ct_suite).
+
 %% testcase, no common_test dependency
 -export([run/0]).
 

@@ -21,6 +21,8 @@
 %%
 -module(gen_server_SUITE).
 
+-behaviour(ct_suite).
+
 -include_lib("common_test/include/ct.hrl").
 -include_lib("stdlib/include/assert.hrl").
 -include_lib("kernel/include/inet.hrl").

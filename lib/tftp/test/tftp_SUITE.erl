@@ -22,6 +22,8 @@
 
 -module(tftp_SUITE).
 
+-behaviour(ct_suite).
+
 -compile([export_all, nowarn_export_all]).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

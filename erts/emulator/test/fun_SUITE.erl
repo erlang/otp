@@ -22,6 +22,8 @@
 
 -module(fun_SUITE).
 
+-behaviour(ct_suite).
+
 -export([all/0, suite/0,
          init_per_testcase/2, end_per_testcase/2,
 	 bad_apply/1,bad_fun_call/1,badarity/1,ext_badarity/1,

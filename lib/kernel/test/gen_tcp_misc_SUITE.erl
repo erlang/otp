@@ -53,6 +53,8 @@
 
 -module(gen_tcp_misc_SUITE).
 
+-behaviour(ct_suite).
+
 -include_lib("stdlib/include/assert.hrl").
 -include("kernel_test_lib.hrl").
 

@@ -27,6 +27,8 @@
 %%
 -module(mtx_SUITE).
 
+-behaviour(ct_suite).
+
 %%-define(line_trace,true).
 
 -include_lib("common_test/include/ct.hrl").

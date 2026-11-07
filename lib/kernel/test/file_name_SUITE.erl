@@ -1,4 +1,7 @@
 -module(file_name_SUITE).
+
+-behaviour(ct_suite).
+
 %%
 %% %CopyrightBegin%
 %%

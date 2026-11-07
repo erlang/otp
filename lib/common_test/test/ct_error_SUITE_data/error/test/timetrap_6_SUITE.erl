@@ -21,6 +21,8 @@
 %%
 -module(timetrap_6_SUITE).
 
+-behaviour(ct_suite).
+
 -compile(export_all).
 
 -include_lib("common_test/include/ct.hrl").
