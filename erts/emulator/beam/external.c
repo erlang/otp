@@ -2884,18 +2884,21 @@ enc_atom(ErtsAtomCacheMap *acmp, Eterm atom, byte *ep, Uint64 dflags)
 
     if (dflags & DFLAG_ETS_COMPRESSED) {
 	Uint aval = atom_val(atom);
-	ASSERT(aval < (1<<24));
-	if (aval >= (1 << 16)) {
-	    *ep++ = ATOM_INTERNAL_REF3;
-	    put_int24(aval, ep);
-	    ep += 3;
-	}
-	else {
+        if (aval < (1 << 16)) {
 	    *ep++ = ATOM_INTERNAL_REF2;
 	    put_int16(aval, ep);
-	    ep += 2;
+            return ep + 2;
 	}
-	return ep;
+        else if (aval < (1 << 24)) {
+            *ep++ = ATOM_INTERNAL_REF3;
+            put_int24(aval, ep);
+            return ep + 3;
+        }
+        /* The index does not fit in ATOM_INTERNAL_REF3, which happens when
+         * +t allows more than 2^24 atoms. Encode the atom by name below;
+         * there is no atom cache for ETS. Must agree with
+         * encode_atom_size(). */
+        ASSERT(acmp == NULL);
     }
 
     /*
@@ -5495,7 +5498,9 @@ static Uint
 encode_atom_size(ErtsAtomCacheMap *acmp, Eterm atom, Uint64 dflags)
 {
     ASSERT(is_atom(atom));
-    if (dflags & DFLAG_ETS_COMPRESSED) {
+    if ((dflags & DFLAG_ETS_COMPRESSED) && atom_val(atom) < (1 << 24)) {
+        /* ATOM_INTERNAL_REF2/3; larger indices are encoded by name, see
+         * enc_atom(). */
         if (atom_val(atom) >= (1<<16)) {
             return (Uint) 1 + 3;
         }
