@@ -233,6 +233,19 @@ The `t:option/0` are the options that can be used to customize the preprocessing
   Since OTP @OTP-20341@
 * **`{compiler_internal,term()}`** - forwarded to the Erlang token
   scanner, see [`{compiler_internal,term()}`](`m:erl_scan#compiler_interal`) in `erl_scan:string/3`.
+
+* **`{report_unused_macros, Enabled}`** - if set to `true`, a warning
+  `{warning, {Location, epp, {unused_macro, Name, Arity}}}` is returned just
+  before `{eof, Location}` for each macro that is defined in the main source
+  file but never used. `Arity` is `none` for a macro defined without
+  parentheses. Macros defined in included files, or after a `-file`
+  attribute that names another file, are not reported. A macro
+  counts as used if it is expanded, tested by `-ifdef`, `-ifndef` or
+  `defined/1` in `-if`/`-elif`, removed by `-undef`, or referenced by another
+  used macro. If unset, it defaults to `false`.
+
+  The compiler uses this option to implement
+  [`warn_unused_macro`](`m:compile#warn_unused_macro`).
 """".
 -type option() ::
         {default_encoding, DefEncoding :: source_encoding()} |
@@ -250,6 +263,7 @@ The `t:option/0` are the options that can be used to customize the preprocessing
                                        {ok, IoDevice :: file:io_device(),
                                         FullName :: file:filename_all()} |
                                        {error, term()})} |
+        {report_unused_macros, boolean()} |
         'extra' |
         {'compiler_internal', [term()]}.
 
@@ -294,7 +308,11 @@ The `t:option/0` are the options that can be used to customize the preprocessing
               else_reserved = false :: boolean(),
               fname = [] :: function_name_type(),
               deterministic = false :: boolean(),
-              include_path_open = fun file:path_open/3 :: fun()
+              include_path_open = fun file:path_open/3 :: fun(),
+              %% Macros defined in the main file that have not been used
+              %% yet, or 'none' if unused macros are not reported.
+              unused_macros = none
+                  :: 'none' | #{used() => erl_anno:location()}
 	     }).
 
 %% open(Options)
@@ -530,6 +548,10 @@ format_error_1({error,Term}) ->
     {~"-error(~tp).", [Term]};
 format_error_1({warning,Term}) ->
     {~"-warning(~tp).", [Term]};
+format_error_1({unused_macro,M,none}) ->
+    {~"macro '~ts' is unused", [M]};
+format_error_1({unused_macro,M,A}) ->
+    {~"macro '~ts/~p' is unused", [M,A]};
 format_error_1(ftr_after_prefix) ->
     ~"feature directive not allowed after exports or record definitions";
 format_error_1(E) -> file:format_error(E).
@@ -1042,6 +1064,10 @@ init_server(Pid, FileName, Options, St0) ->
             Deterministic = proplists:get_value(deterministic, Options, false),
             PathOpen = proplists:get_value(include_path_open, Options,
                                            fun file:path_open/3),
+            Unused = case proplists:get_bool(report_unused_macros, Options) of
+                         true -> #{};
+                         false -> none
+                     end,
             St = St0#epp{delta=0, name=SourceName, name2=SourceName,
 			 path=Path, location=AtLocation, macs=Ms1,
 			 default_encoding=DefEncoding,
@@ -1055,7 +1081,8 @@ init_server(Pid, FileName, Options, St0) ->
                          features = Features,
                          else_reserved = ResWordFun('else'),
                          deterministic = Deterministic,
-                         include_path_open = PathOpen},
+                         include_path_open = PathOpen,
+                         unused_macros = Unused},
             From = wait_request(St),
             Anno = erl_anno:new(AtLocation),
             enter_file_reply(From, file_name(SourceName), Anno,
@@ -1231,7 +1258,8 @@ enter_file2(NewF, Pname, From, St0, AtLocation) ->
          else_reserved = ElseReserved,
          features = Ftrs,
          deterministic = Deterministic,
-         include_path_open = PathOpen} = St0,
+         include_path_open = PathOpen,
+         unused_macros = Unused} = St0,
     Ms = Ms0#{'FILE':={none,[{string,Anno,source_name(St0,Pname)}]}},
     %% update the head of the include path to be the directory of the new
     %% source file, so that an included file can always include other files
@@ -1249,7 +1277,8 @@ enter_file2(NewF, Pname, From, St0, AtLocation) ->
          else_reserved = ElseReserved,
          default_encoding=DefEncoding,
          deterministic=Deterministic,
-         include_path_open=PathOpen}.
+         include_path_open=PathOpen,
+         unused_macros=Unused}.
 
 enter_file_reply(From, Name, LocationAnno, AtLocation, Where, Deterministic) ->
     Anno0 = erl_anno:new(AtLocation),
@@ -1296,6 +1325,7 @@ leave_file(From, St) ->
                     ScanOpts = St#epp.erl_scan_opts,
 		    Ms = Ms0#{'FILE':={none,[{string,Anno,source_name(St,OldName2)}]}},
                     NextSt = OldSt#epp{sstk=Sts,macs=Ms,uses=St#epp.uses,
+                                       unused_macros=St#epp.unused_macros,
                                        in_prefix = InPrefix,
                                        features = Ftrs,
                                        else_reserved = ElseReserved,
@@ -1312,10 +1342,27 @@ leave_file(From, St) ->
                         end,
                     wait_req_scan(NextSt);
 		[] ->
-		    epp_reply(From, {eof,St#epp.location}),
-		    wait_req_scan(St)
+                    Ws = unused_macro_warnings(St),
+		    eof_reply(Ws, From, St#epp{unused_macros=none})
 	    end
     end.
+
+eof_reply([W|Ws], From, St) ->
+    epp_reply(From, {warning,W}),
+    eof_reply(Ws, wait_request(St), St);
+eof_reply([], From, St) ->
+    epp_reply(From, {eof,St#epp.location}),
+    wait_req_scan(St).
+
+%% unused_macro_warnings(EppState) -> [WarningInfo]
+%%  Return a warning for each macro defined in the main file that
+%%  was never used, sorted on location.
+
+unused_macro_warnings(#epp{unused_macros=none}) ->
+    [];
+unused_macro_warnings(#epp{unused_macros=Unused}) ->
+    Sorted = lists:sort([{Loc,M,A} || {M,A} := Loc <- Unused]),
+    [{Loc,epp,{unused_macro,M,A}} || {Loc,M,A} <- Sorted].
 
 %% scan_toks(From, EppState)
 %% scan_toks(Tokens, From, EppState)
@@ -1324,7 +1371,7 @@ scan_toks(From, St) ->
     #epp{file = File, location = Loc, erl_scan_opts = ScanOpts} = St,
     case io:scan_erl_form(File, '', Loc, ScanOpts) of
         {ok,Toks,Cl} ->
-            scan_toks(Toks, From, St#epp{location=Cl});
+            scan_toks(Toks, From, mark_used_macros(Toks, St#epp{location=Cl}));
         {error,E,Cl} ->
             epp_reply(From, {error,E}),
             wait_req_scan(St#epp{location=Cl});
@@ -1611,14 +1658,14 @@ scan_define_2(Arity, Def, {_,_,Key}=Mac, From, #epp{macs=Ms}=St) ->
 		    epp_reply(From, {error,{loc(Mac),epp,{redefine,Key}}}),
 		    wait_req_scan(St);
 		false ->
-		    scan_define_cont(From, St, Key, Defs, Arity, Def)
+		    scan_define_cont(From, St, Mac, Defs, Arity, Def)
 	    end;
 	#{Key:=_} ->
 	    %% Predefined macros: cannot be overloaded
 	    epp_reply(From, {error,{loc(Mac),epp,{redefine_predef,Key}}}),
 	    wait_req_scan(St);
 	_ ->
-	    scan_define_cont(From, St, Key, [], Arity, Def)
+	    scan_define_cont(From, St, Mac, [], Arity, Def)
     end.
 
 %%% Detection of circular macro expansions (which would either keep
@@ -1630,8 +1677,10 @@ scan_define_2(Arity, Def, {_,_,Key}=Mac, From, #epp{macs=Ms}=St) ->
 %%% the information from St#epp.uses is traversed, and if a circularity
 %%% is detected, an error message is thrown.
 
-scan_define_cont(F, #epp{macs=Ms0}=St, M, Defs, Arity, Def) ->
+scan_define_cont(F, #epp{macs=Ms0}=St0, Mac, Defs, Arity, Def) ->
+    {_,_,M} = Mac,
     Ms = Ms0#{M=>[{Arity,Def}|Defs]},
+    St = add_unused_macro(M, Arity, loc(Mac), St0),
     try macro_uses(Def) of
         U ->
 	    Uses0 = St#epp.uses,
@@ -1644,7 +1693,7 @@ scan_define_cont(F, #epp{macs=Ms0}=St, M, Defs, Arity, Def) ->
     catch
         {error, Location, Reason} ->
             epp_reply(F, {error,{Location,epp,Reason}}),
-            wait_req_scan(St)
+            wait_req_scan(St0)
     end.
 
 macro_uses({_Args, Tokens}) ->
@@ -1665,6 +1714,109 @@ macro_ref([{'?', _}, {var, _, A}=Var | Rest]) ->
     [{A,Arity} | macro_ref(Rest)];
 macro_ref([_Token | Rest]) ->
     macro_ref(Rest).
+
+%%% Tracking of unused macros (the report_unused_macros option).
+%%% Macros defined in the main file (not in included files and not
+%%% in parts of the main file redirected by a -file attribute) are
+%%% added to St#epp.unused_macros when defined, and removed again
+%%% when they are used. Uses are found by looking at the macro
+%%% references in each form that is not skipped by a conditional,
+%%% and then following the macro references in the definitions of
+%%% the used macros (as recorded in St#epp.uses).
+
+add_unused_macro(_M, _Arity, _Loc, #epp{unused_macros=none}=St) ->
+    St;
+add_unused_macro(M, Arity, Loc, #epp{sstk=[],name=Name,name2=Name,
+                                     unused_macros=Unused}=St) ->
+    St#epp{unused_macros=Unused#{{M,Arity}=>Loc}};
+add_unused_macro(_M, _Arity, _Loc, St) ->
+    St.
+
+mark_used_macros(_Toks, #epp{unused_macros=none}=St) ->
+    St;
+mark_used_macros(_Toks, #epp{unused_macros=Unused}=St)
+  when map_size(Unused) =:= 0 ->
+    St;
+mark_used_macros([{'-',_},{atom,_,define}|_], St) ->
+    %% Macros used in a definition are only used if the defined
+    %% macro is used.
+    St;
+mark_used_macros([{'-',_},{'if',_}|_], St) ->
+    %% Handled by scan_if/4.
+    St;
+mark_used_macros([{'-',_},{atom,_,elif}|_], St) ->
+    %% Handled by scan_if/4.
+    St;
+mark_used_macros([{'-',_},{atom,_,D},{'(',_},{Type,_,M},{')',_},{dot,_}],
+                 St)
+  when (D =:= ifdef orelse D =:= ifndef orelse D =:= undef),
+       (Type =:= atom orelse Type =:= var) ->
+    mark_used_name(M, St);
+mark_used_macros(Toks, St) ->
+    mark_macro_refs(Toks, St).
+
+mark_used_in_if(_Toks, #epp{unused_macros=none}=St) ->
+    St;
+mark_used_in_if(_Toks, #epp{unused_macros=Unused}=St)
+  when map_size(Unused) =:= 0 ->
+    St;
+mark_used_in_if(Toks, St0) ->
+    St = mark_macro_refs(Toks, St0),
+    mark_defined_tests(Toks, St).
+
+mark_defined_tests([{atom,_,defined},{'(',_},{Type,_,M},{')',_}|Toks], St)
+  when Type =:= atom; Type =:= var ->
+    mark_defined_tests(Toks, mark_used_name(M, St));
+mark_defined_tests([_|Toks], St) ->
+    mark_defined_tests(Toks, St);
+mark_defined_tests([], St) ->
+    St.
+
+%% Mark all definitions of macro M as used, regardless of arity.
+mark_used_name(M, #epp{unused_macros=Unused}=St) ->
+    St#epp{unused_macros=maps:filter(fun({Name,_}, _) -> Name =/= M end,
+                                     Unused)}.
+
+mark_macro_refs(Toks, St) ->
+    try macro_ref(Toks) of
+        Refs ->
+            mark_used(Refs, #{}, St)
+    catch
+        throw:{error,_,_} ->
+            %% The error will be reported when the macros are expanded.
+            St
+    end.
+
+mark_used([{M,Arity}|Refs], Seen, St0) ->
+    case used_key(M, Arity, St0) of
+        none ->
+            mark_used(Refs, Seen, St0);
+        Key when is_map_key(Key, Seen) ->
+            mark_used(Refs, Seen, St0);
+        {_,DefArity}=Key ->
+            #epp{unused_macros=Unused,uses=U} = St0,
+            St = St0#epp{unused_macros=maps:remove(Key, Unused)},
+            Nested = get_macro_uses({M,DefArity}, U),
+            mark_used(Nested ++ Refs, Seen#{Key=>true}, St)
+    end;
+mark_used([], _Seen, St) ->
+    St.
+
+%% Return the key {Name,Arity} of the definition that a use of
+%% macro M with Arity arguments would expand, or 'none' if
+%% M is not a user-defined macro.
+used_key(M, Arity, #epp{macs=Macs}) ->
+    case Macs of
+        #{M:=[{none,_}]} ->
+            {M,none};
+        #{M:=Defs} when is_list(Defs) ->
+            case lists:keymember(Arity, 1, Defs) of
+                true -> {M,Arity};
+                false -> none
+            end;
+        #{} ->
+            none
+    end.
 
 %% scan_undef(Tokens, UndefToken, From, EppState)
 
@@ -1827,7 +1979,8 @@ scan_else(Toks, Else, From, St) ->
 %% scan_if(Tokens, IfToken, From, EppState)
 %%  Handle the conditional parsing of a file.
 
-scan_if([{'(',_}|_]=Toks, If, From, St) ->
+scan_if([{'(',_}|_]=Toks, If, From, St0) ->
+    St = mark_used_in_if(Toks, St0),
     try eval_if(Toks, St) of
 	true ->
 	    scan_toks(From, St#epp{istk=['if'|St#epp.istk]});
