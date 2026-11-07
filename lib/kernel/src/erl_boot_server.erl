@@ -322,11 +322,9 @@ init(#{slaves      := Slaves,
 
 handle_call({add,Address}, _, S0) ->
     Slaves = ordsets:add_element(Address, S0#state.slaves),
-    S0#state.bootp ! {slaves, Slaves},
     {reply, ok, S0#state{slaves = Slaves}};
 handle_call({delete,Address}, _, S0) ->
     Slaves = ordsets:del_element(Address, S0#state.slaves),
-    S0#state.bootp ! {slaves, Slaves},
     {reply, ok, S0#state{slaves = Slaves}};
 handle_call(which, _, S0) ->
     {reply, ordsets:to_list(S0#state.slaves), S0}.
