@@ -227,7 +227,7 @@
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% mlkem768x25519-sha256
+%% RFC 10042 hybrid ML-KEM methods
 
 -define(SSH_MSG_KEX_HYBRID_INIT,                30).
 -define(SSH_MSG_KEX_HYBRID_REPLY,               31).
