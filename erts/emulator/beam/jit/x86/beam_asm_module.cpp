@@ -105,6 +105,7 @@ void BeamModuleAssembler::embed_vararg_rodata(const Span<const ArgVal> &args,
 
     a.lea(reg, x86::qword_ptr(label));
 
+    auto section = a.current_section();
     a.section(rodata);
     a.bind(label);
 
@@ -138,7 +139,7 @@ void BeamModuleAssembler::embed_vararg_rodata(const Span<const ArgVal> &args,
         }
     }
 
-    a.section(code.text_section());
+    a.section(section);
 }
 
 void BeamModuleAssembler::emit_i_nif_padding() {
