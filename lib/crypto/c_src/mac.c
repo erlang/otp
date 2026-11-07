@@ -57,6 +57,8 @@ struct mac_type_t {
 #define CMAC_mac 2
 #define POLY1305_mac 3
 #define SIPHASH_mac 4
+#define BLAKE2B_mac 5
+#define BLAKE2S_mac 6
 
 /* Upper bound on the configurable SipHash round counts. The rounds multiply the
    CPU work of a MAC call; since small inputs run on a normal scheduler and the
@@ -114,6 +116,29 @@ static struct mac_type_t mac_types[] =
 #endif
 #if defined(HAS_3_0_API)
      ,"SIPHASH"
+#endif
+    },
+
+    /* Keyed BLAKE2 (RFC 7693) */
+    {{"blake2b"}, NO_FIPS_MAC,
+#ifdef HAVE_BLAKE2_MAC
+     {EVP_PKEY_NONE}, BLAKE2B_mac, 0
+#else
+     {EVP_PKEY_NONE}, NO_mac, 0
+#endif
+#if defined(HAS_3_0_API)
+     ,"BLAKE2BMAC"
+#endif
+    },
+
+    {{"blake2s"}, NO_FIPS_MAC,
+#ifdef HAVE_BLAKE2_MAC
+     {EVP_PKEY_NONE}, BLAKE2S_mac, 0
+#else
+     {EVP_PKEY_NONE}, NO_mac, 0
+#endif
+#if defined(HAS_3_0_API)
+     ,"BLAKE2SMAC"
 #endif
     },
 
@@ -264,6 +289,75 @@ static int set_siphash_params(ErlNifEnv* env, ERL_NIF_TERM subtype,
 }
 #endif /* HAVE_SIPHASH */
 
+#ifdef HAVE_BLAKE2_MAC
+/* For keyed BLAKE2, SubType (argv[1]) is 'undefined' (full-size output) or
+   a map with optional keys 'size', 'salt' and 'personalization'.
+   'size' is a BLAKE2 parameter, not a truncation length. */
+static int set_blake2_params(ErlNifEnv* env, int type, ERL_NIF_TERM subtype,
+                             size_t key_len, OSSL_PARAM* params, size_t* params_n,
+                             size_t* size_p, ERL_NIF_TERM* err)
+{
+    ERL_NIF_TERM val;
+    ErlNifBinary bin;
+    size_t map_size = 0, recognized = 0;
+    size_t max = (type == BLAKE2B_mac) ? 64 : 32;
+    size_t max_salt = max / 4;  /* also the personalization length */
+
+    if (key_len < 1 || key_len > max) {
+        *err = EXCP_BADARG_N(env, 2, "Bad key length");
+        return 0;
+    }
+
+    if (!enif_is_map(env, subtype)) {
+        if (subtype == atom_undefined)
+            return 1;
+        *err = EXCP_BADARG_N(env, 1, "blake2 SubType must be undefined or an options map");
+        return 0;
+    }
+
+    if (enif_get_map_value(env, subtype, atom_size, &val)) {
+        unsigned int sz;
+        recognized++;
+        if (!enif_get_uint(env, val, &sz) || sz < 1 || sz > max) {
+            *err = EXCP_BADARG_N(env, 1, (type == BLAKE2B_mac)
+                                 ? "blake2b 'size' must be an integer in 1..64"
+                                 : "blake2s 'size' must be an integer in 1..32");
+            return 0;
+        }
+        *size_p = (size_t)sz;
+        params[(*params_n)++] = OSSL_PARAM_construct_size_t("size", size_p);
+    }
+    if (enif_get_map_value(env, subtype, atom_salt, &val)) {
+        recognized++;
+        if (!enif_inspect_binary(env, val, &bin) || bin.size > max_salt) {
+            *err = EXCP_BADARG_N(env, 1, (type == BLAKE2B_mac)
+                                 ? "blake2b 'salt' must be a binary of at most 16 bytes"
+                                 : "blake2s 'salt' must be a binary of at most 8 bytes");
+            return 0;
+        }
+        params[(*params_n)++] = OSSL_PARAM_construct_octet_string("salt", bin.data, bin.size);
+    }
+    if (enif_get_map_value(env, subtype, atom_personalization, &val)) {
+        recognized++;
+        if (!enif_inspect_binary(env, val, &bin) || bin.size > max_salt) {
+            *err = EXCP_BADARG_N(env, 1, (type == BLAKE2B_mac)
+                                 ? "blake2b 'personalization' must be a binary of at most 16 bytes"
+                                 : "blake2s 'personalization' must be a binary of at most 8 bytes");
+            return 0;
+        }
+        params[(*params_n)++] = OSSL_PARAM_construct_octet_string("custom", bin.data, bin.size);
+    }
+
+    /* Reject unknown keys so a typo does not silently fall back to defaults */
+    if (enif_get_map_size(env, subtype, &map_size) && map_size != recognized) {
+        *err = EXCP_BADARG_N(env, 1, "Unknown blake2 option");
+        return 0;
+    }
+
+    return 1;
+}
+#endif /* HAVE_BLAKE2_MAC */
+
 /*******************************************************************
  *
  * Mac nif
@@ -310,6 +404,9 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 #ifdef HAVE_SIPHASH
     size_t sip_size;
     unsigned int sip_c, sip_d;
+#endif
+#ifdef HAVE_BLAKE2_MAC
+    size_t blake2_size;
 #endif
 #else
     /* Old style */
@@ -486,6 +583,20 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
         break;
 #endif
 
+        /**********
+         * BLAKE2 *
+         **********/
+        /* HAVE_BLAKE2_MAC implies the 3.0 EVP_MAC API. The key length and the
+           SubType options map are checked by set_blake2_params() in the common
+           3.0 computation below. */
+#ifdef HAVE_BLAKE2_MAC
+    case BLAKE2B_mac:
+    case BLAKE2S_mac:
+        name = macp->fetch_name;
+        subalg = NULL;
+        break;
+#endif
+
         /***************
          * Unknown MAC *
          ***************/
@@ -505,6 +616,13 @@ ERL_NIF_TERM mac_one_time(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     if (macp->type == SIPHASH_mac) {
         if (!set_siphash_params(env, argv[1], params, &params_n,
                                 &sip_size, &sip_c, &sip_d, &return_term))
+            goto err;
+    }
+#endif
+#ifdef HAVE_BLAKE2_MAC
+    if (macp->type == BLAKE2B_mac || macp->type == BLAKE2S_mac) {
+        if (!set_blake2_params(env, macp->type, argv[1], key_bin.size,
+                               params, &params_n, &blake2_size, &return_term))
             goto err;
     }
 #endif
@@ -702,6 +820,9 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     size_t sip_size;
     unsigned int sip_c, sip_d;
 #  endif
+#  ifdef HAVE_BLAKE2_MAC
+    size_t blake2_size;
+#  endif
 # else
     /* EVP_PKEY_CTX is available */
     const EVP_MD *md = NULL;
@@ -846,6 +967,16 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 # endif
 
 
+        /**********
+         * BLAKE2 *
+         **********/
+# ifdef HAVE_BLAKE2_MAC
+    case BLAKE2B_mac:
+    case BLAKE2S_mac:
+        break;
+# endif
+
+
         /***************
          * Unknown MAC *
          ***************/
@@ -874,6 +1005,13 @@ ERL_NIF_TERM mac_init_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     if (macp->type == SIPHASH_mac) {
         if (!set_siphash_params(env, argv[1], params, &params_n,
                                 &sip_size, &sip_c, &sip_d, &return_term))
+            goto err;
+    }
+#  endif
+#  ifdef HAVE_BLAKE2_MAC
+    if (macp->type == BLAKE2B_mac || macp->type == BLAKE2S_mac) {
+        if (!set_blake2_params(env, macp->type, argv[1], key_bin.size,
+                               params, &params_n, &blake2_size, &return_term))
             goto err;
     }
 #  endif
