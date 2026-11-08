@@ -1121,7 +1121,7 @@ Uint copy_shared_calculate(Eterm obj, erts_shcopy_t *info)
 #endif
     const Eterm empty_tuple_literal =
         ERTS_GLOBAL_LIT_EMPTY_TUPLE;
-    
+
     DECLARE_EQUEUE_INIT_INFO(s, info);
     DECLARE_BITSTORE_INIT_INFO(b, info);
     DECLARE_SHTABLE_INIT_INFO(t, info);
@@ -1723,7 +1723,7 @@ Uint copy_shared_perform_x(Eterm obj, Uint size, erts_shcopy_t *info,
 	    case EXTERNAL_REF_SUBTAG:
 	    {
 		ExternalThing *etp = (ExternalThing *) ptr;
-                
+
 #if defined(ERTS_COPY_REGISTER_LOCATION) && defined(ERL_NODE_BOOKKEEP)
                 erts_ref_node_entry__(etp->node, 2, make_boxed(hp), file, line);
 #else
@@ -1926,6 +1926,67 @@ Eterm copy_shallow_obj_x(Eterm obj, Uint sz, Eterm **hpp, ErlOffHeap *off_heap
 }
 
 
+
+#if defined(__CHERI_PURE_CAPABILITY__)
+static inline Eterm
+erts_cheri_relocate_term(Eterm val,
+                         Eterm *src,
+                         Eterm *dst,
+                         Uint slots)
+{
+    const size_t src_addr = __builtin_cheri_address_get(src);
+    const size_t dst_addr = __builtin_cheri_address_get(dst);
+    const size_t val_addr = __builtin_cheri_address_get(val);
+
+    const size_t tag = val_addr & TAG_PTR_MASK__;
+    const size_t object_addr = val_addr & ~(size_t)TAG_PTR_MASK__;
+
+    if ((size_t)slots > SIZE_MAX / sizeof(Eterm)) {
+        erts_exit(ERTS_ABORT_EXIT,
+                  "CHERI: shallow-copy size overflow\n");
+    }
+
+
+    if ((size_t)slots > SIZE_MAX / sizeof(Eterm)) {
+        erts_exit(ERTS_ABORT_EXIT,
+                  "CHERI: shallow-copy size overflow\n");
+    }
+    const size_t bytes = (size_t)slots * sizeof(Eterm);
+
+    /* Only relocate references inside the copied block. */
+    if (object_addr < src_addr ||
+        object_addr - src_addr >= bytes) {
+        erts_exit(ERTS_ABORT_EXIT,
+                  "CHERI: pointer outside shallow-copy source block\n");
+    }
+
+    const size_t offset = object_addr - src_addr;
+    const size_t dst_base = __builtin_cheri_base_get(dst);
+    const size_t dst_len = __builtin_cheri_length_get(dst);
+
+    if (!__builtin_cheri_tag_get(dst) ||
+        offset > SIZE_MAX - dst_addr ||
+        dst_addr < dst_base ||
+        offset >= dst_len ||
+        dst_addr - dst_base > dst_len - 1 - offset) {
+        erts_exit(ERTS_ABORT_EXIT,
+                  "CHERI: destination capability bounds violation\n");
+    }
+
+    const size_t new_addr = dst_addr + offset;
+
+    Eterm relocated = (Eterm)__builtin_cheri_address_set(
+        (Eterm)dst, new_addr | tag);
+
+    if (!__builtin_cheri_tag_get(relocated)) {
+        erts_exit(ERTS_ABORT_EXIT,
+                  "CHERI: relocated capability lost validity tag\n");
+    }
+
+    return relocated;
+}
+#endif
+
 /*
  * Copy a term that is guaranteed to be contained in a single
  * heap block. The heap block is copied word by word, and any
@@ -1943,7 +2004,30 @@ Eterm* copy_shallow_x(Eterm *ERTS_RESTRICT ptr, Uint sz, Eterm **hpp,
     Eterm *tp = ptr;
     Eterm *hp = *hpp;
     Eterm* res = hp;
-    const Sint offs = (hp - tp) * sizeof(Eterm);
+
+    #if defined(__CHERI_PURE_CAPABILITY__)
+        const Uint copy_slots = sz;
+    #endif
+
+    #if defined(__CHERI_PURE_CAPABILITY__)
+        const size_t src_addr = __builtin_cheri_address_get(tp);
+        const size_t dst_addr = __builtin_cheri_address_get(hp);
+
+        const size_t distance = dst_addr >= src_addr
+            ? dst_addr - src_addr
+            : src_addr - dst_addr;
+
+        if (distance > (size_t)INT64_MAX) {
+            erts_exit(ERTS_ABORT_EXIT, "CHERI: relocation offset overflow\n");
+        }
+
+        const Sint offs = dst_addr >= src_addr
+            ? (Sint)distance
+            : -(Sint)distance;
+    #else
+        const Sint offs = (hp - tp) * sizeof(Eterm);
+    #endif
+
     const Eterm empty_tuple_literal =
         ERTS_GLOBAL_LIT_EMPTY_TUPLE;
     while (sz--) {
@@ -1964,7 +2048,12 @@ Eterm* copy_shallow_x(Eterm *ERTS_RESTRICT ptr, Uint sz, Eterm **hpp,
                     ASSERT(erl_sub_bits_is_normal(sb));
 
                     sys_memcpy(hp, tp, orig_offset * sizeof(Eterm));
-                    hp[orig_offset] = byte_offset_ptr(sb->orig, offs);
+                    #if defined(__CHERI_PURE_CAPABILITY__)
+                        hp[orig_offset] =
+                            erts_cheri_relocate_term(sb->orig, ptr, res, copy_slots);
+                    #else
+                        hp[orig_offset] = byte_offset_ptr(sb->orig, offs);
+                    #endif
 
                     hp += orig_offset + 1;
                     tp += orig_offset + 1;
@@ -1994,7 +2083,7 @@ Eterm* copy_shallow_x(Eterm *ERTS_RESTRICT ptr, Uint sz, Eterm **hpp,
 		{
 		    struct erl_off_heap_header* ohh = (struct erl_off_heap_header*)(hp-1);
 		    int tari = thing_arityval(val);
-		    
+
 		    sz -= tari;
 		    while (tari--) {
 			*hp++ = *tp++;
@@ -2015,7 +2104,7 @@ Eterm* copy_shallow_x(Eterm *ERTS_RESTRICT ptr, Uint sz, Eterm **hpp,
 	    default:
 		{
 		    int tari = header_arity(val);
-    
+
 		    sz -= tari;
 		    while (tari--) {
 			*hp++ = *tp++;
@@ -2024,18 +2113,24 @@ Eterm* copy_shallow_x(Eterm *ERTS_RESTRICT ptr, Uint sz, Eterm **hpp,
 		break;
 	    }
 	    break;
-        default:
-            *hp++ = (is_immed(val) || val == empty_tuple_literal)
-                    ? val
-                    : byte_offset_ptr(val, offs);
-            break;
+	default:
+	#if defined(__CHERI_PURE_CAPABILITY__)
+    *hp++ = (is_immed(val) || val == empty_tuple_literal)
+            ? val
+            : erts_cheri_relocate_term(val, ptr, res, copy_slots);
+	#else
+    *hp++ = (is_immed(val) || val == empty_tuple_literal)
+            ? val
+            : byte_offset_ptr(val, offs);
+	#endif
+    break;
 	}
     }
     *hpp = hp;
     return res;
 }
 
-/* Move all terms in heap fragments into heap. The terms must be guaranteed to 
+/* Move all terms in heap fragments into heap. The terms must be guaranteed to
  * be contained within the fragments. The source terms are destructed with
  * move markers.
  * Typically used to copy a multi-fragmented message (from NIF).

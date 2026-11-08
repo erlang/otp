@@ -758,11 +758,13 @@ USE_PGO=false
 AC_SUBST(USE_PGO)
 AC_SUBST(PROFILE_COMPILER)
 
-AC_CHECK_SIZEOF(void *) # Needed for ARCH and smp checks below
-if test "x$ac_cv_sizeof_void_p" = x8; then
-  AC_SUBST(EXTERNAL_WORD_SIZE, 64)
+AC_CHECK_SIZEOF(void *)
+
+if test "x$ac_cv_sizeof_void_p" = x8 ||
+   test "x$ac_cv_sizeof_void_p" = x16; then
+    AC_SUBST(EXTERNAL_WORD_SIZE, 64)
 else
-  AC_SUBST(EXTERNAL_WORD_SIZE, 32)
+    AC_SUBST(EXTERNAL_WORD_SIZE, 32)
 fi
 
 dnl

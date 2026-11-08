@@ -1845,7 +1845,8 @@ int enif_get_int(ErlNifEnv* env, Eterm term, int* ip)
 #if SIZEOF_INT ==  ERTS_SIZEOF_ETERM
     return term_to_Sint(term, (Sint*)ip);
 #elif (SIZEOF_LONG ==  ERTS_SIZEOF_ETERM) || \
-  (SIZEOF_LONG_LONG ==  ERTS_SIZEOF_ETERM)
+  (SIZEOF_LONG_LONG ==  ERTS_SIZEOF_ETERM) || \
+  (defined(__CHERI_PURE_CAPABILITY__) && SIZEOF_VOID_P == 16)
     Sint i;
     if (!term_to_Sint(term, &i) || i < INT_MIN || i > INT_MAX) {
 	return 0;
@@ -1862,14 +1863,17 @@ int enif_get_uint(ErlNifEnv* env, Eterm term, unsigned* ip)
 #if SIZEOF_INT == ERTS_SIZEOF_ETERM
     return term_to_Uint(term, (Uint*)ip);
 #elif (SIZEOF_LONG == ERTS_SIZEOF_ETERM) || \
-  (SIZEOF_LONG_LONG ==  ERTS_SIZEOF_ETERM)
+      (SIZEOF_LONG_LONG == ERTS_SIZEOF_ETERM) || \
+      (defined(__CHERI_PURE_CAPABILITY__) && SIZEOF_VOID_P == 16)
     Uint i;
     if (!term_to_Uint(term, &i) || i > UINT_MAX) {
-	return 0;
+        return 0;
     }
     *ip = (unsigned) i;
     return 1;
-#endif     
+#else
+#  error Unknown word size
+#endif
 }
 
 int enif_get_long(ErlNifEnv* env, Eterm term, long* ip)

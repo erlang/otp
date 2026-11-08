@@ -39,7 +39,9 @@ typedef Uint16   ErtsHalfDigit;
 #undef  BIG_HAVE_DOUBLE_DIGIT
 typedef Uint16   ErtsHalfDigit;
 
-#elif (SIZEOF_VOID_P == 8) && defined(__GNUC__) && (__GNUC__ >= 4)
+#elif ((SIZEOF_VOID_P == 8) || \
+       (defined(__CHERI_PURE_CAPABILITY__) && SIZEOF_VOID_P == 16)) \
+       && defined(__GNUC__) && (__GNUC__ >= 4)
 typedef __uint128_t ErtsDoubleDigit;
 #define BIG_HAVE_DOUBLE_DIGIT 1
 
@@ -52,7 +54,11 @@ typedef Uint32   ErtsHalfDigit;
 
 typedef Uint  dsize_t;	 /* Vector size type */
 
+#if defined(__CHERI_PURE_CAPABILITY__)
+#define D_EXP 64
+#else
 #define D_EXP (ERTS_SIZEOF_ETERM*8)
+#endif
 #define D_MASK     ((ErtsDigit)(-1))      /* D_BASE-1 */
 
 /* macros for bignum objects */

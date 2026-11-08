@@ -256,7 +256,8 @@ typedef unsigned long long ethr_uint64_t;
 #endif
 typedef ethr_sint32_t ethr_sint_t;
 typedef ethr_uint32_t ethr_uint_t;
-#elif ETHR_SIZEOF_PTR == 8
+#elif ETHR_SIZEOF_PTR == 8 || \
+      (defined(__CHERI_PURE_CAPABILITY__) && ETHR_SIZEOF_PTR == 16)
 #ifndef ETHR_HAVE_INT64_T
 #error "No 64-bit integer type found"
 #endif

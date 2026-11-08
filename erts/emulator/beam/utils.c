@@ -398,8 +398,9 @@ int erts_fit_in_bits_uint(Uint value)
 {
 #if ERTS_SIZEOF_ETERM == 4
     return fit_in_bits((Sint64) (Uint32) value, 4);
-#elif ERTS_SIZEOF_ETERM == 8
-    return fit_in_bits(value, 5);
+    #elif ERTS_SIZEOF_ETERM == 8 || \
+          (defined(__CHERI_PURE_CAPABILITY__) && ERTS_SIZEOF_ETERM == 16)
+        return fit_in_bits(value, 5);
 #else
 # error "No way, Jose"
 #endif

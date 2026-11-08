@@ -191,12 +191,47 @@ struct erl_node_; /* Declared in erl_node_tables.h */
 
 /* boxed object access methods */
 
-#define _is_taggable_pointer(x)	 (((Uint)(x) & TAG_PTR_MASK__) == 0)
+#if defined(__CHERI_PURE_CAPABILITY__)
+
+#define _is_taggable_pointer(x) \
+    ((__builtin_cheri_address_get(x) & TAG_PTR_MASK__) == 0)
+
+#define _is_aligned(x) \
+    ((__builtin_cheri_address_get(x) & TAG_PTR_MASK__) == 0)
+
+#else
+
+#define _is_taggable_pointer(x) \
+    (((Uint)(x) & TAG_PTR_MASK__) == 0)
+
+#define _is_aligned(x) \
+    (((Uint)(x) & TAG_PTR_MASK__) == 0)
+
+#endif
 
 #define  _boxed_precond(x)       (is_boxed(x))
 
-#define _is_aligned(x)		(((Uint)(x) & TAG_PTR_MASK__) == 0)
+
+#if defined(__CHERI_PURE_CAPABILITY__)
+
+static inline Eterm
+erts_cheri_make_boxed(const Eterm *ptr)
+{
+    Eterm cap = (Eterm)ptr;
+
+    return __builtin_cheri_address_set(
+        cap,
+        __builtin_cheri_address_get(cap) + TAG_PRIMARY_BOXED);
+}
+
+#define _unchecked_make_boxed(x) erts_cheri_make_boxed(x)
+
+#else
+
 #define _unchecked_make_boxed(x) ((Uint)(x) + TAG_PRIMARY_BOXED)
+
+#endif
+
 _ET_DECLARE_CHECKED(Eterm,make_boxed,const Eterm*)
 #define make_boxed(x)		_ET_APPLY(make_boxed,(x))
 #if 1
@@ -216,7 +251,25 @@ _ET_DECLARE_CHECKED(Eterm*,boxed_val,Eterm)
 #define boxed_val(x)		_ET_APPLY(boxed_val,(x))
 
 /* cons cell ("list") access methods */
-#define _unchecked_make_list(x)	((Uint)(x) + TAG_PRIMARY_LIST)
+#if defined(__CHERI_PURE_CAPABILITY__)
+
+static inline Eterm
+erts_cheri_make_list(const Eterm *ptr)
+{
+    Eterm cap = (Eterm)ptr;
+
+    return __builtin_cheri_address_set(
+        cap,
+        __builtin_cheri_address_get(cap) + TAG_PRIMARY_LIST);
+}
+
+#define _unchecked_make_list(x) erts_cheri_make_list(x)
+
+#else
+
+#define _unchecked_make_list(x) ((Uint)(x) + TAG_PRIMARY_LIST)
+
+#endif
 _ET_DECLARE_CHECKED(Eterm,make_list,const Eterm*)
 #define make_list(x)		_ET_APPLY(make_list,(x))
 #if 1
@@ -244,11 +297,28 @@ _ET_DECLARE_CHECKED(Eterm*,list_val,Eterm)
 #define CDR(x)  ((x)[1])
 
 /* generic tagged pointer (boxed or list) access methods */
-#define _unchecked_ptr_val(x)	((Eterm*) ((x) & ~((Uint) TAG_PTR_MASK__)))
+#if defined(__CHERI_PURE_CAPABILITY__)
+
+static inline Eterm *
+erts_cheri_ptr_val(Eterm cap)
+{
+    return (Eterm *)__builtin_cheri_address_set(
+        cap,
+        __builtin_cheri_address_get(cap) & ~(size_t)TAG_PTR_MASK__);
+}
+
+#define _unchecked_ptr_val(x) erts_cheri_ptr_val(x)
+
+#else
+
+#define _unchecked_ptr_val(x) \
+    ((Eterm*) ((x) & ~((Uint) TAG_PTR_MASK__)))
+
+#endif
 #define ptr_val(x)		_unchecked_ptr_val((x))	/*XXX*/
 #define _unchecked_offset_ptr(x,offs)	((x)+((offs)*sizeof(Eterm)))
 #define offset_ptr(x,offs)	_unchecked_offset_ptr(x,offs)	/*XXX*/
-#define _unchecked_byte_offset_ptr(x,byte_offs)	((x)+(offs))
+#define _unchecked_byte_offset_ptr(x,byte_offs) ((x)+(byte_offs))
 #define byte_offset_ptr(x,offs) _unchecked_byte_offset_ptr(x,offs)  /*XXX*/
 
 #ifdef TAG_LITERAL_PTR
@@ -271,10 +341,33 @@ _ET_DECLARE_CHECKED(Eterm*,list_val,Eterm)
 #define make_small(x)	(((Uint)(x) << _TAG_IMMED1_SIZE) + _TAG_IMMED1_SMALL)
 #define is_small(x)	(((x) & _TAG_IMMED1_MASK) == _TAG_IMMED1_SMALL)
 #define is_not_small(x)	(!is_small((x)))
-#define is_byte(x)	(((x) & ((~(Uint)0 << (_TAG_IMMED1_SIZE+8)) + _TAG_IMMED1_MASK)) == _TAG_IMMED1_SMALL)
-#define is_valid_bit_size(x) (((Sint)(x)) >= 0 && ((x) & 0x7F) == _TAG_IMMED1_SMALL)
+#if defined(__CHERI_PURE_CAPABILITY__)
+#define is_byte(x) \
+    ((((Uint)(x)) & \
+      ((~(Uint)0 << (_TAG_IMMED1_SIZE + 8)) + _TAG_IMMED1_MASK)) \
+      == _TAG_IMMED1_SMALL)
+#else
+#define is_byte(x) \
+    (((x) & ((~(Uint)0 << (_TAG_IMMED1_SIZE+8)) + _TAG_IMMED1_MASK)) \
+      == _TAG_IMMED1_SMALL)
+#endif
+#if defined(__CHERI_PURE_CAPABILITY__)
+#define is_valid_bit_size(x) \
+    (((Sint)(Uint)(x)) >= 0 && \
+     (((Uint)(x) & 0x7F) == _TAG_IMMED1_SMALL))
+#else
+#define is_valid_bit_size(x) \
+    (((Sint)(x)) >= 0 && \
+     ((x) & 0x7F) == _TAG_IMMED1_SMALL)
+#endif
 #define is_not_valid_bit_size(x) (!is_valid_bit_size((x)))
-#define _unchecked_unsigned_val(x)	((x) >> _TAG_IMMED1_SIZE)
+#if defined(__CHERI_PURE_CAPABILITY__)
+#define _unchecked_unsigned_val(x) \
+    ((Uint)(x) >> _TAG_IMMED1_SIZE)
+#else
+#define _unchecked_unsigned_val(x) \
+    ((x) >> _TAG_IMMED1_SIZE)
+#endif
 _ET_DECLARE_CHECKED(Uint,unsigned_val,Eterm)
 #define unsigned_val(x)	_ET_APPLY(unsigned_val,(x))
 #define _unchecked_signed_val(x)	((Sint)(x) >> _TAG_IMMED1_SIZE)

@@ -45,8 +45,13 @@ erts_set_literal_tag(Eterm *term, Eterm *hp_start, Eterm hsz)
 	switch (primary_tag(*hp)) {
 	case TAG_PRIMARY_BOXED:
 	case TAG_PRIMARY_LIST:
-	    *hp |= TAG_LITERAL_PTR;
-	    break;
+ #if defined(__CHERI_PURE_CAPABILITY__)
+    *hp = __builtin_cheri_address_set(
+        *hp,
+        __builtin_cheri_address_get(*hp) | TAG_LITERAL_PTR);
+	#else
+    *hp |= TAG_LITERAL_PTR;
+	#endif
 	case TAG_PRIMARY_HEADER:
 	    if (*hp == HEADER_SUB_BITS) {
                 /* Tag the `orig` field as a literal. It's the last field
@@ -63,7 +68,15 @@ erts_set_literal_tag(Eterm *term, Eterm *hp_start, Eterm hsz)
 	
 	hp++;
     }
-    if (is_boxed(*term) || is_list(*term))
+    if (is_boxed(*term) || is_list(*term)) {
+    #if defined(__CHERI_PURE_CAPABILITY__)
+        *term = __builtin_cheri_address_set(
+            *term,
+            __builtin_cheri_address_get(*term) | TAG_LITERAL_PTR);
+    #else
+        *term |= TAG_LITERAL_PTR;
+    #endif
+    }
 	*term |= TAG_LITERAL_PTR;
 #endif
 }

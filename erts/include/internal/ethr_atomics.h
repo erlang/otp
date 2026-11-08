@@ -481,8 +481,8 @@ ETHR_INLINE_DW_ATMC_FUNC_NAME_(ethr_have_native_dw_atomic)(void)
 #  define ETHR_UNUSUAL_SINT32_VAL__ ((ethr_sint32_t) 0x81818181)
 #  if ETHR_SIZEOF_PTR == 4
 #    define ETHR_UNUSUAL_SINT_VAL__ ((ethr_sint_t) ETHR_UNUSUAL_SINT32_VAL__)
-#  elif ETHR_SIZEOF_PTR == 8
-#    define ETHR_UNUSUAL_SINT_VAL__ ((ethr_sint_t) 0x8181818181818181L)
+#   elif ETHR_SIZEOF_PTR == 8 || \
+      (defined(__CHERI_PURE_CAPABILITY__) && ETHR_SIZEOF_PTR == 16)
 #  else
 #    error "Word size not supported"
 #  endif

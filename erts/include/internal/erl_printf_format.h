@@ -68,6 +68,9 @@ typedef long          ErlPfSWord;
 #elif SIZEOF_VOID_P == SIZEOF_INT
 typedef unsigned int ErlPfUWord;
 typedef int          ErlPfSWord;
+#elif defined(__CHERI_PURE_CAPABILITY__) && SIZEOF_VOID_P == 16
+typedef __uintcap_t ErlPfUWord;
+typedef __intcap_t  ErlPfSWord;
 #else
 #error Found no appropriate type to use for 'ErlPfUWord', 'ErlPfSWord'
 #endif

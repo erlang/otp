@@ -125,7 +125,11 @@ typedef signed long long ErlNapiSInt64;
 #  error No 64-bit integer type
 #endif
 
-#if SIZEOF_VOID_P == 8
+#if defined(__CHERI_PURE_CAPABILITY__) && SIZEOF_VOID_P == 16
+typedef __uintcap_t ErlNapiUInt;
+typedef __intcap_t  ErlNapiSInt;
+
+#elif SIZEOF_VOID_P == 8
 typedef ErlNapiUInt64 ErlNapiUInt;
 typedef ErlNapiSInt64 ErlNapiSInt;
 #elif SIZEOF_VOID_P == 4

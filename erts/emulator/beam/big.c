@@ -4100,7 +4100,7 @@ static const byte digits_per_sint_lookup[36-1] = {
     /* Wo.Alpha formula: Table [Trunc[31 / log[2,n]]-1, {n, 2, 36}] */
     30, 18, 14, 12, 10, 10, 9, 8, 8, 7, 7, 7, 7, 6, 6, 6, 6, 6, 6, 6, 5, 5, 5,
     5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 4
-#elif (SIZEOF_VOID_P == 8)
+#elif (SIZEOF_VOID_P == 8) || (defined(__CHERI_PURE_CAPABILITY__) && SIZEOF_VOID_P == 16)
     /* Wo.Alpha formula: Table [Trunc[63 / log[2,n]]-1, {n, 2, 36}] */
     62, 38, 30, 26, 23, 21, 20, 18, 17, 17, 16, 16, 15, 15, 14, 14, 14, 13, 13,
     13, 13, 12, 12, 12, 12, 12, 12, 11, 11, 11, 11, 11, 11, 11, 11
@@ -4117,7 +4117,7 @@ static const byte digits_per_small_lookup[36-1] = {
     /* Wo.Alpha formula: Table [Trunc[27 / log[2,n]]-1, {n, 2, 36}] */
     27, 17, 13, 11, 10, 9, 9, 8, 8, 7, 7, 7, 7, 6, 6, 6, 6, 6, 6, 6, 6, 5, 5, 5,
     5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5
-#elif (SIZEOF_VOID_P == 8)
+#elif (SIZEOF_VOID_P == 8) || (defined(__CHERI_PURE_CAPABILITY__) && SIZEOF_VOID_P == 16)
     /* Wo.Alpha formula: Table [Trunc[59 / log[2,n]]-1, {n, 2, 36}] */
     59, 37, 29, 25, 22, 21, 19, 18, 17, 17, 16, 15, 15, 15, 14, 14, 14, 13, 13,
     13, 13, 13, 12, 12, 12, 12, 12, 12, 12, 11, 11, 11, 11, 11, 11
@@ -4139,7 +4139,7 @@ static const Sint largest_power_of_base_lookup[36-1] = {
     16777216, 24137569, 34012224, 47045881, 64000000, 85766121, 5153632,
     6436343,7962624, 9765625, 11881376, 14348907, 17210368, 20511149, 24300000,
     28629151, 33554432, 39135393, 45435424, 52521875, 1679616
-#elif (SIZEOF_VOID_P == 8)
+#elif (SIZEOF_VOID_P == 8) || (defined(__CHERI_PURE_CAPABILITY__) && SIZEOF_VOID_P == 16)
     /* Wo.Alpha formula: Table [Pow[n, Trunc[63 / log[2,n]]-1], {n, 2, 36}]
      * with LL added after each element manually */
     4611686018427387904LL, 1350851717672992089LL, 1152921504606846976LL,

@@ -394,29 +394,63 @@ __decl_noreturn void __noreturn erl_assert_error(const char* expr, const char *f
 ** Sint16: A signed integer of 16 bits exactly.
 */
 
+#if defined(__CHERI_PURE_CAPABILITY__)
+
+#if SIZEOF_VOID_P != 16 || SIZEOF_SIZE_T != 8 || SIZEOF_LONG != 8
+#error Unsupported CHERI purecap data model
+#endif
+
+#else
+
 #if !((SIZEOF_VOID_P >= 4) && (SIZEOF_VOID_P == SIZEOF_SIZE_T) \
       && ((SIZEOF_VOID_P == SIZEOF_INT) || (SIZEOF_VOID_P == SIZEOF_LONG) || \
           (SIZEOF_VOID_P == SIZEOF_LONG_LONG)))
 #error Cannot handle this combination of int/long/void*/size_t sizes
 #endif
+#endif
 
-#if SIZEOF_VOID_P == 8
-#undef  ARCH_32
+#if defined(__CHERI_PURE_CAPABILITY__)
+#undef ARCH_32
+#define ARCH_64
+#define ERTS_SIZEOF_TERM 16
+#elif SIZEOF_VOID_P == 8
+#undef ARCH_32
 #define ARCH_64
 #define ERTS_SIZEOF_TERM 8
 #elif SIZEOF_VOID_P == 4
 #define ARCH_32
-#undef  ARCH_64
+#undef ARCH_64
 #define ERTS_SIZEOF_TERM 4
 #else
 #error Neither 32 nor 64 bit architecture
 #endif
 
+#if !defined(__CHERI_PURE_CAPABILITY__)
 #if SIZEOF_VOID_P != SIZEOF_SIZE_T
 #error sizeof(void*) != sizeof(size_t)
 #endif
+#endif
 
-#if SIZEOF_VOID_P == SIZEOF_LONG
+#if defined(__CHERI_PURE_CAPABILITY__)
+
+/* CHERI purecap: capability-sized Erlang terms */
+typedef __uintcap_t Eterm erts_align_attribute(16);
+
+/* Ordinary machine words remain 64-bit */
+typedef unsigned long Uint erts_align_attribute(sizeof(long));
+typedef long          Sint erts_align_attribute(sizeof(long));
+
+#define SWORD_CONSTANT(Const) Const##L
+#define UWORD_CONSTANT(Const) Const##UL
+
+#define ERTS_UWORD_MAX ULONG_MAX
+#define ERTS_SWORD_MAX LONG_MAX
+#define ERTS_SWORD_MIN LONG_MIN
+
+#define ERTS_SIZEOF_ETERM 16
+#define ErtsStrToSint strtol
+
+#elif SIZEOF_VOID_P == SIZEOF_LONG
 typedef unsigned long Eterm erts_align_attribute(sizeof(long));
 typedef unsigned long Uint  erts_align_attribute(sizeof(long));
 typedef long          Sint  erts_align_attribute(sizeof(long));
@@ -548,7 +582,8 @@ typedef unsigned char byte;
 #  define ERTS_HUINT_HVAL_HIGH 1
 #  define ERTS_HUINT_HVAL_LOW 0
 #endif
-#if ERTS_SIZEOF_TERM == 8
+#if ERTS_SIZEOF_TERM == 8 || \
+    (defined(__CHERI_PURE_CAPABILITY__) && ERTS_SIZEOF_TERM == 16)
 typedef union {
     Uint val;
     Uint32 hval[2];

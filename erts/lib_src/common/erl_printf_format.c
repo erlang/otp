@@ -121,6 +121,9 @@
 #define FMTL_L    0x0050
 #define FMTL_j    0x0060
 #define FMTL_t    0x0070
+#if defined(__CHERI_PURE_CAPABILITY__)
+#define FMTL_cap  0x0080
+#endif
 #define FMTL_MASK 0x00f0
 
 #define FMTF_alt  0x0100    /* # alterlate form ie 0x */
@@ -533,6 +536,10 @@ int erts_printf_format(fmtfn_t fn, void* arg, char* fmt, va_list ap)
 		    fmt |= FMTL_l;
 #elif SIZEOF_LONG_LONG == SIZEOF_VOID_P
 		    fmt |= FMTL_ll;
+						#elif defined(__CHERI_PURE_CAPABILITY__) && SIZEOF_VOID_P == 16
+    fmt |= FMTL_cap;
+    #elif defined(__CHERI_PURE_CAPABILITY__) && ERTS_SIZEOF_ETERM == 16
+        fmt |= FMTL_cap;
 #else
 #error No integer datatype with the same size as 'void *' found
 #endif
@@ -544,6 +551,8 @@ int erts_printf_format(fmtfn_t fn, void* arg, char* fmt, va_list ap)
 		    fmt |= FMTL_l;
 #elif SIZEOF_LONG_LONG == ERTS_SIZEOF_ETERM
 		    fmt |= FMTL_ll;
+						#elif defined(__CHERI_PURE_CAPABILITY__) && ERTS_SIZEOF_ETERM == 16
+    fmt |= FMTL_cap;
 #else
 #error No integer datatype with the same size as Eterm found
 #endif
@@ -717,6 +726,15 @@ int erts_printf_format(fmtfn_t fn, void* arg, char* fmt, va_list ap)
 				   width,precision,fmt,&count);
 		    break;
 		}
+		#if defined(__CHERI_PURE_CAPABILITY__)
+        case FMTL_cap: {
+            ErlPfUWord cap_val = va_arg(ap, ErlPfUWord);
+		
+            res = fmt_uword(fn, arg, USIGN(cap_val), cap_val,
+                            width, precision, fmt, &count);
+            break;
+        }
+		#endif
 		case FMTL_l: {
 		    ul_val = (ErlPfUWord) va_arg(ap,long);
 		    res = fmt_uword(fn,arg,USIGN(ul_val),ul_val,
