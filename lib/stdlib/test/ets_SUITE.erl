@@ -3787,7 +3787,7 @@ bad_table_do(Opts, DummyFile) ->
 	      {last, [], read},
 	      {lookup, [key], read},
 	      {lookup_element, [key, 2], read},
-	      {lookup_elements, [key, {2}], read},
+              {lookup_elements, [key, {2}], read},
 	      {match, [{}], read},
 	      {match, [{},17], read},
 	      {match_delete, [{}], update},
