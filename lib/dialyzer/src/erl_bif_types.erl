@@ -597,6 +597,18 @@ type(erlang, build_stacktrace, 0, _) ->
 type(erlang, hd, 1, Xs) ->
   strict(erlang, hd, 1, Xs, fun ([X]) -> t_cons_hd(X) end);
 type(erlang, info, 1, Xs) -> type(erlang, system_info, 1, Xs); % alias
+%% Guard bif, needs to be here.
+type(erlang, integer_set_bits, 1, Xs) ->
+  strict(erlang, integer_set_bits, 1, Xs, fun (_) -> t_non_neg_integer() end);
+%% Guard bif, needs to be here.
+type(erlang, integer_signed_width, 1, Xs) ->
+  strict(erlang, integer_signed_width, 1, Xs, fun (_) -> t_pos_integer() end);
+%% Guard bif, needs to be here.
+type(erlang, integer_trailing_zeroes, 1, Xs) ->
+  strict(erlang, integer_trailing_zeroes, 1, Xs, fun (_) -> t_non_neg_integer() end);
+%% Guard bif, needs to be here.
+type(erlang, integer_unsigned_width, 1, Xs) ->
+  strict(erlang, integer_unsigned_width, 1, Xs, fun (_) -> t_non_neg_integer() end);
 %% All type tests are guard BIF's and may be implemented in ways that
 %% cannot be expressed in a type spec, why they are kept in erl_bif_types.
 type(erlang, is_atom, 1, Xs) ->
@@ -2244,6 +2256,18 @@ arg_types(erlang, hd, 1) ->
   [t_cons()];
 arg_types(erlang, info, 1) ->
   arg_types(erlang, system_info, 1); % alias
+%% Guard bif, needs to be here.
+arg_types(erlang, integer_set_bits, 1) ->
+  [t_non_neg_integer()];
+%% Guard bif, needs to be here.
+arg_types(erlang, integer_signed_width, 1) ->
+  [t_integer()];
+%% Guard bif, needs to be here.
+arg_types(erlang, integer_trailing_zeroes, 1) ->
+  [t_integer()];
+%% Guard bif, needs to be here.
+arg_types(erlang, integer_unsigned_width, 1) ->
+  [t_non_neg_integer()];
 arg_types(erlang, is_atom, 1) ->
   [t_any()];
 arg_types(erlang, is_binary, 1) ->

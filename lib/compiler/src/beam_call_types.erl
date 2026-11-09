@@ -196,6 +196,19 @@ will_succeed(erlang, tuple_size, [Arg]) ->
     succeeds_if_type(Arg, #t_tuple{});
 will_succeed(erlang, tl, [Arg]) ->
     succeeds_if_type(Arg, #t_cons{});
+will_succeed(erlang, integer_set_bits, [Arg]) ->
+    succeeds_if_type(Arg, #t_integer{elements={0,'+inf'}});
+will_succeed(erlang, integer_trailing_zeroes, [Arg]) ->
+    case succeeds_if_type(Arg, #t_integer{elements={'-inf',-1}}) of
+        no ->
+            succeeds_if_type(Arg, #t_integer{elements={1,'+inf'}});
+        Other ->
+            Other
+    end;
+will_succeed(erlang, integer_signed_width, [Arg]) ->
+    succeeds_if_type(Arg, #t_integer{});
+will_succeed(erlang, integer_unsigned_width, [Arg]) ->
+    succeeds_if_type(Arg, #t_integer{elements={0,'+inf'}});
 will_succeed(erlang, raise, [Class, _Reason, nil]) ->
     case meet(Class, #t_atom{elements=[error,exit,throw]}) of
         Class -> no;
@@ -593,6 +606,20 @@ types(erlang, abs, [Type]) ->
             sub_unsafe(RetType, [#t_number{}]);
         _ ->
             sub_unsafe(#t_number{}, [#t_number{}])
+    end;
+
+types(erlang, integer_set_bits, [Type]) ->
+    bit_operation_type(Type, {0,'+inf'}, 0);
+types(erlang, integer_signed_width, [Type]) ->
+    bit_operation_type(Type, any, 1);
+types(erlang, integer_unsigned_width, [Type]) ->
+    bit_operation_type(Type, {0,'+inf'}, 0);
+types(erlang, integer_trailing_zeroes, [Type]) ->
+    case bit_operation_type(Type, {'-inf',-1}, 0) of
+        {#t_integer{},_,_}=Result ->
+            Result;
+        _ ->
+            bit_operation_type(Type, {1,'+inf'}, 0)
     end;
 
 %% The rest of the mixed-type arithmetic is handled in the catch-all
@@ -1331,6 +1358,16 @@ mixed_arith_types(Args0) ->
                        (_, _) -> none
                     end, FirstType, Args),
     sub_unsafe(RetType, [#t_number{} || _ <- Args]).
+
+bit_operation_type(Arg, ArgRange, MinRet) ->
+    case meet(Arg, #t_integer{elements=ArgRange}) of
+        #t_integer{} ->
+            %% Conservative upper limit.
+            RetType = #t_integer{elements={MinRet, 1 bsl 32}},
+            sub_unsafe(RetType, [#t_integer{}]);
+        none ->
+            sub_unsafe(none, [any])
+    end.
 
 erlang_hd_type(Src) ->
     case meet(Src, #t_cons{}) of

@@ -83,6 +83,7 @@ my @beam_global_funcs = qw(
     i_breakpoint_trampoline_shared
     i_bsr_body_shared
     i_bsl_body_shared
+    i_ctz_body_shared
     i_func_info_shared
     i_get_map_element_shared
     i_get_map_element_hash_shared
@@ -90,8 +91,11 @@ my @beam_global_funcs = qw(
     i_length_body_shared
     i_line_breakpoint_trampoline_shared
     i_loop_rec_shared
+    i_popcount_body_shared
+    i_signed_width_body_shared
     i_test_yield_shared
     i_bxor_body_shared
+    i_unsigned_width_body_shared
     int128_to_big_shared
     int_div_rem_body_shared
     int_div_rem_guard_shared
@@ -193,6 +197,9 @@ $decl_emit_funcs
 
     template<typename T, T Func>
     void emit_bitwise_fallback_body(const ErtsCodeMFA *mfa);
+
+    template<typename T, T Func>
+    void emit_bitops_body(const ErtsCodeMFA *mfa);
 
     void emit_i_length_common(Label fail, int state_size);
 
