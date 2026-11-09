@@ -885,7 +885,7 @@ struct magic_binary;
 
 #if defined(ARCH_64)
 
-# define ERTS_ORDINARY_REF_MARKER (~((Uint32) 0))
+#define ERTS_ORDINARY_REF_MARKER (~((Uint32) 0))
 
 typedef struct {
     Eterm header;
@@ -974,6 +974,11 @@ do {									\
 #if ERTS_ENDIANNESS
 /* Known big or little endian */
 
+#if defined(__CHERI_PURE_CAPABILITY__)
+#define ERTS_WRITE_MAGIC_REF_HEADER ERTS_MAGIC_REF_THING_HEADER
+#else
+#define ERTS_WRITE_MAGIC_REF_HEADER ERTS_REF_THING_HEADER
+#endif
 #define write_magic_ref_thing(Hp, Ohp, Binp)				\
 do {									\
   ((ErtsMRefThing *) (Hp))->header = ERTS_REF_THING_HEADER;		\
@@ -1081,10 +1086,10 @@ typedef union {
 #define BOXED_SHARED_UNPROCESSED ((Eterm) 2)
 #define BOXED_SHARED_PROCESSED	 ((Eterm) 3)
 
-#define ERTS_REF_THING_SIZE (sizeof(ErtsORefThing)/sizeof(Uint))
-#define ERTS_PID_REF_THING_SIZE (sizeof(ErtsPRefThing)/sizeof(Uint))
-#define ERTS_MAGIC_REF_THING_SIZE (sizeof(ErtsMRefThing)/sizeof(Uint))
-#define ERTS_MAX_INTERNAL_REF_SIZE (sizeof(ErtsRefThing)/sizeof(Uint))
+#define ERTS_REF_THING_SIZE (sizeof(ErtsORefThing)/sizeof(Eterm))
+#define ERTS_PID_REF_THING_SIZE (sizeof(ErtsPRefThing)/sizeof(Eterm))
+#define ERTS_MAGIC_REF_THING_SIZE (sizeof(ErtsMRefThing)/sizeof(Eterm))
+#define ERTS_MAX_INTERNAL_REF_SIZE (sizeof(ErtsRefThing)/sizeof(Eterm))
 
 #define make_ref_thing_header(Words) \
     _make_header((Words)-1,_TAG_HEADER_REF)
@@ -1095,7 +1100,9 @@ typedef union {
 #  define is_ref_thing_header(x)					\
     (((x) & _TAG_HEADER_MASK) == _TAG_HEADER_REF)
 
-#if defined(ARCH_64) && ERTS_ENDIANNESS
+    #if defined(ARCH_64) && ERTS_ENDIANNESS && \
+        !defined(__CHERI_PURE_CAPABILITY__)
+
 /* Ordinary and magic refs of same size, but pid ref larger */
 
 #  undef ERTS_MAGIC_REF_THING_HEADER

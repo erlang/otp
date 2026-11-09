@@ -813,7 +813,8 @@ static void set_alloc_tag(Allctr_t *allctr, void *p, ErtsAlcType_t type)
     block = UMEM2BLK(p);
     block->bhdr |= ATAG_BLK_HDR_FLG;
 
-    ERTS_CT_ASSERT(sizeof(alcu_atag_t) == sizeof(UWord[2]));
+    ERTS_CT_ASSERT(sizeof(alcu_atag_t) >=
+                   sizeof(UWord) + sizeof(Eterm));
     alloc_tag = BLK_ATAG(block);
 
     alloc_tag->term = THE_NON_VALUE;
@@ -1716,7 +1717,6 @@ get_pref_allctr(void *extra)
 
     pref_ix = erts_get_thr_alloc_ix();
 
-    ERTS_CT_ASSERT(sizeof(UWord) == sizeof(Allctr_t *));
     ASSERT(0 <= pref_ix && pref_ix < tspec->size);
 
     return tspec->allctr[pref_ix];

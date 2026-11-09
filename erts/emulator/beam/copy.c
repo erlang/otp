@@ -1379,7 +1379,7 @@ Uint copy_shared_calculate(Eterm obj, erts_shcopy_t *info)
  *  Copy object "obj" preserving sharing.
  *  Second half: copy and restore the object.
  */
-Uint copy_shared_perform_x(Eterm obj, Uint size, erts_shcopy_t *info,
+Eterm copy_shared_perform_x(Eterm obj, Uint size, erts_shcopy_t *info,
                            Eterm** hpp, ErlOffHeap* off_heap
 #ifdef ERTS_COPY_REGISTER_LOCATION
                            , char *file, int line

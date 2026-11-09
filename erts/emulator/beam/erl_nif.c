@@ -1997,20 +1997,26 @@ int enif_get_list_length(ErlNifEnv* env, Eterm term, unsigned* len)
 ERL_NIF_TERM enif_make_int(ErlNifEnv* env, int i)
 {
 #if SIZEOF_INT == ERTS_SIZEOF_ETERM
-    return IS_SSMALL(i) ? make_small(i) : small_to_big(i,alloc_heap(env,2));
+    return IS_SSMALL(i) ? make_small(i) : small_to_big(i, alloc_heap(env, 2));
 #elif (SIZEOF_LONG == ERTS_SIZEOF_ETERM) || \
-  (SIZEOF_LONG_LONG == ERTS_SIZEOF_ETERM)
+      (SIZEOF_LONG_LONG == ERTS_SIZEOF_ETERM) || \
+      (defined(__CHERI_PURE_CAPABILITY__) && ERTS_SIZEOF_ETERM == 16)
     return make_small(i);
+#else
+# error "Unsupported word size"
 #endif
 }
 
 ERL_NIF_TERM enif_make_uint(ErlNifEnv* env, unsigned i)
 {
 #if SIZEOF_INT == ERTS_SIZEOF_ETERM
-    return IS_USMALL(0,i) ? make_small(i) : uint_to_big(i,alloc_heap(env,2));
-#elif (SIZEOF_LONG ==  ERTS_SIZEOF_ETERM) || \
-  (SIZEOF_LONG_LONG ==  ERTS_SIZEOF_ETERM)
+    return IS_USMALL(0, i) ? make_small(i) : uint_to_big(i, alloc_heap(env, 2));
+#elif (SIZEOF_LONG == ERTS_SIZEOF_ETERM) || \
+      (SIZEOF_LONG_LONG == ERTS_SIZEOF_ETERM) || \
+      (defined(__CHERI_PURE_CAPABILITY__) && ERTS_SIZEOF_ETERM == 16)
     return make_small(i);
+#else
+# error "Unsupported word size"
 #endif
 }
 

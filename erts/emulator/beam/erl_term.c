@@ -84,7 +84,9 @@ erts_set_literal_tag(Eterm *term, Eterm *hp_start, Eterm hsz)
 void
 erts_term_init(void)
 {
-#ifdef ERTS_ORDINARY_REF_MARKER
+
+    #if defined(ERTS_ORDINARY_REF_MARKER) && \
+        !defined(__CHERI_PURE_CAPABILITY__)
     /* Ordinary and magic references of same size... */
 
     ErtsRefThing ref_thing;

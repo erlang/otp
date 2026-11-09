@@ -44,12 +44,16 @@
 #define FORKER_FLAG_DO_READ     (1 << 2)    /* dup write fd */
 #define FORKER_FLAG_DO_WRITE    (1 << 3)    /* dup read  fd  */
 
-#if SIZEOF_VOID_P == SIZEOF_LONG
+#if defined(__CHERI_PURE_CAPABILITY__) && SIZEOF_VOID_P == 16
+typedef unsigned long ErtsSysPortId;
+#elif SIZEOF_VOID_P == SIZEOF_LONG
 typedef unsigned long ErtsSysPortId;
 #elif SIZEOF_VOID_P == SIZEOF_INT
 typedef unsigned int ErtsSysPortId;
 #elif SIZEOF_VOID_P == SIZEOF_LONG_LONG
 typedef unsigned long long ErtsSysPortId;
+#else
+#error "Unsupported architecture for ErtsSysPortId"
 #endif
 
 typedef struct ErtsSysForkerProto_ {
