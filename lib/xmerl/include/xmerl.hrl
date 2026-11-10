@@ -1,8 +1,8 @@
-%% 
+%%
 %% %CopyrightBegin%
-%% 
+%%
 %% Copyright Ericsson AB 2004-2024. All Rights Reserved.
-%% 
+%%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
 %% You may obtain a copy of the License at
@@ -14,7 +14,7 @@
 %% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 %% See the License for the specific language governing permissions and
 %% limitations under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %% Contributor(s):
@@ -37,7 +37,7 @@
 %% XML declaration
 -record(xmlDecl,{
 	  vsn,        % string() XML version
-	  encoding,   % string() Character encoding 
+	  encoding,   % string() Character encoding
 	  standalone, % (yes | no)
 	  attributes  % [#xmlAttribute()] Other attributes than above
 	 }).
@@ -188,8 +188,9 @@
 	  col = 1,
 	  line = 1,
           common_data = [],
-          allow_entities = false % If true entities are allowed in the document
-	 }).
+          allow_entities = false, % If true entities are allowed in the document
+          fetch_external_DTD = false % If true an external DTD is fetched
+        }).
 
 
 
@@ -238,6 +239,6 @@
 -define(condstrip3,  {_, T3,  S3}  = condstrip(T2,S2,false)).
 -define(condstrip4,  {_, T4,  S4}  = condstrip(T3,S3,false)).
 
--define(bump_col(N), 
+-define(bump_col(N),
 	?dbg("bump_col(~p), US = ~p~n", [N, S0#xmerl_scanner.user_state]),
 	S = S0#xmerl_scanner{col = S0#xmerl_scanner.col + N}).

@@ -1,3 +1,24 @@
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2006-2025. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+%%
 -module(xmerl_test).
 
 -compile(export_all).
@@ -22,7 +43,8 @@ test3() ->
     FetchFun = fun(_DTDSpec, S) -> {ok, not_fetched,S} end,
     {A, _} = xmerl_scan:string(html(),
 			    [{fetch_fun,FetchFun},
-                             {allow_entities, true}]),
+                             {allow_entities, true},
+                             {fetch_external_DTD, true}]),
     io:format("From xmerl_scan:string/2~n ~p~n", [A]),
     B = xmerl:export([A], xmerl_html),
     io:format("From xmerl:export/2 xmerl_html filter~n ~p~n", [B]),
@@ -35,7 +57,8 @@ test4() ->
     {A,_} = xmerl_scan:string(xml_namespace(),
 			    [{fetch_fun,FetchFun},
 			     {namespace_conformant,true},
-                             {allow_entities, true}]),
+                             {allow_entities, true},
+                             {fetch_external_DTD, true}]),
     io:format("From xmerl_scan:string/2~n ~p~n", [A]).
 
 test5() ->
@@ -55,7 +78,8 @@ test6() ->
     {Doc, _} = xmerl_scan:string(xml_namespace(),
 				 [{fetch_fun, FetchFun},
 				  {namespace_conformant, true},
-                                  {allow_entities, true}]),
+                                  {allow_entities, true},
+                                  {fetch_external_DTD, true}]),
     E = xmerl_xpath:string("child::title[position()=1]", Doc),
     io:format("From xmerl_scan:string/2~n E=~p~n", [E]).
 
@@ -158,7 +182,9 @@ w3cvalidate() ->
 
 %    String = ucs:to_unicode(binary_to_list(Bin), 'utf-8'),
 %    case xmerl_scan:string(String, [{xmlbase, TestDir}]) of
-    case xmerl_scan:string(binary_to_list(Bin), [{xmlbase, TestDir}, {allow_entities, true}]) of
+    case xmerl_scan:string(binary_to_list(Bin), [{xmlbase, TestDir},
+                                                 {allow_entities, true},
+                                                 {fetch_external_DTD, true}]) of
 	{error, Reason} ->
 	    io:format("ERROR xmerl:scan_file/2 Reason=~w~n", [Reason]);
 	{A, _Res} ->
@@ -454,22 +480,46 @@ test_error(URI, Data, Sections, Entities, OutputForm, Recommendation, Version,
 
 %%% Use xmerl as nonvalidating XML parser
 nonvalidating_parser(URI) ->
-    (catch xmerl_scan:file(URI, [{allow_entities, true}])).
+    try
+        xmerl_scan:file(URI, [{allow_entities, true}, {fetch_external_DTD, true}])
+    catch
+        throw:Thrown -> Thrown;
+        exit:Reason -> {'EXIT', Reason};
+        error:Reason -> {'EXIT', Reason}
+    end.
 
 
 %%% Use xmerl as nonvalidating XML parser
 nonvalidating_parser_q(URI) ->
-    (catch xmerl_scan:file(URI, [{quiet, true}, {allow_entities, true}])).
+    try
+        xmerl_scan:file(URI, [{quiet, true}, {allow_entities, true}, {fetch_external_DTD, true}])
+    catch
+        throw:Thrown -> Thrown;
+        exit:Reason -> {'EXIT', Reason};
+        error:Reason -> {'EXIT', Reason}
+    end.
 
 
 %%% Use xmerl as validating XML parser
 validating_parser(URI) ->
-    (catch xmerl_scan:file(URI, [{validation, true}, {allow_entities, true}])).
+    try
+        xmerl_scan:file(URI, [{validation, true}, {allow_entities, true}, {fetch_external_DTD, true}])
+    catch
+        throw:Thrown -> Thrown;
+        exit:Reason -> {'EXIT', Reason};
+        error:Reason -> {'EXIT', Reason}
+    end.
 
 
 %%% Use xmerl as validating XML parser
 validating_parser_q(URI) ->
-    (catch xmerl_scan:file(URI, [{validation, true}, {quiet, true}, {allow_entities, true}])).
+    try
+        xmerl_scan:file(URI, [{validation, true}, {quiet, true}, {allow_entities, true}, {fetch_external_DTD, true}])
+    catch
+        throw:Thrown -> Thrown;
+        exit:Reason -> {'EXIT', Reason};
+        error:Reason -> {'EXIT', Reason}
+    end.
 
 
 is_whitespace([]) ->

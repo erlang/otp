@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2008-2024. All Rights Reserved.
+%% Copyright Ericsson AB 2008-2026. All Rights Reserved.
 %%
 %% Licensed under the Apache License, Version 2.0 (the "License");
 %% you may not use this file except in compliance with the License.
@@ -62,7 +62,8 @@ groups() ->
      {ticket_tests, [],
       [ticket_5998, ticket_7211, ticket_7214, ticket_7430,
        ticket_6873, ticket_7496, ticket_8156, ticket_8697,
-       ticket_9411, ticket_9457, ticket_9664_schema, ticket_9664_dtd]},
+       ticket_9411, ticket_9457, ticket_9664_schema, ticket_9664_dtd,
+       ticket_20556_fetch_external_dtd]},
      {app_test, [], [{xmerl_app_test, all}]},
      {appup_test, [], [{xmerl_appup_test, all}]},
      {format_test, [], [formatter_pass,formatter_fail]}].
@@ -116,7 +117,7 @@ end_per_testcase(_Func,_Config) ->
 %%----------------------------------------------------------------------
 cpd_invalid1(Config) ->
     file:set_cwd(datadir(Config)),
-    case catch xmerl_scan:file(datadir_join(Config,[cpd,"cpd_test.xml"]),[]) of
+    case catch xmerl_scan:file(datadir_join(Config,[cpd,"cpd_test.xml"]),[{fetch_external_DTD, true}]) of
         {'EXIT',{fatal,Reason}} ->
             case Reason of
                 {expected_markup,_Path,28,32} -> ok;
@@ -126,7 +127,8 @@ cpd_invalid1(Config) ->
 
 cpd_invalid1_index(Config) ->
     file:set_cwd(datadir(Config)),
-    case catch xmerl_scan:file(datadir_join(Config,[cpd,"cpd_index.xml"]),[]) of
+    case catch xmerl_scan:file(datadir_join(Config,[cpd,"cpd_index.xml"]),
+                               [{fetch_external_DTD, true}]) of
         {'EXIT',{fatal,Reason}} ->
             case Reason of
                 {{error,{whitespace_was_expected}},_Path,1,19} -> ok;
@@ -136,7 +138,8 @@ cpd_invalid1_index(Config) ->
 
 cpd_invalid2_index(Config) ->
     file:set_cwd(datadir(Config)),
-    case catch xmerl_scan:file(datadir_join(Config,[cpd,"cpd_index2.xml"]),[]) of
+    case catch xmerl_scan:file(datadir_join(Config,[cpd,"cpd_index2.xml"]),
+                               [{fetch_external_DTD, true}]) of
         {'EXIT',{fatal,Reason}} ->
             case Reason of
                 {{invalid_target_name,_Ver},_Path,2,3} ->ok;
@@ -146,7 +149,8 @@ cpd_invalid2_index(Config) ->
 
 cpd_invalid_index3(Config) ->
     file:set_cwd(datadir(Config)),
-    case catch xmerl_scan:file(datadir_join(Config,[cpd,"cpd_index3.xml"]),[]) of
+    case catch xmerl_scan:file(datadir_join(Config,[cpd,"cpd_index3.xml"]),
+                               [{fetch_external_DTD, true}]) of
         {'EXIT',{fatal,Reason}} ->
             case Reason of
                 {expected_markup,_Path,1,2} -> ok;
@@ -156,7 +160,8 @@ cpd_invalid_index3(Config) ->
 
 cpd_invalid_is_layer(Config) ->
     file:set_cwd(datadir(Config)),
-    case catch xmerl_scan:file(datadir_join(Config,[cpd,"is_layer2.xml"]),[]) of
+    case catch xmerl_scan:file(datadir_join(Config,[cpd,"is_layer2.xml"]),
+                               [{fetch_external_DTD, true}]) of
         {'EXIT',{fatal,_Reason}} -> ok
     end.
 
@@ -193,7 +198,7 @@ latin1_alias(Config) ->
 %    file:set_cwd(filename:join(datadir(Config),misc)),
     file:set_cwd(datadir(Config)),
     {_Elements,[]} = xmerl_scan:file(datadir_join(Config,[misc,"motorcycles.xml"]),
-                                     [{validation,true},
+                                     [{validation,true},{fetch_external_DTD, true},
                                       {encoding,'iso-8859-1'}]).
 
 syntax_bug1(Config) ->
@@ -277,16 +282,16 @@ scan_splits_string_bug(_Config) ->
 pe_ref1(Config) ->
     file:set_cwd(datadir(Config)),
     {#xmlElement{},[]} = xmerl_scan:file(datadir_join(Config,[misc,"PE_ref1.xml"]),
-                                         [{allow_entities, true}, {validation,true}]).
+                                         [{allow_entities, true}, {validation,true},{fetch_external_DTD, true}]).
 
 copyright(Config) ->
     file:set_cwd(datadir(Config)),
-    {#xmlElement{},[]} = xmerl_scan:file(datadir_join(Config,[misc,"cprght.xml"]),[{validation,true}]).
+    {#xmlElement{},[]} = xmerl_scan:file(datadir_join(Config,[misc,"cprght.xml"]),[{validation,true},{fetch_external_DTD, true}]).
 
 testXSEIF(Config) ->
     file:set_cwd(datadir(Config)),
     {#xmlElement{},[]} = xmerl_scan:file(datadir_join(Config,[misc,"ReplBoard_1_1543-CNA11313Uen.xml"]),
-                                         [{allow_entities, true}, {validation,true}]).
+                                         [{allow_entities, true}, {validation,true},{fetch_external_DTD, true}]).
 
 export_simple1(_Config) ->
     Simple = simple(),
@@ -309,7 +314,7 @@ export(Config) ->
     {ok, B} = file:read_file(TestFile),
     ok.
 
-export_cdata(Config) ->
+export_cdata(_Config) ->
     InData = <<"<?xml version=\"1.0\" encoding=\"UTF-8\"?>
 <doc>
    <a>Test...</a>
@@ -501,7 +506,7 @@ ticket_7211(Config) ->
     DataDir = datadir(Config),
     {E,[]} = xmerl_scan:file(filename:join([DataDir,misc,"notes2.xml"]),
                              [{fetch_path,[filename:join([DataDir,misc,erlang_docs_dtd])]},
-                              {allow_entities, true}, {validation,dtd}]),
+                              {allow_entities, true}, {validation,dtd},{fetch_external_DTD, true}]),
 
     ok = case E of
              Rec when is_record(Rec,xmlElement) ->
@@ -512,7 +517,7 @@ ticket_7211(Config) ->
 
     {E2,[]} = xmerl_scan:file(filename:join([DataDir,misc,"XS.xml"]),
                               [{fetch_path,[filename:join([DataDir,misc,erlang_docs_dtd])]},
-                               {validation,dtd}, {allow_entities, true}]),
+                               {validation,dtd}, {allow_entities, true},{fetch_external_DTD, true}]),
 
     ok = case E2 of
              Rec2 when is_record(Rec2,xmlElement) ->
@@ -533,7 +538,7 @@ ticket_7214(Config) ->
     DataDir = datadir(Config),
 
     {E,[]} = xmerl_scan:file(filename:join([DataDir,misc,'block_tags.html']),
-                             [{validation,dtd},{allow_entities, true},
+                             [{validation,dtd},{allow_entities, true},{fetch_external_DTD, true},
                               {fetch_path,[filename:join([DataDir,misc,erlang_docs_dtd])]}]),
 
     ok = case E of
@@ -641,7 +646,8 @@ ticket_9664_schema(Config) ->
 %% Test that comments are handled correct with
 ticket_9664_dtd(Config) ->
     {E, _} = xmerl_scan:file(datadir_join(Config,[misc,"ticket_9664_dtd.xml"]),[]),
-    {E, _} = xmerl_scan:file(datadir_join(Config,[misc,"ticket_9664_dtd.xml"]),[{validation, true}]),
+    {E, _} = xmerl_scan:file(datadir_join(Config,[misc,"ticket_9664_dtd.xml"]),
+                             [{validation, true},{fetch_external_DTD, true}]),
     ok.
 
 
@@ -649,10 +655,76 @@ allow_entities_test(Config) ->
     DataDir = proplists:get_value(data_dir, Config),
     File = filename:join(DataDir, "lol_1_test.xml"), %% Depth 9
     %% Disallow entities
-    {'EXIT',{fatal, {{error,entities_not_allowed}, _, _, _}}} =
-        (catch xmerl_scan:file(File, [{allow_entities, false}])),
-    ok.
+    try xmerl_scan:file(File, [{allow_entities, false}]) of
+        Result -> ct:fail({unexpected_result, Result})
+    catch
+          exit:{fatal, {{error, entities_not_allowed}, _, _, _}} -> ok
+    end.
 
+%% Test that checks that the options turn off the fetching of an external DTD
+%% To test this an XMl file that dont fulfills the DTD is used
+%% so if DTD fetched it will be an error and the if not fetched
+%% the file is parsed correctly.
+ticket_20556_fetch_external_dtd(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    File = filename:join(DataDir, "ticket_20556.xml"),
+
+    %% Default: no validation and no fetch of external DTD
+    %% No DTD fetched
+    io:format("Validation=off fetch_external_DTD=false\n\n", []),
+    {#xmlElement{}, _} = xmerl_scan:file(File, []),
+
+    %% Validation turned off fetch_external_DTD turned on
+    %% DTD fetched and used for entity checks no validation
+    io:format("Validation=off fetch_external_DTD=true\n\n", []),
+    {#xmlElement{}, _} = xmerl_scan:file(File, [{fetch_external_DTD, true}]),
+    
+    %% Validation turned on but the fetch_external_DTD turned off
+    %% Should try validation but not fetching the external DTD
+    io:format("Validation=dtd fetch_external_DTD=false\n\n", []),
+    try xmerl_scan:file(File, [{validation, dtd}, {fetch_external_DTD, false}]) of
+        Result1 -> ct:fail({unexpected_result, Result1})
+    catch
+        exit:{fatal, {{error,{error_missing_element_declaration_in_DTD, ticket_20556}},_,_,_}} -> ok
+    end,
+
+    %% Both validation and fetch_external_DTD turned on
+    io:format("Validation=dtd fetch_external_DTD=true\n\n", []),
+    try xmerl_scan:file(File, [{validation, dtd}, {fetch_external_DTD, true}]) of
+        Result2 -> ct:fail({unexpected_result, Result2})
+    catch
+        exit:{fatal, {{error,{error_missing_element_declaration_in_DTD, a}},_,_,_}} -> ok
+    end,
+
+    %% Validation turned off and fetch_external_DTD turned off
+    %% and get DTD through option
+    io:format("Validation=off fetch_external_DTD=false, provided DTD\n\n", []),
+    {#xmlElement{}, _} = xmerl_scan:file(File, [{doctype_DTD, "ticket_20556_2.dtd"}]),
+
+    %% Validation turned on and fetch_external_DTD turned on
+    %% and get DTD through option
+    io:format("Validation=off fetch_external_DTD=true, provided DTD\n\n", []),
+    {#xmlElement{}, _} = xmerl_scan:file(File, [{fetch_external_DTD, true}, {doctype_DTD, "ticket_20556_2.dtd"}]),
+
+    %% Validation turned on and fetch_external_DTD turned off
+    %% and get DTD through option
+    io:format("Validation=dtd fetch_external_DTD=false, provided DTD\n\n", []),
+    try xmerl_scan:file(File, [{validation, dtd}, {doctype_DTD, "ticket_20556_2.dtd"}]) of
+        Result3 -> ct:fail({unexpected_result, Result3})
+    catch
+        exit:{fatal, {{error,{error_missing_element_declaration_in_DTD, c}},_,_,_}} -> ok
+    end,
+
+    %% Validation turned on and fetch_external_DTD turned on
+    %% and get DTD through option
+    io:format("Validation=dtd fetch_external_DTD=true, provided DTD\n\n", []),
+    try xmerl_scan:file(File, [{validation, dtd}, {fetch_external_DTD, true}, {doctype_DTD, "ticket_20556_2.dtd"}]) of
+        Result4 -> ct:fail({unexpected_result, Result4})
+    catch
+        exit:{fatal, {{error,{error_missing_element_declaration_in_DTD, a}},_,_,_}} -> ok
+    end,
+
+    ok.
 
 %%======================================================================
 %% Support Functions
