@@ -86,6 +86,7 @@ typedef struct db_table_hash {
     /* List of slots where elements have been deleted while table was fixed */
     erts_atomic_t fixdel;  /* (FixedDeletion*) */
     erts_atomic_t is_resizing; /* grow/shrink in progress */
+    erts_atomic_t grow_behind; /* growth fell behind, see catch_up_growth() */
     DbTableHashFineLockSlot* locks;
 } DbTableHash;
 
