@@ -341,7 +341,7 @@ file(Name,Options) ->
 %%----------------------------------------------------------------------
 -doc "Parse a stream containing an XML document.".
 -spec stream(Xml, Options) -> {ok, EventState, Rest} | ErrorOrUserReturn when
-      Xml :: unicode_binary() | latin1_binary() | [unicode_char],
+      Xml :: unicode_binary() | latin1_binary() | [unicode_char()],
       Options :: options(),
       EventState :: event_state(),
       Rest :: unicode_binary() | latin1_binary(),
