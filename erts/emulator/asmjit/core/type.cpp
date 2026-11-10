@@ -3,7 +3,8 @@
 // See <asmjit/core.h> or LICENSE.md for license and copyright information
 // SPDX-License-Identifier: Zlib
 
-#include <asmjit/core/api-build_p.h>
+#include <asmjit/core/api_build_p.h>
+
 #include <asmjit/core/misc_p.h>
 #include <asmjit/core/type.h>
 

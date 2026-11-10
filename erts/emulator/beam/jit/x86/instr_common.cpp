@@ -1604,7 +1604,7 @@ void BeamModuleAssembler::emit_i_is_tagged_tuple(const ArgLabel &Fail,
     emit_is_boxed(resolve_beam_label(Fail), Src, ARG2);
 
     x86::Gp boxed_ptr = emit_ptr_val(ARG2, ARG2);
-    ERTS_CT_ASSERT(Support::is_int_n<32>(make_arityval(MAX_ARITYVAL)));
+    ERTS_CT_ASSERT(Bitwise::fits_signed<32>(make_arityval(MAX_ARITYVAL)));
     preserve_cache([&]() {
         a.cmp(emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)), imm(Arity.get()));
         a.jne(resolve_beam_label(Fail));
@@ -1631,7 +1631,7 @@ void BeamModuleAssembler::emit_i_is_tagged_tuple_ff(const ArgLabel &NotTuple,
     a.test(ARG1.r8(), imm(_TAG_HEADER_MASK));
     a.jne(resolve_beam_label(NotTuple));
 
-    ERTS_CT_ASSERT(Support::is_int_n<32>(make_arityval(MAX_ARITYVAL)));
+    ERTS_CT_ASSERT(Bitwise::fits_signed<32>(make_arityval(MAX_ARITYVAL)));
     a.cmp(ARG1d, imm(Arity.get()));
     a.jne(resolve_beam_label(NotRecord));
 
@@ -1678,7 +1678,7 @@ void BeamModuleAssembler::emit_i_is_tuple_of_arity(const ArgLabel &Fail,
     emit_is_boxed(resolve_beam_label(Fail), Src, ARG2);
 
     (void)emit_ptr_val(ARG2, ARG2);
-    ERTS_CT_ASSERT(Support::is_int_n<32>(make_arityval(MAX_ARITYVAL)));
+    ERTS_CT_ASSERT(Bitwise::fits_signed<32>(make_arityval(MAX_ARITYVAL)));
 
     preserve_cache([&]() {
         a.cmp(emit_boxed_val(ARG2, 0, sizeof(Uint32)), imm(Arity.get()));
@@ -1702,14 +1702,15 @@ void BeamModuleAssembler::emit_i_is_tuple_of_arity_ff(const ArgLabel &NotTuple,
         (void)emit_ptr_val(ARG2, ARG2);
         emit_is_boxed(resolve_beam_label(NotTuple), ARG2);
         preserve_cache([&]() {
-            ERTS_CT_ASSERT(Support::is_int_n<32>(make_arityval(MAX_ARITYVAL)));
+            ERTS_CT_ASSERT(
+                    Bitwise::fits_signed<32>(make_arityval(MAX_ARITYVAL)));
             a.cmp(emit_boxed_val(ARG2, 0, sizeof(Uint32)), imm(Arity.get()));
             a.jne(resolve_beam_label(BadArity));
         });
     } else {
         emit_is_boxed(resolve_beam_label(NotTuple), Src, ARG2);
         (void)emit_ptr_val(ARG2, ARG2);
-        ERTS_CT_ASSERT(Support::is_int_n<32>(make_arityval(MAX_ARITYVAL)));
+        ERTS_CT_ASSERT(Bitwise::fits_signed<32>(make_arityval(MAX_ARITYVAL)));
         preserve_cache(
                 [&]() {
                     a.mov(RETd, emit_boxed_val(ARG2, 0, sizeof(Uint32)));
@@ -1729,7 +1730,7 @@ void BeamModuleAssembler::emit_i_test_arity(const ArgLabel &Fail,
     mov_arg(ARG2, Src);
 
     (void)emit_ptr_val(ARG2, ARG2);
-    ERTS_CT_ASSERT(Support::is_int_n<32>(make_arityval(MAX_ARITYVAL)));
+    ERTS_CT_ASSERT(Bitwise::fits_signed<32>(make_arityval(MAX_ARITYVAL)));
     preserve_cache([&]() {
         a.cmp(emit_boxed_val(ARG2, 0, sizeof(Uint32)), imm(Arity.get()));
         a.jne(resolve_beam_label(Fail));
@@ -1850,7 +1851,7 @@ void BeamModuleAssembler::emit_is_eq_exact(const ArgLabel &Fail,
                 emit_is_cons(resolve_beam_label(Fail), RET);
             }
             (void)emit_ptr_val(RET, RET);
-            if (Support::is_int_n<32>(head)) {
+            if (Bitwise::fits_signed<32>(head)) {
                 a.cmp(getCARRef(RET), imm(head));
             } else {
                 mov_imm(ARG1, head);
@@ -2005,7 +2006,7 @@ void BeamModuleAssembler::emit_is_ne_exact(const ArgLabel &Fail,
                 emit_is_cons(next, RET, dShort);
             }
             (void)emit_ptr_val(RET, RET);
-            if (Support::is_int_n<32>(head)) {
+            if (Bitwise::fits_signed<32>(head)) {
                 a.cmp(getCARRef(RET), imm(head));
             } else {
                 mov_imm(ARG1, head);
@@ -2438,7 +2439,7 @@ void BeamModuleAssembler::emit_is_ge(const ArgLabel &Fail,
     bool both_small = always_small(LHS) && always_small(RHS);
 
     if (both_small && LHS.isRegister() && RHS.isImmed() &&
-        Support::is_int_n<32>(RHS.as<ArgImmed>().get())) {
+        Bitwise::fits_signed<32>(RHS.as<ArgImmed>().get())) {
         comment("simplified compare because one operand is an immediate small");
         preserve_cache([&]() {
             a.cmp(getArgRef(LHS.as<ArgRegister>()),
@@ -2447,7 +2448,7 @@ void BeamModuleAssembler::emit_is_ge(const ArgLabel &Fail,
         });
         return;
     } else if (both_small && RHS.isRegister() && LHS.isImmed() &&
-               Support::is_int_n<32>(LHS.as<ArgImmed>().get())) {
+               Bitwise::fits_signed<32>(LHS.as<ArgImmed>().get())) {
         comment("simplified compare because one operand is an immediate small");
         preserve_cache([&]() {
             a.cmp(getArgRef(RHS.as<ArgRegister>()),

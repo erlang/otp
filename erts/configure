@@ -26510,31 +26510,64 @@ printf "%s\n" "$as_me: WARNING: JIT disabled due to lack to support on $ARCH-$OP
 fi
 
 
-if test ${enable_jit} != no -o "$builtin_ryu" = "no"
+if test "$CXX" != "false"
 then :
 
-       if test "$CXX" != false
-then :
-
-          ac_ext=cpp
+    ac_ext=cpp
 ac_cpp='$CXXCPP $CPPFLAGS'
 ac_compile='$CXX -c $CXXFLAGS $CPPFLAGS conftest.$ac_ext >&5'
 ac_link='$CXX -o conftest$ac_exeext $CXXFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
 
-          old_CXXFLAGS=$CXXFLAGS
-          CXXFLAGS="$CXXFLAGS -std=c++17"
-          { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for C++17 support" >&5
+    old_CXXFLAGS=$CXXFLAGS
+    CXXFLAGS="$CXXFLAGS -std=c++20"
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for C++20 support" >&5
+printf %s "checking for C++20 support... " >&6; }
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main (void)
+{
+#if __cplusplus < 202002L
+            #  error "Needs C++20 compiler"
+            #endif
+
+  ;
+  return 0;
+}
+
+_ACEOF
+if ac_fn_cxx_try_compile "$LINENO"
+then :
+
+          { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+          HAVE_CXX20=true
+
+else case e in #(
+  e)
+          { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+          CXXFLAGS=$old_CXXFLAGS
+          HAVE_CXX20=false
+
+          if test "$CXX" != false
+then :
+
+              old_CXXFLAGS=$CXXFLAGS
+              CXXFLAGS="$CXXFLAGS -std=c++17"
+              { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for C++17 support" >&5
 printf %s "checking for C++17 support... " >&6; }
-          cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+              cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
 
 int
 main (void)
 {
 #if __cplusplus < 201703L
-                #error "Needs C++17 compiler"
-                #endif
+                    #error "Needs C++17 compiler"
+                    #endif
 
   ;
   return 0;
@@ -26544,63 +26577,27 @@ _ACEOF
 if ac_fn_cxx_try_compile "$LINENO"
 then :
 
-               { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+                    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 printf "%s\n" "yes" >&6; }
-               HAVE_CXX17=true
-
-               if test "$builtin_ryu" = "no"
-then :
-
-                   { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for C++ std::to_chars" >&5
-printf %s "checking for C++ std::to_chars... " >&6; }
-                   cat confdefs.h - <<_ACEOF >conftest.$ac_ext
-/* end confdefs.h.  */
-
-                          #include <charconv>
-
-int
-main (void)
-{
-
-                          char fbuf[20];
-                          std::to_chars(fbuf, fbuf + sizeof(fbuf), 3.14);
-
-  ;
-  return 0;
-}
-
-_ACEOF
-if ac_fn_cxx_try_compile "$LINENO"
-then :
-
-                       { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
-printf "%s\n" "yes" >&6; }
+                    HAVE_CXX17=true
 
 else case e in #(
   e)
-                       { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+                    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
 printf "%s\n" "no" >&6; }
-                       { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: C++17 support found but no std::to_chars for floating point" >&5
-printf "%s\n" "$as_me: WARNING: C++17 support found but no std::to_chars for floating point" >&2;}
-                       as_fn_error $? "Alternative to builtin ryu needs C++17 with std::to_chars" "$LINENO" 5
-                      ;;
+                    CXXFLAGS=$old_CXXFLAGS
+                    HAVE_CXX17=false
+                   ;;
 esac
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
 
 fi
-
-else case e in #(
-  e)
-               { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
-printf "%s\n" "no" >&6; }
-               CXXFLAGS=$old_CXXFLAGS
-               HAVE_CXX17=false
-               ;;
+         ;;
 esac
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
-          ac_ext=c
+    ac_ext=c
 ac_cpp='$CPP $CPPFLAGS'
 ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
 ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
@@ -26608,31 +26605,153 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
 fi
-       if test "$CXX" = false -o "$HAVE_CXX17" = false; then
-         # C++17 not found
-         if test "$builtin_ryu" = "no"; then
-           as_fn_error $? "Alternative to builtin ryu needs C++17 support" "$LINENO" 5
-         else
-           builtin_ryu=yes
-         fi
-         if test ${enable_jit} = yes; then
-           as_fn_error $? "JIT needs a C++ compiler with C++17 support" "$LINENO" 5
-         fi
-         if test ${enable_jit} != no; then
-           enable_jit=no
-           cat >> $ERL_TOP/erts/CONF_INFO <<EOF
 
-                 JIT disabled due to lack of compiler with C++17 support
+if test "${enable_jit}" != no
+then :
+
+      if test "$CXX" = "false" -o "$HAVE_CXX20" = "false"; then
+        if test ${enable_jit} = yes; then
+          as_fn_error $? "JIT needs a C++ compiler with C++20 support" "$LINENO" 5
+        fi
+        if test "${enable_jit}" != "no"; then
+          enable_jit=no
+          cat >> $ERL_TOP/erts/CONF_INFO <<EOF
+
+                 JIT disabled due to lack of compiler with C++20 support
 EOF
-           { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: JIT disable due to lack of C++ compiler with C++17 support" >&5
-printf "%s\n" "$as_me: WARNING: JIT disable due to lack of C++ compiler with C++17 support" >&2;}
-         fi
-       else
-         # C++17 found
-         if test ${enable_jit} != no; then
-           enable_jit=yes
-         fi
-       fi
+          { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: JIT disabled due to lack of C++ compiler with C++20 support" >&5
+printf "%s\n" "$as_me: WARNING: JIT disabled due to lack of C++ compiler with C++20 support" >&2;}
+        fi
+      else
+        # C++20 support is at least advertised, check for various deficiencies
+        # we're aware of that don't come with handy feature macros.
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for C++20 compiler deficiencies" >&5
+printf %s "checking for C++20 compiler deficiencies... " >&6; }
+        ac_ext=cpp
+ac_cpp='$CXXCPP $CPPFLAGS'
+ac_compile='$CXX -c $CXXFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CXX -o conftest$ac_exeext $CXXFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
+
+        cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+                /* Check for P0634R3, "typename optional in more contexts" */
+                template<typename T> struct gurka { using type = T; };
+                template<typename T> using gaffel = gurka<T>::type;
+
+                /* Check for P1073R3, "immediate functions"
+                 *
+                 * This can also be checked with __cpp_consteval < 201811L,
+                 * but that rejects compilers that work for our code in
+                 * particular (notably clang 16). */
+                template<typename T>
+                consteval unsigned cexpr(const T& x) noexcept {
+                  return x;
+                }
+
+                template<typename T>
+                struct mazurka {
+                    static inline constexpr int maracas = cexpr(sizeof(T));
+                };
+
+int
+main (void)
+{
+
+                return 0;
+
+  ;
+  return 0;
+}
+
+_ACEOF
+if ac_fn_cxx_try_compile "$LINENO"
+then :
+
+              { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: passed" >&5
+printf "%s\n" "passed" >&6; }
+
+else case e in #(
+  e)
+              { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: failed" >&5
+printf "%s\n" "failed" >&6; }
+              enable_jit=no
+              cat >> $ERL_TOP/erts/CONF_INFO <<EOF
+
+                 JIT disabled because the compiler has only partial C++20 support
+EOF
+              { printf "%s\n" "$as_me:${as_lineno-$LINENO}: WARNING: JIT disabled due to C++ compiler with incomplete C++20 support" >&5
+printf "%s\n" "$as_me: WARNING: JIT disabled due to C++ compiler with incomplete C++20 support" >&2;}
+             ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+        ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+
+        if test "${enable_jit}" != "no"; then
+          enable_jit=yes
+        fi
+      fi
+
+fi
+
+if test "${builtin_ryu}" = "no"
+then :
+
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for C++ std::to_chars" >&5
+printf %s "checking for C++ std::to_chars... " >&6; }
+    ac_ext=cpp
+ac_cpp='$CXXCPP $CPPFLAGS'
+ac_compile='$CXX -c $CXXFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CXX -o conftest$ac_exeext $CXXFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
+
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+          #include <charconv>
+
+int
+main (void)
+{
+
+          char fbuf[20];
+          std::to_chars(fbuf, fbuf + sizeof(fbuf), 3.14);
+
+  ;
+  return 0;
+}
+
+_ACEOF
+if ac_fn_cxx_try_compile "$LINENO"
+then :
+
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+printf "%s\n" "yes" >&6; }
+        builtin_ryu=yes
+
+else case e in #(
+  e)
+        { printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: no" >&5
+printf "%s\n" "no" >&6; }
+        as_fn_error $? "Alternative to builtin ryu needs at least C++17 with std::to_chars" "$LINENO" 5
+        builtin_ryu=no
+       ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+    ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
 
 fi
 
@@ -26653,7 +26772,7 @@ fi
 
 
 
-if test ${enable_jit} != no
+if test "${enable_jit}" != "no"
 then :
 
   case $host_os in #(

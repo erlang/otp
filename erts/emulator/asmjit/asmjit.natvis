@@ -199,7 +199,7 @@
       <Item Name="pass_data">_passData</Item>
       <Item Name="inline_comment">_inline_comment, s8</Item>
 
-      <Item Name="baseInst" Condition="actsAsInst()">((asmjit::InstNode*)this)-&gt;_baseInst</Item>
+      <Item Name="base_inst" Condition="actsAsInst()">((asmjit::InstNode*)this)-&gt;_base_inst</Item>
       <Item Name="op_count" Condition="actsAsInst()">_inst._op_count</Item>
       <Item Name="op_capacity" Condition="actsAsInst()">_inst._op_capacity</Item>
       <Item Name="op_array" Condition="actsAsInst()">((asmjit::InstNode*)this)-&gt;_opArray, [_inst._op_count]</Item>

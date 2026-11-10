@@ -7,7 +7,6 @@
 #define ASMJIT_CORE_TYPE_H_INCLUDED
 
 #include <asmjit/core/globals.h>
-#include <asmjit/support/support.h>
 
 ASMJIT_BEGIN_NAMESPACE
 
@@ -152,7 +151,6 @@ enum class TypeId : uint8_t {
 
   kMaxValue = 255
 };
-ASMJIT_DEFINE_ENUM_COMPARE(TypeId)
 
 //! Type identifier utilities.
 namespace TypeUtils {
@@ -174,7 +172,7 @@ static ASMJIT_INLINE_NODEBUG uint32_t size_of(TypeId type_id) noexcept { return 
 //! Tests whether a given type `type_id` is between `a` and `b`.
 [[nodiscard]]
 static ASMJIT_INLINE_CONSTEXPR bool is_between(TypeId type_id, TypeId a, TypeId b) noexcept {
-  return Support::is_between(uint32_t(type_id), uint32_t(a), uint32_t(b));
+  return axl::is_between(uint32_t(type_id), uint32_t(a), uint32_t(b));
 }
 
 //! Tests whether a given type `type_id` is \ref TypeId::kVoid.
@@ -405,13 +403,13 @@ static ASMJIT_INLINE_CONSTEXPR TypeId type_id_of_t() noexcept { return TypeId(Ty
 //! For example:
 //!
 //! ```
-//! uint32_t register_size = /* 4 or 8 */;
+//! uint32_t register_size = uint32_t(sizeof(uintptr_t)); // 4 or 8, depending on the target architecture.
 //! uint32_t deabstract_delta = TypeUtils::deabstract_delta_of_size(register_size);
 //!
-//! TypeId type_id = 'some type-id';
+//! TypeId type_id = TypeId::kUIntPtr;
 //!
 //! // Normalize some type_id into a non-abstract type_id.
-//! if (TypeUtils::is_abstract(type_id)) type_id += deabstract_delta;
+//! if (TypeUtils::is_abstract(type_id)) type_id = TypeId(uint32_t(type_id) + deabstract_delta);
 //!
 //! // The same, but by using TypeUtils::deabstract() function.
 //! type_id = TypeUtils::deabstract(type_id, deabstract_delta);

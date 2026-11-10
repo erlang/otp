@@ -6,10 +6,10 @@
 #ifndef ASMJIT_CORE_INST_H_INCLUDED
 #define ASMJIT_CORE_INST_H_INCLUDED
 
-#include <asmjit/core/cpuinfo.h>
+#include <asmjit/core/cpu_info.h>
+#include <asmjit/core/globals.h>
 #include <asmjit/core/operand.h>
 #include <asmjit/core/string.h>
-#include <asmjit/support/support.h>
 
 ASMJIT_BEGIN_NAMESPACE
 
@@ -129,11 +129,6 @@ enum class InstOptions : uint32_t {
   kX86_Rep = 0x00004000u,
   //! REPNE prefix (string instructions only).
   kX86_Repne = 0x00008000u,
-
-  //! XACQUIRE prefix (only allowed instructions).
-  kX86_XAcquire = 0x00010000u,
-  //! XRELEASE prefix (only allowed instructions).
-  kX86_XRelease = 0x00020000u,
 
   //! AVX-512: embedded-rounding {er} and implicit {sae}.
   kX86_ER = 0x00040000u,
@@ -283,12 +278,12 @@ public:
   template<InstIdParts kPart>
   [[nodiscard]]
   ASMJIT_INLINE_NODEBUG uint32_t inst_id_part() const noexcept {
-    return (uint32_t(_inst_id) & uint32_t(kPart)) >> Support::ctz_const<kPart>;
+    return (uint32_t(_inst_id) & uint32_t(kPart)) >> axl::ctz_const(kPart);
   }
 
   template<InstIdParts kPart>
   ASMJIT_INLINE_NODEBUG void set_inst_id_part(uint32_t value) noexcept {
-    _inst_id = (_inst_id & ~uint32_t(kPart)) | (value << Support::ctz_const<kPart>);
+    _inst_id = (_inst_id & ~uint32_t(kPart)) | (value << axl::ctz_const(kPart));
   }
 
   //! \}
@@ -302,7 +297,7 @@ public:
 
   //! Tests whether the given instruction `option` is enabled.
   [[nodiscard]]
-  ASMJIT_INLINE_NODEBUG bool has_option(InstOptions option) const noexcept { return Support::test(_options, option); }
+  ASMJIT_INLINE_NODEBUG bool has_option(InstOptions option) const noexcept { return axl::test(_options, option); }
 
   //! Replaces all instruction options by the given `options`.
   ASMJIT_INLINE_NODEBUG void set_options(InstOptions options) noexcept { _options = options; }
@@ -363,20 +358,20 @@ public:
 
   [[nodiscard]]
   static ASMJIT_INLINE_CONSTEXPR InstId compose_arm_inst_id(uint32_t id, arm::CondCode cc) noexcept {
-    return id | (uint32_t(cc) << Support::ctz_const<InstIdParts::kARM_Cond>);
+    return id | (uint32_t(cc) << axl::ctz_const(InstIdParts::kARM_Cond));
   }
 
   [[nodiscard]]
   static ASMJIT_INLINE_CONSTEXPR InstId compose_arm_inst_id(uint32_t id, a32::DataType dt, arm::CondCode cc = arm::CondCode::kAL) noexcept {
-    return id | (uint32_t(dt) << Support::ctz_const<InstIdParts::kA32_DT>)
-              | (uint32_t(cc) << Support::ctz_const<InstIdParts::kARM_Cond>);
+    return id | (uint32_t(dt) << axl::ctz_const(InstIdParts::kA32_DT))
+              | (uint32_t(cc) << axl::ctz_const(InstIdParts::kARM_Cond));
   }
 
   [[nodiscard]]
   static ASMJIT_INLINE_CONSTEXPR InstId compose_arm_inst_id(uint32_t id, a32::DataType dt, a32::DataType dt2, arm::CondCode cc = arm::CondCode::kAL) noexcept {
-    return id | (uint32_t(dt) << Support::ctz_const<InstIdParts::kA32_DT>)
-              | (uint32_t(dt2) << Support::ctz_const<InstIdParts::kA32_DT2>)
-              | (uint32_t(cc) << Support::ctz_const<InstIdParts::kARM_Cond>);
+    return id | (uint32_t(dt) << axl::ctz_const(InstIdParts::kA32_DT))
+              | (uint32_t(dt2) << axl::ctz_const(InstIdParts::kA32_DT2))
+              | (uint32_t(cc) << axl::ctz_const(InstIdParts::kARM_Cond));
   }
 
   [[nodiscard]]
@@ -386,7 +381,7 @@ public:
 
   [[nodiscard]]
   static ASMJIT_INLINE_CONSTEXPR arm::CondCode extract_arm_cond_code(uint32_t id) noexcept {
-    return (arm::CondCode)((uint32_t(id) & uint32_t(InstIdParts::kARM_Cond)) >> Support::ctz_const<InstIdParts::kARM_Cond>);
+    return (arm::CondCode)((uint32_t(id) & uint32_t(InstIdParts::kARM_Cond)) >> axl::ctz_const(InstIdParts::kARM_Cond));
   }
 
   //! \}
@@ -562,13 +557,13 @@ struct OpRWInfo {
   inline void reset(OpRWFlags op_flags, uint32_t register_size, uint32_t phys_id = Reg::kIdBad) noexcept {
     _op_flags = op_flags;
     _phys_id = uint8_t(phys_id);
-    _rm_size = Support::test(op_flags, OpRWFlags::kRegMem) ? uint8_t(register_size) : uint8_t(0);
+    _rm_size = axl::test(op_flags, OpRWFlags::kRegMem) ? uint8_t(register_size) : uint8_t(0);
     _consecutive_lead_count = 0;
     _reset_reserved();
 
-    uint64_t mask = Support::lsb_mask<uint64_t>(Support::min<uint32_t>(register_size, 64));
-    _read_byte_mask = Support::test(op_flags, OpRWFlags::kRead) ? mask : uint64_t(0);
-    _write_byte_mask = Support::test(op_flags, OpRWFlags::kWrite) ? mask : uint64_t(0);
+    uint64_t mask = axl::trailing_bits_run<uint64_t>(axl::min<uint32_t>(register_size, 64));
+    _read_byte_mask = axl::test(op_flags, OpRWFlags::kRead) ? mask : uint64_t(0);
+    _write_byte_mask = axl::test(op_flags, OpRWFlags::kWrite) ? mask : uint64_t(0);
     _extend_byte_mask = 0;
   }
 
@@ -587,7 +582,7 @@ struct OpRWInfo {
 
   //! Tests whether operand flags contain the given `flag`.
   [[nodiscard]]
-  ASMJIT_INLINE_NODEBUG bool has_op_flag(OpRWFlags flag) const noexcept { return Support::test(_op_flags, flag); }
+  ASMJIT_INLINE_NODEBUG bool has_op_flag(OpRWFlags flag) const noexcept { return axl::test(_op_flags, flag); }
 
   //! Adds the given `flags` to operand flags.
   ASMJIT_INLINE_NODEBUG void add_op_flags(OpRWFlags flags) noexcept { _op_flags |= flags; }
@@ -812,7 +807,7 @@ struct InstRWInfo {
 
   //! Tests whether the instruction flags contain `flag`.
   [[nodiscard]]
-  ASMJIT_INLINE_NODEBUG bool has_inst_flag(InstRWFlags flag) const noexcept { return Support::test(_inst_flags, flag); }
+  ASMJIT_INLINE_NODEBUG bool has_inst_flag(InstRWFlags flag) const noexcept { return axl::test(_inst_flags, flag); }
 
   //! Tests whether the instruction flags contain \ref InstRWFlags::kMovOp.
   [[nodiscard]]

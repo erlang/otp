@@ -690,7 +690,7 @@ void BeamGlobalAssembler::emit_bif_nif_epilogue(void) {
 
         comment("test trap to hibernate");
         a.ldr(TMP1.w(), a64::Mem(c_p, offsetof(Process, flags)));
-        a.tbz(TMP1, imm(Support::ctz(F_HIBERNATE_SCHED)), trap);
+        a.tbz(TMP1, imm(Bitwise::ctz(F_HIBERNATE_SCHED)), trap);
 
         comment("do hibernate trap");
         a.and_(TMP1, TMP1, imm(~F_HIBERNATE_SCHED));

@@ -218,7 +218,7 @@ void BeamModuleAssembler::emit_i_create_local_native_record(
         if (argp < args.size() &&
             args[argp].as<ArgAtom>().get() == defp->keys[i]) {
             if (args[argp + 1].isImmed() &&
-                Support::is_int_n<32>(
+                Bitwise::fits_signed<32>(
                         (Sint)(args[argp + 1].as<ArgImmed>().get()))) {
                 Eterm value = args[argp + 1].as<ArgImmed>().get();
                 a.mov(dst_ptr, imm(value));
@@ -229,7 +229,7 @@ void BeamModuleAssembler::emit_i_create_local_native_record(
             argp += 2;
         } else {
             Eterm value = loader_def_values[i];
-            if (is_immed(value) && Support::is_int_n<32>((Sint)(value))) {
+            if (is_immed(value) && Bitwise::fits_signed<32>((Sint)(value))) {
                 a.mov(dst_ptr, imm(value));
             } else {
                 extract_from_literal(RET, Def, [i](Eterm value) -> Eterm {

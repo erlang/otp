@@ -25,6 +25,8 @@
 
 #include <asmjit/core.h>
 
+#include "beam_jit_bitwise.hpp"
+
 #include <string>
 #include <vector>
 #include <unordered_map>
@@ -226,14 +228,14 @@ struct BeamModuleAssemblerCommon {
     }
 
     /* Helpers */
-    const auto &getTypeEntry(const ArgSource &arg) const {
+    const BeamArgType &getTypeEntry(const ArgSource &arg) const {
         auto typeIndex =
                 arg.isRegister() ? arg.as<ArgRegister>().typeIndex() : 0;
         ASSERT(typeIndex < beam->types.count);
         return static_cast<BeamArgType &>(beam->types.entries[typeIndex]);
     }
 
-    auto getTypeUnion(const ArgSource &arg) const {
+    BeamTypeId getTypeUnion(const ArgSource &arg) const {
         if (arg.isRegister()) {
             return getTypeEntry(arg).type();
         }
@@ -440,7 +442,7 @@ struct BeamModuleAssemblerCommon {
                 return false;
             }
 
-            return max2 < asmjit::Support::clz(max1) - _TAG_IMMED1_SIZE;
+            return max2 < Bitwise::clz(max1) - _TAG_IMMED1_SIZE;
         }
     }
 

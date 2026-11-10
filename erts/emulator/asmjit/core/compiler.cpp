@@ -3,18 +3,19 @@
 // See <asmjit/core.h> or LICENSE.md for license and copyright information
 // SPDX-License-Identifier: Zlib
 
-#include <asmjit/core/api-build_p.h>
+#include <asmjit/core/api_build_p.h>
 #ifndef ASMJIT_NO_COMPILER
 
+#include <asmjit/axl/commons.h>
 #include <asmjit/core/assembler.h>
 #include <asmjit/core/builder_p.h>
 #include <asmjit/core/compiler.h>
-#include <asmjit/core/cpuinfo.h>
+#include <asmjit/core/cpu_info.h>
+#include <asmjit/core/globals.h>
 #include <asmjit/core/logger.h>
-#include <asmjit/core/rapass_p.h>
-#include <asmjit/core/rastack_p.h>
+#include <asmjit/core/ra_pass_p.h>
+#include <asmjit/core/ra_stack_p.h>
 #include <asmjit/core/type.h>
-#include <asmjit/support/support.h>
 
 ASMJIT_BEGIN_NAMESPACE
 
@@ -29,8 +30,8 @@ public:
 
   GlobalConstPoolPass(BaseCompiler& cc) noexcept : Pass(cc, "GlobalConstPoolPass") {}
 
-  Error run(Arena& arena, Logger* logger) override {
-    Support::maybe_unused(arena, logger);
+  Error run(axl::Arena& arena, Logger* logger) override {
+    axl::maybe_unused(arena, logger);
 
     // Flush the global constant pool.
     BaseCompiler& compiler = static_cast<BaseCompiler&>(_cb);
@@ -145,8 +146,8 @@ Error BaseCompiler::add_func_ret_node(Out<FuncRetNode*> out, const Operand_& o0,
 FuncNode* BaseCompiler::add_func(FuncNode* func) {
   _func = func;
 
-  add_node(func);             // Function node.
-  BaseNode* prev = cursor(); // {CURSOR}.
+  add_node(func);              // Function node.
+  BaseNode* prev = cursor();   // {CURSOR}.
   add_node(func->exit_node()); // Function exit label.
   add_node(func->end_node());  // Function end sentinel.
 
@@ -182,9 +183,15 @@ Error BaseCompiler::end_func() {
 // BaseCompiler - Function Invocation
 // ==================================
 
+static constexpr PAuthInfo unauthenticated_ptr_info {};
+
 Error BaseCompiler::new_invoke_node(Out<InvokeNode*> out, InstId inst_id, const Operand_& o0, const FuncSignature& signature) {
+  return new_invoke_node(out, inst_id, o0, signature, unauthenticated_ptr_info);
+}
+
+Error BaseCompiler::new_invoke_node(Out<InvokeNode*> out, InstId inst_id, const Operand_& o0, const FuncSignature& signature, const PAuthInfo& pauth_info) {
   InvokeNode* node = nullptr;
-  ASMJIT_PROPAGATE(new_node_t<InvokeNode>(Out(node), inst_id, InstOptions::kNone));
+  ASMJIT_PROPAGATE(new_node_t<InvokeNode>(Out(node), inst_id, InstOptions::kNone, pauth_info));
 
   node->set_op_count(1);
   node->set_op(0, o0);
@@ -212,7 +219,17 @@ Error BaseCompiler::new_invoke_node(Out<InvokeNode*> out, InstId inst_id, const 
 Error BaseCompiler::add_invoke_node(Out<InvokeNode*> out, InstId inst_id, const Operand_& o0, const FuncSignature& signature) {
   State state = _grab_state();
 
-  ASMJIT_PROPAGATE(new_invoke_node(out, inst_id, o0, signature));
+  ASMJIT_PROPAGATE(new_invoke_node(out, inst_id, o0, signature, unauthenticated_ptr_info));
+  Builder_assign_inst_state(this, *out, state);
+
+  add_node(*out);
+  return Error::kOk;
+}
+
+Error BaseCompiler::add_invoke_node(Out<InvokeNode*> out, InstId inst_id, const Operand_& o0, const FuncSignature& signature, const PAuthInfo& pauth_info) {
+  State state = _grab_state();
+
+  ASMJIT_PROPAGATE(new_invoke_node(out, inst_id, o0, signature, pauth_info));
   Builder_assign_inst_state(this, *out, state);
 
   add_node(*out);
@@ -234,23 +251,23 @@ Error BaseCompiler::new_virt_reg(Out<VirtReg*> out, TypeId type_id, OperandSigna
     return report_error(make_error(Error::kOutOfMemory));
   }
 
-  void* virt_reg_ptr = _builder_arena.alloc_oneshot(Arena::aligned_size_of<VirtReg>());
+  void* virt_reg_ptr = _builder_arena.alloc_oneshot(axl::Arena::aligned_size_of<VirtReg>());
   if (ASMJIT_UNLIKELY(!virt_reg_ptr)) {
     return report_error(make_error(Error::kOutOfMemory));
   }
 
   uint32_t size = TypeUtils::size_of(type_id);
-  uint32_t alignment_log2 = 31 - Support::clz(Support::min<uint32_t>(size, 64) | 1u);
+  uint32_t alignment_log2 = 31 - axl::clz(axl::min<uint32_t>(size, 64) | 1u);
 
   VirtRegFlags flags = VirtReg::_flags_from_alignment_log2(alignment_log2);
-  VirtReg* virt_reg = new(Support::PlacementNew{virt_reg_ptr}) VirtReg(signature.reg_type(), flags, Operand::virt_index_to_virt_id(uint32_t(index)), size, type_id);
+  VirtReg* virt_reg = new(axl::PlacementNew{virt_reg_ptr}) VirtReg(signature.reg_type(), flags, Operand::virt_index_to_virt_id(uint32_t(index)), size, type_id);
 
 #ifndef ASMJIT_NO_LOGGING
   if (name && name[0] != '\0') {
     virt_reg->_name.set_data(_builder_arena, name, SIZE_MAX);
   }
 #else
-  Support::maybe_unused(name);
+  axl::maybe_unused(name);
 #endif
 
   _virt_regs.append_unchecked(virt_reg);
@@ -376,7 +393,7 @@ Error BaseCompiler::_new_reg_with_vfmt(Out<Reg> out, const Reg& ref, const char*
 Error BaseCompiler::_new_stack(Out<BaseMem> out, uint32_t size, uint32_t alignment, const char* name) {
   out->reset();
 
-  if (ASMJIT_UNLIKELY(Support::bool_or(size == 0, !Support::is_zero_or_power_of_2(alignment)))) {
+  if (ASMJIT_UNLIKELY(axl::bool_or(size == 0, !axl::is_zero_or_power_of_2(alignment)))) {
     return report_error(make_error(Error::kInvalidArgument));
   }
 
@@ -393,7 +410,7 @@ Error BaseCompiler::_new_stack(Out<BaseMem> out, uint32_t size, uint32_t alignme
   ASMJIT_ASSUME(virt_reg != nullptr);
 
   virt_reg->_virt_size = size;
-  virt_reg->_reg_flags |= VirtRegFlags::kIsStackArea | VirtReg::_flags_from_alignment_log2(Support::ctz(alignment));
+  virt_reg->_reg_flags |= VirtRegFlags::kIsStackArea | VirtReg::_flags_from_alignment_log2(axl::ctz(alignment));
 
   // Set the memory operand to GPD/GPQ and its id to VirtReg.
   out = BaseMem(OperandSignature::from_op_type(OperandType::kMem) |
@@ -408,7 +425,7 @@ Error BaseCompiler::set_stack_size(uint32_t virt_id, uint32_t new_size, uint32_t
     return make_error(Error::kInvalidVirtId);
   }
 
-  if (!Support::is_zero_or_power_of_2(new_alignment)) {
+  if (!axl::is_zero_or_power_of_2(new_alignment)) {
     return report_error(make_error(Error::kInvalidArgument));
   }
 
@@ -419,7 +436,7 @@ Error BaseCompiler::set_stack_size(uint32_t virt_id, uint32_t new_size, uint32_t
   }
 
   if (new_alignment) {
-    uint32_t alignment_log2 = Support::ctz(Support::min<uint32_t>(new_alignment, 64u));
+    uint32_t alignment_log2 = axl::ctz(axl::min<uint32_t>(new_alignment, 64u));
     virt_reg->_reg_flags = (virt_reg->_reg_flags & ~VirtRegFlags::kAlignmentLog2Mask) | VirtReg::_flags_from_alignment_log2(alignment_log2);
   }
 
@@ -453,9 +470,15 @@ Error BaseCompiler::_new_const(Out<BaseMem> out, ConstPoolScope scope, const voi
     return report_error(err);
   }
 
+  // Sized operands are only a domain of X86/X64 backends - other backens cannot use these bits.
+  OperandSignature size_signature = OperandSignature::from_size(uint32_t(size));
+  if (arch() > Arch::kX64) {
+    size_signature = OperandSignature{};
+  }
+
   out = BaseMem(OperandSignature::from_op_type(OperandType::kMem) |
                 OperandSignature::from_mem_base_type(RegType::kLabelTag) |
-                OperandSignature::from_size(uint32_t(size)),
+                size_signature,
                 pool->label_id(), 0, int32_t(off));
   return Error::kOk;
 }
@@ -492,7 +515,7 @@ Error BaseCompiler::new_jump_node(Out<JumpNode*> out, InstId inst_id, InstOption
   }
 
   uint32_t op_count = 1;
-  node = new(Support::PlacementNew{node}) JumpNode(inst_id, inst_options, op_count, annotation);
+  node = new(axl::PlacementNew{node}) JumpNode(inst_id, inst_options, op_count, annotation);
   node->set_op(0, o0);
   node->reset_op_range(op_count, JumpNode::kBaseOpCapacity);
 
@@ -585,7 +608,7 @@ FuncPass::FuncPass(BaseCompiler& cc, const char* name) noexcept
 // FuncPass - Run
 // ==============
 
-Error FuncPass::run(Arena& arena, Logger* logger) {
+Error FuncPass::run(axl::Arena& arena, Logger* logger) {
   BaseNode* node = cc().first_node();
 
   while (node) {
@@ -605,8 +628,8 @@ Error FuncPass::run(Arena& arena, Logger* logger) {
 }
 
 // [[pure virtual]]
-Error FuncPass::run_on_function(Arena& arena, Logger* logger, FuncNode* func) {
-  Support::maybe_unused(arena, logger, func);
+Error FuncPass::run_on_function(axl::Arena& arena, Logger* logger, FuncNode* func) {
+  axl::maybe_unused(arena, logger, func);
   return make_error(Error::kInvalidState);
 }
 
