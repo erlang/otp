@@ -4439,6 +4439,10 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 	    /* Used by process_SUITE (emulator) */
 	    BIF_RET(erts_debug_ptab_list_bif_info(BIF_P, &erts_proc));
 	}
+        else if (ERTS_IS_ATOM_STR("export_accelerator", BIF_ARG_1)) {
+            /* Used by code_SUITE (emulator) */
+            BIF_RET(erts_export_accel_check(BIF_P));
+        }
 	else if (ERTS_IS_ATOM_STR("max_atom_out_cache_index", BIF_ARG_1)) {
 	    /* Used by distribution_SUITE (emulator) */
 	    BIF_RET(make_small((Uint) erts_debug_max_atom_out_cache_index()));
