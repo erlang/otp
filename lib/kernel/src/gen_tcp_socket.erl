@@ -1356,7 +1356,7 @@ socket_opts() ->
           recbuf           => {socket, rcvbuf},
           reuseaddr        => {socket, reuseaddr},
           reuseport        => {socket, reuseport},
-          reuseport_lb     => {socket, reuseport_lb},
+          reuseport_lb     => reuseport_lb_opt(),
           sndbuf           => {socket, sndbuf},
 
           %%
@@ -1406,6 +1406,15 @@ socket_opts() ->
             Opts;
         NopushOpt ->
             maps:put(nopush, {tcp, NopushOpt}, Opts)
+    end.
+
+-compile({inline, [reuseport_lb_opt/0]}).
+reuseport_lb_opt() ->
+    case os:type() of
+        {unix, linux} ->
+            {socket, reuseport};
+        _ ->
+            {socket, reuseport_lb}
     end.
 
 -compile({inline, [nopush_or_cork/0]}).

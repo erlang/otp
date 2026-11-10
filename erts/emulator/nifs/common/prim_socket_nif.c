@@ -2596,6 +2596,7 @@ static const struct in6_addr in6addr_loopback =
     GLOBAL_ATOM_DECL(retopts);                         \
     GLOBAL_ATOM_DECL(reuseaddr);                       \
     GLOBAL_ATOM_DECL(reuseport);                       \
+    GLOBAL_ATOM_DECL(reuseport_lb);                    \
     GLOBAL_ATOM_DECL(rights);                          \
     GLOBAL_ATOM_DECL(rm);                              \
     GLOBAL_ATOM_DECL(router_alert);                    \
@@ -3427,6 +3428,15 @@ static struct ESockOpt optLevelSocket[] =
             0, NULL, NULL,
 #endif
             &esock_atom_reuseport},
+
+        {
+#ifdef SO_REUSEPORT_LB
+            SO_REUSEPORT_LB,
+            esock_setopt_bool_opt, esock_getopt_bool_opt,
+#else
+            0, NULL, NULL,
+#endif
+            &esock_atom_reuseport_lb},
 
         {0, NULL, NULL, &esock_atom_rxq_ovfl},
         {0, NULL, NULL, &esock_atom_setfib},

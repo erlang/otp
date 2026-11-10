@@ -1142,7 +1142,7 @@ socket_opt() ->
       recbuf           => [{socket, rcvbuf}, {otp, rcvbuf}],
       reuseaddr        => {socket, reuseaddr},
       reuseport        => {socket, reuseport},
-      reuseport_lb     => {socket, reuseport_lb},
+      reuseport_lb     => reuseport_lb_opt(),
       sndbuf           => {socket, sndbuf},
 
       %%
@@ -1182,6 +1182,15 @@ socket_opt() ->
       %% this "feature" *does not exist*...
       pktoptions  => [{inet, ip, pktoptions}, {inet6, ipv6, pktoptions}]
       }.
+
+-compile({inline, [reuseport_lb_opt/0]}).
+reuseport_lb_opt() ->
+    case os:type() of
+        {unix, linux} ->
+            {socket, reuseport};
+        _ ->
+            {socket, reuseport_lb}
+    end.
 
 %% -compile({inline, [socket_inherit_opts/0]}).
 %% socket_inherit_opts() ->
