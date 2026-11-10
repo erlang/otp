@@ -453,6 +453,14 @@ format_erlang_error(hd, [_], _) ->
     [not_cons];
 format_erlang_error(insert_element, [Index,Tuple,_], Cause) ->
     format_erlang_error(element, [Index,Tuple], Cause);
+format_erlang_error(integer_set_bits, [_], _) ->
+    [not_integer];
+format_erlang_error(integer_signed_width, [_], _) ->
+    [not_integer];
+format_erlang_error(integer_trailing_zeroes, [_], _) ->
+    [not_integer];
+format_erlang_error(integer_unsigned_width, [_], _) ->
+    [not_integer];
 format_erlang_error(integer_to_binary, [_], _) ->
     [not_integer];
 format_erlang_error(integer_to_binary, Args, Cause) ->
