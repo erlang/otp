@@ -968,6 +968,7 @@ bool_options() ->
      {unused_type,true},
      {bif_clash,true},
      {unused_record,true},
+     {unused_macro,false},
      {deprecated_function,true},
      {deprecated_type,true},
      {deprecated_callback,true},
@@ -1152,6 +1153,9 @@ anno_set_file(T, File) ->
 %%  Check a form returning the updated State. Handle generic cases here.
 
 form({error,E}, St)   -> add_error(E, St);
+form({warning,{_,epp,{unused_macro,_,_}}}, St) ->
+    %% Handled by check_unused_macros/2.
+    St;
 form({warning,W}, St) -> add_warning(W, St);
 form({attribute,_A,file,{File,_Line}}, St) ->
     St#lint{file = File};
@@ -1426,6 +1430,7 @@ post_traversal_check(Forms, St0) ->
            fun check_on_load/2,
            fun check_export_record/2,
            fun check_unused_records/2,
+           fun check_unused_macros/2,
            fun check_native_records_header/2,
            fun check_local_opaque_types/2,
            fun check_dialyzer_attribute/2,
@@ -2016,6 +2021,31 @@ check_unused_records(Forms, St0) ->
                   end, St1, Unused);
         _ ->
             St0
+    end.
+
+%% check_unused_macros(Forms, State0) -> State
+%%  The preprocessor reports the macros defined in the main source
+%%  file that are never used as warning forms (see the
+%%  report_unused_macros option for epp). Here we decide whether
+%%  they should be reported.
+
+check_unused_macros(Forms, St) ->
+    AttrFiles = [File || {attribute,_A,file,{File,_Line}} <- Forms],
+    case {is_warn_enabled(unused_macro, St),AttrFiles} of
+        {true,[FirstFile|_]} ->
+            Nowarn = [M || {nowarn_unused_macro,Ms} <- St#lint.compile,
+                           M <- lists:flatten([Ms])],
+            foldl(fun({warning,{_,epp,{unused_macro,Name,Arity}}=W}, Acc) ->
+                          case lists:member(Name, Nowarn) orelse
+                              lists:member({Name,Arity}, Nowarn) of
+                              true -> Acc;
+                              false -> add_lint_warning(W, FirstFile, Acc)
+                          end;
+                     (_, Acc) ->
+                          Acc
+                  end, St, Forms);
+        _ ->
+            St
     end.
 
 check_native_records_header(Forms, #lint{records = Records}=St0) ->

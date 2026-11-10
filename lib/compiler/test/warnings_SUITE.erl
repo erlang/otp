@@ -47,7 +47,8 @@
 	 underscore/1,no_warnings/1,
 	 bit_syntax/1,inlining/1,tuple_calls/1,
          recv_opt_info/1,opportunistic_warnings/1,
-         eep49/1,inline_list_funcs/1,gh_11472/1]).
+         eep49/1,inline_list_funcs/1,gh_11472/1,
+	 unused_macro/1,parse_transform/2]).
 
 %% Import SSA records.
 -import_record(beam_ssa, [b_set, b_literal, b_remote, b_local]).
@@ -74,7 +75,8 @@ groups() ->
        redundant_boolean_clauses,
        underscore,no_warnings,bit_syntax,inlining,
        tuple_calls,recv_opt_info,opportunistic_warnings,
-       eep49,inline_list_funcs,gh_11472]}].
+       eep49,inline_list_funcs,gh_11472,
+       unused_macro]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -1385,6 +1387,84 @@ gh_11472(Config) ->
     [] = run(Config,Ts),
 
     ok.
+
+%% GH-4479: Test the warn_unused_macro option.
+unused_macro(Conf) ->
+    Src = <<"-define(UNUSED, 1).\n"
+            "-define(USED, 2).\n"
+            "-define(F(X), X).\n"
+            "-define(F, f).\n"
+            "t() -> {?USED, ?F(1)}.\n">>,
+    Ws = [{{2,9},epp,{unused_macro,'UNUSED',none}},
+          {{5,9},epp,{unused_macro,'F',none}}],
+
+    %% Not enabled by default.
+    [] = unused_macro_warnings(Conf, Src, []),
+    {warnings,Ws} = unused_macro_warnings(Conf, Src, [warn_unused_macro]),
+    {warnings,[{2,epp,{unused_macro,'UNUSED',none}},
+               {5,epp,{unused_macro,'F',none}}]} =
+        unused_macro_warnings(Conf, Src, [warn_unused_macro,
+                                            {error_location,line}]),
+
+    %% Enabled in the module itself.
+    {warnings,[{{3,9},epp,{unused_macro,'UNUSED',none}},
+               {{6,9},epp,{unused_macro,'F',none}}]} =
+        unused_macro_warnings(Conf,
+                              [<<"-compile(warn_unused_macro).\n">>, Src],
+                              []),
+
+    %% Turned off in the module itself.
+    [] = unused_macro_warnings(Conf,
+                               [<<"-compile(nowarn_unused_macro).\n">>, Src],
+                               [warn_unused_macro]),
+
+    %% Turned off for some macros.
+    [] = unused_macro_warnings(Conf, Src,
+                               [warn_unused_macro,
+                                {nowarn_unused_macro, ['UNUSED', {'F',none}]}]),
+    {warnings,[{{3,9},epp,{unused_macro,'UNUSED',none}}]} =
+        unused_macro_warnings(Conf,
+                              [<<"-compile({nowarn_unused_macro, [{'F',none}]}).\n">>,
+                               Src],
+                              [warn_unused_macro]),
+    {warnings,Ws} =
+        unused_macro_warnings(Conf, Src,
+                              [warn_unused_macro,
+                               {nowarn_unused_macro, [{'F',1}]}]),
+
+    %% Macros defined in an included file are never reported.
+    PrivDir = ?privdir,
+    ok = file:write_file(filename:join(PrivDir, "unused_macro.hrl"),
+                         <<"-define(HRL_UNUSED, 1).\n">>),
+    [] = unused_macro_warnings(Conf,
+                               <<"-include(\"unused_macro.hrl\").\n">>,
+                               [warn_unused_macro]),
+
+    %% Parse transforms must not see the warnings.
+    {warnings,Ws} =
+        unused_macro_warnings(Conf, Src,
+                              [warn_unused_macro,
+                               {parse_transform,?MODULE}]),
+    ok.
+
+unused_macro_warnings(Conf, Src, Opts) ->
+    PrivDir = ?privdir,
+    File = filename:join(PrivDir, "unused_macro.erl"),
+    ok = file:write_file(File, [<<"-module(unused_macro).\n">>, Src]),
+    Res = compile:file(File, [binary,export_all,nowarn_export_all,
+                              return|Opts]),
+    file:delete(File),
+    case Res of
+        {ok,unused_macro,_,[]} ->
+            [];
+        {ok,unused_macro,_,[{File,Ws}]} ->
+            {warnings,Ws}
+    end.
+
+%% Used as a parse transform by unused_macro/1.
+parse_transform(Forms, _Opts) ->
+    [] = [W || {warning,_}=W <- Forms],
+    Forms.
 
 
 %%%
