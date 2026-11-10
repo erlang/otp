@@ -45,7 +45,8 @@
 -export([all/0, suite/0]).
 
 -export([process_count/1, system_version/1, misc_smoke_tests/1,
-         heap_size/1, wordsize/1, memory/1, ets_limit/1, atom_limit/1,
+         heap_size/1, wordsize/1, memory/1, direct_memory/1,
+         direct_memory_peer/1, ets_limit/1, atom_limit/1,
          module_limit/1, export_limit/1,
          module_limit_barrier/1, export_limit_barrier/1,
          procs_bug/1,
@@ -61,7 +62,8 @@ suite() ->
 
 all() ->
     [process_count, system_version, misc_smoke_tests,
-     ets_count, heap_size, wordsize, memory, ets_limit, atom_limit, atom_count,
+     ets_count, heap_size, wordsize, memory, direct_memory,
+     ets_limit, atom_limit, atom_count,
      module_limit, export_limit, module_limit_barrier, export_limit_barrier,
      procs_bug,
      system_logger].
@@ -219,6 +221,144 @@ memory(Config) when is_list(Config) ->
 	process_flag(min_heap_size, MinHeapSize),
 	process_flag(priority, Prio),
         erts_debug:set_internal_state(available_internal_state, false)
+    end.
+
+direct_memory(Config) when is_list(Config) ->
+    Classes = [binary_alloc, std_alloc, ets_alloc, eheap_alloc,
+               ll_alloc, driver_alloc, fix_alloc, sl_alloc],
+    Modes = [{["+Mea", "min", "+Mdai", "0"], Classes},
+             {["+Mea", "min", "+Mdai", "2"], Classes},
+             {["+Mea", "max", "+MEe", "false"], [ets_alloc]},
+             {["+Mea", "max", "+MFe", "false"], [fix_alloc]}],
+    Results = [begin
+                   {ok, Peer, Node} = ?CT_PEER(Args ++ ["+S", "2:2",
+                                                      "+SDcpu", "2", "+SDio", "2"]),
+                   try
+                       rpc:call(Node, ?MODULE, direct_memory_peer, [Disabled])
+                   after
+                       peer:stop(Peer)
+                   end
+               end || {Args, Disabled} <- Modes],
+    lists:foreach(fun (Result) ->
+                          true = Result == supported orelse Result == unsupported
+                  end, Results),
+    case lists:member(supported, Results) of
+        true ->
+            ok;
+        false ->
+            {skip, "No selected mode has direct memory accounting"}
+    end.
+
+direct_memory_peer(Disabled) ->
+    lists:foreach(fun (Allocator) ->
+                          false = erlang:system_info({allocator, Allocator})
+                  end, Disabled),
+    Initial = try erlang:memory()
+              catch error:notsup -> unsupported
+              end,
+    case Initial of
+        unsupported ->
+            unsupported;
+        _ ->
+            check_sane_memory(Initial),
+            Types = [total, processes, processes_used, system,
+                     atom, atom_used, binary, code, ets],
+            lists:foreach(fun (Type) ->
+                                  Size = erlang:memory(Type),
+                                  true = is_integer(Size) andalso Size >= 0
+                          end, Types),
+            Types = [Type || {Type, _} <- erlang:memory(Types)],
+            [] = erlang:memory([]),
+            try erlang:memory(invalid_memory_type) of
+                _ -> error(expected_badarg)
+            catch error:badarg -> ok
+            end,
+            case lists:member(fix_alloc, Disabled) of
+                true -> direct_fixed_memory();
+                false -> ok
+            end,
+            direct_memory_churn(Disabled),
+            ok = memory([]),
+            supported
+    end.
+
+direct_memory_churn(Disabled) ->
+    Parent = self(),
+    Workers = [spawn_monitor(fun () ->
+                                     process_flag(scheduler, Scheduler),
+                                     direct_memory_churn_worker(Parent)
+                             end) || Scheduler <- [1, 2]],
+    [{First, _}, {Second, _}] = Workers,
+    First ! {peer, Second},
+    Second ! {peer, First},
+    try
+        lists:foreach(fun ({Pid, _}) -> receive {ready, Pid} -> ok end end, Workers),
+        First ! {data, <<>>},
+        lists:foreach(fun (_) ->
+                              check_sane_memory(erlang:memory()),
+                              case lists:member(fix_alloc, Disabled) of
+                                  true -> direct_fixed_memory(false);
+                                  false -> ok
+                              end
+                      end, lists:seq(1, 100)),
+        lists:foreach(fun ({Pid, _}) -> true = is_process_alive(Pid) end, Workers)
+    after
+        lists:foreach(fun ({Pid, _}) -> exit(Pid, kill) end, Workers),
+        lists:foreach(fun ({Pid, Ref}) ->
+                              receive {'DOWN', Ref, process, Pid, _} -> ok end
+                      end, Workers)
+    end.
+
+direct_memory_churn_worker(Parent) ->
+    receive
+        {peer, Peer} ->
+            Table = ets:new(?MODULE, []),
+            Parent ! {ready, self()},
+            direct_memory_churn_loop(Peer, Table)
+    end.
+
+direct_memory_churn_loop(Peer, Table) ->
+    receive
+        {data, Binary} ->
+            true = ets:insert(Table, {data, Binary}),
+            {ok, Module} = file:read_file(code:which(?MODULE)),
+            true = byte_size(Module) > 0,
+            Mon = monitor(process, Peer),
+            true = demonitor(Mon, [flush]),
+            Peer ! {data, binary:copy(<<1>>, 65536)},
+            true = ets:delete_all_objects(Table),
+            direct_memory_churn_loop(Peer, Table)
+    end.
+
+direct_fixed_memory() ->
+    direct_fixed_memory(true).
+
+direct_fixed_memory(RequirePositive) ->
+    Ref = make_ref(),
+    true = erlang:system_info({memory_internal, Ref, [fix_alloc]}),
+    [{fix_alloc, 0, Info}] = direct_memory_replies(
+                              Ref, erts_internal:no_aux_work_threads() - 1, []),
+    {direct_blocks, Blocks} = lists:keyfind(direct_blocks, 1, Info),
+    true = is_integer(Blocks) andalso Blocks >= 0,
+    {fix_types, Fixed} = lists:keyfind(fix_types, 1, Info),
+    {proc, Proc, Proc} = lists:keyfind(proc, 1, Fixed),
+    case RequirePositive of
+        true ->
+            true = Blocks > 0,
+            true = Proc > 0;
+        false ->
+            ok
+    end,
+    true = lists:sum([Used || {_, _, Used} <- Fixed]) =< Blocks,
+    lists:foreach(fun ({_, Allocated, Used}) ->
+                          true = Allocated == Used andalso Used >= 0
+                  end, Fixed).
+
+direct_memory_replies(_Ref, 0, Acc) ->
+    Acc;
+direct_memory_replies(Ref, N, Acc) ->
+    receive
+        {Ref, _, Info} -> direct_memory_replies(Ref, N - 1, Info ++ Acc)
     end.
 
 memory_test(_Config) ->

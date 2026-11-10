@@ -79,6 +79,13 @@ void erts_sys_alloc_init(void);
 void *erts_sys_alloc(ErtsAlcType_t, void *, size_t);
 void *erts_sys_realloc(ErtsAlcType_t, void *, void *, size_t);
 void erts_sys_free(ErtsAlcType_t, void *, void *);
+#ifdef ERTS_HAVE_SYS_ALLOC_SIZE
+/* Size of a live, non-NULL block from the matching system malloc family.
+ * Define the capability only when alloc/realloc/free and this query agree.
+ * Without it, disabled alloc_util classes retain unsupported memory accounting.
+ */
+size_t erts_sys_alloc_size(void *ptr);
+#endif
 #if ERTS_HAVE_ERTS_SYS_ALIGNED_ALLOC
 /*
  * Note 'alignment' must remain the same in calls to
