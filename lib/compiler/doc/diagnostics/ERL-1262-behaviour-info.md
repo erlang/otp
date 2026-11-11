@@ -1,0 +1,1 @@
+# ERL-1262 - Illegal callback attribute
