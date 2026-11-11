@@ -127,6 +127,7 @@ const Eterm etp_tag_header_external_pid = _TAG_HEADER_EXTERNAL_PID;
 const Eterm etp_tag_header_external_port = _TAG_HEADER_EXTERNAL_PORT;
 const Eterm etp_tag_header_external_ref = _TAG_HEADER_EXTERNAL_REF;
 const Eterm etp_tag_header_map = _TAG_HEADER_MAP;
+const Eterm etp_tag_header_record = _TAG_HEADER_RECORD;
 
 const Eterm etp_tag_header_mask = _TAG_HEADER_MASK;
 const Eterm etp_header_subtag_mask = _HEADER_SUBTAG_MASK;
