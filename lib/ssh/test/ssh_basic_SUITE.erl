@@ -1216,7 +1216,7 @@ double_close(Config) when is_list(Config) ->
 					    {password, "morot"},
 					    {user_interaction, false}]),
     
-    exit(CM, {shutdown, normal}),
+    exit_signal(CM, {shutdown, normal}),
     ok = ssh:close(CM).
 
 %%--------------------------------------------------------------------
@@ -1243,7 +1243,7 @@ daemon_opt_fd(Config) ->
 					  {user, "vego"},
 					  {password, "morot"},
 					  {user_interaction, false}]),
-    exit(C1, {shutdown, normal}),
+    exit_signal(C1, {shutdown, normal}),
     ssh:stop_daemon(Pid1),
     gen_tcp:close(S1).
 
@@ -1281,7 +1281,7 @@ multi_daemon_opt_fd(Config) ->
     [begin 
 	 gen_tcp:close(S),
 	 ssh:stop_daemon(Pid),
-	 exit(C, {shutdown, normal})
+         exit_signal(C, {shutdown, normal})
      end || {S,Pid,C} <- Tests].
 
 %%--------------------------------------------------------------------
