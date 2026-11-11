@@ -66,6 +66,7 @@
          otp_16865/1,
          eep49/1,
          binary_and_map_aliases/1,
+         map_keys_bound_in_pattern/1,
          eep58/1,
          strict_generators/1,
          assignment_generators/1,
@@ -111,7 +112,8 @@ all() ->
      otp_8133, otp_10622, otp_13228, otp_14826,
      funs, custom_stacktrace, try_catch, eval_expr_5, zero_width,
      eep37, eep43, otp_15035, otp_16439, otp_14708, otp_16545, otp_16865,
-     eep49, binary_and_map_aliases, eep58, strict_generators, binary_skip,
+     eep49, binary_and_map_aliases, map_keys_bound_in_pattern, eep58,
+     strict_generators, binary_skip,
      assignment_generators, zlc, zbc, zmc, multi_lc, multi_mc].
 
 groups() ->
@@ -2191,6 +2193,106 @@ binary_and_map_aliases(Config) when is_list(Config) ->
           end,
           "begin #{K := V} = #{k := K} = #{k => my_key, my_key => 42}, V end.",
           42),
+    ok.
+
+%% A map key in a pattern can use variables bound in the same pattern,
+%% in any order, as long as the keys do not depend on each other in a
+%% cycle.
+map_keys_bound_in_pattern(Config) when is_list(Config) ->
+    check(fun() ->
+                  F = fun(K, #{K := V}) -> {f,V}; (_, _) -> nomatch end,
+                  {F(a, #{a => 1}), F(b, #{a => 1}), F(a, x)}
+          end,
+          "begin F = fun(K, #{K := V}) -> {f,V}; (_, _) -> nomatch end,
+                 {F(a, #{a => 1}), F(b, #{a => 1}), F(a, x)} end.",
+          {{f,1},nomatch,nomatch}),
+    check(fun() ->
+                  F = fun(#{K := V}, K) -> V; (_, _) -> nomatch end,
+                  {F(#{k => v}, k), F(#{k => v}, j)}
+          end,
+          "begin F = fun(#{K := V}, K) -> V; (_, _) -> nomatch end,
+                 {F(#{k => v}, k), F(#{k => v}, j)} end.",
+          {v,nomatch}),
+    check(fun() ->
+                  F = fun(#{K := K}, K) -> K; (_, _) -> nomatch end,
+                  G = fun(#{K := #{K := K}}, K) -> K; (_, _) -> nomatch end,
+                  {F(#{k => k}, k), F(#{k => j}, k),
+                   G(#{k => #{k => k}}, k), G(#{k => #{k => j}}, k)}
+          end,
+          "begin F = fun(#{K := K}, K) -> K; (_, _) -> nomatch end,
+                 G = fun(#{K := #{K := K}}, K) -> K; (_, _) -> nomatch end,
+                 {F(#{k => k}, k), F(#{k => j}, k),
+                  G(#{k => #{k => k}}, k), G(#{k => #{k => j}}, k)} end.",
+          {k,nomatch,k,nomatch}),
+    check(fun() ->
+                  F = fun({#{B := C}, #{A := B}, A}) -> C; (_) -> nomatch end,
+                  G = fun(#{K := V, a := K}) -> V; (_) -> nomatch end,
+                  {F({#{b => c}, #{a => b}, a}), G(#{a => b, b => c}),
+                   G(#{a => x})}
+          end,
+          "begin F = fun({#{B := C}, #{A := B}, A}) -> C; (_) -> nomatch end,
+                 G = fun(#{K := V, a := K}) -> V; (_) -> nomatch end,
+                 {F({#{b => c}, #{a => b}, a}), G(#{a => b, b => c}),
+                  G(#{a => x})} end.",
+          {c,c,nomatch}),
+    check(fun() -> {K, #{K := V}} = {k, #{k => v}}, V end,
+          "begin {K, #{K := V}} = {k, #{k => v}}, V end.",
+          v),
+    check(fun() -> case {k, #{k => v}} of {K, #{K := V}} -> V; _ -> none end end,
+          "case {k, #{k => v}} of {K, #{K := V}} -> V; _ -> none end.",
+          v),
+    check(fun() ->
+                  [V || {K, #{K := V}} <- [{a,#{a => 1}}, {b,#{a => 2}},
+                                            {c,#{c => 3}}]]
+          end,
+          "[V || {K, #{K := V}} <- [{a,#{a => 1}}, {b,#{a => 2}},
+                                     {c,#{c => 3}}]].",
+          [1,3]),
+    check(fun() ->
+                  {[{1,x},{2,y}],
+                   [1]} =
+                      {[{X,Y} || {K, X} <- [{a,1},{b,2}]
+                                     && #{K := Y} <- [#{a => x}, #{b => y}]],
+                       [V || {K, #{K := V}} <- [{a,#{a => 1}}, {b,#{a => 2}}]
+                                 && _ <:- [p,q]]}
+          end,
+          "begin {[{1,x},{2,y}], [1]} =
+                     {[{X,Y} || {K, X} <- [{a,1},{b,2}]
+                                    && #{K := Y} <- [#{a => x}, #{b => y}]],
+                      [V || {K, #{K := V}} <- [{a,#{a => 1}}, {b,#{a => 2}}]
+                                && _ <:- [p,q]]} end.",
+          {[{1,x},{2,y}],[1]}),
+    check(fun() ->
+                  F = fun(N, #{N + 1 := V}) -> V; (_, _) -> nomatch end,
+                  {F(1, #{2 => two}), F(x, #{2 => two})}
+          end,
+          "begin F = fun(N, #{N + 1 := V}) -> V; (_, _) -> nomatch end,
+                 {F(1, #{2 => two}), F(x, #{2 => two})} end.",
+          {two,nomatch}),
+    check(fun() ->
+                  F = fun(K, #{K := V}) when V > 10 -> big;
+                         (K, #{K := V}) -> {small,V};
+                         (_, _) -> none
+                      end,
+                  {F(k, #{k => 11}), F(k, #{k => 1}), F(k, #{})}
+          end,
+          "begin F = fun(K, #{K := V}) when V > 10 -> big;
+                        (K, #{K := V}) -> {small,V};
+                        (_, _) -> none
+                     end,
+                 {F(k, #{k => 11}), F(k, #{k => 1}), F(k, #{})} end.",
+          {big,{small,1},none}),
+
+    %% A key variable that is bound before a fun head, and also bound
+    %% in the head, refers to the variable bound before.
+    check(fun() -> {b,1} end,
+          "begin K = a, F = fun(K, #{K := V}) -> {K,V} end,
+                 F(b, #{a => 1, b => 2}) end.",
+          {b,1}),
+
+    %% Circular keys are rejected, as by the compiler.
+    error_check("begin F = fun(#{K := K}) -> K end, F(#{k => k}) end.",
+                {unbound_var,'K'}),
     ok.
 
 %% EEP 58: Map comprehensions.
