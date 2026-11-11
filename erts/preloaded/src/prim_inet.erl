@@ -39,6 +39,7 @@
 -export([send/2, send/3, sendto/4, sendmsg/3, sendfile/4]).
 -export([recv/2, recv/3, async_recv/3]).
 -export([unrecv/2]).
+-export([tls_socket/2, tls/2, subscribe/2]).
 -export([recvfrom/2, recvfrom/3]).
 -export([setopt/3, setopts/2, getopt/2, getopts/2, is_sockopt_val/2]).
 -export([chgopt/3, chgopts/2]).
@@ -1506,6 +1507,22 @@ unrecv(S, Data) ->
     case ctl_cmd(S, ?TCP_REQ_UNRECV, Data) of
 	{ok, _} -> ok;
 	{error,_}=Error  -> Error
+    end.
+
+%% kTLS support for ssl: SslSocket replaces {tcp, S} in active messages
+%% by {ssl, SslSocket}; tls/2 makes a kTLS request, see erl_ktls.h.
+-spec tls_socket(port(), SslSocket :: term()) -> ok | {error, atom()}.
+tls_socket(S, SslSocket) ->
+    case ctl_cmd(S, ?TCP_REQ_TLS_SOCKET, term_to_binary(SslSocket)) of
+        {ok, _} -> ok;
+        {error, _} = Error -> Error
+    end.
+
+-spec tls(port(), Request :: iodata()) -> {ok, Reply :: binary()} | {error, atom()}.
+tls(S, Request) ->
+    case ctl_cmd(S, ?TCP_REQ_TLS, Request) of
+        {ok, Reply} -> {ok, list_to_binary(Reply)};
+        {error, _} = Error -> Error
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

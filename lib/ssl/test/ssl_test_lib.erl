@@ -4469,33 +4469,29 @@ handle_trace(rle,
 
 
 ktls_os() ->
-    inet_tls_dist:ktls_os().
+    OS = {os:type(), os:version()},
+    case OS of
+        {{unix,linux}, OsVersion} when {5,2,0} =< OsVersion ->
+            {ok, OS};
+        _  ->
+            {error, {ktls_notsup, {os,OS}}}
+    end.
 
-%% Set UserLand Protocol
-ktls_set_ulp(Socket, OS) ->
-    inet_tls_dist:set_ktls_ulp(
-      #{ socket => Socket,
-         setopt_fun => fun inet_tls_dist:inet_ktls_setopt/3,
-         getopt_fun => fun inet_tls_dist:inet_ktls_getopt/3 },
-      OS).
+%% The UserLand Protocol is set with the first key
+ktls_set_ulp(_Socket, _OS) ->
+    ok.
 
-ktls_set_cipher(Socket, OS, TxRx, Seed) ->
+ktls_set_cipher(Socket, _OS, TxRx, Seed) ->
     TLS_version = ?TLS_1_3,
     TLS_cipher = ?TLS_AES_256_GCM_SHA384,
     TLS_IV   = binary:copy(<<(Seed + 0)>>, 8),
     TLS_KEY  = binary:copy(<<(Seed + 1)>>, 32),
     TLS_SALT = binary:copy(<<(Seed + 2)>>, 4),
-    KtlsInfo =
-        #{ socket => Socket,
-           tls_version => TLS_version,
-           cipher_suite => TLS_cipher,
-           setopt_fun => fun inet_tls_dist:inet_ktls_setopt/3,
-           getopt_fun => fun inet_tls_dist:inet_ktls_getopt/3 },
     CipherState =
         #cipher_state{
            key = TLS_KEY,
            iv = <<TLS_SALT/binary, TLS_IV/binary>> },
-    inet_tls_dist:set_ktls_cipher(KtlsInfo, OS, CipherState, 0, TxRx).
+    tls_ktls:set_key(Socket, TxRx, TLS_version, TLS_cipher, CipherState, 0).
 
 ct_pal_file(FilePath) ->
     case file:read_file(FilePath) of

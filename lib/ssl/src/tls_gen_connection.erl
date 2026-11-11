@@ -268,10 +268,17 @@ handle_info({Protocol, Socket, Type, Handle}, StateName,
             #state{static_env = #static_env{socket = Socket,
                                             data_tag = Protocol,
                                             transport_cb = Transport},
+                   ssl_options = SslOpts,
                    protocol_specific = #{socket_active := N}=PS}
             = State0)
   when Type =:= select; Type =:= completion ->
-    {Data, SelInfo} = Transport:data_available(Socket, Type, Handle, N > 0),
+    {Data, SelInfo} =
+        case SslOpts of
+            #{ktls := true} -> %% Leave records after the handshake to the kernel
+                Transport:data_available(Socket, Type, Handle, N > 0, ktls_read_size(State0));
+            _ ->
+                Transport:data_available(Socket, Type, Handle, N > 0)
+        end,
     State1 = State0#state{protocol_specific = PS#{socket_active := N-1, sel_info => SelInfo}},
     case next_tls_record(Data, StateName, State1) of
 	{Record, State} ->
@@ -280,6 +287,12 @@ handle_info({Protocol, Socket, Type, Handle}, StateName,
 	    ssl_gen_statem:handle_own_alert(Alert, StateName, State0)
     end;
 %% raw data from (gen_tcp) socket, unpack records
+handle_info({Protocol, Socket, {ssl_tls, _, Type, {Major, Minor}, Data}}, StateName,
+            #state{static_env = #static_env{data_tag = Protocol},
+                   ssl_options = #{ktls := true}} = State0) ->
+    %% A gen_tcp_socket with {packet, ssl_tls}, see tls_ktls:init/3
+    Len = byte_size(Data),
+    handle_info({Protocol, Socket, <<Type, Major, Minor, Len:16, Data/binary>>}, StateName, State0);
 handle_info({Protocol, _, Data}, StateName,
             #state{static_env = #static_env{data_tag = Protocol}} = State0) ->
     case next_tls_record(Data, StateName, State0) of
@@ -390,6 +403,8 @@ next_event(connection,  #ssl_tls{} = Record, State) ->
 next_event(StateName, Record, State) ->
     next_event(StateName, Record, State, []).
 
+next_event(_, ktls, State, _) ->
+    {stop, {shutdown, ktls}, State};
 next_event(StateName, no_record, #state{static_env = #static_env{role = Role}} = State0, Actions) ->
     case next_record(StateName, State0) of
  	{no_record, State} ->
@@ -405,7 +420,22 @@ next_event(StateName,  #ssl_tls{} = Record, State, Actions) ->
 next_event(StateName,  #alert{} = Alert, State, Actions) ->
     {next_state, StateName, State, [{next_event, internal, Alert} | Actions]}.
 
+%% Bytes left of the current record header or fragment
+ktls_read_size(#state{protocol_buffers = #protocol_buffers{tls_record_buffer = Buffer}}) ->
+    case Buffer of
+        {#ssl_tls{fragment = Length}, {_, Size, _}} when is_integer(Length) -> Length - Size;
+        {#ssl_tls{version = undefined}, {_, Size, _}} -> 4 - Size;
+        {#ssl_tls{}, {_, Size, _}} -> 2 - Size;
+        _ -> 5
+    end.
+
 %%% TLS record protocol level application data messages
+handle_protocol_record(#ssl_tls{type = ?APPLICATION_DATA, fragment = Data}, StateName,
+                       #state{ssl_options = #{ktls := true},
+                              user_data_buffer = {Front, Size, Rear}} = State) ->
+    %% Early data, given to the socket the kTLS handover returns
+    next_event(StateName, no_record,
+               State#state{user_data_buffer = {Front, Size + byte_size(Data), [Data | Rear]}});
 handle_protocol_record(#ssl_tls{type = ?APPLICATION_DATA, fragment = Data}, StateName,
                        #state{recv = #recv{from = From},
                               socket_options = #socket_options{active = false}} = State0)

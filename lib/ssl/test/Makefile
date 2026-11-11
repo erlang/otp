@@ -74,6 +74,7 @@ MODULES = \
 	ssl_engine_SUITE\
 	ssl_handshake_SUITE \
 	ssl_key_update_SUITE \
+	ssl_ktls_SUITE \
 	openssl_key_update_SUITE \
 	ssl_npn_hello_SUITE \
 	ssl_packet_SUITE \

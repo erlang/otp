@@ -106,10 +106,11 @@ initial_state(Role, Sender, Tab, Host, Port, Socket,
        protocol_buffers = #protocol_buffers{},
        user_data_buffer = {[],0,[]},
        recv = #recv{from = undefined},
-       protocol_specific = #{sender => Sender,
-                             active_n => internal_active_n(SSLOptions, Socket),
-                             active_n_toggle => true
-                            }
+       protocol_specific = tls_ktls:init(SSLOptions, Socket,
+                                         #{sender => Sender,
+                                           active_n => internal_active_n(SSLOptions, Socket),
+                                           active_n_toggle => true
+                                          })
       }.
 
 %%--------------------------------------------------------------------
@@ -432,9 +433,6 @@ init_max_early_data_size(client) ->
 init_max_early_data_size(server) ->
     ssl_config:get_max_early_data_size().
 
-internal_active_n(#{ktls := true}, Socket) ->
-    inet:setopts(Socket, [{packet, ssl_tls}]),
-    1;
 internal_active_n(#{erl_dist := true}, _) ->
     %% Start with a random number between 1 and ?INTERNAL_ACTIVE_N
     %% In most cases distribution connections are established all at

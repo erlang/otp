@@ -62,8 +62,7 @@
          set_opts/2,
 	 peer_certificate/1,
          negotiated_protocol/1,
-	 connection_information/2,
-         ktls_handover/1
+         connection_information/2
 	]).
 
 %% Erlang Distribution export
@@ -297,6 +296,8 @@ handshake(#sslsocket{connection_handler = Pid} = Socket, Timeout) ->
     case call(Pid, {start, Timeout}) of
 	connected ->
 	    {ok, Socket};
+        {connected, KtlsSocket} ->
+            {ok, KtlsSocket};
         {ok, Ext} ->
             {ok, Socket, no_records(Ext)};
 	Error ->
@@ -313,6 +314,8 @@ handshake(#sslsocket{connection_handler = Pid} = Socket, SslOptions, Timeout) ->
     case call(Pid, {start, SslOptions, Timeout}) of
 	connected ->
 	    {ok, Socket};
+        {connected, KtlsSocket} ->
+            {ok, KtlsSocket};
 	Error ->
 	    Error
     end.
@@ -327,6 +330,8 @@ handshake_continue(#sslsocket{connection_handler = Pid} = Socket, SslOptions, Ti
     case call(Pid, {handshake_continue, SslOptions, Timeout}) of
 	connected ->
 	    {ok, Socket};
+        {connected, KtlsSocket} ->
+            {ok, KtlsSocket};
 	Error ->
 	    Error
     end.
@@ -378,6 +383,16 @@ prepare_connection(#state{handshake_env = #handshake_env{renegotiation = Renegot
        RecvFrom =/= undefined ->
     State = Connection:reinit(State0),
     {no_record, ack_connection(State)};
+prepare_connection(#state{ssl_options = #{ktls := true},
+                          recv = #recv{from = From}} = State0, Connection) ->
+    State = Connection:reinit(State0),
+    %% The socket is the kernel's or closed, either way this process stops
+    Reply = case tls_ktls:handover(State, connection_info(State)) of
+                {ok, Socket} -> {connected, Socket};
+                {error, Reason} -> {error, {ktls, Reason}}
+            end,
+    gen_statem:reply(From, Reply),
+    {ktls, State};
 prepare_connection(State0, Connection) ->
     State = Connection:reinit(State0),
     {no_record, ack_connection(State)}.
@@ -480,14 +495,6 @@ peer_certificate(ConnectionPid) ->
 %%--------------------------------------------------------------------
 negotiated_protocol(ConnectionPid) ->
     call(ConnectionPid, negotiated_protocol).
-
-%%--------------------------------------------------------------------
--spec ktls_handover(pid()) -> {ok, map()} | {error, ssl:reason()}.
-%%
-%% Description:  Returns the negotiated protocol
-%%--------------------------------------------------------------------
-ktls_handover(ConnectionPid) ->
-    call(ConnectionPid, ktls_handover).
 
 dist_handshake_complete(ConnectionPid, DHandle) ->
     gen_statem:cast(ConnectionPid, {dist_handshake_complete, DHandle}).
@@ -619,45 +626,6 @@ connection({call, From},
         {error, timeout} ->
             {stop_and_reply, {shutdown, downgrade_fail}, [{reply, From, {error, timeout}}]}
     end;
-connection({call, From}, ktls_handover, #state{
-    static_env = #static_env{
-        transport_cb = Transport,
-        socket = Socket
-    },
-    connection_env = #connection_env{
-        user_application = {_Mon, Pid},
-        negotiated_version = TlsVersion
-    },
-    ssl_options = #{ktls := true},
-    socket_options = SocketOpts,
-    connection_states = #{
-        current_write := #{
-            security_parameters := #security_parameters{cipher_suite = CipherSuite},
-            cipher_state := WriteState,
-            sequence_number := WriteSeq
-        },
-        current_read := #{
-            cipher_state := ReadState,
-            sequence_number := ReadSeq
-        }
-    }
-}) ->
-    Reply = case Transport:controlling_process(Socket, Pid) of
-        ok ->
-            {ok, #{
-                socket => Socket,
-                tls_version => TlsVersion,
-                cipher_suite => CipherSuite,
-                socket_options => SocketOpts,
-                write_state => WriteState,
-                write_seq => WriteSeq,
-                read_state => ReadState,
-                read_seq => ReadSeq
-            }};
-        {error, Reason} ->
-            {error, Reason}
-    end,
-    {stop_and_reply, {shutdown, ktls}, [{reply, From, Reply}]};
 connection({call, From}, Msg, State) ->
     handle_call(Msg, From, ?STATE(connection), State);
 connection(cast, {dist_handshake_complete, DHandle},
@@ -1213,7 +1181,7 @@ maybe_invalidate_session({false, first}, server = Role, Host, Port, Session) ->
 maybe_invalidate_session(_, _, _, _, _) ->
     ok.
 
-terminate({shutdown, ktls}, connection, State) ->
+terminate({shutdown, ktls}, _, State) ->
     %% Socket shall not be closed as it should be returned to user
     handle_trusted_certs_db(State);
 terminate({shutdown, downgrade}, downgrade, State) ->
@@ -2051,6 +2019,9 @@ get_socket_opts(Connection, Transport, Socket, Tab, [active | Tags], SockOpts, A
 get_socket_opts(Connection, Transport, Socket, Tab, [packet_size | Tags], SockOpts, Acc) ->
     get_socket_opts(Connection, Transport, Socket, Tab, Tags, SockOpts,
 		    [{packet_size, SockOpts#socket_options.packet_size} | Acc]);
+get_socket_opts(Connection, Transport, Socket, Tab, [read_ahead | Tags], SockOpts, Acc) ->
+    get_socket_opts(Connection, Transport, Socket, Tab, Tags, SockOpts,
+                    [{read_ahead, SockOpts#socket_options.read_ahead} | Acc]);
 get_socket_opts(tls_gen_connection, tls_socket_tcp, Socket, Tab, [high_watermark | Tags], SockOpts, Acc) ->
     Emulated = try ets:lookup_element(Tab, high_watermark, 2) of
                    Val -> Val
@@ -2181,6 +2152,10 @@ set_socket_opts(tls_gen_connection, Transport,Socket, Tab, [{packet_size, Size}|
                     SockOpts#socket_options{packet_size = Size}, Other);
 set_socket_opts(_,_, _, _Tab, [{packet_size, _} = Opt| _], SockOpts, _) ->
     {{error, {options, {socket_options, Opt}} }, SockOpts};
+set_socket_opts(ConnectionCb, Transport, Socket, Tab, [{read_ahead, ReadAhead} | Opts], SockOpts, Other)
+  when is_boolean(ReadAhead) ->
+    set_socket_opts(ConnectionCb, Transport, Socket, Tab, Opts,
+                    SockOpts#socket_options{read_ahead = ReadAhead}, Other);
 set_socket_opts(ConnectionCb, Transport, Socket, Tab, [Opt | Opts], SockOpts, Other) ->
     set_socket_opts(ConnectionCb, Transport, Socket, Tab, Opts, SockOpts, [Opt | Other]).
 

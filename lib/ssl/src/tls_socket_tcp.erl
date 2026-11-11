@@ -48,7 +48,7 @@
 %%         send/4,
          recv/2, recv/3,
 
-         data_available/4
+         data_available/4, data_available/5
         ]).
 
 %% -define(DBG_LOG(F,A), ct:log(default, 1, "~w:~w: " ++ F, [?MODULE, ?LINE|A], [esc_chars])).
@@ -208,6 +208,12 @@ send_async(Socket, Data, Handle) ->
 cancel(Socket, SelInfo) ->
     socket:cancel(Socket, SelInfo).
 
+%% kTLS handshake: read at most Size bytes, up to the end of a record
+data_available(Socket, select, Handle, Activate, Size) ->
+    data_available_result(Socket, Handle, Activate, socket:recv(Socket, Size, [], Handle), []);
+data_available(Socket, Type, Handle, Activate, _Size) ->
+    data_available(Socket, Type, Handle, Activate).
+
 %% Note: returns the reverse list of packets
 data_available(Socket, completion, {Handle, Res}, false = Activate) ->
     data_available_result(Socket, Handle, Activate, Res, []);
@@ -248,6 +254,8 @@ data_available_result(Socket, __Handle, Activate, Res, Acc) ->
             %% Windows
             ?DBG_LOG("~w wait_select ~p", [get(tls_role), _Handle]),
             {Acc, CI};
+        {select, {{select_info, _, _} = SI, Data}} -> %% Size limited read
+            {append(Data, Acc), SI};
         {select, {_, recv, _Handle} = SI} ->
             %% First time
             ?DBG_LOG("~w wait_select ~p", [get(tls_role), _Handle]),
