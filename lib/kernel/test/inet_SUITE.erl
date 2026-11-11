@@ -45,6 +45,8 @@
 	 gethostnative_parallell/1, cname_loop/1,
          missing_hosts_reload/1, hosts_file_quirks/1,
          gethostnative_soft_restart/0, gethostnative_soft_restart/1,
+         gethostnative_soft_restart_no_sup/1,
+         gethostnative_debug_level_no_sup/1,
 	 gethostnative_debug_level/0, gethostnative_debug_level/1,
 	 lookup_bad_search_option/1,
 	 getif/1,
@@ -78,6 +80,7 @@ all() ->
      t_gethostnative, gethostnative_parallell, cname_loop,
      missing_hosts_reload, hosts_file_quirks,
      gethostnative_debug_level, gethostnative_soft_restart,
+     gethostnative_soft_restart_no_sup, gethostnative_debug_level_no_sup,
      lookup_bad_search_option,
      getif, getif_ifr_name_overflow, getservbyname_overflow,
      getifaddrs, parse_strict_address, ipv4_mapped_ipv6_address, ntoa,
@@ -1459,6 +1462,35 @@ gethostnative_debug_level(Config) when is_list(Config) ->
                                         [{debug_level, 1},
                                          {debug_level, 0}]),
     gethostnative_control(Config, Opts).
+
+gethostnative_soft_restart_no_sup(Config) when is_list(Config) ->
+    gethostnative_control_no_sup(soft_restart).
+
+gethostnative_debug_level_no_sup(Config) when is_list(Config) ->
+    gethostnative_control_no_sup({debug_level, 0}).
+
+gethostnative_control_no_sup(Op) ->
+    {ok, Peer, _} = ?CT_PEER(#{connection => standard_io,
+                             args => ["-kernel", "start_distribution", "false"]}),
+    try
+        Result = peer:call(
+                   Peer, erlang, apply,
+                   [fun() ->
+                            undefined = whereis(inet_gethost_native),
+                            undefined = whereis(net_sup),
+                            Sup = whereis(kernel_safe_sup),
+                            true = unregister(kernel_safe_sup),
+                            try
+                                inet_gethost_native:control(Op)
+                            after
+                                true = register(kernel_safe_sup, Sup)
+                            end
+                    end, []], 15000),
+        {error, notsup} = Result,
+        ok
+    after
+        peer:stop(Peer)
+    end.
 
 gethostnative_adjusted_opts(Config, CtrlSeq) ->
     Factor = ?config(kernel_factor, Config),
