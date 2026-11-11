@@ -2698,6 +2698,21 @@ ERL_NIF_TERM essio_accept_accepting_current_error(ErlNifEnv*       env,
                     "\r\n", descP->sock) );
             res = essio_accept_busy_retry(env, descP, sockRef, accRef,
                                           &descP->currentAcceptor.pid);
+
+        } else if (IS_IDENTICAL(res, esock_atom_select_sent)) {
+
+            /* The select has already fired, so there is nothing to
+             * cancel or abort. Reuse the env and select again. */
+            SSDBG( descP,
+                   ("UNIX-ESSIO",
+                    "essio_accept_accepting_current_error(%d) -> "
+                    "select sent: try new select"
+                    "\r\n", descP->sock) );
+            enif_clear_env(descP->currentAcceptor.env);
+            descP->currentAcceptor.ref =
+                CP_TERM(descP->currentAcceptor.env, accRef);
+            res = essio_accept_busy_retry(env, descP, sockRef, accRef,
+                                          &descP->currentAcceptor.pid);
         }
 
     } else {

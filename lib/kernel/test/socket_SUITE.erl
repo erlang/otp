@@ -185,6 +185,7 @@
          otp18240_accept_mon_leak_tcp4/1,
          otp18240_accept_mon_leak_tcp6/1,
          otp18635/1,
+         accept_select_sent/1,
          otp19063/1,
          otp19251/1,
          otp19469_read_all/1, otp19469_read_part/1,
@@ -439,6 +440,7 @@ tickets_cases() ->
      {group, otp16359},
      {group, otp18240},
      otp18635,
+     accept_select_sent,
      otp19063,
      otp19251,
      {group, otp19469},
@@ -12311,6 +12313,112 @@ do_otp18635(_) ->
     ?P("done when"
        "~n   (gen socket) info: ~p"
        "~n   Sockets:           ~p", [socket:info(), socket:which_sockets()]),
+
+    Result.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%% This test case is to verify that the current acceptor selects again
+%% when its select has fired but accept finds nothing (EAGAIN).
+%% Here DupLSock, a dup of LSock's fd, takes the connection.
+%% The select has already been sent, so cancelling it returns select_sent;
+%% this used to leave the acceptor without a select, and processes
+%% queued behind it were never woken.
+accept_select_sent(Config) when is_list(Config) ->
+    ?TT(?SECS(30)),
+    tc_try(?FUNCTION_NAME,
+           fun() ->
+                   is_not_windows(),
+                   has_support_ipv4()
+           end,
+           fun() ->
+                   InitState = #{},
+                   ok = do_accept_select_sent(InitState)
+           end).
+
+
+do_accept_select_sent(_) ->
+    ?P("Get \"proper\" local socket address"),
+    LSA = which_local_socket_addr(inet),
+
+    ?P("create, bind and listen"),
+    {ok, LSock} = socket:open(inet, stream, tcp),
+    ok = socket:bind(LSock, LSA),
+    ok = socket:listen(LSock),
+    {ok, SA} = socket:sockname(LSock),
+
+    ?P("dup LSock's fd as DupLSock"),
+    {ok, FD} = socket:getopt(LSock, {otp, fd}),
+    {ok, DupLSock} = socket:open(FD, #{domain   => inet,
+                                       type     => stream,
+                                       protocol => tcp}),
+
+    ?P("try accept with timeout = nowait - expect select"),
+    {select, {select_info, _, Handle1}} = socket:accept(LSock, nowait),
+
+    ?P("connect"),
+    {ok, CSock1} = socket:open(inet, stream, tcp),
+    ok = socket:connect(CSock1, SA),
+
+    ?P("await select message"),
+    receive
+        {'$socket', LSock, select, Handle1} ->
+            ok
+    after ?SECS(5) ->
+            ?FAIL(no_select)
+    end,
+
+    ?P("accept on DupLSock, taking the connection"),
+    {ok, ASock1} = socket:accept(DupLSock, ?SECS(5)),
+
+    ?P("try accept again with timeout = nowait - expect select"),
+    Handle2 =
+        case socket:accept(LSock, nowait) of
+            {select, {select_info, _, H}} ->
+                H;
+            Unexpected ->
+                ?P("unexpected accept result: "
+                   "~n   ~p", [Unexpected]),
+                ?FAIL({unexpected_accept_result, Unexpected})
+        end,
+
+    ?P("accept in another process (queued behind us)"),
+    {Acceptor, MRef} =
+        spawn_monitor(fun() ->
+                              exit({accept, socket:accept(LSock, ?SECS(5))})
+                      end),
+    ?SLEEP(100),
+
+    ?P("connect again"),
+    {ok, CSock2} = socket:open(inet, stream, tcp),
+    ok = socket:connect(CSock2, SA),
+
+    ?P("await select message for the new handle"),
+    receive
+        {'$socket', LSock, select, Handle2} ->
+            ok
+    after ?SECS(5) ->
+            ?FAIL(no_select_after_retry)
+    end,
+    {ok, ASock2} = socket:accept(LSock, nowait),
+
+    ?P("connect a third time - expect the other process to accept"),
+    {ok, CSock3} = socket:open(inet, stream, tcp),
+    ok = socket:connect(CSock3, SA),
+    Result =
+        receive
+            {'DOWN', MRef, process, Acceptor, {accept, {ok, _}}} ->
+                ok;
+            {'DOWN', MRef, process, Acceptor, Reason} ->
+                ?P("unexpected acceptor result: "
+                   "~n   ~p", [Reason]),
+                {error, {acceptor, Reason}}
+        end,
+
+    ?P("cleanup"),
+    _ = [socket:close(S) ||
+            S <- [CSock1, CSock2, CSock3, ASock1, ASock2, DupLSock, LSock]],
 
     Result.
 
