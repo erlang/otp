@@ -453,9 +453,8 @@ static ethr_ts_event *ts_event_pool(int size, ethr_ts_event **endpp)
     if (!atsev)
 	return NULL;
     if ((((ethr_uint_t) atsev) & ETHR_CACHE_LINE_MASK) != 0)
-	atsev = ((ethr_aligned_ts_event *)
-		 ((((ethr_uint_t) atsev) & ~ETHR_CACHE_LINE_MASK)
-		  + ETHR_CACHE_LINE_SIZE));
+	atsev = (ethr_aligned_ts_event *)
+	    ((char *) atsev + (ETHR_CACHE_LINE_SIZE - (((ethr_uint_t) atsev) & ETHR_CACHE_LINE_MASK)));
     for (i = 1; i < size; i++) {
 	atsev[i-1].ts_ev.next = &atsev[i].ts_ev;
 	ethr_atomic32_init(&atsev[i-1].ts_ev.uaflgs, 0);

@@ -66,7 +66,7 @@
 
 /* Assume 64-byte cache line size */
 #define ETHR_CACHE_LINE_SIZE ASSUMED_CACHE_LINE_SIZE
-#define ETHR_CACHE_LINE_MASK (ETHR_CACHE_LINE_SIZE - 1)
+#define ETHR_CACHE_LINE_MASK (((ethr_uint_t) ETHR_CACHE_LINE_SIZE) - 1)
 
 #define ETHR_CACHE_LINE_ALIGN_SIZE(SZ) \
   (((((SZ) - 1) / ETHR_CACHE_LINE_SIZE) + 1) * ETHR_CACHE_LINE_SIZE)
@@ -256,8 +256,10 @@ typedef unsigned long long ethr_uint64_t;
 #endif
 typedef ethr_sint32_t ethr_sint_t;
 typedef ethr_uint32_t ethr_uint_t;
-#elif ETHR_SIZEOF_PTR == 8 || \
-      (defined(__CHERI_PURE_CAPABILITY__) && ETHR_SIZEOF_PTR == 16)
+#elif defined(__CHERI_PURE_CAPABILITY__) && ETHR_SIZEOF_PTR == 16
+typedef intptr_t ethr_sint_t;
+typedef uintptr_t ethr_uint_t;
+#elif ETHR_SIZEOF_PTR == 8
 #ifndef ETHR_HAVE_INT64_T
 #error "No 64-bit integer type found"
 #endif

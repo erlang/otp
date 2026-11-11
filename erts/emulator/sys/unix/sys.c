@@ -413,9 +413,55 @@ void erts_sys_scheduler_init(void) {
     sys_thread_init_signal_stack();
 }
 
+
+#if defined(__CHERI_PURE_CAPABILITY__)
+#include <ucontext.h>
+#include <signal.h>
+#include <unistd.h>
+
+static void
+cheri_fault_handler(int sig, siginfo_t *info, void *context)
+{
+    ucontext_t *uc = (ucontext_t *) context;
+    struct capregs *regs = &uc->uc_mcontext.mc_capregs;
+
+    dprintf(STDERR_FILENO,
+            "\n=== CHERI FAULT ===\n"
+            "Signal: %d\n"
+            "si_code: %d\n"
+            "Faulting address: %p\n"
+            "PC: %p\n"
+            "LR: %p\n"
+            "c0: %p\n"
+            "c1: %p\n"
+            "c2: %p\n",
+            sig,
+            info->si_code,
+            info->si_addr,
+            (void *) regs->cap_elr,
+            (void *) regs->cap_lr,
+            (void *) regs->cap_x[0],
+            (void *) regs->cap_x[1],
+            (void *) regs->cap_x[2]);
+
+    _exit(128 + sig);
+}
+#endif
+
 void
 erl_sys_init(void)
 {
+#if defined(__CHERI_PURE_CAPABILITY__)
+    struct sigaction cheri_sa = {0};
+
+    cheri_sa.sa_sigaction = cheri_fault_handler;
+    cheri_sa.sa_flags = SA_SIGINFO;
+    sigemptyset(&cheri_sa.sa_mask);
+
+    sigaction(SIGPROT, &cheri_sa, NULL);
+    sigaction(SIGBUS, &cheri_sa, NULL);
+#endif
+
 
 #ifdef USE_SETLINEBUF
     setlinebuf(stdout);

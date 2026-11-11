@@ -974,37 +974,37 @@ start_au_allocator(ErtsAlcType_t alctr_n,
 		     init->init.util.name_prefix);
 	tspec->allctr = (Allctr_t **) states;
 	states += sizeof(Allctr_t *) * (tspec->size + 1);
-	states = ((((UWord) states) & ERTS_CACHE_LINE_MASK)
-		  ? (char *) ((((UWord) states) & ~ERTS_CACHE_LINE_MASK)
-			      + ERTS_CACHE_LINE_SIZE)
-		  : (char *) states);
-	tspec->allctr[0] = (Allctr_t *) state;
-	size = tspec->size;
-	for (i = 1; i < size; i++)
-	    tspec->allctr[i] = (Allctr_t *)
-		&((ErtsAllocatorState_t *) states)[i-1];
+        states = ((((uintptr_t) states) & ERTS_CACHE_LINE_MASK)
+                  ? (char *) ((((uintptr_t) states) & ~(uintptr_t)ERTS_CACHE_LINE_MASK)
+                              + ERTS_CACHE_LINE_SIZE)
+                  : (char *) states);
+        tspec->allctr[0] = (Allctr_t *) state;
+        size = tspec->size;
+        for (i = 1; i < size; i++)
+            tspec->allctr[i] = (Allctr_t *)
+                &((ErtsAllocatorState_t *) states)[i-1];
     }
-
+	
     if (init->init.util.fix_type_size) {
-	size_t tot_fix_list_size;
-	fix_list_size = sizeof(ErtsAlcFixList_t)*ERTS_ALC_NO_FIXED_SIZES;
-	fix_list_size = ERTS_ALC_CACHE_LINE_ALIGN_SIZE(fix_list_size);
-	tot_fix_list_size = fix_list_size;
-	if (init->thr_spec)
-	    tot_fix_list_size *= tspec->size;
-	fix_lists = erts_sys_alloc(0,
-				   NULL,
-				   (tot_fix_list_size
-				    + ERTS_CACHE_LINE_SIZE - 1));
-	if (!fix_lists)
-	    erts_exit(ERTS_ABORT_EXIT,
-		     "Failed to allocate fix lists for %salloc\n",
-		     init->init.util.name_prefix);
-
-	if (((UWord) fix_lists) & ERTS_CACHE_LINE_MASK)
-		fix_lists = ((ErtsAlcFixList_t *)
-		       ((((UWord) fix_lists) & ~ERTS_CACHE_LINE_MASK)
-			+ ERTS_CACHE_LINE_SIZE));
+        size_t tot_fix_list_size;
+        fix_list_size = sizeof(ErtsAlcFixList_t)*ERTS_ALC_NO_FIXED_SIZES;
+        fix_list_size = ERTS_ALC_CACHE_LINE_ALIGN_SIZE(fix_list_size);
+        tot_fix_list_size = fix_list_size;
+        if (init->thr_spec)
+            tot_fix_list_size *= tspec->size;
+        fix_lists = erts_sys_alloc(0,
+                                   NULL,
+                                   (tot_fix_list_size
+                                    + ERTS_CACHE_LINE_SIZE - 1));
+        if (!fix_lists)
+            erts_exit(ERTS_ABORT_EXIT,
+                      "Failed to allocate fix lists for %salloc\n",
+                      init->init.util.name_prefix);
+	
+        if (((uintptr_t) fix_lists) & ERTS_CACHE_LINE_MASK)
+            fix_lists = ((ErtsAlcFixList_t *)
+                    ((((uintptr_t) fix_lists) & ~(uintptr_t)ERTS_CACHE_LINE_MASK)
+                    + ERTS_CACHE_LINE_SIZE));
     }
 
     for (i = 0; i < size; i++) {
@@ -3074,8 +3074,8 @@ void *erts_alloc_permanent_aligned(ErtsAlcType_t type,
                                    Uint size,
                                    Uint alignment)
 {
-    const UWord m = (alignment - 1);
-    UWord v = (UWord) erts_alloc(type,
+    const uintptr_t m = (alignment - 1);
+    uintptr_t v = (uintptr_t) erts_alloc(type,
 #ifdef VALGRIND
                                  sizeof(UWord) +
 #endif
@@ -3083,9 +3083,9 @@ void *erts_alloc_permanent_aligned(ErtsAlcType_t type,
 
 #ifdef VALGRIND
     {   /* Link them to avoid Leak_PossiblyLost */
-        static UWord* first_in_list = NULL;
-        *(UWord**)v = first_in_list;
-        first_in_list = (UWord*) v;
+        static uintptr_t* first_in_list = NULL;
+        *(uintptr_t**)v = first_in_list;
+        first_in_list = (uintptr_t*) v;
         v += sizeof(UWord);
     }
 #endif

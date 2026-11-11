@@ -2811,32 +2811,53 @@ static void
 aux_work_timeout_early_init(int max_no_aux_work_threads)
 {
     int i;
-    UWord p;
+    void *allocation;
+    ErtsAuxWorkTmo *aligned;
 
-    /*
-     * This is done really early. Our own allocators have
-     * not been started yet.
-     */
+    size_t size = sizeof(ErtsAuxWorkTmo)
+        + sizeof(erts_atomic32_t) * max_no_aux_work_threads
+        + ERTS_CACHE_LINE_SIZE - 1;
 
-    p = (UWord) malloc((sizeof(ErtsAuxWorkTmo)
-			+ (sizeof(erts_atomic32_t)
-                           * max_no_aux_work_threads))
-		       + ERTS_CACHE_LINE_SIZE-1);
-    if (!p) {
+    allocation = malloc(size);
+
+    if (!allocation) {
         ERTS_INTERNAL_ERROR("malloc failed to allocate memory!");
     }
-    if (p & ERTS_CACHE_LINE_MASK)
-	p = (p & ~ERTS_CACHE_LINE_MASK) + ERTS_CACHE_LINE_SIZE;
-    ASSERT((p & ERTS_CACHE_LINE_MASK) == 0);
 
-    aux_work_tmo = (ErtsAuxWorkTmo *) p;
+#if defined(__CHERI_PURE_CAPABILITY__)
+    uintptr_t addr = __builtin_cheri_address_get(allocation);
+
+    uintptr_t aligned_addr =
+        (addr + ERTS_CACHE_LINE_SIZE - 1)
+        & ~(uintptr_t)ERTS_CACHE_LINE_MASK;
+
+    aligned = (ErtsAuxWorkTmo *)
+        __builtin_cheri_address_set(allocation, aligned_addr);
+#else
+    uintptr_t addr = (uintptr_t)allocation;
+
+    uintptr_t aligned_addr =
+        (addr + ERTS_CACHE_LINE_SIZE - 1)
+        & ~(uintptr_t)ERTS_CACHE_LINE_MASK;
+
+    aligned = (ErtsAuxWorkTmo *)aligned_addr;
+#endif
+
+    aux_work_tmo = aligned;
+
+    ASSERT((aligned_addr & ERTS_CACHE_LINE_MASK) == 0);
+
     aux_work_tmo->initialized = 0;
+
     erts_atomic32_init_nob(&aux_work_tmo->refc, 0);
+
 #ifdef DEBUG
     erts_atomic32_init_nob(&aux_work_tmo->used, 0);
 #endif
-    for (i = 0; i < max_no_aux_work_threads; i++)
-	erts_atomic32_init_nob(&aux_work_tmo->type[i], 0);
+
+    for (i = 0; i < max_no_aux_work_threads; i++) {
+        erts_atomic32_init_nob(&aux_work_tmo->type[i], 0);
+    }
 }
 
 void
@@ -4845,13 +4866,13 @@ alloc_mpaths(void)
 	return res;
     }
     res = erts_alloc(ERTS_ALC_T_SL_MPATHS,
-		     mpaths.size+ERTS_CACHE_LINE_SIZE);
-    block = (void *) res;
-    if (((UWord) res) & ERTS_CACHE_LINE_MASK)
-	res = (ErtsMigrationPaths *) ((((UWord) res) & ~ERTS_CACHE_LINE_MASK)
-				      + ERTS_CACHE_LINE_SIZE);
-    res->block = block;
-    return res;
+                         mpaths.size+ERTS_CACHE_LINE_SIZE);
+        block = (void *) res;
+        if (((uintptr_t) res) & ERTS_CACHE_LINE_MASK)
+            res = (ErtsMigrationPaths *) ((((uintptr_t) res) & ~(uintptr_t)ERTS_CACHE_LINE_MASK)
+                                          + ERTS_CACHE_LINE_SIZE);
+        res->block = block;
+        return res;
 }
 
 static ERTS_INLINE void

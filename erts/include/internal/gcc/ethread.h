@@ -103,9 +103,9 @@
  * Sizes less than or equal to word size have been fixed,
  * but double word size has not been fixed.
  */
-#  if ETHR_SIZEOF_PTR == 8
+#  if ETHR_SIZEOF_PTR == 8 || ETHR_SIZEOF_PTR == 16
 #    define ETHR___atomic_load_ACQUIRE_barrier_bug \
-    (~(8|4) & ETHR_GCC_VERSIONS_MASK__)
+    (~(16|8|4) & ETHR_GCC_VERSIONS_MASK__)
 #  elif ETHR_SIZEOF_PTR == 4
 #    define ETHR___atomic_load_ACQUIRE_barrier_bug \
     (~4 & ETHR_GCC_VERSIONS_MASK__)
@@ -344,7 +344,7 @@
 #  include "ethr_atomic.h"
 #endif
 
-#if ETHR_SIZEOF_PTR == 8 && !defined(ETHR_HAVE_NATIVE_ATOMIC64)
+#if (ETHR_SIZEOF_PTR == 8 || ETHR_SIZEOF_PTR == 16) && !defined(ETHR_HAVE_NATIVE_ATOMIC64)
 #  define ETHR_ATOMIC_WANT_64BIT_IMPL__
 #  include "ethr_atomic.h"
 #endif

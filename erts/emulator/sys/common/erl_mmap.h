@@ -102,31 +102,31 @@ typedef struct {
     {{NULL, NULL}, {NULL, NULL}, ERTS_LITERAL_VIRTUAL_AREA_SIZE, 1, (1 << 10), 0, 0}
 
 
-#define ERTS_SUPERALIGNED_SIZE \
-    (1 << ERTS_MMAP_SUPERALIGNED_BITS)
-#define ERTS_INV_SUPERALIGNED_MASK \
-    ((UWord) (ERTS_SUPERALIGNED_SIZE - 1))
-#define ERTS_SUPERALIGNED_MASK \
-    (~ERTS_INV_SUPERALIGNED_MASK)
-#define ERTS_SUPERALIGNED_FLOOR(X) \
-    (((UWord) (X)) & ERTS_SUPERALIGNED_MASK)
-#define ERTS_SUPERALIGNED_CEILING(X) \
-    ERTS_SUPERALIGNED_FLOOR((X) + ERTS_INV_SUPERALIGNED_MASK)
-#define ERTS_IS_SUPERALIGNED(X) \
-    (((UWord) (X) & ERTS_INV_SUPERALIGNED_MASK) == 0)
-
-#define ERTS_INV_PAGEALIGNED_MASK \
-    (erts_page_inv_mask)
-#define ERTS_PAGEALIGNED_MASK \
-    (~ERTS_INV_PAGEALIGNED_MASK)
-#define ERTS_PAGEALIGNED_FLOOR(X) \
-    (((UWord) (X)) & ERTS_PAGEALIGNED_MASK)
-#define ERTS_PAGEALIGNED_CEILING(X) \
-    ERTS_PAGEALIGNED_FLOOR((X) + ERTS_INV_PAGEALIGNED_MASK)
-#define ERTS_IS_PAGEALIGNED(X) \
-    (((UWord) (X) & ERTS_INV_PAGEALIGNED_MASK) == 0)
-#define ERTS_PAGEALIGNED_SIZE \
-    (ERTS_INV_PAGEALIGNED_MASK + 1)
+    #define ERTS_SUPERALIGNED_SIZE \
+        (1 << ERTS_MMAP_SUPERALIGNED_BITS)
+    #define ERTS_INV_SUPERALIGNED_MASK \
+        ((uintptr_t) (ERTS_SUPERALIGNED_SIZE - 1))
+    #define ERTS_SUPERALIGNED_MASK \
+        (~ERTS_INV_SUPERALIGNED_MASK)
+    #define ERTS_SUPERALIGNED_FLOOR(X) \
+        (((uintptr_t) (X)) & ERTS_SUPERALIGNED_MASK)
+    #define ERTS_SUPERALIGNED_CEILING(X) \
+        ERTS_SUPERALIGNED_FLOOR((uintptr_t)(X) + ERTS_INV_SUPERALIGNED_MASK)
+    #define ERTS_IS_SUPERALIGNED(X) \
+        (((uintptr_t) (X) & ERTS_INV_SUPERALIGNED_MASK) == 0)
+    
+    #define ERTS_INV_PAGEALIGNED_MASK \
+        ((uintptr_t) erts_page_inv_mask)
+    #define ERTS_PAGEALIGNED_MASK \
+        (~ERTS_INV_PAGEALIGNED_MASK)
+    #define ERTS_PAGEALIGNED_FLOOR(X) \
+        (((uintptr_t) (X)) & ERTS_PAGEALIGNED_MASK)
+    #define ERTS_PAGEALIGNED_CEILING(X) \
+        ERTS_PAGEALIGNED_FLOOR((uintptr_t)(X) + ERTS_INV_PAGEALIGNED_MASK)
+    #define ERTS_IS_PAGEALIGNED(X) \
+        (((uintptr_t) (X) & ERTS_INV_PAGEALIGNED_MASK) == 0)
+    #define ERTS_PAGEALIGNED_SIZE \
+        ((UWord) (erts_page_inv_mask + 1))
 
 struct process;
 Eterm erts_mmap_debug_info(struct process*);

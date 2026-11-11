@@ -161,7 +161,7 @@ erts_thr_q_create(ErtsThrQInit_t *qi)
 {
     ErtsAlcType_t atype;
     ErtsThrQ_t *q, *qblk;
-    UWord qw;
+    uintptr_t qw;
 
     switch (qi->live.queue) {
     case ERTS_THR_Q_LIVE_SHORT:
@@ -175,13 +175,13 @@ erts_thr_q_create(ErtsThrQInit_t *qi)
 	break;
     }
 
-    qw = (UWord) erts_alloc(atype,
-			    sizeof(ErtsThrQ_t) + (ERTS_CACHE_LINE_SIZE-1));
-    qblk = (ErtsThrQ_t *) qw;
-    if (qw & ERTS_CACHE_LINE_MASK)
-	qw = (qw & ~ERTS_CACHE_LINE_MASK) + ERTS_CACHE_LINE_SIZE;
-    ASSERT((qw & ERTS_CACHE_LINE_MASK) == 0);
-    q = (ErtsThrQ_t *) qw;
+    qw = (uintptr_t) erts_alloc(atype,
+                                sizeof(ErtsThrQ_t) + (ERTS_CACHE_LINE_SIZE-1));
+        qblk = (ErtsThrQ_t *) qw;
+        if (qw & ERTS_CACHE_LINE_MASK)
+            qw = (qw & ~(uintptr_t)ERTS_CACHE_LINE_MASK) + ERTS_CACHE_LINE_SIZE;
+        ASSERT((qw & ERTS_CACHE_LINE_MASK) == 0);
+        q = (ErtsThrQ_t *) qw;
     erts_thr_q_initialize(q, qi);
     q->q.blk = qblk;
     return q;

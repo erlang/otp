@@ -1339,8 +1339,13 @@ os_munmap(void *ptr, UWord size)
 #endif
 }
 
-#define ALIGN_UP(x, a) ((void*)((((UWord)(x)) + ((a) - 1)) & ~((a) - 1)))
-#define IS_ALIGNED(x, a) ((((UWord)(x)) & ((a) - 1)) == 0)
+#if defined(__CHERI_PURE_CAPABILITY__)
+#define ALIGN_UP(x, a) ((void *)__builtin_align_up((x), (size_t)(a)))
+#define IS_ALIGNED(x, a) __builtin_is_aligned((x), (size_t)(a))
+#else
+#define ALIGN_UP(x, a) ((void*)((((uintptr_t)(x)) + ((uintptr_t)(a) - 1)) & ~((uintptr_t)(a) - 1)))
+#define IS_ALIGNED(x, a) ((((uintptr_t)(x)) & ((uintptr_t)(a) - 1)) == 0)
+#endif
 
 /*
  * Just like os_mmap, but ensures that mapping is a multiple of the
@@ -1455,7 +1460,11 @@ os_mremap(void *ptr, UWord old_size, UWord new_size)
 #else
 #define ERTS_MMAP_UNRESERVE_FLAGS	(ERTS_MMAP_FLAGS|MAP_NORESERVE|MAP_FIXED)
 #endif /* __FreeBSD__ */
+#if defined(__FreeBSD__) && defined(PROT_MAX)
+#define ERTS_MMAP_VIRTUAL_PROT		(PROT_NONE | PROT_MAX(ERTS_MMAP_PROT))
+#else
 #define ERTS_MMAP_VIRTUAL_PROT		(PROT_NONE)
+#endif
 #if defined(__FreeBSD__)
 #define ERTS_MMAP_VIRTUAL_FLAGS		(ERTS_MMAP_FLAGS)
 #else
@@ -1465,20 +1474,31 @@ os_mremap(void *ptr, UWord old_size, UWord new_size)
 static int
 os_reserve_physical(char *ptr, UWord size)
 {
-    void *res = mmap((void *) ptr, (size_t) size, ERTS_MMAP_RESERVE_PROT,
-		     ERTS_MMAP_RESERVE_FLAGS, ERTS_MMAP_FD, 0);
-    if (res == (void *) MAP_FAILED)
-	return 0;
+#if defined(__CHERI_PURE_CAPABILITY__)
+    if (mprotect((void *) ptr, (size_t) size, ERTS_MMAP_RESERVE_PROT) != 0)
+        return 0;
     return 1;
+#else
+    void *res = mmap((void *) ptr, (size_t) size, ERTS_MMAP_RESERVE_PROT,
+                     ERTS_MMAP_RESERVE_FLAGS, ERTS_MMAP_FD, 0);
+    if (res == (void *) MAP_FAILED)
+        return 0;
+    return 1;
+#endif
 }
 
 static void
 os_unreserve_physical(char *ptr, UWord size)
 {
+#if defined(__CHERI_PURE_CAPABILITY__)
+    if (mprotect((void *) ptr, (size_t) size, ERTS_MMAP_UNRESERVE_PROT) != 0)
+        erts_exit(ERTS_ABORT_EXIT, "Failed to unreserve memory");
+#else
     void *res = mmap((void *) ptr, (size_t) size, ERTS_MMAP_UNRESERVE_PROT,
-		     ERTS_MMAP_UNRESERVE_FLAGS, ERTS_MMAP_FD, 0);
+                     ERTS_MMAP_UNRESERVE_FLAGS, ERTS_MMAP_FD, 0);
     if (res == (void *) MAP_FAILED)
-	erts_exit(ERTS_ABORT_EXIT, "Failed to unreserve memory");
+        erts_exit(ERTS_ABORT_EXIT, "Failed to unreserve memory");
+#endif
 }
 
 static void *

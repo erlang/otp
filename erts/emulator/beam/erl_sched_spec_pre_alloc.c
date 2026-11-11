@@ -52,14 +52,17 @@ erts_sspa_create(size_t blk_sz, int pa_size, int nthreads, const char* name)
     int no_blocks_per_chunk;
     size_t aligned_blk_sz;
 
-#if !defined(ERTS_STRUCTURE_ALIGNED_ALLOC)
-    /* Force 64-bit alignment... */
-    aligned_blk_sz = ((blk_sz - 1) / 8) * 8 + 8;
-#else
-    /* Alignment of structure is enough... */
-    aligned_blk_sz = blk_sz;
-#endif
-
+    #if defined(__CHERI_PURE_CAPABILITY__)
+        /* Force capability-sized (16-byte) alignment... */
+        aligned_blk_sz = ((blk_sz - 1) / sizeof(void *)) * sizeof(void *) + sizeof(void *);
+    #elif !defined(ERTS_STRUCTURE_ALIGNED_ALLOC)
+        /* Force 64-bit alignment... */
+        aligned_blk_sz = ((blk_sz - 1) / 8) * 8 + 8;
+    #else
+        /* Alignment of structure is enough... */
+        aligned_blk_sz = blk_sz;
+    #endif
+    
     if (!name) { /* schedulers only variant */
         ASSERT(!nthreads);
         nthreads = erts_no_schedulers;

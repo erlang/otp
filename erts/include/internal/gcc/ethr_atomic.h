@@ -75,7 +75,11 @@
 #define ETHR_HAVE_NATIVE_ATOMIC64 1
 #define ETHR_NATMC_FUNC__(X) ethr_native_atomic64_ ## X
 #define ETHR_ATMC_T__ ethr_native_atomic64_t
+#if defined(__CHERI_PURE_CAPABILITY__)
+#define ETHR_AINT_T__ ethr_sint_t
+#else
 #define ETHR_AINT_T__ ethr_sint64_t
+#endif
 #if ((ETHR_HAVE___sync_val_compare_and_swap & 8) \
      && (ETHR_HAVE___atomic_compare_exchange_n & 8))
 #  define ETHR_NATIVE_ATOMIC64_IMPL "gcc_atomic_and_sync_builtins"

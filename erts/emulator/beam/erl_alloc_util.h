@@ -335,7 +335,7 @@ void erts_alcu_blockscan_init(struct ErtsAuxWorkData_ *awdp);
 #  endif
 #  define ERTS_SACRR_UNIT_SHIFT		ERTS_SUPER_ALIGN_BITS
 #  define ERTS_SACRR_UNIT_SZ		(1 << ERTS_SACRR_UNIT_SHIFT)
-#  define ERTS_SACRR_UNIT_MASK		((~(UWord)0) << ERTS_SACRR_UNIT_SHIFT)
+#  define ERTS_SACRR_UNIT_MASK		((~(uintptr_t)0) << ERTS_SACRR_UNIT_SHIFT)
 #  define ERTS_SACRR_UNIT_FLOOR(X)	((X) & ERTS_SACRR_UNIT_MASK)
 #  define ERTS_SACRR_UNIT_CEILING(X)	ERTS_SACRR_UNIT_FLOOR((X) + ~ERTS_SACRR_UNIT_MASK)
 #  define ERTS_SA_MB_CARRIERS 1
@@ -366,7 +366,7 @@ void erts_alcu_blockscan_init(struct ErtsAuxWorkData_ *awdp);
 
 #define CARRIER_SZ(C) ((C)->chdr & CRR_SZ_MASK)
 
-typedef union {char c[ERTS_ALLOC_ALIGN_BYTES]; long l; double d;} Unit_t;
+typedef union {char c[ERTS_ALLOC_ALIGN_BYTES]; long l; double d; void *p;} Unit_t;
 
 typedef struct Carrier_t_ Carrier_t;
 
@@ -431,7 +431,7 @@ typedef struct {
 			  (B)->u.carrier)
 #  define ABLK_TO_MBC(B) \
     (ASSERT(IS_MBC_BLK(B) && !IS_FREE_BLK(B)), \
-     (Carrier_t*)((ERTS_SACRR_UNIT_FLOOR((UWord)(B)) - \
+     (Carrier_t*)((ERTS_SACRR_UNIT_FLOOR((uintptr_t)(B)) - \
 		  ((((B)->bhdr & ~BLK_FLG_MASK) >> MBC_ABLK_OFFSET_SHIFT) \
                       << ERTS_SACRR_UNIT_SHIFT))))
 #  define BLK_TO_MBC(B) (IS_FREE_BLK(B) ? FBLK_TO_MBC(B) : ABLK_TO_MBC(B))
@@ -511,7 +511,7 @@ struct Carrier_t_ {
 };
 
 #define ERTS_ALC_CARRIER_TO_ALLCTR(C) \
-  ((Allctr_t *) (erts_atomic_read_nob(&(C)->allctr) & ~CRR_FLG_MASK))
+  ((Allctr_t *) (erts_atomic_read_nob(&(C)->allctr) & ~((erts_aint_t) CRR_FLG_MASK)))
 
 typedef struct {
     Carrier_t *first;

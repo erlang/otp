@@ -2606,9 +2606,8 @@ alloc_readers_array(int length, ethr_rwmutex_lived lived)
 	ra->data.byte_offset = 0;
     }
     else {
-	ra = ((ethr_rwmtx_readers_array__ *)
-	      ((((ethr_uint_t) mem) & ~ETHR_CACHE_LINE_MASK)
-	       + ETHR_CACHE_LINE_SIZE));
+	ra = (ethr_rwmtx_readers_array__ *)
+	    ((char *) mem + (ETHR_CACHE_LINE_SIZE - (((ethr_uint_t) mem) & ETHR_CACHE_LINE_MASK)));
 	ra->data.byte_offset = (int) ((ethr_uint_t) ra
 				      - (ethr_uint_t) mem);
     }

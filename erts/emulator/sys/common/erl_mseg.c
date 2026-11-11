@@ -1360,17 +1360,17 @@ void
 erts_mseg_init(ErtsMsegInit_t *init)
 {
     int i;
-    UWord x;
+    uintptr_t x;
 
     no_mseg_allocators = 1; /* Global instance */
     no_mseg_allocators += init->nos; /* Scheduler specific instances */
     no_mseg_allocators += init->ndai; /* Dirty alloc instances */
-    
-    x = (UWord) malloc(sizeof(ErtsAlgndMsegAllctr_t)
-		       *no_mseg_allocators
-		       + (ERTS_CACHE_LINE_SIZE-1));
+
+    x = (uintptr_t) malloc(sizeof(ErtsAlgndMsegAllctr_t)
+                       *no_mseg_allocators
+                       + (ERTS_CACHE_LINE_SIZE-1));
     if (x & ERTS_CACHE_LINE_MASK)
-	x = (x & ~ERTS_CACHE_LINE_MASK) + ERTS_CACHE_LINE_SIZE;
+        x = (x & ~(uintptr_t)ERTS_CACHE_LINE_MASK) + ERTS_CACHE_LINE_SIZE;
     ASSERT((x & ERTS_CACHE_LINE_MASK) == 0);
     aligned_mseg_allctr = (ErtsAlgndMsegAllctr_t *) x;
 

@@ -245,13 +245,13 @@ typedef ethr_sint32_t ethr_atomic32_t;
 #undef ETHR_NATMC_FUNC__
 #undef ETHR_NATMC_ADDR_FUNC__
 #undef ETHR_NATMC_BITS__
-#if ETHR_SIZEOF_PTR == 8 && defined(ETHR_HAVE_NATIVE_ATOMIC64)
+#if (ETHR_SIZEOF_PTR == 8 || ETHR_SIZEOF_PTR == 16) && defined(ETHR_HAVE_NATIVE_ATOMIC64)
 #  ifndef ETHR_NEED_NATMC64_ADDR
 #    define ETHR_NEED_NATMC64_ADDR
 #  endif
 #  define ETHR_NATMC_ADDR_FUNC__ ethr_native_atomic64_addr
 typedef ethr_native_atomic64_t ethr_atomic_t;
-#  define ETHR_NAINT_T__ ethr_sint64_t
+#  define ETHR_NAINT_T__ ethr_sint_t
 #  define ETHR_NATMC_FUNC__(X) ethr_native_atomic64_ ## X
 #  define ETHR_NATMC_BITS__ 64
 #elif ETHR_SIZEOF_PTR == 4 && defined(ETHR_HAVE_NATIVE_ATOMIC32)
