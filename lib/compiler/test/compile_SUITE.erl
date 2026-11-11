@@ -21,6 +21,8 @@
 %%
 -module(compile_SUITE).
 
+-behaviour(ct_suite).
+
 %% Tests compile:file/1 and compile:file/2 with various options.
 
 -include_lib("common_test/include/ct.hrl").

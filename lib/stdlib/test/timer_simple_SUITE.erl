@@ -23,6 +23,8 @@
 
 -module(timer_simple_SUITE).
 
+-behaviour(ct_suite).
+
 %% This test suite matches on opaque tref() return values from the *_after
 %% and *_interval functions, namely {instant, _}, {send_local, _}, {once, _}
 %% and {interval, _}.

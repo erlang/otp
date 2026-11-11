@@ -20,6 +20,9 @@
 %% %CopyrightEnd%
 
 -module(rand_SUITE).
+
+-behaviour(ct_suite).
+
 -compile({nowarn_deprecated_function,[{random,seed,1},
                                       {random,uniform_s,1},
                                       {random,uniform_s,2}]}).

@@ -20,6 +20,9 @@
 %% %CopyrightEnd%
 %%
 -module(ms_transform_SUITE).
+
+-behaviour(ct_suite).
+
 -author('pan@erix.ericsson.se').
 
 -include_lib("common_test/include/ct.hrl").

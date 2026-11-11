@@ -20,6 +20,9 @@
 %% %CopyrightEnd%
 
 -module(hello_SUITE).
+
+-behaviour(ct_suite).
+
 -export([all/0, suite/0, hello/1]).
 
 suite() ->

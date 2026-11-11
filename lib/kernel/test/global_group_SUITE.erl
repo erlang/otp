@@ -22,6 +22,8 @@
 
 -module(global_group_SUITE).
 
+-behaviour(ct_suite).
+
 -export([all/0, suite/0,groups/0,init_per_group/2,end_per_group/2,
 	 init_per_suite/1, end_per_suite/1]).
 -export([start_gg_proc/1, no_gg_proc/1, no_gg_proc_sync/1, compatible/1, 

@@ -22,6 +22,8 @@
 
 -module(busy_port_SUITE).
 
+-behaviour(ct_suite).
+
 -export([all/0, suite/0, init_per_testcase/2, end_per_testcase/2,
 	 io_to_busy/1, message_order/1, send_3/1, 
 	 system_monitor/1, no_trap_exit/1,

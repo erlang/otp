@@ -21,6 +21,9 @@
 %%
 
 -module(erl_drv_thread_SUITE).
+
+-behaviour(ct_suite).
+
 -author('rickard.s.green@ericsson.com').
 -export([all/0, suite/0]).
 

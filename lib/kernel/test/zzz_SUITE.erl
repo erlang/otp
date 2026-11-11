@@ -21,6 +21,8 @@
 %%
 -module(zzz_SUITE).
 
+-behaviour(ct_suite).
+
 %% The sole purpose of this test suite is for things we want to run last
 %% before the VM terminates.
 

@@ -27,6 +27,8 @@
 
 -module(diameter_watchdog_SUITE).
 
+-behaviour(ct_suite).
+
 %% testcases, no common_test dependency
 -export([run/0,
          run/1]).

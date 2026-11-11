@@ -22,6 +22,8 @@
 
 -module(bs_match_tail_SUITE).
 
+-behaviour(ct_suite).
+
 -author('bjorn@erix.ericsson.se').
 -export([all/0, suite/0,
 	 aligned/1,unaligned/1,zero_tail/1,huge_tail/1]).

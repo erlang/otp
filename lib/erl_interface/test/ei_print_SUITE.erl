@@ -23,6 +23,8 @@
 %%
 -module(ei_print_SUITE).
 
+-behaviour(ct_suite).
+
 -include_lib("common_test/include/ct.hrl").
 -include("ei_print_SUITE_data/ei_print_test_cases.hrl").
 

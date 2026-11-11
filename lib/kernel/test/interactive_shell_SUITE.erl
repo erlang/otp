@@ -20,6 +20,9 @@
 %% %CopyrightEnd%
 %%
 -module(interactive_shell_SUITE).
+
+-behaviour(ct_suite).
+
 -include("shell_test_lib.hrl").
 -include_lib("kernel/include/file.hrl").
 -include_lib("common_test/include/ct.hrl").

@@ -21,6 +21,9 @@
 
 
 -module(bad_groups_SUITE).
+
+-behaviour(ct_suite).
+
 -compile(export_all).
 -compile(nowarn_export_all).
 

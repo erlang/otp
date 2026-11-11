@@ -23,6 +23,8 @@
 
 -module(openssl_reject_SUITE).
 
+-behaviour(ct_suite).
+
 -include("ssl_test_lib.hrl").
 -include_lib("common_test/include/ct.hrl").
 %% Common test

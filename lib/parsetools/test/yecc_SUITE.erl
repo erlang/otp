@@ -21,6 +21,8 @@
 %%
 -module(yecc_SUITE).
 
+-behaviour(ct_suite).
+
 %-define(debug, true).
 
 -include_lib("stdlib/include/erl_compile.hrl").

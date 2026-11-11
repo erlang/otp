@@ -28,6 +28,9 @@
 %%% Created : 10 Jul 2006 by Rickard Green <rickard.s.green@ericsson.com>
 %%%-------------------------------------------------------------------
 -module(signal_SUITE).
+
+-behaviour(ct_suite).
+
 -author('rickard.s.green@ericsson.com').
 
 %-define(line_trace, 1).

@@ -22,6 +22,8 @@
 %%
 -module(inets_socketwrap_SUITE).
 
+-behaviour(ct_suite).
+
 -include_lib("common_test/include/ct.hrl").
 -include("inets_test_lib.hrl").
 

@@ -21,6 +21,8 @@
 %%
 -module(shell_docs_markdown_SUITE).
 
+-behaviour(ct_suite).
+
 %% callbacks
 -export([all/0, groups/0, init_per_group/2, end_per_group/2]).
 

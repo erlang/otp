@@ -21,6 +21,8 @@
 
 -module(reltool_server_SUITE).
 
+-behaviour(ct_suite).
+
 -compile([export_all, nowarn_export_all]).
 
 -include_lib("reltool/src/reltool.hrl").
