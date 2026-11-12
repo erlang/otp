@@ -999,7 +999,8 @@ bool_options() ->
      {latin1_binary,true},
      {truncated_character,true},
      {truncated_integer,true},
-     {native_record_header,true}].
+     {native_record_header,true},
+     {invalid_include_lib,true}].
 
 %% is_warn_enabled(Category, St) -> boolean().
 %%  Check whether a warning of category Category is enabled.
@@ -1152,6 +1153,11 @@ anno_set_file(T, File) ->
 %%  Check a form returning the updated State. Handle generic cases here.
 
 form({error,E}, St)   -> add_error(E, St);
+form({warning,{_,epp,invalid_include_lib}=W}, St) ->
+    case is_warn_enabled(invalid_include_lib, St) of
+        true -> add_warning(W, St);
+        false -> St
+    end;
 form({warning,W}, St) -> add_warning(W, St);
 form({attribute,_A,file,{File,_Line}}, St) ->
     St#lint{file = File};

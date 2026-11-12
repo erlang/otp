@@ -876,6 +876,10 @@ value are listed.
   native record definition in a header file with an `-import_record()`
   directive. Use this option to turn off this kind of warning.
 
+- **`nowarn_invalid_include_lib`** - By default, a warning is emitted when an
+  `include_lib` path is not a relative path of the form `Application/Path`.
+  Use this option to turn off this kind of warning.
+
 - **`nowarn_unsafe_function`** - Turns off warnings for calls to unsafe
   functions. Default is to emit warnings for every call to a function known by
   the compiler to be unsafe. Notice that the compiler does not know about
