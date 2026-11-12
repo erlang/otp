@@ -26,7 +26,8 @@
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, init_per_group/2,end_per_group/2]).
 
--export([start/1, start_link/1, stop/1, add/1, delete/1, responses/1]).
+-export([start/1, start_link/1, stop/1, add/1, delete/1, no_unread_updates/1,
+         responses/1]).
 
 %%-----------------------------------------------------------------
 %% Test suite for erl_boot_server.
@@ -42,7 +43,7 @@ suite() ->
      {timetrap,{minutes,1}}].
 
 all() -> 
-    [start, start_link, stop, add, delete, responses].
+    [start, start_link, stop, add, delete, no_unread_updates, responses].
 
 groups() -> 
     [].
@@ -288,6 +289,24 @@ delete(Config) when is_list(Config) ->
     [] = erl_boot_server:which_slaves(),
     ok = erl_boot_server:delete_slave(Ip3),
     [] = erl_boot_server:which_slaves(),
+
+    shutdown(Pid1),
+    process_flag(trap_exit, OldFlag),
+    ok.
+
+no_unread_updates(Config) when is_list(Config) ->
+    OldFlag = process_flag(trap_exit, true),
+    [Host1] = ?GOOD_HOSTS(1),
+    {ok, Pid1} = erl_boot_server:start_link([]),
+    {links, Links} = process_info(Pid1, links),
+    [Helper] = [P || P <- Links, is_pid(P), P =/= self()],
+
+    [begin
+         ok = erl_boot_server:add_slave(Host1),
+         ok = erl_boot_server:delete_slave(Host1)
+     end || _ <- lists:seq(1, 10)],
+    [] = erl_boot_server:which_slaves(),
+    {message_queue_len, 0} = process_info(Helper, message_queue_len),
 
     shutdown(Pid1),
     process_flag(trap_exit, OldFlag),
