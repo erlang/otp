@@ -2080,24 +2080,7 @@ add_init_and_end_per_suite([], _LastMod, undefined, _FwMod) ->
 add_init_and_end_per_suite([], _LastMod, skipped_suite, _FwMod) ->
     [];
 add_init_and_end_per_suite([], LastMod, LastRef, FwMod) ->
-    %% we'll add end_per_suite here even if it's not exported
-    %% (and simply let the call fail if it's missing)
-    case {erlang:function_exported(LastMod, end_per_suite, 1),
-          erlang:function_exported(LastMod, init_per_suite, 1)} of
-	{false,false} ->
-	    %% let's call a "fake" end_per_suite if it exists			
-	    case erlang:function_exported(FwMod, end_per_suite, 1) of
-		true ->					
-		    [{conf,LastRef,[{suite,LastMod}],{FwMod,end_per_suite}}];
-		false ->		
-		    [{conf,LastRef,[],{LastMod,end_per_suite}}]
-	    end;
-	_ ->
-            %% If any of these exist, the other should too
-            %% (required and documented). If it isn't, it will fail
-            %% with reason 'undef'.
-	    [{conf,LastRef,[],{LastMod,end_per_suite}}]
-    end.    
+    [end_per_suite_conf(LastMod, LastRef, FwMod, [{suite,LastMod}])].
 
 do_add_init_and_end_per_suite(LastMod, LastRef, Mod, FwMod) ->
     _ = case code:is_loaded(Mod) of
@@ -2105,24 +2088,14 @@ do_add_init_and_end_per_suite(LastMod, LastRef, Mod, FwMod) ->
 	_ -> ok
     end,
     {Init,NextMod,NextRef} =
-	case {erlang:function_exported(Mod, init_per_suite, 1),
-              erlang:function_exported(Mod, end_per_suite, 1)} of
-	    {false,false} ->
-		%% let's call a "fake" init_per_suite if it exists
-		case erlang:function_exported(FwMod, init_per_suite, 1) of
-		    true ->
-			Ref = make_ref(),
-			{[{conf,Ref,[{suite,Mod}],
-			   {FwMod,init_per_suite}}],Mod,Ref};
-		    false ->
-			{[],Mod,undefined}
-		end;
-	    _ ->
-                %% If any of these exist, the other should too
-                %% (required and documented). If it isn't, it will fail
-                %% with reason 'undef'.
+        case erlang:function_exported(Mod, init_per_suite, 1) orelse
+            erlang:function_exported(Mod, end_per_suite, 1) orelse
+            erlang:function_exported(FwMod, init_per_suite, 1) of
+            true ->
 		Ref = make_ref(),
-		{[{conf,Ref,[],{Mod,init_per_suite}}],Mod,Ref}
+                {[init_per_suite_conf(Mod, Ref, FwMod)],Mod,Ref};
+            false ->
+                {[],Mod,undefined}
 	end,
     Cases =
 	if LastRef==undefined ->
@@ -2130,25 +2103,7 @@ do_add_init_and_end_per_suite(LastMod, LastRef, Mod, FwMod) ->
 	   LastRef==skipped_suite ->
 		Init;
 	   true ->
-		%% we'll add end_per_suite here even if it's not exported
-		%% (and simply let the call fail if it's missing)
-		case {erlang:function_exported(LastMod, end_per_suite, 1),
-                      erlang:function_exported(LastMod, init_per_suite, 1)} of
-		    {false,false} ->
-			%% let's call a "fake" end_per_suite if it exists
-			case erlang:function_exported(FwMod, end_per_suite, 1) of
-			    true ->				
-				[{conf,LastRef,[{suite,LastMod}],
-				  {FwMod,end_per_suite}}|Init];
-			    false ->
-				[{conf,LastRef,[],{LastMod,end_per_suite}}|Init]
-			end;
-		    _ ->
-                        %% If any of these exist, the other should too
-                        %% (required and documented). If it isn't, it will fail
-                        %% with reason 'undef'.
-			[{conf,LastRef,[],{LastMod,end_per_suite}}|Init]
-                end
+                [end_per_suite_conf(LastMod, LastRef, FwMod, [{suite,LastMod}])|Init]
 	end,
     {Cases,NextMod,NextRef}.
 
@@ -2157,25 +2112,38 @@ do_add_end_per_suite_and_skip(LastMod, LastRef, Mod, FwMod) ->
 	No when No==undefined ; No==skipped_suite ->
 	    {[],Mod,skipped_suite};
 	_Ref ->
-	    case {erlang:function_exported(LastMod, end_per_suite, 1),
-                  erlang:function_exported(LastMod, init_per_suite, 1)} of
-		{false,false} ->
-		    case erlang:function_exported(FwMod, end_per_suite, 1) of
-			true ->				
-			    %% let's call "fake" end_per_suite if it exists
-			    {[{conf,LastRef,[],{FwMod,end_per_suite}}],
-			     Mod,skipped_suite};
-			false ->
-			    {[{conf,LastRef,[],{LastMod,end_per_suite}}],
-			     Mod,skipped_suite}
-		    end;
-		_ ->
-                    %% If any of these exist, the other should too
-                    %% (required and documented). If it isn't, it will fail
-                    %% with reason 'undef'.
-		    {[{conf,LastRef,[],{LastMod,end_per_suite}}],
-		     Mod,skipped_suite}
-	    end    	    
+            {[end_per_suite_conf(LastMod, LastRef, FwMod, [])],
+             Mod,skipped_suite}
+    end.
+
+%% The suite can define init_per_suite/1 and end_per_suite/1
+%% independently of each other: for a missing one, the "fake" one in
+%% the framework module is called instead, if it exists. Otherwise the
+%% call is added anyway, and simply fails. The end function gets the
+%% properties of the init conf, so these must name the suite whenever
+%% the framework is called for either of them.
+init_per_suite_conf(Mod, Ref, FwMod) ->
+    Init = erlang:function_exported(Mod, init_per_suite, 1),
+    End = erlang:function_exported(Mod, end_per_suite, 1),
+    FwInit = erlang:function_exported(FwMod, init_per_suite, 1),
+    FwEnd = erlang:function_exported(FwMod, end_per_suite, 1),
+    Props = if Init, End -> [];
+               Init, not FwEnd -> [];
+               true -> [{suite,Mod}]
+            end,
+    if not Init, FwInit ->
+            {conf,Ref,Props,{FwMod,init_per_suite}};
+       true ->
+            {conf,Ref,Props,{Mod,init_per_suite}}
+    end.
+
+end_per_suite_conf(Mod, Ref, FwMod, FwProps) ->
+    case {erlang:function_exported(Mod, end_per_suite, 1),
+          erlang:function_exported(FwMod, end_per_suite, 1)} of
+        {false,true} ->
+            {conf,Ref,FwProps,{FwMod,end_per_suite}};
+        _ ->
+            {conf,Ref,[],{Mod,end_per_suite}}
     end.
 
 

@@ -196,8 +196,8 @@ For information on `save_config` and `skip_and_save`, see section
 [Saving Configuration Data](dependencies_chapter.md#save_config) in the User's
 Guide.
 
-If this function is defined, then
-[`Module:end_per_suite/1`](`c:end_per_suite/1`) must also be defined.
+If this function is not defined, the test cases in the suite get `Config`
+unchanged.
 """.
 -callback init_per_suite(Config :: ct_config()) ->
     NewConfig :: ct_config() |
@@ -211,9 +211,6 @@ used for cleaning up after [`Module:init_per_suite/1`](`c:init_per_suite/1`).
 For information on `save_config`, see section
 [Saving Configuration Data](dependencies_chapter.md#save_config) in the User's
 Guide.
-
-If this function is defined, then
-[`Module:init_per_suite/1`](`c:init_per_suite/1`) must also be defined.
 """.
 -callback end_per_suite(Config :: ct_config()) ->
     term() |
@@ -273,8 +270,8 @@ If `{skip, Reason}` is returned, all test cases in the group are skipped and
 For information about test case groups, see section
 [Test Case Groups](write_test_chapter.md#test_case_groups) in the User's Guide.
 
-If this function is defined, then
-[`Module:end_per_group/2`](`c:end_per_group/2`) must also be defined.
+If this function is not defined, the test cases and subgroups in the group get
+`Config` unchanged.
 """.
 -callback init_per_group(GroupName :: ct_groupname(), Config :: ct_config()) ->
     NewConfig :: ct_config() |
@@ -292,9 +289,6 @@ set.
 
 For details about test case groups, see section
 [Test Case Groups](write_test_chapter.md#test_case_groups) in the User's Guide.
-
-If this function is defined, then
-[`Module:init_per_group/2`](`c:init_per_group/2`) must also be defined.
 """.
 -callback end_per_group(GroupName :: ct_groupname(), Config :: ct_config()) ->
     term() |
@@ -312,8 +306,7 @@ If `{fail, Reason}` is returned, the test case is marked as failed without being
 If `{skip, Reason}` is returned, the test case is skipped and `Reason` is
 printed in the overview log for the suite.
 
-If this function is defined, then
-[`Module:end_per_testcase/2`](`c:end_per_testcase/2`) must also be defined.
+If this function is not defined, the test case gets `Config` unchanged.
 """.
 -callback init_per_testcase(TestCase :: ct_testname(), Config :: ct_config()) ->
     NewConfig :: ct_config() |
@@ -332,9 +325,6 @@ terminating).
 For information on `save_config`, see section
 [Saving Configuration Data](dependencies_chapter.md#save_config) in the User's
 Guide.
-
-If this function is defined, then
-[`Module:init_per_testcase/2`](`c:init_per_testcase/2`) must also be defined.
 """.
 -callback end_per_testcase(TestCase :: ct_testname(), Config :: ct_config()) ->
     term() |
