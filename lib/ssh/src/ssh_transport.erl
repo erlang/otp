@@ -68,7 +68,8 @@
 -define(MIN_DH_KEY_SIZE, 400).
 
 %%% For test suites
--export([pack/3, adjust_algs_for_peer_version/2, hybrid_common/4]).
+-export([pack/3, adjust_algs_for_peer_version/2, hybrid_common/4,
+         compute_key/4]).
 
 %%%----------------------------------------------------------------------------
 %%%
