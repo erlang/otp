@@ -1117,8 +1117,11 @@ behavior of earlier flags.
     scheduler threads as possible to be fully loaded (that is, not run out of
     work). This is accomplished by migrating load (for example, runnable
     processes) into a smaller set of schedulers when schedulers frequently run
-    out of work. When disabled, the frequency with which schedulers run out of
-    work is not taken into account by the load balancing logic.
+    out of work. A scheduler re-evaluates the load distribution after a fixed
+    amount of work on its run queue, or when it schedules work more than one
+    second after the previous evaluation. When disabled, the frequency with
+    which schedulers run out of work is not taken into account by the load
+    balancing logic.
 
     `+scl false` is similar to [`+sub true`](#%2Bsub), but `+sub true`
     also balances scheduler utilization between schedulers.
