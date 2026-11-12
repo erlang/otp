@@ -49,7 +49,7 @@
                 on_load = #{} :: #{module() => {on_load_file(), client_pid(), on_load_pid()}},
                 loading = #{} :: #{module() => [{loading_action(), client_pid()}]}}).
 -type state() :: #state{}.
--type loading_action() :: load_module | get_object_code | finish_on_load.
+-type loading_action() :: load_module | batch_load_module | get_object_code | finish_on_load.
 
 %% Note: this type comes from code:load_binary/3 (type was not exported)
 -type on_load_file() :: 'cover_compiled' | 'preloaded' | file:filename().
@@ -366,6 +366,17 @@ handle_call({get_object_code_for_loading,Mod}, From, St0) when is_atom(Mod) ->
 
 handle_call(stop,_From, S) ->
     {stop,normal,stopped,S};
+
+handle_call({batch_finish_loading,Prepared}, _From, S) ->
+    {reply,batch_finish_loading(Prepared, S),S};
+
+handle_call({batch_load_module,PC,Mod,File}, From, #state{on_load=OnLoad}=S) ->
+    case is_map_key(Mod, OnLoad) of
+        true ->
+            {reply,{error,pending_on_load},S};
+        false ->
+            schedule_or_run_loader({batch_load_module,PC,File}, From, Mod, S)
+    end;
 
 handle_call({finish_loading,Prepared,EnsureLoaded}, _From, S) ->
     {reply,finish_loading(Prepared, EnsureLoaded, S),S};
@@ -1082,6 +1093,39 @@ is_dir(Path) ->
 %%% Loading of multiple modules in parallel.
 %%%
 
+batch_finish_loading(Prepared, #state{on_load=OnLoad,moddb=Db}=St) ->
+    {Ready,Errors} = batch_filter_loading(Prepared, OnLoad, Db, [], #{}),
+    batch_finish_loading(Ready, Errors, St).
+
+batch_filter_loading([{M,_}=P|Ps], OnLoad, Db, Ready, Errors) ->
+    case is_map_key(M, OnLoad) of
+        true ->
+            batch_filter_loading(Ps, OnLoad, Db, Ready,
+                                 Errors#{M => pending_on_load});
+        false ->
+            case is_sticky(M, Db) of
+                true ->
+                    batch_filter_loading(Ps, OnLoad, Db, Ready,
+                                         Errors#{M => sticky_directory});
+                false ->
+                    batch_filter_loading(Ps, OnLoad, Db, [P|Ready], Errors)
+            end
+    end;
+batch_filter_loading([], _OnLoad, _Db, Ready, Errors) ->
+    {Ready,Errors}.
+
+batch_finish_loading([], Errors, _St) ->
+    Errors;
+batch_finish_loading(Prepared, Errors, St) ->
+    case do_finish_loading(Prepared, St) of
+        ok ->
+            Errors;
+        {error,Failed} ->
+            FailedMap = maps:from_list(Failed),
+            Remaining = [P || {M,_}=P <- Prepared, not is_map_key(M, FailedMap)],
+            batch_finish_loading(Remaining, maps:merge(Errors, FailedMap), St)
+    end.
+
 finish_loading(Prepared, EnsureLoaded, #state{moddb=Db}=St) ->
     Ps = [fun(L) -> finish_loading_ensure(L, EnsureLoaded) end,
 	  fun(L) -> abort_if_pending_on_load(L, St) end,
@@ -1201,6 +1245,9 @@ handle_loader(get_object_code, Pid, Mod, St0) ->
             end
     end;
 
+handle_loader({batch_load_module, PC, File}, Pid, Mod, St0) ->
+    handle_loader({load_module, PC, File, false}, Pid, Mod, St0);
+
 handle_loader({load_module, PC, File, EnsureLoaded}, Pid, Mod, St0) ->
     case EnsureLoaded andalso erlang:module_loaded(Mod) of
         true ->
@@ -1259,9 +1306,15 @@ schedule_on_load(File, Pid, Mod, St0) ->
         exit(Res)
     end,
     Tag = {'ON_LOAD_DOWN', Mod},
-    {Loader, _} = spawn_opt(Fun, [{monitor, [{tag, Tag}]}]),
-    OnLoad = maps:put(Mod, {File, Pid, Loader}, OnLoad0),
-    {keep, St0#state{on_load=OnLoad}}.
+    try spawn_opt(Fun, [{monitor, [{tag, Tag}]}]) of
+        {Loader, _} ->
+            OnLoad = maps:put(Mod, {File, Pid, Loader}, OnLoad0),
+            {keep, St0#state{on_load=OnLoad}}
+    catch
+        error:system_limit ->
+            erts_code_purger:finish_after_on_load(Mod, false),
+            {next, {error, system_limit}, St0}
+    end.
 
 on_load_down(Mod, OnLoadRes, #state{on_load=OnLoad0}=St0) ->
     {{File, Pid, _Loader}, OnLoad} = maps:take(Mod, OnLoad0),

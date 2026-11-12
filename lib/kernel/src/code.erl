@@ -270,6 +270,7 @@ common reasons.
 	 load_abs/2,
 	 load_binary/3,
 	 atomic_load/1,
+         batch_load/1,
 	 prepare_loading/1,
 	 finish_loading/1,
 	 delete/1,
@@ -1300,6 +1301,110 @@ atomic_load(Modules) ->
     end.
 
 -doc """
+Tries to load all of the modules in the list `Modules`.
+
+Unlike `atomic_load/1`, a module-loading error does not prevent the other
+modules from being loaded, and modules with `on_load` functions are supported.
+Returns `{ok, Loaded, NotLoaded}`, where `Loaded` is a list of modules loaded
+successfully and `NotLoaded` is a map from failed modules to their error reasons.
+This result is returned even if all modules fail to load. For an empty list,
+the result is `{ok, [], #{}}`.
+
+Loading is not atomic, and successful loads are not rolled back.
+
+Modules without `on_load` functions are attempted first, using batch loading
+where possible. The remaining modules are loaded independently. This function
+waits for their `on_load` functions to finish, so a function that never finishes
+can prevent it from returning. No ordering between `on_load` functions is provided.
+
+Loading a module can fail for one of the following reasons:
+
+- **`badfile`** - The object code has an incorrect format or the module name in
+  the object code is not the expected module name.
+
+- **`nofile`** - No file with object code exists.
+
+- **`on_load_failure`** - An
+  [\-on_load function](`e:system:code_loading.md#on_load`) did not return `ok`.
+
+- **`duplicated`** - A module is included more than once in `Modules`.
+  None of the entries for that module is loaded.
+
+- **`not_purged`** - The object code cannot be loaded because an old version of
+  the code already exists.
+
+- **`sticky_directory`** - The module resides in a sticky directory.
+
+- **`pending_on_load`** - An earlier load of the module has an `on_load`
+  function that has not finished. This function does not wait for that load.
+
+- **`system_limit`** - A runtime resource limit prevents loading the module.
+
+The result describes the requested loads, not whether modules are already
+available. Old code is not automatically purged to allow reloading. If an
+`on_load` function fails, any previously current code remains available.
+""".
+-doc(#{since => <<"OTP 30.0">>}).
+-spec batch_load(Modules) -> {'ok',Loaded,NotLoaded} when
+      Modules :: [Module | {Module, Filename, Binary}],
+      Loaded :: [Module],
+      NotLoaded :: #{Module => What},
+      Module :: module(),
+      Filename :: file:filename(),
+      Binary :: binary(),
+      What :: load_error_rsn() | 'duplicated' | 'pending_on_load' | 'system_limit'.
+
+batch_load(Modules) ->
+    case partition_load(Modules, [], []) of
+        {ModBins,Ms} ->
+            batch_load_1(ModBins, Ms);
+        error ->
+            error(function_clause, [Modules])
+    end.
+
+batch_load_1(ModBins0, Ms0) ->
+    Errors0 = case prepare_check_uniq(ModBins0, Ms0) of
+                  ok -> #{};
+                  {error,Duplicated} -> maps:from_list(Duplicated)
+              end,
+    ModBins = [B || {M,_,_}=B <- ModBins0, not is_map_key(M, Errors0)],
+    Ms = [M || M <- Ms0, not is_map_key(M, Errors0)],
+    {Prep0,Errors1} = load_bins(ModBins),
+    {Prep1,Errors2} = load_mods(Ms),
+    {OnLoad,Normal} = partition_on_load(Prep0 ++ Prep1),
+    Errors3 = call({batch_finish_loading,Normal}),
+    Errors4 = batch_load_on_load(OnLoad),
+    NotLoaded = batch_load_errors(Errors1 ++ Errors2 ++ Errors4,
+                                 maps:merge(Errors0, Errors3)),
+    Modules = lists:usort([M || {M,_,_} <- ModBins0] ++ Ms0),
+    Loaded = [M || M <- Modules, not is_map_key(M, NotLoaded)],
+    {ok,Loaded,NotLoaded}.
+
+batch_load_on_load([]) ->
+    [];
+batch_load_on_load(OnLoad) ->
+    F = fun({M,{PC,File}}) ->
+        case call({batch_load_module,PC,M,File}) of
+            {module,M} -> {ok,ok};
+            {error,_}=Error -> Error
+        end
+    end,
+    {_,Errors} = do_par(F, OnLoad),
+    Errors.
+
+batch_load_errors([{M,Reason}|Errors], Acc)
+  when Reason =:= badfile; Reason =:= nofile; Reason =:= not_purged;
+       Reason =:= on_load_failure; Reason =:= sticky_directory;
+       Reason =:= pending_on_load; Reason =:= system_limit ->
+    batch_load_errors(Errors, Acc#{M => Reason});
+batch_load_errors([{_,{'DOWN',code_server,_}=Reason}|_], _Acc) ->
+    exit(Reason);
+batch_load_errors([{_,Reason}|_], _Acc) ->
+    error(Reason);
+batch_load_errors([], Acc) ->
+    Acc.
+
+-doc """
 Prepares to load the modules in the list `Modules`.
 
 Finish the loading by calling
@@ -1380,7 +1485,9 @@ partition_load([Item|T], Bs, Ms) ->
 	    error
     end;
 partition_load([], Bs, Ms) ->
-    {Bs,Ms}.
+    {Bs,Ms};
+partition_load(_, _, _) ->
+    error.
 
 do_prepare_loading(Modules) ->
     case partition_load(Modules, [], []) of
@@ -1500,8 +1607,10 @@ do_par(Fun, L) ->
 	    Res
     end.
 
--type par_fun_type() :: fun((module() | {module(), file:filename(), binary()}) ->
-                            {ok,_} | {error,_}).
+-type par_fun_type() :: fun((module() |
+                           {module(), file:filename(), binary()} |
+                           {module(), {reference(), file:filename()}}) ->
+                          {ok,_} | {error,_}).
 
 -spec do_par_fun(par_fun_type(), list()) -> fun(() -> no_return()).
 
@@ -1516,6 +1625,8 @@ do_par_fun(Fun, L) ->
 
 do_par_fun_each(Fun, Mod) when is_atom(Mod) ->
     do_par_fun_each(Fun, Mod, Mod);
+do_par_fun_each(Fun, {Mod, _} = Item) ->
+    do_par_fun_each(Fun, Mod, Item);
 do_par_fun_each(Fun, {Mod, _, _} = Item) ->
     do_par_fun_each(Fun, Mod, Item).
 
