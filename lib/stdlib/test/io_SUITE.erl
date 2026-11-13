@@ -3165,6 +3165,36 @@ chars_limit(_Config) ->
     Test(Map, 1000, 1000),
     Test(Record, 1000, 1000),
 
+    %% Invalid UTF-8 bytes after a valid grapheme are handled as Latin-1.
+    Invalid = <<169/utf8, 180>>,
+    [169, 180] = lists:flatten(io_lib:format("~ts", [Invalid], [{chars_limit, 100}])),
+
+    %% ~ts on binaries; fmt/3 also checks io_lib:bformat/3.
+    TS = fun(Arg, L) -> fmt("~ts", [Arg], [{chars_limit, L}]) end,
+    "ab..." = TS(<<"abcdefghij">>, 5),
+    "abc..." = TS(<<"abcdefghij">>, 6),
+    "abcde..." = TS(<<"abcdefghij">>, 8),
+    "åäö..." = TS(<<"åäöabcdefg"/utf8>>, 6),
+    "abc..." = TS([<<"abc">>, <<"defghij">>], 6),
+    [169, 180] = TS(Invalid, 5),
+    [169, 180] = TS(Invalid, 100),
+    "ab..." = TS(<<"abcdefgh", 180>>, 5),
+    "abcdefgh´" = TS(<<"abcdefgh", 180>>, 100),
+    "ab..." = TS([<<"ab">>, <<180, "cdefgh">>], 5),
+
+    %% Invalid UTF-8 in a binary inside a list, same result as
+    %% without chars_limit.
+    _ = [begin
+             Exp = fmt("~ts", [Arg], []),
+             Exp = TS(Arg, 1),
+             Exp = TS(Arg, 100)
+         end || {Arg, Exp0} <- [{[<<128>>, $a], [128, $a]},
+                                {[<<128>> | <<128>>], [128, 128]},
+                                {[[<<128>>] | <<$a>>], [128, $a]},
+                                {[<<128>>, [<<129>>, <<130>>]], [128, 129, 130]}],
+                Exp <- [Exp0]],
+    "ab´c" = TS([<<"ab">>, <<180, $c>>], 100),
+
     %% Misc sizes and char limits:
     _ = [Test(What, N, CL) ||
             N <- lists:seq(1, 50),
