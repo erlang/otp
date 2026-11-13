@@ -870,6 +870,8 @@ enable_ensure_os_monotonic_time
 enable_static_nifs
 enable_static_drivers
 with_ets_write_concurrency_locks
+with_ets_prefetch_distance
+with_ets_prefetch_min_slots
 with_spectre_mitigation
 enable_largefile
 enable_pgo
@@ -1731,6 +1733,16 @@ Optional Packages:
   --without-ets-write-concurrency-locks
                           use the default number of write_concurrency locks
                           (default)
+  --with-ets-prefetch-distance=N
+                          specify how many buckets ahead full-table traversals
+                          of ets hash tables prefetch. 0 disables prefetching.
+  --without-ets-prefetch-distance
+                          disable prefetching in full-table traversals of ets
+                          hash tables
+  --with-ets-prefetch-min-slots=N
+                          specify the minimum active slots for ets hash
+                          traversal prefetching (default: 6144). 0 removes the
+                          size gate.
   --with-spectre-mitigation={yes|incomplete}
                           enable spectre mitigation, either fully or with
                           mitigations disabled in a handful places like the
@@ -7624,6 +7636,48 @@ if test X"$with_ets_write_concurrency_locks" != X""; then
 
 printf "%s\n" "#define ERTS_DB_HASH_LOCK_CNT $with_ets_write_concurrency_locks" >>confdefs.h
 
+fi
+
+
+# Check whether --with-ets-prefetch-distance was given.
+if test ${with_ets_prefetch_distance+y}
+then :
+  withval=$with_ets_prefetch_distance;
+fi
+
+
+case "$with_ets_prefetch_distance" in
+    ""|yes)
+        ;;
+    no)
+
+printf "%s\n" "#define ERTS_DB_HASH_PREFETCH_DISTANCE 0" >>confdefs.h
+
+        ;;
+    *)
+
+printf "%s\n" "#define ERTS_DB_HASH_PREFETCH_DISTANCE $with_ets_prefetch_distance" >>confdefs.h
+
+        ;;
+esac
+
+
+# Check whether --with-ets-prefetch-min-slots was given.
+if test ${with_ets_prefetch_min_slots+y}
+then :
+  withval=$with_ets_prefetch_min_slots; case "$with_ets_prefetch_min_slots" in
+    ""|*[!0-9]*)
+        as_fn_error $? "--with-ets-prefetch-min-slots requires a non-negative integer" "$LINENO" 5
+        ;;
+    *)
+        # Avoid treating values with leading zeroes as octal in C.
+        with_ets_prefetch_min_slots=`echo "$with_ets_prefetch_min_slots" | sed 's/^0*//'`
+        test -n "$with_ets_prefetch_min_slots" || with_ets_prefetch_min_slots=0
+
+printf "%s\n" "#define ERTS_DB_HASH_PREFETCH_MIN_SLOTS $with_ets_prefetch_min_slots" >>confdefs.h
+
+        ;;
+esac
 fi
 
 
