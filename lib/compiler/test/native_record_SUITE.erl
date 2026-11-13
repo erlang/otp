@@ -182,6 +182,9 @@ local_basic(_Config) ->
     %% Cover v3_core:sanitize/1.
     ?assertError({badmatch, ARec}, (#a{}=[_]) = id(ARec)),
 
+    %% GH-12129.
+    whatever = gh_12129(whatever),
+
     ok.
 
 name(#empty{}) -> empty;
@@ -202,6 +205,18 @@ is_int_ax_guard_1(_) -> false.
 
 is_int_ax_guard_2(#a{}=A) when is_integer(A#a.x) -> true;
 is_int_ax_guard_2(_) -> false.
+
+gh_12129(V) ->
+    try
+        float_to_list(ok),
+
+        %% The SSA passes would understand that the following record
+        %% creation couldn't fail, but beam_validator would not.
+        #a{x = catch ok ! ok, y = any}
+    catch
+        _:_ ->
+            V
+    end.
 
 local_updates(_Config) ->
     R0 = id(#b{}),
