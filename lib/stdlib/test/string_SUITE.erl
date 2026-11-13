@@ -449,6 +449,15 @@ take(_) ->
     %% {'EXIT', {badarg, _}} = ?TRY(string:take(InvalidUTF8, [$.], false, trailing)),
     {'EXIT', {badarg, _}} = ?TRY(string:take(InvalidUTF8, [$.], true, trailing)),
 
+    %% Invalid UTF-8 in a binary inside a list
+    [try string:take(Str0, Sep, Compl, Dir) of
+         Res -> error({unexpected, Str0, Res})
+     catch error:{badarg, _} -> ok
+     end ||
+        Str0 <- [[<<128>>], [<<$a,128>>,$z], [<<$a>>,<<128>>]],
+        {Sep, Compl} <- [{"z", true}, {"abc", false}],
+        Dir <- [leading, trailing]],
+
     ok.
 
 
