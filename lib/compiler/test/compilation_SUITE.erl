@@ -65,7 +65,8 @@
          use_nifs/1,gh_11352/1,gh_11367/1,
          gh_11414/1,
          gh_11534/0,gh_11534/1,
-         gh_11735/1]).
+         gh_11735/1,
+         gh_11833/1]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("stdlib/include/assert.hrl").
@@ -96,7 +97,8 @@ groups() ->
        string_table,otp_8949_a,split_cases,
        infinite_loop, native_record,
        use_nifs,gh_11352,gh_11367,gh_11414,
-       gh_11534,gh_11735]}].
+       gh_11534,gh_11735,
+       gh_11833]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -159,6 +161,8 @@ infinite_loop() -> [{timetrap,{minutes,1}}].
 
 gh_11534() -> [{timetrap,{minutes,1}}].
 ?comp(gh_11534).
+
+?comp(gh_11833).
 
 %% Test fix for very slow `beam_ssa_bool` pass.
 gh_11735(Config) ->
