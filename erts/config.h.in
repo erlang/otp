@@ -64,6 +64,9 @@
 /* Define if you have a low resolution OS monotonic clock */
 #undef ERTS_HAVE_LOW_RESOLUTION_OS_MONOTONIC_LOW
 
+/* Define to enable memory accounting for disabled allocators */
+#undef ERTS_HAVE_SYS_ALLOC_SIZE
+
 /* Define if dlopen() needs to be called before first call to dlerror() */
 #undef ERTS_NEED_DLOPEN_BEFORE_DLERROR
 
@@ -77,6 +80,9 @@
 /* Define if structure alignment is enough for allocators. If not defined,
    64-bit alignment will be forced. */
 #undef ERTS_STRUCTURE_ALIGNED_ALLOC
+
+/* Define to use malloc_size for system allocation accounting */
+#undef ERTS_SYS_ALLOC_SIZE_MALLOC_SIZE
 
 /* Define if builtin ryu should be used */
 #undef ERTS_USE_BUILTIN_RYU
@@ -862,6 +868,9 @@
 
 /* Define to 1 if you have the <malloc.h> header file. */
 #undef HAVE_MALLOC_H
+
+/* Define to 1 if you have the <malloc/malloc.h> header file. */
+#undef HAVE_MALLOC_MALLOC_H
 
 /* Define to 1 if you have the 'mallopt' function. */
 #undef HAVE_MALLOPT

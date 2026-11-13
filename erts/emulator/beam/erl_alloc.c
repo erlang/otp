@@ -51,6 +51,238 @@
 #endif
 #include "erl_bif_unique.h"
 
+#if defined(ERTS_DEFAULT_DIRECT_ALLOC) && !defined(ERTS_HAVE_SYS_ALLOC_SIZE)
+#error "ERTS_DEFAULT_DIRECT_ALLOC requires system allocation size accounting"
+#endif
+
+#ifdef ERTS_HAVE_SYS_ALLOC_SIZE
+#ifndef ARCH_64
+#error "System malloc accounting requires a 64-bit native word"
+#endif
+#include <stdint.h>
+
+/* Normal and dirty scheduler shards have one writer; atomic loads/stores
+ * allow independent sampling. Native threads use relaxed atomic adds. */
+typedef struct {
+    erts_atomic_t blocks[ERTS_ALC_A_MAX + 1];
+    erts_atomic_t fixed[ERTS_ALC_NO_FIXED_SIZES];
+} ErtsDirectCounters;
+
+typedef union {
+    ErtsDirectCounters counters;
+    char padding[ERTS_ALC_CACHE_LINE_ALIGN_SIZE(sizeof(ErtsDirectCounters))];
+} ErtsDirectShard;
+
+typedef struct {
+    UWord blocks[ERTS_ALC_A_MAX + 1];
+    ErtsAlcUFixInfo_t fixed[ERTS_ALC_NO_FIXED_SIZES];
+} ErtsDirectSnapshot;
+
+#define ERTS_DIRECT_NATIVE_SHARDS 16
+#define ERTS_DIRECT_MAX_SHARDS \
+    (ERTS_MAX_NO_OF_SCHEDULERS + ERTS_MAX_NO_OF_DIRTY_CPU_SCHEDULERS \
+     + ERTS_MAX_NO_OF_DIRTY_IO_SCHEDULERS + ERTS_DIRECT_NATIVE_SHARDS)
+
+static ErtsDirectShard direct_shards[ERTS_DIRECT_MAX_SHARDS]
+    erts_align_attribute(ERTS_CACHE_LINE_SIZE);
+static int direct_no_scheduler_shards;
+static erts_tsd_key_t direct_native_shard_key;
+static erts_atomic_t direct_native_next;
+static size_t direct_fix_type_sizes[ERTS_ALC_NO_FIXED_SIZES];
+static int direct_tracked[ERTS_ALC_A_MAX + 1];
+
+static int
+direct_allocator_class(ErtsAlcType_t ai)
+{
+    switch (ai) {
+    case ERTS_ALC_A_BINARY:
+    case ERTS_ALC_A_STANDARD:
+    case ERTS_ALC_A_ETS:
+    case ERTS_ALC_A_EHEAP:
+    case ERTS_ALC_A_LONG_LIVED:
+    case ERTS_ALC_A_DRIVER:
+    case ERTS_ALC_A_FIXED_SIZE:
+    case ERTS_ALC_A_SHORT_LIVED:
+        return 1;
+    default:
+        return 0;
+    }
+}
+
+static void
+direct_add(erts_atomic_t *counter, erts_aint_t delta, int atomic_add)
+{
+    if (atomic_add)
+        erts_atomic_add_nob(counter, delta);
+    else {
+        UWord value = (UWord) erts_atomic_read_nob(counter) + (UWord) delta;
+        erts_atomic_set_nob(counter, (erts_aint_t) value);
+    }
+}
+
+static void
+direct_update(ErtsAlcType_t type, size_t old_size, size_t new_size,
+              int count_delta)
+{
+    ErtsSchedulerData *esdp = erts_get_scheduler_data();
+    ErtsDirectCounters *counters;
+    int ix, atomic_add = 1;
+    erts_aint_t delta;
+
+    if (old_size > INTPTR_MAX || new_size > INTPTR_MAX)
+        erts_exit(ERTS_ABORT_EXIT, "Direct allocation size overflow\n");
+    delta = (erts_aint_t) new_size - (erts_aint_t) old_size;
+    if (esdp && esdp->type == ERTS_SCHED_NORMAL && esdp->no) {
+        ASSERT(esdp->no <= erts_no_schedulers);
+        ix = (int) esdp->no - 1;
+        atomic_add = 0;
+    }
+    else if (esdp && ERTS_SCHEDULER_IS_DIRTY_CPU(esdp)) {
+        ASSERT(esdp->dirty_no > 0
+               && esdp->dirty_no <= erts_no_dirty_cpu_schedulers);
+        ix = erts_no_schedulers + (int) esdp->dirty_no - 1;
+        atomic_add = 0;
+    }
+    else if (esdp && ERTS_SCHEDULER_IS_DIRTY_IO(esdp)) {
+        ASSERT(esdp->dirty_no > 0
+               && esdp->dirty_no <= erts_no_dirty_io_schedulers);
+        ix = erts_no_schedulers + erts_no_dirty_cpu_schedulers
+            + (int) esdp->dirty_no - 1;
+        atomic_add = 0;
+    }
+    else {
+        UWord slot = (UWord) (uintptr_t) erts_tsd_get(direct_native_shard_key);
+        if (!slot) {
+            slot = 1 + ((UWord) erts_atomic_inc_read_nob(&direct_native_next) - 1)
+                % ERTS_DIRECT_NATIVE_SHARDS;
+            erts_tsd_set(direct_native_shard_key, (void *) (uintptr_t) slot);
+        }
+        ix = direct_no_scheduler_shards + (int) slot - 1;
+    }
+    counters = &direct_shards[ix].counters;
+    direct_add(&counters->blocks[ERTS_ALC_T2A(type)], delta, atomic_add);
+    if (count_delta && ERTS_ALC_IS_FIX_TYPE(type))
+        direct_add(&counters->fixed[ERTS_ALC_FIX_TYPE_IX(type)],
+                    (erts_aint_t) count_delta, atomic_add);
+}
+
+static size_t
+direct_request_size(ErtsAlcType_t type, size_t size)
+{
+    if (ERTS_ALC_IS_FIX_TYPE(type)) {
+        size_t payload = direct_fix_type_sizes[ERTS_ALC_FIX_TYPE_IX(type)];
+        if (size < payload)
+            size = payload;
+    }
+    return size ? size : 1;
+}
+
+static void *
+direct_alloc(ErtsAlcType_t type, void *extra, size_t size)
+{
+    /* A zero request still returns an owned, freeable block. */
+    void *ptr = erts_sys_alloc(type, extra, direct_request_size(type, size));
+    if (ptr)
+        direct_update(type, 0, erts_sys_alloc_size(ptr), 1);
+    return ptr;
+}
+
+static void *
+direct_realloc(ErtsAlcType_t type, void *extra, void *ptr, size_t size)
+{
+    size_t old_size = ptr ? erts_sys_alloc_size(ptr) : 0;
+    int count_delta = ptr ? 0 : 1;
+    void *res;
+
+    res = erts_sys_realloc(type, extra, ptr, direct_request_size(type, size));
+    if (res)
+        direct_update(type, old_size, erts_sys_alloc_size(res), count_delta);
+    return res;
+}
+
+static void
+direct_free(ErtsAlcType_t type, void *extra, void *ptr)
+{
+    if (ptr)
+        direct_update(type, erts_sys_alloc_size(ptr), 0, -1);
+    erts_sys_free(type, extra, ptr);
+}
+
+static UWord
+direct_sample_size(UWord size)
+{
+    return size > (UWord) INTPTR_MAX ? 0 : size;
+}
+
+static void
+direct_read_snapshot(ErtsDirectSnapshot *snapshot)
+{
+    UWord blocks[ERTS_ALC_A_MAX + 1] = {0};
+    UWord fixed[ERTS_ALC_NO_FIXED_SIZES] = {0};
+    UWord fixed_left;
+    int ix, ai, fi;
+
+    for (ix = 0; ix < direct_no_scheduler_shards + ERTS_DIRECT_NATIVE_SHARDS; ix++) {
+        for (ai = ERTS_ALC_A_MIN; ai <= ERTS_ALC_A_MAX; ai++)
+            blocks[ai] += (UWord) erts_atomic_read_nob(&direct_shards[ix].counters.blocks[ai]);
+        for (fi = 0; fi < ERTS_ALC_NO_FIXED_SIZES; fi++)
+            fixed[fi] += (UWord) erts_atomic_read_nob(&direct_shards[ix].counters.fixed[fi]);
+    }
+
+    /* Sum modulo the native word so opposite balances cancel even if an
+     * intermediate sum wraps. Independently sampled frees may leave a
+     * negative result; bound fixed payloads by the same sampled block total. */
+    for (ai = ERTS_ALC_A_MIN; ai <= ERTS_ALC_A_MAX; ai++)
+        snapshot->blocks[ai] = direct_sample_size(blocks[ai]);
+    fixed_left = snapshot->blocks[ERTS_ALC_A_FIXED_SIZE];
+    for (fi = 0; fi < ERTS_ALC_NO_FIXED_SIZES; fi++) {
+        UWord count = direct_sample_size(fixed[fi]);
+        UWord size = (UWord) direct_fix_type_sizes[fi];
+        UWord payload = 0;
+        if (size) {
+            UWord limit = fixed_left / size;
+            if (count > limit)
+                count = limit;
+            payload = count * size;
+        }
+        snapshot->fixed[fi].allocated = payload;
+        snapshot->fixed[fi].used = payload;
+        fixed_left -= payload;
+    }
+}
+
+static Eterm
+direct_memory_info(ErtsAlcType_t ai, const ErtsDirectSnapshot *snapshot,
+                   Uint **hpp, Uint *szp)
+{
+    Eterm info = NIL;
+    if (ai == ERTS_ALC_A_FIXED_SIZE) {
+        Eterm fixed = NIL;
+        int fi;
+        for (fi = ERTS_ALC_NO_FIXED_SIZES - 1; fi >= 0; fi--) {
+            ErtsAlcType_t type = ERTS_ALC_N2T(ERTS_ALC_N_MIN_A_FIXED_SIZE + fi);
+            Eterm payload = erts_bld_uword(hpp, szp,
+                                           snapshot->fixed[fi].used);
+            fixed = erts_bld_cons(hpp, szp,
+                                  erts_bld_tuple(hpp, szp, 3,
+                                      erts_bld_atom(hpp, szp,
+                                                    (char *) ERTS_ALC_T2TD(type)),
+                                      payload, payload),
+                                  fixed);
+        }
+        info = erts_bld_cons(hpp, szp,
+                             erts_bld_tuple(hpp, szp, 2,
+                                 erts_bld_atom(hpp, szp, "fix_types"), fixed),
+                             info);
+    }
+    return erts_bld_cons(hpp, szp,
+                         erts_bld_tuple(hpp, szp, 2,
+                             erts_bld_atom(hpp, szp, "direct_blocks"),
+                             erts_bld_uword(hpp, szp, snapshot->blocks[ai])),
+                         info);
+}
+#endif
+
 #define GET_ERL_GF_ALLOC_IMPL
 #include "erl_goodfit_alloc.h"
 #define GET_ERL_BF_ALLOC_IMPL
@@ -144,6 +376,9 @@ typedef struct {
     Process *proc;
     ErtsIRefStorage iref;
     int allocs[ERTS_ALC_INFO_A_END - ERTS_ALC_A_MIN + 1];
+#ifdef ERTS_HAVE_SYS_ALLOC_SIZE
+    ErtsDirectSnapshot *direct_snapshot;
+#endif
 } ErtsAllocInfoReq;
 
 ERTS_SCHED_PREF_QUICK_ALLOC_IMPL(aireq,
@@ -687,6 +922,36 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
     set_default_literal_alloc_opts(&init.literal_alloc);
     set_default_test_alloc_opts(&init.test_alloc);
 
+#ifdef ERTS_HAVE_SYS_ALLOC_SIZE
+    {
+        int ix, ai, fi;
+        direct_no_scheduler_shards = erts_no_schedulers
+            + erts_no_dirty_cpu_schedulers + erts_no_dirty_io_schedulers;
+        ASSERT(direct_no_scheduler_shards + ERTS_DIRECT_NATIVE_SHARDS
+               <= ERTS_DIRECT_MAX_SHARDS);
+        erts_tsd_key_create(&direct_native_shard_key, "direct_native_shard");
+        erts_atomic_init_nob(&direct_native_next, 0);
+        for (ix = 0; ix < direct_no_scheduler_shards + ERTS_DIRECT_NATIVE_SHARDS; ix++) {
+            for (ai = ERTS_ALC_A_MIN; ai <= ERTS_ALC_A_MAX; ai++)
+                erts_atomic_init_nob(&direct_shards[ix].counters.blocks[ai], 0);
+            for (fi = 0; fi < ERTS_ALC_NO_FIXED_SIZES; fi++)
+                erts_atomic_init_nob(&direct_shards[ix].counters.fixed[fi], 0);
+        }
+        sys_memcpy(direct_fix_type_sizes, fix_type_sizes, sizeof(fix_type_sizes));
+    }
+#endif
+
+#ifdef ERTS_DEFAULT_DIRECT_ALLOC
+    init.binary_alloc.enable = 0;
+    init.std_alloc.enable = 0;
+    init.ets_alloc.enable = 0;
+    init.eheap_alloc.enable = 0;
+    init.ll_alloc.enable = 0;
+    init.driver_alloc.enable = 0;
+    init.fix_alloc.enable = 0;
+    init.sl_alloc.enable = 0;
+#endif
+
     if (argc && argv)
 	handle_args(argc, argv, &init);
 
@@ -899,8 +1164,16 @@ set_au_allocator(ErtsAlcType_t alctr_n, struct au_init *init, int ncpu)
 	af->extra = NULL;
 	ai->alloc_util = 0;
 	ai->enabled = 0;
-	ai->extra = NULL;
-	return;
+        ai->extra = NULL;
+#ifdef ERTS_HAVE_SYS_ALLOC_SIZE
+        if (direct_allocator_class(alctr_n)) {
+            af->alloc = direct_alloc;
+            af->realloc = direct_realloc;
+            af->free = direct_free;
+            direct_tracked[alctr_n] = 1;
+        }
+#endif
+        return;
     }
 
     if (init->thr_spec) {
@@ -2186,6 +2459,24 @@ alcu_size(ErtsAlcType_t alloc_no, ErtsAlcUFixInfo_t *fi, int fisz)
     return res;
 }
 
+#ifdef ERTS_HAVE_SYS_ALLOC_SIZE
+static UWord
+memory_size(ErtsAlcType_t ai, ErtsAlcUFixInfo_t *fi, int fisz,
+            const ErtsDirectSnapshot *snapshot)
+{
+    if (!direct_tracked[ai])
+        return alcu_size(ai, fi, fisz);
+    if (fi) {
+        ASSERT(fisz == ERTS_ALC_NO_FIXED_SIZES);
+        sys_memcpy(fi, snapshot->fixed, sizeof(snapshot->fixed));
+    }
+    return snapshot->blocks[ai];
+}
+#define ERTS_MEMORY_SIZE(A, F, S) memory_size((A), (F), (S), &direct_snapshot)
+#else
+#define ERTS_MEMORY_SIZE(A, F, S) alcu_size((A), (F), (S))
+#endif
+
 static ERTS_INLINE void
 add_fix_values(UWord *ap, UWord *up, ErtsAlcUFixInfo_t *fi, ErtsAlcType_t type)
 {
@@ -2235,6 +2526,9 @@ erts_memory(fmtfn_t *print_to_p, void *print_to_arg, void *proc, Eterm earg)
     ErtsAlcType_t ai;
     int only_one_value = 0;
     ErtsAlcUFixInfo_t fi[ERTS_ALC_NO_FIXED_SIZES] = {{0,0}};
+#ifdef ERTS_HAVE_SYS_ALLOC_SIZE
+    ErtsDirectSnapshot direct_snapshot;
+#endif
 
     ERTS_LC_ASSERT(erts_thr_progress_is_blocking());
 
@@ -2369,7 +2663,7 @@ erts_memory(fmtfn_t *print_to_p, void *print_to_arg, void *proc, Eterm earg)
 	    return am_badarg;
     }
 
-    /* All alloc_util allocators *have* to be enabled, except test_alloc */
+    /* Every required class needs alloc_util or tracked direct accounting. */
     
     for (ai = ERTS_ALC_A_MIN; ai <= ERTS_ALC_A_MAX; ai++) {
 	switch (ai) {
@@ -2377,10 +2671,14 @@ erts_memory(fmtfn_t *print_to_p, void *print_to_arg, void *proc, Eterm earg)
         case ERTS_ALC_A_TEST:
 	    break;
 	default:
-	    if (!erts_allctrs_info[ai].enabled
-		|| !erts_allctrs_info[ai].alloc_util) {
-		return am_notsup;
-	    }
+            if ((!erts_allctrs_info[ai].enabled
+                 || !erts_allctrs_info[ai].alloc_util)
+#ifdef ERTS_HAVE_SYS_ALLOC_SIZE
+                && !direct_tracked[ai]
+#endif
+                ) {
+                return am_notsup;
+            }
 	    break;
 	}
     }
@@ -2397,6 +2695,10 @@ erts_memory(fmtfn_t *print_to_p, void *print_to_arg, void *proc, Eterm earg)
 	erts_proc_unlock(proc, ERTS_PROC_LOCK_MAIN);
     }
 
+#ifdef ERTS_HAVE_SYS_ALLOC_SIZE
+    direct_read_snapshot(&direct_snapshot);
+#endif
+
     /* Calculate values needed... */
 
     want_tot_or_sys = want.total || want.system;
@@ -2405,8 +2707,12 @@ erts_memory(fmtfn_t *print_to_p, void *print_to_arg, void *proc, Eterm earg)
 	size.total = 0;
 
 	for (ai = ERTS_ALC_A_MIN; ai <= ERTS_ALC_A_MAX; ai++) {
-	    if (erts_allctrs_info[ai].alloc_util) {
-		UWord *save;
+            if (erts_allctrs_info[ai].alloc_util
+#ifdef ERTS_HAVE_SYS_ALLOC_SIZE
+                || direct_tracked[ai]
+#endif
+                ) {
+                UWord *save;
 		UWord asz;
 		switch (ai) {
 		case ERTS_ALC_A_TEMPORARY:
@@ -2427,14 +2733,14 @@ erts_memory(fmtfn_t *print_to_p, void *print_to_arg, void *proc, Eterm earg)
 		    save = &size.binary;
 		    break;
 		case ERTS_ALC_A_FIXED_SIZE:
-		    asz = alcu_size(ai, fi, ERTS_ALC_NO_FIXED_SIZES);
+                    asz = ERTS_MEMORY_SIZE(ai, fi, ERTS_ALC_NO_FIXED_SIZES);
 		    size.total += asz;
 		    continue;
 		default:
 		    save = NULL;
 		    break;
 		}
-		asz = alcu_size(ai, NULL, 0);
+                asz = ERTS_MEMORY_SIZE(ai, NULL, 0);
 		if (save)
 		    *save = asz;
 		size.total += asz;
@@ -2450,9 +2756,9 @@ erts_memory(fmtfn_t *print_to_p, void *print_to_arg, void *proc, Eterm earg)
 	if (ERTS_MEM_NEED_ALL_ALCU)
 	    tmp = size.processes;
 	else {
-	    alcu_size(ERTS_ALC_A_FIXED_SIZE,
-		      fi, ERTS_ALC_NO_FIXED_SIZES);
-	    tmp = alcu_size(ERTS_ALC_A_EHEAP, NULL, 0);
+            ERTS_MEMORY_SIZE(ERTS_ALC_A_FIXED_SIZE,
+                             fi, ERTS_ALC_NO_FIXED_SIZES);
+            tmp = ERTS_MEMORY_SIZE(ERTS_ALC_A_EHEAP, NULL, 0);
 	}
 	tmp += erts_ptab_mem_size(&erts_proc);
 	tmp += erts_bif_timer_memory_size();
@@ -2502,7 +2808,7 @@ erts_memory(fmtfn_t *print_to_p, void *print_to_arg, void *proc, Eterm earg)
     }
 
     if (!ERTS_MEM_NEED_ALL_ALCU && want.binary)
-	size.binary = alcu_size(ERTS_ALC_A_BINARY, NULL, 0);
+        size.binary = ERTS_MEMORY_SIZE(ERTS_ALC_A_BINARY, NULL, 0);
 
     if (want.code) {
 	size.code = module_table_sz();
@@ -2516,7 +2822,7 @@ erts_memory(fmtfn_t *print_to_p, void *print_to_arg, void *proc, Eterm earg)
 
     if (want.ets) {
 	if (!ERTS_MEM_NEED_ALL_ALCU)
-	    size.ets = alcu_size(ERTS_ALC_A_ETS, NULL, 0);
+            size.ets = ERTS_MEMORY_SIZE(ERTS_ALC_A_ETS, NULL, 0);
 	size.ets += erts_get_ets_misc_mem_size();
     }
 
@@ -2578,6 +2884,7 @@ erts_memory(fmtfn_t *print_to_p, void *print_to_arg, void *proc, Eterm earg)
     return res;
 
 #undef ERTS_MEM_NEED_ALL_ALCU
+#undef ERTS_MEMORY_SIZE
 }
 
 struct aa_values {
@@ -3140,6 +3447,11 @@ reply_alloc_info(void *vair)
 				  : erts_alcu_info);
 
     rp_locks = air->req_sched == tix ? ERTS_PROC_LOCK_MAIN : 0;
+#ifdef ERTS_HAVE_SYS_ALLOC_SIZE
+    /* Direct requests are dispatched asynchronously even on req_sched. */
+    if (air->direct_snapshot)
+        rp_locks = 0;
+#endif
 
     sz = 0;
     hpp = NULL;
@@ -3278,9 +3590,18 @@ reply_alloc_info(void *vair)
 		default:
 		    alloc_atom = erts_bld_atom(hpp, szp,
 					       (char *) ERTS_ALC_A2AD(ai));
-		    if (!erts_allctrs_info[ai].enabled) 
-			ainfo = erts_bld_tuple(hpp, szp, 2, alloc_atom,
-					       am_false);
+#ifdef ERTS_HAVE_SYS_ALLOC_SIZE
+                    if (air->direct_snapshot && direct_tracked[ai]) {
+                        ainfo = direct_memory_info(ai, air->direct_snapshot,
+                                                   hpp, szp);
+                        ainfo = erts_bld_tuple(hpp, szp, 3, alloc_atom,
+                                               make_small(0), ainfo);
+                    }
+                    else
+#endif
+                    if (!erts_allctrs_info[ai].enabled)
+                        ainfo = erts_bld_tuple(hpp, szp, 2, alloc_atom,
+                                               am_false);
 		    else if (erts_allctrs_info[ai].alloc_util) {
 			if (erts_allctrs_info[ai].thr_spec)
 			    allctr = erts_allctr_thr_spec[ai].allctr[0];
@@ -3357,14 +3678,18 @@ reply_alloc_info(void *vair)
     erts_queue_message(rp, rp_locks, mp, msg, am_system);
 
     if (air->req_sched == tix)
-	rp_locks &= ~ERTS_PROC_LOCK_MAIN;
+        rp_locks &= ~ERTS_PROC_LOCK_MAIN;
  
     erts_proc_unlock(rp, rp_locks);
     erts_proc_dec_refc(rp);
 
     if (erts_atomic32_dec_read_nob(&air->refc) == 0) {
         erts_iref_storage_clean(&air->iref);
-	aireq_free(air);
+#ifdef ERTS_HAVE_SYS_ALLOC_SIZE
+        if (air->direct_snapshot)
+            erts_free(ERTS_ALC_T_AINFO_REQ, air->direct_snapshot);
+#endif
+        aireq_free(air);
     }
 }
 
@@ -3379,6 +3704,10 @@ erts_request_alloc_info(struct process *c_p,
     Eterm req_ai[ERTS_ALC_INFO_A_END] = {0};
     Eterm alist;
     int airix = 0, ai;
+#ifdef ERTS_HAVE_SYS_ALLOC_SIZE
+    int need_direct_snapshot = 0;
+    air->direct_snapshot = NULL;
+#endif
 
     air->req_sched = erts_get_scheduler_id();
 
@@ -3419,8 +3748,12 @@ erts_request_alloc_info(struct process *c_p,
 	save_alloc:
 	    if (req_ai[ai])
 		return 0;
-	    air->allocs[airix++] = ai;
-	    req_ai[ai] = 1;
+            air->allocs[airix++] = ai;
+#ifdef ERTS_HAVE_SYS_ALLOC_SIZE
+            if (internal && ai <= ERTS_ALC_A_MAX && direct_tracked[ai])
+                need_direct_snapshot = 1;
+#endif
+            req_ai[ai] = 1;
 	    saved = 1;
 	}
 
@@ -3439,6 +3772,14 @@ erts_request_alloc_info(struct process *c_p,
                            (erts_aint32_t) erts_no_aux_work_threads-1);
 
     erts_proc_add_refc(c_p, (Sint) erts_no_aux_work_threads-1);
+
+#ifdef ERTS_HAVE_SYS_ALLOC_SIZE
+    if (need_direct_snapshot) {
+        air->direct_snapshot = erts_alloc(ERTS_ALC_T_AINFO_REQ,
+                                          sizeof(ErtsDirectSnapshot));
+        direct_read_snapshot(air->direct_snapshot);
+    }
+#endif
 
     if (erts_no_aux_work_threads > 2)
 	erts_schedule_multi_misc_aux_work(1,

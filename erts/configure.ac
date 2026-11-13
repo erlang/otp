@@ -1827,6 +1827,65 @@ AC_CHECK_HEADERS(fcntl.h limits.h unistd.h syslog.h dlfcn.h ieeefp.h \
 		 pty.h util.h libutil.h utmp.h langinfo.h poll.h sdkddkver.h \
                  elf.h)
 
+AC_CACHE_CHECK([whether system malloc accounting has a 64-bit word],
+               [erts_cv_sys_alloc_word64], [
+    AC_COMPILE_IFELSE([AC_LANG_PROGRAM([], [[
+        typedef char malloc_accounting_word[(sizeof(void *) == 8) ? 1 : -1];
+        (void) sizeof(malloc_accounting_word);
+    ]])], [erts_cv_sys_alloc_word64=yes], [erts_cv_sys_alloc_word64=no])
+])
+AS_IF([test "$erts_cv_sys_alloc_word64" = yes], [
+    AC_CHECK_HEADERS([malloc/malloc.h])
+    AC_CACHE_CHECK([for a system malloc size query], [erts_cv_sys_alloc_size], [
+        erts_cv_sys_alloc_size=no
+        AS_CASE([$host_os], [win32*], [
+            AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+#include <stdlib.h>
+#include <malloc.h>
+]], [[
+                void *p = malloc(1);
+                size_t size = _msize(p);
+                free(p);
+                return size == 0;
+]])], [erts_cv_sys_alloc_size=_msize])
+        ], [
+            AS_IF([test "$ac_cv_header_malloc_h" = yes], [
+                AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+#include <stdlib.h>
+#include <malloc.h>
+]], [[
+                    void *p = malloc(1);
+                    size_t size = malloc_usable_size(p);
+                    free(p);
+                    return size == 0;
+]])], [erts_cv_sys_alloc_size=malloc_usable_size])
+            ])
+            AS_IF([test "$erts_cv_sys_alloc_size" = no &&
+                   test "$ac_cv_header_malloc_malloc_h" = yes], [
+                AC_LINK_IFELSE([AC_LANG_PROGRAM([[
+#include <stdlib.h>
+#include <malloc/malloc.h>
+]], [[
+                    void *p = malloc(1);
+                    size_t size = malloc_size(p);
+                    free(p);
+                    return size == 0;
+]])], [erts_cv_sys_alloc_size=malloc_size])
+            ])
+        ])
+    ])
+    AS_CASE([$erts_cv_sys_alloc_size],
+        [malloc_usable_size|_msize], [
+            AC_DEFINE([ERTS_HAVE_SYS_ALLOC_SIZE], [1],
+                      [Define to enable memory accounting for disabled allocators])
+        ],
+        [malloc_size], [
+            AC_DEFINE([ERTS_HAVE_SYS_ALLOC_SIZE], [1])
+            AC_DEFINE([ERTS_SYS_ALLOC_SIZE_MALLOC_SIZE], [1],
+                      [Define to use malloc_size for system allocation accounting])
+        ])
+])
+
 AC_CHECK_MEMBERS([struct ifreq.ifr_hwaddr], [], [],
 	[#ifdef __WIN32__
 	 #else
