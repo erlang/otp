@@ -1488,7 +1488,7 @@ maybe_add_pre_shared_key(HelloExtensions, TicketData) ->
                                    binders = Binders}},
                      psk_key_exchange_modes =>
                          #psk_key_exchange_modes{
-                            ke_modes = [psk_ke, psk_dhe_ke]}}.
+                            ke_modes = [psk_dhe_ke]}}.
 
 maybe_add_certificate_auths(HelloExtensions,_,_,false) ->
     HelloExtensions;
@@ -2128,7 +2128,9 @@ extension_value(#psk_key_exchange_modes{ke_modes = Modes}) ->
 extension_value(#certificate_authorities{authorities = Auths}) ->
     Auths;
 extension_value(#cookie{cookie = Cookie}) ->
-    Cookie.
+    Cookie;
+extension_value(#certificate_status{response = Response}) ->
+    Response.
 
 %% Extension value mapping (from decode_extensions/4):
 %%   'false'     - extension absent from ServerHello (maps:get default)
