@@ -373,6 +373,10 @@ format(LogEvent,FConfig)
 	-> FormattedLogEntry
 ```
 
+`FormattedLogEntry` is a printable string or a plain binary. The handlers
+`m:logger_std_h` and `m:logger_disk_log_h` pass through a plain binary
+`FormattedLogEntry` unchanged, see [`format/2`](`c:logger_formatter:format/2`).
+
 The formatter information for a handler is set as a part of its configuration
 when the handler is added. It can also be changed during runtime with
 [`logger:set_handler_config(HandlerId,formatter,{Module,FConfig})` ](`logger:set_handler_config/3`),
@@ -514,7 +518,7 @@ The configuration for a handler is a map with the following keys:
 
 - **`formatter = {FormatterModule,FormatterConfig}`** - Specifies a formatter
   that the handler can use for converting the log event term to a printable
-  string.
+  string or plain binary data.
 
   - `FormatterModule = module()`
   - `FormatterConfig =` `t:logger:formatter_config/0`
