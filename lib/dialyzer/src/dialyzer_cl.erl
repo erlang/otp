@@ -832,7 +832,7 @@ print_warnings(#cl_state{output = Output,
 	      [dialyzer:format_warning(W, Opts) || W <- PrWarningsId];
 	    raw ->
 	      [io_lib:format("~tp. \n",
-                             [W]) || W <- set_warning_id(PrWarningsId, EOpt)]
+                             [W]) || W <- PrWarningsId]
 	  end,
       io:format(Output, "\n~ts", [S])
   end.

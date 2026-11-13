@@ -34,7 +34,8 @@
     can_add_multiple_plts_to_another_plt/1,
     unknown_function_warning_includes_callsite/1,
     call_to_missing_warning_includes_callsite/1,
-    bad_pa_dir_returns_error/1
+    bad_pa_dir_returns_error/1,
+    raw_output_format_does_not_crash/1
 ]).
 
 suite() -> [{timetrap, {minutes, 3}}].
@@ -44,7 +45,8 @@ all() ->
         can_add_multiple_plts_to_another_plt,
         unknown_function_warning_includes_callsite,
         call_to_missing_warning_includes_callsite,
-        bad_pa_dir_returns_error
+        bad_pa_dir_returns_error,
+        raw_output_format_does_not_crash
     ].
 
 init_per_suite(Config) ->
@@ -197,6 +199,52 @@ bad_pa_dir_returns_error(Config) when is_list(Config) ->
     ?assertMatch({error, _}, Res),
     {error, Msg} = Res,
     ?assert(string:find(Msg, "Bad directory for -pa") =/= nomatch),
+    ok.
+
+%% Regression test for erlang/OTP #11695.
+%%
+%% The CLI (erlang_mode = false) prints warnings through print_warnings/1.
+%% That function first runs the stored raw_warning()s through
+%% set_warning_id/2 (turning each into a dial_warning() and normalising
+%% the location) and then, for the `raw` output format, applied
+%% set_warning_id/2 a *second* time. set_warning_id/2 only matches the
+%% 3-tuple warning_info() id of a raw_warning(); on the already-converted
+%% dial_warning() the id is a 2-tuple file_location(), so the second call
+%% raised function_clause. The CLI died with an erl_crash.dump and exit
+%% status 1 the moment there was any warning to print, while the same run
+%% without --raw printed the warning and exited 2.
+%%
+%% Here we drive dialyzer_cl:start/1 with erlang_mode = false and
+%% output_format = raw, i.e. the exact CLI reporting path. Before the fix
+%% this raised function_clause; now it must write the raw warning to the
+%% output file (and return {2, []}, the CLI's "warnings were emitted" status).
+raw_output_format_does_not_crash(Config) when is_list(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    PltBase = plt_base_file(PrivDir),
+    OutFile = filename:join(PrivDir, "raw_output.txt"),
+
+    {ok, Beam} = compile(Config, no_local_return_example, []),
+    Opts =
+        #options{
+            analysis_type = succ_typings,
+            init_plts = [PltBase],
+            output_file = OutFile,
+            output_format = raw,
+            get_warnings = true,
+            legal_warnings = ordsets:from_list([warn_return_no_exit]),
+            erlang_mode = false,
+            files = [Beam]
+        },
+    %% Before the fix this raised function_clause and took the CLI down
+    %% with a crash dump.
+    Res = dialyzer_cl:start(Opts),
+    ?assertEqual({2, []}, Res),
+
+    {ok, Raw} = file:read_file(OutFile),
+    %% The raw output is the dial_warning() term: a 2-tuple
+    %% file_location() id, printed with io_lib:format("~tp. \n", [W]).
+    ?assertEqual(match, re:run(Raw, "warn_return_no_exit", [{capture, none}])),
+    ?assertEqual(match, re:run(Raw, "no_return", [{capture, none}])),
     ok.
 
 compile(Config, Module, CompileOpts) ->
