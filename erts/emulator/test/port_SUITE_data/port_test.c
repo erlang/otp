@@ -29,6 +29,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <limits.h>
+#include <stdint.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
@@ -36,7 +38,6 @@
 
 #ifndef __WIN32__
 #include <unistd.h>
-#include <limits.h>
 
 #include <sys/time.h>
 
@@ -60,10 +61,16 @@
 
 extern int errno;
 
+typedef enum {
+    PORT_TEST_PACKET_HEADER_ENDIAN_BIG = 0,
+    PORT_TEST_PACKET_HEADER_ENDIAN_LITTLE
+} PortTestPacketHeaderEndianness;
+
 typedef struct {
     char* progname;	        /* Name of this program (from argv[0]). */
-    int header_size;	        /* Number of bytes in each packet header:
-				 * 1, 2, or 4, or 0 for a continuous byte stream. */
+    int header_size;           /* Number of bytes in each packet header:
+                                * 1, 2, 3, or 4, or 0 for a continuous byte stream. */
+    PortTestPacketHeaderEndianness packet_header_endianness;
     int fd_from_erl;	        /* File descriptor from Erlang. */
     int fd_to_erl;	        /* File descriptor to Erlang. */
     unsigned char* io_buf;      /* Buffer for file i/o. */
@@ -136,6 +143,7 @@ int main(int argc, char *argv[])
     exit(1);
   }
   port_data->header_size = 0;
+  port_data->packet_header_endianness = PORT_TEST_PACKET_HEADER_ENDIAN_BIG;
   port_data->io_buf_size = 0;	
   port_data->delay_mode = 0;	
   port_data->fd_count = 0;
@@ -176,6 +184,7 @@ int main(int argc, char *argv[])
       case '0': port_data->header_size = 0; break;
       case '1': port_data->header_size = 1; break;
       case '2': port_data->header_size = 2; break;
+      case '3': port_data->header_size = 3; break;
       case '4': port_data->header_size = 4; break;
       case '\0': 
 	fprintf(stderr, "%s: missing header size for -h\n", port_data->progname);
@@ -188,6 +197,10 @@ int main(int argc, char *argv[])
       break;
     case 'l':
       port_data->limited_bytecount = atoi(argv[1]+2);
+      break;
+    case 'L':                   /* Little-endian packet headers. */
+      port_data->packet_header_endianness =
+        PORT_TEST_PACKET_HEADER_ENDIAN_LITTLE;
       break;
     case 'n':			/* No packet loop. */
       port_data->no_packet_loop = 1;
@@ -257,6 +270,7 @@ packet_loop(void)
 
   for (;;) {
     int packet_length;		/* Length of current packet. */
+    uint32_t parsed_packet_length;
     int i;
     int bytes_read;		/* Number of bytes read. */
 
@@ -280,9 +294,25 @@ packet_loop(void)
        * Get the length of this packet.
        */
 
-      packet_length = 0;
-      for (i = 0; i < port_data->header_size; i++)
-	packet_length = (packet_length << 8) | port_data->io_buf[i];
+      parsed_packet_length = 0;
+      if (port_data->packet_header_endianness ==
+          PORT_TEST_PACKET_HEADER_ENDIAN_LITTLE) {
+        for (i = port_data->header_size - 1; i >= 0; i--)
+          parsed_packet_length =
+            (parsed_packet_length << 8) | port_data->io_buf[i];
+      } else {
+        for (i = 0; i < port_data->header_size; i++)
+          parsed_packet_length =
+            (parsed_packet_length << 8) | port_data->io_buf[i];
+      }
+      /* Keep packet_length + 4 + 1 in range: reply() needs four prefix bytes,
+         and index 4 must exist for an empty packet. */
+      if (parsed_packet_length > (uint32_t) (INT_MAX - 5)) {
+        fprintf(stderr, "%s: packet length %lu is too large\r\n",
+                port_data->progname, (unsigned long) parsed_packet_length);
+        return 1;
+      }
+      packet_length = (int) parsed_packet_length;
     }
 
 
@@ -375,15 +405,19 @@ reply(buf, size)
     int n;			/* Temporary to hold size. */
     int i;			/* Loop counter. */
 
-    /*
-     * Fill the header starting with the least significant byte
-     * (this will work even if there is no header).
-     */
-
     n = size;
-    for (i = 0; i < port_data->header_size; i++) {
-	*--buf = (char) n;	/* Store least significant byte. */
-	n = n >> 8;
+    if (port_data->packet_header_endianness ==
+        PORT_TEST_PACKET_HEADER_ENDIAN_LITTLE) {
+        buf -= port_data->header_size;
+        for (i = 0; i < port_data->header_size; i++) {
+            buf[i] = (char) n;
+            n = n >> 8;
+        }
+    } else {
+        for (i = 0; i < port_data->header_size; i++) {
+            *--buf = (char) n;  /* Store least significant byte. */
+            n = n >> 8;
+        }
     }
 
     size += port_data->header_size;
@@ -592,12 +626,20 @@ char* spec;			/* Specification for reply. */
 	size_t n;
 
 	n = items[cur].size;
-	s += port_data->header_size;
-	for (i = 0; i < port_data->header_size; i++) {
-	    *--s = (char) n;	/* Store least significant byte. */
-	    n = n >> 8;
-	}
-	s += port_data->header_size;
+        if (port_data->packet_header_endianness ==
+            PORT_TEST_PACKET_HEADER_ENDIAN_LITTLE) {
+            for (i = 0; i < port_data->header_size; i++) {
+                *s++ = (char) n;
+                n = n >> 8;
+            }
+        } else {
+            s += port_data->header_size;
+            for (i = 0; i < port_data->header_size; i++) {
+                *--s = (char) n;  /* Store least significant byte. */
+                n = n >> 8;
+            }
+            s += port_data->header_size;
+        }
 
 	c = items[cur].start;
 	for (i = 0; i < items[cur].size; i++) {
@@ -610,4 +652,3 @@ char* spec;			/* Specification for reply. */
     }
     write_reply(buf, s-buf);
 }
-

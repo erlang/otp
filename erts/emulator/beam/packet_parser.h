@@ -30,23 +30,26 @@
 #include "sys.h"
 
 
-/* INET_LOPT_PACKET options */
 enum PacketParseType {
-    TCP_PB_RAW      = 0,
-    TCP_PB_1        = 1,
-    TCP_PB_2        = 2,
-    TCP_PB_4        = 3,
-    TCP_PB_ASN1     = 4,
-    TCP_PB_RM       = 5,
-    TCP_PB_CDR      = 6,
-    TCP_PB_FCGI     = 7,
-    TCP_PB_LINE_LF  = 8,
-    TCP_PB_TPKT     = 9,
-    TCP_PB_HTTP     = 10,
-    TCP_PB_HTTPH    = 11,
-    TCP_PB_SSL_TLS  = 12,
-    TCP_PB_HTTP_BIN = 13,
-    TCP_PB_HTTPH_BIN = 14
+    TCP_PB_RAW       = 0,
+    TCP_PB_1         = 1,
+    TCP_PB_2_BIG     = 2,
+    TCP_PB_4_BIG     = 3,
+    TCP_PB_ASN1      = 4,
+    TCP_PB_RM        = 5,
+    TCP_PB_CDR       = 6,
+    TCP_PB_FCGI      = 7,
+    TCP_PB_LINE_LF   = 8,
+    TCP_PB_TPKT      = 9,
+    TCP_PB_HTTP      = 10,
+    TCP_PB_HTTPH     = 11,
+    TCP_PB_SSL_TLS   = 12,
+    TCP_PB_HTTP_BIN  = 13,
+    TCP_PB_HTTPH_BIN = 14,
+    TCP_PB_2_LITTLE  = 15,
+    TCP_PB_3_BIG     = 16,
+    TCP_PB_3_LITTLE  = 17,
+    TCP_PB_4_LITTLE  = 18
 };
 
 typedef struct http_atom {
@@ -101,6 +104,10 @@ typedef struct {
  */
 void packet_parser_init(void);
 
+/* Minimum number of bytes needed to start parsing a packet header. */
+ERTS_GLB_INLINE
+int packet_get_header_length(enum PacketParseType htype);
+
 /* Returns > 0 Total packet length.
  *         = 0 Length unknown, need more data.
  *         < 0 Error, invalid format.
@@ -149,12 +156,50 @@ int packet_parse_ssl(const char*, int, PacketCallbacks*, void*);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 ERTS_GLB_INLINE
+int packet_get_header_length(enum PacketParseType htype)
+{
+    switch (htype) {
+    case TCP_PB_1:
+        return 1;
+    case TCP_PB_2_BIG:
+    case TCP_PB_2_LITTLE:
+    case TCP_PB_ASN1:
+        return 2;
+    case TCP_PB_3_BIG:
+    case TCP_PB_3_LITTLE:
+        return 3;
+    case TCP_PB_4_BIG:
+    case TCP_PB_4_LITTLE:
+    case TCP_PB_RM:
+    case TCP_PB_TPKT:
+        return 4;
+    case TCP_PB_SSL_TLS:
+        return 5;
+    case TCP_PB_FCGI:
+        return sizeof(struct fcgi_head);
+    case TCP_PB_CDR:
+        return 12;
+    default:
+        return 0;
+    }
+}
+
+ERTS_GLB_INLINE
 void packet_get_body(enum PacketParseType htype, const char** bufp, int* lenp)
 {
     switch (htype) {
-    case TCP_PB_1:  *bufp += 1; *lenp -= 1; break;
-    case TCP_PB_2:  *bufp += 2; *lenp -= 2; break;
-    case TCP_PB_4:  *bufp += 4; *lenp -= 4; break;
+    case TCP_PB_1:
+    case TCP_PB_2_BIG:
+    case TCP_PB_2_LITTLE:
+    case TCP_PB_3_BIG:
+    case TCP_PB_3_LITTLE:
+    case TCP_PB_4_BIG:
+    case TCP_PB_4_LITTLE: {
+        int hlen = packet_get_header_length(htype);
+        *bufp += hlen;
+        *lenp -= hlen;
+        break;
+    }
     case TCP_PB_FCGI:
 	*lenp -= ((struct fcgi_head*)*bufp)->paddingLength;
         break;
@@ -184,4 +229,3 @@ int packet_parse(enum PacketParseType htype, const char* buf, int len,
 #endif /* ERTS_GLB_INLINE_INCL_FUNC_DEF */
 
 #endif /* !__PACKET_PARSER_H__ */
-
