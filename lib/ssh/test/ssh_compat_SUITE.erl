@@ -47,7 +47,7 @@
          check_docker_present/1,
          login_otp_is_client/1,
          login_otp_is_server/1,
-         no_images_to_test/1,
+         no_docker_or_images/1,
          renegotiation_otp_is_server/1,
          send_recv_big_with_renegotiate_otp_is_client/1
         ]).
@@ -70,14 +70,25 @@ suite() ->
     [{timetrap, ?DEFAULT_TIMETRAP}].
 
 all() ->
-    case ssh_image_versions() of
-        [] ->
-            %% Keep one case so that init_per_suite/1 runs and the
-            %% reason is visible as a skip instead of an empty run
-            [no_images_to_test];
-        Vs ->
-            [{group,G} || G <- Vs]
+    case docker_found() andalso docker_usable() == ok of
+        false ->
+            %% init_per_suite/1 skips with the reason. Without this, CT
+            %% would report every case of every group as skipped (165 on
+            %% a host without docker).
+            [no_docker_or_images];
+        true ->
+            case ssh_image_versions() of
+                [] ->
+                    %% Keep one case so that init_per_suite/1 runs and the
+                    %% reason is visible as a skip instead of an empty run
+                    [no_docker_or_images];
+                Vs ->
+                    [{group,G} || G <- Vs]
+            end
     end.
+
+docker_found() ->
+    os:find_executable("docker") =/= false.
 
 groups() ->
     [{otp_client, [], [login_otp_is_client,
@@ -294,7 +305,9 @@ end_per_testcase(_TC, _Config) ->
 %%--------------------------------------------------------------------
 %% Test Cases --------------------------------------------------------
 %%--------------------------------------------------------------------
-no_images_to_test(_Config) ->
+%% Only reached when init_per_suite/1 did not skip, i.e. docker works but
+%% versions.txt lists no images
+no_docker_or_images(_Config) ->
     {skip, "No ssh versions to test in " ++ versions_file()}.
 
 %%--------------------------------------------------------------------
