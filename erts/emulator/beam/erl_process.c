@@ -13129,6 +13129,13 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
         DTRACE2(process_spawn, process_name, mfa_buf);
     }
 #endif
+    if (parent && arg_size > ERTS_MSG_COPY_WORDS_PER_REDUCTION) {
+        Uint reds = arg_size / ERTS_MSG_COPY_WORDS_PER_REDUCTION;
+        if (reds > CONTEXT_REDS)
+            reds = CONTEXT_REDS;
+        BUMP_REDS(parent, (int) reds);
+    }
+
     return res;
 
  error:
