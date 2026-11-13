@@ -23,7 +23,7 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2]).
 
--export([rec_1/1, include_local/1, predef_mac/1,
+-export([rec_1/1, include_local/1, invalid_include_lib/1, predef_mac/1,
 	 upcase_mac_1/1, upcase_mac_2/1,
 	 variable_1/1, otp_4870/1, otp_4871/1, otp_5362/1,
          pmod/1, not_circular/1, skip_header/1, otp_6277/1, gh_4995/1, otp_7702/1,
@@ -75,7 +75,7 @@ suite() ->
      {timetrap,{minutes,1}}].
 
 all() ->
-    [rec_1, {group, upcase_mac}, include_local, predef_mac,
+    [rec_1, {group, upcase_mac}, include_local, invalid_include_lib, predef_mac,
      {group, variable}, otp_4870, otp_4871, otp_5362, pmod,
      not_circular, skip_header, otp_6277, gh_4995, otp_7702, otp_8130,
      overload_mac, otp_8388, otp_8470, otp_8562,
@@ -129,6 +129,42 @@ include_local(Config) when is_list(Config) ->
 	lists:keysearch(a,3,List),
     [{File,1},{FooHrl,1},{BarHrl,1},{FooHrl,5},{File,5}] =
         [ FileLine || {attribute,_,file,FileLine} <- List ],
+    ok.
+
+invalid_include_lib(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    Header = filename:join(PrivDir, "invalid_include_lib.hrl"),
+    ok = file:write_file(Header, "-define(INVALID_INCLUDE_LIB, ok).\n"),
+    true = os:putenv("EPP_INVALID_INCLUDE_LIB", "."),
+    AbsoluteInclude = iolist_to_binary(
+                        io_lib:format("-include_lib(~tp).~nt() -> ?INVALID_INCLUDE_LIB.~n",
+                                      [Header])),
+    Cs = [{relative_file,
+           <<"-include_lib(\"invalid_include_lib.hrl\").\n"
+             "t() -> ?INVALID_INCLUDE_LIB.\n">>,
+           {warnings,[{{1,33},epp,invalid_include_lib}]}},
+          {relative_current_directory,
+           <<"-include_lib(\"./invalid_include_lib.hrl\").\n"
+             "t() -> ?INVALID_INCLUDE_LIB.\n">>,
+           {warnings,[{{1,33},epp,invalid_include_lib}]}},
+          {absolute_file,
+           AbsoluteInclude,
+           {warnings,[{{1,33},epp,invalid_include_lib}]}},
+          {expanded_relative_file,
+           <<"-include_lib(\"$EPP_INVALID_INCLUDE_LIB/invalid_include_lib.hrl\").\n"
+             "t() -> ?INVALID_INCLUDE_LIB.\n">>,
+           {warnings,[{{1,33},epp,invalid_include_lib}]}},
+          {compile_suppression,
+           <<"-compile(nowarn_invalid_include_lib).\n"
+             "-include_lib(\"invalid_include_lib.hrl\").\n"
+             "t() -> ?INVALID_INCLUDE_LIB.\n">>,
+           []},
+          {option_suppression,
+           <<"-include_lib(\"invalid_include_lib.hrl\").\n"
+             "t() -> ?INVALID_INCLUDE_LIB.\n">>,
+           [nowarn_invalid_include_lib],
+           []}],
+    [] = compile(Config, Cs),
     ok.
 
 file_macro(Config) when is_list(Config) ->
@@ -418,6 +454,7 @@ otp_5362(Config) when is_list(Config) ->
     true = message_compare(
                    [{File_Incl3,[{{1,1},erl_lint,{unused_function,{glurk,1}}},
                                  {{1,7},erl_lint,{unused_var,'Foo'}}]},
+                    {File_Incl,[{{5,28},epp,invalid_include_lib}]},
                     {File_Incl,[{{7,15},erl_lint,{unused_function,{hi,1}}},
                                 {{7,18},erl_lint,{unused_var,'There'}}]},
                     {"some.file",[{{102,16},erl_lint,{unused_function,{foo,1}}},
