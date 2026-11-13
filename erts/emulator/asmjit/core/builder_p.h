@@ -6,7 +6,7 @@
 #ifndef ASMJIT_CORE_BUILDER_P_H_INCLUDED
 #define ASMJIT_CORE_BUILDER_P_H_INCLUDED
 
-#include <asmjit/core/api-config.h>
+#include <asmjit/core/build_defs.h>
 #ifndef ASMJIT_NO_BUILDER
 
 #include <asmjit/core/builder.h>

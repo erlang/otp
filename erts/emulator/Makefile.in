@@ -476,12 +476,12 @@ CREATE_DIRS += $(OBJDIR) \
 ifeq ($(FLAVOR),jit)
 CREATE_DIRS+=$(OBJDIR)/asmjit/ \
 	$(OBJDIR)/asmjit/core \
-	$(OBJDIR)/asmjit/support \
+	$(OBJDIR)/asmjit/axl \
 	$(OBJDIR)/asmjit/arm \
 	$(OBJDIR)/asmjit/x86
 CREATE_DIRS+=$(TTF_DIR)/asmjit \
 	$(TTF_DIR)/asmjit/core \
-	$(TTF_DIR)/asmjit/support \
+	$(TTF_DIR)/asmjit/axl \
 	$(TTF_DIR)/asmjit/arm \
 	$(TTF_DIR)/asmjit/x86
 endif
@@ -780,15 +780,20 @@ $(UTILS_YCF_OUTPUT): beam/utils.c $(ERTS_LIB)
 GENERATE += $(DB_INSERT_LIST_OUTPUT) $(MAPS_YCF_OUTPUT) $(UTILS_YCF_OUTPUT)
 
 ## ASMJIT source files and headers. Note that ARM and x86 are both included,
-## unconditionally, since `core` sometimes references them.
-ASMJIT_CPP = $(wildcard asmjit/core/*.cpp) \
-	$(wildcard asmjit/support/*.cpp) \
-	$(wildcard asmjit/$(JIT_ARCH)/*.cpp)
+## unconditionally, since `core` sometimes references them, and that the test
+## files are excluded.
+ASMJIT_CPP = $(filter-out \
+	        $(wildcard asmjit/axl/*test.cpp) \
+	        $(wildcard asmjit/core/*test.cpp) \
+	        $(wildcard asmjit/$(JIT_ARCH)/*test.cpp), \
+	        $(wildcard asmjit/axl/*.cpp) \
+	        $(wildcard asmjit/core/*.cpp) \
+	        $(wildcard asmjit/$(JIT_ARCH)/*.cpp))
 ASMJIT_H = $(wildcard asmjit/*.h) \
+	$(wildcard asmjit/axl/*.h) \
 	$(wildcard asmjit/core/*.h) \
 	$(wildcard asmjit/arm/*.h) \
-	$(wildcard asmjit/x86/*.h) \
-	$(wildcard asmjit/support/*.h)
+	$(wildcard asmjit/x86/*.h)
 ASMJIT_TTF_H = $(foreach HEADER,$(ASMJIT_H),$(TTF_DIR)/$(HEADER))
 
 ifeq ($(FLAVOR),jit)

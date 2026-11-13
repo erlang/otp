@@ -3,25 +3,26 @@
 // See <asmjit/core.h> or LICENSE.md for license and copyright information
 // SPDX-License-Identifier: Zlib
 
-#include <asmjit/core/api-build_p.h>
+#include <asmjit/core/api_build_p.h>
 #ifndef ASMJIT_NO_LOGGING
 
-#include <asmjit/core/archtraits.h>
+#include <asmjit/axl/mem_ops.h>
+#include <asmjit/core/arch_traits.h>
 #include <asmjit/core/builder.h>
-#include <asmjit/core/codeholder.h>
+#include <asmjit/core/code_holder.h>
 #include <asmjit/core/compiler.h>
 #include <asmjit/core/emitter.h>
 #include <asmjit/core/formatter_p.h>
+#include <asmjit/core/globals.h>
 #include <asmjit/core/string.h>
 #include <asmjit/core/type.h>
-#include <asmjit/support/support.h>
 
 #if !defined(ASMJIT_NO_X86)
-  #include <asmjit/x86/x86formatter_p.h>
+  #include <asmjit/x86/x86_formatter_p.h>
 #endif
 
 #if !defined(ASMJIT_NO_AARCH64)
-  #include <asmjit/arm/a64formatter_p.h>
+  #include <asmjit/arm/a64_formatter_p.h>
 #endif
 
 ASMJIT_BEGIN_NAMESPACE
@@ -136,7 +137,7 @@ Error format_feature(String& sb, Arch arch, uint32_t feature_id) noexcept {
 }
 
 Error format_label(String& sb, FormatFlags format_flags, const BaseEmitter* emitter, uint32_t label_id) noexcept {
-  Support::maybe_unused(format_flags);
+  axl::maybe_unused(format_flags);
 
   if (emitter && emitter->code()) {
     CodeHolder* code = emitter->code();
@@ -221,7 +222,7 @@ ASMJIT_API Error format_data_type(
   Arch arch,
   TypeId type_id) noexcept
 {
-  Support::maybe_unused(format_flags);
+  axl::maybe_unused(format_flags);
 
   if (ASMJIT_UNLIKELY(uint32_t(arch) > uint32_t(Arch::kMaxValue))) {
     return make_error(Error::kInvalidArch);
@@ -232,7 +233,7 @@ ASMJIT_API Error format_data_type(
     return make_error(Error::kInvalidState);
   }
 
-  uint32_t type_size_log2 = Support::ctz(type_size);
+  uint32_t type_size_log2 = axl::ctz(type_size);
   return sb.append(word_name_table[size_t(ArchTraits::by_arch(arch).type_name_id_by_index(type_size_log2))]);
 }
 
@@ -250,12 +251,12 @@ static Error format_data_helper(String& sb, const char* type_name, uint32_t type
 
     switch (type_size) {
       case 1: v = data[0]; break;
-      case 2: v = Support::loadu_u16(data); break;
-      case 4: v = Support::loadu_u32(data); break;
-      case 8: v = Support::loadu_u64(data); break;
+      case 2: v = axl::loadu_u16(data); break;
+      case 4: v = axl::loadu_u32(data); break;
+      case 8: v = axl::loadu_u64(data); break;
     }
 
-    ASMJIT_PROPAGATE(sb.append_uint(v, 16, type_size * 2, StringFormatFlags::kAlternate));
+    ASMJIT_PROPAGATE(sb.append_int(v, 16, type_size * 2, StringFormatFlags::kAlternate));
     data += type_size;
   }
 
@@ -268,7 +269,7 @@ Error format_data(
   Arch arch,
   TypeId type_id, const void* data, size_t item_count, size_t repeat_count
 ) noexcept {
-  Support::maybe_unused(format_flags);
+  axl::maybe_unused(format_flags);
 
   if (ASMJIT_UNLIKELY(!Environment::is_defined_arch(arch))) {
     return make_error(Error::kInvalidArch);
@@ -279,7 +280,7 @@ Error format_data(
     return make_error(Error::kInvalidState);
   }
 
-  if (!Support::is_power_of_2(type_size)) {
+  if (!axl::is_power_of_2(type_size)) {
     item_count *= type_size;
     type_size = 1;
   }
@@ -289,7 +290,7 @@ Error format_data(
     item_count <<= 1;
   }
 
-  uint32_t type_size_log2 = Support::ctz(type_size);
+  uint32_t type_size_log2 = axl::ctz(type_size);
   const char* word_name = word_name_table[size_t(ArchTraits::by_arch(arch).type_name_id_by_index(type_size_log2))];
 
   if (repeat_count > 1) {
@@ -456,7 +457,7 @@ Error format_node(
     case NodeType::kInst:
     case NodeType::kJump: {
       const InstNode* inst_node = node->as<InstNode>();
-      ASMJIT_PROPAGATE(builder->_funcs.format_instruction(sb, format_options.flags(), builder, builder->arch(), inst_node->baseInst(), inst_node->operands()));
+      ASMJIT_PROPAGATE(builder->_funcs.format_instruction(sb, format_options.flags(), builder, builder->arch(), inst_node->base_inst(), inst_node->operands()));
       break;
     }
 
@@ -570,7 +571,7 @@ Error format_node(
 
     case NodeType::kInvoke: {
       const InvokeNode* invoke_node = node->as<InvokeNode>();
-      ASMJIT_PROPAGATE(builder->_funcs.format_instruction(sb, format_options.flags(), builder, builder->arch(), invoke_node->baseInst(), invoke_node->operands()));
+      ASMJIT_PROPAGATE(builder->_funcs.format_instruction(sb, format_options.flags(), builder, builder->arch(), invoke_node->base_inst(), invoke_node->operands()));
       break;
     }
 #endif

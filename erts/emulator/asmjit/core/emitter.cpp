@@ -3,11 +3,12 @@
 // See <asmjit/core.h> or LICENSE.md for license and copyright information
 // SPDX-License-Identifier: Zlib
 
-#include <asmjit/core/api-build_p.h>
-#include <asmjit/core/emitterutils_p.h>
-#include <asmjit/core/errorhandler.h>
+#include <asmjit/core/api_build_p.h>
+
+#include <asmjit/core/emitter_utils_p.h>
+#include <asmjit/core/error_handler.h>
+#include <asmjit/core/globals.h>
 #include <asmjit/core/logger.h>
-#include <asmjit/support/support.h>
 
 ASMJIT_BEGIN_NAMESPACE
 
@@ -100,7 +101,7 @@ void BaseEmitter::set_logger(Logger* logger) noexcept {
   }
   BaseEmitter_updateForcedOptions(this);
 #else
-  Support::maybe_unused(logger);
+  axl::maybe_unused(logger);
 #endif
 }
 
@@ -127,7 +128,7 @@ Error BaseEmitter::_report_error(Error err, const char* message) {
   ErrorHandler* eh = _error_handler;
   if (eh) {
     if (!message) {
-      message = DebugUtils::error_as_string(err);
+      message = stringify_error(err);
     }
     eh->handle_error(err, message, this);
   }
@@ -140,7 +141,7 @@ Error BaseEmitter::_report_error(Error err, const char* message) {
 
 // [[pure virtual]]
 Error BaseEmitter::section(Section* section) {
-  Support::maybe_unused(section);
+  axl::maybe_unused(section);
   return make_error(Error::kInvalidState);
 }
 
@@ -154,7 +155,7 @@ Label BaseEmitter::new_label() {
 
 // [[pure virtual]]
 Label BaseEmitter::new_named_label(const char* name, size_t name_size, LabelType type, uint32_t parent_id) {
-  Support::maybe_unused(name, name_size, type, parent_id);
+  axl::maybe_unused(name, name_size, type, parent_id);
   return Label(Globals::kInvalidId);
 }
 
@@ -164,7 +165,7 @@ Label BaseEmitter::label_by_name(const char* name, size_t name_size, uint32_t pa
 
 // [[pure virtual]]
 Error BaseEmitter::bind(const Label& label) {
-  Support::maybe_unused(label);
+  axl::maybe_unused(label);
   return make_error(Error::kInvalidState);
 }
 
@@ -210,7 +211,7 @@ Error BaseEmitter::_emitI(InstId inst_id, const Operand_& o0, const Operand_& o1
 
 // [[pure virtual]]
 Error BaseEmitter::_emit(InstId inst_id, const Operand_& o0, const Operand_& o1, const Operand_& o2, const Operand_* op_ext) {
-  Support::maybe_unused(inst_id, o0, o1, o2, op_ext);
+  axl::maybe_unused(inst_id, o0, o1, o2, op_ext);
   return make_error(Error::kInvalidState);
 }
 
@@ -280,7 +281,7 @@ Error BaseEmitter::emit_args_assignment(const FuncFrame& frame, const FuncArgsAs
 
 // [[pure virtual]]
 Error BaseEmitter::align(AlignMode align_mode, uint32_t alignment) {
-  Support::maybe_unused(align_mode, alignment);
+  axl::maybe_unused(align_mode, alignment);
   return make_error(Error::kInvalidState);
 }
 
@@ -289,31 +290,31 @@ Error BaseEmitter::align(AlignMode align_mode, uint32_t alignment) {
 
 // [[pure virtual]]
 Error BaseEmitter::embed(const void* data, size_t data_size) {
-  Support::maybe_unused(data, data_size);
+  axl::maybe_unused(data, data_size);
   return make_error(Error::kInvalidState);
 }
 
 // [[pure virtual]]
 Error BaseEmitter::embed_data_array(TypeId type_id, const void* data, size_t item_count, size_t repeat_count) {
-  Support::maybe_unused(type_id, data, item_count, repeat_count);
+  axl::maybe_unused(type_id, data, item_count, repeat_count);
   return make_error(Error::kInvalidState);
 }
 
 // [[pure virtual]]
 Error BaseEmitter::embed_const_pool(const Label& label, const ConstPool& pool) {
-  Support::maybe_unused(label, pool);
+  axl::maybe_unused(label, pool);
   return make_error(Error::kInvalidState);
 }
 
 // [[pure virtual]]
 Error BaseEmitter::embed_label(const Label& label, size_t data_size) {
-  Support::maybe_unused(label, data_size);
+  axl::maybe_unused(label, data_size);
   return make_error(Error::kInvalidState);
 }
 
 // [[pure virtual]]
 Error BaseEmitter::embed_label_delta(const Label& label, const Label& base, size_t data_size) {
-  Support::maybe_unused(label, base, data_size);
+  axl::maybe_unused(label, base, data_size);
   return make_error(Error::kInvalidState);
 }
 
@@ -322,7 +323,7 @@ Error BaseEmitter::embed_label_delta(const Label& label, const Label& base, size
 
 // [[pure virtual]]
 Error BaseEmitter::comment(const char* data, size_t size) {
-  Support::maybe_unused(data, size);
+  axl::maybe_unused(data, size);
   return make_error(Error::kInvalidState);
 }
 
@@ -345,7 +346,7 @@ Error BaseEmitter::commentf(const char* fmt, ...) {
   ASMJIT_PROPAGATE(err);
   return comment(sb.data(), sb.size());
 #else
-  Support::maybe_unused(fmt);
+  axl::maybe_unused(fmt);
   return Error::kOk;
 #endif
 }
@@ -365,7 +366,7 @@ Error BaseEmitter::commentv(const char* fmt, va_list ap) {
   ASMJIT_PROPAGATE(err);
   return comment(sb.data(), sb.size());
 #else
-  Support::maybe_unused(fmt, ap);
+  axl::maybe_unused(fmt, ap);
   return Error::kOk;
 #endif
 }
@@ -389,7 +390,7 @@ Error BaseEmitter::on_attach(CodeHolder& code) noexcept {
 }
 
 Error BaseEmitter::on_detach(CodeHolder& code) noexcept {
-  Support::maybe_unused(code);
+  axl::maybe_unused(code);
 
   if (!has_own_logger()) {
     _logger = nullptr;
@@ -416,7 +417,7 @@ Error BaseEmitter::on_detach(CodeHolder& code) noexcept {
 
 Error BaseEmitter::on_reinit(CodeHolder& code) noexcept {
   ASMJIT_ASSERT(_code == &code);
-  Support::maybe_unused(code);
+  axl::maybe_unused(code);
 
   _inst_options = InstOptions::kNone;
   _extra_reg.reset();

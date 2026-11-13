@@ -49,9 +49,9 @@
 
 #include <asmjit/core.h>
 
-#include <asmjit/asmjit-scope-begin.h>
-#include <asmjit/arm/armglobals.h>
-#include <asmjit/arm/armutils.h>
-#include <asmjit/asmjit-scope-end.h>
+#include <asmjit/build_scope_begin.h>
+#include <asmjit/arm/arm_globals.h>
+#include <asmjit/arm/arm_utils.h>
+#include <asmjit/build_scope_end.h>
 
 #endif // ASMJIT_ARM_H_INCLUDED

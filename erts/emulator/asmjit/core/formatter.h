@@ -6,11 +6,10 @@
 #ifndef ASMJIT_CORE_FORMATTER_H_INCLUDED
 #define ASMJIT_CORE_FORMATTER_H_INCLUDED
 
+#include <asmjit/axl/inplace_array.h>
 #include <asmjit/core/globals.h>
 #include <asmjit/core/inst.h>
 #include <asmjit/core/string.h>
-#include <asmjit/support/span.h>
-#include <asmjit/support/support.h>
 
 ASMJIT_BEGIN_NAMESPACE
 
@@ -87,9 +86,9 @@ public:
   //! Format flags.
   FormatFlags _flags = FormatFlags::kNone;
   //! Indentations for each indentation group.
-  Support::Array<uint8_t, uint32_t(FormatIndentationGroup::kMaxValue) + 1> _indentation {};
+  axl::InplaceArray<uint8_t, uint32_t(FormatIndentationGroup::kMaxValue) + 1> _indentation {};
   //! Paddings for each padding group.
-  Support::Array<uint16_t, uint32_t(FormatPaddingGroup::kMaxValue) + 1> _padding {};
+  axl::InplaceArray<uint16_t, uint32_t(FormatPaddingGroup::kMaxValue) + 1> _padding {};
 
   //! \}
 
@@ -114,7 +113,7 @@ public:
 
   //! Tests whether the given `flag` is set in format flags.
   [[nodiscard]]
-  ASMJIT_INLINE_NODEBUG bool has_flag(FormatFlags flag) const noexcept { return Support::test(_flags, flag); }
+  ASMJIT_INLINE_NODEBUG bool has_flag(FormatFlags flag) const noexcept { return axl::test(_flags, flag); }
 
   //! Resets all format flags to `flags`.
   ASMJIT_INLINE_NODEBUG void set_flags(FormatFlags flags) noexcept { _flags = flags; }

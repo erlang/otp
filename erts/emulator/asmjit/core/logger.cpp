@@ -3,12 +3,12 @@
 // See <asmjit/core.h> or LICENSE.md for license and copyright information
 // SPDX-License-Identifier: Zlib
 
-#include <asmjit/core/api-build_p.h>
+#include <asmjit/core/api_build_p.h>
 #ifndef ASMJIT_NO_LOGGING
 
+#include <asmjit/core/globals.h>
 #include <asmjit/core/logger.h>
 #include <asmjit/core/string.h>
-#include <asmjit/support/support.h>
 
 ASMJIT_BEGIN_NAMESPACE
 
@@ -21,7 +21,7 @@ Logger::~Logger() noexcept {}
 
 // [[pure virtual]]
 Error Logger::_log(const char* data, size_t size) noexcept {
-  Support::maybe_unused(data, size);
+  axl::maybe_unused(data, size);
 
   // Do not error in this case - the logger would just sink to /dev/null.
   return Error::kOk;

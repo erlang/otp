@@ -185,7 +185,7 @@ void BeamModuleAssembler::emit_i_plus(const ArgSource &LHS,
         /* Must be signed for the template magic in is_int_n<32> to work for
          * negative numbers. */
         rhs_untagged = RHS.as<ArgSmall>().getSigned() << _TAG_IMMED1_SIZE;
-        is_rhs_literal = Support::is_int_n<32>(rhs_untagged);
+        is_rhs_literal = Bitwise::fits_signed<32>(rhs_untagged);
     }
 
     if (always_small(LHS) && always_small(RHS) && small_result) {
@@ -321,7 +321,7 @@ void BeamModuleAssembler::emit_i_minus(const ArgSource &LHS,
         /* Must be signed for the template magic in is_int_n<32> to work for
          * negative numbers. */
         rhs_untagged = RHS.as<ArgSmall>().getSigned() << _TAG_IMMED1_SIZE;
-        is_rhs_literal = Support::is_int_n<32>(rhs_untagged);
+        is_rhs_literal = Bitwise::fits_signed<32>(rhs_untagged);
     }
 
     if (always_small(LHS) && always_small(RHS) && small_result) {
@@ -713,15 +713,13 @@ void BeamModuleAssembler::emit_div_rem(const ArgLabel &Fail,
             a.short_().jne(generic_div);
         }
 
-        if (Support::is_power_of_2(divisor) &&
+        if (Bitwise::is_power_of_2(divisor) &&
             std::get<0>(getClampedRange(LHS)) >= 0) {
             /* Unsigned integer division. */
-            int trailing_bits = Support::ctz<Eterm>(divisor);
+            int trailing_bits = Bitwise::ctz<Eterm>(divisor);
 
             if (need_rem) {
-                Uint mask = Support::lsb_mask<Uint>(trailing_bits +
-                                                    _TAG_IMMED1_SIZE);
-                mask = (1ULL << (trailing_bits + _TAG_IMMED1_SIZE)) - 1;
+                Uint mask = (1ULL << (trailing_bits + _TAG_IMMED1_SIZE)) - 1;
                 comment("optimized rem by replacing with masking");
                 mov_imm(x86::rdx, mask);
                 a.and_(x86::rdx, x86::rax);
@@ -732,9 +730,9 @@ void BeamModuleAssembler::emit_div_rem(const ArgLabel &Fail,
                 a.shr(x86::rax, imm(trailing_bits));
                 a.or_(x86::rax, imm(_TAG_IMMED1_SMALL));
             }
-        } else if (Support::is_power_of_2(divisor)) {
+        } else if (Bitwise::is_power_of_2(divisor)) {
             /* Signed integer division. */
-            int shift = Support::ctz<Eterm>(divisor);
+            int shift = Bitwise::ctz<Eterm>(divisor);
             Sint offset = (divisor - 1) << _TAG_IMMED1_SIZE;
 
             if (need_rem) {
@@ -752,7 +750,7 @@ void BeamModuleAssembler::emit_div_rem(const ArgLabel &Fail,
                 a.shr(ARG1, imm(63));
                 a.add(x86::rax, ARG1);
             } else {
-                if (Support::is_int_n<32>(offset)) {
+                if (Bitwise::fits_signed<32>(offset)) {
                     a.lea(ARG1, x86::qword_ptr(x86::rax, offset));
                 } else {
                     a.mov(ARG1, offset);
@@ -798,7 +796,7 @@ void BeamModuleAssembler::emit_div_rem(const ArgLabel &Fail,
                 }
 
                 if (need_rem) {
-                    if (Support::is_int_n<32>(divisor)) {
+                    if (Bitwise::fits_signed<32>(divisor)) {
                         a.imul(x86::rdx, x86::rax, imm(divisor));
                     } else {
                         mov_imm(ARG6, divisor);
@@ -1096,8 +1094,8 @@ void BeamModuleAssembler::emit_i_mul_add(const ArgLabel &Fail,
 
     if (Src2.isSmall()) {
         factor = Src2.as<ArgSmall>().getSigned();
-        if (Support::is_power_of_2(factor)) {
-            left_shift = Support::ctz<Eterm>(factor);
+        if (Bitwise::is_power_of_2(factor)) {
+            left_shift = Bitwise::ctz<Eterm>(factor);
         }
     }
 
@@ -1130,7 +1128,7 @@ void BeamModuleAssembler::emit_i_mul_add(const ArgLabel &Fail,
             break;
         }
 
-        if (Support::is_int_n<32>(increment) && p.has_index()) {
+        if (Bitwise::fits_signed<32>(increment) && p.has_index()) {
             comment("optimizing multiplication and addition using LEA");
             mov_arg(RET, Src1);
             a.lea(RET, p);
@@ -1146,7 +1144,7 @@ void BeamModuleAssembler::emit_i_mul_add(const ArgLabel &Fail,
         if (Src2.isSmall()) {
             mov_arg(RET, Src1);
             a.and_(RET, imm(~_TAG_IMMED1_MASK));
-            if (Support::is_power_of_2(factor)) {
+            if (Bitwise::is_power_of_2(factor)) {
                 comment("optimized multiplication by replacing with left "
                         "shift");
                 a.shl(RET, imm(left_shift));
@@ -1360,14 +1358,15 @@ void BeamModuleAssembler::emit_i_band(const ArgSource &LHS,
     if (always_small(LHS) && always_small(RHS)) {
         comment("skipped test for small operands since they are always small");
         mov_arg(RET, LHS);
-        if (RHS.isSmall() && Support::is_int_n<32>(RHS.as<ArgSmall>().get())) {
+        if (RHS.isSmall() &&
+            Bitwise::fits_signed<32>(RHS.as<ArgSmall>().get())) {
             preserve_cache(
                     [&]() {
                         a.and_(RETd, imm(RHS.as<ArgSmall>().get()));
                     },
                     RET);
         } else if (RHS.isSmall() &&
-                   Support::is_int_n<32>((Sint)RHS.as<ArgSmall>().get())) {
+                   Bitwise::fits_signed<32>((Sint)RHS.as<ArgSmall>().get())) {
             preserve_cache(
                     [&]() {
                         a.and_(RET, imm(RHS.as<ArgSmall>().get()));
@@ -1434,7 +1433,7 @@ void BeamModuleAssembler::emit_i_bor(const ArgLabel &Fail,
         comment("skipped test for small operands since they are always small");
         mov_arg(RET, LHS);
         if (RHS.isImmed() &&
-            Support::is_int_n<32>((Sint)RHS.as<ArgSmall>().get())) {
+            Bitwise::fits_signed<32>((Sint)RHS.as<ArgSmall>().get())) {
             a.or_(RET, imm(RHS.as<ArgSmall>().get()));
         } else {
             mov_arg(ARG2, RHS);
@@ -1494,7 +1493,7 @@ void BeamModuleAssembler::emit_i_bxor(const ArgLabel &Fail,
         comment("skipped test for small operands since they are always small");
         mov_arg(RET, LHS);
         if (RHS.isImmed() &&
-            Support::is_int_n<32>((Sint)RHS.as<ArgSmall>().get())) {
+            Bitwise::fits_signed<32>((Sint)RHS.as<ArgSmall>().get())) {
             preserve_cache(
                     [&]() {
                         a.xor_(RET,
@@ -1763,7 +1762,7 @@ static int count_leading_zeroes(UWord value) {
         return word_bits;
     }
 
-    return Support::clz(value);
+    return Bitwise::clz(value);
 }
 
 void BeamModuleAssembler::emit_i_bsl(const ArgSource &LHS,

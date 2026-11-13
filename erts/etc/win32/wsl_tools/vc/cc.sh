@@ -206,7 +206,7 @@ while test -n "$1" ; do
 	    y=`echo $x | sed 's,^-l\(.*\),\1,g'`;
 	    LINKCMD="$LINKCMD $x";;
         -std=c++*)
-            CMD="$CMD /std:c++17 /Zc:__cplusplus";;
+            CMD="$CMD /std:c++20 /Zc:__cplusplus";;
 	/*.c)
 	    SOURCES="$SOURCES $x";;
 	*.c)

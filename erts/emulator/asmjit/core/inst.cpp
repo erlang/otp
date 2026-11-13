@@ -3,16 +3,16 @@
 // See <asmjit/core.h> or LICENSE.md for license and copyright information
 // SPDX-License-Identifier: Zlib
 
-#include <asmjit/core/api-build_p.h>
-#include <asmjit/core/archtraits.h>
+#include <asmjit/core/api_build_p.h>
+#include <asmjit/core/arch_traits.h>
 #include <asmjit/core/inst.h>
 
 #if !defined(ASMJIT_NO_X86)
-  #include <asmjit/x86/x86instapi_p.h>
+  #include <asmjit/x86/x86_inst_api_p.h>
 #endif
 
 #if !defined(ASMJIT_NO_AARCH64)
-  #include <asmjit/arm/a64instapi_p.h>
+  #include <asmjit/arm/a64_inst_api_p.h>
 #endif
 
 ASMJIT_BEGIN_NAMESPACE

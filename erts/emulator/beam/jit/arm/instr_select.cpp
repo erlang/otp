@@ -32,8 +32,8 @@ static constexpr bool isInt13(T value) {
     typedef typename std::make_unsigned<T>::type U;
     typedef typename std::make_signed<T>::type S;
 
-    return Support::is_uint_n<12>(U(value)) ||
-           Support::is_uint_n<12>(-S(value));
+    return Bitwise::fits_unsigned<12>(U(value)) ||
+           Bitwise::fits_unsigned<12>(-S(value));
 }
 
 /* The `cmp`/`cmn` instructions in AArch64 only accept 12-bit unsigned immediate
@@ -477,7 +477,7 @@ void BeamModuleAssembler::emit_i_jump_on_val(const ArgSource &Src,
     a.asr(TMP1, src.reg, imm(_TAG_IMMED1_SIZE));
 
     if (Base.get() != 0) {
-        if (Support::is_uint_n<12>((Sint)Base.get())) {
+        if (Bitwise::fits_unsigned<12>((Sint)Base.get())) {
             a.sub(TMP1, TMP1, imm(Base.get()));
         } else {
             mov_imm(TMP3, Base.get());
