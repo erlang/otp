@@ -112,7 +112,14 @@ EOF
 
 if [[ "x$INPUT_FILE" == "x" ]]
 then
-    wget -O $TMP $LINK
+    # -a: append the log to stderr, so it ends up in the caller's build
+    # log instead of a wget-log file (wget creates one when it runs
+    # without a terminal)
+    if ! wget -nv -a /dev/stderr -O $TMP $LINK; then
+        echo "Download failed: $LINK" >&2
+        rm -f ./TempDockerFile $TMP
+        exit 1
+    fi
 
 elif [[ "x$INPUT_FILE" != "x$TMP" ]]
 then
