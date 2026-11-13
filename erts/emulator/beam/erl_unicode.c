@@ -2096,6 +2096,12 @@ char *erts_convert_filename_to_encoding(Eterm name, char *statbuf, size_t statbu
             return NULL;
         }
 
+        /* Don't allow null in the middle of filenames */
+        if (sys_memchr(bytes, 0, size) != NULL) {
+            erts_free_aligned_binary_bytes(temp_alloc);
+            return NULL;
+        }
+
 	if (encoding != ERL_FILENAME_WIN_WCHAR) {
 	    /*Add 0 termination only*/
 	    if (used) 
