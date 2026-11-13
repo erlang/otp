@@ -110,7 +110,7 @@ accept_open(_NetAddress, ListenSocket) ->
         KtlsInfo =
             socket_ktls_info(Socket, cryptcookie:ktls_info(CipherState)),
         ok ?=
-            inet_tls_dist:set_ktls(KtlsInfo),
+            tls_ktls:set_ktls(KtlsInfo),
         {Socket, {PeerIp, PeerPort}}
     else
         {error, Reason} ->
@@ -155,7 +155,7 @@ connect(
         KtlsInfo =
             socket_ktls_info(Socket, cryptcookie:ktls_info(CipherState)),
         ok ?=
-            inet_tls_dist:set_ktls(KtlsInfo),
+            tls_ktls:set_ktls(KtlsInfo),
         inet_epmd_socket:start_dist_ctrl(NetAddress, Socket)
     else
         {error, _} = Error ->
@@ -265,7 +265,7 @@ supported() ->
         {ok, Client} = socket:open(?FAMILY, stream),
         ok = socket:connect(Client, Addr),
         try
-            inet_tls_dist:set_ktls(
+            tls_ktls:set_ktls(
               socket_ktls_info(Client, cryptcookie:ktls_info()))
         after
             _ = socket:close(Client),
@@ -275,7 +275,4 @@ supported() ->
 
 
 socket_ktls_info(Socket, KtlsInfo) ->
-    KtlsInfo
-        #{ socket => Socket,
-           setopt_fun => fun socket:setopt_native/3,
-           getopt_fun => fun socket:getopt_native/3 }.
+    KtlsInfo#{ socket => Socket }.

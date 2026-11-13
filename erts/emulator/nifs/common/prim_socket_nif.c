@@ -1152,6 +1152,7 @@ ESockSendfileCounters initESockSendfileCounters =
     ESOCK_NIF_FUNC_DEF(peernames);                  \
     ESOCK_NIF_FUNC_DEF(ioctl);                      \
     ESOCK_NIF_FUNC_DEF(finalize_close);             \
+    ESOCK_NIF_FUNC_DEF(tls);                        \
     ESOCK_NIF_FUNC_DEF(cancel);
 
 #define ESOCK_NIF_FUNC_DEF(F)                              \
@@ -7772,6 +7773,12 @@ ERL_NIF_TERM esock_shutdown(ErlNifEnv*       env,
     if (! IS_OPEN(descP->readState))
         return esock_make_error_closed(env);
 
+#ifdef ERTS_KTLS
+    /* A queued ssl kTLS alert gets a last try */
+    if (how != SHUT_RD)
+        (void) erts_ktls_flush_alert(descP->tls, descP->sock);
+#endif
+
     if (sock_shutdown(descP->sock, how) == 0)
         return esock_atom_ok;
     else
@@ -13878,6 +13885,71 @@ ERL_NIF_TERM nif_ioctl(ErlNifEnv*         env,
 
 
 
+/* ----------------------------------------------------------------------
+ * nif_tls
+ *
+ * Description:
+ * An ssl kTLS request (Linux), as TCP_REQ_TLS in inet_drv; see
+ * erl_ktls.h. Under both the read and the write lock.
+ *
+ * Arguments:
+ * Socket (ref), Request (iolist)
+ */
+static
+ERL_NIF_TERM nif_tls(ErlNifEnv*         env,
+                     int                argc,
+                     const ERL_NIF_TERM argv[])
+{
+#ifdef ERTS_KTLS
+    ESockDescriptor*     descP;
+    ErlNifBinary         req;
+    unsigned char*       buf;
+    unsigned char*       data;
+    const unsigned char* reply;
+    size_t               replyLen;
+    ERL_NIF_TERM         res;
+    int                  err;
+
+    ESOCK_ASSERT( argc == 2 );
+
+    if (! ESOCK_GET_RESOURCE(env, argv[0], (void**) &descP) ||
+        ! enif_inspect_iolist_as_binary(env, argv[1], &req))
+        return enif_make_badarg(env);
+    if ((buf = enif_alloc(ERTS_KTLS_BUF_SIZE)) == NULL)
+        return esock_make_error_errno(env, ENOMEM);
+
+    MLOCK(descP->readMtx);
+    MLOCK(descP->writeMtx);
+    if (! IS_OPEN(descP->writeState)) {
+        res = esock_make_error_closed(env);
+    } else {
+        if (descP->tls == NULL &&
+            (descP->tls = enif_alloc(sizeof(ErtsKtls))) != NULL)
+            sys_memzero((char *) descP->tls, sizeof(ErtsKtls));
+        err = descP->tls == NULL ? ENOMEM :
+            erts_ktls_request(descP->tls, descP->sock, 0, req.data, req.size,
+                              buf, &reply, &replyLen);
+        if (err == 0) {
+            data = enif_make_new_binary(env, replyLen, &res);
+            if (replyLen > 0)
+                sys_memcpy(data, reply, replyLen);
+            res = esock_make_ok2(env, res);
+        } else {
+            res = esock_make_error_errno(env, err);
+        }
+    }
+    MUNLOCK(descP->writeMtx);
+    MUNLOCK(descP->readMtx);
+    enif_free(buf);
+
+    return res;
+#else
+    (void) argc; (void) argv;
+    return esock_make_error(env, esock_atom_enotsup);
+#endif
+}
+
+
 
 /* ----------------------------------------------------------------------
  * nif_cancel
@@ -17074,6 +17146,7 @@ ESockDescriptor* esock_alloc_descriptor(SOCKET sock)
     descP->dbg              = ESOCK_DEBUG_DEFAULT;      // Overwritten by caller
     descP->selectRead       = FALSE;
     descP->useReg           = ESOCK_USE_SOCKET_REGISTRY;// Overwritten by caller
+    descP->tls              = NULL;
     descP->meta.env         = esock_alloc_env("esock_alloc_descriptor - "
                                               "meta-env");
     descP->meta.ref         = esock_atom_undefined;
@@ -18749,6 +18822,7 @@ ErlNifFunc esock_funcs[] =
      * is called after the close *select* has "completed".
      */
     {"nif_cancel",              3, nif_cancel, 0},
+    {"nif_tls",                 2, nif_tls, 0},
     {"nif_finalize_close",      1, nif_finalize_close, ERL_NIF_DIRTY_JOB_IO_BOUND}
 };
 

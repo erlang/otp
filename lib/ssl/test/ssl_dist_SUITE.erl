@@ -366,7 +366,7 @@ ktls_verify(Config) ->
 
 %% Verify that kTLS was activated (whitebox verification);
 %% check that a specific supervisor has no child supervisor
-%% which indicates that ssl_gen_statem:ktls_handover/1 has succeeded
+%% which indicates that the {ktls, true} handover has succeeded
 %%
 ktls_count_tls_dist(Node) ->
     Key = supervisors,
