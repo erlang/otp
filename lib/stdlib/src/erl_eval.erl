@@ -1873,8 +1873,125 @@ match(Pat, Term, Anno, Bs, BBs, Ef) ->
             nomatch;
         throw:invalid ->
             apply_error({illegal_pattern,to_term(Pat)}, ?STACKTRACE, Anno,
-                        Bs, Ef, none)
+                        Bs, Ef, none);
+        throw:map_key_deferred ->
+            match_dep_keys(Pat, Term, Anno, Bs, BBs, Ef)
     end.
+
+%% Like match/6, but a map key that cannot be evaluated is left to the
+%% caller (see match_list/6).
+match_head(Pat, Term, Anno, Bs, BBs, Ef) ->
+    try match1(Pat, Term, Bs, BBs, Ef) of
+        Result -> Result
+    catch
+        throw:nomatch ->
+            nomatch;
+        throw:invalid ->
+            %% Report the error from match/6.
+            match(Pat, Term, Anno, Bs, BBs, Ef)
+    end.
+
+%% match_dep_keys(Pattern, Term, Anno, Bs, BBs, Ef) ->
+%%      {match,NewBindings} | nomatch.
+%%  A map key in Pattern uses a variable that is not bound before the
+%%  pattern, but that can be bound by another part of the pattern.
+%%  Match the pattern without the map associations whose keys are not
+%%  ready, then match those associations, with the new bindings
+%%  available to their keys. This repeats as long as more keys become
+%%  ready. A key variable bound both before the pattern and in a fun
+%%  head refers to the variable bound before, as the compiler does.
+
+match_dep_keys(Pat0, Term, Anno, Bs0, BBs, Ef) ->
+    case dep_keys_pat(Pat0, BBs, 1, []) of
+        {_,_,[]} ->
+            nomatch;
+        {Pat,_,Deferred} ->
+            case match_head(Pat, Term, Anno, Bs0, BBs, Ef) of
+                nomatch ->
+                    nomatch;
+                {match,Bs1} ->
+                    {Names,Maps} = lists:unzip(reverse(Deferred)),
+                    Vals = [Val || N <- Names, {value,Val} <- [binding(N, Bs1)]],
+                    Bs = foldl(fun del_binding/2, Bs1, Names),
+                    KeyBs = foldl(fun({N,V}, Acc) -> add_binding(N, V, Acc) end,
+                                  Bs, bindings(BBs)),
+                    case any(fun(M) -> dep_keys_progress(M, KeyBs) end, Maps) of
+                        true ->
+                            match({tuple,Anno,Maps}, list_to_tuple(Vals),
+                                  Anno, Bs, KeyBs, Ef);
+                        false ->
+                            %% Circular or unbound keys.
+                            nomatch
+                    end
+            end
+    end.
+
+%% Replace each map pattern that has associations whose keys are not
+%% ready with an alias of its other associations and a new variable.
+
+dep_keys_pat({map,A,Fs0}, BBs, N0, D0) ->
+    {Dep,Indep0} = lists:partition(fun({map_field_exact,_,K,_}) ->
+                                           not dep_keys_bound(K, BBs);
+                                      (_) ->
+                                           false
+                                   end, Fs0),
+    {Indep,N1,D1} = dep_keys_fields(Indep0, BBs, N0, D0),
+    case Dep of
+        [] ->
+            {{map,A,Indep},N1,D1};
+        [_|_] ->
+            Name = {'$map_key',N1},
+            {{match,A,{map,A,Indep},{var,A,Name}},N1+1,[{Name,{map,A,Dep}}|D1]}
+    end;
+dep_keys_pat({cons,A,H0,T0}, BBs, N0, D0) ->
+    {H,N1,D1} = dep_keys_pat(H0, BBs, N0, D0),
+    {T,N,D} = dep_keys_pat(T0, BBs, N1, D1),
+    {{cons,A,H,T},N,D};
+dep_keys_pat({tuple,A,Es0}, BBs, N0, D0) ->
+    {Es,N,D} = dep_keys_pats(Es0, BBs, N0, D0),
+    {{tuple,A,Es},N,D};
+dep_keys_pat({match,A,P10,P20}, BBs, N0, D0) ->
+    {P1,N1,D1} = dep_keys_pat(P10, BBs, N0, D0),
+    {P2,N,D} = dep_keys_pat(P20, BBs, N1, D1),
+    {{match,A,P1,P2},N,D};
+dep_keys_pat({record,A,Name,Fs0}, BBs, N0, D0) ->
+    {Fs,N,D} = dep_keys_fields(Fs0, BBs, N0, D0),
+    {{record,A,Name,Fs},N,D};
+dep_keys_pat({op,A,'++',L,R0}, BBs, N0, D0) ->
+    {R,N,D} = dep_keys_pat(R0, BBs, N0, D0),
+    {{op,A,'++',L,R},N,D};
+dep_keys_pat(P, _BBs, N, D) ->
+    {P,N,D}.
+
+dep_keys_pats([P0|Ps0], BBs, N0, D0) ->
+    {P,N1,D1} = dep_keys_pat(P0, BBs, N0, D0),
+    {Ps,N,D} = dep_keys_pats(Ps0, BBs, N1, D1),
+    {[P|Ps],N,D};
+dep_keys_pats([], _BBs, N, D) ->
+    {[],N,D}.
+
+%% Map associations and record fields.
+dep_keys_fields([{Tag,A,K,P0}|Fs0], BBs, N0, D0) ->
+    {P,N1,D1} = dep_keys_pat(P0, BBs, N0, D0),
+    {Fs,N,D} = dep_keys_fields(Fs0, BBs, N1, D1),
+    {[{Tag,A,K,P}|Fs],N,D};
+dep_keys_fields([], _BBs, N, D) ->
+    {[],N,D}.
+
+dep_keys_progress({map,_,Fs}, Bs) ->
+    any(fun({map_field_exact,_,K,_}) -> dep_keys_bound(K, Bs) end, Fs).
+
+dep_keys_bound(K, Bs) ->
+    all(fun(V) -> binding(V, Bs) =/= unbound end, dep_keys_vars(K, [])).
+
+%% The variables in a key, which is a guard expression.
+dep_keys_vars({var,_,'_'}, Acc) -> Acc;
+dep_keys_vars({var,_,V}, Acc) -> [V|Acc];
+dep_keys_vars(T, Acc) when is_tuple(T), tuple_size(T) >= 2 ->
+    [_Tag,_Anno|Es] = tuple_to_list(T),
+    dep_keys_vars(Es, Acc);
+dep_keys_vars([E|Es], Acc) -> dep_keys_vars(Es, dep_keys_vars(E, Acc));
+dep_keys_vars(_, Acc) -> Acc.
 
 string_to_conses([], _, Tail) -> Tail;
 string_to_conses([E|Rest], Anno, Tail) ->
@@ -2000,8 +2117,17 @@ match_map([{map_field_exact, _, K, V}|Fs], Map, Bs0, BBs, Ef) ->
     Vm = try
 	{value, Ke, _} = expr(K, BBs),
 	maps:get(Ke,Map)
-    catch error:_ ->
-	throw(nomatch)
+    catch
+        %% The key can use a variable bound elsewhere in the pattern;
+        %% see match_dep_keys/6. expr/2 checks the key with erl_lint.
+        error:{unbound_var,_} ->
+            throw(map_key_deferred);
+        error:{unbound_var,_,_} ->
+            throw(map_key_deferred);
+        error:{unbound,_} ->
+            throw(map_key_deferred);
+        error:_ ->
+            throw(nomatch)
     end,
     {match, Bs} = match1(V, Vm, Bs0, BBs, Ef),
     match_map(Fs, Map, Bs, BBs, Ef);
@@ -2033,14 +2159,24 @@ match_record_field([], _, Bs, _, _) ->
 %%  Try to match a list of patterns against a list of terms with the
 %%  current bindings.
 
-match_list([P|Ps], [T|Ts], Anno, Bs0, BBs, Ef) ->
-    case match(P, T, Anno, Bs0, BBs, Ef) of
-	{match,Bs1} -> match_list(Ps, Ts, Anno, Bs1, BBs, Ef);
+match_list(Ps, Ts, Anno, Bs, BBs, Ef) ->
+    try match_list_1(Ps, Ts, Anno, Bs, BBs, Ef)
+    catch
+        throw:map_key_deferred ->
+            %% A map key can use a variable bound by another pattern
+            %% in the list, so match all of them together.
+            match_dep_keys({tuple,Anno,Ps}, list_to_tuple(Ts), Anno,
+                           Bs, BBs, Ef)
+    end.
+
+match_list_1([P|Ps], [T|Ts], Anno, Bs0, BBs, Ef) ->
+    case match_head(P, T, Anno, Bs0, BBs, Ef) of
+	{match,Bs1} -> match_list_1(Ps, Ts, Anno, Bs1, BBs, Ef);
 	nomatch -> nomatch
     end;
-match_list([], [], _Anno, Bs, _BBs, _Ef) ->
+match_list_1([], [], _Anno, Bs, _BBs, _Ef) ->
     {match,Bs};
-match_list(_, _, _Anno, _Bs, _BBs, _Ef) ->
+match_list_1(_, _, _Anno, _Bs, _BBs, _Ef) ->
     nomatch.
 
 %% new_bindings()

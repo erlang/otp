@@ -41,9 +41,10 @@
 %%
 %% 4. Lower receives to more primitive operations.  Split binary
 %%    patterns where a value is matched out and then used used as
-%%    a size in the same pattern.  That simplifies the subsequent
-%%    passes as all variables are within a single pattern are either
-%%    new or used, but never both at the same time.
+%%    a size in the same pattern, and map patterns where a key uses
+%%    a variable bound in the same pattern.  That simplifies the
+%%    subsequent passes as all variables are within a single pattern
+%%    are either new or used, but never both at the same time.
 %%
 %% To ensure the evaluation order we ensure that all arguments are
 %% safe.  A "safe" is basically a core_lib simple with VERY restricted
@@ -233,7 +234,8 @@
 -record #imatch{anno,pat,guard=[],arg,fc}.
 -record #iexprs{anno,bodies=[]}.
 -record #imap{anno,arg,es,is_pat=false}.
--record #imappair{anno,op,key,val}.
+-record #imappair{anno,op,key,val,
+                  key_vars=[] :: [atom()]}.     %Variables in a pattern key.
 -record #iprimop{anno,name,args}.
 -record #iprotect{anno,body}.
 -record #ireceive1{anno,clauses}.
@@ -290,6 +292,9 @@
    wanted=true :: boolean(),	%Result wanted or not.
    opts=[]     :: [compile:option()], %Options.
    dialyzer=false :: boolean(),     %Help dialyzer or not.
+   pat_desig=none :: 'none' | #{cerl:var_name() =>
+                                    {non_neg_integer(),non_neg_integer()}},
+                                    %Binding occurrences in a pattern.
    ws=[]    :: [warning()],		%Warnings.
    file=[{file,""}],                %File.
    load_nif=false :: boolean()      %true if calls erlang:load_nif/2
@@ -2322,7 +2327,15 @@ preprocess_quals(Line, Qs, St) ->
 
 preprocess_quals(Line, [{zip,Anno,Gens}|Qs], [], St, Acc) ->
     LAnno = #a{anno=lineno_anno(Anno, St)},
-    StrictPats = get_strict_patterns(Gens, {Line, St}, []),
+    StrictPats = case get_strict_patterns(Gens, {Line, St}, []) of
+                     [] ->
+                         [];
+                     Strict ->
+                         %% The variables of the zip patterns that
+                         %% replace_vars/2 replaces with '_'.
+                         Replaced = get_zip_vars(Gens, {Line, St}, []) -- Strict,
+                         {Strict,Replaced}
+                 end,
     {Gens1, St1} = preprocess_quals(Line, Gens, StrictPats, St, []),
     [#igen{acc_guard=AccGuard}|_] = Gens1,
     Zip0 = #izip{anno=LAnno,
@@ -2433,9 +2446,34 @@ get_strict_patterns([_G|Gs], {Line, St0}, Acc) ->
 get_strict_patterns([], _, Acc) ->
     sets:to_list(sets:from_list(Acc)).
 
+%% Find all variables bound by the patterns of a zip generator.
+get_zip_vars([{G,_Lg,P0,_E}|Gs], {Line, St0}, Acc)
+  when G =:= generate; G =:= generate_strict ->
+    {Pat,St1} = list_gen_pattern(P0, Line, St0),
+    get_zip_vars(Gs, {Line, St1}, pat_bound_vars(Pat, Acc));
+get_zip_vars([{G,_Lg,P0,_E}|Gs], {Line, St0}, Acc)
+  when G =:= b_generate; G =:= b_generate_strict ->
+    {Pat,St1} = pattern(P0, St0),
+    get_zip_vars(Gs, {Line, St1}, pat_bound_vars(Pat, Acc));
+get_zip_vars([{G,Lg,{map_field_exact,_,K0,V0},_E}|Gs], {Line, St0}, Acc)
+  when G =:= m_generate; G =:= m_generate_strict ->
+    {Pat,St1} = list_gen_pattern({cons,Lg,K0,V0}, Line, St0),
+    get_zip_vars(Gs, {Line, St1}, pat_bound_vars(Pat, Acc));
+get_zip_vars([_G|Gs], {Line, St0}, Acc) ->
+    get_zip_vars(Gs, {Line, St0}, Acc);
+get_zip_vars([], _, Acc) ->
+    lists:usort(Acc).
+
+%% The variables bound by a pattern (not the ones used in map keys or
+%% binary sizes).
+pat_bound_vars(Pat, Acc) ->
+    {Os,[]} = pbo(Pat, [], fun(_) -> true end, 0, {[],[]}),
+    [V || {V,_,_} <- Os] ++ Acc.
+
 %% First replace all named variables in the pattern with `_`, unless they
 %% appear in the list of strict patterns. Then collapse all structures with no
-%% named variables to '_'.
+%% named variables to '_'. A map association whose key uses a replaced
+%% variable is removed, because its key cannot be computed.
 replace_vars(#c_cons{hd=H,tl=T}, Vars) ->
     T1 = replace_vars(T, Vars),
     H1 = replace_vars(H, Vars),
@@ -2446,16 +2484,21 @@ replace_vars(#c_tuple{es=Es0}, Vars) ->
 replace_vars(#imap{es=Es0}=M, Vars) ->
     Es1 = replace_list_vars(map, Es0, Vars),
     no_vars(M#imap{es=Es1});
-replace_vars(#imappair{val=V}=M, Vars) ->
-    V1 = replace_vars(V, Vars),
-    case no_vars(M#imappair{val=V1}) of
-        #c_var{name='_'} -> [];
-        Pat -> Pat
+replace_vars(#imappair{key_vars=KeyVars,val=V}=M, {_Strict,Replaced}=Vars) ->
+    case any(fun(KeyVar) -> member(KeyVar, Replaced) end, KeyVars) of
+        true ->
+            [];
+        false ->
+            V1 = replace_vars(V, Vars),
+            case no_vars(M#imappair{val=V1}) of
+                #c_var{name='_'} -> [];
+                Pat -> Pat
+            end
     end;
 replace_vars(#c_var{name='_'}=V, _) ->
     V;
-replace_vars(#c_var{name=Var}=V, Vars) ->
-    case lists:member(Var, Vars) of
+replace_vars(#c_var{name=Var}=V, {Strict,_Replaced}) ->
+    case lists:member(Var, Strict) of
         true -> V;
         false -> V#c_var{name='_'}
     end;
@@ -3021,7 +3064,20 @@ pattern_map_pair({map_field_exact,L,K,V}, St0) ->
     {#imappair{anno=#a{anno=lineno_anno(L, St2)},
                op=#c_literal{val=exact},
                key=Ck,
-               val=Cv},St2}.
+               val=Cv,
+               key_vars=pat_key_vars(Ck0, [])},St2}.
+
+%% pat_key_vars(GuardExpr, Acc) -> [Var].
+%%  Return the variables used in the key of a map pattern. The key is
+%%  a guard expression, so it cannot bind any variables.
+
+pat_key_vars({var,_,'_'}, Acc) -> Acc;
+pat_key_vars({var,_,V}, Acc) -> [V|Acc];
+pat_key_vars(T, Acc) when is_tuple(T), tuple_size(T) >= 2 ->
+    [_Tag,_Anno|Es] = tuple_to_list(T),
+    pat_key_vars(Es, Acc);
+pat_key_vars([E|Es], Acc) -> pat_key_vars(Es, pat_key_vars(E, Acc));
+pat_key_vars(_, Acc) -> Acc.
 
 pat_alias_map_pairs(Ps) ->
     D0 = foldl(fun(#imappair{key=K0}=Pair, A) ->
@@ -3503,7 +3559,13 @@ uclause(Cl0, Ks, St0) ->
     {Cl1#iclause{anno=A},St1}.
 
 do_uclause(#iclause{anno=A0,pats=Ps0,guard=G0,body=B0}, Ks0, St0) ->
-    {Ps1,Pg0,Pvs,Pus,St1} = upattern_list(Ps0, Ks0, St0),
+    Desig0 = St0#core.pat_desig,
+    Desig = pat_binding_occurrences(Ps0, Ks0),
+    {Ps1,Pg0,Pvs,Pus0,St1a} = upattern_list(Ps0, Ks0, St0#core{pat_desig=Desig}),
+    St1 = St1a#core{pat_desig=Desig0},
+    %% A map key can use a variable bound in the same pattern. Such a
+    %% variable is new, not used from outside the pattern.
+    Pus = subtract(Pus0, Pvs),
     Anno = A0#a.anno,
     {Pg,A} = case member(nomatch_clause, Anno) of
                  true ->
@@ -3808,20 +3870,19 @@ uexpr_list(Les0, Ks, St0) ->
 upattern(#c_var{anno=Anno,name='_'}, _, St0) ->
     {New,St1} = new_var_name(St0),
     {#c_var{anno=Anno,name=New},[],[New],[],St1};
-upattern(#c_var{name=V}=Var, Ks, St0) ->
-    case is_element(V, known_get(Ks)) of
-	true ->
-	    {N,St1} = new_var_name(St0),
-	    New = #c_var{name=N},
-	    LA = get_lineno_anno(Var),
-	    Test = #icall{anno=#a{anno=LA,us=add_element(N, [V])},
-			  module=#c_literal{val=erlang},
-			  name=#c_literal{val='=:='},
-			  args=[New,Var]},
-	    %% Test doesn't need protecting.
-	    {New,[Test],[N],[],St1};
-	false -> {Var,[],[V],[],St0}
+upattern(#c_var{name=V}=Var, Ks, #core{pat_desig=Desig}=St0)
+  when is_map_key(V, Desig) ->
+    %% V occurs more than once in a pattern having map keys that use
+    %% variables bound in the same pattern. Only the occurrence that
+    %% can be matched first binds V; see pat_binding_occurrences/2.
+    {Index,Seen} = map_get(V, Desig),
+    St1 = St0#core{pat_desig=Desig#{V := {Index,Seen+1}}},
+    case Seen =:= Index of
+        true -> upattern_var(Var, Ks, St1);
+        false -> upattern_eq_var(Var, St1)
     end;
+upattern(#c_var{}=Var, Ks, St0) ->
+    upattern_var(Var, Ks, St0);
 upattern(#c_cons{hd=H0,tl=T0}=Cons, Ks, St0) ->
     {H1,Hg,Hv,Hu,St1} = upattern(H0, Ks, St0),
     {T1,Tg,Tv,Tu,St2} = upattern(T0, known_union(Ks, Hv), St1),
@@ -3860,6 +3921,166 @@ upattern_list([P0|Ps0], Ks, St0) ->
     {Ps1,Psg,Psv,Psu,St2} = upattern_list(Ps0, known_union(Ks, Pv), St1),
     {[P1|Ps1],Pg ++ Psg,union(Pv, Psv),union(Pu, Psu),St2};
 upattern_list([], _, St) -> {[],[],[],[],St}.
+
+%% upattern_var(Var, [KnownVar], State) ->
+%%                        {Pat,[GuardTest],[NewVar],[UsedVar],State}.
+%%  A variable that is already known is replaced by a new variable,
+%%  which is compared with it in the guard.
+
+upattern_var(#c_var{name=V}=Var, Ks, St) ->
+    case is_element(V, known_get(Ks)) of
+        true -> upattern_eq_var(Var, St);
+        false -> {Var,[],[V],[],St}
+    end.
+
+upattern_eq_var(#c_var{name=V}=Var, St0) ->
+    {N,St1} = new_var_name(St0),
+    New = #c_var{name=N},
+    LA = get_lineno_anno(Var),
+    Test = #icall{anno=#a{anno=LA,us=add_element(N, [V])},
+                  module=#c_literal{val=erlang},
+                  name=#c_literal{val='=:='},
+                  args=[New,Var]},
+    %% Test doesn't need protecting.
+    {New,[Test],[N],[],St1}.
+
+%% pat_binding_occurrences([Pat], [KnownVar]) -> none | #{Var => {Index,0}}.
+%%  A map key can use variables bound in the same pattern. Such an
+%%  association is matched after the rest of the pattern, in a nested
+%%  case (see split_dep_keys/2), and there can be several such layers.
+%%  When a variable occurs more than once, the occurrence that binds it
+%%  must be in the earliest layer, because the other occurrences become
+%%  equality tests in the guard. For each variable whose binding
+%%  occurrence is not the first one upattern/3 visits, return the index
+%%  of the binding occurrence in visiting order.
+
+pat_binding_occurrences(Ps, Ks) ->
+    Known = known_get(Ks),
+    case pbo_has_dep_keys(Ps, Known) of
+        false ->
+            none;
+        true ->
+            {Os0,Ds} = pbo_list(Ps, 0, [], pbo_ready(Known, []), 0, {[],[]}),
+            Avail = lists:usort([V || {V,_,_} <- Os0]),
+            Os = pbo_layers(Ds, Known, Avail, Os0, 1),
+            pbo_designate(Os, Known)
+    end.
+
+%% Test whether a map key uses a variable that is not known before the
+%% pattern, without building anything. Most patterns have no such keys.
+
+pbo_has_dep_keys([P|Ps], Known) ->
+    pbo_has_dep_keys(P, Known) orelse pbo_has_dep_keys(Ps, Known);
+pbo_has_dep_keys([], _Known) ->
+    false;
+pbo_has_dep_keys(#imap{es=Es}, Known) ->
+    any(fun(#imappair{key_vars=KeyVars,val=Val}) ->
+                not all(fun(V) -> is_element(V, Known) end, KeyVars) orelse
+                    pbo_has_dep_keys(Val, Known)
+        end, Es);
+pbo_has_dep_keys(#c_cons{hd=H,tl=T}, Known) ->
+    pbo_has_dep_keys(H, Known) orelse pbo_has_dep_keys(T, Known);
+pbo_has_dep_keys(#c_tuple{es=Es}, Known) ->
+    pbo_has_dep_keys(Es, Known);
+pbo_has_dep_keys(#c_alias{pat=Pat}, Known) ->
+    pbo_has_dep_keys(Pat, Known);
+pbo_has_dep_keys(#c_record{es=Es}, Known) ->
+    any(fun(#c_record_pair{val=Val}) -> pbo_has_dep_keys(Val, Known) end, Es);
+pbo_has_dep_keys(_, _Known) ->
+    false.
+
+%% Collect the occurrences of variables in binding positions as
+%% {Var,Path,Layer}, where Path gives the visiting order of upattern/3,
+%% and the map associations whose keys are not yet ready as
+%% {RevPath,Value,KeyVars}.
+
+pbo_list([P|Ps], I, RevPath, Ready, L, Acc) ->
+    pbo_list(Ps, I+1, RevPath, Ready, L, pbo(P, [I|RevPath], Ready, L, Acc));
+pbo_list([], _I, _RevPath, _Ready, _L, Acc) -> Acc.
+
+pbo(#c_var{name='_'}, _RevPath, _Ready, _L, Acc) -> Acc;
+pbo(#c_var{name=V}, RevPath, _Ready, L, {Os,Ds}) ->
+    {[{V,reverse(RevPath),L}|Os],Ds};
+pbo(#c_cons{hd=H,tl=T}, RevPath, Ready, L, Acc) ->
+    pbo(T, [1|RevPath], Ready, L, pbo(H, [0|RevPath], Ready, L, Acc));
+pbo(#c_tuple{es=Es}, RevPath, Ready, L, Acc) ->
+    pbo_list(Es, 0, RevPath, Ready, L, Acc);
+pbo(#imap{es=Es}, RevPath, Ready, L, Acc) ->
+    pbo_pairs(Es, 0, RevPath, Ready, L, Acc);
+pbo(#ibinary{segments=Segs}, RevPath, Ready, L, Acc) ->
+    pbo_list([Val || #ibitstr{val=Val} <- Segs], 0, RevPath, Ready, L, Acc);
+pbo(#c_alias{var=Var,pat=Pat}, RevPath, Ready, L, Acc) ->
+    pbo(Pat, [1|RevPath], Ready, L, pbo(Var, [0|RevPath], Ready, L, Acc));
+pbo(#c_record{es=Es}, RevPath, Ready, L, Acc) ->
+    pbo_list([Val || #c_record_pair{val=Val} <- Es], 0, RevPath, Ready, L, Acc);
+pbo(_, _RevPath, _Ready, _L, Acc) -> Acc.
+
+pbo_pairs([#imappair{key_vars=KeyVars,val=Val}|Ps], I, RevPath, Ready, L,
+          {Os,Ds}=Acc0) ->
+    Acc = case Ready(KeyVars) of
+              true -> pbo(Val, [I|RevPath], Ready, L, Acc0);
+              false -> {Os,[{[I|RevPath],Val,KeyVars}|Ds]}
+          end,
+    pbo_pairs(Ps, I+1, RevPath, Ready, L, Acc);
+pbo_pairs([], _I, _RevPath, _Ready, _L, Acc) -> Acc.
+
+pbo_ready(Known, Avail) ->
+    fun(KeyVars) ->
+            all(fun(V) ->
+                        is_element(V, Known) orelse is_element(V, Avail)
+                end, KeyVars)
+    end.
+
+pbo_layers([], _Known, _Avail, Os, _L) ->
+    Os;
+pbo_layers(Ds0, Known, Avail0, Os0, L) ->
+    Ready = pbo_ready(Known, Avail0),
+    case lists:partition(fun({_,_,KeyVars}) -> Ready(KeyVars) end, Ds0) of
+        {[],_} ->
+            %% Circular or unbound keys, which erl_lint rejects. Visit
+            %% the remaining associations last.
+            All = fun(_) -> true end,
+            {Os,[]} = foldl(fun({RevPath,Val,_}, Acc) ->
+                                    pbo(Val, RevPath, All, infinity, Acc)
+                            end, {Os0,[]}, Ds0),
+            Os;
+        {Now,Later} ->
+            {Os,Ds} = foldl(fun({RevPath,Val,_}, Acc) ->
+                                    pbo(Val, RevPath, Ready, L, Acc)
+                            end, {Os0,Later}, Now),
+            Avail = union(Avail0, lists:usort([V || {V,_,VL} <- Os, VL =:= L])),
+            pbo_layers(Ds, Known, Avail, Os, L+1)
+    end.
+
+%% For each variable bound in the pattern (not before it), the binding
+%% occurrence is the first one, in visiting order, of its occurrences in
+%% the lowest layer.
+
+pbo_designate(Os, Known) ->
+    Groups = maps:groups_from_list(fun({V,_,_}) -> V end,
+                                   fun({_,Path,L}) -> {Path,L} end, Os),
+    Desig = maps:fold(fun(V, Occs, Acc) ->
+                              case is_element(V, Known) of
+                                  true ->
+                                      Acc;
+                                  false ->
+                                      case pbo_index(sort(Occs)) of
+                                          0 -> Acc;
+                                          Index -> Acc#{V => {Index,0}}
+                                      end
+                              end
+                      end, #{}, Groups),
+    case map_size(Desig) of
+        0 -> none;
+        _ -> Desig
+    end.
+
+pbo_index(Occs) ->
+    MinL = lists:min([L || {_,L} <- Occs]),
+    pbo_index(Occs, MinL, 0).
+
+pbo_index([{_,MinL}|_], MinL, I) -> I;
+pbo_index([_|Occs], MinL, I) -> pbo_index(Occs, MinL, I+1).
 
 %% upat_bin([Pat], [KnownVar], State) ->
 %%                        {[Pat],[GuardTest],[NewVar],[UsedVar],State}.
@@ -4651,11 +4872,144 @@ split_fc_clause(Args, Anno0, #core{gcount=Count}=St0) ->
                guard=#c_literal{val=true},body=Apply},St1}.
 
 split_clause(#c_clause{pats=Ps0}, St0) ->
-    case split_pats(Ps0, St0) of
+    case split_dep_keys(Ps0, St0) of
         none ->
+            case split_pats(Ps0, St0) of
+                none ->
+                    none;
+                {Ps,Case,St} ->
+                    {Ps,Case,St}
+            end;
+        {_,_,_}=Split ->
+            Split
+    end.
+
+%% split_dep_keys([Pat], State) -> none | {[Pat],Split,State}.
+%%  Split out the map associations whose keys use variables bound in
+%%  the same clause pattern, such as K in f(K, #{K := V}). Each map
+%%  pattern with such associations keeps its other associations and
+%%  gets an alias variable. The postponed associations are matched by
+%%  a nested case on those variables, after the outer case has bound
+%%  the variables used in their keys. When the nested case is lowered,
+%%  associations whose keys use variables bound in the nested pattern
+%%  are split out again.
+
+split_dep_keys(Ps0, St0) ->
+    case has_var_map_key(Ps0) andalso cerl:pat_list_vars(Ps0) of
+        false ->
             none;
-        {Ps,Case,St} ->
-            {Ps,Case,St}
+        [] ->
+            none;
+        Vars ->
+            Bound = sets:from_list([cerl:var_name(V) || V <- Vars]),
+            case dep_key_pats(Ps0, Bound, St0, []) of
+                {_,[],_} ->
+                    none;
+                {Ps,Deferred0,St} ->
+                    Deferred = reverse(Deferred0),
+                    dep_key_progress(Deferred),
+                    {Arg,Pat} = case Deferred of
+                                    [{Var,Map}] ->
+                                        {Var,Map};
+                                    [_|_] ->
+                                        {#c_tuple{es=[V || {V,_} <- Deferred]},
+                                         #c_tuple{es=[M || {_,M} <- Deferred]}}
+                                end,
+                    {Ps,{split,[Arg],Pat,nil},St}
+            end
+    end.
+
+dep_key_pats([P0|Ps0], Bound, St0, Acc0) ->
+    {P,Acc1,St1} = dep_key_pat(P0, Bound, St0, Acc0),
+    {Ps,Acc,St} = dep_key_pats(Ps0, Bound, St1, Acc1),
+    {[P|Ps],Acc,St};
+dep_key_pats([], _Bound, St, Acc) ->
+    {[],Acc,St}.
+
+dep_key_pat(#c_map{es=Es0}=Map, Bound, St0, Acc0) ->
+    {Dep,Indep0} = lists:partition(fun(#c_map_pair{key=K}) ->
+                                           is_dep_key(K, Bound)
+                                   end, Es0),
+    {Indep,Acc1,St1} = dep_key_map_pairs(Indep0, Bound, St0, Acc0),
+    case Dep of
+        [] ->
+            {Map#c_map{es=Indep},Acc1,St1};
+        [_|_] ->
+            {Var,St2} = new_var(St1),
+            Alias = #c_alias{var=Var,pat=Map#c_map{es=Indep}},
+            {Alias,[{Var,Map#c_map{es=Dep}}|Acc1],St2}
+    end;
+dep_key_pat(#c_cons{hd=H0,tl=T0}=Cons, Bound, St0, Acc0) ->
+    {H,Acc1,St1} = dep_key_pat(H0, Bound, St0, Acc0),
+    {T,Acc,St} = dep_key_pat(T0, Bound, St1, Acc1),
+    {Cons#c_cons{hd=H,tl=T},Acc,St};
+dep_key_pat(#c_tuple{es=Es0}=Tuple, Bound, St0, Acc0) ->
+    {Es,Acc,St} = dep_key_pats(Es0, Bound, St0, Acc0),
+    {Tuple#c_tuple{es=Es},Acc,St};
+dep_key_pat(#c_alias{pat=P0}=Alias, Bound, St0, Acc0) ->
+    {P,Acc,St} = dep_key_pat(P0, Bound, St0, Acc0),
+    {Alias#c_alias{pat=P},Acc,St};
+dep_key_pat(#c_record{es=Es0}=Rec, Bound, St0, Acc0) ->
+    {Es,Acc,St} = dep_key_record_pairs(Es0, Bound, St0, Acc0),
+    {Rec#c_record{es=Es},Acc,St};
+dep_key_pat(P, _Bound, St, Acc) ->
+    %% Variables, literals, and binaries (whose segments cannot
+    %% contain maps).
+    {P,Acc,St}.
+
+dep_key_map_pairs([#c_map_pair{val=V0}=Pair|Ps0], Bound, St0, Acc0) ->
+    {V,Acc1,St1} = dep_key_pat(V0, Bound, St0, Acc0),
+    {Ps,Acc,St} = dep_key_map_pairs(Ps0, Bound, St1, Acc1),
+    {[Pair#c_map_pair{val=V}|Ps],Acc,St};
+dep_key_map_pairs([], _Bound, St, Acc) ->
+    {[],Acc,St}.
+
+dep_key_record_pairs([#c_record_pair{val=V0}=Pair|Ps0], Bound, St0, Acc0) ->
+    {V,Acc1,St1} = dep_key_pat(V0, Bound, St0, Acc0),
+    {Ps,Acc,St} = dep_key_record_pairs(Ps0, Bound, St1, Acc1),
+    {[Pair#c_record_pair{val=V}|Ps],Acc,St};
+dep_key_record_pairs([], _Bound, St, Acc) ->
+    {[],Acc,St}.
+
+is_dep_key(Key, Bound) ->
+    any(fun(V) -> sets:is_element(V, Bound) end,
+        cerl_trees:free_variables(Key)).
+
+%% Test whether a map pattern has a key that is not a literal, without
+%% building anything. Most patterns have no such keys.
+
+has_var_map_key([P|Ps]) ->
+    has_var_map_key(P) orelse has_var_map_key(Ps);
+has_var_map_key([]) ->
+    false;
+has_var_map_key(#c_map{es=Es}) ->
+    any(fun(#c_map_pair{key=#c_literal{},val=Val}) -> has_var_map_key(Val);
+           (#c_map_pair{}) -> true
+        end, Es);
+has_var_map_key(#c_cons{hd=H,tl=T}) ->
+    has_var_map_key(H) orelse has_var_map_key(T);
+has_var_map_key(#c_tuple{es=Es}) ->
+    has_var_map_key(Es);
+has_var_map_key(#c_alias{pat=Pat}) ->
+    has_var_map_key(Pat);
+has_var_map_key(#c_record{es=Es}) ->
+    any(fun(#c_record_pair{val=Val}) -> has_var_map_key(Val) end, Es);
+has_var_map_key(_) ->
+    false.
+
+%% At least one postponed association must have a key that does not use
+%% the variables bound by the nested pattern. Otherwise the keys depend
+%% on each other in a cycle, which erl_lint should have rejected.
+
+dep_key_progress(Deferred) ->
+    Maps = [M || {_,M} <- Deferred],
+    Bound = sets:from_list([cerl:var_name(V) || V <- cerl:pat_list_vars(Maps)]),
+    Ready = [P || #c_map{es=Es} <- Maps,
+                  #c_map_pair{key=K}=P <- Es,
+                  not is_dep_key(K, Bound)],
+    case Ready of
+        [_|_] -> ok;
+        [] -> error({circular_map_key_dependency,Maps})
     end.
 
 split_pats([P0|Ps0], St0) ->

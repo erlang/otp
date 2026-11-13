@@ -84,6 +84,9 @@
          %% new in OTP 23
          t_key_expressions/1,
 
+         %% new in OTP 30
+         t_keys_bound_in_pattern/1,
+
          %% cover more code in beam_call_types
          t_bif_map_find/1,
          t_fold_3/1, t_from_keys/1, t_map_2/1, t_maps_take_2/1,
@@ -167,6 +170,9 @@ all() ->
 
      %% new in OTP 23
      t_key_expressions,
+
+     %% new in OTP 30
+     t_keys_bound_in_pattern,
 
      %% cover more code
      t_bif_map_find,
@@ -2363,6 +2369,213 @@ t_key_expressions(_Config) ->
     ?assertError(badarg, F7(whatever)),
 
     ok.
+
+-record(kbp, {k, m}).
+
+%% Map keys in patterns can use variables bound in the same pattern,
+%% in any order, as long as the keys do not depend on each other in
+%% a cycle.
+t_keys_bound_in_pattern(_Config) ->
+    %% Bound by another argument, before or after the map.
+    {first,1} = kbp_arg(a, id(#{a => 1})),
+    {second,a,2} = kbp_arg(a, id(#{default => 2})),
+    third = kbp_arg(a, id(#{})),
+    third = kbp_arg(a, id(not_a_map)),
+    v = kbp_arg_after(id(#{k => v}), k),
+    nomatch = kbp_arg_after(id(#{k => v}), j),
+
+    %% Bound by an association in another map or in the same map.
+    v = kbp_other_map(id(#{my_field => k}), id(#{k => v})),
+    nomatch = kbp_other_map(id(#{my_field => k}), id(#{j => v})),
+    c = kbp_same_map(id(#{a => b, b => c})),
+    c = kbp_same_map_rev(id(#{a => b, b => c})),
+    nomatch = kbp_same_map_rev(id(#{a => z, b => c})),
+
+    %% Nested maps.
+    {<<"1">>,meta} = kbp_nested(<<"1">>, id(#{numbers => #{<<"1">> => meta}})),
+    nomatch = kbp_nested(<<"2">>, id(#{numbers => #{<<"1">> => meta}})),
+    f = kbp_nested_value(id(#{my_field => f}), id(#{my_field => #{f => x}})),
+    nomatch = kbp_nested_value(id(#{my_field => f}), id(#{my_field => #{f => y}})),
+
+    %% Repeated variables: only the occurrence matched first binds.
+    k = kbp_repeated(id(#{k => k}), k),
+    nomatch = kbp_repeated(id(#{k => j}), k),
+    k = kbp_repeated_nested(id(#{k => #{k => k}}), k),
+    nomatch = kbp_repeated_nested(id(#{k => #{k => j}}), k),
+    {k,v} = kbp_repeated_tuple(id({k, #{k => v}, v})),
+    nomatch = kbp_repeated_tuple(id({k, #{k => v}, w})),
+
+    %% Chains of dependencies, in and against the textual order.
+    c = kbp_chain(id({a, #{a => b}, #{b => c}})),
+    nomatch = kbp_chain(id({a, #{a => b}, #{x => c}})),
+    c = kbp_chain_rev(id({#{b => c}, #{a => b}, a})),
+    nomatch = kbp_chain_rev(id({#{b => c}, #{a => x}, a})),
+
+    %% Keys that are expressions.
+    two = kbp_expr(1, id(#{2 => two})),
+    nomatch = kbp_expr(id(x), id(#{2 => two})),
+    hd = kbp_expr_bif(id([k]), id(#{k => hd})),
+    nomatch = kbp_expr_bif(id([]), id(#{k => hd})),
+
+    %% Guards can use the variables bound by postponed associations.
+    {big,11} = kbp_guard(k, id(#{k => 11})),
+    {small,1} = kbp_guard(k, id(#{k => 1})),
+    none = kbp_guard(k, id(#{})),
+
+    %% Keys bound in binaries, records, and aliases.
+    seven = kbp_binary(id(<<8,7>>), id(#{7 => seven})),
+    nomatch = kbp_binary(id(<<8,6>>), id(#{7 => seven})),
+    v = kbp_record(id(#kbp{k = k, m = #{k => v}})),
+    nomatch = kbp_record(id(#kbp{k = k, m = #{}})),
+    v = kbp_alias(id(#{k => j, j => v})),
+    v = kbp_alias_rev(id(#{k => j, j => v})),
+
+    %% All kinds of patterns.
+    v = kbp_case(id({k, #{k => v}})),
+    none = kbp_case(id({k, #{}})),
+    v = kbp_match(id({k, #{k => v}})),
+    ?assertError({badmatch,{k,#{j := v}}}, kbp_match(id({k, #{j => v}}))),
+    [1,3] = [V || {K, #{K := V}} <- id([{a,#{a => 1}}, {b,#{a => 2}},
+                                         {c,#{c => 3}}, x])],
+    [1,3] = lists:sort([X || K := #{K := X} <- id(#{a => #{a => 1},
+                                                   b => #{a => 2},
+                                                   c => #{c => 3}})]),
+    %% Zip generators, also with strict generators. A key can use
+    %% variables bound in the same generator or in one to its left.
+    [1] = [Y || K <- id([a,b]) && #{K := Y} <- id([#{a => 1}, #{c => 2}])
+                    && _ <:- id([p,q])],
+    [1] = [V || {K, #{K := V}} <- id([{a,#{a => 1}}, {b,#{a => 2}}])
+                    && _ <:- id([p,q])],
+    [1] = [V || K := #{K := V} <- id(#{a => #{a => 1}}) && _ <:- id([p])],
+    [{a,1},{b,2}] = [{K,X} || {K, #{K := X}} <- id([{a,#{a => 1}}, {b,#{b => 2}}])
+                                  && X <:- id([1,2])],
+    [{1,x},{2,y}] = [{X,Y} || {K, X} <- id([{a,1},{b,2}])
+                                  && #{K := Y} <- id([#{a => x}, #{b => y}])],
+
+    v = kbp_maybe(id({k, #{k => v}})),
+    no = kbp_maybe(id({k, #{}})),
+    v = kbp_try(fun() -> throw({k, #{k => v}}) end),
+    Ref = make_ref(),
+    self() ! {make_ref(), #{x => 1}},
+    self() ! {Ref, #{Ref => reply}},
+    reply = receive {R, #{R := Reply}} -> Reply end,
+    F = fun(K, #{K := V}) -> V; (_, _) -> nomatch end,
+    v = F(k, id(#{k => v})),
+    nomatch = F(j, id(#{k => v})),
+
+    %% A key variable that is bound before a fun head, and also bound
+    %% in the head, refers to the variable bound before.
+    Shadowed = kbp_shadow(),
+    {b,1} = Shadowed(b, id(#{a => 1, b => 2})),
+
+    %% The function_clause error has the original arguments.
+    Map = id(#{}),
+    try kbp_one_clause(k, Map) of
+        _ -> ct:fail(no_exception)
+    catch
+        error:function_clause:Stk ->
+            [{?MODULE,kbp_one_clause,[k,Map],_}|_] = Stk
+    end,
+
+    %% Many clauses with postponed associations.
+    [{1,a},{2,b},{3,c},{4,d},{5,e},none] =
+        [kbp_many(I, id(#{I => V})) || {I,V} <- [{1,a},{2,b},{3,c},{4,d},{5,e}]] ++
+        [kbp_many(6, id(#{}))],
+
+    ok.
+
+kbp_arg(K, #{K := V}) -> {first,V};
+kbp_arg(K, #{default := V}) -> {second,K,V};
+kbp_arg(_, _) -> third.
+
+kbp_arg_after(#{K := V}, K) -> V;
+kbp_arg_after(_, _) -> nomatch.
+
+kbp_other_map(#{my_field := Field}, #{Field := Value}) -> Value;
+kbp_other_map(_, _) -> nomatch.
+
+kbp_same_map(#{a := K, K := V}) -> V.
+
+kbp_same_map_rev(#{K := V, a := K}) -> V;
+kbp_same_map_rev(_) -> nomatch.
+
+kbp_nested(Number, #{numbers := #{Number := MetaData}}) -> {Number,MetaData};
+kbp_nested(_, _) -> nomatch.
+
+kbp_nested_value(#{my_field := Field}, #{my_field := #{Field := x}}) -> Field;
+kbp_nested_value(_, _) -> nomatch.
+
+kbp_repeated(#{K := K}, K) -> K;
+kbp_repeated(_, _) -> nomatch.
+
+kbp_repeated_nested(#{K := #{K := K}}, K) -> K;
+kbp_repeated_nested(_, _) -> nomatch.
+
+kbp_repeated_tuple({K, #{K := V}, V}) -> {K,V};
+kbp_repeated_tuple(_) -> nomatch.
+
+kbp_chain({A, #{A := B}, #{B := C}}) -> C;
+kbp_chain(_) -> nomatch.
+
+kbp_chain_rev({#{B := C}, #{A := B}, A}) -> C;
+kbp_chain_rev(_) -> nomatch.
+
+kbp_expr(N, #{N + 1 := V}) -> V;
+kbp_expr(_, _) -> nomatch.
+
+kbp_expr_bif(L, #{hd(L) := V}) -> V;
+kbp_expr_bif(_, _) -> nomatch.
+
+kbp_guard(K, #{K := V}) when V > 10 -> {big,V};
+kbp_guard(K, #{K := V}) -> {small,V};
+kbp_guard(_, _) -> none.
+
+kbp_binary(<<Sz:8, K:Sz>>, #{K := V}) -> V;
+kbp_binary(_, _) -> nomatch.
+
+kbp_record(#kbp{k = K, m = #{K := V}}) -> V;
+kbp_record(_) -> nomatch.
+
+kbp_alias(#{k := K} = #{K := V}) -> V.
+
+kbp_alias_rev(#{K := V} = #{k := K}) -> V.
+
+kbp_case(T) ->
+    case T of
+        {K, #{K := V}} -> V;
+        _ -> none
+    end.
+
+kbp_match(T) ->
+    {K, #{K := V}} = T,
+    V.
+
+kbp_maybe(T) ->
+    maybe
+        {K, #{K := V}} ?= T,
+        V
+    else
+        _ -> no
+    end.
+
+kbp_try(F) ->
+    try F()
+    catch
+        throw:{K, #{K := V}} -> V
+    end.
+
+kbp_shadow() ->
+    K = id(a),
+    fun(K, #{K := V}) -> {K,V} end.
+
+kbp_one_clause(K, #{K := V}) -> V.
+
+kbp_many(1, #{1 := V}) -> {1,V};
+kbp_many(K, #{K := V}) when K =:= 2 -> {2,V};
+kbp_many(K, #{K := V}) when K =:= 3 -> {3,V};
+kbp_many(K, #{K := V}) when K =:= 4 -> {4,V};
+kbp_many(K, #{K := V}) -> {K,V};
+kbp_many(_, _) -> none.
 
 t_duplicate_keys(Config) when is_list(Config) ->
     Map = #{ gurka => gaffel },

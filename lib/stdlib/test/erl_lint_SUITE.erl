@@ -69,6 +69,7 @@
          basic_errors/1,bin_syntax_errors/1,
          predef/1,
          maps/1,maps_type/1,maps_parallel_match/1,
+         map_keys_bound_in_pattern/1,
          otp_11851/1,otp_11879/1,otp_13230/1,
          record_errors/1, otp_11879_cont/1,
          non_latin1_module/1, illegal_module_name/1, otp_14323/1,
@@ -118,7 +119,7 @@ all() ->
      bif_clash, behaviour_basic, behaviour_multiple, otp_11861,
      otp_7550, otp_8051, format_warn, check_format_string, {group, on_load},
      too_many_arguments, basic_errors, bin_syntax_errors, predef,
-     maps, maps_type, maps_parallel_match,
+     maps, maps_type, maps_parallel_match, map_keys_bound_in_pattern,
      otp_11851, otp_11879, otp_13230,
      record_errors, otp_11879_cont,
      non_latin1_module, illegal_module_name, otp_14323,
@@ -4369,6 +4370,8 @@ maps_parallel_match(Config) when is_list(Config) ->
            ">>,
            [],
            {errors,[{{3,30},erl_lint,{unbound_var,'K'}}],[]}},
+          %% Since OTP 30, a map key can use a variable bound in
+          %% another part of the same pattern.
           {parallel_map_patterns_not_toplevel1,
            <<"
            t(#{} = M) ->
@@ -4378,16 +4381,15 @@ maps_parallel_match(Config) when is_list(Config) ->
                [V1,V2].
            ">>,
            [nowarn_match_alias_pats],
-           {errors,[{{3,19},erl_lint,{unbound_var,'K1'}},
-                    {{4,19},erl_lint,{unbound_var,'K2'}}],[]}},
-          {parallel_map_patterns_unbound_not_toplevel2,
+           []},
+          {parallel_map_patterns_not_toplevel2,
            <<"
            t(#{} = M) ->
                [#{k := K} = #{K := V}] = [M],
                V.
            ">>,
            [nowarn_match_alias_pats],
-           {errors,[{{3,31},erl_lint,{unbound_var,'K'}}],[]}},
+           []},
           {parallel_map_patterns_bound1,
            <<"
            t(#{} = M,K1,K2) ->
@@ -4426,6 +4428,78 @@ maps_parallel_match(Config) when is_list(Config) ->
            ">>,
            [nowarn_match_alias_pats],
            []}],
+    [] = run(Config, Ts),
+    ok.
+
+%% A map key in a pattern can use variables bound in the same pattern,
+%% in any order, as long as the keys do not depend on each other in a
+%% cycle.
+map_keys_bound_in_pattern(Config) when is_list(Config) ->
+    Ts = [{map_keys_bound_in_pattern_legal,
+           <<"
+           t1(Key, #{Key := Value}) -> Value.
+           t2(#{K := V}, K) -> V.
+           t3(#{my_field := F}, #{my_field := #{F := x}}) -> F.
+           t4(Number, #{numbers := #{Number := Meta}}) -> {Number,Meta}.
+           t5(#{a := K, K := V}) -> V.
+           t6(#{K := V, a := K}) -> V.
+           t7(#{K := K}, K) -> K.
+           t8(#{K := #{K := K}}, K) -> K.
+           t9({#{B := C}, #{A := B}, A}) -> C.
+           t10(N, #{N + 1 := V}) -> V.
+           t11(<<Sz:8, K:Sz>>, #{K := V}) -> V.
+           t12(#{k := K} = #{K := V}) -> V.
+           t13(#{K := V} = #{k := K}) -> V.
+           t14(T) -> {K, #{K := V}} = T, V.
+           t15(T) -> case T of {K, #{K := V}} -> V end.
+           t16() -> receive {R, #{R := V}} -> V end.
+           t17(L) -> [V || {K, #{K := V}} <- L].
+           t18(M) -> [V || K := #{K := V} <- M].
+           t19(F) -> try F() catch throw:{K, #{K := V}} -> V end.
+           t20() -> fun(K, #{K := V}) -> V end.
+           t21(T) -> maybe {K, #{K := V}} ?= T, V end.
+          ">>,
+           [nowarn_match_alias_pats],
+           []},
+          {map_keys_bound_in_pattern_used,
+           <<"
+           t(K, #{K := _}) -> ok.
+          ">>,
+           [warn_unused_vars],
+           []},
+          {map_keys_bound_in_pattern_unbound,
+           <<"
+           t1(#{K := K}) -> K.
+           t2({#{A := B}, #{B := A}}) -> {A,B}.
+           t3(#{Z := V}) -> V.
+          ">>,
+           [],
+           {errors,[{{2,17},erl_lint,{unbound_var,'K'}},
+                    {{3,18},erl_lint,{unbound_var,'A'}},
+                    {{3,29},erl_lint,{unbound_var,'B'}},
+                    {{4,17},erl_lint,{unbound_var,'Z'}}],[]}},
+          %% In a zip, a key can use variables bound in its own
+          %% generator or in a generator to its left.
+          {map_keys_bound_in_pattern_zip,
+           <<"
+           t1(L1, L2) -> [Y || {K, _} <- L1 && #{K := Y} <- L2].
+           t2(L1, L2) -> [Y || #{K := Y} <- L2 && {K, _} <- L1].
+           t3(L1, L2) -> [Y || {K, #{K := Y}} <- L1 && _ <:- L2].
+          ">>,
+           [],
+           {errors,[{{3,34},erl_lint,{unbound_var,'K'}}],[]}},
+          {map_keys_bound_in_pattern_bin_size,
+           <<"
+           t(Sz, <<X:Sz>>) -> X.
+          ">>,
+           [],
+           {errors,[{{2,22},erl_lint,{unbound_var,'Sz'}}],[]}},
+          {map_keys_bound_in_pattern_shadowed,
+           <<"
+           t() -> K = a, fun(K, #{K := V}) -> {K,V} end.
+          ">>,
+           [],
+           {warnings,[{{2,30},erl_lint,{shadowed_var,'K','fun'}}]}}],
     [] = run(Config, Ts),
     ok.
 

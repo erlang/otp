@@ -93,7 +93,10 @@
         t_ets/1,
 
         %% new in OTP 23
-        t_key_expressions/1
+        t_key_expressions/1,
+
+        %% new in OTP 30
+        t_keys_bound_in_pattern/1
     ]).
 
 -include_lib("stdlib/include/ms_transform.hrl").
@@ -158,7 +161,10 @@ all() -> [
 	t_ets,
 
         %% new in OTP 23
-        t_key_expressions
+        t_key_expressions,
+
+        %% new in OTP 30
+        t_keys_bound_in_pattern
     ].
 
 groups() -> [].
@@ -2341,6 +2347,88 @@ rand_map() ->
 	2 -> #{ wat => rand_term(), other => 3 };  % careful
 	3 -> #{ hi => 42, other => 42, yet_anoter => 1337 }
     end.
+
+%% Map keys in patterns can use variables bound in the same pattern,
+%% in any order, as long as the keys do not depend on each other in
+%% a cycle.
+t_keys_bound_in_pattern(Config) when is_list(Config) ->
+    {first,1} = kbp_arg(a, id(#{a => 1})),
+    {second,a,2} = kbp_arg(a, id(#{default => 2})),
+    third = kbp_arg(a, id(not_a_map)),
+    v = kbp_arg_after(id(#{k => v}), k),
+    nomatch = kbp_arg_after(id(#{k => v}), j),
+    c = kbp_same_map_rev(id(#{a => b, b => c})),
+    {<<"1">>,meta} = kbp_nested(<<"1">>, id(#{numbers => #{<<"1">> => meta}})),
+    nomatch = kbp_nested(<<"2">>, id(#{numbers => #{<<"1">> => meta}})),
+    k = kbp_repeated(id(#{k => k}), k),
+    nomatch = kbp_repeated(id(#{k => j}), k),
+    k = kbp_repeated_nested(id(#{k => #{k => k}}), k),
+    c = kbp_chain_rev(id({#{b => c}, #{a => b}, a})),
+    two = kbp_expr(1, id(#{2 => two})),
+    nomatch = kbp_expr(id(x), id(#{2 => two})),
+    {big,11} = kbp_guard(k, id(#{k => 11})),
+    {small,1} = kbp_guard(k, id(#{k => 1})),
+    seven = kbp_binary(id(<<8,7>>), id(#{7 => seven})),
+    v = kbp_alias_rev(id(#{k => j, j => v})),
+    v = kbp_match(id({k, #{k => v}})),
+    {badmatch,{k,#{j := v}}} = try kbp_match(id({k, #{j => v}}))
+                               catch error:Reason -> Reason
+                               end,
+    [1,3] = [V || {K, #{K := V}} <- id([{a,#{a => 1}}, {b,#{a => 2}},
+                                         {c,#{c => 3}}, x])],
+    [1,3] = lists:sort([X || K := #{K := X} <- id(#{a => #{a => 1},
+                                                   b => #{a => 2},
+                                                   c => #{c => 3}})]),
+    [{1,x},{2,y}] = [{X,Y} || {K, X} <- id([{a,1},{b,2}])
+                                  && #{K := Y} <- id([#{a => x}, #{b => y}])],
+    [1] = [V || {K, #{K := V}} <- id([{a,#{a => 1}}, {b,#{a => 2}}])
+                    && _ <:- id([p,q])],
+    Ref = make_ref(),
+    self() ! {make_ref(), #{x => 1}},
+    self() ! {Ref, #{Ref => reply}},
+    reply = receive {R, #{R := Reply}} -> Reply end,
+    F = fun(K, #{K := V}) -> V; (_, _) -> nomatch end,
+    v = F(k, id(#{k => v})),
+    nomatch = F(j, id(#{k => v})),
+    ok.
+
+kbp_arg(K, #{K := V}) -> {first,V};
+kbp_arg(K, #{default := V}) -> {second,K,V};
+kbp_arg(_, _) -> third.
+
+kbp_arg_after(#{K := V}, K) -> V;
+kbp_arg_after(_, _) -> nomatch.
+
+kbp_same_map_rev(#{K := V, a := K}) -> V;
+kbp_same_map_rev(_) -> nomatch.
+
+kbp_nested(Number, #{numbers := #{Number := MetaData}}) -> {Number,MetaData};
+kbp_nested(_, _) -> nomatch.
+
+kbp_repeated(#{K := K}, K) -> K;
+kbp_repeated(_, _) -> nomatch.
+
+kbp_repeated_nested(#{K := #{K := K}}, K) -> K;
+kbp_repeated_nested(_, _) -> nomatch.
+
+kbp_chain_rev({#{B := C}, #{A := B}, A}) -> C;
+kbp_chain_rev(_) -> nomatch.
+
+kbp_expr(N, #{N + 1 := V}) -> V;
+kbp_expr(_, _) -> nomatch.
+
+kbp_guard(K, #{K := V}) when V > 10 -> {big,V};
+kbp_guard(K, #{K := V}) -> {small,V};
+kbp_guard(_, _) -> none.
+
+kbp_binary(<<Sz:8, K:Sz>>, #{K := V}) -> V;
+kbp_binary(_, _) -> nomatch.
+
+kbp_alias_rev(#{K := V} = #{k := K}) -> V.
+
+kbp_match(T) ->
+    {K, #{K := V}} = T,
+    V.
 
 
 t_build_and_match_over_alloc(Config) when is_list(Config) ->
