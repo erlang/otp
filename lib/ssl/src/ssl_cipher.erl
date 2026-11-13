@@ -1309,7 +1309,9 @@ encrypt_ticket(#stateless_ticket{
                   ticket_age_add = TicketAgeAdd,
                   lifetime = Lifetime,
                   timestamp = Timestamp,
-                  certificate = Certificate
+                  certificate = Certificate,
+                  sni = SNI,
+                  sni_guided = SNIGuided
                  }, Shard, IV) ->
     Plaintext1 = <<(ssl_cipher:hash_algorithm(Hash)):8,PSK/binary,
                    ?UINT64(TicketAgeAdd),?UINT32(Lifetime),?UINT32(Timestamp)>>,
@@ -1317,13 +1319,31 @@ encrypt_ticket(#stateless_ticket{
                             undefined -> 0;
                             _ -> byte_size(Certificate)
     end,
-    Plaintext = case CertificateLength of
+    Plaintext2 = case CertificateLength of
                     0 ->
                         <<Plaintext1/binary,?UINT16(0)>>;
                     _ ->
                         <<Plaintext1/binary,?UINT16(CertificateLength),
                           Certificate/binary>>
                 end,
+    %% SNI the ticket was established for, plus whether SNI was used to
+    %% select the server cert/config (sni_guided). Together they let the
+    %% server refuse cross-SNI resumption of a ticket issued on an
+    %% SNI-guided connection. SNI is length-prefixed (absent encodes as
+    %% length 0, identical to older ticket readers and no-SNI sessions);
+    %% sni_guided is a trailing byte that defaults to 0 for legacy
+    %% tickets that lack it.
+    SNIBin = case SNI of
+                 undefined -> <<>>;
+                 _ -> iolist_to_binary(SNI)
+             end,
+    SNILength = byte_size(SNIBin),
+    SNIGuidedByte = case SNIGuided of
+                        true -> 1;
+                        _ -> 0
+                    end,
+    Plaintext = <<Plaintext2/binary,?UINT16(SNILength),SNIBin/binary,
+                  ?BYTE(SNIGuidedByte)>>,
     encrypt_ticket_data(Plaintext, Shard, IV).
 
 
@@ -1332,24 +1352,52 @@ decrypt_ticket(CipherFragment, Shard, IV) ->
         error ->
             error;
         Plaintext ->
-            <<?BYTE(HKDF),T/binary>> = Plaintext,
+            <<?BYTE(HKDF), Rest/binary>> = Plaintext,
             Hash = hash_algorithm(HKDF),
             HashSize = hash_size(Hash),
-            <<PSK:HashSize/binary,?UINT64(TicketAgeAdd),?UINT32(Lifetime),?UINT32(Timestamp),
-                ?UINT16(CertificateLength),Certificate1:CertificateLength/binary,_/binary>> = T,
-            Certificate = case CertificateLength of
-                              0 -> undefined;
-                              _ -> Certificate1
-                          end,
+            %% SNI (and the sni_guided byte) are appended after the
+            %% certificate. Tickets issued before SNI binding have no
+            %% trailing SNI block -> sni = undefined, sni_guided = false.
+            {PSK, TicketAgeAdd, Lifetime, Timestamp, Certificate, SNI,
+             SNIGuided} =
+                case Rest of
+                    <<PSK0:HashSize/binary,?UINT64(AgeAdd),?UINT32(LT),?UINT32(TS),
+                      ?UINT16(CertLen),Cert0:CertLen/binary,
+                      ?UINT16(SNILength),SNIBin:SNILength/binary,
+                      ?BYTE(Guided)>>
+                      when SNILength > 0 ->
+                        {PSK0, AgeAdd, LT, TS, cert_or_undefined(CertLen, Cert0),
+                         binary_to_list(SNIBin), Guided =:= 1};
+                    <<PSK0:HashSize/binary,?UINT64(AgeAdd),?UINT32(LT),?UINT32(TS),
+                      ?UINT16(CertLen),Cert0:CertLen/binary,
+                      ?UINT16(0),?BYTE(Guided)>> ->
+                        {PSK0, AgeAdd, LT, TS, cert_or_undefined(CertLen, Cert0),
+                         undefined, Guided =:= 1};
+                    <<PSK0:HashSize/binary,?UINT64(AgeAdd),?UINT32(LT),?UINT32(TS),
+                      ?UINT16(CertLen),Cert0:CertLen/binary,_/binary>> ->
+                        {PSK0, AgeAdd, LT, TS, cert_or_undefined(CertLen, Cert0),
+                         undefined, false}
+                end,
             #stateless_ticket{
                hash = Hash,
                pre_shared_key = PSK,
                ticket_age_add = TicketAgeAdd,
                lifetime = Lifetime,
                timestamp = Timestamp,
-               certificate = Certificate
+               certificate = Certificate,
+               sni = SNI,
+               sni_guided = SNIGuided
               }
     end.
+
+%% A zero-length certificate field means no peer certificate was stored
+%% (plain stateful/stateless, or a *_with_cert resumption where the
+%% client sent none). Normalise it to undefined regardless of whether a
+%% trailing SNI block is present.
+cert_or_undefined(0, _Cert) ->
+    undefined;
+cert_or_undefined(_Len, Cert) ->
+    Cert.
 
 
 encrypt_ticket_data(Plaintext, Shard, IV) ->
