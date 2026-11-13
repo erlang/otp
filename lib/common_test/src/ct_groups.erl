@@ -492,24 +492,31 @@ make_conf(Mod, Name, Props, TestSpec) ->
 	_ ->
 	    ok
     end,
-    {InitConf,EndConf,ExtraProps} =
-	case {erlang:function_exported(Mod,init_per_group,2),
-              erlang:function_exported(Mod,end_per_group,2)} of
-	    {false,false} ->
-		ct_logs:log("TEST INFO", "init_per_group/2 and "
-			    "end_per_group/2 missing for group "
-			    "~tw in ~w, using default.",
-			    [Name,Mod]),
-		{{ct_framework,init_per_group},
-		 {ct_framework,end_per_group},
-		 [{suite,Mod}]};
-	    _ ->
-                %% If any of these exist, the other should too
-                %% (required and documented). If it isn't, it will fail
-                %% with reason 'undef'.
-		{{Mod,init_per_group},{Mod,end_per_group},[]}
-	end,
+    %% The suite can define init_per_group/2 and end_per_group/2
+    %% independently of each other: for a missing one, the default
+    %% in ct_framework is called instead.
+    InitConf = group_conf_fun(Mod, init_per_group),
+    EndConf = group_conf_fun(Mod, end_per_group),
+    ExtraProps =
+        case {InitConf,EndConf} of
+            {{Mod,_},{Mod,_}} ->
+                [];
+            {{ct_framework,_},{ct_framework,_}} ->
+                ct_logs:log("TEST INFO", "init_per_group/2 and "
+                            "end_per_group/2 missing for group "
+                            "~tw in ~w, using default.",
+                            [Name,Mod]),
+                [{suite,Mod}];
+            _ ->
+                [{suite,Mod}]
+        end,
     {conf,[{name,Name}|Props++ExtraProps],InitConf,TestSpec,EndConf}.
+
+group_conf_fun(Mod, Func) ->
+    case erlang:function_exported(Mod, Func, 2) of
+        true -> {Mod,Func};
+        false -> {ct_framework,Func}
+    end.
 
 %%%-----------------------------------------------------------------
 

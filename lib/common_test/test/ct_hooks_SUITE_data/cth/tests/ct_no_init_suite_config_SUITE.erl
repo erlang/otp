@@ -29,7 +29,7 @@
 %%% This suite is used to verify that pre/post_init_per_suite
 %%% callbacks are called with correct SuiteName even if no
 %%% init_per_suite function exist in the suite, and that the
-%%% non-exported config function fails with 'undef'.
+%%% default init_per_suite is called instead of the missing one.
 
 end_per_suite(Config) ->
     Config.
