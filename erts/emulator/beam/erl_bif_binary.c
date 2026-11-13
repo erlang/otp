@@ -2615,6 +2615,7 @@ static BIF_RETTYPE do_binary_copy(Process *p, Eterm bin, Eterm en)
     result = erts_new_bitstring(p, cbs.target_size, &cbs.target_bytes);
 
     binary_copy_loop(&cbs, MIN(max_copy_bits, cbs.target_size));
+    BUMP_REDS(p, cbs.copied_bits / BITSTRING_COPY_LOOP_FACTOR);
 
     if (cbs.copied_bits < cbs.target_size) {
         ERTS_BIF_YIELD3(&binary_copy_trap_export,
@@ -2625,14 +2626,13 @@ static BIF_RETTYPE do_binary_copy(Process *p, Eterm bin, Eterm en)
     }
 
     ASSERT(cbs.copied_bits == cbs.target_size);
-    BUMP_REDS(p, cbs.target_size / BITSTRING_COPY_LOOP_FACTOR);
 
     BIF_RET(result);
 }
 
 static BIF_RETTYPE binary_copy_trap(BIF_ALIST_3)
 {
-    Uint initial_target_offset, trap_offset, max_copy_bits;
+    Uint initial_target_offset, trap_offset, max_copy_bits, bits_copied;
     ERTS_DECLARE_DUMMY(Uint target_offset);
     CopyBinState cbs;
 
@@ -2652,22 +2652,15 @@ static BIF_RETTYPE binary_copy_trap(BIF_ALIST_3)
 
     max_copy_bits = get_reds(BIF_P, BITSTRING_COPY_LOOP_FACTOR);
     initial_target_offset = cbs.copied_bits;
-    trap_offset = cbs.target_size;
-
-    if ((ERTS_UINT_MAX - max_copy_bits) < initial_target_offset &&
-        (initial_target_offset + max_copy_bits < trap_offset)) {
-        trap_offset = initial_target_offset + max_copy_bits;
-    }
+    trap_offset = initial_target_offset +
+                  MIN(max_copy_bits, cbs.target_size - initial_target_offset);
 
     binary_copy_loop(&cbs, trap_offset);
     ASSERT(cbs.copied_bits <= cbs.target_size);
+    bits_copied = cbs.copied_bits - initial_target_offset;
+    BUMP_REDS(BIF_P, bits_copied / BITSTRING_COPY_LOOP_FACTOR);
 
     if (cbs.copied_bits == cbs.target_size) {
-        Uint bits_copied;
-
-        bits_copied = cbs.copied_bits - initial_target_offset;
-        BUMP_REDS(BIF_P, bits_copied / BITSTRING_COPY_LOOP_FACTOR);
-
         BIF_RET(BIF_ARG_2);
     }
 
