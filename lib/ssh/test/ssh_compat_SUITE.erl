@@ -58,7 +58,9 @@
 -define(DOCKER_PFX, "ssh_compat_suite_img-ssh").
 -define(VERSIONS_FILE, "versions.txt").
 -define(DEFAULT_TIMETRAP, {minutes, 2}).
--define(IMAGE_BUILD_TIMETRAP, {minutes, 10}).
+%% One image build may include OpenSSL and OpenSSH from source; that took
+%% about 13 minutes for OpenSSL 3.5.4 + OpenSSH 10.2p1 on a lab host
+-define(IMAGE_BUILD_TIMETRAP, {minutes, 30}).
 %% Max wait for one test process in test_erl_client_reneg/2 (ms)
 -define(RENEG_TEST_TIMEOUT, 30000).
 
