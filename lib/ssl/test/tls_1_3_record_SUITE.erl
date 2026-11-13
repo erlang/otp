@@ -27,6 +27,8 @@
 -include_lib("ssl/src/tls_handshake_1_3.hrl").
 -include_lib("ssl/src/ssl_cipher.hrl").
 -include_lib("ssl/src/ssl_internal.hrl").
+-include_lib("ssl/src/ssl_alert.hrl").
+-include_lib("ssl/src/ssl_connection.hrl").
 
 %% Callback functions
 -export([all/0,
@@ -41,7 +43,9 @@
          '1_RTT_handshake'/0,
          '1_RTT_handshake'/1,
          '0_RTT_handshake'/0,
-         '0_RTT_handshake'/1
+         '0_RTT_handshake'/1,
+         finished_verify_data_different_length/0,
+         finished_verify_data_different_length/1
         ]).
 
 %%--------------------------------------------------------------------
@@ -52,7 +56,8 @@ all() ->
     [encode_decode,
      finished_verify_data,
      '1_RTT_handshake',
-     '0_RTT_handshake'].
+     '0_RTT_handshake',
+     finished_verify_data_different_length].
 
 init_per_suite(Config) ->
     catch crypto:stop(),
@@ -1465,3 +1470,75 @@ hex2int(C) when $a =< C, C =< $f ->
 
 create_info(Label, Context, Length) ->
     tls_v1:create_info(Label, Context, Length, << "tls13 ">>).
+
+finished_verify_data_different_length() ->
+    [{doc,"The TLS-1.3 Finished check (tls_handshake_1_3:validate_finished/2) "
+      "must emit a decrypt_error alert, not crash, when the peer's VerifyData "
+      "has an unexpected length. crypto:hash_equals/2 raises error:badarg on "
+      "different-length input."}].
+finished_verify_data_different_length(_Config) ->
+    HKDF = sha256,
+    FinishedKey = crypto:strong_rand_bytes(32),
+    Match = control_data(FinishedKey, HKDF),
+    Len = byte_size(Match),
+    Short = binary:part(Match, 0, Len - 1),
+    Long = <<Match/binary, 0>>,
+
+    %% Shorter / longer VerifyData -> hash_equals/2 raises, must become an alert.
+    {error, #alert{description = ?DECRYPT_ERROR}} =
+        validate_finished_with(FinishedKey, HKDF, Short),
+    {error, #alert{description = ?DECRYPT_ERROR}} =
+        validate_finished_with(FinishedKey, HKDF, Long),
+    %% Matching data validates.
+    ok = validate_finished_with(FinishedKey, HKDF, Match),
+    %% Equal-length mismatch is also a decrypt_error.
+    Flipped = crypto:exor(Match, <<1, 0:(Len*8 - 8)>>),
+    {error, #alert{description = ?DECRYPT_ERROR}} =
+        validate_finished_with(FinishedKey, HKDF, Flipped),
+    ok.
+
+%% ControlData as validate_finished/2 recomputes it: over an empty message
+%% context (the single dummy history entry is dropped by finished_verify_data).
+control_data(FinishedKey, HKDF) ->
+    tls_v1:finished_verify_data(FinishedKey, HKDF, []).
+
+%% Drive the public tls_handshake_1_3:validate_finished/2 entry point with a
+%% minimal #state{}. validate_finished/2 recomputes ControlData from
+%% FinishedKey and the (empty) message context and compares it to VerifyData,
+%% exercising compare_verify_data/2 length handling without a live handshake.
+validate_finished_with(FinishedKey, HKDF, VerifyData) ->
+    ConnectionStates =
+        #{current_read =>
+              #{security_parameters =>
+                    #security_parameters{prf_algorithm = HKDF},
+                cipher_state =>
+                    #cipher_state{finished_key = FinishedKey}}},
+    State = #state{connection_states = ConnectionStates,
+                   handshake_env =
+                       #handshake_env{tls_handshake_history = {[<<>>], 0}}},
+    tls_handshake_1_3:validate_finished(State, VerifyData).
+
+%% Minimal AES-256-GCM ConnectionStates for the record round-trip. The write
+%% side encrypts; the read side (same key/iv, seq 0) decrypts.
+oversized_test_connection_states() ->
+    Key = crypto:strong_rand_bytes(32),
+    IV  = crypto:strong_rand_bytes(12),
+    CipherState = #cipher_state{key = Key, iv = IV, tag_len = 16},
+    SecParams = #security_parameters{
+                   cipher_suite = ?TLS_AES_256_GCM_SHA384,
+                   cipher_type = ?AEAD,
+                   bulk_cipher_algorithm = 8,   %% AES-256-GCM (matches encode_decode)
+                   prf_algorithm = sha384},
+    #{current_write =>
+          #{cipher_state => CipherState,
+            sequence_number => 0,
+            security_parameters => SecParams,
+            max_fragment_length => undefined}}.
+
+%% decode_cipher_text/2 reads from current_read; reuse the write state's keys
+%% (same key/iv, seq 0) and add the early_data map the AEAD read clause matches.
+read_from_write(#{current_write := Write}) ->
+    #{current_read =>
+          Write#{early_data => #{pending_early_data_size => 0,
+                                 trial_decryption => false,
+                                 early_data_accepted => false}}}.
