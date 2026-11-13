@@ -2803,8 +2803,14 @@ add_pre_bound_vars({mc, Pairs, BoundVars}, Pre) ->
 
 %% pre_bound_vars(Pre) -> ordset([Name]).
 %%  Extract variables bound in a list of pre-expressions.
-pre_expr_vars(#iset{var=#c_var{name=N}}) -> [N];
-pre_expr_vars(#imatch{pat=Pat}) -> lit_vars(Pat);
+pre_expr_vars(#iset{var=V, arg=Arg}) ->
+    [pre_expr_vars(Arg) | lit_vars(V)];
+pre_expr_vars(#icase{clauses=Cs}) ->
+    ordsets:union([pre_expr_vars(C) || C <- Cs]);
+pre_expr_vars(#iclause{pats=Pats}) ->
+    lit_list_vars(Pats);
+pre_expr_vars(#imatch{pat=Pat}) ->
+    lit_vars(Pat);
 pre_expr_vars(#iexprs{bodies=Bs}) ->
     ordsets:from_list(lists:flatten([pre_expr_vars(Pre) || B <- Bs, Pre <- B]));
 pre_expr_vars(_) -> [].

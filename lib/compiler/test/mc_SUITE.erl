@@ -365,6 +365,7 @@ from_keys_optimization(_Config) ->
     %% Value is bound in a filter, no generator in comprehension
     %% - should NOT use from_keys
     #{ok := ok} = #{ok => V1 || true, (V1 = ok) =< self()},
+    #{ok := ok} = #{ok => V || true, case id(ok) of V -> true end},
 
     ok.
 
