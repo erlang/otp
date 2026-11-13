@@ -41,7 +41,8 @@ MODULES= \
 	erlexec_SUITE \
 	z_SUITE \
 	upgrade_SUITE \
-	parallel_messages_SUITE
+	parallel_messages_SUITE \
+	ct_run_SUITE
 
 ERTS_MODULES= erts_test_utils
 
