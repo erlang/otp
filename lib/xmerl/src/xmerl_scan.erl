@@ -1162,25 +1162,29 @@ scan_pi(Str = [H1,H2,H3 | T],S0=#xmerl_scanner{line = L, col = C}, Pos, Ps)
     if
 	H2==$m orelse H2==$M,
 	H3==$l orelse H3==$L ->
-	    scan_wellknown_pi(T,S,Pos,Ps);
+            scan_wellknown_pi(T,S,Str,S0,Pos,Ps);
 	true ->
-	    {Target, _NamespaceInfo, T1, S1} = scan_name(Str, S),
+            {Target, _NamespaceInfo, T1, S1} = scan_name(Str, S0),
 	    scan_pi(T1, S1, Target, L, C, Pos, Ps, [])
     end;
 scan_pi(Str, S=#xmerl_scanner{line = L, col = C}, Pos, Ps) ->
     {Target, _NamespaceInfo, T1, S1} = scan_name(Str, S),
-    scan_pi(T1, S1, Target, L, C, Pos, Ps, []).
+    scan_pi(T1, S1, pi_target_name(Target), L, C, Pos, Ps, []).
 
+
+%% Only the target "xml" itself is excluded by [17] PITarget.
+scan_wellknown_pi(Str,S,_TargetStr,_SPre,_Pos,_Ps)
+  when Str == []; hd(Str) == $?; ?whitespace(hd(Str)) ->
+    ?fatal({invalid_target_name, lists:sublist(Str, 1, 10)}, S);
+scan_wellknown_pi(_Str,_S,TargetStr,SPre=#xmerl_scanner{line=L,col=C},Pos,Ps) ->
+    {Target, _NamespaceInfo, T1, S1} = scan_name(TargetStr, SPre),
+    scan_pi(T1, S1, pi_target_name(Target), L, C, Pos, Ps, []).
 
 %%% More info on xml-stylesheet can be found at:
 %%%   "Associating Style Sheets with XML documents", Version 1.0,
 %%%   W3C Recommendation 29 June 1999 (http://www.w3.org/TR/xml-stylesheet/)
-scan_wellknown_pi("-stylesheet"++T, S0=#xmerl_scanner{line=L,col=C},Pos,Ps) ->
-    ?dbg("prolog(\"<?xml-stylesheet\")~n", []),
-    ?bump_col(16),
-    scan_pi(T, S, "xml-stylesheet",L,C,Pos,Ps,[]);
-scan_wellknown_pi(Str,S,_Pos,_Ps) ->
-    ?fatal({invalid_target_name, lists:sublist(Str, 1, 10)}, S).
+pi_target_name('xml-stylesheet') -> "xml-stylesheet";
+pi_target_name(Target) -> Target.
 
 
 
