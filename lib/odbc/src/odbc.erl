@@ -737,6 +737,18 @@ User's Guide.
 > param_query function. To learn which Erlang data type corresponds to an ODBC
 > data type see the Erlang to ODBC data type [mapping](databases.md#type) in the
 > User's Guide.
+
+> #### Note {: .info }
+>
+> String parameter values are validated before the query is sent. If a value
+> is longer than the declared maximum length, or the declared maximum length
+> is not a non-negative integer or exceeds the supported upper bound, the call
+> returns `{error, Reason}` where `Reason` is one of
+> `{value_exceeds_max_length, Type, Max, Length}`,
+> `{invalid_max_length, Type, Max}` or
+> `{max_length_too_large, Type, Max, Limit}`. For wide (UTF-16) string types
+> `Max` counts characters (16-bit code units), so a value is accepted when its
+> size is at most `2 * Max` bytes.
 """.
 -spec param_query(ConnectionReference, SQLQuery, Params, TimeOut) ->
           Result | {error, Reason} when
@@ -751,22 +763,32 @@ User's Guide.
 %%--------------------------------------------------------------------------
 param_query(ConnectionReference, SQLQuery, Params, infinity) 
   when is_pid(ConnectionReference), is_list(SQLQuery), is_list(Params) ->
-    Values = param_values(Params),
-    NoRows = length(Values),
-    NewParams = lists:map(fun fix_params/1, Params),
-    ODBCCmd = [?PARAM_QUERY, term_to_binary({SQLQuery ++ [?STR_TERMINATOR],
-					     NoRows, NewParams})],
-    call(ConnectionReference, {param_query, ODBCCmd}, infinity);
+    try lists:map(fun fix_params/1, Params) of
+        NewParams ->
+            Values = param_values(Params),
+            NoRows = length(Values),
+            ODBCCmd = [?PARAM_QUERY, term_to_binary({SQLQuery ++ [?STR_TERMINATOR],
+                                                     NoRows, NewParams})],
+            call(ConnectionReference, {param_query, ODBCCmd}, infinity)
+    catch
+        throw:{odbc_param_error, Reason} ->
+            {error, Reason}
+    end;
 
 param_query(ConnectionReference, SQLQuery, Params, TimeOut)
   when is_pid(ConnectionReference), is_list(SQLQuery), is_list(Params),
        is_integer(TimeOut), TimeOut > 0 ->
-    Values = param_values(Params),
-    NoRows = length(Values),
-    NewParams = lists:map(fun fix_params/1, Params),
-    ODBCCmd = [?PARAM_QUERY, term_to_binary({SQLQuery ++ [?STR_TERMINATOR],
-					     NoRows, NewParams})],
-    call(ConnectionReference, {param_query, ODBCCmd}, TimeOut).
+    try lists:map(fun fix_params/1, Params) of
+        NewParams ->
+            Values = param_values(Params),
+            NoRows = length(Values),
+            ODBCCmd = [?PARAM_QUERY, term_to_binary({SQLQuery ++ [?STR_TERMINATOR],
+                                                     NoRows, NewParams})],
+            call(ConnectionReference, {param_query, ODBCCmd}, TimeOut)
+    catch
+        throw:{odbc_param_error, Reason} ->
+            {error, Reason}
+    end.
 
 %%--------------------------------------------------------------------------
 -doc(#{equiv => describe_table/3}).
@@ -1355,18 +1377,23 @@ fix_params({{sql_numeric, Precision, 0}, InOut,
 fix_params({{sql_numeric, Precision, Scale}, InOut, Values}) ->
         {?USER_NUMERIC, Precision, Scale, fix_inout(InOut), Values};
 fix_params({{sql_char, Max}, InOut, Values}) ->
+    ok = validate_string_params(sql_char, Max, Values),
      NewValues = string_terminate(Values),
     {?USER_CHAR, Max, fix_inout(InOut), NewValues};
 fix_params({{sql_varchar, Max}, InOut, Values}) ->
+    ok = validate_string_params(sql_varchar, Max, Values),
      NewValues = string_terminate(Values),
     {?USER_VARCHAR, Max, fix_inout(InOut), NewValues};
 fix_params({{sql_wchar, Max}, InOut, Values}) ->
+    ok = validate_string_params(sql_wchar, Max, Values),
     NewValues = string_terminate(Values),
     {?USER_WCHAR, Max, fix_inout(InOut), NewValues};
 fix_params({{sql_wvarchar, Max}, InOut, Values}) ->
+    ok = validate_string_params(sql_wvarchar, Max, Values),
     NewValues = string_terminate(Values),
     {?USER_WVARCHAR, Max, fix_inout(InOut), NewValues};
 fix_params({{sql_wlongvarchar, Max}, InOut, Values}) ->
+    ok = validate_string_params(sql_wlongvarchar, Max, Values),
     NewValues = string_terminate(Values),
     {?USER_WLONGVARCHAR, Max, fix_inout(InOut), NewValues};
 fix_params({{sql_float, Precision}, InOut, Values}) ->
@@ -1405,6 +1432,38 @@ string_terminate(Values) ->
 	Result ->
 	    Result
     end.
+
+%% Defence in depth (OTP-20537): reject, on the Erlang side, string
+%% parameter values that do not fit the declared column size before
+%% they are sent to the odbcserver port program. The atom 'null' is a
+%% valid value regardless of size.
+validate_string_params(Type, Max, _Values) when not is_integer(Max); Max < 0 ->
+    throw({odbc_param_error, {invalid_max_length, Type, Max}});
+validate_string_params(Type, Max, _Values) when Max > ?MAX_PARAM_STRING_LEN ->
+    throw({odbc_param_error, {max_length_too_large, Type, Max, ?MAX_PARAM_STRING_LEN}});
+validate_string_params(Type, Max, Values) ->
+    %% The declared Max counts characters. For the wide types the value
+    %% is a UTF-16LE binary (see the User's Guide), i.e. 2 bytes per
+    %% code unit, so a binary of up to 2*Max bytes is within bounds.
+    MaxBytes = case Type of
+                   sql_char -> Max;
+                   sql_varchar -> Max;
+                   _ -> 2 * Max
+               end,
+    lists:foreach(
+      fun(null) ->
+              ok;
+         (Value) when is_list(Value) ->
+              length(Value) =< Max orelse
+                  throw({odbc_param_error,
+                         {value_exceeds_max_length, Type, Max, length(Value)}});
+         (Value) when is_binary(Value) ->
+              byte_size(Value) =< MaxBytes orelse
+                  throw({odbc_param_error,
+                         {value_exceeds_max_length, Type, Max, byte_size(Value)}});
+         (_Value) ->
+              ok
+      end, Values).
 
 string_terminate_value(String) when is_list(String) ->
     String ++ [?STR_TERMINATOR];
