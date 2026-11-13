@@ -61,6 +61,9 @@
 %% One image build may include OpenSSL and OpenSSH from source; that took
 %% about 13 minutes for OpenSSL 3.5.4 + OpenSSH 10.2p1 on a lab host
 -define(IMAGE_BUILD_TIMETRAP, {minutes, 30}).
+%% Free space needed in the docker daemon's storage before an image
+%% build starts. All 33 images took about 7 GB on a lab host.
+-define(MIN_FREE_GB_FOR_BUILD, 10).
 %% Max wait for one test process in test_erl_client_reneg/2 (ms)
 -define(RENEG_TEST_TIMEOUT, 30000).
 
@@ -1725,6 +1728,7 @@ build_image(Config, Ver) ->
         false ->
             ct:timetrap(?IMAGE_BUILD_TIMETRAP),
             try
+                ok = docker_free_disk(?MIN_FREE_GB_FOR_BUILD),
                 DataDir = proplists:get_value(data_dir, Config),
                 BuildAll = filename:join([DataDir, "build_scripts", "create_all"]),
                 %% The build output goes to a file so that it can be
@@ -1740,6 +1744,8 @@ build_image(Config, Ver) ->
                 ct:pal("Built ~p.~n", [Ver]),
                 ok
             catch
+                throw : {skip, _} = Skip ->
+                    Skip;
                 error : {command_failed, _Output, ExitCode} : _ST ->
                     ct:log("Cannot build image, exit code: ~p, last lines of ~ts:~n~ts~n",
                            [ExitCode, build_log_file(Config, DockerVer),
@@ -1748,6 +1754,53 @@ build_image(Config, Ver) ->
             after
                 ct:timetrap(?DEFAULT_TIMETRAP)
             end
+    end.
+
+%% Throws {skip, Reason} when the filesystem holding the daemon's
+%% storage (DockerRootDir) has less than MinGB free. The daemon may be
+%% shared with other jobs, and a build that fills the disk breaks them
+%% too. When the free space cannot be read, the build goes ahead (only
+%% logged), e.g. for a remote daemon (DOCKER_HOST=tcp://...).
+%% Limits: a daemon chosen with 'docker context' is not detected, and
+%% with the containerd image store the image layers live in
+%% containerd's root, which may be another filesystem.
+docker_free_disk(MinGB) ->
+    case docker_free_kb() of
+        {ok, Dir, FreeKB} when FreeKB < MinGB * 1024 * 1024 ->
+            throw({skip, lists:flatten(
+                           io_lib:format("Not enough disk to build the image: ~ts has "
+                                         "~.1f GB free, ~w GB needed",
+                                         [Dir, FreeKB / (1024 * 1024), MinGB]))});
+        {ok, Dir, FreeKB} ->
+            ct:log("~ts has ~.1f GB free for the build~n", [Dir, FreeKB / (1024 * 1024)]),
+            ok;
+        {error, Reason} ->
+            ct:log("Free disk not checked before the build: ~ts~n", [Reason]),
+            ok
+    end.
+
+docker_free_kb() ->
+    case os:getenv("DOCKER_HOST", "") of
+        "" -> docker_free_kb_local();
+        "unix://" ++ _ -> docker_free_kb_local();
+        Host -> {error, "remote docker daemon " ++ Host}
+    end.
+
+docker_free_kb_local() ->
+    Dir = string:trim(os:cmd("docker info --format '{{.DockerRootDir}}' 2>/dev/null")),
+    case Dir of
+        "/" ++ _ ->
+            %% POSIX output: one line per filesystem, no line wrapping;
+            %% "Available" is the number before the "Capacity" percentage
+            Out = os:cmd("LC_ALL=C df -Pk '" ++ Dir ++ "' 2>&1"),
+            case re:run(Out, "\\s([0-9]+)\\s+[0-9]+%\\s", [{capture, all_but_first, list}]) of
+                {match, [Avail]} ->
+                    {ok, Dir, list_to_integer(Avail)};
+                nomatch ->
+                    {error, "df " ++ Dir ++ ": " ++ string:trim(Out)}
+            end;
+        _ ->
+            {error, "no DockerRootDir from docker info: " ++ Dir}
     end.
 
 build_log_file(Config, DockerVer) ->
