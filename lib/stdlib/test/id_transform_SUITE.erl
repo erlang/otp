@@ -63,6 +63,7 @@ id_transform(Config) when is_list(Config) ->
     File = filename:join([filename:dirname(ModulePath), examples, "erl_id_trans.erl"]),
     {ok,erl_id_trans,Bin} = compile:file(File, [binary,report]),
     {module,erl_id_trans} = code:load_binary(erl_id_trans, File, Bin),
+    id_transform_types(),
     case test_server:is_valgrind() of
 	false ->
 	    ct:timetrap({hours,1}),
@@ -70,6 +71,13 @@ id_transform(Config) when is_list(Config) ->
 	true ->
 	    {skip,"Valgrind (too slow)"}
     end.
+
+%% Type forms that might not be used by any module in the code path.
+id_transform_types() ->
+    {ok,Ts,_} = erl_scan:string("-type t() :: <<\"a\">> | ~\"b\"."),
+    {ok,Form} = erl_parse:parse_form(Ts),
+    [Form] = erl_id_trans:parse_transform([Form], []),
+    ok.
 
 run_in_test_suite() ->
     SuperDir = filename:dirname(filename:dirname(code:which(?MODULE))),

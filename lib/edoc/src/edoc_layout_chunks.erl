@@ -395,7 +395,8 @@ annotate_bounded_fun_clause(ArgNames, {type, Pos, 'fun', Data}, Constraints) ->
     {{type, Pos, 'fun', NewData}, lists:reverse(NewConstraints2)}.
 
 bounded_fun_arg(#{ arg := {Singleton, _, _} = Arg } = Acc) when atom =:= Singleton;
-								integer =:= Singleton ->
+                                                                integer =:= Singleton;
+                                                                bin_type =:= Singleton ->
     #{new_vars := NVs} = Acc,
     Acc#{new_vars := [Arg | NVs]};
 bounded_fun_arg(#{ arg := {var, _, '_'} = V } = Acc) ->

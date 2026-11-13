@@ -22,6 +22,8 @@
 
 -export([all/0,groups/0,init_per_group/2,end_per_group/2,
          consistency_and_to_string/1,misc/1,map_multiple_representations/1,
+         bin_type_modules_mentioned/1,bin_type_operations/1,
+         bin_type_lattice/1,
          absorption/1,associativity/1,commutativity/1,idempotence/1,
          identity/1,limit/1
         ]).
@@ -35,6 +37,9 @@ all() ->
     [consistency_and_to_string,
      misc,
      map_multiple_representations,
+     bin_type_modules_mentioned,
+     bin_type_operations,
+     bin_type_lattice,
      {group,property_tests}
     ].
 
@@ -375,6 +380,160 @@ map_multiple_representations(_Config) ->
             T = erl_types:t_map(Ps, DefK, DefV),
             "#{'a'=>atom(), 'b'=>atom()}" = erl_types:t_to_string(T)
     end(),
+    ok.
+
+bin_type_modules_mentioned(_Config) ->
+    %% A standalone bin_type form has no module dependencies.
+    [] = ?M:type_form_to_remote_modules({bin_type, 0, <<"foo">>}),
+
+    %% A union of bin_type forms has no module dependencies.
+    [] = ?M:type_form_to_remote_modules(
+           {type, 0, union, [{bin_type, 0, <<"a">>},
+                             {bin_type, 0, <<"b">>}]}),
+
+    %% A union of bin_type and remote_type extracts the remote module.
+    [some_mod] = ?M:type_form_to_remote_modules(
+                   {type, 0, union,
+                    [{bin_type, 0, <<"foo">>},
+                     {remote_type, 0, [{atom, 0, some_mod},
+                                       {atom, 0, some_type},
+                                       []]}]}),
+
+    %% bin_type inside a list type has no module dependencies.
+    [] = ?M:type_form_to_remote_modules(
+           {type, 0, list, [{bin_type, 0, <<"x">>}]}),
+
+    ok.
+
+bin_type_operations(_Config) ->
+    %% Construction and t_to_string.
+    Foo = ?M:t_binary_val(<<"foo">>),
+    Bar = ?M:t_binary_val(<<"bar">>),
+    Baz = ?M:t_binary_val(<<"baz">>),
+    Empty = ?M:t_binary_val(<<"">>),
+    "<<\"foo\">>" = ?M:t_to_string(Foo),
+    "<<\"bar\">>" = ?M:t_to_string(Bar),
+    %% The empty binary has a single, structural representation.
+    Empty = ?M:t_bitstr(0, 0),
+    "<<>>" = ?M:t_to_string(Empty),
+
+    %% t_is_binary / t_is_bitstr.
+    true = ?M:t_is_binary(Foo),
+    true = ?M:t_is_bitstr(Foo),
+
+    %% t_from_term for binaries.
+    Foo = ?M:t_from_term(<<"foo">>),
+    Empty = ?M:t_from_term(<<"">>),
+
+    %% t_sup — same-size vals merge into a multi-val type.
+    FooBar = ?M:t_sup(Foo, Bar),
+    "<<\"bar\">> | <<\"foo\">>" = ?M:t_to_string(FooBar),
+    %% Large binaries are not tracked by value.
+    Edge = binary:copy(<<"x">>, 64),
+    Big = binary:copy(<<"x">>, 65),
+    true = ?M:t_is_singleton(?M:t_from_term(Edge)),
+    BigType = ?M:t_bitstr(0, 520),
+    BigType = ?M:t_binary_val(Big),
+    BigType = ?M:t_from_term(Big),
+    "<<_:520>>" = ?M:t_to_string(BigType),
+    true = ?M:t_bitstr(512, 8) =:= ?M:t_sup(?M:t_from_term(<<"a">>), BigType),
+
+    %% Values that are valid UTF-8 with non-ASCII characters.
+    "<<\"\x{e9}\"/utf8>>" = ?M:t_to_string(?M:t_binary_val(<<195,169>>)),
+    "<<\"\x{ff}\">>" = ?M:t_to_string(?M:t_binary_val(<<255>>)),
+
+    %% t_sup — different-size vals are kept.
+    Hi = ?M:t_binary_val(<<"hi">>),
+    FooHi = ?M:t_sup(Foo, Hi),
+    true = ?M:t_is_binary(FooHi),
+    "<<\"foo\">> | <<\"hi\">>" = ?M:t_to_string(FooHi),
+    Hi = ?M:t_inf(FooHi, ?M:t_bitstr(0, 16)),
+
+    %% A structural supertype absorbs binary values.
+    Binary = ?M:t_binary(),
+    Binary = ?M:t_sup(Foo, Binary),
+    Binary = ?M:t_sup(FooHi, Binary),
+
+    %% Value sets are limited in size, then fall back to a structural type.
+    Bytes = [?M:t_binary_val(<<C>>) || C <- lists:seq($a, $n)],
+    13 = length(?M:t_elements(?M:t_sup(tl(Bytes)))),
+    B8 = ?M:t_bitstr(0, 8),
+    B8 = ?M:t_sup(Bytes),
+
+    %% t_inf — val∩val.
+    None = ?M:t_none(),
+    Foo = ?M:t_inf(Foo, Foo),
+    None = ?M:t_inf(Foo, Bar),
+    %% t_inf — val∩binary().
+    Foo = ?M:t_inf(Foo, ?M:t_binary()),
+    %% t_inf — val∩incompatible.
+    None = ?M:t_inf(Foo, ?M:t_atom()),
+
+    %% t_subtract.
+    FooBarBaz = ?M:t_sup([Foo, Bar, Baz]),
+    FooBaz = ?M:t_subtract(FooBarBaz, Bar),
+    "<<\"baz\">> | <<\"foo\">>" = ?M:t_to_string(FooBaz),
+    Foo = ?M:t_subtract(FooHi, Hi),
+    Foo = ?M:t_subtract(FooHi, ?M:t_bitstr(0, 16)),
+    %% A set of values can not cover a structural type.
+    B24 = ?M:t_bitstr(0, 24),
+    B24 = ?M:t_subtract(B24, FooBarBaz),
+
+    %% t_elements — decompose into individual vals.
+    [Foo] = ?M:t_elements(Foo),
+    2 = length(?M:t_elements(FooBar)),
+
+    %% t_is_singleton — single vs multiple vals.
+    true = ?M:t_is_singleton(Foo),
+    false = ?M:t_is_singleton(FooBar),
+
+    %% UTF-8 encoded binary literal types produce the same type as raw bytes.
+    %% <<"é"/utf8>> encodes to <<195,169>> — same as the raw binary.
+    Utf8Bin = ?M:t_binary_val(<<195,169>>),
+    Utf8Bin = ?M:t_binary_val(unicode:characters_to_binary([233], unicode, utf8)),
+
+    ok.
+
+%% Checks lattice laws and soundness with respect to concrete values
+%% for all combinations of a set of binary types.
+bin_type_lattice(_Config) ->
+    Vals = [<<>>, <<"a">>, <<"b">>, <<"bc">>, <<"zz">>, <<"xyz">>,
+            <<1:1>>, <<255>>, binary:copy(<<"y">>, 65)],
+    Singletons = [?M:t_from_term(V) || V <- Vals],
+    Structural = [?M:t_none(), ?M:t_binary(), ?M:t_bitstr(),
+                  ?M:t_nonempty_binary(), ?M:t_bitstr(0, 8),
+                  ?M:t_bitstr(0, 16), ?M:t_bitstr(8, 8), ?M:t_atom(ok)],
+    Sets = [?M:t_sup(Ts) || Ts <- [[A, B] || A <- Singletons,
+                                             B <- Singletons, A < B]],
+    Types = lists:usort(Singletons ++ Structural ++ Sets),
+    Member = fun(V, T) -> ?M:t_is_subtype(?M:t_from_term(V), T) end,
+    Check = fun(Law, true, _Args) -> Law;
+               (Law, false, Args) -> ct:fail({Law, Args})
+            end,
+    _ = [begin
+             Sup = ?M:t_sup(A, B),
+             Inf = ?M:t_inf(A, B),
+             Sub = ?M:t_subtract(A, B),
+             Check(sup_commutative, Sup =:= ?M:t_sup(B, A), [A, B]),
+             Check(inf_commutative, Inf =:= ?M:t_inf(B, A), [A, B]),
+             Check(subtype, ?M:t_is_subtype(A, B) =:= (Inf =:= A), [A, B]),
+             Check(subtract_subtype, ?M:t_is_subtype(Sub, A), [A, B]),
+             [begin
+                  InA = Member(V, A),
+                  InB = Member(V, B),
+                  Check(sup_sound, not (InA orelse InB) orelse Member(V, Sup),
+                        [V, A, B]),
+                  Check(inf_sound, not (InA andalso InB) orelse Member(V, Inf),
+                        [V, A, B]),
+                  Check(subtract_sound,
+                        not (InA andalso not InB) orelse Member(V, Sub),
+                        [V, A, B])
+              end || V <- Vals]
+         end || A <- Types, B <- Types],
+    _ = [Check(sup_associative,
+               ?M:t_sup(A, ?M:t_sup(B, C)) =:= ?M:t_sup(?M:t_sup(A, B), C),
+               [A, B, C]) ||
+            A <- Types, B <- Types, C <- Types],
     ok.
 
 absorption(Config) ->

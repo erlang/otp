@@ -382,6 +382,11 @@ get_coverage(Config) ->
     do_expand("complete_function_parameter:non_empty_list_parameter_function([], "),
     do_expand("complete_function_parameter:binary_parameter_function(<<0>>, "),
     do_expand("complete_function_parameter:binary_parameter_function(<<V>>, "),
+    {no, [], [#{elems:=[#{elems:=[#{elems:=[{"<<\"start\">>",[]},
+                                            {"<<\"stop\">>",[]}]}]}]}]} =
+        do_expand("complete_function_parameter:binary_literal_parameter_function("),
+    {no, [], [#{elems:=[#{elems:=[#{elems:=[{"true",[]},{"false",[]}]}]}]}]} =
+        do_expand("complete_function_parameter:binary_literal_parameter_function(<<\"start\">>, "),
     do_expand("complete_function_parameter:integer_parameter_function(0, "),
     do_expand("complete_function_parameter:non_neg_integer_parameter_function(1, "),
     do_expand("complete_function_parameter:neg_integer_parameter_function(-1, "),

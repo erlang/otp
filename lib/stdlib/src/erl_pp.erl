@@ -493,6 +493,8 @@ ltype({type,_Anno,range,[_I1,_I2]=Es}, Prec) ->
     F = fun(E, Opts) -> lexpr(E, R, Opts) end,
     E = expr_list(Es, '..', F, options(none)),
     maybe_paren(P, Prec, E);
+ltype({bin_type, _Anno, Bin}, _) ->
+    {bin_type,Bin};
 ltype({type,_Anno,binary,[I1,I2]}, _) ->
     binary_type(I1, I2); % except binary()
 ltype({type,_Anno,'fun',[]}, _) ->
@@ -1147,6 +1149,7 @@ frmt(Item, I, PP) ->
 %%%   indentation.
 %%% - {atom,A}: an atom
 %%% - {singleton_atom_type,A}: a singleton atom type
+%%% - {bin_type,B}: a singleton binary type
 %%% - {char,C}: a character
 %%% - {string,S}: a string.
 %%% - {value,T}: a term.
@@ -1219,6 +1222,8 @@ f({atom,A}, I, ST, WT, PP) ->
     f(write_an_atom(A, PP), I, ST, WT, PP);
 f({singleton_atom_type,A}, I, ST, WT, PP) ->
     f(write_a_singleton_atom_type(A, PP), I, ST, WT, PP);
+f({bin_type,B}, I, ST, WT, PP) ->
+    f(write_a_bin_type(B, PP), I, ST, WT, PP);
 f({char,C}, I, ST, WT, PP) ->
     f(write_a_char(C, PP), I, ST, WT, PP);
 f({string,S}, I, ST, WT, PP) ->
@@ -1355,6 +1360,7 @@ nl_indent(I, T) when I > 0 ->
 
 classify_item({atom, _}) -> atomic;
 classify_item({singleton_atom_type, _}) -> atomic;
+classify_item({bin_type, _}) -> atomic;
 classify_item(Atom) when is_atom(Atom) -> atomic;
 classify_item({leaf, _, _}) -> atomic;
 classify_item(_) -> complex.
@@ -1422,6 +1428,9 @@ write_an_atom(A, PP) ->
 write_a_singleton_atom_type(A, PP) ->
     flat_leaf(write_singleton_atom_type(A, PP)).
 
+write_a_bin_type(B, PP) ->
+    flat_leaf(write_bin_type(B, PP)).
+
 write_a_char(C, PP) ->
     flat_leaf(write_char(C, PP)).
 
@@ -1461,6 +1470,16 @@ write_singleton_atom_type(A, PP) ->
 
 write_string(S, PP) ->
     (PP#pp.string_fun)(S).
+
+%% A singleton binary type must be a single string segment. Values that
+%% are valid UTF-8 with non-ASCII characters are printed as such.
+write_bin_type(B, PP) ->
+    case unicode:characters_to_list(B, utf8) of
+        Chars when is_list(Chars), length(Chars) < byte_size(B) ->
+            ["<<", write_string(Chars, PP), "/utf8>>"];
+        _ ->
+            ["<<", write_string(binary_to_list(B), PP), ">>"]
+    end.
 
 write_char(C, PP) ->
     (PP#pp.char_fun)(C).
