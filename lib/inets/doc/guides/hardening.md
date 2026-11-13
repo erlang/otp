@@ -250,11 +250,6 @@ requests that can exhaust memory. Set explicit limits:
   exceeds this value with a 413 response, before reading the body. Default:
   `100_000_000` (100 MB).
 
-- **[`max_client_body_chunk`](`m:httpd#max_client_body_chunk`)** - When handling large PUT or POST bodies via
-  `mod_esi`, setting this option enforces chunked delivery to the ESI
-  callback. This prevents the server from buffering the entire request body
-  in memory, which could be exploited to cause memory exhaustion.
-
 > #### Note {: .info }
 >
 > `max_body_size` and `max_content_length` serve different purposes.

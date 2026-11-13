@@ -203,12 +203,6 @@ property list.
   the server closes the connection. The server closes it even if there are
   queued request. Default is no limit.
 
-- [](){: #max_client_body_chunk } **`{max_client_body_chunk, integer()}`**  
-  Enforces chunking of a HTTP PUT or POST body data to be delivered to the
-  mod_esi callback. Note this is not supported for mod_cgi. Default is no limit
-  e.i the whole body is delivered as one entity, which could be very memory
-  consuming. `m:mod_esi`.
-
 [](){: #props_admin }
 
 ### Administrative Properties
@@ -1030,8 +1024,7 @@ reload_config(ConfigFile, Mode) ->
                    | {max_header_size, integer()}
                    | {max_content_length, integer()}
                    | {max_uri_size, integer()}
-                   | {max_keep_alive_request, integer()}
-                   | {max_client_body_chunk, integer()},
+                   | {max_keep_alive_request, integer()},
       AdminOption :: {mime_types, [{MimeType :: string(), Extension :: string()}] | Path}
                    | {mime_type, string()}
                    | {server_admin, string()}
@@ -1083,8 +1076,7 @@ server.
                    | {max_header_size, integer()}
                    | {max_content_length, integer()}
                    | {max_uri_size, integer()}
-                   | {max_keep_alive_request, integer()}
-                   | {max_client_body_chunk, integer()},
+                   | {max_keep_alive_request, integer()},
       AdminOption :: {mime_types, [{MimeType :: string(), Extension :: string()}] | Path}
                    | {mime_type, string()}
                    | {server_admin, string()}
@@ -1122,8 +1114,7 @@ server.
                    | {max_header_size, integer()}
                    | {max_content_length, integer()}
                    | {max_uri_size, integer()}
-                   | {max_keep_alive_request, integer()}
-                   | {max_client_body_chunk, integer()},
+                   | {max_keep_alive_request, integer()},
       AdminOption :: {mime_types, [{MimeType :: string(), Extension :: string()}] | Path}
                    | {mime_type, string()}
                    | {server_admin, string()}
@@ -1178,8 +1169,7 @@ info(Address, Port) when is_integer(Port) ->
                    | {max_header_size, integer()}
                    | {max_content_length, integer()}
                    | {max_uri_size, integer()}
-                   | {max_keep_alive_request, integer()}
-                   | {max_client_body_chunk, integer()},
+                   | {max_keep_alive_request, integer()},
       AdminOption :: {mime_types, [{MimeType :: string(), Extension :: string()}] | Path}
                    | {mime_type, string()}
                    | {server_admin, string()}
@@ -1218,8 +1208,7 @@ info(Address, Port) when is_integer(Port) ->
                    | {max_header_size, integer()}
                    | {max_content_length, integer()}
                    | {max_uri_size, integer()}
-                   | {max_keep_alive_request, integer()}
-                   | {max_client_body_chunk, integer()},
+                   | {max_keep_alive_request, integer()},
       AdminOption :: {mime_types, [{MimeType :: string(), Extension :: string()}] | Path}
                    | {mime_type, string()}
                    | {server_admin, string()}
@@ -1277,8 +1266,7 @@ options of the server.
                    | {max_header_size, integer()}
                    | {max_content_length, integer()}
                    | {max_uri_size, integer()}
-                   | {max_keep_alive_request, integer()}
-                   | {max_client_body_chunk, integer()},
+                   | {max_keep_alive_request, integer()},
       AdminOption :: {mime_types, [{MimeType :: string(), Extension :: string()}] | Path}
                    | {mime_type, string()}
                    | {server_admin, string()}
