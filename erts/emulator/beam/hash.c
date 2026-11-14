@@ -32,6 +32,20 @@
 #include "hash.h"
 
 /*
+ * Write barrier for tables that are read without a lock (the atom table,
+ * see atom.c). hash.o is also linked into erl_child_setup, which does not
+ * link the ethread library, and ERTS_THR_WRITE_MEMORY_BARRIER can depend
+ * on ethread's run-time CPU configuration (32-bit PowerPC, 32-bit x86
+ * with --enable-x86-out-of-order). Use the compiler's fence where there
+ * is one.
+ */
+#if defined(__GNUC__)
+#  define HASH_WRITE_BARRIER() __atomic_thread_fence(__ATOMIC_RELEASE)
+#else
+#  define HASH_WRITE_BARRIER() ERTS_THR_WRITE_MEMORY_BARRIER
+#endif
+
+/*
 ** Get info about hash
 **
 */
@@ -183,40 +197,60 @@ void hash_delete(Hash* h)
 
 /*
 ** Rehash all objects
+**
+** Growing publishes the new bucket vector before the new shift. A
+** lock-free reader (see atom.c) that loads h->shift and then h->bucket,
+** with a read barrier in between, then never indexes a vector smaller than
+** the shift implies: it sees the new pair, the old pair, or the old
+** (smaller) shift with the new (larger) vector. Chains are relinked while
+** readers may walk them, so such a reader can miss an entry but always
+** visits valid buckets. Shrinking gives no such guarantee; tables read
+** without the lock must never shrink (never erase).
 */
 static void rehash(Hash* h, int grow)
 {
     int sz;
     int old_size = hash_get_slots(h);
+    int new_shift = h->shift;
+    HashBucket** old_bucket = h->bucket;
     HashBucket** new_bucket;
     int i;
 
     if (grow) {
-	h->shift--;
+        new_shift--;
     }
     else {
 	if (h->shift == h->max_shift)
 	    return;
-	h->shift++;
+        new_shift++;
     }
 
-    sz = hash_get_slots(h)*sizeof(HashBucket*);
+    sz = (UWORD_CONSTANT(1) << (MAX_SHIFT - new_shift))*sizeof(HashBucket*);
 
     new_bucket = (HashBucket **) h->fun.meta_alloc(h->meta_alloc_type, sz);
     memzero(new_bucket, sz);
 
     for (i = 0; i < old_size; i++) {
-	HashBucket* b = h->bucket[i];
+        HashBucket* b = old_bucket[i];
 	while (b != (HashBucket*) 0) {
 	    HashBucket* b_next = b->next;
-	    Uint ix = hash_get_slot(h, b->hvalue);
+            Uint ix = hash_slot_from_shift(new_shift, b->hvalue);
 	    b->next = new_bucket[ix];
 	    new_bucket[ix] = b;
 	    b = b_next;
 	}
     }
-    h->fun.meta_free(h->meta_alloc_type, (void *) h->bucket);
-    h->bucket = new_bucket;
+    if (grow) {
+        HASH_WRITE_BARRIER();
+        h->bucket = new_bucket;
+        HASH_WRITE_BARRIER();
+        h->shift = new_shift;
+    }
+    else {
+        h->shift = new_shift;
+        h->bucket = new_bucket;
+    }
+    h->fun.meta_free(h->meta_alloc_type, (void *) old_bucket);
     set_thresholds(h);
 }
 
@@ -247,6 +281,8 @@ void* hash_put(Hash* h, void* tmpl)
 
     b->hvalue = hval;
     b->next = h->bucket[ix];
+    /* Publish a fully initialised object to lock-free readers. */
+    HASH_WRITE_BARRIER();
     h->bucket[ix] = b;
 
     if (++h->nobjs > h->grow_threshold)

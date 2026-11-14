@@ -30,6 +30,9 @@
 #define MAX_ATOM_SZ_FROM_LATIN1 (2*MAX_ATOM_CHARACTERS)
 #define MAX_ATOM_SZ_LIMIT (4*MAX_ATOM_CHARACTERS) /* theoretical byte limit */
 #define ATOM_LIMIT (1024*1024)
+/* Upper bound for +zatis. It keeps the initial bucket vector (at most
+ * 2^27 slots) and the hash thresholds within int arithmetic. */
+#define MAX_ATOM_TABLE_INITIAL_SIZE (1 << 27)
 #define MIN_ATOM_TABLE_SIZE 8192
 #define ATOM_BAD_ENCODING_ERROR -1
 #define ATOM_MAX_CHARS_ERROR -2
@@ -154,7 +157,7 @@ typedef enum {
 #define ERTS_MAKE_AM(Str) am_atom_put(Str, sizeof(Str) - 1)
 
 int atom_table_size(void);	/* number of elements */
-int atom_table_sz(void);	/* table size in bytes, excluding stored objects */
+Uint atom_table_sz(void);	/* table size in bytes, excluding stored objects */
 
 Eterm am_atom_put(const char*, Sint); /* ONLY 7-bit ascii! */
 Eterm erts_atom_put(const byte *name, Sint len, ErtsAtomEncoding enc, int trunc);
