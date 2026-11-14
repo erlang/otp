@@ -67,6 +67,15 @@
 /* Also trust builtin barriers */
 #    undef ETHR_TRUST_GCC_ATOMIC_BUILTINS_MEMORY_BARRIERS__
 #    define ETHR_TRUST_GCC_ATOMIC_BUILTINS_MEMORY_BARRIERS__ 1
+#  elif ETHR_GCC_COMPILER == ETHR_GCC_COMPILER_CLANG \
+    && __clang_major__ >= 17                        \
+    && defined(__aarch64__)                         \
+    && ETHR_SIZEOF_PTR == 8
+/* Verified not to have this bug */
+#    define ETHR___atomic_load_ACQUIRE_barrier_bug 0
+/* Also trust builtin barriers */
+#    undef ETHR_TRUST_GCC_ATOMIC_BUILTINS_MEMORY_BARRIERS__
+#    define ETHR_TRUST_GCC_ATOMIC_BUILTINS_MEMORY_BARRIERS__ 1
 #  else
 /*
  * Another gcc compatible compiler. We have no information
