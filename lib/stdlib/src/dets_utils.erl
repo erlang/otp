@@ -47,12 +47,15 @@
 -export([cache_lookup/4, cache_size/1, new_cache/1,
 	 reset_cache/1, is_empty_cache/1]).
 
--export([empty_free_lists/0, init_alloc/1, alloc_many/4, alloc/2,
+-export([empty_free_lists/0, empty_free_lists/1, init_alloc/1,
+         init_wide_alloc/1, alloc_many/4, alloc/2, alloc_sizes/3, alloc_index/3,
          free/3, get_freelists/1, all_free/1, all_allocated/1,
-         all_allocated_as_list/1, find_allocated/4, find_next_allocated/3,
+         get_upper_freelists/1, set_upper_freelists/2, fix_wide/2,
+         all_allocated_as_list/1, find_allocated/3, find_allocated/4,
+         find_next_allocated/3,
          log2/1, make_zeros/1]).
 
--export([list_to_tree/1, tree_to_bin/5]).
+-export([list_to_tree/1, tree_to_bin/5, tree_to_bin/6]).
 
 -compile({inline, [{sz2pos,1}, {adjust_addr,3}]}).
 -compile({inline, [{bplus_mk_leaf,1}, {bplus_get_size,1},
@@ -61,7 +64,7 @@
 
 %% Debug
 -export([init_disk_map/1, stop_disk_map/0, 
-         disk_map_segment_p/2, disk_map_segment/2]).
+         disk_map_segment_p/2, disk_map_segment_p/3, disk_map_segment/2]).
 
 -include("dets.hrl").
 
@@ -189,12 +192,22 @@ pread(Head, Pos, Min, Extra) ->
 	    
 %% -> eof | [] | {ok, {Size, Pointer, binary()}}
 ipread(Head, Pos1, MaxSize) ->
-    try 
-        disk_map_pread(Pos1)
-    catch Bad ->
-        throw(corrupt_reason(Head, {disk_map, Bad}))
-    end,
-    case file:ipread_s32bu_p32bu(Head#head.fptr, Pos1, MaxSize) of
+    Read = case Head#head.wide of
+               undefined ->
+                   try disk_map_pread(Pos1)
+                   catch Bad ->
+                       throw(corrupt_reason(Head, {disk_map, Bad}))
+                   end,
+                   file:ipread_s32bu_p32bu(Head#head.fptr, Pos1, MaxSize);
+               _ ->
+                   WideRead = dets_addr:ipread(Head, Pos1, MaxSize),
+                   try disk_map_read(Pos1, WideRead)
+                   catch Bad ->
+                       throw(corrupt_reason(Head, {disk_map, Bad}))
+                   end,
+                   WideRead
+           end,
+    case Read of
 	{ok, {0, 0, eof}} ->
 	    [];
 	{ok, Reply} ->
@@ -208,7 +221,7 @@ pwrite(Head, []) ->
     {Head, ok};
 pwrite(Head, Bins) ->
     try
-        disk_map(Bins)
+        disk_map(Head, Bins)
     catch Bad -> 
         throw(corrupt_reason(Head, {disk_map, Bad, Bins}))
     end,
@@ -467,7 +480,8 @@ new_cache({Delay, Size}) ->
 %%% 
 
 %% Definitions for the buddy allocator.
--define(MAXBUD, 32).             % 2 GB is maximum file size
+-define(MAXBUD, 32).
+-define(MAXBUD64, 64).
 -define(MAXFREELISTS, 50000000). % Bytes reserved for the free lists (at end).
 
 %%-define(DEBUG(X, Y), io:format(X, Y)).
@@ -500,7 +514,7 @@ new_cache({Delay, Size}) ->
 %%% hidden from the allocator.
 
 %% -> free_table()
-%% A free table is a tuple of ?MAXBUD elements, element i handling
+%% A free table is a tuple, element i handling
 %% buddies of size 2^(i-1).
 init_alloc(Base) ->
     Ftab = empty_free_lists(),
@@ -508,9 +522,32 @@ init_alloc(Base) ->
     setelement(?MAXBUD, Ftab, bplus_insert(Empty, Base)). 
 
 empty_free_lists() ->
+    empty_free_lists(?MAXBUD).
+
+empty_free_lists(Levels) ->
     Empty = bplus_empty_tree(),
-    %% initiate a tuple with ?MAXBUD "Empty" elements
-    erlang:make_tuple(?MAXBUD, Empty).
+    erlang:make_tuple(Levels, Empty).
+
+init_wide_alloc(Head) ->
+    Wide = case Head#head.wide of
+               undefined -> #dets64{};
+               Existing -> Existing
+           end,
+    case Wide#dets64.freelists of
+        undefined ->
+            Empty = bplus_empty_tree(),
+            Ftab0 = setelement(31, empty_free_lists(),
+                               bplus_insert(Empty, ?DETS64_BASE)),
+            Pos = sz2pos(?DETS64_HEADER_SIZE-1),
+            Ftab = reserve_buddy(Ftab0, 31, Pos, ?DETS64_BASE),
+            FreeLists = case Head#head.fixed of
+                            false -> Ftab;
+                            _ -> {Ftab, Ftab}
+                        end,
+            Head#head{wide = Wide#dets64{freelists = FreeLists, levels = 32}};
+        _ ->
+            Head
+    end.
 
 %% Only used when repairing or initiating.
 alloc_many(Head, _Sz, 0, _A0) ->
@@ -544,23 +581,117 @@ alloc_many2(Ftab, Pos, Size, A0, H) ->
     alloc_many2(Ftab, Pos-1, Size, A0, H).
 
 %% -> {NewHead, Addr, Log2} | throw(Error)
-alloc(Head, Sz) when Head#head.fixed =/= false -> % when Sz > 0
-    ?DEBUG("alloc of size ~p (fixed)", [Sz]),
+alloc(Head, Sz) ->
     Pos = sz2pos(Sz),
-    {Frozen, Ftab} = Head#head.freelists,
-    {FPos, Addr} = find_first_free(Frozen, Pos, Pos, Head),
+    case alloc_lower(Head, Pos) of
+        none -> alloc_upper(dets_addr:init_wide(Head), Pos);
+        Allocation -> Allocation
+    end.
+
+alloc_sizes(Head, LowerBytes, UpperBytes) ->
+    case alloc_lower(Head, sz2pos(LowerBytes-1)) of
+        none ->
+            alloc_upper(dets_addr:init_wide(Head), sz2pos(UpperBytes-1));
+        Allocation ->
+            Allocation
+    end.
+
+alloc_index(Head, LowerBytes, WideBytes) ->
+    alloc_sizes(Head, LowerBytes, WideBytes).
+
+alloc_lower(Head, Pos) ->
+    Ftab = allocation_free_lists(Head#head.freelists, Head#head.fixed),
+    Found = try find_first_free(Ftab, Pos, Pos, Head)
+            catch
+                throw:{error, {no_more_space_on_file, _}} -> none
+            end,
+    case Found of
+        none ->
+            none;
+        {FPos, Addr} ->
+            NewFreeLists = reserve_allocation(Head#head.freelists,
+                                              Head#head.fixed, FPos, Pos,
+                                              Addr, Head#head.base),
+            {Head#head{freelists = NewFreeLists}, Addr, Pos}
+    end.
+
+alloc_upper(Head, Pos) ->
+    Wide = Head#head.wide,
+    Ftab = allocation_free_lists(Wide#dets64.freelists, Head#head.fixed),
+    case find_upper_free(Ftab, Pos, Pos) of
+        none ->
+            alloc_upper(extend_upper_alloc(Head), Pos);
+        {FPos, Addr} ->
+            NewFreeLists = reserve_allocation(Wide#dets64.freelists,
+                                              Head#head.fixed, FPos, Pos,
+                                              Addr, ?DETS64_BASE),
+            {Head#head{wide = Wide#dets64{freelists = NewFreeLists}}, Addr, Pos}
+    end.
+
+allocation_free_lists(Ftab, false) ->
+    Ftab;
+allocation_free_lists({Frozen, _Current}, _Fixed) ->
+    Frozen.
+
+reserve_allocation(Ftab, false, FPos, Pos, Addr, _Base) ->
+    reserve_buddy(Ftab, FPos, Pos, Addr);
+reserve_allocation({Frozen, Current}, _Fixed, FPos, Pos, Addr, Base) ->
     NewFrozen = reserve_buddy(Frozen, FPos, Pos, Addr),
-    Ftab1 = undo_free(Ftab, FPos, Addr, Head#head.base),
-    NewFtab = move_down(Ftab1, FPos, Pos, Addr),
-    NewFreelists = {NewFrozen, NewFtab},
-    {Head#head{freelists = NewFreelists}, Addr, Pos};
-alloc(Head, Sz) when Head#head.fixed =:= false -> % when Sz > 0
-    ?DEBUG("alloc of size ~p", [Sz]),
-    Pos = sz2pos(Sz),
-    Ftab = Head#head.freelists,
-    {FPos, Addr} = find_first_free(Ftab, Pos, Pos, Head),
-    NewFtab = reserve_buddy(Ftab, FPos, Pos, Addr),
-    {Head#head{freelists = NewFtab}, Addr, Pos}.
+    Current1 = undo_free(Current, FPos, Addr, Base),
+    {NewFrozen, move_down(Current1, FPos, Pos, Addr)}.
+
+find_upper_free(Ftab, Pos, _Requested) when Pos > tuple_size(Ftab) ->
+    none;
+find_upper_free(Ftab, Pos, Requested) ->
+    case bplus_lookup_first(element(Pos, Ftab)) of
+        {ok, Addr} when Addr + ?POW(Requested-1) =< ?POW(63)-1-?MAXFREELISTS ->
+            {Pos, Addr};
+        _ ->
+            find_upper_free(Ftab, Pos+1, Requested)
+    end.
+
+extend_upper_alloc(Head) ->
+    Wide = Head#head.wide,
+    Levels = Wide#dets64.levels,
+    if
+        Levels >= ?MAXBUD64 ->
+            no_more_space(Head);
+        true ->
+            FreeLists = case Head#head.fixed of
+                            false -> extend_free_lists(Wide#dets64.freelists);
+                            _ ->
+                                {Frozen, Current} = Wide#dets64.freelists,
+                                {extend_free_lists(Frozen),
+                                 extend_free_lists(Current)}
+                        end,
+            Head#head{wide = Wide#dets64{freelists = FreeLists,
+                                       levels = Levels+1}}
+    end.
+
+extend_free_lists(Ftab) ->
+    Levels = tuple_size(Ftab),
+    NewFtab = erlang:append_element(Ftab, bplus_empty_tree()),
+    Addr = ?DETS64_BASE + ?POW(Levels-1),
+    Extended = free_in_pos(NewFtab, Addr, Levels, ?DETS64_BASE),
+    case Levels+1 of
+        ?MAXBUD64 -> reserve_high_tail(Extended, Levels, 32, Addr);
+        _ -> Extended
+    end.
+
+reserve_high_tail(Ftab, Pos, Target, Addr) ->
+    Tree = bplus_delete(element(Pos, Ftab), Addr),
+    split_high_tail(setelement(Pos, Ftab, Tree), Pos, Target, Addr).
+
+split_high_tail(Ftab, Pos, Pos, _Addr) ->
+    Ftab;
+split_high_tail(Ftab, Pos, Target, Addr) ->
+    Child = Pos-1,
+    Low = bplus_insert(element(Child, Ftab), Addr),
+    split_high_tail(setelement(Child, Ftab, Low), Child, Target,
+                    Addr + ?POW(Child-1)).
+
+no_more_space(Head) ->
+    throw({error, {no_more_space_on_file, Head#head.filename}}).
 
 find_first_free(_Ftab, Pos, _Pos0, Head) when Pos > ?MAXBUD ->
     throw({error, {no_more_space_on_file, Head#head.filename}});
@@ -612,11 +743,21 @@ move_down(Ftab, Pos, Pos0, Addr) ->
 %% -> {Head, Log2}
 free(Head, Addr, Sz) ->
     ?DEBUG("free of size ~p at address ~p~n", [Sz, Addr]),
-    Ftab = get_freelists(Head),
     Pos = sz2pos(Sz),
-    {set_freelists(Head, free_in_pos(Ftab, Addr, Pos, Head#head.base)), Pos}.
+    if
+        Addr < ?DETS64_BASE ->
+            Ftab = get_freelists(Head),
+            {set_freelists(Head, free_in_pos(Ftab, Addr, Pos, Head#head.base)), Pos};
+        Addr < ?DETS64_BASE + ?DETS64_HEADER_SIZE;
+        Addr >= ?DETS64_REF_BASE, Addr < ?DETS64_REF_END ->
+            erlang:error(badarg);
+        true ->
+            Ftab = get_upper_freelists(Head),
+            {set_upper_freelists(Head, free_in_pos(Ftab, Addr, Pos,
+                                                 ?DETS64_BASE)), Pos}
+    end.
 
-free_in_pos(Ftab, _Addr, Pos, _Base) when Pos > ?MAXBUD ->
+free_in_pos(Ftab, _Addr, Pos, _Base) when Pos > tuple_size(Ftab) ->
     Ftab;
 free_in_pos(Ftab, Addr, Pos, Base) ->
     PosTab = element(Pos, Ftab),
@@ -644,6 +785,41 @@ set_freelists(Head, Ftab) when Head#head.fixed =:= false ->
 set_freelists(Head, Ftab) when Head#head.fixed =/= false ->
     {Frozen, _} = Head#head.freelists,
     Head#head{freelists = {Frozen,Ftab}}.
+
+get_upper_freelists(#head{wide = undefined}) ->
+    undefined;
+get_upper_freelists(Head) when Head#head.fixed =:= false ->
+    (Head#head.wide)#dets64.freelists;
+get_upper_freelists(Head) ->
+    {_Frozen, Current} = (Head#head.wide)#dets64.freelists,
+    Current.
+
+set_upper_freelists(Head, Ftab) ->
+    Wide = Head#head.wide,
+    FreeLists = case Head#head.fixed of
+                    false -> Ftab;
+                    _ ->
+                        {Frozen, _} = Wide#dets64.freelists,
+                        {Frozen, Ftab}
+                end,
+    Head#head{wide = Wide#dets64{freelists = FreeLists,
+                               levels = tuple_size(Ftab)}}.
+
+fix_wide(#head{wide = undefined} = Head, _Fix) ->
+    Head;
+fix_wide(Head, true) ->
+    Wide = Head#head.wide,
+    case Wide#dets64.freelists of
+        {_, _} -> Head;
+        Ftab -> Head#head{wide = Wide#dets64{freelists = {Ftab, Ftab}}}
+    end;
+fix_wide(Head, false) ->
+    Wide = Head#head.wide,
+    case Wide#dets64.freelists of
+        {_Frozen, Current} ->
+            Head#head{wide = Wide#dets64{freelists = Current}};
+        _ -> Head
+    end.
 
 %% Bug: If Sz0 is equal to 2^k for some k, then 2^(k+1) bytes are
 %% allocated (wasting 2^k bytes). Inlined.
@@ -719,22 +895,52 @@ all_free([{X,Y} | L], X0, Y0, F) when Y0 < X ->
     all_free(L, X, Y, [{X0,Y0} | F]).
 
 all_allocated(Head) ->
-    all_allocated(all(get_freelists(Head)), 0, Head#head.base, []).
+    case all_allocated_as_list(Head) of
+        [] -> <<>>;
+        [[From | To] | Rest] ->
+            {From, To, intervals_binary(Rest)}
+    end.
 
-all_allocated([], _X0, _Y0, []) ->
-    <<>>;
-all_allocated([], _X0, _Y0, A0) ->
-    [<<From:32, To:32>> | A] = lists:reverse(A0),
-    {From, To, list_to_binary(A)};
-all_allocated([{X,Y} | L], X0, Y0, A) when Y0 =:= X ->
-    all_allocated(L, X0, Y, A);
-all_allocated([{X,Y} | L], _X0, Y0, A) when Y0 < X ->
-    all_allocated(L, X, Y, [<<Y0:32,X:32>> | A]).
+-dialyzer({no_improper_lists, [all_allocated_as_list/1,
+                             all_allocated_as_list/4,
+                             remove_reference_range/1]}).
 
 all_allocated_as_list(Head) ->
-    all_allocated_as_list(all(get_freelists(Head)), 0, Head#head.base, []).
+    Lower0 = all_allocated_as_list(all(get_freelists(Head)),
+                                   0, Head#head.base, []),
+    Lower = [[From | erlang:min(To, ?DETS64_BASE)] ||
+                [From | To] <- Lower0, From < ?DETS64_BASE],
+    case Head#head.wide of
+        undefined ->
+            Lower;
+        _ ->
+            Upper0 = pool_allocated_as_list(get_upper_freelists(Head),
+                                            ?DETS64_BASE),
+            Upper = [[From | erlang:min(To, ?POW(63)-1)] ||
+                        [From | To] <- Upper0, From < ?POW(63)-1],
+            Lower ++ remove_reference_range(Upper)
+    end.
 
--dialyzer({no_improper_lists, all_allocated_as_list/4}).
+pool_allocated_as_list(Ftab, Base) ->
+    End = Base + ?POW(tuple_size(Ftab)-1),
+    all_allocated_as_list(all(Ftab) ++ [{End, End}], 0, Base, []).
+
+remove_reference_range([[From | To] | Rest]) when To =< ?DETS64_REF_BASE;
+                                                  From >= ?DETS64_REF_END ->
+    [[From | To] | remove_reference_range(Rest)];
+remove_reference_range([[From | To] | Rest]) ->
+    Left = if From < ?DETS64_REF_BASE -> [[From | ?DETS64_REF_BASE]];
+              true -> []
+           end,
+    Right = if To > ?DETS64_REF_END -> [[?DETS64_REF_END | To]];
+               true -> []
+            end,
+    Left ++ Right ++ remove_reference_range(Rest);
+remove_reference_range([]) ->
+    [].
+
+intervals_binary(Intervals) ->
+    iolist_to_binary([<<From:64, To:64>> || [From | To] <- Intervals]).
 
 all_allocated_as_list([], _X0, _Y0, []) ->
     [];
@@ -749,7 +955,7 @@ all(Tab) ->
     all(Tab, tuple_size(Tab), []).
 
 all(_Tab, 0, L) ->
-    %% This is not as bad as it looks. L contains less than 32 runs,
+    %% This is not as bad as it looks. L has one run per size class,
     %% so there will be only a small number of merges.
     lists:sort(L);
 all(Tab, I, L) ->
@@ -757,6 +963,31 @@ all(Tab, I, L) ->
     all(Tab, I-1, LL).
 
 %% Finds allocated areas between Addr (approx.) and Addr+Length.
+find_allocated(#head{wide = undefined} = Head, Addr, Length) ->
+    find_allocated(get_freelists(Head), Addr, Length, Head#head.base);
+find_allocated(Head, Addr, Length) ->
+    case find_next_allocated(Head, Addr, Head#head.base) of
+        none ->
+            <<>>;
+        {From, _To} when From >= Addr + Length ->
+            find_allocated(Head, From, ?CHUNK_SIZE);
+        _ ->
+            intervals_binary(allocated_ranges(Head, Addr, Addr + Length, []))
+    end.
+
+allocated_ranges(Head, Addr, End, Acc) ->
+    case find_next_allocated(Head, Addr, Head#head.base) of
+        {From, To} when From < End ->
+            Last = erlang:min(To, End),
+            NewAcc = [[From | Last] | Acc],
+            if
+                Last < End -> allocated_ranges(Head, Last, End, NewAcc);
+                true -> lists:reverse(NewAcc)
+            end;
+        _ ->
+            lists:reverse(Acc)
+    end.
+
 find_allocated(Ftab, Addr, Length, Base) ->
     MaxAddr = Addr + Length,
     Ints = collect_all_interval(Ftab, Addr, MaxAddr, Base),
@@ -776,15 +1007,29 @@ allocated(Some, Addr, Max, Ftab, Base) ->
     end.
 
 allocated1([], Y0, Max, A) when Y0 < Max ->
-    [<<Y0:32,Max:32>> | A];
+    [<<Y0:64,Max:64>> | A];
 allocated1([], _Y0, _Max, A) ->
     A;
 allocated1([{X,Y} | L], Y0, Max, A) when Y0 >= X ->
     allocated1(L, Y, Max, A);
 allocated1([{X,Y} | L], Y0, Max, A) -> % when Y0 < X
-    allocated1(L, Y, Max, [<<Y0:32,X:32>> | A]).
+    allocated1(L, Y, Max, [<<Y0:64,X:64>> | A]).
 
 %% Finds the first allocated area starting at Addr or later.
+find_next_allocated(#head{wide = undefined} = Head, Addr, _Base) ->
+    find_next_allocated(get_freelists(Head), Addr, Head#head.base);
+find_next_allocated(#head{} = Head, Addr, _Base) ->
+    Lower = if
+                Addr < ?DETS64_BASE ->
+                    find_pool_allocated(get_freelists(Head),
+                                         erlang:max(Addr, Head#head.base),
+                                         Head#head.base, ?DETS64_BASE);
+                true -> none
+            end,
+    case Lower of
+        none -> find_upper_allocated(Head, erlang:max(Addr, ?DETS64_BASE));
+        _ -> Lower
+    end;
 find_next_allocated(Ftab, Addr, Base) ->
     case find_next_free(Ftab, Addr, Base) of
         none ->
@@ -793,6 +1038,33 @@ find_next_allocated(Ftab, Addr, Base) ->
             find_next_allocated(Ftab, Addr1 + ?POW(Pos-1), Base);
         {Next, _Pos} ->
             {Addr, Next}
+    end.
+
+find_upper_allocated(Head, Addr) when Addr >= ?DETS64_REF_BASE,
+                                     Addr < ?DETS64_REF_END ->
+    find_upper_allocated(Head, ?DETS64_REF_END);
+find_upper_allocated(Head, Addr) ->
+    Ftab = get_upper_freelists(Head),
+    End = erlang:min(?DETS64_BASE + ?POW(tuple_size(Ftab)-1), ?POW(63)-1),
+    case find_pool_allocated(Ftab, Addr, ?DETS64_BASE, End) of
+        {From, _To} when From >= ?DETS64_REF_BASE, From < ?DETS64_REF_END ->
+            find_upper_allocated(Head, ?DETS64_REF_END);
+        {From, To} when From < ?DETS64_REF_BASE ->
+            {From, erlang:min(To, ?DETS64_REF_BASE)};
+        Result ->
+            Result
+    end.
+
+find_pool_allocated(_Ftab, Addr, _Base, End) when Addr >= End ->
+    none;
+find_pool_allocated(Ftab, Addr, Base, End) ->
+    case find_next_free(Ftab, Addr, Base) of
+        none ->
+            {Addr, End};
+        {Free, Pos} when Free =< Addr ->
+            find_pool_allocated(Ftab, Free + ?POW(Pos-1), Base, End);
+        {Next, _Pos} ->
+            {Addr, erlang:min(Next, End)}
     end.
 
 %% Finds the first free address starting att Addr or later. 
@@ -865,12 +1137,45 @@ stop_disk_map() ->
     catch ets:delete(erase(?DM)).
 
 disk_map_segment_p(Fd, P) ->
+    disk_map_segment_p(Fd, "", P).
+
+disk_map_segment_p(Fd, FileName, P) ->
     case get(?DM) of
         undefined ->
             ok;
-        _T ->
-            disk_map_segment(P, pread_n(Fd, P, 8*256))
+        T when P >= ?DETS64_BASE ->
+            {Bytes, segment, _BodyBytes, _Aux} =
+                dets_addr:read_header(Fd, FileName, P),
+            Image = pread_n(Fd, P, Bytes),
+            Ps = dets_addr:normalize_for_disk_map(Fd, FileName, [{P, Image}]),
+            disk_map_canonical_segment(Ps, T);
+        T ->
+            Segment = pread_n(Fd, P, 8*256),
+            Ps0 = segment_fragment_to_pointers(P, Segment),
+            Ps = [resolved_disk_pointer(Fd, FileName, SlotPos, Size, Raw) ||
+                     {SlotPos, <<Size:32, Raw:32>>} <- Ps0],
+            disk_map_canonical_segment(Ps, T)
     end.
+
+disk_map_canonical_segment(Ps, T) ->
+    Ss = [{Pointer, <<Size:32, ?ACTIVE:32>>} ||
+             {_, <<Size:32, Pointer:64>>} <- Ps, Pointer > 0],
+    dm(Ps ++ Ss, T).
+
+resolved_disk_pointer(Fd, FileName, P, Size, Raw) ->
+    Pointer = if
+                  Raw >= ?DETS64_REF_BASE ->
+                      dets_addr:resolve_pointer(Fd, FileName, P+4, Raw);
+                  true -> Raw
+              end,
+    {P, <<(disk_object_size(Pointer, Size)):32, Pointer:64>>}.
+
+disk_object_size(0, 0) ->
+    0;
+disk_object_size(Pointer, Size) when Pointer >= ?DETS64_BASE ->
+    dets_addr:physical_size(Size);
+disk_object_size(_Pointer, Size) ->
+    Size.
 
 disk_map_segment(P, Segment) ->
     case get(?DM) of
@@ -907,16 +1212,76 @@ disk_map_pread(P) ->
             end
     end.
 
+disk_map_read(P, {ok, {Size, Pointer, _Bin}}) ->
+    case get(?DM) of
+        undefined ->
+            ok;
+        T ->
+            DiskSize = disk_object_size(Pointer, Size),
+            case ets:lookup(T, P) of
+                [] ->
+                    Slot = {P, <<DiskSize:32, Pointer:64>>},
+                    Objects = case Pointer of
+                                  0 -> [];
+                                  _ -> [{Pointer, <<DiskSize:32, ?ACTIVE:32>>}]
+                              end,
+                    dm([Slot | Objects], T);
+                [{P, {pointer, Pointer, DiskSize}}] ->
+                    disk_map_pread(P);
+                Got ->
+                    throw({pread, P, Pointer, DiskSize, Got})
+            end
+    end.
+
 -define(STATUS_POS, 4).
 -define(BASE, 1336).
-disk_map(Bins) ->
+disk_map(Head, Bins) ->
     case get(?DM) of
         undefined -> 
             ok;
         T -> 
-            Bs = [{P,iolist_to_binary(Io)} || {P,Io} <- Bins],
+            Raw = [{P,iolist_to_binary(Io)} || {P,Io} <- Bins],
+            Bs = case Head#head.wide of
+                     undefined -> Raw;
+                     _ ->
+                         Entries = lists:flatmap(fun({P, B}) ->
+                                                         known_pointer_entries(P, B, T)
+                                                 end, Raw),
+                         dets_addr:normalize_for_disk_map(Head#head.fptr,
+                                                         Head#head.filename,
+                                                         Entries)
+                 end,
             dm(Bs, T)
     end.
+
+known_pointer_entries(P, Bin, T) ->
+    Width = if P < ?DETS64_BASE -> 8;
+               true -> 16
+            end,
+    Bytes = byte_size(Bin),
+    case Bytes > Width andalso Bytes rem Width =:= 0 andalso
+        known_pointer_range(P, Bytes, Width, T) of
+        true ->
+            pointer_entries(P, Bin, Width);
+        false ->
+            [{P, Bin}]
+    end.
+
+known_pointer_range(_P, 0, _Width, _T) ->
+    true;
+known_pointer_range(P, Bytes, Width, T) ->
+    case ets:lookup(T, P) of
+        [{P, {pointer, _, _}}] ->
+            known_pointer_range(P+Width, Bytes-Width, Width, T);
+        _ ->
+            false
+    end.
+
+pointer_entries(_P, <<>>, _Width) ->
+    [];
+pointer_entries(P, Bin, Width) ->
+    <<Entry:Width/binary, Rest/binary>> = Bin,
+    [{P, Entry} | pointer_entries(P+Width, Rest, Width)].
 
 dm([{P,_Header} | Bs], T) when P < ?BASE ->
     dm(Bs, T);
@@ -927,6 +1292,26 @@ dm([{P0,<<?FREE:32>>} | Bs], T) ->
             throw({free, P0});
         [{P,_OldSz}] ->
             true = ets:delete(T, P)
+    end,
+    dm(Bs, T);
+dm([{P, <<Size:32, Pointer:64>>} | Bs], T) ->
+    Width = if P >= ?DETS64_BASE -> 16;
+               true -> 8
+            end,
+    case prev(P, T) of
+        {Prev, PrevSize} -> throw({prev, P, Size, Pointer, Prev, PrevSize});
+        ok -> ok
+    end,
+    case next(P, Width, T) of
+        {next, Next} -> throw({next, P, Size, Pointer, Next});
+        ok -> ok
+    end,
+    true = ets:insert(T, {P, {pointer, Pointer, Size}}),
+    if
+        Size =:= 0 ->
+            Pointer = 0,
+            true;
+        true -> true = ets:insert(T, {{pointer, Pointer}, P})
     end,
     dm(Bs, T);
 dm([{SlotP,<<Sz:32,?ACTIVE:32,_/binary>>} | Bs], T) ->
@@ -1013,6 +1398,9 @@ prev(P, T) ->
         '$end_of_table' -> ok;
         Prev -> 
             case ets:lookup(T, Prev) of
+                [{Prev,{pointer,_Ptr,_}}]
+                  when Prev >= ?DETS64_BASE, Prev + 16 > P ->
+                    {Prev, 16};
                 [{Prev,{pointer,_Ptr,_}}] when Prev + 8 > P -> 
                     {Prev, 8};
                 [{Prev,{slot,_,Sz}}] when Prev + Sz > P ->
@@ -1081,35 +1469,38 @@ collect_node(Node, I, Pow, Acc) ->
     collect_node(Node, I-1, Pow, Acc1).
 
 %% Special for dets.
-tree_to_bin(v, _F, _Max, Ws, WsSz) -> {Ws, WsSz};
 tree_to_bin(T, F, Max, Ws, WsSz) ->
-    {N, L1, Ws1, WsSz1} = tree_to_bin2(T, F, Max, 0, [], Ws, WsSz),
+    tree_to_bin(T, F, Max, Ws, WsSz, 32).
+
+tree_to_bin(v, _F, _Max, Ws, WsSz, _Bits) -> {Ws, WsSz};
+tree_to_bin(T, F, Max, Ws, WsSz, Bits) ->
+    {N, L1, Ws1, WsSz1} = tree_to_bin2(T, F, Max, 0, [], Ws, WsSz, Bits),
     {N1, L2, Ws2, WsSz2} = F(N, lists:reverse(L1), Ws1, WsSz1),
     {0, [], NWs, NWsSz} = F(N1, L2, Ws2, WsSz2),
     {NWs, NWsSz}.
 
-tree_to_bin2(Tree, F, Max, N, Acc, Ws, WsSz) when N >= Max ->
+tree_to_bin2(Tree, F, Max, N, Acc, Ws, WsSz, Bits) when N >= Max ->
     {NN, NAcc, NWs, NWsSz} = F(N, lists:reverse(Acc), Ws, WsSz),
-    tree_to_bin2(Tree, F, Max, NN, lists:reverse(NAcc), NWs, NWsSz);
-tree_to_bin2(Tree, F, Max, N, Acc, Ws, WsSz) ->
+    tree_to_bin2(Tree, F, Max, NN, lists:reverse(NAcc), NWs, NWsSz, Bits);
+tree_to_bin2(Tree, F, Max, N, Acc, Ws, WsSz, Bits) ->
     S = bplus_get_size(Tree),
     case ?NODE_TYPE(Tree) of
 	l ->
-	    {N+S, leaf_to_bin(bplus_leaf_to_list(Tree), Acc), Ws, WsSz};
+            {N+S, leaf_to_bin(bplus_leaf_to_list(Tree), Acc, Bits), Ws, WsSz};
 	n ->
-	    node_to_bin(Tree, F, Max, N, Acc, 1, S, Ws, WsSz)
+            node_to_bin(Tree, F, Max, N, Acc, 1, S, Ws, WsSz, Bits)
     end.
     
-node_to_bin(_Node, _F, _Max, N, Acc, I, S, Ws, WsSz) when I > S ->
+node_to_bin(_Node, _F, _Max, N, Acc, I, S, Ws, WsSz, _Bits) when I > S ->
     {N, Acc, Ws, WsSz};
-node_to_bin(Node, F, Max, N, Acc, I, S, Ws, WsSz) ->
+node_to_bin(Node, F, Max, N, Acc, I, S, Ws, WsSz, Bits) ->
     {N1,Acc1,Ws1,WsSz1} = 
-	tree_to_bin2(bplus_get_tree(Node, I), F, Max, N, Acc, Ws, WsSz),
-    node_to_bin(Node, F, Max, N1, Acc1, I+1, S, Ws1, WsSz1).
+        tree_to_bin2(bplus_get_tree(Node, I), F, Max, N, Acc, Ws, WsSz, Bits),
+    node_to_bin(Node, F, Max, N1, Acc1, I+1, S, Ws1, WsSz1, Bits).
 
-leaf_to_bin([N | L], Acc) ->
-    leaf_to_bin(L, [<<N:32>> | Acc]);
-leaf_to_bin([], Acc) ->
+leaf_to_bin([N | L], Acc, Bits) ->
+    leaf_to_bin(L, [<<N:Bits>> | Acc], Bits);
+leaf_to_bin([], Acc, _Bits) ->
     Acc.
 
 %% Special for dets. 

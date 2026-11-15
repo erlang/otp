@@ -38,6 +38,8 @@ MODULES= \
 	calendar_SUITE \
 	calendar_prop_SUITE \
 	dets_SUITE \
+	dets64_SUITE \
+	dets_bench_SUITE \
 	dict_SUITE \
 	dict_test_lib \
 	graph_SUITE \
@@ -153,7 +155,8 @@ ERL_FILES=	$(MODULES:%=%.erl) \
 		$(KERNEL_MODULES:%=$(ERL_TOP)/lib/kernel/test/%.erl) \
 		$(KERNEL_HRL:%=$(ERL_TOP)/lib/kernel/test/%.hrl)
 
-EXTRA_FILES= $(ERL_TOP)/otp_versions.table
+EXTRA_FILES= $(ERL_TOP)/otp_versions.table \
+             $(ERL_TOP)/lib/stdlib/src/dets.hrl
 
 # ----------------------------------------------------
 # Release directory specification
@@ -166,7 +169,8 @@ RELSYSDIR = $(RELEASE_PATH)/stdlib_test
 
 ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/kernel/include \
 		+nowarn_missing_spec_documented \
-		-I$(ERL_TOP)/lib/stdlib/include
+		-I$(ERL_TOP)/lib/stdlib/include \
+		-I$(ERL_TOP)/lib/stdlib/src
 ERL_COMPILE_FLAGS := $(filter-out +deterministic,$(ERL_COMPILE_FLAGS))
 
 EBIN = .
