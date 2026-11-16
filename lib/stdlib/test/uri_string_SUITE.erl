@@ -953,7 +953,9 @@ transcode_negative(_Config) ->
     {error,invalid_percent_encoding,"%BXbar"} =
         uri_string:transcode(<<"foo%C3%BXbar"/utf8>>, [{in_encoding, utf8},{out_encoding, utf32}]),
     {error,invalid_input,<<"ö">>} =
-        uri_string:transcode("foo%F6bar", [{in_encoding, utf8},{out_encoding, utf8}]).
+        uri_string:transcode("foo%F6bar", [{in_encoding, utf8},{out_encoding, utf8}]),
+    {error,invalid_input,<<"ö">>} =
+        uri_string:transcode(<<"foo%F6bar">>, [{in_encoding, utf8},{out_encoding, utf8}]).
 
 compose_query(_Config) ->
     [] = uri_string:compose_query([]),
@@ -1021,8 +1023,12 @@ dissect_query(_Config) ->
 
 dissect_query_negative(_Config) ->
     {error,invalid_percent_encoding,"%XX%B6"} = uri_string:dissect_query("foo=%XX%B6&amp;bar=2"),
+    {error,invalid_percent_encoding,"%XX%B6"} =
+        uri_string:dissect_query(<<"foo=%XX%B6&amp;bar=2">>),
     {error,invalid_input,[153]} =
         uri_string:dissect_query("foo=%99%B6&amp;bar=2"),
+    {error,invalid_input,[153]} =
+        uri_string:dissect_query(<<"foo=%99%B6&amp;bar=2">>),
     {error,invalid_character,"ö"} = uri_string:dissect_query(<<"föo+bar=1&%C3%B6=2">>),
     {error,invalid_input,<<"ö">>} =
         uri_string:dissect_query([<<"foo+bar=1&amp;">>,<<"%C3%B6=2ö">>]).
@@ -1131,7 +1137,15 @@ normalize_negative(_Config) ->
     {error,invalid_uri,"192.168.0.1"} =
         uri_string:normalize(<<"http://[192.168.0.1]">>, [return_map]),
     {error,invalid_utf8,<<47,47,0,0,0,246>>} =
-        uri_string:percent_decode(uri_string:normalize("//%00%00%00%F6")).
+        uri_string:percent_decode(uri_string:normalize("//%00%00%00%F6")),
+    {error,invalid_percent_encoding,<<"%g1">>} =
+        uri_string:normalize("//a%G1"),
+    {error,invalid_percent_encoding,<<"%g1">>} =
+        uri_string:normalize(<<"//a%G1">>),
+    {error,invalid_percent_encoding,<<"%g1">>} =
+        uri_string:normalize("//a%G1", [return_map]),
+    {error,invalid_percent_encoding,<<"%g1">>} =
+        uri_string:normalize(<<"//a%G1">>, [return_map]).
 
 normalize_binary_pct_encoded_userinfo(_Config) ->
     #{scheme := <<"user">>, path := <<"合@気道"/utf8>>} =
@@ -1265,7 +1279,13 @@ normalize_pct_encoded_negative(_Config) ->
           uri_string:normalize("//%00%00%00%F6", [return_map])),
     {error,invalid_utf8,<<47,47,0,0,0,246>>} =
         uri_string:percent_decode(
-          uri_string:normalize("//%00%00%00%F6", [])).
+          uri_string:normalize("//%00%00%00%F6", [])),
+    {error,{invalid,{host,{invalid_utf8,<<0,0,0,246>>}}}} =
+        uri_string:percent_decode(
+          uri_string:normalize(<<"//%00%00%00%F6">>, [return_map])),
+    {error,invalid_utf8,<<47,47,0,0,0,246>>} =
+        uri_string:percent_decode(
+          uri_string:normalize(<<"//%00%00%00%F6">>, [])).
 
 percent_decode_negative(_Config) ->
     {error,invalid_utf8,<<255>>} = uri_string:percent_decode("%FF"),
