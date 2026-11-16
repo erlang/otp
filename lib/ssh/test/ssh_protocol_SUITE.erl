@@ -88,6 +88,7 @@
          gex_client_old_request_noexact/1,
          gex_client_rejects_small_group/1,
          gex_client_rejects_bad_generator/1,
+         gex_client_rejects_even_modulus/1,
          gex_server_gex_limit/1,
          lib_match/1,
          lib_no_match/1,
@@ -242,6 +243,7 @@ groups() ->
 		gex_client_old_request_noexact,
                 gex_client_rejects_small_group,
                 gex_client_rejects_bad_generator,
+                gex_client_rejects_even_modulus,
                 kex_strict_negotiated,
                 kex_strict_violation_key_exchange,
                 kex_strict_violation_new_keys,
@@ -363,7 +365,8 @@ init_per_testcase(TC, Config) when TC == kex_strict_negotiated;
     ssh_test_lib:set_log_level(debug),
     [{saved_log_level, Level} | Config];
 init_per_testcase(TC, Config) when TC == gex_client_rejects_small_group;
-                                   TC == gex_client_rejects_bad_generator ->
+                                   TC == gex_client_rejects_bad_generator;
+                                   TC == gex_client_rejects_even_modulus ->
     Config;
 init_per_testcase(TC, Config) when TC == gex_client_init_option_groups ;
 				   TC == gex_client_init_option_groups_moduli_file ;
@@ -824,6 +827,11 @@ gex_client_rejects_small_group(Config) ->
 gex_client_rejects_bad_generator(Config) ->
     %% Valid 2048-bit prime (RFC 3526 group 14), but generator = 1
     gex_client_rejects_group(Config, ?RFC3526_GROUP14_PRIME, 1).
+
+%%% Client rejects a DH GEX group with an even 2048-bit modulus.
+%%% Passes the size and generator checks; crypto would fail on it.
+gex_client_rejects_even_modulus(Config) ->
+    gex_client_rejects_group(Config, (1 bsl 2047) + 2, 2).
 
 gex_client_rejects_group(Config, P, G) ->
     {ok, InitialState} = ssh_trpt_test_lib:exec(listen),
