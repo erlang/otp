@@ -813,7 +813,7 @@ _Example:_
 percent_decode(URIMap) when is_map(URIMap)->
     Fun = fun (K,V) when K =:= userinfo; K =:= host; K =:= path;
                          K =:= query; K =:= fragment ->
-                  case raw_decode(V) of
+                  case percent_decode(V) of
                       {error, Reason, Input} ->
                           throw({error, {invalid, {K, {Reason, Input}}}});
                       Else ->
@@ -829,7 +829,10 @@ percent_decode(URIMap) when is_map(URIMap)->
     end;
 percent_decode(URI) when is_list(URI) orelse
                          is_binary(URI) ->
-    raw_decode(URI).
+    try raw_decode(URI)
+    catch
+        throw:{error, Atom, RestData} -> {error, Atom, RestData}
+    end.
 
 -doc """
 Replaces characters out of unreserved set with their percent encoded

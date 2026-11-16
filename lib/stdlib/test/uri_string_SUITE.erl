@@ -34,6 +34,7 @@
          normalize_pct_encoded_query/1,
          normalize_pct_encoded_fragment/1,
          normalize_pct_encoded_negative/1,
+         percent_decode_negative/1,
          parse_binary_fragment/1, parse_binary_host/1, parse_binary_host_ipv4/1,
          parse_binary_host_ipv6/1,
          parse_binary_path/1, parse_binary_pct_encoded_fragment/1, parse_binary_pct_encoded_query/1,
@@ -97,6 +98,7 @@ all() ->
      normalize_pct_encoded_query,
      normalize_pct_encoded_fragment,
      normalize_pct_encoded_negative,
+     percent_decode_negative,
      parse_binary_scheme,
      parse_binary_userinfo,
      parse_binary_pct_encoded_userinfo,
@@ -1262,6 +1264,22 @@ normalize_pct_encoded_negative(_Config) ->
     {error,invalid_utf8,<<47,47,0,0,0,246>>} =
         uri_string:percent_decode(
           uri_string:normalize("//%00%00%00%F6", [])).
+
+percent_decode_negative(_Config) ->
+    {error,invalid_utf8,<<255>>} = uri_string:percent_decode("%FF"),
+    {error,invalid_utf8,<<255>>} = uri_string:percent_decode(<<"%FF">>),
+    {error,invalid_percent_encoding,<<"%G1">>} =
+        uri_string:percent_decode("%G1"),
+    {error,invalid_percent_encoding,<<"%G1">>} =
+        uri_string:percent_decode(<<"%G1">>),
+    {error,{invalid,{host,{invalid_utf8,<<255>>}}}} =
+        uri_string:percent_decode(#{host => "%FF"}),
+    {error,{invalid,{host,{invalid_utf8,<<255>>}}}} =
+        uri_string:percent_decode(#{host => <<"%FF">>}),
+    {error,{invalid,{path,{invalid_percent_encoding,<<"%G1">>}}}} =
+        uri_string:percent_decode(#{path => "%G1"}),
+    {error,{invalid,{path,{invalid_percent_encoding,<<"%G1">>}}}} =
+        uri_string:percent_decode(#{path => <<"%G1">>}).
 
 interop_query_utf8(_Config) ->
     Q = uri_string:compose_query([{"foo bar","1"}, {"合", "2"}]),
