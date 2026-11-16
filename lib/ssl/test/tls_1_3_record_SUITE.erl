@@ -30,6 +30,7 @@
 -include_lib("ssl/src/ssl_cipher.hrl").
 -include_lib("ssl/src/ssl_internal.hrl").
 -include_lib("ssl/src/ssl_alert.hrl").
+-include_lib("ssl/src/ssl_connection.hrl").
 
 %% Callback functions
 -export([all/0,
@@ -46,7 +47,9 @@
          '0_RTT_handshake'/0,
          '0_RTT_handshake'/1,
          reject_oversized_plaintext/0,
-         reject_oversized_plaintext/1
+         reject_oversized_plaintext/1,
+         finished_verify_data_different_length/0,
+         finished_verify_data_different_length/1
         ]).
 
 %%--------------------------------------------------------------------
@@ -58,7 +61,8 @@ all() ->
      finished_verify_data,
      '1_RTT_handshake',
      '0_RTT_handshake',
-     reject_oversized_plaintext].
+     reject_oversized_plaintext,
+     finished_verify_data_different_length].
 
 init_per_suite(Config) ->
     catch application:stop(crypto),
@@ -1505,6 +1509,53 @@ reject_oversized_plaintext(_Config) ->
             ct:fail("Expected record_overflow alert for oversized plaintext, "
                     "got ~p", [Other])
     end.
+
+finished_verify_data_different_length() ->
+    [{doc,"The TLS-1.3 Finished check (tls_handshake_1_3:validate_finished/2) "
+      "must emit a decrypt_error alert, not crash, when the peer's VerifyData "
+      "has an unexpected length. crypto:hash_equals/2 raises error:badarg on "
+      "different-length input."}].
+finished_verify_data_different_length(_Config) ->
+    HKDF = sha256,
+    FinishedKey = crypto:strong_rand_bytes(32),
+    Match = control_data(FinishedKey, HKDF),
+    Len = byte_size(Match),
+    Short = binary:part(Match, 0, Len - 1),
+    Long = <<Match/binary, 0>>,
+
+    %% Shorter / longer VerifyData -> hash_equals/2 raises, must become an alert.
+    {error, #alert{description = ?DECRYPT_ERROR}} =
+        validate_finished_with(FinishedKey, HKDF, Short),
+    {error, #alert{description = ?DECRYPT_ERROR}} =
+        validate_finished_with(FinishedKey, HKDF, Long),
+    %% Matching data validates.
+    ok = validate_finished_with(FinishedKey, HKDF, Match),
+    %% Equal-length mismatch is also a decrypt_error.
+    Flipped = crypto:exor(Match, <<1, 0:(Len*8 - 8)>>),
+    {error, #alert{description = ?DECRYPT_ERROR}} =
+        validate_finished_with(FinishedKey, HKDF, Flipped),
+    ok.
+
+%% ControlData as validate_finished/2 recomputes it: over an empty message
+%% context (the single dummy history entry is dropped by finished_verify_data).
+control_data(FinishedKey, HKDF) ->
+    tls_v1:finished_verify_data(FinishedKey, HKDF, []).
+
+%% Drive the public tls_handshake_1_3:validate_finished/2 entry point with a
+%% minimal #state{}. validate_finished/2 recomputes ControlData from
+%% FinishedKey and the (empty) message context and compares it to VerifyData,
+%% exercising compare_verify_data/2 length handling without a live handshake.
+validate_finished_with(FinishedKey, HKDF, VerifyData) ->
+    ConnectionStates =
+        #{current_read =>
+              #{security_parameters =>
+                    #security_parameters{prf_algorithm = HKDF},
+                cipher_state =>
+                    #cipher_state{finished_key = FinishedKey}}},
+    State = #state{connection_states = ConnectionStates,
+                   handshake_env =
+                       #handshake_env{tls_handshake_history = {[<<>>], 0}}},
+    tls_handshake_1_3:validate_finished(State, VerifyData).
 
 %% Minimal AES-256-GCM ConnectionStates for the record round-trip. The write
 %% side encrypts; the read side (same key/iv, seq 0) decrypts.
