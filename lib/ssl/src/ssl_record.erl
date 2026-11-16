@@ -462,7 +462,12 @@ make_random(_Version) ->
     <<?UINT32(Secs_since_1970), Random_28_bytes/binary>>.
 
 is_correct_mac(Mac1, Mac2) ->
-    crypto:hash_equals(Mac1, Mac2).
+    try
+        crypto:hash_equals(Mac1, Mac2)
+    catch
+        error:badarg ->
+            false
+    end.
 
 -compile({inline, [record_protocol_role/1]}).
 record_protocol_role(client) ->
