@@ -89,7 +89,8 @@ all() ->
      {group, esi},
      mime_types_format,
      keepalive_timeout,
-     keepalive_timeout_disabled
+     keepalive_timeout_disabled,
+     invalid_utf8_path_without_alias
     ].
 
 groups() ->
@@ -2456,6 +2457,43 @@ keepalive_timeout_disabled(Config) when is_list(Config) ->
     after 10_000 ->
                 ct:fail("Response body not received")
     end.
+
+%%-------------------------------------------------------------------------
+invalid_utf8_path_without_alias() ->
+    [{doc, "A request path whose percent-decoding is not valid UTF-8 must be "
+           "answered with 404, not 500, when mod_alias is not configured "
+           "and mod_alias:path/3 decodes the path itself."}].
+invalid_utf8_path_without_alias(Config) when is_list(Config) ->
+    inets_test_lib:start_apps([inets]),
+    PrivDir = proplists:get_value(priv_dir, Config),
+    DocRoot = filename:join(PrivDir, "invalid_utf8_path_htdocs"),
+    ok = file:make_dir(DocRoot),
+    ok = file:write_file(filename:join(DocRoot, "index.html"), <<"OK">>),
+    {ok, Pid} = inets:start(httpd, [
+        {port, 0},
+        {server_name, "invalid_utf8_path_test"},
+        {server_root, PrivDir},
+        {document_root, DocRoot},
+        {bind_address, {127,0,0,1}},
+        {modules, [mod_get]}
+    ]),
+    {port, Port} = lists:keyfind(port, 1, httpd:info(Pid)),
+    Get = fun(Path) ->
+                  {ok, S} = gen_tcp:connect("127.0.0.1", Port,
+                                            [binary, {active, false}]),
+                  ok = gen_tcp:send(S, ["GET ", Path, " HTTP/1.1\r\n"
+                                        "Host: localhost\r\n"
+                                        "Connection: close\r\n\r\n"]),
+                  {ok, Resp} = gen_tcp:recv(S, 0, 5000),
+                  ok = gen_tcp:close(S),
+                  [StatusLine | _] = binary:split(Resp, <<"\r\n">>),
+                  StatusLine
+          end,
+    <<"HTTP/1.1 200 ", _/binary>> = Get("/index.html"),
+    <<"HTTP/1.1 404 ", _/binary>> = Get("/%FF"),
+    <<"HTTP/1.1 404 ", _/binary>> = Get("/%C3%28"),
+    inets:stop(httpd, Pid),
+    inets_test_lib:stop_apps([inets]).
 
 %%-------------------------------------------------------------------------
 
