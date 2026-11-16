@@ -512,6 +512,8 @@ format_error_1({circular,M,A}) ->
     {~"circular macro '~ts/~p'", [M,A]};
 format_error_1({include,W,F}) ->
     {~"can't find include ~s \"~ts\"", [W,F]};
+format_error_1(invalid_include_lib) ->
+    ~"invalid -include_lib path; expected a relative path of the form Application/Path";
 format_error_1({Tag, invalid, Alternative}) when Tag =:= moduledoc; Tag =:= doc ->
     {~"invalid ~s tag, only ~s allowed", [Tag, Alternative]};
 format_error_1({Tag, W, Filename}) when Tag =:= moduledoc; Tag =:= doc ->
@@ -1711,6 +1713,14 @@ expand_lib_dir(Name) ->
 	    error
     end.
 
+valid_include_lib_path(Name) ->
+    case {filename:pathtype(Name),filename:split(Name)} of
+        {relative,[App,_|_]} when App =/= ".", App =/= ".." ->
+            true;
+        _ ->
+            false
+    end.
+
 scan_include_lib(Tokens0, Inc, From, St) ->
     Tokens = coalesce_strings(Tokens0),
     scan_include_lib1(Tokens, Inc, From, St).
@@ -1723,26 +1733,33 @@ scan_include_lib1([{'(',_Alp},{string,_Af,_NewName0},{')',_Arp},{dot,_Ad}],
 scan_include_lib1([{'(',_Alp},{string,_Af,NewName0}=N,{')',_Arp},{dot,_Ad}],
                   _Inc, From, St) ->
     NewName = expand_var(NewName0),
+    From1 = case valid_include_lib_path(NewName) of
+                true ->
+                    From;
+                false ->
+                    epp_reply(From, {warning,{loc(N),epp,invalid_include_lib}}),
+                    wait_request(St)
+            end,
     Loc = start_loc(St#epp.location),
     case (St#epp.include_path_open)(St#epp.path, NewName, [read]) of
 	{ok,NewF,Pname} ->
-	    wait_req_scan(enter_file2(NewF, Pname, From, St, Loc));
+            wait_req_scan(enter_file2(NewF, Pname, From1, St, Loc));
 	{error,_E1} ->
 	    case expand_lib_dir(NewName) of
 		{ok,Header} ->
                     {ok, Cwd} = file:get_cwd(),
                     case (St#epp.include_path_open)([Cwd], Header, [read]) of
                         {ok,NewF,_} ->
-			    wait_req_scan(enter_file2(NewF, Header, From,
+                            wait_req_scan(enter_file2(NewF, Header, From1,
                                                       St, Loc));
 			{error,_E2} ->
-			    epp_reply(From,
+                            epp_reply(From1,
 				      {error,{loc(N),epp,
                                               {include,lib,NewName}}}),
 			    wait_req_scan(St)
 		    end;
 		error ->
-		    epp_reply(From, {error,{loc(N),epp,
+                    epp_reply(From1, {error,{loc(N),epp,
                                             {include,lib,NewName}}}),
 		    wait_req_scan(St)
 	    end
