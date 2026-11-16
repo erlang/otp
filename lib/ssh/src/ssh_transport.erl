@@ -786,11 +786,21 @@ handle_kex_dh_gex_group(#ssh_msg_kex_dh_gex_group{p = P, g = G},
     case validate_dh_gex_group(P, G, PBits, MinBits) of
         ok ->
             Sz = dh_bits(Ssh0#ssh.algorithms),
-            {Public, Private} = generate_key(dh, [P, G, 2*Sz]),
-            {SshPacket, Ssh1} =
-                ssh_packet(#ssh_msg_kex_dh_gex_init{e = Public}, Ssh0),
-            {ok, SshPacket,
-             Ssh1#ssh{keyex_key = {{Private, Public}, {G, P}}}};
+            %% crypto may reject parameters that passed the checks above
+            try generate_key(dh, [P, G, 2*Sz]) of
+                {Public, Private} ->
+                    {SshPacket, Ssh1} =
+                        ssh_packet(#ssh_msg_kex_dh_gex_init{e = Public}, Ssh0),
+                    {ok, SshPacket,
+                     Ssh1#ssh{keyex_key = {{Private, Public}, {G, P}}}}
+            catch
+                error:Error ->
+                    ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED,
+                                io_lib:format("DH GEX group rejected by crypto: ~p",
+                                              [Error],
+                                              [{chars_limit,
+                                                ssh_lib:max_log_len(Ssh0#ssh.opts)}]))
+            end;
         {error, Reason} ->
             ?DISCONNECT(?SSH_DISCONNECT_KEY_EXCHANGE_FAILED, Reason)
     end.
@@ -2501,11 +2511,14 @@ dh_bits(#alg{encrypt = Encrypt,
                   ]).
 
 %% Validate DH GEX group parameters received from the server.
-%% Checks generator bounds and prime size against requested limits.
+%% Checks generator bounds, prime parity and prime size against
+%% requested limits.
 validate_dh_gex_group(P, G, _PBits, _MinBits)
   when G =< 1;
        G >= P - 1 ->
     {error, "DH GEX invalid generator"};
+validate_dh_gex_group(P, _G, _PBits, _MinBits) when P rem 2 =:= 0 ->
+    {error, "DH GEX invalid prime"};
 validate_dh_gex_group(_P, _G, PBits, MinBits) when PBits < MinBits ->
     {error, io_lib:format("DH GEX group too small: ~p bits (minimum ~p)",
                           [PBits, MinBits])};
