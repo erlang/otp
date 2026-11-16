@@ -1048,6 +1048,8 @@ parse_decoder(string, Fun, Decode) when is_function(Fun, 1) ->
 parse_decoder(null, Null, Decode) ->
     Decode#decode{null = Null}.
 
+value(<<$\n, Rest/bits>>, Original, Skip, Acc, Stack, Decode) ->
+    value_indent(Rest, Original, Skip + 1, Acc, Stack, Decode);
 value(<<Byte, Rest/bits>>, Original, Skip, Acc, Stack, Decode) when ?is_ws(Byte) ->
     value(Rest, Original, Skip + 1, Acc, Stack, Decode);
 value(<<$0, Rest/bits>>, Original, Skip, Acc, Stack, Decode) ->
@@ -1385,6 +1387,8 @@ unescape_surrogate(_Rest, Original, Skip, Acc, Stack, Decode, Start, Len, _SAcc,
 hex_to_int(H1, H2, H3, H4) ->
     ?hex_digit(H4) + 16 * (?hex_digit(H3) + 16 * (?hex_digit(H2) + 16 * ?hex_digit(H1))).
 
+array_start(<<$\n, Rest/bits>>, Original, Skip, Acc, Stack, Decode, Len) ->
+    array_start_indent(Rest, Original, Skip, Acc, Stack, Decode, Len + 1);
 array_start(<<Byte, Rest/bits>>, Original, Skip, Acc, Stack, Decode, Len) when ?is_ws(Byte) ->
     array_start(Rest, Original, Skip, Acc, Stack, Decode, Len+1);
 array_start(<<"]", Rest/bits>>, Original, Skip, Acc, Stack, Decode, Len) ->
@@ -1405,6 +1409,8 @@ array_start(Rest, Original, Skip, OldAcc, Stack, Decode, Len) ->
         Fun -> value(Rest, Original, Skip+Len, Fun(OldAcc), [OldAcc | Stack], Decode)
     end.
 
+array_push(<<$\n, Rest/bits>>, Original, Skip, Acc, Stack, Decode, Value) ->
+    array_push_indent(Rest, Original, Skip + 1, Acc, Stack, Decode, Value);
 array_push(<<Byte, Rest/bits>>, Original, Skip, Acc, Stack, Decode, Value) when ?is_ws(Byte) ->
     array_push(Rest, Original, Skip + 1, Acc, Stack, Decode, Value);
 array_push(<<"]", Rest/bits>>, Original, Skip, Acc0, Stack0, Decode, Value) ->
@@ -1429,6 +1435,8 @@ array_push(<<$,, Rest/bits>>, Original, Skip0, Acc, Stack, Decode, Value) ->
 array_push(_, Original, Skip, Acc, Stack, Decode, Value) ->
     unexpected(Original, Skip, Acc, Stack, Decode, 0, 0, {?FUNCTION_NAME, Value}).
 
+object_start(<<$\n, Rest/bits>>, Original, Skip, Acc, Stack, Decode, Len) ->
+    object_start_indent(Rest, Original, Skip, Acc, Stack, Decode, Len + 1);
 object_start(<<Byte, Rest/bits>>, Original, Skip, Acc, Stack, Decode, Len) when ?is_ws(Byte) ->
     object_start(Rest, Original, Skip, Acc, Stack, Decode, Len+1);
 object_start(<<"}", Rest/bits>>, Original, Skip, Acc, Stack, Decode, Len) ->
@@ -1460,6 +1468,8 @@ object_value(<<$:, Rest/bits>>, Original, Skip, Acc, Stack, Decode, Key) ->
 object_value(_, Original, Skip, Acc, Stack, Decode, Key) ->
     unexpected(Original, Skip, Acc, Stack, Decode, 0, 0, {?FUNCTION_NAME, Key}).
 
+object_push(<<$\n, Rest/bits>>, Original, Skip, Acc, Stack, Decode, Value, Key) ->
+    object_push_indent(Rest, Original, Skip + 1, Acc, Stack, Decode, Value, Key);
 object_push(<<Byte, Rest/bits>>, Original, Skip, Acc, Stack, Decode, Value, Key) when ?is_ws(Byte) ->
     object_push(Rest, Original, Skip + 1, Acc, Stack, Decode, Value, Key);
 object_push(<<"}", Rest/bits>>, Original, Skip, Acc0, Stack0, Decode, Value, Key) ->
@@ -1483,12 +1493,49 @@ object_push(<<$,, Rest/bits>>, Original, Skip, Acc0, Stack, Decode, Value, Key) 
 object_push(_, Original, Skip, Acc, Stack, Decode, Value, Key) ->
     unexpected(Original, Skip, Acc, Stack, Decode, 0, 0, {?FUNCTION_NAME, Value, Key}).
 
+object_key(<<$\n, Rest/bits>>, Original, Skip, Acc, Stack, Decode) ->
+    object_key_indent(Rest, Original, Skip + 1, Acc, Stack, Decode);
 object_key(<<Byte, Rest/bits>>, Original, Skip, Acc, Stack, Decode) when ?is_ws(Byte) ->
     object_key(Rest, Original, Skip + 1, Acc, Stack, Decode);
 object_key(<<$", Rest/bits>>, Original, Skip, Acc, Stack, Decode) ->
     string(Rest, Original, Skip + 1, Acc, Stack, Decode);
 object_key(_, Original, Skip, Acc, Stack, Decode) ->
     unexpected(Original, Skip, Acc, Stack, Decode, 0, 0, ?FUNCTION_NAME).
+
+%% Indented documents keep most of their whitespace right after newlines.
+%% A newline in any state that skips whitespace leads to its _indent
+%% variant, which skips indentation 4 spaces at a time and hands the rest
+%% back to the state. Other whitespace, such as the space after a colon,
+%% is still skipped one byte at a time.
+value_indent(<<"    ", Rest/bits>>, Original, Skip, Acc, Stack, Decode) ->
+    value_indent(Rest, Original, Skip + 4, Acc, Stack, Decode);
+value_indent(Rest, Original, Skip, Acc, Stack, Decode) ->
+    value(Rest, Original, Skip, Acc, Stack, Decode).
+
+array_start_indent(<<"    ", Rest/bits>>, Original, Skip, Acc, Stack, Decode, Len) ->
+    array_start_indent(Rest, Original, Skip, Acc, Stack, Decode, Len + 4);
+array_start_indent(Rest, Original, Skip, Acc, Stack, Decode, Len) ->
+    array_start(Rest, Original, Skip, Acc, Stack, Decode, Len).
+
+array_push_indent(<<"    ", Rest/bits>>, Original, Skip, Acc, Stack, Decode, Value) ->
+    array_push_indent(Rest, Original, Skip + 4, Acc, Stack, Decode, Value);
+array_push_indent(Rest, Original, Skip, Acc, Stack, Decode, Value) ->
+    array_push(Rest, Original, Skip, Acc, Stack, Decode, Value).
+
+object_start_indent(<<"    ", Rest/bits>>, Original, Skip, Acc, Stack, Decode, Len) ->
+    object_start_indent(Rest, Original, Skip, Acc, Stack, Decode, Len + 4);
+object_start_indent(Rest, Original, Skip, Acc, Stack, Decode, Len) ->
+    object_start(Rest, Original, Skip, Acc, Stack, Decode, Len).
+
+object_push_indent(<<"    ", Rest/bits>>, Original, Skip, Acc, Stack, Decode, Value, Key) ->
+    object_push_indent(Rest, Original, Skip + 4, Acc, Stack, Decode, Value, Key);
+object_push_indent(Rest, Original, Skip, Acc, Stack, Decode, Value, Key) ->
+    object_push(Rest, Original, Skip, Acc, Stack, Decode, Value, Key).
+
+object_key_indent(<<"    ", Rest/bits>>, Original, Skip, Acc, Stack, Decode) ->
+    object_key_indent(Rest, Original, Skip + 4, Acc, Stack, Decode);
+object_key_indent(Rest, Original, Skip, Acc, Stack, Decode) ->
+    object_key(Rest, Original, Skip, Acc, Stack, Decode).
 
 continue(<<Rest/bits>>, Original, Skip, Acc, Stack0, Decode, Value) ->
     case Stack0 of
