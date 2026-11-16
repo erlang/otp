@@ -897,6 +897,9 @@ quote(D, Safe) ->
 -doc """
 Percent decode characters.
 
+Returns an error tuple if the input contains an invalid percent-encoded
+triplet or the decoded data is not valid UTF-8.
+
 _Example:_
 
 ```erlang
@@ -913,11 +916,14 @@ _Example:_
 > unexpected results.
 """.
 -doc(#{since => <<"OTP 25.0">>}).
--spec unquote(QuotedData) -> Data when
+-spec unquote(QuotedData) -> Data | error() when
       QuotedData :: unicode:chardata(),
       Data :: unicode:chardata().
 unquote(D) ->
-    raw_decode(D).
+    try raw_decode(D)
+    catch
+        throw:{error, Atom, RestData} -> {error, Atom, RestData}
+    end.
 
 %%-------------------------------------------------------------------------
 %% Functions for working with the query part of a URI as a list
