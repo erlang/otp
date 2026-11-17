@@ -27,7 +27,8 @@
 	 bs_match_misc_SUITE/1, bs_match_int_SUITE/1,
 	 bs_match_tail_SUITE/1, bs_match_bin_SUITE/1,
 	 bs_construct_SUITE/1,
-         prompt_width/1,local_definitions_save_to_module_and_forget/1,
+         prompt_width/1,edlin_newline_requests/1,
+         local_definitions_save_to_module_and_forget/1,
 	 refman_bit_syntax/1,
 	 progex_bit_syntax/1, progex_records/1,
 	 progex_lc/1, progex_funs/1,
@@ -80,7 +81,7 @@ suite() ->
 all() ->
     [forget, known_bugs, otp_5226, otp_5327,
      otp_5435, otp_5195, otp_5915, otp_5916,
-     prompt_width,local_definitions_save_to_module_and_forget,
+     prompt_width,edlin_newline_requests,local_definitions_save_to_module_and_forget,
      start_interactive, whereis, {group, bits},
      {group, refman}, {group, progex}, {group, tickets},
      {group, restricted}, {group, records}, {group, definitions}].
@@ -473,6 +474,23 @@ prompt_width(Config) when is_list(Config) ->
             8 = shell:prompt_width("olá> "),
             11 = shell:prompt_width("😀> ")
     end,
+    ok.
+
+edlin_newline_requests(_Config) ->
+    edlin:init(),
+    lists:foreach(
+      fun(Text) ->
+              {more_chars, Start, _} = edlin:start("> "),
+              {more_chars, Line, _} = edlin:edit_line(Text, Start),
+              {more_chars, Moved, MoveRequests} = edlin:edit_line("\e[D", Line),
+              {more_chars, ExpectedLine, NewlineRequests} =
+                  edlin:edit_line("\e\r", Moved),
+              %% Coalescing a cursor movement and Alt+Enter in one read must
+              %% preserve the order of the requests sent to the terminal.
+              ExpectedRequests = MoveRequests ++ NewlineRequests,
+              {more_chars, ExpectedLine, ExpectedRequests} =
+                  edlin:edit_line("\e[D\e\r", Line)
+      end, ["abc", "a😀c"]),
     ok.
 
 %% Test of the record support. OTP-5063.
