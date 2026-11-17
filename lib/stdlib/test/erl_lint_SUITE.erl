@@ -100,6 +100,8 @@
          native_records/1,
          cs_deprecated_attr/1,
          invalid_attribute/1,
+         attribute_placement/1,
+         attribute_placement_errors/1,
          block_compr_assign/1]).
 
 suite() ->
@@ -146,6 +148,8 @@ all() ->
      native_records,
      cs_deprecated_attr,
      invalid_attribute,
+     attribute_placement,
+     attribute_placement_errors,
      block_compr_assign].
 
 groups() -> 
@@ -4093,11 +4097,11 @@ basic_errors(Config) ->
 	   [],
 	   {errors,[{{1,22},erl_lint,redefine_module}],[]}},
 
-	  {attr_after_function,
-	   <<"f() -> ok.
+          {attr_after_function,
+           <<"f() -> ok.
                -attr(x).">>,
-	   [],
-	   {errors,[{{2,17},erl_lint,{attribute,attr}}],[]}},
+           [],
+           []},
 
 	  {redefine_function,
 	   <<"f() -> ok.
@@ -4827,12 +4831,9 @@ stacktrace_syntax(Config) ->
 otp_14285(Config) ->
     %% A small sample of all the errors and warnings in module erl_lint.
     E1 = {redefine_function,{'кирилли́ческий атом',0}},
-    E2 = {attribute,'кирилли́ческий атом'},
     E3 = {undefined_record,'кирилли́ческий атом'},
     E4 = {undefined_bittype,'кирилли́ческий атом'},
     "function 'кирилли́ческий атом'/0 already defined" = format_error(E1),
-    "attribute 'кирилли́ческий атом' after function definitions" =
-        format_error(E2),
     "record 'кирилли́ческий атом' undefined" = format_error(E3),
     "bit type 'кирилли́ческий атом' undefined" = format_error(E4),
     Ts = [{otp_14285_1,
@@ -4848,9 +4849,7 @@ otp_14285(Config) ->
               -'кирилли́ческий атом'(a).
              "/utf8>>,
            [],
-           {errors,
-            [{{2,16},erl_lint,E2}],
-            []}},
+           []},
          {otp_14285_3,
            <<"'кирилли́ческий атом'() -> #'кирилли́ческий атом'{}.
              "/utf8>>,
@@ -5622,6 +5621,37 @@ undefined_module(Config) ->
              ">>,
     {errors,[{{1,2},erl_lint,undefined_module}],[]} = run_test2(Config, Code, []),
 
+    LateModule = ~"""
+    -compile(nowarn_unused_function).
+    -spec foo() -> ok.
+    foo() -> ok.
+    -module(lint_test).
+    -spec bar() -> ok.
+    bar() -> ok.
+    """,
+    {errors,[{{2,2},erl_lint,undefined_module}],[]} =
+        run_test2(Config, LateModule, []),
+
+    LeadingCompile = ~"""
+    -compile(nowarn_unused_function).
+    -module(lint_test).
+    foo() -> ok.
+    """,
+    [] = run_test2(Config, LeadingCompile, []),
+
+    Prefix = [{attribute,1,file,{"header.erl",1}},
+              {error,{1,erl_parse,bad_header}},
+              {warning,{2,erl_lint,export_all}},
+              {attribute,3,compile,[]}],
+    Errors = [{1,erl_parse,bad_header}],
+    Warnings = [{"header.erl",[{2,erl_lint,export_all}]}],
+    {error,[{"header.erl",Errors}],Warnings} =
+        erl_lint:module(Prefix ++ [{attribute,4,module,lint_test},{eof,5}]),
+    {error,[{"header.erl",[{1,erl_parse,bad_header},
+                           {5,erl_lint,undefined_module}]}],Warnings} =
+        erl_lint:module(Prefix ++ [{eof,5}]),
+    {error,[{"header.erl",Errors}],Warnings} = erl_lint:module(Prefix),
+
     ok.
 
 update_literal(Config) ->
@@ -6166,6 +6196,105 @@ invalid_attribute(Config) ->
            ],
     [] = run(Config,Ts),
 
+    ok.
+
+attribute_placement(Conf) ->
+    Source = ~"""
+    -module(attribute_placement).
+    first() -> reverse([a,b]).
+    -export([first/0]).
+    -tag(first/0).
+    -import(lists, [reverse/1]).
+    second(X) when is_atom(X) -> first().
+    -export([second/1]).
+    -import(erlang, [is_atom/1]).
+    -compile({no_auto_import, [is_atom/1]}).
+    -type result() :: [atom()].
+    -export_type([result/0]).
+    -spec first() -> result().
+    -doc "Optional callback".
+    -callback optional() -> ok.
+    -optional_callbacks([optional/0]).
+    -vsn("attribute placement").
+    init() -> ok.
+    -on_load(init/0).
+    """,
+    File = filename:join(?privdir, "attribute_placement.erl"),
+    ok = file:write_file(File, Source),
+    {ok,attribute_placement,Beam,[]} = compile:file(File, [binary,return]),
+    {module,attribute_placement} = code:load_binary(attribute_placement, File, Beam),
+    try
+        [b,a] = attribute_placement:first(),
+        [b,a] = attribute_placement:second(ok),
+        Exports = attribute_placement:module_info(exports),
+        true = lists:member({first,0}, Exports),
+        true = lists:member({second,1}, Exports),
+        Attrs = attribute_placement:module_info(attributes),
+        [{first,0}] = proplists:get_value(tag, Attrs),
+        "attribute placement" = proplists:get_value(vsn, Attrs),
+        [{optional,0}] = attribute_placement:behaviour_info(callbacks),
+        [{optional,0}] = attribute_placement:behaviour_info(optional_callbacks)
+    after
+        code:delete(attribute_placement),
+        code:purge(attribute_placement)
+    end,
+    ok.
+
+attribute_placement_errors(Config) ->
+    Ts = [{late_redefine_module,
+           ~"""
+           f() -> ok.
+           -module(other).
+           """,
+           [],
+           {errors,[{{2,2},erl_lint,redefine_module}],[]}},
+          {late_duplicate_export,
+           ~"""
+           -export([f/0]).
+           f() -> ok.
+           -export([f/0]).
+           """,
+           {[]},
+           {warnings,[{{3,2},erl_lint,{duplicated_export,{f,0}}}]}},
+          {late_duplicate_import,
+           ~"""
+           f() -> reverse([]).
+           -import(lists, [reverse/1]).
+           -import(lists, [reverse/1]).
+           """,
+           [],
+           {errors,[{{3,2},erl_lint,{redefine_import,{{reverse,1},lists}}}],[]}},
+          {late_import_local,
+           ~"""
+           reverse(X) -> X.
+           -import(lists, [reverse/1]).
+           """,
+           [],
+           {errors,[{{1,21},erl_lint,{define_import,{reverse,1}}}],[]}},
+          {late_unused_import,
+           ~"""
+           f() -> ok.
+           -import(lists, [reverse/1]).
+           """,
+           [warn_unused_import],
+           {warnings,[{{2,2},erl_lint,{unused_import,{{reverse,1},lists}}}]}},
+          {late_multiple_on_load,
+           ~"""
+           init() -> ok.
+           -on_load(init/0).
+           -on_load(init/0).
+           """,
+           {[]},
+           {errors,[{{3,2},erl_lint,multiple_on_loads}],[]}},
+          {record_before_use,
+           ~"""
+           f() -> #r{}.
+           -record(r, {}).
+           """,
+           [],
+           {error,[{{1,28},erl_lint,{undefined_record,r}}],
+            [{{2,2},erl_lint,{unused_record,r}}]}}],
+    [] = run(Config, Ts),
     ok.
 
 block_compr_assign(Config) ->
