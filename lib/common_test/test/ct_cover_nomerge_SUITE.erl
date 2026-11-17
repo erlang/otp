@@ -61,9 +61,6 @@ init_per_testcase(TestCase, Config) ->
     ct_test_support:init_per_testcase(TestCase, Config).
 
 end_per_testcase(TestCase, Config) ->
-    try apply(?MODULE,TestCase,[cleanup,Config])
-    catch error:undef -> ok
-    end,
     ct_test_support:end_per_testcase(TestCase, Config).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
@@ -94,10 +91,8 @@ remote(Config) ->
     DataDir = ?config(data_dir, Config),
     Spec = filename:join(DataDir, "remote.spec"),
     %% extending some timers for slow test hosts
-    {ok,Node} = ct_slave:start(ct_nomerge,[{boot_timeout,15},
-					   {init_timeout,15},
-					   {startup_timeout,15}]),
-    
+    {ok, Controller, Node} = ?CT_PEER(#{name => ct_nomerge, timeout => timer:seconds(15)}),
+
     CoverSpec = [{nodes,[Node]},
 		 {incl_mods,[?mod]}],
     CoverFile = create_cover_file(remote,CoverSpec,Config),
@@ -105,19 +100,14 @@ remote(Config) ->
     {ok,Events} = execute(remote, remote, Opts, ERPid, Config),
     false = check_cover(Config),
     check_calls(Events,2),
-    ok.
-remote(cleanup,_Config) ->
-    {ok,_} = ct_slave:stop(ct_nomerge),
-    ok.
+    ok = peer:stop(Controller).
 
 remote_nostop(Config) ->
     DataDir = ?config(data_dir, Config),
     Spec = filename:join(DataDir, "remote_nostop.spec"),
     %% extending some timers for slow test hosts
-    {ok,Node} = ct_slave:start(ct_nomerge,[{boot_timeout,15},
-					   {init_timeout,15},
-					   {startup_timeout,15}]),
-    
+    {ok, Controller, Node} = ?CT_PEER(#{name => ct_nomerge, timeout => timer:seconds(15)}),
+
     CoverSpec = [{nodes,[Node]},
 		 {incl_mods,[?mod]}],
     CoverFile = create_cover_file(remote_nostop,CoverSpec,Config),
@@ -127,12 +117,7 @@ remote_nostop(Config) ->
     {ok,Events} = execute(remote_nostop, remote_nostop, Opts, ERPid, Config),
     {true,[Node],[cover_test_mod]} = check_cover(Config),
     check_calls(Events,2),
-    ok.
-remote_nostop(cleanup,Config) ->
-    CtNode = ?config(ct_node,Config),
-    ok = rpc:call(CtNode,cover,stop,[]),
-    {ok,_} = ct_slave:stop(ct_nomerge),
-    ok.
+    ok = peer:stop(Controller).
     
 
 %%%-----------------------------------------------------------------
