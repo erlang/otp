@@ -36,7 +36,7 @@
          gh_8268/1,
          moduledoc_include/1,
          stringify/1,
-         fun_type_arg/1
+         fun_type_arg/1, unknown_file_location/1
         ]).
 
 -export([epp_parse_erl_form/2]).
@@ -84,7 +84,7 @@ all() ->
      gh_8268,
      moduledoc_include,
      stringify,
-     fun_type_arg].
+     fun_type_arg, unknown_file_location].
 
 groups() ->
     [{upcase_mac, [], [upcase_mac_1, upcase_mac_2]},
@@ -101,6 +101,29 @@ init_per_group(_GroupName, Config) ->
 
 end_per_group(_GroupName, Config) ->
     Config.
+
+unknown_file_location(Config) when is_list(Config) ->
+    %% Syntax-tree transformations can introduce nil nodes with no location.
+    %% A user -file attribute must not turn that location into a negative
+    %% line number (or an invented positive one) when cover interprets it.
+    lists:foreach(
+      fun({FileLine, SourceLine}) ->
+              FileAnno = erl_anno:set_generated(true, erl_anno:new(FileLine)),
+              Forms = [{attribute,1,file,{"generated.erl",1}},
+                       {attribute,FileAnno,file,{"source.xrl",SourceLine}},
+                       {function,SourceLine + 1,f,0,
+                        [{clause,SourceLine + 1,[],[],
+                          [{cons,SourceLine + 1,
+                            {atom,SourceLine + 1,a},{nil,0}}]}]}],
+              Line = FileLine + 1,
+              ?assertEqual(
+                 [{attribute,1,file,{"generated.erl",1}},
+                  {function,Line,f,0,
+                   [{clause,Line,[],[],
+                     [{cons,Line,{atom,Line,a},{nil,0}}]}]}],
+                 epp:interpret_file_attribute(Forms))
+      end, [{10,100}, {100,10}]),
+    ok.
 
 %% Recursive macros hang or crash epp (OTP-1398).
 rec_1(Config) when is_list(Config) ->
