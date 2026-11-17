@@ -2817,6 +2817,13 @@ void erts_sys_free(ErtsAlcType_t t, void *x, void *p)
     free(p);
 }
 
+#ifdef ERTS_HAVE_SYS_ALLOC_SIZE
+size_t erts_sys_alloc_size(void *ptr)
+{
+    return _msize(ptr);
+}
+#endif
+
 void *erts_sys_aligned_alloc(size_t alignment, size_t size)
 {
     void *ptr;

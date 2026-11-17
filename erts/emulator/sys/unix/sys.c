@@ -38,6 +38,13 @@
 #include <ctype.h>
 #include <sys/utsname.h>
 #include <sys/select.h>
+#ifdef ERTS_HAVE_SYS_ALLOC_SIZE
+#ifdef ERTS_SYS_ALLOC_SIZE_MALLOC_SIZE
+#include <malloc/malloc.h>
+#else
+#include <malloc.h>
+#endif
+#endif
 
 #ifdef ISC32
 #include <sys/bsdtypes.h>
@@ -1022,6 +1029,17 @@ void erts_sys_free(ErtsAlcType_t t, void *x, void *p)
 {
     free(p);
 }
+
+#ifdef ERTS_HAVE_SYS_ALLOC_SIZE
+size_t erts_sys_alloc_size(void *ptr)
+{
+#ifdef ERTS_SYS_ALLOC_SIZE_MALLOC_SIZE
+    return malloc_size(ptr);
+#else
+    return malloc_usable_size(ptr);
+#endif
+}
+#endif
 
 /* Return a pointer to a vector of names of preloaded modules */
 

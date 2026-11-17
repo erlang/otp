@@ -18434,6 +18434,178 @@ then :
 fi
 
 
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking whether system malloc accounting has a 64-bit word" >&5
+printf %s "checking whether system malloc accounting has a 64-bit word... " >&6; }
+if test ${erts_cv_sys_alloc_word64+y}
+then :
+  printf %s "(cached) " >&6
+else case e in #(
+  e)
+    cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main (void)
+{
+
+        typedef char malloc_accounting_word[(sizeof(void *) == 8) ? 1 : -1];
+        (void) sizeof(malloc_accounting_word);
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_compile "$LINENO"
+then :
+  erts_cv_sys_alloc_word64=yes
+else case e in #(
+  e) erts_cv_sys_alloc_word64=no ;;
+esac
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam conftest.$ac_ext
+ ;;
+esac
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $erts_cv_sys_alloc_word64" >&5
+printf "%s\n" "$erts_cv_sys_alloc_word64" >&6; }
+if test "$erts_cv_sys_alloc_word64" = yes
+then :
+
+    ac_fn_c_check_header_compile "$LINENO" "malloc/malloc.h" "ac_cv_header_malloc_malloc_h" "$ac_includes_default"
+if test "x$ac_cv_header_malloc_malloc_h" = xyes
+then :
+  printf "%s\n" "#define HAVE_MALLOC_MALLOC_H 1" >>confdefs.h
+
+fi
+
+    { printf "%s\n" "$as_me:${as_lineno-$LINENO}: checking for a system malloc size query" >&5
+printf %s "checking for a system malloc size query... " >&6; }
+if test ${erts_cv_sys_alloc_size+y}
+then :
+  printf %s "(cached) " >&6
+else case e in #(
+  e)
+        erts_cv_sys_alloc_size=no
+        case $host_os in #(
+  win32*) :
+
+            cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+#include <stdlib.h>
+#include <malloc.h>
+
+int
+main (void)
+{
+
+                void *p = malloc(1);
+                size_t size = _msize(p);
+                free(p);
+                return size == 0;
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"
+then :
+  erts_cv_sys_alloc_size=_msize
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
+         ;; #(
+  *) :
+
+            if test "$ac_cv_header_malloc_h" = yes
+then :
+
+                cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+#include <stdlib.h>
+#include <malloc.h>
+
+int
+main (void)
+{
+
+                    void *p = malloc(1);
+                    size_t size = malloc_usable_size(p);
+                    free(p);
+                    return size == 0;
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"
+then :
+  erts_cv_sys_alloc_size=malloc_usable_size
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
+
+fi
+            if test "$erts_cv_sys_alloc_size" = no &&
+                   test "$ac_cv_header_malloc_malloc_h" = yes
+then :
+
+                cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+#include <stdlib.h>
+#include <malloc/malloc.h>
+
+int
+main (void)
+{
+
+                    void *p = malloc(1);
+                    size_t size = malloc_size(p);
+                    free(p);
+                    return size == 0;
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_c_try_link "$LINENO"
+then :
+  erts_cv_sys_alloc_size=malloc_size
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.beam \
+    conftest$ac_exeext conftest.$ac_ext
+
+fi
+         ;;
+esac
+     ;;
+esac
+fi
+{ printf "%s\n" "$as_me:${as_lineno-$LINENO}: result: $erts_cv_sys_alloc_size" >&5
+printf "%s\n" "$erts_cv_sys_alloc_size" >&6; }
+    case $erts_cv_sys_alloc_size in #(
+  malloc_usable_size|_msize) :
+
+
+printf "%s\n" "#define ERTS_HAVE_SYS_ALLOC_SIZE 1" >>confdefs.h
+
+         ;; #(
+  malloc_size) :
+
+            printf "%s\n" "#define ERTS_HAVE_SYS_ALLOC_SIZE 1" >>confdefs.h
+
+
+printf "%s\n" "#define ERTS_SYS_ALLOC_SIZE_MALLOC_SIZE 1" >>confdefs.h
+
+         ;; #(
+  *) :
+     ;;
+esac
+
+fi
+
 ac_fn_c_check_member "$LINENO" "struct ifreq" "ifr_hwaddr" "ac_cv_member_struct_ifreq_ifr_hwaddr" "#ifdef __WIN32__
 	 #else
 	 #include <net/if.h>
