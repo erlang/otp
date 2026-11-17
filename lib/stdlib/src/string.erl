@@ -642,7 +642,7 @@ uppercase(CD) when is_list(CD) ->
     end;
 uppercase(<<CP1/utf8, Rest/binary>>=Orig) ->
     try uppercase_bin(CP1, Rest, false) of
-        List -> unicode:characters_to_binary(List)
+        List -> cs_to_utf8(List)
     catch unchanged -> Orig
     end;
 uppercase(<<>>) ->
@@ -673,7 +673,7 @@ lowercase(CD) when is_list(CD) ->
     end;
 lowercase(<<CP1/utf8, Rest/binary>>=Orig) ->
     try lowercase_bin(CP1, Rest, false) of
-        List -> unicode:characters_to_binary(List)
+        List -> cs_to_utf8(List)
     catch unchanged -> Orig
     end;
 lowercase(<<>>) ->
@@ -729,7 +729,7 @@ casefold(CD) when is_list(CD) ->
     end;
 casefold(<<CP1/utf8, Rest/binary>>=Orig) ->
     try casefold_bin(CP1, Rest, false) of
-        List -> unicode:characters_to_binary(List)
+        List -> cs_to_utf8(List)
     catch unchanged -> Orig
     end;
 casefold(<<>>) ->
@@ -1587,7 +1587,7 @@ take_l([Bin|Cont0], Seps, Acc) when is_binary(Bin) ->
     case bin_search_inv(Bin, Cont0, Seps) of
         {nomatch, Cont} ->
             Used = cp_prefix(Cont0, Cont),
-            take_l(Cont, Seps, [unicode:characters_to_binary([Bin|Used])|Acc]);
+            take_l(Cont, Seps, [cs_to_utf8([Bin|Used])|Acc]);
         [Bin1|_]=After when is_binary(Bin1) ->
             First = byte_size(Bin) - byte_size(Bin1),
             <<Keep:First/binary, _/binary>> = Bin,
@@ -1629,7 +1629,7 @@ take_lc([Bin|Cont0], Seps0, Acc) when is_binary(Bin) ->
     case bin_search(Bin, Cont0, Seps) of
         {nomatch, Cont} ->
             Used = cp_prefix(Cont0, Cont),
-            take_lc(Cont, Seps, [unicode:characters_to_binary([Bin|Used])|Acc]);
+            take_lc(Cont, Seps, [cs_to_utf8([Bin|Used])|Acc]);
         [Bin1|_]=After when is_binary(Bin1) ->
             First = byte_size(Bin) - byte_size(Bin1),
             <<Keep:First/binary, _/binary>> = Bin,
@@ -1682,7 +1682,7 @@ take_t([Bin|Cont0], N, {GCs,_,_}=Seps0) when is_binary(Bin) ->
         {nomatch,Cont} ->
             Used = cp_prefix(Cont0, Cont),
             {Head, Tail} = take_t(Cont, 0, Seps),
-            {stack(unicode:characters_to_binary([Bin|Used]), Head), Tail};
+            {stack(cs_to_utf8([Bin|Used]), Head), Tail};
         [SepStart|Cont1] ->
             case bin_search_inv(SepStart, Cont1, GCs) of
                 {nomatch, Cont} ->
@@ -1694,7 +1694,7 @@ take_t([Bin|Cont0], N, {GCs,_,_}=Seps0) when is_binary(Bin) ->
                             <<Keep:KeepSz/binary, End/binary>> = Bin,
                             {Keep, stack(stack(End,Used),Tail)};
                         false ->
-                            {stack(unicode:characters_to_binary([Bin|Used]),Head), Tail}
+                            {stack(cs_to_utf8([Bin|Used]),Head), Tail}
                     end;
                 [NonSep|Cont] when is_binary(NonSep) ->
                     KeepSz = byte_size(Bin) - byte_size(NonSep),
@@ -1752,7 +1752,7 @@ take_tc([Bin|Cont0], N, {GCs,_,_}=Seps0) when is_binary(Bin) ->
         {nomatch,Cont} ->
             Used = cp_prefix(Cont0, Cont),
             {Head, Tail} = take_tc(Cont, 0, Seps0),
-            {stack(unicode:characters_to_binary([Bin|Used]), Head), Tail};
+            {stack(cs_to_utf8([Bin|Used]), Head), Tail};
         [SepStart|Cont1] ->
             Seps = search_compile(Seps0),
             case bin_search(SepStart, Cont1, Seps) of
@@ -1765,7 +1765,7 @@ take_tc([Bin|Cont0], N, {GCs,_,_}=Seps0) when is_binary(Bin) ->
                             <<Keep:KeepSz/binary, End/binary>> = Bin,
                             {Keep, stack(stack(End,Used),Tail)};
                         false ->
-                            {stack(unicode:characters_to_binary([Bin|Used]),Head), Tail}
+                            {stack(cs_to_utf8([Bin|Used]),Head), Tail}
                     end;
                 [NonSep|Cont] when is_binary(NonSep) ->
                     KeepSz = byte_size(Bin) - byte_size(NonSep),
@@ -2176,7 +2176,8 @@ add_non_empty(Token, L) -> [Token|L].
 cp_prefix(Orig, Cont) ->
     case unicode_util:cp(Cont) of
         [] -> Orig;
-        [Cp|Rest] -> cp_prefix_1(Orig, Cp, Rest)
+        [Cp|Rest] -> cp_prefix_1(Orig, Cp, Rest);
+        {error, _} -> error({badarg, Cont})
     end.
 
 cp_prefix_1(Orig, Until, Cont) ->
@@ -2186,7 +2187,8 @@ cp_prefix_1(Orig, Until, Cont) ->
                 true -> [];
                 false-> [Until|cp_prefix_1(Rest, Until, Cont)]
             end;
-        [CP|Rest] -> [CP|cp_prefix_1(Rest, Until, Cont)]
+        [CP|Rest] -> [CP|cp_prefix_1(Rest, Until, Cont)];
+        {error, _} -> error({badarg, Orig})
     end.
 
 
@@ -2403,6 +2405,12 @@ add_rsorted(A, [H|BM]) ->
     [H|add_rsorted(A,BM)];
 add_rsorted(A, []) ->
     [A].
+
+cs_to_utf8(IoData) ->
+    case unicode:characters_to_binary(IoData) of
+        {_,_,Rest} -> error({badarg, Rest});
+        Bin -> Bin
+    end.
 
 %%---------------------------------------------------------------------------
 %% OLD lists API kept for backwards compability

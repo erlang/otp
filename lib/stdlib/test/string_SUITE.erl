@@ -465,6 +465,15 @@ take(_) ->
     %% ?assertError({badarg, _}, string:take(InvalidUTF8, [$.], false, trailing)),
     ?assertError({badarg, _}, string:take(InvalidUTF8, [$.], true, trailing)),
 
+    %% Invalid UTF-8 in a binary inside a list
+    [try string:take(Str0, Sep, Compl, Dir) of
+         Res -> error({unexpected, Str0, Res})
+     catch error:{badarg, _} -> ok
+     end ||
+        Str0 <- [[<<128>>], [<<$a,128>>,$z], [<<$a>>,<<128>>]],
+        {Sep, Compl} <- [{"z", true}, {"abc", false}],
+        Dir <- [leading, trailing]],
+
     ok.
 
 
@@ -691,6 +700,14 @@ cd_gc(_) ->
     [128021|<<>>] = string:next_grapheme(<<128021/utf8>>), %% Dog
     [[128021,8205]|<<>>] = string:next_grapheme(<<128021/utf8,8205/utf8>>), %% Dog + ZWJ
     [[128021,8205,129466]|<<>>] = string:next_grapheme(<<128021/utf8,8205/utf8,129466/utf8>>), %% Dog + ZWJ + Service vest == Service dog
+
+    %% Extended_Pictographic followed by invalid UTF-8
+    [169|<<180>>] = string:next_grapheme(<<169/utf8,180>>), %% Copyright sign
+    [128021|<<255>>] = string:next_grapheme(<<128021/utf8,255>>), %% Dog
+    [[128021,8205]|<<255>>] = string:next_grapheme(<<128021/utf8,8205/utf8,255>>), %% Dog + ZWJ
+    [[128021,65039]|<<255>>] = string:next_grapheme(<<128021/utf8,65039/utf8,255>>), %% Dog + VS16
+    [[128021,8205,129466]|<<255>>] = string:next_grapheme(<<128021/utf8,8205/utf8,129466/utf8,255>>),
+    [169|[<<255>>,$a]] = string:next_grapheme([169,<<255>>,$a]),
 
     ok.
 
