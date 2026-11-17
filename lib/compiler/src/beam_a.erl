@@ -24,6 +24,7 @@
 %%          (Mandatory.)
 
 -module(beam_a).
+-typing([eqwalizer]).
 -moduledoc false.
 
 -export([module/2]).

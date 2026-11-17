@@ -21,6 +21,7 @@
 %%
 
 -module(beam_ssa_recv).
+-typing([eqwalizer]).
 -moduledoc false.
 -export([format_error/1, module/2]).
 

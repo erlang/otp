@@ -23,6 +23,7 @@
 
 
 -module(sys_core_bsm).
+-typing([eqwalizer]).
 -moduledoc false.
 -export([module/2]).
 

@@ -22,6 +22,7 @@
 %% Purpose: Instrument abstract code for coverage.
 
 -module(sys_coverage).
+-typing([eqwalizer]).
 -moduledoc false.
 
 -compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}}]).

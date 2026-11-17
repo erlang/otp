@@ -22,6 +22,7 @@
 %% Purpose : Inline high order lists functions from the lists module.
 
 -module(sys_core_fold_lists).
+-typing([eqwalizer]).
 -moduledoc false.
 
 -export([call/4]).

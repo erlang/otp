@@ -28,6 +28,7 @@
 %%
 %%
 -module(beam_bounds).
+-typing([eqwalizer]).
 -moduledoc false.
 -export([bounds/2, bounds/3, relop/3, infer_relop_types/3,
          is_masking_redundant/2]).
