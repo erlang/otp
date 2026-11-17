@@ -44,7 +44,19 @@ find_rootdir() {
 
 if [ -z "$ERL_ROOTDIR" ]
 then
-    ROOTDIR=$(find_rootdir "$0" "%FINAL_ROOTDIR%")
+    case "$0" in
+        /*) CANDIDATE="${0%/*/*}" ;;
+        *)  CANDIDATE="" ;;
+    esac
+    if [ -n "$CANDIDATE" ] && [ -x "$CANDIDATE/erts-%VSN%/bin/erlexec" ]
+    then
+        ROOTDIR="$CANDIDATE"
+    elif [ -x "%FINAL_ROOTDIR%/erts-%VSN%/bin/erlexec" ]
+    then
+        ROOTDIR="%FINAL_ROOTDIR%"
+    else
+        ROOTDIR=$(find_rootdir "$0" "%FINAL_ROOTDIR%")
+    fi
 else
     ROOTDIR="$ERL_ROOTDIR"
 fi
