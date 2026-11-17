@@ -29,6 +29,8 @@
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2, 
 	 init_per_testcase/2, end_per_testcase/2,
+         packet_change_pending_recv/1, packet_endian/1,
+         packet_size_overflow/1,
 	 active_echo/1, passive_echo/1, active_once_echo/1,
 	 slow_active_echo/1, slow_passive_echo/1,
 	 limit_active_echo/1, limit_passive_echo/1,
@@ -36,6 +38,30 @@
 
 -define(TPKT_VRSN, 3).
 -define(LINE_LENGTH, 1023). % (default value of gen_tcp option 'recbuf') - 1
+
+-define(header(Width, Endianness),
+        case (Endianness) of
+            big -> (Width);
+            little -> {(Width), little};
+            native ->
+                case erlang:system_info(endian) of
+                    big -> (Width);
+                    little -> {(Width), little}
+                end
+        end).
+
+-define(header(Width, Endianness, Outbound, Inbound),
+        case (Endianness) of
+            big ->
+                {<<(byte_size(Outbound)):(Width)/unit:8-big, (Outbound)/binary>>,
+                 <<(byte_size(Inbound)):(Width)/unit:8-big, (Inbound)/binary>>};
+            little ->
+                {<<(byte_size(Outbound)):(Width)/unit:8-little, (Outbound)/binary>>,
+                 <<(byte_size(Inbound)):(Width)/unit:8-little, (Inbound)/binary>>};
+            native ->
+                {<<(byte_size(Outbound)):(Width)/unit:8-native, (Outbound)/binary>>,
+                 <<(byte_size(Inbound)):(Width)/unit:8-native, (Inbound)/binary>>}
+        end).
 
 suite() ->
     [{ct_hooks, [ts_install_cth]},
@@ -56,9 +82,14 @@ all() ->
     end.
 
 groups() ->
-    [{inet_backend_default, [{group, read_ahead}, {group, no_read_ahead}]},
-     {inet_backend_socket,  [{group, read_ahead}, {group, no_read_ahead}]},
-     {inet_backend_inet,    [{group, read_ahead}, {group, no_read_ahead}]},
+    [{inet_backend_default, [packet_change_pending_recv, packet_endian,
+                             packet_size_overflow,
+                             {group, read_ahead}, {group, no_read_ahead}]},
+     {inet_backend_socket,  [packet_endian, packet_size_overflow,
+                             {group, read_ahead}, {group, no_read_ahead}]},
+     {inet_backend_inet,    [packet_change_pending_recv, packet_endian,
+                             packet_size_overflow,
+                             {group, read_ahead}, {group, no_read_ahead}]},
      %%
      {read_ahead,       [{group, no_delay_send}, {group, delay_send}]},
      {no_read_ahead,    [{group, no_delay_send}, {group, delay_send}]},
@@ -237,6 +268,163 @@ large_limit_passive_echo(Config) when is_list(Config) ->
       Config, [{packet_size, 10},{active, false}], fun passive_echo/4,
       [{packet_size, (1 bsl 32) -1}, {echo, fun echo_server/0}]).
 
+%% Test changing packet type while a passive receive is pending in the legacy
+%% inet driver.
+packet_change_pending_recv(Config) when is_list(Config) ->
+    {ok, Listen} =
+        kernel_test_lib:listen(
+          Config, 0, [binary, {active, false}, {packet, 2}]),
+    {ok, {_, Port}} = inet:sockname(Listen),
+    {ok, Socket} =
+        kernel_test_lib:connect(
+          Config, localhost, Port,
+          [binary, {active, false}, {packet, 2}]),
+    {ok, Peer} = gen_tcp:accept(Listen),
+    try
+        case is_port(Socket) of
+            true ->
+                %% <<3,"ABC">> is incomplete with a two-byte header
+                %% (16#0341), but complete with a one-byte header. Changing
+                %% the packet type must reparse the buffer and complete the
+                %% already-pending passive receive.
+                ok = gen_tcp:unrecv(Socket, <<3, $A, $B, $C>>),
+                {ok, Ref1} = prim_inet:async_recv(Socket, 0, -1),
+                ok = inet:setopts(Socket, [{packet, 1}]),
+                {ok, <<$A, $B, $C>>} =
+                    receive
+                        {inet_async, Socket, Ref1, Result1} -> Result1
+                    after 5000 ->
+                            ct:fail(packet_change_pending_recv_timeout)
+                    end,
+
+                %% Re-entering through tcp_recv() must also retain its normal
+                %% error path when the same bytes are invalid in the new mode.
+                ok = inet:setopts(
+                       Socket, [{packet, 2}, {packet_size, 3}]),
+                ok = gen_tcp:unrecv(Socket, <<0, 3, 255, 255>>),
+                {ok, Ref2} = prim_inet:async_recv(Socket, 0, -1),
+                ok = inet:setopts(Socket, [{packet, 4}]),
+                {error, emsgsize} =
+                    receive
+                        {inet_async, Socket, Ref2, Result2} -> Result2
+                    after 5000 ->
+                            ct:fail(packet_change_pending_recv_error_timeout)
+                    end;
+            false ->
+                {skip, "Legacy inet backend only"}
+        end
+    after
+        _ = gen_tcp:close(Peer),
+        _ = gen_tcp:close(Socket),
+        _ = gen_tcp:close(Listen)
+    end.
+
+%% Test endian-aware packet framing in both directions against a raw peer.
+packet_endian(Config) when is_list(Config) ->
+    {ok, Listen} =
+        kernel_test_lib:listen(
+          Config, 0, [binary, {active, false}, {packet, {3, native}}]),
+    {ok, {_, Port}} = inet:sockname(Listen),
+    {ok, Socket} =
+        kernel_test_lib:connect(
+          Config, localhost, Port,
+          [binary, {active, false}, {packet, {3, native}}]),
+    {ok, Peer} = gen_tcp:accept(Listen),
+    try
+        NativePacket3 = ?header(3, native),
+        {ok, [{packet, NativePacket3}]} = inet:getopts(Socket, [packet]),
+        {ok, [{packet, NativePacket3}]} = inet:getopts(Peer, [packet]),
+        ok = inet:setopts(Peer, [{packet, raw}]),
+        lists:foreach(
+          fun({Packet, Width}) ->
+                  packet_endian(Socket, Peer, Packet, Width)
+          end,
+          [{Packet, Width} || Width <- [2, 3, 4],
+                              Packet <- [Width, {Width, big},
+                                         {Width, little}, {Width, native}]]),
+        lists:foreach(
+          fun(BadPacket) ->
+                  {error, einval} =
+                      inet:setopts(Socket, [{packet, BadPacket}])
+          end,
+          [{1, big}, {5, big}, {2, middle}, {2},
+           {2, little, extra}, {2.0, big}]),
+        ok
+    after
+        _ = gen_tcp:close(Peer),
+        _ = gen_tcp:close(Socket),
+        _ = gen_tcp:close(Listen)
+    end.
+
+packet_endian(Socket, Peer, Packet, Width) ->
+    ok = inet:setopts(Socket, [{packet, Packet}]),
+    Endianness =
+        case Packet of
+            Width -> big;
+            {Width, Order} -> Order
+        end,
+    Expected = ?header(Width, Endianness),
+    {ok, [{packet, Expected}]} = inet:getopts(Socket, [packet]),
+
+    {OutboundSize, InboundSize} =
+        case Width of
+            3 -> {16#010203, 16#010204};
+            _ -> {16#0102, 16#0201}
+        end,
+    Outbound = binary:copy(<<$O>>, OutboundSize),
+    Inbound = binary:copy(<<$I>>, InboundSize),
+    {OutboundWire, InboundWire} =
+        ?header(Width, Endianness, Outbound, Inbound),
+    ok = gen_tcp:send(Socket, Outbound),
+    case Packet of
+        2 ->
+            {error, emsgsize} =
+                gen_tcp:send(Socket, binary:copy(<<0>>, 16#10000));
+        3 ->
+            {error, emsgsize} =
+                gen_tcp:send(Socket, binary:copy(<<0>>, 16#1000000));
+        4 ->
+            {error, emsgsize} =
+                gen_tcp:send(Socket, binary:copy(<<0>>, 16#100000000));
+        _ ->
+            ok
+    end,
+    {ok, OutboundWire} =
+        gen_tcp:recv(Peer, Width + byte_size(Outbound), 5000),
+
+    ok = gen_tcp:send(Peer, InboundWire),
+    {ok, Inbound} = gen_tcp:recv(Socket, 0, 5000),
+    case Packet of
+        {2, little} ->
+            {error, emsgsize} =
+                gen_tcp:send(Socket, binary:copy(<<0>>, 16#10000));
+        _ ->
+            ok
+    end,
+    ok.
+
+%% A large packet_size must not allow the total frame size to wrap.
+packet_size_overflow(Config) when is_list(Config) ->
+    {ok, Listen} =
+        kernel_test_lib:listen(Config, 0, [binary, {active, false}]),
+    {ok, {_, Port}} = inet:sockname(Listen),
+    {ok, Socket} =
+        kernel_test_lib:connect(
+          Config, localhost, Port, [binary, {active, false}]),
+    {ok, Peer} = gen_tcp:accept(Listen),
+    try
+        ok = inet:setopts(
+            Socket, [{packet, {4, little}},
+                {packet_size, 16#ffffffff}]),
+        ok = gen_tcp:send(Peer, <<16#fffffffc:32/little>>),
+        {error, emsgsize} = gen_tcp:recv(Socket, 0, 5000),
+        ok
+    after
+        _ = gen_tcp:close(Peer),
+        _ = gen_tcp:close(Socket),
+        _ = gen_tcp:close(Listen)
+    end.
+
 echo_test(Config, SockOpts_0, EchoFun, EchoOpts_0) ->
     SockOpts = SockOpts_0 ++ sockopts(Config),
     ct:log("SockOpts = ~p.", [SockOpts]),
@@ -246,6 +434,7 @@ echo_test(Config, SockOpts_0, EchoFun, EchoOpts_0) ->
 
     echo_packet(Config, [{packet, 1}|SockOpts], EchoFun, EchoOpts),
     echo_packet(Config, [{packet, 2}|SockOpts], EchoFun, EchoOpts),
+    echo_packet(Config, [{packet, 3}|SockOpts], EchoFun, EchoOpts),
     echo_packet(Config, [{packet, 4}|SockOpts], EchoFun, EchoOpts),
     echo_packet(Config, [{packet, sunrm}|SockOpts], EchoFun, EchoOpts),
     echo_packet(Config, [{packet, cdr}|SockOpts], EchoFun,

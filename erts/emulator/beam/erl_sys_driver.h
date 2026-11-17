@@ -37,6 +37,11 @@ typedef SWord ErlDrvEvent; /* An event to be selected on. */
 
 typedef struct _SysDriverOpts SysDriverOpts;
 
+typedef enum {
+    ERTS_SYS_DRIVER_PACKET_HEADER_ENDIAN_BIG = 0,
+    ERTS_SYS_DRIVER_PACKET_HEADER_ENDIAN_LITTLE
+} ErtsSysDriverPacketHeaderEndianness;
+
 #include "erl_driver.h"
 
 /*
@@ -48,6 +53,7 @@ struct _SysDriverOpts {
     Uint ifd;			/* Input file descriptor (fd driver). */
     Uint ofd;			/* Outputfile descriptor (fd driver). */
     int packet_bytes;		/* Number of bytes in packet header. */
+    ErtsSysDriverPacketHeaderEndianness packet_header_endianness;
     int read_write;		/* Read and write bits. */
     int use_stdio;		/* Use standard I/O: TRUE or FALSE. */
     int redir_stderr;           /* Redirect stderr to stdout: TRUE/FALSE. */
@@ -69,7 +75,3 @@ struct _SysDriverOpts {
 };
 
 #endif
-
-
-
-

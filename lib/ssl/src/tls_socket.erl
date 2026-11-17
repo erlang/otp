@@ -62,7 +62,7 @@
          format_status/1,
          code_change/3]).
 
--export([update_active_n/2]).
+-export([update_active_n/2, normalize_packet/1]).
 
 -record(state, {emulated_opts,
                 listen_monitor,
@@ -340,9 +340,18 @@ session_id_tracker(ListenSocket, _) ->
 get_emulated_opts(TrackerPid) ->
     call(TrackerPid, get_emulated_opts).
 set_emulated_opts(TrackerPid, InetValues) ->
+    validate_listener_packet_options(InetValues),
     call(TrackerPid, {set_emulated_opts, InetValues}).
 accept_options(TrackerPid) ->
     call(TrackerPid, accept_options).
+
+validate_listener_packet_options([{packet, Value} | Rest]) ->
+    validate_inet_option(packet, Value),
+    validate_listener_packet_options(Rest);
+validate_listener_packet_options([_ | Rest]) ->
+    validate_listener_packet_options(Rest);
+validate_listener_packet_options([]) ->
+    ok.
 
 %%====================================================================
 %% ssl_listen_tracker_sup API
@@ -501,6 +510,9 @@ do_set_emulated_opts([], Opts) ->
 do_set_emulated_opts([{active, N0} | Rest], Opts) when is_integer(N0) ->
     N = update_active_n(N0, proplists:get_value(active, Opts, false)),
     do_set_emulated_opts(Rest, [{active, N} | proplists:delete(active, Opts)]);
+do_set_emulated_opts([{packet, Packet} | Rest], Opts) ->
+    do_set_emulated_opts(Rest, [{packet, normalize_packet(Packet)} |
+                              proplists:delete(packet, Opts)]);
 do_set_emulated_opts([{Name,_} = Opt | Rest], Opts) ->
     do_set_emulated_opts(Rest, [Opt | proplists:delete(Name, Opts)]).
 
@@ -538,7 +550,7 @@ emulated_socket_options(InetValues, #socket_options{
        mode   = proplists:get_value(mode, InetValues, Mode),
        header = proplists:get_value(header, InetValues, Header),
        active = proplists:get_value(active, InetValues, Active),
-       packet = proplists:get_value(packet, InetValues, Packet),
+       packet = normalize_packet(proplists:get_value(packet, InetValues, Packet)),
        packet_size = proplists:get_value(packet_size, InetValues, Size)
       }.
 
@@ -551,9 +563,10 @@ emulated_options([{header, Value} = Opt | Opts], Inet, Emulated) ->
 emulated_options([{active, Value} = Opt |Opts], Inet, Emulated) ->
     validate_inet_option(active, Value),
     emulated_options(Opts, Inet, [Opt | proplists:delete(active, Emulated)]);
-emulated_options([{packet, Value} = Opt |Opts], Inet, Emulated) ->
+emulated_options([{packet, Value} |Opts], Inet, Emulated) ->
     validate_inet_option(packet, Value),
-    emulated_options(Opts, Inet, [Opt | proplists:delete(packet, Emulated)]);
+    emulated_options(Opts, Inet, [{packet, normalize_packet(Value)} |
+                                proplists:delete(packet, Emulated)]);
 emulated_options([{packet_size, Value} = Opt | Opts], Inet, Emulated) ->
     validate_inet_option(packet_size, Value),
     emulated_options(Opts, Inet, [Opt | proplists:delete(packet_size, Emulated)]);
@@ -578,11 +591,28 @@ emulated_options([Opt|Opts], Inet, Emulated) ->
 emulated_options([], Inet,Emulated) ->
     {lists:reverse(Inet), Emulated}.
 
+normalize_packet({N, big}) ->
+    N;
+normalize_packet({N, native}) ->
+    case erlang:system_info(endian) of
+        big -> N;
+        little -> {N, little}
+    end;
+normalize_packet(Packet) ->
+    Packet.
+
 validate_inet_option(mode, Value)
   when Value =/= list, Value =/= binary ->
     throw({error, {options, {mode,Value}}});
+validate_inet_option(packet, {N, Endian})
+  when (N =:= 2 orelse N =:= 3 orelse N =:= 4),
+       (Endian =:= big orelse Endian =:= little orelse Endian =:= native) ->
+    ok;
 validate_inet_option(packet, Value)
-  when not (is_atom(Value) orelse is_integer(Value)) ->
+  when is_integer(Value), Value >= 0, Value =< 4 ->
+    ok;
+validate_inet_option(packet, Value)
+  when not is_atom(Value) ->
     throw({error, {options, {packet,Value}}});
 validate_inet_option(packet_size, Value)
   when not is_integer(Value) ->
