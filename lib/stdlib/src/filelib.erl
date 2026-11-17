@@ -233,8 +233,8 @@ For more information about raw filenames, see the `m:file` module.
       RegExp :: string(),
       Recursive :: boolean(),
       Fun :: fun((F :: file:filename() | file:filename_all(), AccIn) -> AccOut),
-      AccIn :: term(),
-      AccOut :: term().
+      AccIn :: Acc,
+      AccOut :: Acc.
 fold_files(Dir, RegExp, Recursive, Fun, Acc) ->
     do_fold_files(Dir, RegExp, Recursive, Fun, Acc, file).
 

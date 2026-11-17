@@ -2331,10 +2331,10 @@ a depth-first, left-to-right fashion.
 -spec fold_anno(Fun, Acc0, Abstr) -> Acc1 when
       Fun :: fun((Anno, AccIn) -> AccOut),
       Anno :: erl_anno:anno(),
-      Acc0 :: term(),
-      Acc1 :: term(),
-      AccIn :: term(),
-      AccOut :: term(),
+      Acc0 :: Acc,
+      Acc1 :: Acc,
+      AccIn :: Acc,
+      AccOut :: Acc,
       Abstr :: erl_parse_tree() | form_info().
 
 fold_anno(F0, Acc0, Abstr) ->
@@ -2357,10 +2357,10 @@ The `erl_parse` tree is traversed in a depth-first, left-to-right fashion.
       Fun :: fun((Anno, AccIn) -> {NewAnno, AccOut}),
       Anno :: erl_anno:anno(),
       NewAnno :: erl_anno:anno(),
-      Acc0 :: term(),
-      Acc1 :: term(),
-      AccIn :: term(),
-      AccOut :: term(),
+      Acc0 :: Acc,
+      Acc1 :: Acc,
+      AccIn :: Acc,
+      AccOut :: Acc,
       Abstr :: erl_parse_tree() | form_info(),
       NewAbstr :: erl_parse_tree() | form_info().
 
