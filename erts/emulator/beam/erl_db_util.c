@@ -692,6 +692,30 @@ static DMCGuardBif guard_tab[] =
 	DBIF_ALL
     },
     {
+        am_integer_set_bits,
+        &integer_set_bits_1,
+        1,
+        DBIF_ALL
+    },
+    {
+        am_integer_signed_width,
+        &integer_signed_width_1,
+        1,
+        DBIF_ALL
+    },
+    {
+        am_integer_trailing_zeroes,
+        &integer_trailing_zeroes_1,
+        1,
+        DBIF_ALL
+    },
+    {
+        am_integer_unsigned_width,
+        &integer_unsigned_width_1,
+        1,
+        DBIF_ALL
+    },
+    {
 	am_length,
 	&db_length_1,
 	1,
