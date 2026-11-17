@@ -36,8 +36,9 @@ is published, unless otherwise specifically stated. Hence using older
 releases may need more configuration to achieve the same result.
 
 Erlang's TLS implementation provided by the `ssl` application strives to
-have secure defaults. That said, we will avoid changing defaults in
-non-major releases.
+have secure defaults. That said, we avoid changing defaults in
+non-major releases unless needed to fix a security issue. Such
+changes are described in the release notes.
 
 For embedded systems with constrained bandwidth, cipher suites using
 Advanced Encryption Standard (AES) with counter cipher block chaining
@@ -69,11 +70,20 @@ due to the more complex composition of algorithms in cipher suites
 pre TLS-1.3. In this case use `ssl:filter_cipher_suites/2`
 to remove suites that are not supported by linked `OpenSSL cryptolib`.
 
+> #### Warning {: .warning }
+TLS-1.3 and TLS-1.2 do not share any cipher suites. When both versions
+are supported but the `ciphers` option lists suites for only one of
+them, the other version has no cipher suites. The `ssl` application
+does not fall back to the version that has suites: if the peers select
+the version without suites, the handshake fails. Supply cipher suites
+for every supported version, or omit the `ciphers` option to use the
+defaults for all of them.
+
 > #### Note {: .info }
 The TLS protocol is implemented in Erlang, and therefore only the cryptographic
 functions come from the `OpenSSL cryptolib`. This reduces the error
 surface by excluding buffer overflows and other pointer related errors
-that does not exist in Erlang programs.
+that do not exist in Erlang programs.
 
 ### Algorithms selection
 The TLS protocol typically specifies that the client's algorithm
@@ -86,7 +96,7 @@ does the same for ECC curve selection.
 ### Signature Algorithms
 The [`signature_algs`](`t:ssl:signature_algs/0`) option configures
 which signature algorithms are acceptable for TLS protocol messages.
-The [`signature_algs_cert`](`t:ssl:signature_algs/0`), option
+The [`signature_algs_cert`](`t:ssl:signature_algs/0`) option
 separately configures acceptable algorithms for certificate chain
 signatures.
 
@@ -102,7 +112,7 @@ additional legacy SHA-1 algorithms — see note below).
 Currently using the default
 [`signature_algs`](`t:ssl:signature_algs/0`) will add
 [`signature_algs_cert`](`t:ssl:signature_algs/0`) that allows
-signature algorithms using SHA-1 as pseudo random function for
+signature algorithms using SHA-1 as hash function for
 certificate signatures. This is not allowed by default for protocol
 signatures. It is expected to be removed after 2030, when such
 certificates should have been phased out.
@@ -122,11 +132,13 @@ PQC algorithms generally require more computation and network
 bandwidth than classical algorithms. Key sizes, signatures, and
 ciphertexts are larger.
 
-For key exchange, several ML-KEM hybrid groups are supported. By
-default, only x25519mlkem768 is offered — a hybrid that combines
-classical X25519 with ML-KEM-768 to balance current security with
-future quantum resistance, as the newer algorithms are less
-battle-tested.
+For key exchange, several ML-KEM hybrid groups are supported. Of the
+ML-KEM groups only x25519mlkem768 is part of the default
+[`supported_groups`](`t:ssl:common_option_tls13/0`), where it is the
+most preferred group, ahead of the classical groups. It is a hybrid
+that combines classical X25519 with ML-KEM-768 to balance current
+security with future quantum resistance, as the newer algorithms are
+less battle-tested.
 
 For authentication, the signature algorithms ML-DSA and SLH-DSA are
 supported. ML-DSA is preferred due to faster signing and smaller
@@ -177,15 +189,16 @@ By default, the server mitigates renegotiation abuse by enforcing a
 ### TLS 1.2 Session Resumption and Client Certificates
 
 > #### Warning {: .warning }
-> TLS 1.2 session resumption (session ID and RFC 5077 tickets) does
-> not bind the master secret to the handshake transcript. When client
-> certificate authentication is required, this leaves the connection
-> vulnerable to the Triple Handshake attack (see RFC 7627). This
-> concern does not apply to TLS 1.3, which binds all session keys to
-> the full transcript.
+> TLS 1.2 session resumption does not bind the master secret to the
+> handshake transcript. When client certificate authentication is
+> required, this leaves the connection vulnerable to the Triple
+> Handshake attack (see RFC 7627). This concern does not apply to
+> TLS 1.3, which binds all session keys to the full transcript. The
+> `ssl` application supports session ID based resumption for TLS 1.2;
+> session tickets are only supported for TLS 1.3.
 
-If your TLS 1.2 server uses {verify, verify_peer} to require client
-certificates make sure session resumption is disabled:
+If your TLS 1.2 server uses `{verify, verify_peer}` to require client
+certificates, make sure session resumption is disabled:
 
 ```erlang
 {reuse_sessions, false}
@@ -194,14 +207,15 @@ This eliminates the Triple Handshake attack surface at the cost of a
 full handshake for every connection. For deployments that need both
 mutual authentication and session resumption over TLS 1.2, upgrading
 to TLS 1.3 is the recommended solution — TLS 1.3 session tickets are
-inherently safe.
+not affected by this attack, as they are bound to the handshake
+transcript.
 
 Note that this concern only applies to the server role. A client
 setting `verify_peer` to verify the server is not affected.
 
-The default value for `reuse_sessions` in above described configuration
-is false since OTP 29.0.6
-
+In the configuration described above, the default value of
+`reuse_sessions` is `false` since OTP 29.0.6, OTP 28.5.0.6 and
+OTP 27.3.4.17.
 
 ### Key Exchange Groups
 TLS-1.3 decouples key exchange algorithms from cipher suites. The key
@@ -213,9 +227,36 @@ in addition to the cipher suites the options
 [`dhfile`](`t:ssl:server_option_pre_tls13/0`), are available for
 configuring the key exchange.
 
-TLS 1.3 removes static RSA, supporting only ephemeral Diffie-Hellman,
-which provides mandatory Perfect Forward Secrecy (PFS),
-so does the ssl application's TLS-1.2 default.
+TLS 1.3 removes static RSA and supports only ephemeral key exchange,
+which provides mandatory Perfect Forward Secrecy (PFS).
+
+In TLS-1.2 the defaults of the ssl application prefer ephemeral key
+exchange; the ECDHE cipher suites come first in the default order. The
+default list does however still contain static ECDH cipher suites
+(`ECDH_ECDSA` and `ECDH_RSA`), which do not provide PFS, and they are
+ordered before the DHE cipher suites. These static ECDH suites are
+deprecated and are planned to be removed from the defaults in an
+upcoming major release. Until then, to require PFS with TLS-1.2, remove
+them from the [`ciphers`](`t:ssl:common_option/0`) option. Keep the
+TLS-1.3 suites in the list as well, so that a server supporting both
+versions can still negotiate TLS-1.3 (see the warning above on
+supplying suites for every supported version):
+
+```erlang
+Suites = ssl:cipher_suites(exclusive, 'tlsv1.3') ++
+         ssl:filter_cipher_suites(
+             ssl:cipher_suites(default, 'tlsv1.2'),
+             [{key_exchange, fun(ecdh_ecdsa) -> false;
+                                (ecdh_rsa)   -> false;
+                                (_)          -> true
+                             end}]).
+```
+
+Then use the result as the value of the `ciphers` option, that is,
+`{ciphers, Suites}`. TLS-1.3 already mandates forward secrecy, so its
+suites are kept unchanged; for TLS-1.2 only the ephemeral-key-exchange
+suites remain. A default client then negotiates TLS-1.3, and a
+TLS-1.2-only client negotiates an ECDHE suite.
 
 ### Pre-Shared Keys
 > #### Warning {: .warning }
@@ -231,7 +272,7 @@ exists.
 ### Early Data
 Early data (0-RTT) in TLS-1.3 is not forward secret and is
 vulnerable to replay attacks. The server option
-[`early_data`](`t:ssl:server_option/0`) is disabled by default.
+[`early_data`](`t:ssl:server_option_tls13/0`) is disabled by default.
 
 > #### Warning {: .warning }
 Only enable early data if your application can safely handle
@@ -261,7 +302,7 @@ standard chain verification.
 However, the [`verify_fun`](`t:ssl:common_option_cert/0`) can also be
 used to accept certain errors. Doing so is at your own risk and will
 weaken the security properties of your application. Legacy client
-[`verify`](`t:ssl:client_option_cert/0`) option set to the value
+[`verify`](`t:ssl:client_option_legacy/0`) option set to the value
 `verify_none` skips all certificate verification errors using
 a special [`verify_fun`](`t:ssl:common_option_cert/0`)
 and should only be used for testing and debugging purposes.
