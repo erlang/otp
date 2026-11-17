@@ -24,7 +24,8 @@
 
 -include_lib("common_test/include/ct.hrl").
 
--export([load_nif_lib/2, load_nif_lib/3, start/0,
+-export([load_nif_lib/2, load_nif_lib/3, load_nif_lib_from_mem/3,
+         load_nif_mem_path/2, load_nif_mem_anon/1, start/0,
          lib_version/0, lib_version_check/0, trace_me/1,
 	 get_priv_data_ptr/0, make_new_resource/2, get_resource/2,
          monitor_process/3]).
@@ -71,6 +72,23 @@ load_nif_lib(Config, Ver, LoadInfo) ->
     API = proplists:get_value(nif_api_version, Config, ""),
     R = erlang:load_nif(filename:join(Path,libname(Ver,API)), LoadInfo),
     check_api_version(R, API).
+
+%% Load the NIF library from an in-memory binary image.
+%% SoBin must be the contents of the .so file.
+load_nif_lib_from_mem(Config, Ver, SoArg) ->
+    Path = proplists:get_value(data_dir, Config),
+    API = proplists:get_value(nif_api_version, Config, ""),
+    LibName = filename:join(Path, libname(Ver, API)),
+    R = erlang:load_nif(#{memory => SoArg, label => LibName}, []),
+    check_api_version(R, API).
+
+%% Load from memory with an explicit label (string or binary).
+load_nif_mem_path(Path, SoBin) ->
+    erlang:load_nif(#{memory => SoBin, label => Path}, []).
+
+%% Load from memory with no label (auto-generated shm name).
+load_nif_mem_anon(SoBin) ->
+    erlang:load_nif(#{memory => SoBin}, []).
 
 libname(no_init,API) -> libname(3,API);
 libname(Ver,API) when is_integer(Ver) ->
