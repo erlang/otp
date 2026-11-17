@@ -2328,7 +2328,8 @@ erts_mmap_init(ErtsMemMapper* mm, ErtsMMapInit *init)
 		     init->scs/1024/1024);
 	end = start + sz;
 #ifdef HAVE_LINUX_THP
-	if (init->lp) {
+        /* sys_large_page_size is 0 when no safe THP policy was established. */
+        if (init->lp && sys_large_page_size) {
 	    /*
 	     * Enable the Transparent Huge Pages for the virtual
 	     * memory reservation.
