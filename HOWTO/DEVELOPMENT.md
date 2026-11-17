@@ -404,6 +404,32 @@ From the top level of Erlang/OTP you can run:
 This will check that the documentation is correct, that there are no
 dialyzer errors and many more things.
 
+#### Type checking with eqWAlizer
+
+Modules can opt in to type checking with
+[eqWAlizer](https://github.com/WhatsApp/eqwalizer) by adding the
+following attribute:
+
+```erlang
+-typing([eqwalizer]).
+```
+
+Github Actions type checks all opted-in modules. To run the same check
+locally, install the
+[Erlang Language Platform](https://github.com/WhatsApp/erlang-language-platform)
+(ELP) and run, from the top level of a built Erlang/OTP:
+
+```bash
+elp eqwalize-all
+```
+
+Use `elp eqwalize <module>` to type check a single module, for example
+before opting it in.
+
+If an opted-in module fails for a reason outside your change, for example
+new syntax that ELP does not support yet, add it to `ignore_modules` in the
+`[eqwalizer]` section of `.elp.toml` and mention it in the pull request.
+
 ## Running test cases
 
 There is a detailed description about how to run tests in [TESTING.md](TESTING.md).
@@ -499,6 +525,7 @@ Github Actions does too many checks to list them all but the primary ones are:
 * Cross build to Debian Linux on powerpc and iOS
 * Build and validate documentation
 * Run dialyzer on all of Erlang/OTP
+* Type check modules that opt in to [eqWAlizer](#type-checking-with-eqwalizer)
 * Run the tests of the changed application
 
 Each run generates a bunch of artifacts. The most important ones are:

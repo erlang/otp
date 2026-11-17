@@ -38,3 +38,8 @@ apps = [
     {"name" = "observer", "dir" = "lib/observer", "src_dirs" = ["src"], "extra_src_dirs" = ["test"], "include_dirs" = ["include", "../et/include"]},
     ]
 deps = []
+
+[eqwalizer]
+# eqWAlizer is opt-in: only modules with a `-typing([eqwalizer]).`
+# attribute are type checked, in editors and by `elp eqwalize-all` on CI.
+enable_all = false
