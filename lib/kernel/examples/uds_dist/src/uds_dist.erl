@@ -21,7 +21,7 @@
 %% Handles the connection setup phase with other Erlang nodes.
 
 -export([childspecs/0, listen/1, accept/1, accept_connection/5,
-	 setup/4, close/1, select/1, is_node_name/1]).
+	 setup/4, close/1, select/1]).
 
 %% internal exports
 
@@ -290,14 +290,6 @@ splitnode(Node, LongOrShortNames) ->
 split_node([Chr|T], Chr, Ack) -> [lists:reverse(Ack)|split_node(T, Chr, [])];
 split_node([H|T], Chr, Ack)   -> split_node(T, Chr, [H|Ack]);
 split_node([], _, Ack)        -> [lists:reverse(Ack)].
-
-is_node_name(Node) when atom(Node) ->
-    case split_node(atom_to_list(Node), $@, []) of
-	[_, Host] -> true;
-	_ -> false
-    end;
-is_node_name(Node) ->
-    false.
 
 tick(Sock) ->
     uds:tick(Sock).
