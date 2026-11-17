@@ -194,7 +194,7 @@ prepare_templates.$(EMULATOR): prepare_templates.erl
 	$(V_ERLC) $(DETERMINISM_FLAG) prepare_templates.erl
 
 asn1rtt_%.$(EMULATOR): asn1rtt_%.erl
-	$(V_ERLC) +debug_info $(DETERMINISM_FLAG) $<
+	$(V_ERLC) +debug_info -Werror $(DETERMINISM_FLAG) $<
 
 $(EVAL_CT_ERL_TEMPLATES): prepare_templates.$(EMULATOR) \
 			    $(EBIN)/asn1ct_rtt.$(EMULATOR) \

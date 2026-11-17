@@ -563,19 +563,20 @@ per_dec_unconstrained(Aligned) ->
 
 per_dec_constrained(Lb, Ub, false) ->
     Range = Ub - Lb + 1,
-    Get = {get_bits,uper_num_bits(Range),[1]},
+    Get = {get_bits,num_bits(Range),[1]},
     add_lb(Lb, Get);
 per_dec_constrained(Lb, Ub, true) ->
     Range = Ub - Lb + 1,
     Get = if
 	      Range =< 255 ->
-		  {get_bits,per_num_bits(Range),[1,unsigned]};
+		  {get_bits,num_bits(Range),[1,unsigned]};
 	      Range == 256 ->
 		  {get_bits,1,[8,unsigned,{align,true}]};
 	      Range =< 65536 ->
 		  {get_bits,2,[8,unsigned,{align,true}]};
 	      true ->
 		  RangeOctLen = byte_size(binary:encode_unsigned(Range - 1)),
+                  RangeOctLen = (integer_unsigned_width(Range - 1) + 7) div 8,
 		  {get_bits,per_dec_length({1,RangeOctLen}, false, true),
 		   [8,unsigned,{align,true}]}
 	  end,
@@ -616,20 +617,8 @@ decode_unconstrained_length(AllowZero, Aligned) ->
 	      {test,{get_bits,1,[1]},1,
 	       {value,{mul,{get_bits,6,[1|Zero]},16384}}}}]}.
 
-uper_num_bits(N) ->
-    uper_num_bits(N, 1, 0).
-
-uper_num_bits(N, T, B) when N =< T -> B;
-uper_num_bits(N, T, B) -> uper_num_bits(N, T bsl 1, B+1).
-
-per_num_bits(2) -> 1;
-per_num_bits(N) when N =< 4 -> 2;
-per_num_bits(N) when N =< 8 -> 3;
-per_num_bits(N) when N =< 16 -> 4;
-per_num_bits(N) when N =< 32 -> 5;
-per_num_bits(N) when N =< 64 -> 6;
-per_num_bits(N) when N =< 128 -> 7;
-per_num_bits(N) when N =< 255 -> 8.
+num_bits(N) when N > 0 ->
+    integer_unsigned_width(N - 1).
 
 opt_map(Map, Imm) ->
     case matched_range(Imm) of
@@ -691,9 +680,9 @@ string_num_bits(StringType, Constraint, Aligned) ->
     end.
 
 charbits(NumChars, false) ->
-    uper_num_bits(NumChars);
+    num_bits(NumChars);
 charbits(NumChars, true) ->
-    1 bsl uper_num_bits(uper_num_bits(NumChars)).
+    1 bsl num_bits(num_bits(NumChars)).
 
 convert_string(8, notab, Imm) ->
     {convert,binary_to_list,Imm};
@@ -1170,7 +1159,7 @@ per_enc_constrained(Val, Sv, Sv, _Aligned) ->
 per_enc_constrained(Val0, Lb, Ub, false) ->
     {Prefix,Val} = sub_lb(Val0, Lb),
     Range = Ub - Lb + 1,
-    NumBits = uper_num_bits(Range),
+    NumBits = num_bits(Range),
     Check = {ult,Val,Range},
     Put = [{put_bits,Val,NumBits,[1]}],
     {Prefix,Check,Put};
@@ -1180,7 +1169,7 @@ per_enc_constrained(Val0, Lb, Ub, true) ->
     Check = {ult,Val,Range},
     if
 	Range < 256 ->
-	    NumBits = per_num_bits(Range),
+	    NumBits = num_bits(Range),
 	    Put = [{put_bits,Val,NumBits,[1]}],
 	    {Prefix,Check,Put};
 	Range =:= 256 ->
@@ -1192,7 +1181,8 @@ per_enc_constrained(Val0, Lb, Ub, true) ->
 	    {Prefix,Check,Put};
 	true ->
 	    RangeOctsLen = byte_size(binary:encode_unsigned(Range - 1)),
-	    BitsNeeded = per_num_bits(RangeOctsLen),
+            RangeOctsLen = (integer_unsigned_width(Range - 1) + 7) div 8,
+	    BitsNeeded = num_bits(RangeOctsLen),
 	    {Prefix,Check,per_enc_constrained_huge(BitsNeeded, Val)}
     end.
 
@@ -2493,7 +2483,7 @@ enc_cond_term('_') ->
     emit("true");
 enc_cond_term({ult,Var0,Int}) ->
     Var = mk_val(Var0),
-    N = uper_num_bits(Int),
+    N = num_bits(Int),
     case 1 bsl N of
 	Int ->
 	    emit([Var," bsr ",N," =:= 0"]);

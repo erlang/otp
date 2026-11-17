@@ -676,6 +676,10 @@ encode_integer(Val, Tag) when is_integer(Val) ->
 encode_integer(Val, _Tag) ->
     exit({error,{asn1,{encode_integer,Val}}}).
 
+encode_integer(Val) ->
+    NumBytes = (integer_signed_width(Val) + 7) bsr 3,
+    Bytes = <<Val:NumBytes/unit:8>>,
+    {Bytes, NumBytes}.
 
 encode_integer(Val, NamedNumberList, Tag) when is_atom(Val) ->
     case lists:keyfind(Val, 1, NamedNumberList) of
@@ -686,26 +690,6 @@ encode_integer(Val, NamedNumberList, Tag) when is_atom(Val) ->
     end;
 encode_integer(Val, _NamedNumberList, Tag) ->
     encode_tags(Tag, encode_integer(Val)).
-
-encode_integer(Val) ->
-    Bytes =
-	if
-	    Val >= 0 ->
-		encode_integer_pos(Val, []);
-	    true ->
-		encode_integer_neg(Val, [])
-	end,
-    {Bytes,length(Bytes)}.
-
-encode_integer_pos(0, [B|_Acc]=L) when B < 128 ->
-    L;
-encode_integer_pos(N, Acc) ->
-    encode_integer_pos((N bsr 8), [N band 16#ff| Acc]).
-
-encode_integer_neg(-1, [B1|_T]=L) when B1 > 127 ->
-    L;
-encode_integer_neg(N, Acc) ->
-    encode_integer_neg(N bsr 8, [N band 16#ff|Acc]).
 
 %%===============================================================================
 %% decode integer
