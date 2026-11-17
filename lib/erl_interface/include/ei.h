@@ -642,7 +642,7 @@ int ei_global_unregister(ei_cnode *ec, int fd, const char *name);
 /* If the user included <gmp.h> we supply some more functions */
 
 #if defined(__GNU_MP_VERSION) \
-	&& __GNU_MP_VERSION == 4 && __GNU_MP_VERSION_MINOR >= 1 
+        && ((__GNU_MP_VERSION == 4 && __GNU_MP_VERSION_MINOR >= 1) || __GNU_MP_VERSION > 4)
 
 int ei_decode_bignum(const char *buf, int *index, mpz_t obj);
 int ei_encode_bignum(char *buf, int *index, mpz_t obj);
