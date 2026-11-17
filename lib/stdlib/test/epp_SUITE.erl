@@ -38,6 +38,7 @@
          stringify/1,
          fun_type_arg/1,
          include_path_open/1,
+         unused_macro/1,
          doctests/1
         ]).
 
@@ -88,6 +89,7 @@ all() ->
      stringify,
      fun_type_arg,
      include_path_open,
+     unused_macro,
      doctests].
 
 groups() ->
@@ -1251,6 +1253,109 @@ test_warning(Config) ->
 
     [] = compile(Config, Cs),
     ok.
+
+%% GH-4479: Test the report_unused_macros option.
+unused_macro(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    ok = file:write_file(filename:join(PrivDir, "epp_unused_macro.hrl"),
+                         <<"-define(HRL_UNUSED, 1).\n"
+                           "-define(HRL_USED, ?FOR_HRL).\n"
+                           "h() -> ?HRL_USED.\n">>),
+    Ts = [%% Expansion, overloading and nested uses.
+          {<<"-define(UNUSED, 1).\n"
+             "-define(USED, 2).\n"
+             "-define(F(X), X).\n"
+             "-define(F, f).\n"
+             "-define(G(X, Y), {X,Y}).\n"
+             "-define(INNER, inner).\n"
+             "-define(OUTER, ?INNER).\n"
+             "-define(DEAD_INNER, x).\n"
+             "-define(DEAD_OUTER, ?DEAD_INNER).\n"
+             "t() -> {?USED, ?F(1), ?OUTER, ?MODULE, ?LINE}.\n">>,
+           [{2,'UNUSED',none},{5,'F',none},{6,'G',2},
+            {9,'DEAD_INNER',none},{10,'DEAD_OUTER',none}]},
+
+          %% A macro defined without parentheses is used by a call
+          %% with arguments.
+          {<<"-define(H, fun erlang:abs/1).\n"
+             "t() -> ?H(-1).\n">>,
+           []},
+
+          %% -ifdef, -ifndef, -undef and defined/1 count as uses.
+          {<<"-define(FLAG, true).\n"
+             "-define(NFLAG, true).\n"
+             "-define(DEF, true).\n"
+             "-define(GONE, 1).\n"
+             "-undef(GONE).\n"
+             "-ifdef(FLAG). -endif.\n"
+             "-ifndef(NFLAG). -endif.\n"
+             "-if(defined(DEF)). -endif.\n">>,
+           []},
+
+          %% Macros in -if and -elif conditions are used, macros
+          %% only used or defined in excluded code are not.
+          {<<"-define(V, 2).\n"
+             "-define(W, 3).\n"
+             "-define(ONLY_TEST, 1).\n"
+             "-if(?V > 2).\n"
+             "-define(SKIPPED, 1).\n"
+             "-elif(?W =:= 3).\n"
+             "-endif.\n"
+             "-ifdef(NOT_DEFINED).\n"
+             "t() -> ?ONLY_TEST.\n"
+             "-endif.\n">>,
+           [{4,'ONLY_TEST',none}]},
+
+          %% A redefined macro is tracked again.
+          {<<"-define(R, 1).\n"
+             "t() -> ?R.\n"
+             "-undef(R).\n"
+             "-define(R, 2).\n">>,
+           [{5,'R',none}]},
+
+          %% Macros defined in included files are not reported, and a
+          %% macro defined in the module is used if an included file
+          %% uses it.
+          {<<"-define(FOR_HRL, 1).\n"
+             "-define(LOCAL_UNUSED, 2).\n"
+             "-include(\"epp_unused_macro.hrl\").\n">>,
+           [{3,'LOCAL_UNUSED',none}]}],
+    lists:foreach(fun({Src, Expected}) ->
+                          case unused_macros(PrivDir, Src) of
+                              Expected ->
+                                  ok;
+                              Other ->
+                                  io:format("~ts~nExpected: ~p~nGot: ~p~n",
+                                            [Src, Expected, Other]),
+                                  fail()
+                          end
+                  end, Ts),
+
+    %% The warnings come just before eof, and only when asked for.
+    File = filename:join(PrivDir, "epp_unused_macro.erl"),
+    ok = file:write_file(File, <<"-module(epp_unused_macro).\n"
+                                 "-define(A, 1).\n"
+                                 "-define(C(X), X).\n">>),
+    {ok,Forms} = epp:parse_file(File, [{report_unused_macros,true}]),
+    [{warning,{2,epp,{unused_macro,'A',none}}},
+     {warning,{3,epp,{unused_macro,'C',1}}},
+     {eof,_}] = lists:nthtail(length(Forms) - 3, Forms),
+    {ok,Forms1} = epp:parse_file(File, []),
+    [] = [W || {warning,_}=W <- Forms1],
+    "macro 'A' is unused" =
+        lists:flatten(epp:format_error({unused_macro,'A',none})),
+    "macro 'C/1' is unused" =
+        lists:flatten(epp:format_error({unused_macro,'C',1})),
+    ok.
+
+unused_macros(PrivDir, Src) ->
+    File = filename:join(PrivDir, "epp_unused_macro.erl"),
+    ok = file:write_file(File, [<<"-module(epp_unused_macro).\n">>, Src]),
+    {ok,Forms} = epp:parse_file(File, [{includes,[PrivDir]},
+                                       {report_unused_macros,true}]),
+    [] = [E || {error,_}=E <- Forms],
+    [{Line,Name,Arity} ||
+        {warning,{Line,epp,{unused_macro,Name,Arity}}} <- Forms].
 
 %% OTP-12847: Test the -if and -elif directives and the built-in
 %% function defined(Symbol).
