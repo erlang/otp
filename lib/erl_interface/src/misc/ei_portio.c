@@ -54,6 +54,7 @@ static unsigned long param_one = 1;
 #include <netinet/tcp.h> 
 #include <arpa/inet.h>
 #include <netdb.h>
+#include <poll.h>
 
 #define SET_BLOCKING(fd)  fcntl((fd), F_SETFL, \
 				fcntl((fd), F_GETFL, 0) & ~O_NONBLOCK)
@@ -70,13 +71,11 @@ static unsigned long param_one = 1;
 #include <stdio.h> 
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
 #ifdef HAVE_SYS_TIME_H
 #include <sys/time.h>
 #else
 #include <time.h>
-#endif
-#ifdef HAVE_SYS_SELECT_H
-#include <sys/select.h>
 #endif
 #include "ei_portio.h"
 #include "ei_internal.h"
@@ -86,9 +85,9 @@ static unsigned long param_one = 1;
 #define writesocket(sock,buf,nbyte) send(sock,buf,nbyte,0)
 #define readsocket(sock,buf,nbyte) recv(sock,buf,nbyte,0)
 
-static int get_error(void)
+static int wsa_error_to_errno(int error)
 {
-    switch (WSAGetLastError()) {
+    switch (error) {
     case WSAEWOULDBLOCK: return EWOULDBLOCK;
     case WSAETIMEDOUT: return ETIMEDOUT;
     case WSAEINPROGRESS: return EINPROGRESS;
@@ -106,6 +105,11 @@ static int get_error(void)
     case WSAEALREADY: return EALREADY;
     default: return EIO;
     }
+}
+
+static int get_error(void)
+{
+    return wsa_error_to_errno(WSAGetLastError());
 }
 
 #else /* not __WIN32__ */
@@ -334,6 +338,105 @@ ei_socket_callbacks ei_default_socket_callbacks = {
  *
  */
 
+/*
+ * Wait for a socket to become ready for an operation, or for the
+ * timeout to expire. Returns 0 when the socket is ready, ETIMEDOUT
+ * on timeout, and an errno value on failure. For a connect the
+ * pending error of the socket is returned if the connect failed.
+ *
+ * poll() is used instead of select() since select() cannot handle
+ * file descriptors >= FD_SETSIZE (typically 1024). A process with
+ * many open files gets such descriptors for its sockets, and
+ * FD_SET() on them would write outside of the fd_set. On Windows
+ * select() is kept, since there an fd_set is an array of at most
+ * FD_SETSIZE sockets and the socket value itself does not matter.
+ */
+
+enum wait_op {
+    WAIT_FOR_READ,
+    WAIT_FOR_WRITE,
+    WAIT_FOR_CONNECT
+};
+
+#ifdef __WIN32__
+
+static int wait_for_fd(int fd, enum wait_op op, unsigned ms)
+{
+    fd_set fds;
+    fd_set exceptfds;
+    struct timeval tv;
+    int res;
+
+    tv.tv_sec = (long) (ms / 1000U);
+    tv.tv_usec = (long) ((ms % 1000U) * 1000U);
+    FD_ZERO(&fds);
+    FD_SET(fd, &fds);
+    FD_ZERO(&exceptfds);
+    if (op == WAIT_FOR_CONNECT)
+        FD_SET(fd, &exceptfds);
+    res = select(fd + 1,
+                 op == WAIT_FOR_READ ? &fds : NULL,
+                 op == WAIT_FOR_READ ? NULL : &fds,
+                 op == WAIT_FOR_CONNECT ? &exceptfds : NULL,
+                 &tv);
+    if (MEANS_SOCKET_ERROR(res))
+        return get_error();
+    if (res == 0)
+        return ETIMEDOUT;
+    if (op == WAIT_FOR_CONNECT) {
+        /* A failed connect is reported in exceptfds; fetch the
+           pending error to report why it failed. */
+        int error = 0;
+        int len = sizeof(error);
+        if (getsockopt(fd, SOL_SOCKET, SO_ERROR, (char *) &error, &len) != 0)
+            return get_error();
+        if (error != 0)
+            return wsa_error_to_errno(error);
+        if (FD_ISSET(fd, &exceptfds) || !FD_ISSET(fd, &fds))
+            return EIO;
+        return 0;
+    }
+    if (!FD_ISSET(fd, &fds))
+        return EIO;
+    return 0;
+}
+
+#else /* not __WIN32__ */
+
+static int wait_for_fd(int fd, enum wait_op op, unsigned ms)
+{
+    struct pollfd pfd;
+    int res;
+
+    pfd.fd = fd;
+    pfd.events = op == WAIT_FOR_READ ? POLLIN : POLLOUT;
+    pfd.revents = 0;
+    res = poll(&pfd, 1, ms > (unsigned) INT_MAX ? INT_MAX : (int) ms);
+    if (MEANS_SOCKET_ERROR(res))
+        return get_error();
+    if (res == 0)
+        return ETIMEDOUT;
+    if (pfd.revents & POLLNVAL)
+        return EBADF;
+    if (op == WAIT_FOR_CONNECT) {
+        /* A failed connect may be reported by the socket becoming
+           writable only, so always check the pending error. */
+        int error = 0;
+        socklen_t len = sizeof(error);
+        if (getsockopt(fd, SOL_SOCKET, SO_ERROR, (void *) &error, &len) != 0)
+            return get_error();
+        if (error != 0)
+            return error;
+        if (pfd.revents & (POLLERR|POLLHUP))
+            return EIO;
+    }
+    /* For read and write, errors such as a reset connection are left
+       for the read/write call that follows to report. */
+    return 0;
+}
+
+#endif
+
 #if defined(EI_HAVE_STRUCT_IOVEC__)
 
 int ei_socket_callbacks_have_writev__(ei_socket_callbacks *cbs)
@@ -356,39 +459,19 @@ static int writev_ctx_t__(ei_socket_callbacks *cbs, void *ctx,
             return error;
 
         do {
-            fd_set writemask;
-            struct timeval tv;
-            
-            tv.tv_sec = (time_t) (ms / 1000U);
-            ms %= 1000U;
-            tv.tv_usec = (time_t) (ms * 1000U);
-            FD_ZERO(&writemask);
-            FD_SET(fd,&writemask);
-            switch (select(fd+1, NULL, &writemask, NULL, &tv)) {
-            case -1 : 
-                error = get_error();
-                if (error != EINTR)
-                    return error;
-                break;
-            case 0:
-                return ETIMEDOUT; /* timeout */
-            default:
-                if (!FD_ISSET(fd, &writemask)) {
-                    return EIO; /* Other error */
-                }
-                error = 0;
-                break;
-            }
+            error = wait_for_fd(fd, WAIT_FOR_WRITE, ms);
         } while (error == EINTR);
+        if (error)
+            return error;
     }
     do {
         error = cbs->writev(ctx, (const void *) iov, iovcnt, len, ms);
     } while (error == EINTR);
 
     /* It should not be possible for writev_ctx_t__ to return EAGAIN,
-       because when the fd is set in non-blocking we always do a select on
-       the fd before trying to write. And if we do not do the select the fd
-       is always in blocking mode. */
+       because when the fd is set in non-blocking we always wait for it
+       to become writable before trying to write. And if we do not wait
+       the fd is always in blocking mode. */
 
     return error;
 }
@@ -526,35 +609,10 @@ int ei_connect_ctx_t__(ei_socket_callbacks *cbs, void *ctx,
         return res;
     }
 
-    while (1) {
-        struct timeval tv;
-        fd_set writefds;
-        fd_set exceptfds;
-        
-        tv.tv_sec = (long) (ms/1000U);
-        ms %= 1000U;
-        tv.tv_usec = (long) (ms * 1000U);
-        FD_ZERO(&writefds);
-        FD_SET(fd,&writefds);
-        FD_ZERO(&exceptfds);
-        FD_SET(fd,&exceptfds);
-        res = select(fd + 1, NULL, &writefds, &exceptfds, &tv);
-        switch (res) {
-        case -1:
-            res = get_error();
-            if (res != EINTR)
-                return res;
-            break;
-        case 0:
-            return ETIMEDOUT;
-        case 1:
-            if (!FD_ISSET(fd, &exceptfds))
-                return 0; /* Connect completed */
-            /* fall through... */
-        default:
-            return EIO;
-        }
-    }
+    do {
+        res = wait_for_fd(fd, WAIT_FOR_CONNECT, ms);
+    } while (res == EINTR);
+    return res;
 }
 
 int ei_listen_ctx__(ei_socket_callbacks *cbs, void *ctx,
@@ -581,30 +639,10 @@ int ei_accept_ctx_t__(ei_socket_callbacks *cbs, void **ctx,
             return error;
 
         do {
-            fd_set readmask;
-            struct timeval tv;
-            
-            tv.tv_sec = (time_t) (ms / 1000U);
-            ms %= 1000U;
-            tv.tv_usec = (time_t) (ms * 1000U);
-            FD_ZERO(&readmask);
-            FD_SET(fd,&readmask);
-            switch (select(fd+1, &readmask, NULL, NULL, &tv)) {
-            case -1 : 
-                error = get_error();
-                if (error != EINTR)
-                    return error;
-                break;
-            case 0:
-                return ETIMEDOUT; /* timeout */
-            default:
-                if (!FD_ISSET(fd, &readmask)) {
-                    return EIO; /* Other error */
-                }
-                error = 0;
-                break;
-            }
+            error = wait_for_fd(fd, WAIT_FOR_READ, ms);
         } while (error == EINTR);
+        if (error)
+            return error;
     }
     do {
         error = cbs->EI_ACCEPT_NAME(ctx, addr, len, ms);
@@ -625,30 +663,10 @@ static int read_ctx_t__(ei_socket_callbacks *cbs, void *ctx,
             return error;
         
         do {
-            fd_set readmask;
-            struct timeval tv;
-            
-            tv.tv_sec = (time_t) (ms / 1000U);
-            ms %= 1000U;
-            tv.tv_usec = (time_t) (ms * 1000U);
-            FD_ZERO(&readmask);
-            FD_SET(fd,&readmask);
-            switch (select(fd+1, &readmask, NULL, NULL, &tv)) {
-            case -1 :
-                error = get_error();
-                if (error != EINTR)
-                    return error;
-                break;
-            case 0:
-                return ETIMEDOUT; /* timeout */
-            default:
-                if (!FD_ISSET(fd, &readmask)) {
-                    return EIO; /* Other error */
-                }
-                error = 0;
-                break;
-            }
+            error = wait_for_fd(fd, WAIT_FOR_READ, ms);
         } while (error == EINTR);
+        if (error)
+            return error;
     }
     do {
         error = cbs->read(ctx, buf, len, ms);
@@ -668,30 +686,10 @@ static int write_ctx_t__(ei_socket_callbacks *cbs, void *ctx, const char* buf, s
             return error;
 
         do {
-            fd_set writemask;
-            struct timeval tv;
-            
-            tv.tv_sec = (time_t) (ms / 1000U);
-            ms %= 1000U;
-            tv.tv_usec = (time_t) (ms * 1000U);
-            FD_ZERO(&writemask);
-            FD_SET(fd,&writemask);
-            switch (select(fd+1, NULL, &writemask, NULL, &tv)) {
-            case -1 : 
-                error = get_error();
-                if (error != EINTR)
-                    return error;
-                break;
-            case 0:
-                return ETIMEDOUT; /* timeout */
-            default:
-                if (!FD_ISSET(fd, &writemask)) {
-                    return EIO; /* Other error */
-                }
-                error = 0;
-                break;
-            }
+            error = wait_for_fd(fd, WAIT_FOR_WRITE, ms);
         } while (error == EINTR);
+        if (error)
+            return error;
     }
     do {
         error = cbs->write(ctx, buf, len, ms);

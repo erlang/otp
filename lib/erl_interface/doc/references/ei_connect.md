@@ -102,14 +102,18 @@ the following fields exist:
     when a callback is called, and it must be in blocking mode when the callback
     returns.
 
-    If not set, `ei` will implement the timeout using `select()` in order to
-    determine when to call the callbacks and when to time out. The `tmo`
-    arguments of the `accept()`, `connect()`, `writev()`, `write()`, and
-    `read()` callbacks should be ignored. The callbacks may be called in
-    non-blocking mode. The callbacks are not allowed to change between blocking
-    and non-blocking mode. In order for this to work, `select()` needs to
-    interact with the socket primitives used the same way as it interacts with
-    the ordinary socket primitives. If this is not the case, the callbacks
+    If not set, `ei` implements the timeout itself: it waits with `poll()`
+    (`select()` on Windows) for the file descriptor returned by `get_fd()` to
+    become readable or writable before calling the callbacks, and times out if
+    it does not. The `tmo` arguments of the `accept()`, `connect()`,
+    `writev()`, `write()`, and `read()` callbacks should be ignored. The
+    callbacks may be called in non-blocking mode. The callbacks are not
+    allowed to change between blocking and non-blocking mode. In order for
+    this to work, `poll()` (`select()` on Windows) needs to interact with the
+    socket primitives used the same way as it interacts with the ordinary
+    socket primitives, and the file descriptor has to be a socket, since `ei`
+    reads the result of a non-blocking `connect()` from it using
+    `getsockopt()` with `SO_ERROR`. If this is not the case, the callbacks
     _need_ to implement timeouts and this flag should be set.
 
   More flags may be introduced in the future.

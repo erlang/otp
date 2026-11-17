@@ -32,6 +32,8 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <unistd.h>
+#include <fcntl.h>
+#include <sys/select.h>
 #endif
 
 #include "ei_runner.h"
@@ -668,21 +670,21 @@ TESTCASE(connect_tmo)
 	DEBUGF(("Got error while connecting.{%d,%d}\n",com_sock,erl_errno));
 	ei_x_new(&answer);
 
-	/* On some systems errno gets set to EHOSTUNREACH rather than
-	   ETIMEDOUT, which is ok. Let's check for that and report timeout
-	   if it happens. 
+	/* On some systems errno or erl_errno gets set to EHOSTUNREACH
+	   rather than ETIMEDOUT, which is ok. Let's check for that and
+	   report timeout if it happens.
 	   Max OS X seems to respond EHOSTDOWN, which should be ok.
 	*/
 
 
 #if defined(EHOSTUNREACH)
-	if (errno == EHOSTUNREACH) 
+	if (errno == EHOSTUNREACH || erl_errno == EHOSTUNREACH)
 	    ei_x_format(&answer,"{~i,~i,~i}",com_sock,ETIMEDOUT,ETIMEDOUT);
 	else
 #endif
 
 #if defined(EHOSTDOWN)
-	if (errno == EHOSTDOWN)
+	if (errno == EHOSTDOWN || erl_errno == EHOSTDOWN)
 	    ei_x_format(&answer,"{~i,~i,~i}",com_sock,ETIMEDOUT,ETIMEDOUT);
 	else
 #endif
@@ -849,3 +851,158 @@ cleanup:
     report(1);
 }
 
+
+#ifndef __WIN32__
+/*
+ * Open file descriptors until the next descriptor handed out by the
+ * OS is guaranteed to be >= FD_SETSIZE. Returns NULL on success or a
+ * reason for skipping the test case.
+ */
+static const char *open_fds_above_fd_setsize(void)
+{
+    int fd;
+
+    do {
+        fd = open("/dev/null", O_RDONLY);
+        if (fd < 0)
+            return "could not open enough file descriptors";
+    } while (fd < FD_SETSIZE);
+    return NULL;
+}
+#endif
+
+/*
+ * Check that the timeout variants of connect, receive and send work
+ * when the socket gets a file descriptor >= FD_SETSIZE (GH-11714).
+ */
+TESTCASE(high_fd_tmo)
+{
+    char *nodename = NULL;
+    char *cookie = NULL;
+    char *peername = NULL;
+    int com_sock = -1;
+    int use_ussi;
+    ei_cnode nodeinfo;
+    ei_x_buff answer;
+#ifndef __WIN32__
+    const char *skip_reason;
+#endif
+
+    ei_init();
+
+    OPEN_DEBUGFILE(6);
+
+    if (decode_request(&nodename,&cookie,&peername,&use_ussi) != 0) {
+        goto cleanup;
+    }
+    if (use_ussi) {
+        my_ussi_init();
+        if (ei_connect_init_ussi(&nodeinfo, nodename, cookie, 0,
+                                 &my_ussi, sizeof(my_ussi), NULL) < 0) {
+            DEBUGF(("Failure at line %d\n",__LINE__));
+            goto cleanup;
+        }
+    }
+    else {
+        if (ei_connect_init(&nodeinfo, nodename, cookie, 0) < 0) {
+            DEBUGF(("Failure at line %d\n",__LINE__));
+            goto cleanup;
+        }
+    }
+
+#ifdef __WIN32__
+    /* fd_set is an array of sockets on Windows; FD_SETSIZE does not
+       limit the socket number. */
+    ei_x_new(&answer);
+    ei_x_format(&answer,"{~a,~s}","skip","Not applicable on Windows");
+    send_bin_term(&answer);
+    ei_x_free(&answer);
+    goto cleanup;
+#else
+    skip_reason = open_fds_above_fd_setsize();
+    if (skip_reason) {
+        DEBUGF(("Skipping: %s\n",skip_reason));
+        ei_x_new(&answer);
+        ei_x_format(&answer,"{~a,~s}","skip",skip_reason);
+        send_bin_term(&answer);
+        ei_x_free(&answer);
+        goto cleanup;
+    }
+
+    if ((com_sock = ei_connect_tmo(&nodeinfo, peername, 5000)) < 0) {
+        DEBUGF(("Got error while connecting.{%d,%d}\n",com_sock,erl_errno));
+        ei_x_new(&answer);
+        ei_x_format(&answer,"{~a,~a,~i,~i}","error","connect",
+                    com_sock,erl_errno);
+        send_bin_term(&answer);
+        ei_x_free(&answer);
+        goto cleanup;
+    }
+    DEBUGF(("Success when connecting.{%d,%d}\n",com_sock,erl_errno));
+    ei_x_new(&answer);
+    ei_x_format(&answer,"{~a,~i,~i,~a}","ok",com_sock,(int) FD_SETSIZE,
+                ei_thisnodename(&nodeinfo));
+    send_bin_term(&answer);
+    ei_x_free(&answer);
+
+    {
+        ei_x_buff buffer;
+        erlang_msg msg;
+        int ret_val;
+
+        ei_x_new(&buffer);
+        for (;;) {
+            /* Reset buffer index before reading */
+            buffer.index = 0;
+            ret_val = ei_xreceive_msg_tmo(com_sock, &msg, &buffer, 5000);
+            if (ret_val == ERL_TICK) {
+                /* Ticks are automatically answered, just continue */
+                continue;
+            }
+            if (ret_val != ERL_MSG || msg.msgtype != ERL_REG_SEND) {
+                DEBUGF(("Got error receiving {%d,%d}\n",ret_val,erl_errno));
+                ei_x_new(&answer);
+                ei_x_format(&answer,"{~a,~a,~i,~i}","error","receive",
+                            ret_val,erl_errno);
+                send_bin_term(&answer);
+                ei_x_free(&answer);
+                ei_x_free(&buffer);
+                goto cleanup;
+            }
+            break;
+        }
+        DEBUGF(("Received message, echoing it back to sender.\n"));
+        /* Echo the received message back to the sender */
+        ret_val = ei_send_tmo(com_sock, &msg.from, buffer.buff,
+                              buffer.index, 5000);
+        ei_x_new(&answer);
+        if (ret_val < 0) {
+            DEBUGF(("Got error sending {%d,%d}\n",ret_val,erl_errno));
+            ei_x_format(&answer,"{~a,~a,~i,~i}","error","send",
+                        ret_val,erl_errno);
+        } else {
+            ei_x_format(&answer,"~a","ok");
+        }
+        send_bin_term(&answer);
+        ei_x_free(&answer);
+        ei_x_free(&buffer);
+    }
+#endif
+
+cleanup:
+    if (com_sock >= 0) {
+        closesocket(com_sock);
+    }
+
+    if (nodename != NULL) {
+        free(nodename);
+    }
+    if (cookie != NULL) {
+        free(cookie);
+    }
+    if (peername != NULL) {
+        free(peername);
+    }
+    CLOSE_DEBUGFILE();
+    report(1);
+}
