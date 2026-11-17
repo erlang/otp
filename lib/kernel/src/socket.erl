@@ -1244,6 +1244,12 @@ _Options for protocol level_ [_`socket`_:](`t:level/0`)
 
 - **`{socket, reuseport}`** - `Value = boolean()`
 
+- **`{socket, reuseport_lb}`** - `Value = boolean()`
+
+  The `SO_REUSEPORT_LB` socket option, reuse of local port _with_ load
+  balancing. Exists on for instance FreeBSD. Does _not_ exist on Linux,
+  where `{socket, reuseport}` already load balances.
+
 - **`{socket, sndbuf}`** - `Value = integer()`
 
 - **`{socket, sndlowat}`** - `Value = integer()`
@@ -1530,6 +1536,7 @@ _Options for protocol level_ [_`udp`:_](`t:level/0`)
            rcvtimeo |
            reuseaddr |
            reuseport |
+           reuseport_lb |
            rxq_ovfl |
            setfib |
            sndbuf |
