@@ -41,6 +41,7 @@
 -export([config_change/1, persistent_env/1, invalid_app_file/1,
          distr_changed_tc1/1, distr_changed_tc2/1,
          ensure_started/1, ensure_all_started/1, ensure_all_started_limit/1,
+         ensure_stopped/1, ensure_stopped_limit/1,
          shutdown_func/1, do_shutdown/1, shutdown_timeout/1,
          shutdown_application_call/1,shutdown_deadlock/1,
          config_relative_paths/1, handle_many_config_files/1,
@@ -62,6 +63,7 @@ all() ->
      load_use_cache, ensure_started, {group, reported_bugs}, start_phases,
      script_start, nodedown_start, permit_false_start_local,
      permit_false_start_dist, get_key, get_env, ensure_all_started, ensure_all_started_limit,
+     ensure_stopped, ensure_stopped_limit,
      set_env, set_env_persistent, set_env_errors, get_supervisor,
      {group, distr_changed}, config_change, shutdown_func, shutdown_timeout,
      shutdown_application_call, shutdown_deadlock, config_relative_paths, optional_applications,
@@ -1085,6 +1087,189 @@ ensure_all_started_limit(_Conf) ->
     ?assertError(badarg, application:ensure_all_started(app10, temporary, {concurrent, 0})),
     ?assertError(badarg, application:ensure_all_started(app10, temporary, {concurrent, -1})),
     ?assertError(badarg, application:ensure_all_started(app10, temporary, {concurrent, foo})),
+    ok.
+
+%% Test application:ensure_stopped/1-2.
+ensure_stopped(_Conf) ->
+    do_ensure_stopped(serial),
+    do_ensure_stopped(concurrent),
+    ok.
+
+do_ensure_stopped(Mode) ->
+    {ok, Fd1} = file:open("app1.app", [write]),
+    w_app1(Fd1),
+    file:close(Fd1),
+    {ok, Fd9} = file:open("app9.app", [write]),
+    w_app9(Fd9),
+    file:close(Fd9),
+    {ok, Fd10} = file:open("app10.app", [write]),
+    w_app10(Fd10, [app9], []),
+    file:close(Fd10),
+
+    {ok, []} = application:ensure_stopped([], Mode),
+    {ok, []} = application:ensure_stopped(not_running, Mode),
+
+    {ok, [app1]} = application:ensure_all_started(app1, temporary),
+    {ok, [app1]} = application:ensure_stopped(app1, Mode),
+    false = lists:keyfind(app1, 1, application:which_applications()),
+    {ok, []} = application:ensure_stopped(app1, Mode),
+    ok = application:unload(app1),
+
+    %% A requested dependency cannot be stopped while an unrequested dependant
+    %% is still running.
+    {ok, [app9, app10]} = application:ensure_all_started(app10, temporary),
+    {error, {dependency_conflict, [app10]}} =
+        application:ensure_stopped(app9, Mode),
+    {app9, _, _} = lists:keyfind(app9, 1, application:which_applications()),
+    {app10, _, _} = lists:keyfind(app10, 1, application:which_applications()),
+    {ok, [app10, app9]} = application:ensure_stopped([app9, app10], Mode),
+    ok = application:unload(app9),
+    ok = application:unload(app10),
+
+    %% Stopping a dependant does not stop its dependencies.
+    {ok, [app9, app10]} = application:ensure_all_started(app10, temporary),
+    {ok, [app10]} = application:ensure_stopped(app10, Mode),
+    {app9, _, _} = lists:keyfind(app9, 1, application:which_applications()),
+    false = lists:keyfind(app10, 1, application:which_applications()),
+    ok = application:stop(app9),
+    ok = application:unload(app9),
+    ok = application:unload(app10),
+
+    %% The list returned by ensure_all_started can be passed back directly.
+    {ok, Started} = application:ensure_all_started([app1, app10], temporary),
+    {ok, Stopped} = application:ensure_stopped(
+                      Started ++ Started ++ [not_running], Mode),
+    ?assertEqual(lists:sort(Started), lists:sort(Stopped)),
+    false = lists:keyfind(app1, 1, application:which_applications()),
+    false = lists:keyfind(app9, 1, application:which_applications()),
+    false = lists:keyfind(app10, 1, application:which_applications()),
+    ok = application:unload(app1),
+    ok = application:unload(app9),
+    ok = application:unload(app10),
+
+    %% Two running applications share stop_dep_x as a dependency. Both are
+    %% reported as blockers, and stopping one leaves the other and stop_dep_x
+    %% running.
+    ok = application:load(test_application(stop_dep_x, 101, [])),
+    ok = application:load(test_application(stop_dep_a, 102, [stop_dep_x])),
+    ok = application:load(test_application(stop_dep_b, 103, [stop_dep_x])),
+    {ok, _} = application:ensure_all_started([stop_dep_a, stop_dep_b], temporary),
+    {error, {dependency_conflict, [stop_dep_a, stop_dep_b]}} =
+        application:ensure_stopped(stop_dep_x, Mode),
+    {stop_dep_a, _, _} =
+        lists:keyfind(stop_dep_a, 1, application:which_applications()),
+    {stop_dep_b, _, _} =
+        lists:keyfind(stop_dep_b, 1, application:which_applications()),
+    {stop_dep_x, _, _} =
+        lists:keyfind(stop_dep_x, 1, application:which_applications()),
+    %% Nothing is stopped when only part of the request is safe to stop.
+    {error, {dependency_conflict, [stop_dep_b]}} =
+        application:ensure_stopped([stop_dep_x, stop_dep_a], Mode),
+    {stop_dep_a, _, _} =
+        lists:keyfind(stop_dep_a, 1, application:which_applications()),
+    {ok, [stop_dep_a]} = application:ensure_stopped(stop_dep_a, Mode),
+    {stop_dep_b, _, _} =
+        lists:keyfind(stop_dep_b, 1, application:which_applications()),
+    {stop_dep_x, _, _} =
+        lists:keyfind(stop_dep_x, 1, application:which_applications()),
+    {ok, [stop_dep_b, stop_dep_x]} =
+        application:ensure_stopped([stop_dep_x, stop_dep_b], Mode),
+    ok = application:unload(stop_dep_a),
+    ok = application:unload(stop_dep_b),
+    ok = application:unload(stop_dep_x),
+
+    %% Optional applications do not create hard stop dependencies. This graph
+    %% would contain a cycle if the optional edge from stop_opt_a to stop_opt_b
+    %% were treated as mandatory.
+    ok = application:load(
+           test_application(stop_opt_a, 107, [stop_opt_b], [stop_opt_b])),
+    {ok, [stop_opt_a]} = application:ensure_all_started(stop_opt_a, temporary),
+    ok = application:load(test_application(stop_opt_b, 108, [stop_opt_a])),
+    {ok, [stop_opt_b]} = application:ensure_all_started(stop_opt_b, temporary),
+    {ok, [stop_opt_b, stop_opt_a]} =
+        application:ensure_stopped([stop_opt_a, stop_opt_b], Mode),
+    ok = application:unload(stop_opt_a),
+    ok = application:unload(stop_opt_b),
+
+    %% A cycle introduced by a runtime application-data change is rejected
+    %% before any application is stopped.
+    CycleA0 = test_application(stop_cycle_a, 112, []),
+    CycleB0 = test_application(stop_cycle_b, 113, []),
+    ok = application:load(CycleA0),
+    ok = application:load(CycleB0),
+    {ok, _} = application:ensure_all_started([stop_cycle_a, stop_cycle_b], temporary),
+    CycleA = test_application(stop_cycle_a, 112, [stop_cycle_b]),
+    CycleB = test_application(stop_cycle_b, 113, [stop_cycle_a]),
+    ok = application_controller:change_application_data([CycleA, CycleB], []),
+    {error, {circular_dependencies, [stop_cycle_a, stop_cycle_b]}} =
+        application:ensure_stopped([stop_cycle_a, stop_cycle_b], Mode),
+    {stop_cycle_a, _, _} =
+        lists:keyfind(stop_cycle_a, 1, application:which_applications()),
+    {stop_cycle_b, _, _} =
+        lists:keyfind(stop_cycle_b, 1, application:which_applications()),
+    ok = application:stop(stop_cycle_a),
+    ok = application:stop(stop_cycle_b),
+    ok = application:unload(stop_cycle_a),
+    ok = application:unload(stop_cycle_b),
+
+    %% Dependency traversal continues through a loaded application that was
+    %% stopped independently.
+    ok = application:load(test_application(stop_chain_x, 104, [])),
+    ok = application:load(test_application(stop_chain_mid, 105, [stop_chain_x])),
+    ok = application:load(test_application(stop_chain_top, 106, [stop_chain_mid])),
+    {ok, _} = application:ensure_all_started(stop_chain_top, temporary),
+    ok = application:stop(stop_chain_mid),
+    {error, {dependency_conflict, [stop_chain_top]}} =
+        application:ensure_stopped(stop_chain_x, Mode),
+    {stop_chain_top, _, _} =
+        lists:keyfind(stop_chain_top, 1, application:which_applications()),
+    {stop_chain_x, _, _} =
+        lists:keyfind(stop_chain_x, 1, application:which_applications()),
+    {ok, [stop_chain_top, stop_chain_x]} =
+        application:ensure_stopped([stop_chain_x, stop_chain_top], Mode),
+    ok = application:unload(stop_chain_top),
+    ok = application:unload(stop_chain_mid),
+    ok = application:unload(stop_chain_x),
+    ok.
+
+%% Test application:ensure_stopped/2 with limit option.
+ensure_stopped_limit(_Conf) ->
+    {ok, Fd9} = file:open("app9.app", [write]),
+    w_app9(Fd9),
+    file:close(Fd9),
+    {ok, Fd10} = file:open("app10.app", [write]),
+    w_app10(Fd10, [app9], []),
+    file:close(Fd10),
+
+    lists:foreach(fun(Limit) ->
+        {ok, [app9, app10]} = application:ensure_all_started(app10, temporary),
+        Mode = {concurrent, Limit},
+        {error, {dependency_conflict, [app10]}} =
+            application:ensure_stopped(app9, Mode),
+        {ok, [app10, app9]} = application:ensure_stopped([app9, app10], Mode),
+        ok = application:unload(app9),
+        ok = application:unload(app10),
+
+        ok = application:load(test_application(stop_limit_x, 109, [])),
+        ok = application:load(test_application(stop_limit_a, 110, [stop_limit_x])),
+        ok = application:load(test_application(stop_limit_b, 111, [stop_limit_x])),
+        {ok, _} = application:ensure_all_started([stop_limit_a, stop_limit_b], temporary),
+        {ok, DiamondStopped} = application:ensure_stopped(
+                                 [stop_limit_x, stop_limit_a, stop_limit_b], Mode),
+        ?assertEqual([stop_limit_a, stop_limit_b, stop_limit_x],
+                     lists:sort(DiamondStopped)),
+        ?assertEqual(stop_limit_x, lists:last(DiamondStopped)),
+        ok = application:unload(stop_limit_a),
+        ok = application:unload(stop_limit_b),
+        ok = application:unload(stop_limit_x)
+    end, [1, 2, 10, infinity]),
+
+    ?assertError(badarg, application:ensure_stopped(app10, {concurrent, 0})),
+    ?assertError(badarg, application:ensure_stopped(app10, {concurrent, -1})),
+    ?assertError(badarg, application:ensure_stopped(app10, {concurrent, foo})),
+    ?assertError(badarg, application:ensure_stopped([app10, "not-an-atom"], serial)),
+    ?assertError(badarg, application:ensure_stopped([app10 | not_a_list], serial)),
+    ?assertError(badarg, application:ensure_stopped(not_an_application_list, invalid_mode)),
     ok.
 
 optional_applications(_Conf) ->
@@ -2827,6 +3012,19 @@ app10(Apps, OptionalApps) ->
       {applications, [kernel] ++ Apps},
       {optional_applications, OptionalApps},
       {mod, {ch_sup, {app10, 20, 20}}}]}.
+
+test_application(Name, Id, Dependencies) ->
+    test_application(Name, Id, Dependencies, []).
+
+test_application(Name, Id, Dependencies, OptionalApplications) ->
+    {application, Name,
+     [{description, "ensure_stopped test application"},
+      {vsn, "1.0"},
+      {modules, []},
+      {registered, []},
+      {applications, [kernel] ++ Dependencies},
+      {optional_applications, OptionalApplications},
+      {mod, {ch_sup, {Name, Id, Id}}}]}.
 
 appinc() ->
     {application, appinc,
