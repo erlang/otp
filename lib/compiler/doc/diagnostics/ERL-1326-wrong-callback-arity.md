@@ -1,0 +1,1 @@
+# ERL-1326 - Wrong callback arity
