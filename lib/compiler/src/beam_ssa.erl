@@ -1208,7 +1208,6 @@ merge_blocks_1([L|Ls], Preds0, Blocks0) ->
                 true ->
                     #b_blk{is=Is0} = Blk0,
                     #b_blk{is=Is1} = Blk1,
-                    verify_merge_is(Is1),
                     Is = merge_fix_succeeded(Is0 ++ Is1, Blk1),
                     Blk = Blk1#b_blk{is=Is},
                     Blocks1 = maps:remove(L, Blocks0),
@@ -1264,18 +1263,20 @@ merge_fix_succeeded([_|_]=Is0, #b_blk{}) ->
     end;
 merge_fix_succeeded(Is, _Blk) -> Is.
 
-verify_merge_is([#b_set{op=Op}|_]) ->
-    %% The merged block has only one predecessor, so it should not have any phi
-    %% nodes.
-    true = Op =/= phi;                          %Assertion.
-verify_merge_is(_) ->
-    ok.
-
 is_merge_allowed(?EXCEPTION_BLOCK, #b_blk{}, #b_blk{}) ->
     false;
 is_merge_allowed(_L, #b_blk{is=[#b_set{op=landingpad} | _]}, #b_blk{}) ->
     false;
 is_merge_allowed(_L, #b_blk{}, #b_blk{is=[#b_set{op=landingpad} | _]}) ->
+    false;
+is_merge_allowed(_, #b_blk{}, #b_blk{is=[#b_set{op=phi}|_]}) ->
+    %% This is rare. The caller has verified that the block with the
+    %% phi node has a single predecessor. Phi nodes with a single
+    %% predecessor should not usually exist, so this means that some
+    %% optimization has been disabled, or that the phi node refers to
+    %% blocks that have been discarded. In either case, we can't merge
+    %% the blocks now. The phi node will be cleaned up and eliminated
+    %% later.
     false;
 is_merge_allowed(L, #b_blk{}=Blk1, #b_blk{is=[#b_set{}=I|_]}=Blk2) ->
     not is_loop_header(I) andalso
@@ -1283,24 +1284,12 @@ is_merge_allowed(L, #b_blk{}=Blk1, #b_blk{is=[#b_set{}=I|_]}=Blk2) ->
 is_merge_allowed(L, Blk1, Blk2) ->
     is_merge_allowed_1(L, Blk1, Blk2).
 
-is_merge_allowed_1(L, #b_blk{last=#b_br{}}=Blk, #b_blk{is=Is}) ->
+is_merge_allowed_1(L, #b_blk{last=#b_br{}}=Blk, #b_blk{}) ->
     %% The predecessor block must have exactly one successor (L) for
     %% the merge to be safe.
     case successors(Blk) of
-        [L] ->
-            case Is of
-                [#b_set{op=phi,args=[_]}|_] ->
-                    %% The type optimizer pass must have been
-                    %% turned off, since it would have removed this
-                    %% redundant phi node. Refuse to merge the blocks
-                    %% to ensure that this phi node remains at the
-                    %% beginning of a block.
-                    false;
-                _ ->
-                    true
-            end;
-        [_|_] ->
-            false
+        [L] -> true;
+        [_|_] -> false
     end;
 is_merge_allowed_1(_, #b_blk{last=#b_switch{}}, #b_blk{}) ->
     false.
