@@ -296,4 +296,5 @@ encode_trailers(Trailers) ->
 encode_trailers([], Acc) ->
     Acc ++ ?CRLF ++ ?CRLF;
 encode_trailers([{Header, Value} | Rest], Acc) ->
-    encode_trailers(Rest, Header ++ ":" ++ Value ++ ?CRLF ++ Acc).
+    encode_trailers(Rest, http_util:strip_ctl_chars(Header) ++ ":" ++
+                        http_util:strip_ctl_chars(Value) ++ ?CRLF ++ Acc).
