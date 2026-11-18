@@ -45,6 +45,7 @@
 -export([
          all_algorithms_sftp_exec_reneg_otp_is_client/1,
          check_docker_present/1,
+         lab_host_facts/1,
          login_otp_is_client/1,
          login_otp_is_server/1,
          no_docker_or_images/1,
@@ -74,7 +75,12 @@
 suite() ->
     [{timetrap, ?DEFAULT_TIMETRAP}].
 
+%% TEMPORARY, not for merge: lab_host_facts reports the host's docker
+%% setup as a skip reason, so that it shows in every host's suite.log
 all() ->
+    [lab_host_facts | all_groups()].
+
+all_groups() ->
     case docker_found() andalso docker_usable() == ok of
         false ->
             %% init_per_suite/1 skips with the reason. Without this, CT
@@ -147,13 +153,16 @@ version_tag(Tokens) ->
 
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
+    %% TEMPORARY, not for merge: the facts go into every skip reason
+    Facts = lab_facts(),
+    ct:log("Lab host facts: ~ts", [Facts]),
     ?CHECK_CRYPTO(
        case {os:find_executable("docker"), file:read_file_info(versions_file())} of
            {false, _} ->
-               {skip, "No docker"};
+               {skip, "No docker; " ++ Facts};
            {_, {error, Reason}} ->
-               {skip, lists:flatten(io_lib:format("Cannot read ~ts: ~p",
-                                                  [versions_file(), Reason]))};
+               {skip, lists:flatten(io_lib:format("Cannot read ~ts: ~p; ~ts",
+                                                  [versions_file(), Reason, Facts]))};
            _ ->
                case docker_usable() of
                    ok ->
@@ -161,9 +170,9 @@ init_per_suite(Config) ->
                        log_image_versions(ssh_image_versions(), Config),
                        ct:log("Crypto info: ~p",[crypto:info_lib()]),
                        ct:log("ssh image versions: ~p",[ssh_image_versions()]),
-                       Config;
+                       [{lab_facts, Facts} | Config];
                    {error, Msg} ->
-                       {skip, "docker daemon not usable: " ++ Msg}
+                       {skip, "docker daemon not usable: " ++ one_line(Msg) ++ "; " ++ Facts}
                end
        end).
 
@@ -179,6 +188,85 @@ docker_usable() ->
         nomatch ->
             {error, Out}
     end.
+
+%%--------------------------------------------------------------------
+%% TEMPORARY, not for merge: one line describing the host's docker
+%% setup, e.g.
+%%   LAB host=porthos os=unix/linux user=otptest container=no
+%%   docker=/usr/bin/docker docker_group=yes server=29.8.2 rootless=no
+%%   root=/ldisk/docker free_gb=253.1 images=33/33 docker_host=-
+%%   proxy=http_proxy,https_proxy docker_if=172.17.0.1
+%% Proxy variables are listed by name only, never by value.
+lab_facts() ->
+    try lab_facts_1()
+    catch C:E -> lists:flatten(io_lib:format("LAB facts_error=~p:~0p", [C, E]))
+    end.
+
+lab_facts_1() ->
+    {OsFam, OsName} = os:type(),
+    Docker = os:find_executable("docker"),
+    Groups = case OsFam of
+                 unix -> string:lexemes(os:cmd("id -Gn 2>/dev/null"), " \r\n");
+                 _ -> []
+             end,
+    Container = filelib:is_file("/.dockerenv") orelse filelib:is_file("/run/.containerenv"),
+    Proxies = [V || V <- ["http_proxy", "https_proxy", "no_proxy",
+                          "HTTP_PROXY", "HTTPS_PROXY", "NO_PROXY"],
+                    os:getenv(V) =/= false],
+    Base = [{host, hostname()},
+            {os, lists:concat([OsFam, "/", OsName])},
+            {user, os:getenv("USER", os:getenv("USERNAME", "?"))},
+            {container, yes_no(Container)},
+            {docker, case Docker of false -> "none"; _ -> Docker end},
+            {docker_group, yes_no(lists:member("docker", Groups))},
+            {docker_host, os:getenv("DOCKER_HOST", "-")},
+            {proxy, case Proxies of [] -> "none"; _ -> lists:join(",", Proxies) end},
+            {docker_if, case get_docker_if_address(inet:getifaddrs()) of
+                            IP when is_tuple(IP) -> inet:ntoa(IP);
+                            _ -> "none"
+                        end}],
+    Daemon = case Docker of
+                 false -> [];
+                 _ -> lab_daemon_facts()
+             end,
+    lists:flatten(["LAB" | [io_lib:format(" ~w=~ts", [K, V]) || {K, V} <- Base ++ Daemon]]).
+
+lab_daemon_facts() ->
+    Timeout = case os:find_executable("timeout") of
+                  false -> "";
+                  _ -> "timeout 30 "
+              end,
+    Out = string:trim(os:cmd(Timeout ++ "docker info --format "
+                             "'{{.ServerVersion}}|{{.DockerRootDir}}|{{.SecurityOptions}}' 2>&1")),
+    case string:split(Out, "|", all) of
+        [[D|_] = Ver, Root, SecOpts] when D >= $0, D =< $9 ->
+            Free = case docker_free_kb() of
+                       {ok, _, KB} -> io_lib:format("~.1f", [KB / (1024 * 1024)]);
+                       {error, _} -> "?"
+                   end,
+            [{server, Ver},
+             {rootless, yes_no(string:find(SecOpts, "rootless") =/= nomatch)},
+             {root, Root},
+             {free_gb, Free},
+             {images, lab_images()}];
+        _ ->
+            %% docker_usable/0 puts the error text in the skip reason
+            ct:log("docker info: ~ts", [Out]),
+            [{server, "error"}]
+    end.
+
+%% Images present for the current recipe / groups in versions.txt
+lab_images() ->
+    Present = string:lexemes(os:cmd("docker images --format "
+                                    "'{{.Repository}}:{{.Tag}}' 2>/dev/null"), "\r\n"),
+    Wanted = [?DOCKER_PFX ++ ":" ++ get_docker_version(V) || V <- ssh_image_versions()],
+    lists:concat([length([W || W <- Wanted, lists:member(W, Present)]), "/", length(Wanted)]).
+
+yes_no(true) -> "yes";
+yes_no(false) -> "no".
+
+one_line(S) ->
+    lists:flatten(string:replace(string:trim(S), "\n", " ", all)).
 
 end_per_suite(_Config) ->
     %% Remove all containers that are not running:
@@ -314,6 +402,12 @@ end_per_testcase(_TC, _Config) ->
 %% versions.txt lists no images
 no_docker_or_images(_Config) ->
     {skip, "No ssh versions to test in " ++ versions_file()}.
+
+%%--------------------------------------------------------------------
+%% TEMPORARY, not for merge: a skip, because suite.log keeps skip
+%% reasons but not the comments of passed cases
+lab_host_facts(Config) ->
+    {skip, proplists:get_value(lab_facts, Config, lab_facts())}.
 
 %%--------------------------------------------------------------------
 check_docker_present(_Config) ->
@@ -1728,6 +1822,7 @@ build_image(Config, Ver) ->
         false ->
             ct:timetrap(?IMAGE_BUILD_TIMETRAP),
             try
+                ok = lab_no_build(DockerVer),
                 ok = docker_free_disk(?MIN_FREE_GB_FOR_BUILD),
                 DataDir = proplists:get_value(data_dir, Config),
                 BuildAll = filename:join([DataDir, "build_scripts", "create_all"]),
@@ -1754,6 +1849,19 @@ build_image(Config, Ver) ->
             after
                 ct:timetrap(?DEFAULT_TIMETRAP)
             end
+    end.
+
+%% TEMPORARY, not for merge: no image builds in the lab fact-finding
+%% run, so that a host with docker but no images does not spend hours
+%% on builds inside the nightly ssh job. Set SSH_COMPAT_BUILD_IMAGES to
+%% build anyway.
+lab_no_build(DockerVer) ->
+    case os:getenv("SSH_COMPAT_BUILD_IMAGES") of
+        false ->
+            throw({skip, "Image " ++ DockerVer ++ " missing, not built in this run "
+                         "(set SSH_COMPAT_BUILD_IMAGES to build)"});
+        _ ->
+            ok
     end.
 
 %% Throws {skip, Reason} when the filesystem holding the daemon's
