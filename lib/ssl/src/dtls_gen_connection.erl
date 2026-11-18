@@ -429,13 +429,18 @@ handle_protocol_record(#ssl_tls{type = ?APPLICATION_DATA, fragment = Data}, Stat
 handle_protocol_record(#ssl_tls{type = ?HANDSHAKE, epoch = Epoch, fragment = Data},
                        StateName,
                        #state{protocol_buffers = Buffers0,
+                              static_env = #static_env{role = Role},
                               connection_env = #connection_env{negotiated_version = Version},
                               ssl_options = Options} = State) ->
     try
 	case dtls_handshake:get_dtls_handshake(Version, Data, Buffers0, Options) of
 	    {[], Buffers} ->
 		next_event(StateName, no_record, State#state{protocol_buffers = Buffers});
-	    {Packets, Buffers} ->
+            {[peer_retransmission], Buffers} ->
+                peer_retransmission(Role, StateName,
+                                    State#state{protocol_buffers = Buffers});
+            {Packets0, Buffers} ->
+                Packets = lists:delete(peer_retransmission, Packets0),
 		HsEnv = State#state.handshake_env,
 		HSEvents = dtls_handshake_events(Packets),
                 Events = case is_new_connection(Epoch, Packets, State) of
@@ -833,6 +838,25 @@ is_new_connection(0, [{#client_hello{},_Raw}|_],
     true;
 is_new_connection(_, _, _) ->
     false.
+
+%% The peer retransmitted a message we have already processed, that is
+%% our last flight was probably lost (RFC 6347 4.2.4). A server in
+%% the hello state starts no retransmission timer after sending a
+%% HelloVerifyRequest (RFC 6347 4.2.1), so if that is lost only
+%% resending it on the client's retransmitted ClientHello can make
+%% progress. Only do it then, as the HelloVerifyRequest is not larger
+%% than the ClientHello and so cannot be used for amplification. In
+%% other states the retransmission timer handles lost flights.
+peer_retransmission(server, hello = StateName,
+                    #state{handshake_env =
+                               #handshake_env{
+                                  flight_buffer =
+                                      #{handshakes := [[?HELLO_VERIFY_REQUEST | _]]}}}
+                    = State0) ->
+    {State, _} = send_handshake_flight(State0, retransmit_epoch(StateName, State0)),
+    next_event(StateName, no_record, State);
+peer_retransmission(_, StateName, State) ->
+    next_event(StateName, no_record, State).
 
 dtls_handshake_events(Packets) ->
     lists:map(fun(Packet) ->

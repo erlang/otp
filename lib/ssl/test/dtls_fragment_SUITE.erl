@@ -55,6 +55,7 @@
          malformed_fragment/1]).
 
 -define(FINISHED, 20).
+-define(CLIENT_HELLO_TYPE, 1).
 -define(DTLS_1_2, {254, 253}).
 
 %%--------------------------------------------------------------------
@@ -181,24 +182,33 @@ cross_message_seq_no_leak(_Config) ->
     [{2, <<"ABXY">>}] = bodies(M4, [2]).
 
 retransmitted_complete_message(_Config) ->
-    %% Re-receiving an already-processed message_seq (retransmit) is
-    %% discarded, not re-emitted or merged.
+    %% Re-receiving an already-processed ClientHello (retransmit) is
+    %% not re-emitted or merged, but reported as a peer retransmission.
     B0 = buffers(),
-    {M0, B1} = feed(frag(0, 3, 0, <<"abc">>), B0),
-    [{0, <<"abc">>}] = bodies(M0, [0]),
-    {M1, _B2} = feed(frag(0, 3, 0, <<"abc">>), B1), %% retransmit of seq0
-    [] = bodies(M1, []).
+    {[{Hello, _}], B1} = feed(client_hello(0), B0),
+    client_hello = element(1, Hello),
+    {[peer_retransmission], B1} = feed(client_hello(0), B1),
+    %% Several copies in one record are reported once.
+    {[peer_retransmission], B1} =
+        feed(<<(client_hello(0))/binary, (client_hello(0))/binary>>, B1).
 
 old_message_seq_discarded(_Config) ->
-    %% A fragment with message_seq < next_seq is silently discarded.
+    %% A fragment with message_seq < next_seq is discarded. Only a
+    %% complete ClientHello of at least the minimal valid length is
+    %% reported as a peer retransmission, so that tiny records cannot
+    %% trigger a larger answer (amplification).
     B0 = buffers(),
     {M0, B1} = feed(frag(0, 1, 0, <<"x">>), B0),
     [{0, <<"x">>}] = bodies(M0, [0]),
     {M1, B2} = feed(frag(1, 1, 0, <<"y">>), B1),
     [{1, <<"y">>}] = bodies(M1, [1]),
-    %% next_seq is now 2; feeding seq0 again must be discarded.
-    {M2, _B3} = feed(frag(0, 1, 0, <<"x">>), B2),
-    [] = bodies(M2, []).
+    %% next_seq is now 2; old messages that are not ClientHellos
+    {[], B2} = feed(frag(0, 1, 0, <<"x">>), B2),
+    {[], B2} = feed(frag(0, 0, 0, <<>>), B2),
+    %% Partial, empty or too short old ClientHello
+    {[], B2} = feed(ch_frag(0, 42, 2, binary:copy(<<0>>, 40)), B2),
+    {[], B2} = feed(ch_frag(0, 0, 0, <<>>), B2),
+    {[], B2} = feed(ch_frag(0, 41, 0, binary:copy(<<0>>, 41)), B2).
 
 malformed_fragment(_Config) ->
     %% A fragment whose declared fragment_length does not match the data
@@ -231,6 +241,18 @@ buffers() ->
 %%   Type:8 Length:24 MessageSeq:16 FragmentOffset:24 FragmentLength:24 Fragment
 frag(Seq, TotalLen, Off, Data) ->
     <<?FINISHED, TotalLen:24, Seq:16, Off:24, (byte_size(Data)):24, Data/binary>>.
+
+%% A ClientHello handshake fragment
+ch_frag(Seq, TotalLen, Off, Data) ->
+    <<?CLIENT_HELLO_TYPE, TotalLen:24, Seq:16, Off:24, (byte_size(Data)):24,
+      Data/binary>>.
+
+%% Complete minimal (42 byte) DTLS 1.2 ClientHello: version, random,
+%% empty session_id and cookie, one cipher suite, null compression.
+client_hello(Seq) ->
+    Body = <<254, 253, 0:256, 0, 0, 2:16, 16#c0, 16#2b, 1, 0>>,
+    42 = byte_size(Body),
+    ch_frag(Seq, byte_size(Body), 0, Body).
 
 feed(Wire, Buffers) ->
     dtls_handshake:get_dtls_handshake(?DTLS_1_2, Wire, Buffers,
