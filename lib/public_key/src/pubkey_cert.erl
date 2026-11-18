@@ -1627,14 +1627,17 @@ is_in_intersection(#'GeneralSubtree'{base  =
 				   {directoryName, {rdnSequence,[none]}}}
 	     | Trees]
     end;
-is_in_intersection(#'GeneralSubtree'{base = {iPAddress, Ip}},
-                   Trees = [#'GeneralSubtree'{base = {iPAddress, Ip}} | _]) ->
-    %% TODO: This only handles exact IP/mask equality. A proper
-    %% intersection of IP constraints should compute the overlapping
-    %% subnet range (RFC 5280 Section 6.1.4 step (g)). In practice,
-    %% IP nameConstraints with multiple CAs having different subnets
-    %% are extremely rare, so this is acceptable for now.
-    Trees;
+is_in_intersection(#'GeneralSubtree'{base = {iPAddress, IpMask1}} = Name,
+                   [#'GeneralSubtree'{base = {iPAddress, IpMask2}} | Trees])
+  when byte_size(IpMask1) =:= byte_size(IpMask2),
+       (byte_size(IpMask1) =:= 8 orelse byte_size(IpMask1) =:= 32) ->
+    %% Same address family (IPv4 or IPv6 address + mask)
+    [Name#'GeneralSubtree'{base = {iPAddress, ip_constraints_intersection(IpMask1, IpMask2)}}
+     | Trees];
+is_in_intersection(#'GeneralSubtree'{base = {iPAddress, _}} = Name,
+                   [#'GeneralSubtree'{base = {iPAddress, _}} | Trees]) ->
+    %% Different address families (or malformed), no address is in both
+    [Name#'GeneralSubtree'{base = {iPAddress, <<>>}} | Trees];
 is_in_intersection(#'GeneralSubtree'{base = {x400Address, OrAddr1}} = Addr,
 		   [#'GeneralSubtree'{base = {x400Address, OrAddr2}}
 		    | Trees]) ->
@@ -1662,6 +1665,23 @@ is_in_intersection(Name, [Other | IntCandidates]) ->
 type_subtree_names(Type, SubTrees) ->
     [Name || #'GeneralSubtree'{base = {TreeType, Name}} <- SubTrees,
 	     TreeType =:= Type].
+
+%% Intersection of two address ranges, given as address followed by
+%% subnet mask (RFC 5280 4.2.1.10), of the same address family.
+ip_constraints_intersection(IpMask1, IpMask2) ->
+    Bits = byte_size(IpMask1) * 4,
+    <<Ip1:Bits, Mask1:Bits>> = IpMask1,
+    <<Ip2:Bits, Mask2:Bits>> = IpMask2,
+    AndMask = Mask1 band Mask2,
+    if (Ip1 band AndMask) == (Ip2 band AndMask) ->
+            %% The bits that both specify are the same
+            Mask = Mask1 bor Mask2,                     % Both masks
+            Ip = (Ip1 band Mask1) bor (Ip2 band Mask2), % Both addresses
+            <<Ip:Bits, Mask:Bits>>;
+       true ->
+            %% No overlap, matches no address (see is_permitted_ip/2)
+            <<>>
+    end.
 
 is_permitted_ip(<<IP:4/binary>>, <<Permitted:4/binary, Mask:4/binary>>) ->
     ip_mask_match(IP, Permitted, Mask);
