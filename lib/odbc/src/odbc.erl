@@ -727,6 +727,10 @@ User's Guide.
 > `{max_length_too_large, Type, Max, Limit}`. For wide (UTF-16) string types
 > `Max` counts characters (16-bit code units), so a value is accepted when its
 > size is at most `2 * Max` bytes.
+>
+> The encoded query, including all parameter values, must also fit in
+> 2147483647 bytes; a larger query returns
+> `{error, {param_query_too_large, Size, Limit}}` before it is sent.
 """.
 -spec param_query(ConnectionReference, SQLQuery, Params, TimeOut) ->
           Result | {error, Reason} when
@@ -741,12 +745,8 @@ User's Guide.
 %%--------------------------------------------------------------------------
 param_query(ConnectionReference, SQLQuery, Params, infinity) 
   when is_pid(ConnectionReference), is_list(SQLQuery), is_list(Params) ->
-    try lists:map(fun fix_params/1, Params) of
-        NewParams ->
-            Values = param_values(Params),
-            NoRows = length(Values),
-            ODBCCmd = [?PARAM_QUERY, term_to_binary({SQLQuery ++ [?STR_TERMINATOR],
-                                                     NoRows, NewParams})],
+    try param_query_cmd(SQLQuery, Params) of
+        ODBCCmd ->
             call(ConnectionReference, {param_query, ODBCCmd}, infinity)
     catch
         throw:{odbc_param_error, Reason} ->
@@ -756,12 +756,8 @@ param_query(ConnectionReference, SQLQuery, Params, infinity)
 param_query(ConnectionReference, SQLQuery, Params, TimeOut)
   when is_pid(ConnectionReference), is_list(SQLQuery), is_list(Params),
        is_integer(TimeOut), TimeOut > 0 ->
-    try lists:map(fun fix_params/1, Params) of
-        NewParams ->
-            Values = param_values(Params),
-            NoRows = length(Values),
-            ODBCCmd = [?PARAM_QUERY, term_to_binary({SQLQuery ++ [?STR_TERMINATOR],
-                                                     NoRows, NewParams})],
+    try param_query_cmd(SQLQuery, Params) of
+        ODBCCmd ->
             call(ConnectionReference, {param_query, ODBCCmd}, TimeOut)
     catch
         throw:{odbc_param_error, Reason} ->
@@ -1306,6 +1302,23 @@ decode(Binary) ->
 	MultipleResultSets_or_Other ->
 	    MultipleResultSets_or_Other
     end.
+
+%%-------------------------------------------------------------------------
+%% Build the param_query request for the port program. Throws
+%% {odbc_param_error, Reason} on invalid parameters or when the encoded
+%% request would exceed ?MAX_ODBC_MSG_SIZE. The size is computed with
+%% erlang:external_size/1 (an upper bound) before encoding, so an
+%% oversized request is rejected without building the binary.
+param_query_cmd(SQLQuery, Params) ->
+    NewParams = lists:map(fun fix_params/1, Params),
+    NoRows = length(param_values(Params)),
+    Term = {SQLQuery ++ [?STR_TERMINATOR], NoRows, NewParams},
+    %% Wire size: command byte + ETF + ?STR_TERMINATOR added by odbc_send/2
+    Size = 2 + erlang:external_size(Term),
+    Size =< ?MAX_ODBC_MSG_SIZE orelse
+        throw({odbc_param_error,
+               {param_query_too_large, Size, ?MAX_ODBC_MSG_SIZE}}),
+    [?PARAM_QUERY, term_to_binary(Term)].
 
 %%-------------------------------------------------------------------------
 param_values(Params) ->
