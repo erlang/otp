@@ -154,7 +154,11 @@ typedef struct {
 
 typedef struct {
     col_type type;
-    int offset;
+    /* Byte offset into values.string. size_t, not int (wraps negative
+     * once num_param_values * type.len exceeds INT_MAX) and not SQLLEN
+     * (only 32 bits with unixODBC BUILD_LEGACY_64_BIT_MODE); it must
+     * cover the full size_t sized allocation from safe_array_malloc. */
+    size_t offset;
     SQLUSMALLINT input_output_type;
     union {
 	byte *string;

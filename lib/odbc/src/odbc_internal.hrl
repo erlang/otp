@@ -137,6 +137,14 @@
 %% platform in any case.
 -define(MAX_PARAM_STRING_LEN, ((1 bsl 30) - 2)).
 
+%% Largest request message (command byte, external term format and the
+%% terminator added by odbc_send/2) the port program accepts. It
+%% decodes requests with the ei API, whose read index is a C int, so a
+%% larger message would wrap the index.
+%% The port program enforces the same limit (receive_msg/2 in
+%% odbcserver.c, INT_MAX).
+-define(MAX_ODBC_MSG_SIZE, ((1 bsl 31) - 1)).
+
 %% Handling of C exit codes
 -define(ENCODE_EXIT_FUN, 
 	(fun(?EXIT_SUCCESS) ->
