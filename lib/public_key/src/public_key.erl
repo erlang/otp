@@ -3331,8 +3331,16 @@ verify_hostname_match_default0(_, _) ->
 verify_hostname_match_wildcard(FQDN, Name) ->
     [F1|Fs] = string:split(to_lower_ascii(FQDN), "."),
     [N1|Ns] = string:split(to_lower_ascii(Name), "."),
-    match_wild(F1,N1) andalso Fs==Ns.
+    Fs == Ns andalso
+        (not lists:member($*, N1) orelse wildcard_domain(Ns)) andalso
+        match_wild(F1, N1).
 
+%% A wildcard is only allowed in the leftmost label and the rest of the
+%% name must have at least two labels, so no *.com or bare *.
+wildcard_domain([Domain]) ->
+    lists:member($., Domain);
+wildcard_domain(_) ->
+    false.
 
 ok({ok,X}) -> X.
 
@@ -3340,20 +3348,38 @@ l16_to_tup(L) -> list_to_tuple(l16_to_tup(L, [])).
 %%
 l16_to_tup([A,B|T], Acc) -> l16_to_tup(T, [(A bsl 8) bor B | Acc]);
 l16_to_tup([], Acc) -> lists:reverse(Acc).
-    
-match_wild(A,     [$*|B]) -> match_wild_suffixes(A, B);
-match_wild([C|A], [ C|B]) -> match_wild(A, B);
-match_wild([],        []) -> true;
-match_wild(_,          _) -> false.
 
-%% Match the parts after the only wildcard by comparing them from the end
-match_wild_suffixes(A, B) -> match_wild_sfx(lists:reverse(A), lists:reverse(B)).
+%% Match the leftmost label of the presented name against the
+%% reference label. The same rules as OpenSSL X509_check_host/4 by
+%% default (RFC 6125 6.4.3):
+%%  - "*" matches any non-empty label
+%%  - "prefix*" or "*suffix" matches a label with that prefix or
+%%    suffix, but not an IDNA (xn--) label
+%%  - a wildcard in the middle of the label ("f*o"), more than one
+%%    wildcard or a wildcard in an IDNA label never matches
+match_wild(F, N) ->
+    case lists:member($*, F) of
+        true ->
+            false; %% Bad reference name (no wildcards allowed)
+        false ->
+            case string:split(N, "*", all) of
+                [N] ->
+                    F == N;
+                [[], []] ->
+                    F =/= [];
+                [Prefix, Suffix] when Prefix == []; Suffix == [] ->
+                    not is_idna_label(N) andalso
+                        not is_idna_label(F) andalso
+                        length(F) >= length(Prefix) + length(Suffix) andalso
+                        lists:prefix(Prefix, F) andalso
+                        lists:suffix(Suffix, F);
+                _ ->
+                    false
+            end
+    end.
 
-match_wild_sfx([$*|_],      _) -> false; % Bad name (no wildcards allowed)
-match_wild_sfx(_,      [$*|_]) -> false; % Bad pattern (no more wildcards allowed)
-match_wild_sfx([A|Ar], [A|Br]) -> match_wild_sfx(Ar, Br);
-match_wild_sfx(Ar,         []) -> not lists:member($*, Ar); % Chk for bad name (= wildcards)
-match_wild_sfx(_,           _) -> false.
+is_idna_label("xn--" ++ _) -> true;
+is_idna_label(_) -> false.
     
 
 verify_hostname_match_loop(Refs0, Pres0, undefined, FailCB, Cert) ->
