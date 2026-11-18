@@ -495,6 +495,7 @@ struct ErtsRunQueue_ {
     int waiting;
     int woken;
     int check_balance_reds;
+    ErtsMonotonicTime check_balance_timeout;
     int full_reds_history_sum;
     int full_reds_history[ERTS_FULL_REDS_HISTORY_SIZE];
     int out_of_work_count;
@@ -2216,6 +2217,19 @@ Eterm erts_get_decentralized_counter_groups_map(Process *c_p);
 Eterm erts_debug_reader_groups_map(Process *c_p, int groups);
 
 Uint erts_debug_nbalance(void);
+
+typedef struct {
+    int active_runqs;
+    int used_runqs;
+    int last_active_runqs;
+    Uint checks;
+    int rise_active_runqs;
+    int rise_max_len;
+    int rise_reds;
+    Uint rise_check;
+} ErtsDebugBalanceInfo;
+
+void erts_debug_balance_info(ErtsDebugBalanceInfo *info);
 
 #define ERTS_DEBUG_WAIT_COMPLETED_DEALLOCATIONS		(1 << 0)
 #define ERTS_DEBUG_WAIT_COMPLETED_TIMER_CANCELLATIONS	(1 << 1)
