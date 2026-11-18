@@ -2052,7 +2052,17 @@ static byte * receive_msg(int socket, size_t *msg_len_out)
     }
     
     msg_len = length_buffer_to_size(lengthstr);
-    
+
+    /* The request is decoded with the ei API, whose read index is an
+     * int. A message larger than INT_MAX would wrap the index and make
+     * later ei_decode_* calls read outside the buffer. odbc.erl rejects
+     * such requests before sending (?MAX_ODBC_MSG_SIZE); this is
+     * defence in depth. */
+    if (msg_len > INT_MAX) {
+        close_socket(socket);
+        DO_EXIT(EXIT_SOCKET_RECV_MSGSIZE);
+    }
+
     buffer = (byte *)safe_malloc(msg_len);
 
     if(!receive_msg_part(socket, buffer, msg_len)) {

@@ -45,7 +45,8 @@ all() ->
      at_cap_passes_validation,
      invalid_max_length,
      value_exceeds_max_length,
-     describe_roundtrip_sentinel].
+     describe_roundtrip_sentinel,
+     param_query_too_large].
 
 init_per_suite(Config) ->
     %% Only the client-side validation is exercised; the odbc application
@@ -148,4 +149,54 @@ describe_roundtrip_sentinel(_Config) ->
     {error, {max_length_too_large, sql_wvarchar, NVarcharMax, Limit}} =
         odbc:param_query(dummy_ref(), "INSERT",
                          [{{sql_wvarchar, NVarcharMax}, [<<>>]}]),
+    ok.
+
+param_query_too_large() ->
+    [{doc, "A request whose encoded size exceeds what the port program can "
+      "decode (?MAX_ODBC_MSG_SIZE, the ei int read index) is rejected with "
+      "{param_query_too_large, Size, Limit} and does not reach the port."}].
+param_query_too_large(_Config) ->
+    Limit = ?MAX_ODBC_MSG_SIZE,
+    %% Each value is the same shared 1 MiB refc binary, so the encoded
+    %% size is about 2.2 GB while the test uses only about 1 MiB of
+    %% memory. sql_integer values are not type checked on the Erlang side
+    %% (the port program does that), and the size guard runs before the
+    %% request would be sent, so a binary works as a size filler here.
+    Filler = binary:copy(<<0>>, 1 bsl 20),
+    Rows = (Limit div byte_size(Filler)) + 100,
+    {error, {param_query_too_large, Size, Limit}} =
+        odbc:param_query(dummy_ref(), "INSERT",
+                         [{sql_integer, lists:duplicate(Rows, Filler)}]),
+    true = Size > Limit,
+    {error, {param_query_too_large, _, Limit}} =
+        odbc:param_query(dummy_ref(), "INSERT",
+                         [{sql_integer, lists:duplicate(Rows, Filler)}],
+                         infinity),
+    %% Boundary: the size checked must be the full wire message, that is
+    %% command byte + ETF + the terminator that odbc_send/2 appends, so
+    %% that a message of exactly Limit + 1 bytes is rejected. Compute the
+    %% wire size independently from the request encoding and pick the
+    %% last value so that it is exactly Limit + 1. All values are sub
+    %% binaries of one buffer.
+    Buf = binary:copy(<<0>>, 2 bsl 20),
+    MiB = binary:part(Buf, 0, 1 bsl 20),
+    N = (Limit div (byte_size(MiB) + 5)) - 1,
+    Values = fun(Last) -> lists:duplicate(N, MiB) ++ [Last] end,
+    WireSize = fun(Last) ->
+                       Term = {"INSERT" ++ [?STR_TERMINATOR], N + 1,
+                               [{?USER_INT, ?IN, [256 | Values(Last)]}]},
+                       1 + erlang:external_size(Term) + 1
+               end,
+    PadLen = byte_size(Buf) - (WireSize(Buf) - (Limit + 1)),
+    true = PadLen >= 0 andalso PadLen =< byte_size(Buf),
+    %% The reported size is the wire size (checked on an oversized request
+    %% first, so a wrong size count fails here without building 2 GiB).
+    BufSize = WireSize(Buf),
+    {error, {param_query_too_large, BufSize, Limit}} =
+        odbc:param_query(dummy_ref(), "INSERT", [{sql_integer, Values(Buf)}]),
+    Pad = binary:part(Buf, 0, PadLen),
+    BoundarySize = Limit + 1,
+    BoundarySize = WireSize(Pad),
+    {error, {param_query_too_large, BoundarySize, Limit}} =
+        odbc:param_query(dummy_ref(), "INSERT", [{sql_integer, Values(Pad)}]),
     ok.
