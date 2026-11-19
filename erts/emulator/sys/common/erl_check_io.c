@@ -2015,6 +2015,23 @@ erts_check_io(ErtsPollThread *psi, ErtsMonotonicTime timeout_time, bool needs_th
 
         DEBUG_PRINT_FD("triggered %s", state, ev2str(revents));
 
+#if ERTS_POLL_USE_SCHEDULER_POLLING
+        if (is_scheduler_poll
+            && (state->flags & ERTS_EV_FLAG_SCHEDULER)
+            && state->type == ERTS_EV_TYPE_DRV_SEL
+            && is_iotask_active(&state->driver.select->iniotask)) {
+            /*
+             * An input task that was scheduled while the fd is in the
+             * scheduler pollset does not call
+             * erts_io_notify_port_task_executed() when it is done, since
+             * the fd is expected to remain in the pollset. If we removed it
+             * here nothing would re-arm the fd. The pollset is level
+             * triggered, so we handle the error when it triggers again.
+             */
+            revents &= ~ERTS_POLL_EV_ERR;
+        }
+#endif
+
         if (revents & ERTS_POLL_EV_ERR
             && !(state->flags & ERTS_EV_FLAG_WANT_ERROR)) {
             /*
