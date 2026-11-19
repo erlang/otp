@@ -115,6 +115,7 @@ MODULES= \
 	tls_dist_server_sup \
 	tls_dyn_connection_sup\
 	tls_sender \
+	tls_ktls \
 	tls_server_session_ticket\
 	tls_server_session_ticket_sup\
 	tls_server_sup\

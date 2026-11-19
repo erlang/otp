@@ -188,12 +188,13 @@ initial_state(Role, Sender, Tab, Host, Port, Socket, {SSLOptions, SocketOptions,
        protocol_buffers = #protocol_buffers{},
        user_data_buffer = {[],0,[]},
        recv = #recv{},
-       protocol_specific = #{sender => Sender,
-                             active_n => ssl_config:get_internal_active_n(
-                                           maps:get(erl_dist, SSLOptions, false)),
-                             active_n_toggle => true,
-                             socket_active => 0
-                            }
+       protocol_specific = tls_ktls:init(SSLOptions, Socket,
+                                         #{sender => Sender,
+                                           active_n => ssl_config:get_internal_active_n(
+                                                         maps:get(erl_dist, SSLOptions, false)),
+                                           active_n_toggle => true,
+                                           socket_active => 0
+                                          })
       }.
 
 negotiated_hashsign(undefined, KexAlg, PubKeyInfo, Version) ->

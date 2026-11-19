@@ -48,7 +48,8 @@
     getopt/2, getopt/3, getopt_native/3,
     sockname/1, socknames/2, peername/1, peernames/2,
     ioctl/2, ioctl/3, ioctl/4,
-    cancel/3
+    cancel/3,
+    tls/2
    ]).
 
 -export([enc_sockaddr/1, p_get/1, rest_iov/2]).
@@ -68,7 +69,7 @@
        nif_setopt/5, nif_getopt/3, nif_getopt/5,
        nif_sockname/1, nif_socknames/2, nif_peername/1, nif_peernames/2,
        nif_ioctl/2, nif_ioctl/3, nif_ioctl/4,
-       nif_cancel/3, nif_finalize_close/1]).
+       nif_cancel/3, nif_finalize_close/1, nif_tls/2]).
 
 %% Also in socket
 -define(REGISTRY, socket_registry).
@@ -1049,6 +1050,12 @@ ioctl(SRef, SReq, Arg1, Arg2) ->
 cancel(SRef, Op, Ref) ->
     nif_cancel(SRef, Op, Ref).
 
+%% An ssl kTLS request, see erl_ktls.h
+-spec tls(SockRef :: term(), Request :: iodata()) ->
+          {ok, Reply :: binary()} | {error, term()}.
+tls(SRef, Request) ->
+    nif_tls(SRef, Request).
+
 
 %% ===========================================================================
 %% Encode / decode
@@ -1363,6 +1370,7 @@ nif_recvmmsg(_SockRef, _VLen, _BufSz, _CtrlSz, _Flags, _RecvRef) ->
 nif_close(_SockRef) -> erlang:nif_error(notsup).
 nif_finalize_close(_SockRef) -> erlang:nif_error(notsup).
 nif_shutdown(_SockRef, _How) -> erlang:nif_error(notsup).
+nif_tls(_SockRef, _Request) -> erlang:nif_error(notsup).
 
 nif_setopt(_SockRef, _Lev, _Opt, _Val, _NativeVal) -> erlang:nif_error(notsup).
 nif_getopt(_SockRef, _Lev, _Opt) -> erlang:nif_error(notsup).

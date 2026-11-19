@@ -25,6 +25,7 @@
 	       tls_connection_sup,
 	       tls_gen_connection,
 	       tls_sender,
+               tls_ktls,
                tls_server_sup,
                tls_server_session_ticket_sup,
                tls_server_session_ticket,

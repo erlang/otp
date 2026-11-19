@@ -34,6 +34,10 @@
 #include "socket_int.h"
 #include "socket_dbg.h"
 
+#define ERTS_KTLS_ALLOC(S) enif_alloc(S)
+#define ERTS_KTLS_FREE(P)  enif_free(P)
+#include "erl_ktls.h"
+
 
 /* ********************************************************************* *
  *                   Socket state defs and macros                        *
@@ -540,6 +544,7 @@ typedef struct {
     /* +++ The dbg flag for SSDBG +++ */
     BOOLEAN_T          dbg;
     BOOLEAN_T          useReg;
+    ErtsKtls*          tls;     // ssl kTLS, NULL until a kTLS request
 
     /* Lock order: readMtx, writeMtx, cntMtx
      */

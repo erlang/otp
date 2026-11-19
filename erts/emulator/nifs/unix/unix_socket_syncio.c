@@ -2986,6 +2986,36 @@ ERL_NIF_TERM essio_peeloff(ErlNifEnv*       env,
 
 
 
+#ifdef ERTS_KTLS
+/* ssl kTLS: nothing is sent after an alert; a queued one gets a try */
+static
+ERL_NIF_TERM send_ktls_alerted(ErlNifEnv*       env,
+                               ESockDescriptor* descP)
+{
+    (void) erts_ktls_flush_alert(descP->tls, descP->sock);
+    return esock_make_error_closed(env);
+}
+
+/* ssl kTLS: an owed KeyUpdate goes before the data; FALSE, with the
+ * send's result in *resP, when it could not be sent */
+static
+BOOLEAN_T send_check_ktls(ErlNifEnv*       env,
+                          ESockDescriptor* descP,
+                          ERL_NIF_TERM     sockRef,
+                          ERL_NIF_TERM     sendRef,
+                          ERL_NIF_TERM*    resP)
+{
+    int err = erts_ktls_flush_owed(descP->tls, descP->sock);
+
+    if (err == 0)
+        return TRUE;
+    errno = err;
+    *resP = send_check_result(env, descP, -1, 0, FALSE, sockRef, sendRef);
+    return FALSE;
+}
+#endif
+
+
 /* ========================================================================
  * Do the actual send.
  * Do some initial writer checks, do the actual send and then
@@ -3018,11 +3048,19 @@ ERL_NIF_TERM essio_send(ErlNifEnv*       env,
 
     /* Ensure that we either have no current writer or we are it,
      * or enqueue this process if there is a current writer  */
+#ifdef ERTS_KTLS
+    if (descP->tls != NULL && descP->tls->alert != ERTS_KTLS_ALERT_NONE)
+        return send_ktls_alerted(env, descP);
+#endif
     if (! send_check_writer(env, descP, sendRef, &writerCheck)) {
         SSDBG( descP, ("UNIX-ESSIO", "esock_send {%d} -> writer check failed: "
                        "\r\n   %T\r\n", descP->sock, writerCheck) );
         return writerCheck;
     }
+#ifdef ERTS_KTLS
+    if (! send_check_ktls(env, descP, sockRef, sendRef, &writerCheck))
+        return writerCheck;
+#endif
     
     ESOCK_CNT_INC(env, descP, sockRef,
                   esock_atom_write_tries, &descP->writeTries, 1);
@@ -3135,12 +3173,20 @@ ERL_NIF_TERM essio_sendmsg(ErlNifEnv*       env,
 
     /* Ensure that we either have no current writer or we are it,
      * or enqueue this process if there is a current writer  */
+#ifdef ERTS_KTLS
+    if (descP->tls != NULL && descP->tls->alert != ERTS_KTLS_ALERT_NONE)
+        return send_ktls_alerted(env, descP);
+#endif
     if (! send_check_writer(env, descP, sendRef, &writerCheck)) {
         SSDBG( descP,
                ("UNIX-ESSIO", "essio_sendmsg(%d) -> writer check failed: "
                 "\r\n   %T\r\n", descP->sock, writerCheck) );
         return writerCheck;
     }
+#ifdef ERTS_KTLS
+    if (! send_check_ktls(env, descP, sockRef, sendRef, &writerCheck))
+        return writerCheck;
+#endif
 
     /* Initiate the .name and .namelen fields depending on if
      * we have an address or not
@@ -3382,12 +3428,20 @@ ERL_NIF_TERM essio_sendv(ErlNifEnv*       env,
 
     /* Ensure that we either have no current writer or we are it,
      * or enqueue this process if there is a current writer  */
+#ifdef ERTS_KTLS
+    if (descP->tls != NULL && descP->tls->alert != ERTS_KTLS_ALERT_NONE)
+        return send_ktls_alerted(env, descP);
+#endif
     if (! send_check_writer(env, descP, sendRef, &writerCheck)) {
         SSDBG( descP,
                ("UNIX-ESSIO", "essio_sendv {%d} -> writer check failed: "
                 "\r\n   %T\r\n", descP->sock, writerCheck) );
         return writerCheck;
     }
+#ifdef ERTS_KTLS
+    if (! send_check_ktls(env, descP, sockRef, sendRef, &writerCheck))
+        return writerCheck;
+#endif
 
 
     /* Extract the 'iov', which must be an erlang:iovec(),
@@ -3831,9 +3885,18 @@ ERL_NIF_TERM essio_recv(ErlNifEnv*       env,
     ESOCK_CNT_INC(env, descP, sockRef,
                   esock_atom_read_tries, &descP->readTries, 1);
 
-    /* recv() */
-    readResult = sock_recv(descP->sock, bufP->data, bufP->size, flags);
-    saveErrno  = ESOCK_IS_ERROR(readResult) ? sock_errno() : 0;
+    /* recv(), after ssl kTLS early data */
+#ifdef ERTS_KTLS
+    if (descP->tls != NULL && descP->tls->early != NULL) {
+        readResult = (ssize_t) erts_ktls_read_early(descP->tls,
+                                                    bufP->data, bufP->size);
+        saveErrno  = 0;
+    } else
+#endif
+    {
+        readResult = sock_recv(descP->sock, bufP->data, bufP->size, flags);
+        saveErrno  = ESOCK_IS_ERROR(readResult) ? sock_errno() : 0;
+    }
 
     SSDBG( descP, ("UNIX-ESSIO",
                    "essio_recv {%d} -> readResult: %ld (%d)\r\n",
@@ -4567,6 +4630,11 @@ ERL_NIF_TERM essio_close(ErlNifEnv*       env,
                            &descP->closerPid,
                            &descP->closerMon) == 0 );
     }
+
+#ifdef ERTS_KTLS
+    /* A queued ssl kTLS alert gets a last try */
+    (void) erts_ktls_flush_alert(descP->tls, descP->sock);
+#endif
 
     /* Prepare for closing the socket */
     descP->readState  |= ESOCK_STATE_CLOSING;
@@ -9533,6 +9601,14 @@ void essio_dtor(ErlNifEnv*       env,
     if (descP->buf.data != NULL) {
         FREE_BIN(&descP->buf);
     }
+
+#ifdef ERTS_KTLS
+    if (descP->tls != NULL) {
+        erts_ktls_free(descP->tls);
+        enif_free(descP->tls);
+        descP->tls = NULL;
+    }
+#endif
 
     esock_free_env("dtor reader", descP->currentReader.env);
     descP->currentReader.env = NULL;

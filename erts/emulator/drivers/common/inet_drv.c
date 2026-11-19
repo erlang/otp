@@ -840,6 +840,8 @@ static size_t my_strnlen(const char *s, size_t maxlen)
 #define TCP_REQ_UNRECV         43
 #define TCP_REQ_SHUTDOWN       44
 #define TCP_REQ_SENDFILE       45
+#define TCP_REQ_TLS_SOCKET     46
+#define TCP_REQ_TLS            47
 /* UDP and SCTP requests */
 #define PACKET_REQ_RECV        60 /* Common for UDP and SCTP         */
 /* #define SCTP_REQ_LISTEN       61 MERGED Different from TCP; not for UDP */
@@ -1477,6 +1479,17 @@ static struct erl_drv_entry sctp_inet_driver_entry =
 };
 #endif
 
+#define ERTS_KTLS_ALLOC(S) driver_alloc(S)
+#define ERTS_KTLS_FREE(P)  driver_free(P)
+#include "erl_ktls.h"
+
+/* ssl kTLS data of a socket, allocated by its first kTLS request */
+typedef struct {
+    char*         socket;       /* ext term for {ssl, SslSocket, ...} messages */
+    int           socket_len;
+    ErtsKtls      ktls;
+} tcp_tls_descriptor;
+
 struct _tcp_descriptor {
     inet_descriptor inet;       /* common data structure (DON'T MOVE) */
     int   high;                 /* high watermark */
@@ -1491,6 +1504,7 @@ struct _tcp_descriptor {
     int           i_remain;     /* remaining chars to read */
     int           tcp_add_flags;/* Additional TCP descriptor flags */
     int           http_state;   /* 0 = response|request  1=headers fields */
+    tcp_tls_descriptor* tls;    /* ssl kTLS, NULL until a kTLS request */
     inet_async_multi_op *multi_first;/* NULL == no multi-accept-queue, op is in ordinary queue */
     inet_async_multi_op *multi_last;
     MultiTimerData *mtd;       /* Timer structures for multiple accept */
@@ -1517,6 +1531,8 @@ static int tcp_send(tcp_descriptor* desc, char* ptr, ErlDrvSizeT len);
 static int tcp_sendv(tcp_descriptor* desc, ErlIOVec* ev);
 static int tcp_recv(tcp_descriptor* desc, int request_len);
 static int tcp_deliver(tcp_descriptor* desc, int len);
+static int tcp_load_socket(inet_descriptor* desc, ErlDrvTermData* spec, int i,
+                           ErlDrvTermData tcp, ErlDrvTermData ssl);
 
 static int tcp_shutdown_error(tcp_descriptor* desc, int err);
 
@@ -1572,6 +1588,8 @@ static ErlDrvTermData am_closed;
 static ErlDrvTermData am_tcp_passive;
 static ErlDrvTermData am_tcp_closed;
 static ErlDrvTermData am_tcp_error;
+static ErlDrvTermData am_ssl, am_ssl_closed, am_ssl_error, am_ssl_passive, am_ssl_control;
+static ErlDrvTermData am_ktls_once, am_ktls_true; /* am_once, am_true are SCTP only */
 static ErlDrvTermData am_empty_out_q;
 static ErlDrvTermData am_ssl_tls;
 #ifdef HAVE_UDP
@@ -2830,8 +2848,7 @@ static int http_response_inetdrv(void *arg, int major, int minor,
     }
     else {
         /* {http, S, {http_response,Version,Status,Phrase}} */
-        i = LOAD_ATOM(spec, i, am_http);
-        i = LOAD_PORT(spec, i, desc->inet.dport);
+        i = tcp_load_socket(INETP(desc), spec, i, am_http, am_ssl);
     }
     i = LOAD_ATOM(spec, i,  am_http_response);
     i = LOAD_INT(spec, i, major);
@@ -2923,8 +2940,7 @@ http_request_inetdrv(void* arg, const http_atom_t* meth, const char* meth_ptr,
     }
     else {
         /* {http, S, {http_request,Meth,Uri,Version}}} */
-        i = LOAD_ATOM(spec, i, am_http);
-        i = LOAD_PORT(spec, i, desc->inet.dport);
+        i = tcp_load_socket(INETP(desc), spec, i, am_http, am_ssl);
     }
 
     i = LOAD_ATOM(spec, i,  am_http_request);
@@ -2977,8 +2993,7 @@ http_header_inetdrv(void* arg, const http_atom_t* name,
     }
     else {
         /* {http, S, {http_header,Bit,Name,Oname,Value}} */
-        i = LOAD_ATOM(spec, i, am_http);
-        i = LOAD_PORT(spec, i, desc->inet.dport);
+        i = tcp_load_socket(INETP(desc), spec, i, am_http, am_ssl);
     }
 
     i = LOAD_ATOM(spec, i,  am_http_header);
@@ -3033,8 +3048,7 @@ static int http_eoh_inetdrv(void* arg)
   }
   else {
       /* {http, S, http_eoh} */
-      i = LOAD_ATOM(spec, i,  am_http);
-      i = LOAD_PORT(spec, i,  desc->inet.dport);
+      i = tcp_load_socket(INETP(desc), spec, i, am_http, am_ssl);
       i = LOAD_ATOM(spec, i,  am_http_eoh);
       i = LOAD_TUPLE(spec, i, 3);
       ASSERT(i <= 14);
@@ -3070,8 +3084,7 @@ static int http_error_inetdrv(void* arg, const char* buf, int len)
   }
   else {
       /* {http, S, {http_error,Line} */
-      i = LOAD_ATOM(spec, i,  am_http);
-      i = LOAD_PORT(spec, i,  desc->inet.dport);
+      i = tcp_load_socket(INETP(desc), spec, i, am_http, am_ssl);
       i = LOAD_ATOM(spec, i,  am_http_error);
       i = http_load_string(desc, spec, i, buf, len);
       i = LOAD_TUPLE(spec, i, 2);
@@ -3980,6 +3993,47 @@ inet_async_binary_data
     return erl_drv_send_term(desc->dport, caller, spec, i);
 }
 
+/* The ssl socket of a socket handed over by ssl (kTLS), or NULL */
+#define TCP_TLS_SOCKET(desc) ((desc)->tls != NULL ? (desc)->tls->socket : NULL)
+
+/* The kTLS data of a socket, allocated by its first kTLS request */
+static tcp_tls_descriptor* tcp_tls_get(tcp_descriptor* desc)
+{
+    if (desc->tls == NULL &&
+        (desc->tls = ALLOC(sizeof(tcp_tls_descriptor))) != NULL)
+        memset(desc->tls, 0, sizeof(tcp_tls_descriptor));
+    return desc->tls;
+}
+
+static void tcp_tls_free(tcp_descriptor* desc)
+{
+    tcp_tls_descriptor* tls = desc->tls;
+
+    if (tls == NULL)
+        return;
+    if (tls->socket != NULL)
+        FREE(tls->socket);
+#ifdef ERTS_KTLS
+    erts_ktls_free(&tls->ktls);
+#endif
+    FREE(tls);
+    desc->tls = NULL;
+}
+
+/*
+** {tcp, S, ...} or, on a socket handed over by ssl (kTLS), {ssl, SslSocket, ...}
+*/
+static int tcp_load_socket(inet_descriptor* desc, ErlDrvTermData* spec, int i,
+                           ErlDrvTermData tcp, ErlDrvTermData ssl)
+{
+    tcp_descriptor* tdesc = (tcp_descriptor*) desc;
+
+    if (TCP_TLS_SOCKET(tdesc) == NULL)
+        return LOAD_PORT(spec, LOAD_ATOM(spec, i, tcp), desc->dport);
+    i = LOAD_ATOM(spec, i, ssl);
+    return LOAD_EXT(spec, i, tdesc->tls->socket, tdesc->tls->socket_len);
+}
+
 /* 
 ** active mode message:
 **        {tcp, S, [H1,...Hsz | Data]}
@@ -3994,8 +4048,7 @@ static int tcp_message(inet_descriptor* desc, const char* buf, int len)
             desc->port, len));    
     /* XXX fprintf(stderr,"tcp_message send.\r\n"); */
 
-    i = LOAD_ATOM(spec, i, am_tcp);
-    i = LOAD_PORT(spec, i, desc->dport);
+    i = tcp_load_socket(desc, spec, i, am_tcp, am_ssl);
 
     if ((desc->mode == INET_MODE_LIST) || (hsz > len)) {
 	i = LOAD_STRING(spec, i, buf, len); /* => [H1,H2,...Hn] */ 
@@ -4032,8 +4085,7 @@ tcp_binary_message(inet_descriptor* desc, ErlDrvBinary* bin, int offs, int len)
     DEBUGF(("tcp_binary_message(%p): len = %d\r\n",
             desc->port, len)); 
 
-    i = LOAD_ATOM(spec, i, am_tcp);
-    i = LOAD_PORT(spec, i, desc->dport);
+    i = tcp_load_socket(desc, spec, i, am_tcp, am_ssl);
 
     if ((desc->mode == INET_MODE_LIST) || (hsz > len)) {
 	/* INET_MODE_LIST => [H1,H2,...Hn] */
@@ -4057,17 +4109,16 @@ tcp_binary_message(inet_descriptor* desc, ErlDrvBinary* bin, int offs, int len)
 */
 static int tcp_closed_message(tcp_descriptor* desc)
 {
-    ErlDrvTermData spec[6];
+    ErlDrvTermData spec[7];
     int i = 0;
 
     DEBUGF(("tcp_closed_message(%p):\r\n", desc->inet.port)); 
     if (!(desc->tcp_add_flags & TCP_ADDF_CLOSE_SENT)) {
 	desc->tcp_add_flags |= TCP_ADDF_CLOSE_SENT;
 
-	i = LOAD_ATOM(spec, i, am_tcp_closed);
-	i = LOAD_PORT(spec, i, desc->inet.dport);
+        i = tcp_load_socket(INETP(desc), spec, i, am_tcp_closed, am_ssl_closed);
 	i = LOAD_TUPLE(spec, i, 2);
-	ASSERT(i <= 6);
+        ASSERT(i <= 7);
 	return erl_drv_output_term(desc->inet.dport, spec, i);
     } 
     return 0;
@@ -4078,18 +4129,17 @@ static int tcp_closed_message(tcp_descriptor* desc)
 */
 static int tcp_error_message(tcp_descriptor* desc, int err)
 {
-    ErlDrvTermData spec[8];
+    ErlDrvTermData spec[9];
     ErlDrvTermData am_err = error_atom(err);
     int i = 0;
 
     DEBUGF(("tcp_error_message(%p): %d\r\n",
             desc->inet.port, err)); 
 
-    i = LOAD_ATOM(spec, i, am_tcp_error);
-    i = LOAD_PORT(spec, i, desc->inet.dport);
+    i = tcp_load_socket(INETP(desc), spec, i, am_tcp_error, am_ssl_error);
     i = LOAD_ATOM(spec, i, am_err);
     i = LOAD_TUPLE(spec, i, 3);
-    ASSERT(i <= 8);
+    ASSERT(i <= 9);
     return erl_drv_output_term(desc->inet.dport, spec, i);
 }
 
@@ -4214,27 +4264,27 @@ static int packet_binary_message(inet_descriptor* desc,
 */
  static int packet_passive_message(inet_descriptor* desc)
  {
-     ErlDrvTermData spec[6];
+     ErlDrvTermData spec[7];
      int i = 0;
 
      DEBUGF(("packet_passive_message(%p):\r\n", desc->port));
 
 #if !defined(HAVE_UDP) && !defined(HAVE_SCTP)
-     i = LOAD_ATOM(spec, i, am_tcp_passive);
+     i = tcp_load_socket(desc, spec, i, am_tcp_passive, am_ssl_passive);
 #else
      if (desc->sprotocol == IPPROTO_TCP)
-         i = LOAD_ATOM(spec, i, am_tcp_passive);
+         i = tcp_load_socket(desc, spec, i, am_tcp_passive, am_ssl_passive);
      else {
 #ifdef HAVE_SCTP
          i = LOAD_ATOM(spec, i, IS_SCTP(desc) ? am_sctp_passive : am_udp_passive);
 #else
          i = LOAD_ATOM(spec, i, am_udp_passive);
 #endif
+         i = LOAD_PORT(spec, i, desc->dport);
      }
 #endif
-     i = LOAD_PORT(spec, i, desc->dport);
      i = LOAD_TUPLE(spec, i, 2);
-     ASSERT(i <= 6);
+     ASSERT(i <= 7);
      return erl_drv_output_term(desc->dport, spec, i);
  }
 
@@ -4564,6 +4614,13 @@ static int inet_init(void)
     INIT_ATOM(tcp_passive);
     INIT_ATOM(tcp_closed);
     INIT_ATOM(tcp_error);
+    INIT_ATOM(ssl);
+    INIT_ATOM(ssl_closed);
+    INIT_ATOM(ssl_error);
+    INIT_ATOM(ssl_passive);
+    INIT_ATOM(ssl_control);
+    am_ktls_once = driver_mk_atom("once");
+    am_ktls_true = driver_mk_atom("true");
 #ifdef HAVE_UDP
     INIT_ATOM(udp_passive);
     INIT_ATOM(udp_error);
@@ -10830,6 +10887,12 @@ static ErlDrvSSizeT inet_subscribe(inet_descriptor* desc,
 	switch(op) {
 	case INET_SUBS_EMPTY_OUT_Q:  
 	  val = driver_sizeq(desc->port);
+#ifdef ERTS_KTLS
+          if (val == 0 && desc->sprotocol == IPPROTO_TCP &&
+              ((tcp_descriptor*) desc)->tls != NULL &&
+              ((tcp_descriptor*) desc)->tls->ktls.alert == ERTS_KTLS_ALERT_QUEUED)
+              val = 1; /* its alert is still to be sent */
+#endif
 	  if(val > 0)
 	    if(!save_subscriber(&desc->empty_out_q_subs,
 				driver_caller(desc->port)))
@@ -11775,6 +11838,7 @@ static ErlDrvData prep_tcp_inet_start(ErlDrvPort port, char* args)
     desc->i_bufsz = 0;
     desc->tcp_add_flags = 0;
     desc->http_state = 0;
+    desc->tls = NULL;
     desc->mtd = NULL;
     desc->mtd_cache = NULL;
     desc->multi_first = desc->multi_last = NULL;
@@ -11902,6 +11966,7 @@ static void tcp_inet_stop(ErlDrvData e)
 
     tcp_close_check(desc);
     tcp_clear_input(desc);
+    tcp_tls_free(desc);
 
 #ifdef HAVE_SENDFILE
     if(desc->tcp_add_flags & TCP_ADDF_SENDFILE) {
@@ -11947,6 +12012,53 @@ static int tcp_inet_recv_timeout(ErlDrvData e, ErlDrvTermData dummy)
     async_error_am(INETP(desc), am_timeout);
     return 1;
 }
+
+#ifdef ERTS_KTLS
+/* An ssl kTLS request, see erl_ktls.h. Early data goes to the input
+ * buffer; an owed KeyUpdate or a queued alert waits until writable. */
+static ErlDrvSSizeT tcp_tls(tcp_descriptor* desc, char* buf, ErlDrvSizeT len,
+                            char** rbuf, ErlDrvSizeT rsize)
+{
+    tcp_tls_descriptor* tls = tcp_tls_get(desc);
+    unsigned char* tbuf = tls != NULL ? ALLOC(ERTS_KTLS_BUF_SIZE) : NULL;
+    const unsigned char* reply;
+    size_t reply_len;
+    ErlDrvSSizeT r;
+    int err;
+
+    if (tbuf == NULL)
+        return ctl_error(ENOMEM, rbuf, rsize);
+    err = erts_ktls_request(&tls->ktls, desc->inet.s,
+                            driver_sizeq(desc->inet.port) > 0,
+                            (unsigned char*) buf, len, tbuf,
+                            &reply, &reply_len);
+    if (err == 0 && tls->ktls.early != NULL) {
+        tcp_push_buffer(desc, tls->ktls.early, (int) tls->ktls.early_len);
+        FREE(tls->ktls.early);
+        tls->ktls.early = NULL;
+    }
+    if (tls->ktls.owed_len != 0 || tls->ktls.alert == ERTS_KTLS_ALERT_QUEUED)
+        sock_select(INETP(desc), FD_WRITE | FD_CLOSE, 1);
+    r = err == 0 ? ctl_reply(INET_REP_OK, (char*) reply, reply_len, rbuf, rsize)
+        : ctl_error(err, rbuf, rsize);
+    FREE(tbuf);
+    return r;
+}
+
+/* An owed KeyUpdate, then, with alert, a queued alert: 0, ERRNO_BLOCK
+ * until writable, or an error */
+static int tcp_tls_flush(tcp_descriptor* desc, int alert)
+{
+    int err;
+
+    if (desc->tls == NULL)
+        return 0;
+    err = erts_ktls_flush_owed(&desc->tls->ktls, desc->inet.s);
+    if (err == 0 && alert)
+        err = erts_ktls_flush_alert(&desc->tls->ktls, desc->inet.s);
+    return err == EAGAIN ? ERRNO_BLOCK : err;
+}
+#endif
 
 /* TCP requests from Erlang */
 static ErlDrvSSizeT tcp_inet_ctl(ErlDrvData e, unsigned int cmd,
@@ -12335,6 +12447,26 @@ static ErlDrvSSizeT tcp_inet_ctl(ErlDrvData e, unsigned int cmd,
 	return ctl_reply_ok(rbuf, rsize);
     }
 
+    case TCP_REQ_TLS_SOCKET: { /* ext term SslSocket for {ssl, SslSocket, ...} */
+        tcp_tls_descriptor* tls = tcp_tls_get(desc);
+        char* sock = tls != NULL && len > 0 ? ALLOC(len) : NULL;
+
+        if (tls == NULL || (len > 0 && sock == NULL))
+            return ctl_error(ENOMEM, rbuf, rsize);
+        if (len > 0)
+            memcpy(sock, buf, len);
+        if (tls->socket != NULL)
+            FREE(tls->socket);
+        tls->socket = sock;
+        tls->socket_len = len;
+        return ctl_reply_ok(rbuf, rsize);
+    }
+
+#ifdef ERTS_KTLS
+    case TCP_REQ_TLS:
+        return tcp_tls(desc, buf, len, rbuf, rsize);
+#endif
+
 
     case TCP_REQ_SHUTDOWN: {
 	int how;
@@ -12359,7 +12491,12 @@ static ErlDrvSSizeT tcp_inet_ctl(ErlDrvData e, unsigned int cmd,
 	      __LINE__,
               desc->inet.s, driver_caller(desc->inet.port), SH2S(how), how) );
 
-	if (how != TCP_SHUT_RD && driver_sizeq(desc->inet.port) > 0) {
+        if (how != TCP_SHUT_RD && (driver_sizeq(desc->inet.port) > 0
+#ifdef ERTS_KTLS
+                                   || (desc->tls != NULL &&
+                                       desc->tls->ktls.alert == ERTS_KTLS_ALERT_QUEUED)
+#endif
+                )) {
 	    if (how == TCP_SHUT_WR) {
 		desc->tcp_add_flags |= TCP_ADDF_PENDING_SHUT_WR;
 	    } else if (how == TCP_SHUT_RDWR) {
@@ -12845,9 +12982,53 @@ static int tcp_recv_closed(tcp_descriptor* desc)
 }
 
 
+#ifdef ERTS_KTLS
+/* A socket ssl handed over has a control record (EIO) or a KeyUpdate
+ * without its key (EKEYEXPIRED) next: pause input instead of closing.
+ * Passive receivers get the error; an active owner gets
+ * {ssl_control, SslSocket, Active} and restores Active once the record
+ * is handled (ssl:handle_control/2). */
+static int tcp_pause_tls_control(tcp_descriptor* desc, int err)
+{
+    ErlDrvTermData spec[9];
+    int i = 0;
+
+    if (TCP_TLS_SOCKET(desc) == NULL)
+        return 0;
+
+    sock_select(INETP(desc), FD_READ | FD_CLOSE, 0);
+    if (!desc->inet.active) {
+        cancel_multi_timer(desc, INETP(desc)->port, &tcp_inet_recv_timeout);
+        desc->i_remain = 0;
+        async_error_am_all(INETP(desc), error_atom(err));
+        return 1;
+    }
+
+    i = tcp_load_socket(INETP(desc), spec, i, am_ssl_control, am_ssl_control);
+    if (desc->inet.active == INET_MULTI)
+        i = LOAD_INT(spec, i, desc->inet.active_count);
+    else
+        i = LOAD_ATOM(spec, i,
+                      desc->inet.active == INET_ONCE ? am_ktls_once : am_ktls_true);
+    i = LOAD_TUPLE(spec, i, 3);
+    ASSERT(i <= 9);
+    desc->inet.active = INET_PASSIVE;
+    desc->inet.active_count = 0;
+    erl_drv_output_term(desc->inet.dport, spec, i);
+    return 1;
+}
+#endif
+
 /* We have a read error determine the action */
 static int tcp_recv_error(tcp_descriptor* desc, int err)
 {
+#ifdef ERTS_KTLS
+    if (err == EKEYEXPIRED || err == EIO) {
+        int active = desc->inet.active;
+        if (tcp_pause_tls_control(desc, err))
+            return active ? 0 : -1;
+    }
+#endif
     if (err != ERRNO_BLOCK) {
 	if (IS_BUSY(INETP(desc))) {
 	    /* A send is blocked */
@@ -13215,11 +13396,14 @@ static int tcp_recv(tcp_descriptor* desc, int request_len)
             desc->i_remain -= n;
             if (desc->i_remain == 0)
                 return tcp_deliver(desc, desc->i_ptr - desc->i_ptr_start);
-            else
+            else if (TCP_TLS_SOCKET(desc) == NULL)
                 /* We just tried to read the whole packet,
                  * no point in trying again immediately
                  */
                 return 0;
+            /* ssl kTLS: a read stops before a control record, which the
+             * kernel can then hold without reporting input, so read on */
+            nread = desc->i_remain;
         }
         else {
             int len;
@@ -13742,6 +13926,13 @@ static int tcp_sendv(tcp_descriptor* desc, ErlIOVec* ev)
     ErlDrvPort ix = desc->inet.port;
     ErlDrvSizeT len = ev->size;
 
+#ifdef ERTS_KTLS
+    if (desc->tls != NULL && desc->tls->ktls.alert != ERTS_KTLS_ALERT_NONE) {
+        inet_reply_error_am(INETP(desc), am_closed);
+        return 1;
+    }
+#endif
+
      switch(desc->inet.htype) {
      case TCP_PB_1:
          put_int8(len, buf);
@@ -13797,6 +13988,18 @@ static int tcp_sendv(tcp_descriptor* desc, ErlIOVec* ev)
 	
         if ((h_len == 0) && (len == 0)) /* Shortcut for empty send */
             return 0;
+#ifdef ERTS_KTLS
+        if (desc->tls != NULL && desc->tls->ktls.owed_len != 0) {
+            int err = tcp_tls_flush(desc, 0);
+            if (err == ERRNO_BLOCK) { /* the data waits behind it */
+                driver_enqv(ix, ev, 0);
+                sock_select(INETP(desc), (FD_WRITE|FD_CLOSE), 1);
+                return 0;
+            }
+            if (err != 0)
+                return tcp_send_error(desc, err);
+        }
+#endif
         vsize = (ev->vsize > MAX_VSIZE) ? MAX_VSIZE : ev->vsize;
 
         DEBUGF(("tcp_sendv(%p): s=%d, "
@@ -13858,6 +14061,13 @@ static int tcp_send(tcp_descriptor* desc, char* ptr, ErlDrvSizeT len)
     ErlDrvPort ix = desc->inet.port;
     SysIOVec iov[2];
 
+#ifdef ERTS_KTLS
+    if (desc->tls != NULL && desc->tls->ktls.alert != ERTS_KTLS_ALERT_NONE) {
+        inet_reply_error_am(INETP(desc), am_closed);
+        return 1;
+    }
+#endif
+
     switch(desc->inet.htype) {
     case TCP_PB_1: 
 	put_int8(len, buf);
@@ -13907,6 +14117,20 @@ static int tcp_send(tcp_descriptor* desc, char* ptr, ErlDrvSizeT len)
     else {
         if ((h_len == 0) && (len == 0)) /* Shortcut for empty send */
             return 0;
+#ifdef ERTS_KTLS
+        if (desc->tls != NULL && desc->tls->ktls.owed_len != 0) {
+            int err = tcp_tls_flush(desc, 0);
+            if (err == ERRNO_BLOCK) { /* the data waits behind it */
+                if (h_len > 0)
+                    driver_enq(ix, buf, h_len);
+                driver_enq(ix, ptr, len);
+                sock_select(INETP(desc), (FD_WRITE|FD_CLOSE), 1);
+                return 0;
+            }
+            if (err != 0)
+                return tcp_send_error(desc, err);
+        }
+#endif
 
 	iov[0].iov_base = buf;
 	iov[0].iov_len = h_len;
@@ -14299,7 +14523,19 @@ static int tcp_inet_output(tcp_descriptor* desc, HANDLE event)
 	    ssize_t n;
 	    SysIOVec* iov;
 
-	    if ((iov = driver_peekq(ix, &vsize)) == NULL) {
+            iov = driver_peekq(ix, &vsize);
+#ifdef ERTS_KTLS
+            if (desc->tls != NULL) {
+                int err = tcp_tls_flush(desc, iov == NULL);
+                if (err == ERRNO_BLOCK)
+                    goto done;
+                if (err != 0) {
+                    ret = tcp_send_error(desc, err);
+                    goto done;
+                }
+            }
+#endif
+            if (iov == NULL) {
 		sock_select(INETP(desc), FD_WRITE, 0);
 		send_empty_out_q_msgs(INETP(desc));
 		if (desc->tcp_add_flags & TCP_ADDF_PENDING_SHUTDOWN)

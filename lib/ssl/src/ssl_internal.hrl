@@ -146,7 +146,8 @@
 	  packet = 0,
 	  packet_size = 0,
 	  header = 0,
-	  active = true
+          active = true,
+          read_ahead = true % applied by the kTLS handover
 	 }).
 
 -record(config, {ssl,               %% SSL parameters

@@ -48,6 +48,7 @@
 -export([unrecv/2]).
 -export([fdopen/2]).
 -export([socket_setopts/2]).
+-export([adopt/1, tls_socket/2]).
 
 
 %% gen_statem callbacks
@@ -861,6 +862,25 @@ which_packet_type(?MODULE_socket(_Server, Socket)) ->
 unrecv(?MODULE_socket(_Server, _Socket), _Data) ->
     {error, enotsup}.
 
+%% kTLS support for ssl, which keeps its kTLS state in the socket NIF
+%% (prim_socket:tls/2): tls_socket/2 makes active messages
+%% {ssl, SslSocket, ...}, as prim_inet:tls_socket/2 for inet_drv ports.
+%% adopt/1 wraps a connected socket:socket() owned by the caller.
+-type socket() :: {'$inet', ?MODULE, {pid(), socket:socket()}}.
+-spec adopt(socket:socket()) -> {ok, socket()} | {error, term()}.
+adopt(Socket) ->
+    case start_server(server_opts(), []) of
+        {ok, Server} ->
+            ok = socket:setopt(Socket, {otp,controlling_process}, Server),
+            call(Server, {adopt, Socket});
+        {error, _} = Error ->
+            Error
+    end.
+
+-spec tls_socket(socket(), SslSocket :: term()) -> ok.
+tls_socket(?MODULE_socket(Server, _Socket), SslSocket) ->
+    call(Server, {tls_socket, SslSocket}).
+
 fdopen(Fd, Opts0) when is_integer(Fd), 0 =< Fd, is_list(Opts0) ->
     Opts1        = internalize_setopts(Opts0),
     {Mod, Opts2} = inet:tcp_module(Opts1),
@@ -1450,6 +1470,7 @@ is_packet_option_value(Value) ->
         httph -> true;
         http_bin -> true;
         httph_bin -> true;
+        ssl_tls -> true;
         _ -> false
     end.
 
@@ -1615,7 +1636,8 @@ callback_mode() -> handle_event_function.
 -record(params,
         {socket     :: undefined | socket:socket(),
          owner      :: pid(),
-         owner_mon  :: reference()}).
+         owner_mon  :: reference(),
+         tls_socket :: term()}). % ssl kTLS: {ssl, SslSocket, ...} owner messages
 
 server_vars() ->
     #{counters := #{num_cnt_bits := NumCntBits}} = socket:info(),
@@ -1709,6 +1731,20 @@ terminate(State, {P, D}) ->
 module_socket(#params{socket = Socket}) ->
     ?MODULE_socket(self(), Socket).
 
+%% Owner message, {ssl, SslSocket, ...} instead of {tcp, S, ...} or
+%% {http, S, ...} for ssl kTLS
+owner_msg(#params{owner = Owner, tls_socket = undefined}, Msg) ->
+    Owner ! Msg;
+owner_msg(#params{owner = Owner, tls_socket = SslSocket}, Msg) ->
+    [Name, _ | Rest] = tuple_to_list(Msg),
+    Owner ! list_to_tuple([ssl_name(Name), SslSocket | Rest]).
+
+ssl_name(tcp) -> ssl;
+ssl_name(http) -> ssl;
+ssl_name(tcp_closed) -> ssl_closed;
+ssl_name(tcp_error) -> ssl_error;
+ssl_name(tcp_passive) -> ssl_passive.
+
 %% -------------------------------------------------------------------------
 %% Event Handler (callback)
 
@@ -1725,6 +1761,12 @@ handle_event(
   {call, From}, {accept, ListenSocket, Timeout},
   'accept' = _State, {P, D}) ->
     handle_accept(P, D, From, ListenSocket, Timeout, accept);
+handle_event({call, From}, {adopt, Socket}, 'accept' = _State, {P, D}) ->
+    ok = socket:setopt(Socket, {otp,iow}, true),
+    ok = socket:setopt(Socket, {otp,meta}, meta(D)),
+    handle_connected(
+      P#params{socket = Socket}, D#{type => accept},
+      [{reply, From, {ok, ?MODULE_socket(self(), Socket)}}]);
 handle_event(Type, Content, 'accept' = State, P_D) ->
     handle_unexpected(Type, Content, State, P_D);
 
@@ -1785,6 +1827,9 @@ handle_event({call, From}, get_server_opts, _State, {_P, D}) ->
     ServerData = maps:with(maps:keys(server_opts()), D),
     {keep_state_and_data,
      [{reply, From, {ok, ServerData}}]};
+
+handle_event({call, From}, {tls_socket, SslSocket}, _State, {P, D}) ->
+    {keep_state, {P#params{tls_socket = SslSocket}, D}, [{reply, From, ok}]};
 
 
 %% How to handle counter wrap messages,
@@ -2527,7 +2572,10 @@ handle_recv_more(
             Buffer_1 = buffer(Data, Buffer),
             BufferSize_1 = BufferSize + byte_size(Data),
             if
-                Length =< BufferSize_1 ->
+                Length =< BufferSize_1;
+                %% ssl kTLS: no select wakes a read that stopped at a
+                %% control record, so read on until nothing is left
+                P#params.tls_socket =/= undefined ->
                     %% Enough data; cancel the async recv
                     %% and use what we have
                     Socket = P#params.socket,
@@ -2568,6 +2616,9 @@ handle_recv_more(
               P, D, ActionsR, buffer(Data, Buffer),
               BufferSize + byte_size(Data), {recv, Reason});
 
+        {error, Reason} when P#params.tls_socket =/= undefined ->
+            %% ssl kTLS: a control record can be next, keep what was read
+            handle_recv_error(P, D#{buffer := Buffer}, ActionsR, Reason);
         {error, Reason} ->
             %% ?DBG({'recv error', Reason}),
             handle_recv_error(P, D, ActionsR, Reason)
@@ -2642,6 +2693,10 @@ packet_header_length(PacketType) ->
 
 
 %% How much to read given read_ahead, {otp,rcvbuf} and request size N
+read_size(#{read_ahead := false, packet := PacketType}, 0)
+  when PacketType =/= raw, PacketType =/= 0 ->
+    %% Nothing buffered: the packet header first, as inet_drv
+    packet_header_length(PacketType);
 read_size(D, N) ->
     case
         N == 0 % "What's available" requested
@@ -2663,6 +2718,23 @@ handle_recv_error(P, D, ActionsR, Reason) ->
     handle_recv_error(P, D, ActionsR, Reason, undefined).
 %%
 handle_recv_error(
+  #params{tls_socket = SslSocket} = P, #{active := Active} = D_0, ActionsR_0,
+  Reason, _)
+  when SslSocket =/= undefined, (Reason =:= eio orelse Reason =:= ekeyexpired) ->
+    %% ssl kTLS: a control record is next, as in inet_drv. A passive
+    %% receiver gets the error; an active owner gets
+    %% {ssl_control, SslSocket, Active} and restores Active once the
+    %% record is handled (ssl:handle_control/2).
+    {D_1, ActionsR_1} =
+        case Active of
+            false ->
+                recv_error_reply(D_0, ActionsR_0, Reason);
+            _ ->
+                P#params.owner ! {ssl_control, SslSocket, Active},
+                {D_0#{active := false}, ActionsR_0}
+        end,
+    {next_state, 'connected', {P, D_1}, reverse(ActionsR_1)};
+handle_recv_error(
   P, #{active := Active} = D_0, ActionsR_0, Reason, Caller) ->
     %%
     %% Send active socket messages
@@ -2675,9 +2747,7 @@ handle_recv_error(
                     false ->
                         recv_error_reply(D_0, ActionsR_0, Reason);
                     _ ->
-                        ModuleSocket = module_socket(P),
-                        Owner = P#params.owner,
-                        Owner ! {tcp_error, ModuleSocket, Reason},
+                        owner_msg(P, {tcp_error, module_socket(P), Reason}),
                         {D_0#{active := false}, ActionsR_0}
                 end,
             {next_state, 'connected', {P, D_1}, reverse(ActionsR_1)};
@@ -2693,11 +2763,11 @@ handle_recv_error(
                     Owner = P#params.owner,
                     ShowReason =/= closed andalso
                         begin
-                            Owner ! {tcp_error, ModuleSocket, ShowReason}
+                            owner_msg(P, {tcp_error, ModuleSocket, ShowReason})
                         end,
                     Caller =/= Owner andalso
                         begin
-                            Owner ! {tcp_closed, ModuleSocket}
+                            owner_msg(P, {tcp_closed, ModuleSocket})
                         end,
                     handle_recv_error_exit_on_close(
                       P, D_0#{active := false}, ActionsR_0)
@@ -2753,12 +2823,11 @@ handle_send_error(#params{socket = Socket} = P, D_0, State, From, Reason) ->
                     {next_state, 'closed', {P, D_2}, ActionsR_2};
                 _ ->
                     ModuleSocket = module_socket(P),
-                    Owner = P#params.owner,
                     ReplyReason =/= closed andalso
                         begin
-                            Owner ! {tcp_error, ModuleSocket, ReplyReason}
+                            owner_msg(P, {tcp_error, ModuleSocket, ReplyReason})
                         end,
-                    Owner ! {tcp_closed, ModuleSocket},
+                    owner_msg(P, {tcp_closed, ModuleSocket}),
                     {_, ActionsR} = exit_on_close(D_1, [Reply]),
                     {next_state, 'closed', {P, D_1}, ActionsR}
             end;
@@ -2822,7 +2891,7 @@ recv_stop(D) ->
 %% Deliver data and update the active state
 %% -> {NewD, NewActionsR}
 recv_data_deliver(
-  #params{owner = Owner} = P,
+  P,
   #{mode := Mode, header := Header, deliver := Deliver,
     packet := Packet} = D,
   ActionsR, Data) ->
@@ -2844,13 +2913,13 @@ recv_data_deliver(
              ActionsR};
         #{active := Active} ->
             ModuleSocket = module_socket(P),
-            Owner !
+            owner_msg(P,
                 case Deliver of
                     term ->
                         {tag(Packet), ModuleSocket, DeliverData};
                     port ->
                         {ModuleSocket, {data, DeliverData}}
-                end,
+                end),
             %% ?DBG('package delivered'),
             case Active of
                 true ->
@@ -2860,7 +2929,7 @@ recv_data_deliver(
                     {recv_stop(next_packet(D, Packet, Data, false)),
                      ActionsR};
                 1 ->
-                    Owner ! {tcp_passive, ModuleSocket},
+                    owner_msg(P, {tcp_passive, ModuleSocket}),
                     {recv_stop(next_packet(D, Packet, Data, false)),
                      ActionsR};
                 N when is_integer(N) ->
@@ -2943,7 +3012,8 @@ deliver_data(Data, Mode, Header, Packet) ->
         Packet =:= http;
         Packet =:= http_bin;
         Packet =:= httph;
-        Packet =:= httph_bin ->
+        Packet =:= httph_bin;
+        Packet =:= ssl_tls ->
             %% These haven't got mixed mode header delivery
             Data;
         true ->
@@ -3092,19 +3162,18 @@ call_setopts_active(P, D_0, State, Opts, Active)
             call_setopts(P, D_0, State, Opts);
         true -> % not false; socket is active
             ModuleSocket = module_socket(P),
-            Owner = P#params.owner,
             D_1 =
                 case D_0 of
                     #{delayed_reason := Reason} ->
                         Reason =/= closed andalso
                             begin
-                                Owner ! {tcp_error, ModuleSocket, Reason}
+                                owner_msg(P, {tcp_error, ModuleSocket, Reason})
                             end,
                         maps:remove(delayed_reason, D_0);
                     #{} ->
                         D_0
                 end,
-            Owner ! {tcp_closed, ModuleSocket},
+            owner_msg(P, {tcp_closed, ModuleSocket}),
             socket_close(P#params.socket),
             {ok, D_1, [{next_event, internal, exit}]}
     end;
@@ -3118,7 +3187,7 @@ call_setopts_active(P, D, State, Opts, Active) ->
             OldActive = maps:get(active, D),
             is_integer(OldActive) andalso
                 begin
-                    P#params.owner ! {tcp_passive, module_socket(P)}
+                    owner_msg(P, {tcp_passive, module_socket(P)})
                 end,
             call_setopts(P, D#{active := Active}, State, Opts);
         is_integer(Active), -32768 =< Active, Active =< 32767 ->
@@ -3132,7 +3201,7 @@ call_setopts_active(P, D, State, Opts, Active) ->
                 32767 < N ->
                     call_setopts_result({error, einval}, D);
                 N =< 0 ->
-                    P#params.owner ! {tcp_passive, module_socket(P)},
+                    owner_msg(P, {tcp_passive, module_socket(P)}),
                     call_setopts(P, D#{active := false}, State, Opts);
                 true ->
                     call_setopts(P, D#{active := N}, State, Opts)

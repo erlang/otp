@@ -89,7 +89,7 @@ accept_open(_NetAddress, ListenSocket) ->
         {_Stream_1, _, CipherState} = cryptcookie:init(Stream),
         KtlsInfo =
             inet_ktls_info(Socket, cryptcookie:ktls_info(CipherState)),
-        ok ?= inet_tls_dist:set_ktls(KtlsInfo),
+        ok ?= tls_ktls:set_ktls(KtlsInfo),
         ok ?= inet:setopts(Socket, [{packet, 2}, {mode, list}]),
         {Socket, PeerAddress}
     else
@@ -123,7 +123,7 @@ connect(NetAddress, _Timer, Options) ->
         {_Stream_1, _, CipherState} = cryptcookie:init(Stream),
         KtlsInfo =
             inet_ktls_info(Socket, cryptcookie:ktls_info(CipherState)),
-        ok ?= inet_tls_dist:set_ktls(KtlsInfo),
+        ok ?= tls_ktls:set_ktls(KtlsInfo),
         ok ?= inet:setopts(Socket, [{packet, 2}, {mode, list}]),
         input_handler_setup(
           inet_epmd_dist:hs_data(NetAddress, Socket))
@@ -280,7 +280,7 @@ supported() ->
         {ok, Client} =
             ?DRIVER:connect({127,0,0,1}, Port, [{active, false}]),
         try
-            inet_tls_dist:set_ktls(
+            tls_ktls:set_ktls(
               inet_ktls_info(Client, cryptcookie:ktls_info()))
         after
             _ = ?DRIVER:close(Client),
@@ -290,7 +290,4 @@ supported() ->
 
 
 inet_ktls_info(Socket, KtlsInfo) ->
-    KtlsInfo
-        #{ socket => Socket,
-           setopt_fun => fun inet_tls_dist:inet_ktls_setopt/3,
-           getopt_fun => fun inet_tls_dist:inet_ktls_getopt/3 }.
+    KtlsInfo#{ socket => Socket }.

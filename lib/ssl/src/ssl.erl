@@ -115,6 +115,7 @@ Special Erlang node configuration for the application can be found in
          format_error/1,
          renegotiate/1,
          update_keys/2,
+         handle_control/2,
          export_key_materials/4,
          export_key_materials/5,
          prf/5,
@@ -251,9 +252,14 @@ verified after the server has sent its last handshake message.
 The `ssl_passive` message is sent only when the socket is in `{active, N}` mode
 and the counter has dropped to 0. It indicates that the socket has transitioned
 to passive (`{active, false}`) mode.
+
+The `ssl_control` message is sent only for a socket handed over to kernel TLS
+with option `{ktls, true}`, when input pauses at a TLS control record. The socket
+is then passive until the owner calls `handle_control/2` with `Active`.
 """.
 -type active_msgs()              :: {ssl, sslsocket(), Data::binary() | list()} | {ssl_closed, sslsocket()} |
-                                    {ssl_error, sslsocket(), Alert::error_alert() | Reason::any()} | {ssl_passive, sslsocket()}. % exported
+                                    {ssl_error, sslsocket(), Alert::error_alert() | Reason::any()} | {ssl_passive, sslsocket()} |
+                                    {ssl_control, sslsocket(), Active::true | once | pos_integer()}. % exported
 
 -doc(#{group => <<"Socket">>}).
 -doc """
@@ -1030,10 +1036,35 @@ Common options to both client and server for TLS-1.3.
   integrity will not be breached with probability greater than `1/2^57`. For more
   information see
   [Limits on Authenticated Encryption Use in TLS](https://eprint.iacr.org/2024/051.pdf).
+
+- **`{ktls, Ktls}`** - Kernel TLS
+
+  With `{ktls, true}` the connection is handed over to the operating system's TLS
+  implementation (kTLS) when the handshake completes. The connection process then
+  exits, and application data is sent and received with plain socket calls that
+  the kernel encrypts and decrypts. Defaults to `false`.
+
+  This requires Linux, TLS 1.3, one of the cipher suites `TLS_AES_128_GCM_SHA256`,
+  `TLS_AES_256_GCM_SHA384`, `TLS_CHACHA20_POLY1305_SHA256` and
+  `TLS_AES_128_CCM_SHA256` supported by the kernel, and no negotiated
+  `max_fragment_length`. When the connection cannot be handed over, the handshake
+  returns `{error, {ktls, Reason}}` and the socket is closed.
+
+  After the handover, keys are only updated when the peer sends a KeyUpdate message
+  or when `update_keys/2` is called, so `key_update_at` does not apply. Handling a
+  peer KeyUpdate needs kernel support for TLS 1.3 rekeying. Session tickets
+  received after the handover are not stored, and a downgrade with `close/2`,
+  `renegotiate/1`, `export_key_materials/4,5` and `prf/5` with the master secret
+  return an error. A post-handshake message split across records is not supported
+  and closes the connection. The owner of an active socket can
+  receive `{ssl_control, SslSocket, Active}` (see `t:active_msgs/0`) and must then
+  call `handle_control/2`. For request/response traffic `{nodelay, true}` is
+  recommended.
 """.
 
 -type common_option_tls13() :: {supported_groups, [group()]} |
-                               {key_update_at, KeyUpdateAt::pos_integer()}.
+                               {key_update_at, KeyUpdateAt::pos_integer()} |
+                               {ktls, Ktls::boolean()}.
 
 -doc(#{group => 
            <<"Client and Server Options">>}).
@@ -2620,6 +2651,8 @@ handshake_cancel(Socket) ->
       SslSocket :: sslsocket(),
       Reason :: any().
 %%--------------------------------------------------------------------
+close(#sslsocket{connection_cb = tls_ktls} = SslSocket) ->
+    tls_ktls:close(SslSocket);
 close(#sslsocket{listener_config = #config{connection_cb = dtls_gen_connection}} = DTLSListen) ->
     dtls_socket:close_listen(DTLSListen, ?DEFAULT_TIMEOUT);
 close(#sslsocket{socket_handle = ListenSocket,
@@ -2652,6 +2685,12 @@ connection.
       Reason :: any().
 
 %%--------------------------------------------------------------------
+close(#sslsocket{connection_cb = tls_ktls}, {Pid, Timeout})
+  when is_pid(Pid), ?IS_TIMEOUT(Timeout) ->
+    %% The kernel cannot take TLS off the socket
+    {error, {ktls_notsup, downgrade}};
+close(#sslsocket{connection_cb = tls_ktls} = SslSocket, _) ->
+    tls_ktls:close(SslSocket);
 close(#sslsocket{connection_handler = Controller}, {Pid, Timeout} = DownGrade)
   when is_pid(Controller), is_pid(Pid), ?IS_TIMEOUT(Timeout) ->
     case ssl_gen_statem:close(Controller, {close, DownGrade}) of
@@ -2685,6 +2724,8 @@ A notable return value is `{error, closed}` indicating that the socket is
 closed.
 """.
 %%--------------------------------------------------------------------
+send(#sslsocket{connection_cb = tls_ktls, socket_handle = Socket}, Data) ->
+    gen_tcp:send(Socket, Data);
 send(#sslsocket{payload_sender = Sender,
                 connection_cb = dtls_gen_connection}, Data) when is_pid(Sender) ->
     ssl_gen_statem:send(Sender, Data);
@@ -2743,6 +2784,8 @@ Optional argument `Timeout` specifies a time-out in milliseconds. The default
 value is `infinity`.
 """.
 
+recv(#sslsocket{connection_cb = tls_ktls} = SslSocket, Length, Timeout) ->
+    tls_ktls:recv(SslSocket, Length, Timeout);
 recv(#sslsocket{connection_handler = Controller}, Length, Timeout)
   when is_pid(Controller), (is_integer(Length) andalso Length >= 0), ?IS_TIMEOUT(Timeout) ->
     ssl_gen_statem:recv(Controller, Length, Timeout);
@@ -2769,6 +2812,8 @@ messages from the socket.
 %% Description: Changes process that receives the messages when active = true
 %% or once.
 %%--------------------------------------------------------------------
+controlling_process(#sslsocket{connection_cb = tls_ktls} = SslSocket, NewOwner) ->
+    tls_ktls:controlling_process(SslSocket, NewOwner);
 controlling_process(#sslsocket{connection_handler = Controller}, NewController)
   when is_pid(Controller), is_pid(NewController) ->
     ssl_gen_statem:new_user(Controller, NewController);
@@ -2804,6 +2849,8 @@ that affect the security of the connection will be returned.
 %%
 %% Description: Return SSL information for the connection
 %%--------------------------------------------------------------------
+connection_information(#sslsocket{connection_cb = tls_ktls} = SslSocket) ->
+    tls_ktls:info(SslSocket, connection_information);
 connection_information(#sslsocket{connection_handler = Controller}) when is_pid(Controller) ->
     case ssl_gen_statem:connection_information(Controller, false) of
 	{ok, Info} ->
@@ -2837,6 +2884,11 @@ connection, the `keep_secrets` option must be configured in advance.
 %%
 %% Description: Return SSL information for the connection
 %%--------------------------------------------------------------------
+connection_information(#sslsocket{connection_cb = tls_ktls} = SslSocket, Items) ->
+    case connection_information(SslSocket) of
+        {ok, Info} -> {ok, [Item || {Key, _} = Item <- Info, lists:member(Key, Items)]};
+        Error -> Error
+    end;
 connection_information(#sslsocket{connection_handler = Controller}, Items)
   when is_pid(Controller), is_list(Items) ->
     case ssl_gen_statem:connection_information(Controller, include_security_info(Items)) of
@@ -2858,6 +2910,8 @@ connection_information(#sslsocket{connection_handler = Controller}, Items)
 %%
 %% Description: same as inet:peername/1.
 %%--------------------------------------------------------------------
+peername(#sslsocket{connection_cb = tls_ktls, socket_handle = Socket}) ->
+    inet:peername(Socket);
 peername(#sslsocket{connection_handler = Controller, connection_cb = dtls_gen_connection,
                     transport_cb = Transport,
                     socket_handle = Socket}) when is_pid(Controller)->
@@ -2892,6 +2946,8 @@ and [SSL User's Guide](standards_compliance.md).
 %%
 %% Description: Returns the peercert.
 %%--------------------------------------------------------------------
+peercert(#sslsocket{connection_cb = tls_ktls} = SslSocket) ->
+    tls_ktls:info(SslSocket, peercert);
 peercert(#sslsocket{connection_handler = Controller}) when is_pid(Controller) ->
     case ssl_gen_statem:peer_certificate(Controller) of
 	{ok, undefined} ->
@@ -2914,6 +2970,8 @@ peercert(#sslsocket{listener_config = #config{}}) ->
 %% Description: Returns the protocol that has been negotiated. If no
 %% protocol has been negotiated will return {error, protocol_not_negotiated}
 %%--------------------------------------------------------------------
+negotiated_protocol(#sslsocket{connection_cb = tls_ktls} = SslSocket) ->
+    tls_ktls:info(SslSocket, negotiated_protocol);
 negotiated_protocol(#sslsocket{connection_handler = Controller}) when is_pid(Controller) ->
     ssl_gen_statem:negotiated_protocol(Controller).
 
@@ -3254,6 +3312,8 @@ Gets the values of the specified socket options.
       SslSocket :: sslsocket(),
       OptionNames :: [gen_tcp:option_name()].
 %%--------------------------------------------------------------------
+getopts(#sslsocket{connection_cb = tls_ktls, socket_handle = Socket}, OptionTags) ->
+    inet:getopts(Socket, OptionTags);
 getopts(#sslsocket{connection_handler = Controller}, OptionTags) when is_pid(Controller), is_list(OptionTags) ->
     ssl_gen_statem:get_opts(Controller, OptionTags);
 getopts(#sslsocket{listener_config = #config{connection_cb = dtls_gen_connection,
@@ -3305,6 +3365,8 @@ to fully understand the consequences of setting such options.
       SslSocket :: sslsocket(),
       Options :: [gen_tcp:option()].
 %%--------------------------------------------------------------------
+setopts(#sslsocket{connection_cb = tls_ktls, socket_handle = Socket}, Options) ->
+    inet:setopts(Socket, Options);
 setopts(#sslsocket{connection_handler = Controller}, [{active, _}] = Active)
   when is_pid(Controller) ->
     ssl_gen_statem:set_opts(Controller, Active);
@@ -3376,6 +3438,8 @@ See `inet:getstat/2` for further details.
       OptionValues :: [{inet:stat_option(), integer()}].
 %%--------------------------------------------------------------------
 
+getstat(#sslsocket{connection_cb = tls_ktls, socket_handle = Socket}, Options) ->
+    inet:getstat(Socket, Options);
 getstat(#sslsocket{socket_handle = {Listener, _},
                    listener_config = #config{transport_info = Info,
                                              connection_cb = dtls_gen_connection}},
@@ -3416,6 +3480,8 @@ To handle siutations where the peer has performed a shutdown on the
 write side, option `{exit_on_close, false}` is useful.
 """.
 %%--------------------------------------------------------------------
+shutdown(#sslsocket{connection_cb = tls_ktls} = SslSocket, How) ->
+    tls_ktls:shutdown(SslSocket, How);
 shutdown(#sslsocket{listener_config = #config{transport_info = Info}}, _) ->
     Transport = element(1, Info),
     %% enotconn is what gen_tcp:shutdown on a listen socket will result with.
@@ -3443,6 +3509,8 @@ shutdown(#sslsocket{connection_handler = Controller}, How) when is_pid(Controlle
       Address :: inet:ip_address(),
       Port :: inet:port_number().
 %%--------------------------------------------------------------------
+sockname(#sslsocket{connection_cb = tls_ktls, socket_handle = Socket}) ->
+    inet:sockname(Socket);
 sockname(#sslsocket{socket_handle = {Controller, _},
                     listener_config = #config{connection_cb = dtls_gen_connection}}) ->
     dtls_packet_demux:sockname(Controller);
@@ -3547,6 +3615,8 @@ plaintext limit and can be configured using the `key_update_at` option
 in `t:common_option_tls13/0`.
 """.
 %%--------------------------------------------------------------------
+renegotiate(#sslsocket{connection_cb = tls_ktls}) ->
+    {error, notsup};
 renegotiate(#sslsocket{connection_handler = Controller,
                        payload_sender = Sender,
                        connection_cb = tls_gen_connection} = Socket) when is_pid(Controller),
@@ -3590,6 +3660,8 @@ reading and writing keys are updated.
 %%
 %% Description: Initiate a key update.
 %%--------------------------------------------------------------------
+update_keys(#sslsocket{connection_cb = tls_ktls} = SslSocket, Type) ->
+    tls_ktls:update_keys(SslSocket, Type);
 update_keys(#sslsocket{connection_handler = Controller, payload_sender = Sender,
                        connection_cb = tls_gen_connection}, Type)
   when is_pid(Controller) ->
@@ -3605,6 +3677,48 @@ update_keys(_, _) ->
     {error, not_supported}.
 
 %%--------------------------------------------------------------------
+-doc(#{group => <<"Utility Functions">>,
+       since => <<"OTP 30.0">>}).
+-doc """
+Handles a pending kTLS control record.
+
+With option `{ktls, true}` (Linux, TLS 1.3) a socket is handed over to
+the kernel after the handshake. When the kernel pauses input at a control
+record (`KeyUpdate`, `NewSessionTicket` or an alert), an active socket
+owner receives `{ssl_control, SslSocket, Active}` and must call this
+function, which handles the records and then restores `Active`.
+`recv/3` handles control records itself.
+Any process may call this function and `update_keys/2`. Keys are only
+updated on a peer `KeyUpdate` or by `update_keys/2`, never automatically.
+
+Example of an active owner handling a peer `KeyUpdate`:
+
+```erlang
+loop(Socket) ->
+    receive
+        {ssl, Socket, Data} ->
+            handle_data(Data),
+            loop(Socket);
+        {ssl_control, Socket, Active} ->
+            %% Installs the peer's new key, sends our KeyUpdate if the
+            %% peer requested one, and restores Active
+            case ssl:handle_control(Socket, Active) of
+                ok -> loop(Socket);
+                {error, Reason} -> {closed, Reason} % socket closed
+            end;
+        {ssl_closed, Socket} ->
+            closed
+    end.
+```
+""".
+-spec handle_control(SslSocket, Active) -> ok | {error, reason()} when
+      SslSocket :: sslsocket(),
+      Active :: boolean() | once | integer().
+%%--------------------------------------------------------------------
+handle_control(#sslsocket{connection_cb = tls_ktls} = SslSocket, Active) ->
+    tls_ktls:handle_control(SslSocket, Active).
+
+%%--------------------------------------------------------------------
 -doc(#{equiv => export_key_materials(TLSSocket, Labels, Contexts,
                                      WantedLengths, true),
        group => <<"Utility Functions">>,
@@ -3617,6 +3731,8 @@ update_keys(_, _) ->
       WantedLengths :: [non_neg_integer()],
       ExportKeyMaterials :: [binary()].
 %%--------------------------------------------------------------------
+export_key_materials(#sslsocket{connection_cb = tls_ktls}, _, _, _) ->
+    {error, {ktls_notsup, export_key_materials}};
 export_key_materials(#sslsocket{connection_handler = Controller}, Labels, Contexts, WantedLengths) when is_pid(Controller) ->
     ssl_gen_statem:call(Controller, {export_key_materials, Labels, Contexts, WantedLengths, true});
 export_key_materials(#sslsocket{listener_config = #config{}}, _,_,_) ->
@@ -3650,6 +3766,8 @@ function will fail.
 """.
 
 %%--------------------------------------------------------------------
+export_key_materials(#sslsocket{connection_cb = tls_ktls}, _, _, _, _) ->
+    {error, {ktls_notsup, export_key_materials}};
 export_key_materials(#sslsocket{connection_handler = Controller}, Labels, Contexts, WantedLengths, ConsumeSecret)
   when is_pid(Controller) ->
     ssl_gen_statem:call(Controller, {export_key_materials, Labels, Contexts, WantedLengths, ConsumeSecret});
@@ -3689,6 +3807,8 @@ called in a TLS-1.3 context it will now behave as
 """.
 
 %%--------------------------------------------------------------------
+prf(#sslsocket{connection_cb = tls_ktls}, master_secret, _, _, _) ->
+    {error, {ktls_notsup, prf}};
 prf(#sslsocket{connection_handler = Controller} = Socket,
     master_secret, Label, [client_random, server_random], WantedLength) when is_pid(Controller) ->
     case export_key_materials(Socket, [Label], [no_context], [WantedLength], true) of

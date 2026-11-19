@@ -276,9 +276,9 @@ monitor_socket(InetSocket) ->
     inet:monitor(InetSocket).
 
 emulated_options(tls_socket_tcp) ->
-    [mode, packet, active, header, packet_size, high_watermark, low_watermark];
+    [mode, packet, active, header, packet_size, read_ahead, high_watermark, low_watermark];
 emulated_options(_) ->
-    [mode, packet, active, header, packet_size].
+    [mode, packet, active, header, packet_size, read_ahead].
 
 emulated_options(Transport, Opts) ->
     emulated_options(Opts, [], default_inet_values(Transport)).
@@ -290,9 +290,10 @@ internal_inet_values(_) ->
 
 default_inet_values(tls_socket_tcp) ->
     [{packet_size, 0}, {packet,0}, {header, 0}, {active, true}, {mode, list},
-     {high_watermark, 8192}, {low_watermark, 4096}];
+     {read_ahead, true}, {high_watermark, 8192}, {low_watermark, 4096}];
 default_inet_values(_) ->
-    [{packet_size, 0}, {packet,0}, {header, 0}, {active, true}, {mode, list}].
+    [{packet_size, 0}, {packet,0}, {header, 0}, {active, true}, {mode, list},
+     {read_ahead, true}].
 
 inherit_tracker(ListenSocket, EmOpts, #{erl_dist := true} = SslOpts, Trackers) ->
     ssl_listen_tracker_sup:start_child_dist([ListenSocket, EmOpts, SslOpts, Trackers]);
@@ -533,13 +534,15 @@ emulated_socket_options(InetValues, #socket_options{
 				       header = Header,
 				       active = Active,
 				       packet = Packet,
-				       packet_size = Size}) ->
+                                       packet_size = Size,
+                                       read_ahead = ReadAhead}) ->
     #socket_options{
        mode   = proplists:get_value(mode, InetValues, Mode),
        header = proplists:get_value(header, InetValues, Header),
        active = proplists:get_value(active, InetValues, Active),
        packet = proplists:get_value(packet, InetValues, Packet),
-       packet_size = proplists:get_value(packet_size, InetValues, Size)
+       packet_size = proplists:get_value(packet_size, InetValues, Size),
+       read_ahead = proplists:get_value(read_ahead, InetValues, ReadAhead) =/= false
       }.
 
 emulated_options([{mode, Value} = Opt |Opts], Inet, Emulated) ->
@@ -557,6 +560,9 @@ emulated_options([{packet, Value} = Opt |Opts], Inet, Emulated) ->
 emulated_options([{packet_size, Value} = Opt | Opts], Inet, Emulated) ->
     validate_inet_option(packet_size, Value),
     emulated_options(Opts, Inet, [Opt | proplists:delete(packet_size, Emulated)]);
+emulated_options([{read_ahead, Value} = Opt | Opts], Inet, Emulated) ->
+    validate_inet_option(read_ahead, Value),
+    emulated_options(Opts, Inet, [Opt | proplists:delete(read_ahead, Emulated)]);
 emulated_options([{high_watermark, Value} = Opt | Opts], Inet, Emulated) ->
     case lists:keymember(high_watermark, 1, Emulated) of
         true ->
@@ -596,6 +602,9 @@ validate_inet_option(active, Value)
 validate_inet_option(active, Value)
   when Value =/= true, Value =/= false, Value =/= once ->
     throw({error, {options, {active,Value}}});
+validate_inet_option(read_ahead, Value)
+  when not is_boolean(Value) ->
+    throw({error, {options, {read_ahead, Value}}});
 validate_inet_option(_, _) ->
     ok.
 
