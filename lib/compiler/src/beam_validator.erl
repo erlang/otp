@@ -1505,19 +1505,22 @@ verify_put_record(Fail, Id, Src, Dst, Live, List, Vst0) ->
 
     _ = [assert_term(Term, Vst0) || Term <- List],
 
-    Vst = case {Id, Vst0} of
-              {{atom,_}, #vst{otp30_rec_alloc=true}} ->
+    IsLocal = case Id of
+                  {atom,_} -> true;
+                  _ -> false
+              end,
+    Vst = case Vst0 of
+              #vst{otp30_rec_alloc=true} when IsLocal ->
                   %% Create a record value for a record defined
                   %% in the current module. The size is known
                   %% and the previous `test_heap` instruction
                   %% includes the size for this update
                   %% instruction.
                   eat_heap_record(Vst0);
-              {_, _} ->
+              _ ->
                   %% The size of the record is not known at compile
                   %% time or this module was compiled by OTP 29. The
-                  %% instruction itself will doing the GC if
-                  %% necessary.
+                  %% instruction itself will do the GC if necessary.
                   heap_alloc(0, Vst0)
           end,
 
@@ -1529,7 +1532,14 @@ verify_put_record(Fail, Id, Src, Dst, Live, List, Vst0) ->
                       Type = put_record_type(Src, Id, List, Vst),
                       create_term(Type, put_record, [Src], Dst, SuccVst, SuccVst0)
               end,
-    branch(Fail, Vst, SuccFun).
+
+    case IsLocal of
+        true ->
+            %% Local record. Creation can't fail.
+            SuccFun(Vst);
+        false ->
+            branch(Fail, Vst, SuccFun)
+    end.
 
 put_record_type(Src, Id, Fs0, Vst) ->
     Defs = case Src of
