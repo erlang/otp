@@ -27,7 +27,7 @@
 	 copy/1, referenced/1,guard/1,encode_decode/1,badargs/1,longest_common_trap/1,
          check_no_invalid_read_bug/1,error_info/1, hex_encoding/1, join/1, doctests/1]).
 
--export([random_number/1, make_unaligned/1]).
+-export([random_number/1, make_unaligned/1, copy_reductions/1]).
 
 -include_lib("common_test/include/ct.hrl").
 
@@ -38,7 +38,7 @@ suite() ->
 all() ->
     [scope_return,interesting, ac_simd_root_skip,
      random_ref_fla_comp, random_ref_sr_comp,
-     random_ref_comp, parts, bin_to_list, list_to_bin, copy,
+     random_ref_comp, parts, bin_to_list, list_to_bin, copy, copy_reductions,
      referenced, guard, encode_decode, badargs,
      longest_common_trap, check_no_invalid_read_bug,
      error_info, hex_encoding, join, doctests].
@@ -897,6 +897,59 @@ copy(Config) when is_list(Config) ->
 					     default)]),
     erts_debug:set_internal_state(available_internal_state,false),
     ok.
+
+copy_reductions(Config) when is_list(Config) ->
+    ContextReds = erlang:system_info(context_reductions),
+    OldAvailable = erts_debug:set_internal_state(available_internal_state, true),
+    OldLimit = erts_debug:set_internal_state(binary_loop_limit, default),
+    try
+        Bin = binref:copy(<<1,2,3,4>>, 2048),
+        {<<>>, EmptyReds} = measure_copy(fun() -> binary:copy(<<>>) end),
+        {Bin, SmallReds} = measure_copy(fun() -> binary:copy(Bin) end),
+        CopyReds = SmallReds - EmptyReds,
+        true = CopyReds > 0,
+        Copies = ContextReds * 8 div CopyReds + 1,
+        Expected = binref:copy(Bin, Copies),
+        {Expected, SingleReds} = measure_copy(fun() -> binary:copy(Expected) end),
+        true = SingleReds > ContextReds * 4,
+        lists:foreach(
+          fun(Limit) ->
+                  erts_debug:set_internal_state(binary_loop_limit, Limit),
+                  lists:foreach(
+                    fun(Source) ->
+                            {Expected, Reds} = measure_copy(
+                                                 fun() ->
+                                                         binary:copy(Source, Copies)
+                                                 end),
+                            io:format("Copying ~p bytes consumed ~p reductions~n",
+                                      [byte_size(Expected), Reds]),
+                            true = Reds > ContextReds * 4
+                    end, [Bin, make_unaligned(Bin)])
+          end, [default, byte_size(Bin) * 8])
+    after
+        erts_debug:set_internal_state(binary_loop_limit, OldLimit),
+        erts_debug:set_internal_state(available_internal_state, OldAvailable)
+    end,
+    ok.
+
+measure_copy(Fun) ->
+    Parent = self(),
+    {Pid, Ref} = spawn_opt(
+                   fun() ->
+                           {reductions, Before} = process_info(self(), reductions),
+                           Result = Fun(),
+                           {reductions, After} = process_info(self(), reductions),
+                           Parent ! {self(), Result, After - Before}
+                   end, [monitor, {min_heap_size, 1024}]),
+    receive
+        {Pid, Result, Reds} ->
+            receive
+                {'DOWN', Ref, process, Pid, normal} ->
+                    {Result, Reds}
+            end;
+        {'DOWN', Ref, process, Pid, Reason} ->
+            erlang:error({copy_failed, Reason})
+    end.
 
 kill_copy_loop(0) ->
     ok;
