@@ -1625,7 +1625,17 @@ get_opt_of(Opt, Valid, Default, UserOpts, Opts) ->
     case get_opt(Opt, Default, UserOpts, Opts) of
         {new, Value} = Res ->
             case lists:member(Value, Valid) of
-                true -> Res;
+                true ->
+                    case maps:get(Opt, Opts, unbound) of
+                        Value ->
+                            %% Restates the already set value, e.g. an
+                            %% option given to both ssl:listen/2 and
+                            %% ssl:handshake/3. Treat it as old so that
+                            %% options derived from it are not reset.
+                            {old, Value};
+                        _ ->
+                            Res
+                    end;
                 false -> option_error(Opt, Value)
             end;
         Res ->
