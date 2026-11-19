@@ -158,6 +158,7 @@ end_per_testcase(_Func, _Config) ->
 
 -define(EXPORT_EXT, 113).
 -define(NEW_FUN_EXT, 112).
+-define(INTEGER_EXT, 98).
 -define(MAP_EXT, 116).
 -define(SMALL_INTEGER_EXT, 97).
 -define(SMALL_ATOM_UTF8_EXT, 119).
@@ -1166,9 +1167,12 @@ bad_binary_to_term(Config) when is_list(Config) ->
     %% Overlong 0-bit bitstring (should be encoded as 0-byte binary)
     bad_bin_to_term(<<131,77,0,0,0,0,0>>),
 
+    %% Bad EXPORT_EXT with arity > 255
+    Atom = <<?SMALL_ATOM_UTF8_EXT, 1, $x>>,
+    bad_bin_to_term(<<131, ?EXPORT_EXT, Atom/binary, Atom/binary, ?INTEGER_EXT, 256:32>>),
+
     %% Bad recursive EXPORT_EXT that exhausted the C-stack
     %% when dec_term() called itself for sub term Arity.
-    Atom = <<?SMALL_ATOM_UTF8_EXT, 1, $x>>,
     NRecurs = 10_000,
     bad_bin_to_term(list_to_binary([131, lists:duplicate(NRecurs, [?EXPORT_EXT, Atom, Atom]), Atom])),
 

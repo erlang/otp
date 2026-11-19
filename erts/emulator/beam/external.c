@@ -4940,7 +4940,7 @@ dec_term_atom_common:
                 factory->hp = hp;
 
                 ep = dec_int32(ep, &arity);
-                if (!ep || arity < 0 || arity > MAX_SMALL) {
+                if (!ep || arity < 0 || arity > 255) {
                     goto error;
                 }
                 if (edep && (edep->flags & ERTS_DIST_EXT_BTT_SAFE)) {
