@@ -160,6 +160,9 @@ end_per_testcase(_Func, _Config) ->
 
 -define(heap_binary_size, 64).
 
+-define(EXPORT_EXT, 113).
+-define(NEW_FUN_EXT, 112).
+-define(INTEGER_EXT, 98).
 -define(MAP_EXT, 116).
 -define(SMALL_INTEGER_EXT, 97).
 -define(SMALL_ATOM_UTF8_EXT, 119).
@@ -1168,6 +1171,31 @@ bad_binary_to_term(Config) when is_list(Config) ->
     %% Overlong 0-bit bitstring (should be encoded as 0-byte binary)
     bad_bin_to_term(<<131,77,0,0,0,0,0>>),
 
+    %% Bad EXPORT_EXT with arity > 255
+    Atom = <<?SMALL_ATOM_UTF8_EXT, 1, $x>>,
+    bad_bin_to_term(<<131, ?EXPORT_EXT, Atom/binary, Atom/binary, ?INTEGER_EXT, 256:32>>),
+
+    %% Bad recursive EXPORT_EXT that exhausted the C-stack
+    %% when dec_term() called itself for sub term Arity.
+    NRecurs = 10_000,
+    bad_bin_to_term(list_to_binary([131, lists:duplicate(NRecurs, [?EXPORT_EXT, Atom, Atom]), Atom])),
+
+    %% Bad recursive NEW_FUN_EXT that exhausted the C-stack
+    %% when dec_term() called itself for sub terms OldIndex, OldUniq and Pid.
+    Size = <<0:4/unit:8>>, % ignored
+    Arity = 0,
+    Uniq = <<0:16/unit:8>>,
+    Index = <<0:4/unit:8>>,
+    NumFree = <<0:4/unit:8>>,
+    OldIndex = OldUniq = <<?SMALL_INTEGER_EXT, 0>>,
+    TrailingNils = lists:duplicate(NRecurs*3+1, ?NIL),  % to satisfy decoded_size()
+    [bad_bin_to_term(list_to_binary([131,
+                                     lists:duplicate(NRecurs, NewFunIntro),
+                                     TrailingNils]))
+     || NewFunIntro <-
+            [[?NEW_FUN_EXT, Size, Arity, Uniq, Index, NumFree, Atom],
+             [?NEW_FUN_EXT, Size, Arity, Uniq, Index, NumFree, Atom, OldIndex],
+             [?NEW_FUN_EXT, Size, Arity, Uniq, Index, NumFree, Atom, OldIndex, OldUniq]]],
     ok.
 
 bad_bin_to_term(BadBin) ->
