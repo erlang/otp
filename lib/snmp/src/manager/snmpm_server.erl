@@ -1349,9 +1349,9 @@ handle_snmp_error(#pdu{request_id = ReqId} = Pdu, Reason, State) ->
 					 DefData, State),
 			    maybe_delete(Disco, ReqId);
 			_ ->
-			    error_msg("failed retrieving the default user "
-				      "info handling error [~w]: "
-				      "~n~w", [ReqId, Reason])
+                            user_err("failed retrieving the default user "
+                                                 "info handling error [~w]: "
+                                                 "~n~w", [ReqId, Reason])
 		    end
 	    end;
 
@@ -1397,16 +1397,16 @@ handle_snmp_error(#pdu{request_id = ReqId} = Pdu, Reason, State) ->
 		    handle_error(DefUserId, DefMod, Reason, 
 				 ReqId, DefData, State);
 		_ ->
-		    error_msg("failed retrieving the default "
-			      "user info handling error [~w]: "
-			      "~n~w",[ReqId, Reason])
+                    user_err("failed retrieving the default "
+                                         "user info handling error [~w]: "
+                                         "~n~w",[ReqId, Reason])
 	    end
     end;
 
 handle_snmp_error(CrapError, Reason, _State) ->
-    error_msg("received crap (snmp) error =>"
-	      "~n   ~p"
-              "~n   ~p", [CrapError, Reason]),
+    user_err("received crap (snmp) error =>"
+                         "~n   ~p"
+                         "~n   ~p", [CrapError, Reason]),
     ok.
 
 handle_snmp_error(Domain, Addr, ReqId, Reason, State) ->
@@ -1429,10 +1429,10 @@ handle_snmp_error(Domain, Addr, ReqId, Reason, State) ->
 			    handle_error(DefUserId, DefMod, Reason, 
 					 ReqId, DefData, State);
 			_Error2 ->
-			    error_msg("failed retrieving the default user "
-				      "info handling snmp error "
-				      "<~p,~p>: ~n~w~n~w",
-				      [Domain, Addr, ReqId, Reason])
+                            user_err("failed retrieving the default user "
+                                                 "info handling snmp error "
+                                                 "<~p,~p>: ~n~w~n~w",
+                                                 [Domain, Addr, ReqId, Reason])
 		    end
 	    end;
 	_Error3 ->
@@ -1441,10 +1441,10 @@ handle_snmp_error(Domain, Addr, ReqId, Reason, State) ->
 		    handle_error(DefUserId, DefMod, Reason, 
 				 ReqId, DefData, State);
 		_Error4 ->
-		    error_msg("failed retrieving the default user "
-			      "info handling snmp error "
-			      "<~p,~p>: ~n~w~n~w",
-			      [Domain, Addr, ReqId, Reason])
+                    user_err("failed retrieving the default user "
+                                         "info handling snmp error "
+                                         "<~p,~p>: ~n~w~n~w",
+                                         [Domain, Addr, ReqId, Reason])
 	    end
     end.
 
@@ -1523,10 +1523,10 @@ handle_snmp_pdu(#pdu{type = 'get-response', request_id = ReqId} = Pdu,
 			      ReqId, SnmpResponse, DefData, State),
 			    maybe_delete(Disco, ReqId);
 			Error ->
-			    error_msg("failed retrieving the default user "
-				      "info handling pdu from "
-				      "~p <~p,~p>: ~n~w~n~w",
-				      [Target, Domain, Addr, Error, Pdu])
+                            user_err("failed retrieving the default user "
+                                                 "info handling pdu from "
+                                                 "~p <~p,~p>: ~n~w~n~w",
+                                                 [Target, Domain, Addr, Error, Pdu])
 		    end
 	    end;
 
@@ -1601,11 +1601,11 @@ handle_snmp_pdu(#pdu{type = 'get-response', request_id = ReqId} = Pdu,
 				    handle_error(DefUserId, DefMod, Reason, 
 						 ReqId, DefData, State);
 				Error ->
-				    error_msg("failed retrieving the default "
-					      "user info handling (old) "
-					      "pdu from "
-					      "<~p,~p>: ~n~w~n~w",
-					      [Domain, Addr, Error, Pdu])
+                                    user_err("failed retrieving the default "
+                                                         "user info handling (old) "
+                                                         "pdu from "
+                                                         "<~p,~p>: ~n~w~n~w",
+                                                         [Domain, Addr, Error, Pdu])
 			    end
 		    end;
 
@@ -1628,19 +1628,19 @@ handle_snmp_pdu(#pdu{type = 'get-response', request_id = ReqId} = Pdu,
 			      pdu, ignore,
 			      SnmpInfo, DefData, State);
 			Error ->
-			    error_msg("failed retrieving the default user "
-				      "info handling (old) pdu when no user "
-				      "found from "
-				      "<~p,~p>: ~n~w~n~w",
-				      [Domain, Addr, Error, Pdu])
+                            user_err("failed retrieving the default user "
+                                                 "info handling (old) pdu when no user "
+                                                 "found from "
+                                                 "<~p,~p>: ~n~w~n~w",
+                                                 [Domain, Addr, Error, Pdu])
 		    end
 	    end
     end;
 
 
 handle_snmp_pdu(CrapPdu, Domain, Addr, _State) ->
-    error_msg("received crap (snmp) Pdu from ~w:~w =>"
-	      "~p", [Domain, Addr, CrapPdu]),
+    user_err("received crap (snmp) Pdu from ~w:~w =>"
+                         "~p", [Domain, Addr, CrapPdu]),
     ok.
 
 
@@ -1722,10 +1722,10 @@ do_handle_agent(DefUserId, DefMod,
 		ok ->
 		    ok;
 		{error, Reason} ->
-		    error_msg("failed registering agent - "
-			      "handling agent "
-			      "~p <~p,~p>: ~n~w", 
-			      [TargetName, Domain, Addr, Reason]),
+                    user_err("failed registering agent - "
+                                         "handling agent "
+                                         "~p <~p,~p>: ~n~w",
+                                         [TargetName, Domain, Addr, Reason]),
 		    ok
 	    end;
 	
@@ -1758,10 +1758,10 @@ do_handle_agent(DefUserId, DefMod,
 			ok ->
 			    ok;
 			{error, Reason} ->
-			    error_msg("failed registering agent - "
-				      "handling agent "
-				      "~p <~p,~p>: ~n~w", 
-				      [TargetName, Domain, Addr, Reason]),
+                            user_err("failed registering agent - "
+                                                 "handling agent "
+                                                 "~p <~p,~p>: ~n~w",
+                                                 [TargetName, Domain, Addr, Reason]),
 			    ok
 		    end;
 		{register, UserId2, TargetName, Config} ->  
@@ -1779,10 +1779,10 @@ do_handle_agent(DefUserId, DefMod,
 			ok ->
 			    ok;
 			{error, Reason} ->
-			    error_msg("failed registering agent - "
-				      "handling agent "
-				      "~p <~p,~p>: ~n~w", 
-				      [TargetName, Domain, Addr, Reason]),
+                            user_err("failed registering agent - "
+                                                 "handling agent "
+                                                 "~p <~p,~p>: ~n~w",
+                                                 [TargetName, Domain, Addr, Reason]),
 			    ok
 		    end;
 		_Ignore ->
@@ -1824,10 +1824,10 @@ do_handle_agent(DefUserId, DefMod,
 		      SnmpTrapInfo, DefData, State);
 
 		_ ->
-		    error_msg(
-		      "failed delivering ~w info to default user - "
-		      "regarding agent "
-		      "<~p,~p>: ~n~w", [Type, Domain, Addr, SnmpInfo])
+                    user_err(
+                      "failed delivering ~w info to default user - "
+                      "regarding agent "
+                      "<~p,~p>: ~n~w", [Type, Domain, Addr, SnmpInfo])
 	    end;
 	
 	C:E:S ->
@@ -1881,8 +1881,8 @@ handle_snmp_trap(#pdu{error_status = EStatus,
     do_handle_snmp_trap(SnmpTrapInfo, Domain, Addr, State);
 
 handle_snmp_trap(CrapTrap, Domain, Addr, _State) ->
-    error_msg("received crap (snmp) trap from ~w:~w =>"
-	      "~p", [Domain, Addr, CrapTrap]),
+    user_err("received crap (snmp) trap from ~w:~w =>"
+                         "~p", [Domain, Addr, CrapTrap]),
     ok.
 
 do_handle_snmp_trap(SnmpTrapInfo, Domain, Addr, State) ->
@@ -1912,12 +1912,12 @@ do_handle_snmp_trap(SnmpTrapInfo, Domain, Addr, State) ->
 				      trap, ignore, 
 				      SnmpTrapInfo, DefData, State);
 				Error2 ->
-				    error_msg(
-				      "failed retrieving the default "
-				      "user info handling report from "
-				      "~p <~p,~p>: ~n~w~n~w",
-				      [Target, Domain, Addr,
-				       Error2, SnmpTrapInfo])
+                                    user_err(
+                                      "failed retrieving the default "
+                                      "user info handling report from "
+                                      "~p <~p,~p>: ~n~w~n~w",
+                                      [Target, Domain, Addr,
+                                       Error2, SnmpTrapInfo])
 			    end;
 			Error3 ->
 			    %% Failed unregister agent, 
@@ -1951,12 +1951,12 @@ do_handle_snmp_trap(SnmpTrapInfo, Domain, Addr, State) ->
 		      trap, ignore, 
 		      SnmpTrapInfo, DefData, State);
 		Error5 ->
-		    error_msg(
-		      "failed retrieving "
-		      "the default user info, handling trap from <~p,~p>:"
+                    user_err(
+                      "failed retrieving "
+                      "the default user info, handling trap from <~p,~p>:"
                       "~n      Error:     ~p"
                       "~n      Trap Info: ~p",
-		      [Domain, Addr, Error5, SnmpTrapInfo])
+                      [Domain, Addr, Error5, SnmpTrapInfo])
 	    end
     end,
     ok.
@@ -2004,10 +2004,10 @@ do_handle_trap(
 		ok ->
 		    ok;
 		{error, Reason} ->
-		    error_msg("failed registering agent "
-			      "handling trap "
-			      "<~p,~p>: ~n~w", 
-			      [Domain, Addr, Reason]),
+                    user_err("failed registering agent "
+                                         "handling trap "
+                                         "<~p,~p>: ~n~w",
+                                         [Domain, Addr, Reason]),
 		    ok
 	    end;
 	{register, UserId2, Target2, Config} -> 
@@ -2022,10 +2022,10 @@ do_handle_trap(
 		ok ->
 		    reply;
 		{error, Reason} ->
-		    error_msg("failed registering agent "
-			      "handling trap "
-			      "~p <~p,~p>: ~n~w", 
-			      [Target2, Domain, Addr, Reason]),
+                    user_err("failed registering agent "
+                                         "handling trap "
+                                         "~p <~p,~p>: ~n~w",
+                                         [Target2, Domain, Addr, Reason]),
 		    reply
 	    end;
 	unregister ->
@@ -2034,10 +2034,10 @@ do_handle_trap(
 		ok ->
 		    ok;
 		{error, Reason} ->
-		    error_msg("failed unregistering agent "
-			      "handling trap "
-			      "<~p,~p>: ~n~w", 
-			      [Domain, Addr, Reason]),
+                    user_err("failed unregistering agent "
+                                         "handling trap "
+                                         "<~p,~p>: ~n~w",
+                                         [Domain, Addr, Reason]),
 		    ok
 	    end;	    
 	ignore ->
@@ -2094,11 +2094,11 @@ handle_snmp_inform(
 				      inform, Ref, 
 				      SnmpInform, DefData, State);
 				Error2 ->
-				    error_msg("failed retrieving the default "
-					      "user info handling inform from "
-					      "~p <~p,~p>: ~n~w~n~w",
-					      [Target, Domain, Addr,
-					       Error2, Pdu])
+                                    user_err("failed retrieving the default "
+                                                         "user info handling inform from "
+                                                         "~p <~p,~p>: ~n~w~n~w",
+                                                         [Target, Domain, Addr,
+                                                          Error2, Pdu])
 			    end;
 			Error3 ->
 			    %% Failed unregister agent, 
@@ -2125,17 +2125,17 @@ handle_snmp_inform(
 		      inform, Ref, 
 		      SnmpInform, DefData, State);
 		Error5 ->
-		    error_msg("failed retrieving "
-			      "the default user info handling inform from "
-			      "<~p,~p>: ~n~w~n~w",
-			      [Domain, Addr, Error5, Pdu])
+                    user_err("failed retrieving "
+                                         "the default user info handling inform from "
+                                         "<~p,~p>: ~n~w~n~w",
+                                         [Domain, Addr, Error5, Pdu])
 	    end
     end,
     ok;
 
 handle_snmp_inform(_Ref, CrapInform, Domain, Addr, _State) ->
-    error_msg("received crap (snmp) inform from ~w:~w =>"
-	      "~p", [Domain, Addr, CrapInform]),
+    user_err("received crap (snmp) inform from ~w:~w =>"
+                         "~p", [Domain, Addr, CrapInform]),
     ok.
 
 handle_inform(
@@ -2185,10 +2185,10 @@ do_handle_inform(
 		    ok ->
 			reply;
 		    {error, Reason} ->
-			error_msg("failed registering agent "
-				  "handling inform "
-				  "~p <~p,~p>: ~n~w", 
-				  [Target2, Domain, Addr, Reason]),
+                        user_err("failed registering agent "
+                                             "handling inform "
+                                             "~p <~p,~p>: ~n~w",
+                                             [Target2, Domain, Addr, Reason]),
 			reply
 		end;
 
@@ -2204,10 +2204,10 @@ do_handle_inform(
 		    ok ->
 			reply;
 		    {error, Reason} ->
-			error_msg("failed registering agent "
-				  "handling inform "
-				  "~p <~p,~p>: ~n~w", 
-				  [Target2, Domain, Addr, Reason]),
+                        user_err("failed registering agent "
+                                             "handling inform "
+                                             "~p <~p,~p>: ~n~w",
+                                             [Target2, Domain, Addr, Reason]),
 			reply
 		end;
 
@@ -2218,10 +2218,10 @@ do_handle_inform(
 		    ok ->
 			reply;
 		    {error, Reason} ->
-			error_msg("failed unregistering agent "
-				  "handling inform "
-				  "<~p,~p>: ~n~w", 
-				  [Domain, Addr, Reason]),
+                        user_err("failed unregistering agent "
+                                             "handling inform "
+                                             "<~p,~p>: ~n~w",
+                                             [Domain, Addr, Reason]),
 			reply
 		end;	    
 
@@ -2299,11 +2299,11 @@ handle_snmp_report(
 						 SnmpReport, DefData, State);
 				
 				Error2 ->
-				    error_msg("failed retrieving the default "
-					      "user info handling report from "
-					      "~p <~p,~p>: ~n~w~n~w",
-					      [Target, Domain, Addr,
-					       Error2, Pdu])
+                                    user_err("failed retrieving the default "
+                                                         "user info handling report from "
+                                                         "~p <~p,~p>: ~n~w~n~w",
+                                                         [Target, Domain, Addr,
+                                                          Error2, Pdu])
 			    end;
 			Error3 ->
 			    %% Failed unregister agent, 
@@ -2329,17 +2329,17 @@ handle_snmp_report(
 				 report, ignore, 
 				 SnmpReport, DefData, State);
 		Error5 ->
-		    error_msg("failed retrieving "
-			      "the default user info handling report from "
-			      "<~p,~p>: ~n~w~n~w",
-			      [Domain, Addr, Error5, Pdu])
+                    user_err("failed retrieving "
+                                         "the default user info handling report from "
+                                         "<~p,~p>: ~n~w~n~w",
+                                         [Domain, Addr, Error5, Pdu])
 	    end
     end,
     ok;
 
 handle_snmp_report(CrapReport, Domain, Addr, _State) ->
-    error_msg("received crap (snmp) report from ~w:~w =>"
-	      "~p", [Domain, Addr, CrapReport]),
+    user_err("received crap (snmp) report from ~w:~w =>"
+                         "~p", [Domain, Addr, CrapReport]),
     ok.
 
 %% This could be from a failed get-request, so we might have a user
@@ -2425,12 +2425,12 @@ handle_snmp_report(
 				    handle_error(DefUserId, DefMod, Reason, 
 						 ReqId, DefData, State);
 				Error ->
-				    error_msg("failed retrieving the "
-					      "default user "
-					      "info handling report from "
-					      "<~p,~p>: ~n~w~n~w~n~w",
-					      [Domain, Addr, Error,
-					       ReqId, Reason])
+                                    user_err("failed retrieving the "
+                                                         "default user "
+                                                         "info handling report from "
+                                                         "<~p,~p>: ~n~w~n~w~n~w",
+                                                         [Domain, Addr, Error,
+                                                          ReqId, Reason])
 			    end
 		    end;
 		Error ->
@@ -2443,18 +2443,18 @@ handle_snmp_report(
 			    handle_error(DefUserId, DefMod, Reason, ReqId, 
 					 DefData, State);
 			Error ->
-			    error_msg("failed retrieving "
-				      "the default user info handling "
-				      "report from "
-				      "<~p,~p>: ~n~w~n~w~n~w",
-				      [Domain, Addr, Error, ReqId, Reason])
+                            user_err("failed retrieving "
+                                                 "the default user info handling "
+                                                 "report from "
+                                                 "<~p,~p>: ~n~w~n~w~n~w",
+                                                 [Domain, Addr, Error, ReqId, Reason])
 		    end
 	    end
     end,
     ok;
 
 handle_snmp_report(CrapReqId, CrapReport, CrapInfo, Domain, Addr, _State) ->
-    error_msg(
+    user_err(
       "received crap (snmp) report from ~w:~w =>"
       "~n~p~n~p~n~p",
       [Domain, Addr, CrapReqId, CrapReport, CrapInfo]),
@@ -2504,10 +2504,10 @@ do_handle_report(
 		ok ->
 		    ok;
 		{error, Reason} ->
-		    error_msg("failed registering agent "
-			      "handling report "
-			      "<~p,~p>: ~n~w",
-			      [Domain, Addr, Reason]),
+                    user_err("failed registering agent "
+                                         "handling report "
+                                         "<~p,~p>: ~n~w",
+                                         [Domain, Addr, Reason]),
 		    ok
 	    end;
 
@@ -2523,10 +2523,10 @@ do_handle_report(
 		ok ->
 		    reply;
 		{error, Reason} ->
-		    error_msg("failed registering agent "
-			      "handling report "
-			      "~p <~p,~p>: ~n~w", 
-			      [Target2, Domain, Addr, Reason]),
+                    user_err("failed registering agent "
+                                         "handling report "
+                                         "~p <~p,~p>: ~n~w",
+                                         [Target2, Domain, Addr, Reason]),
 		    reply
 	    end;
 
@@ -2536,10 +2536,10 @@ do_handle_report(
 		ok ->
 		    ok;
 		{error, Reason} ->
-		    error_msg("failed unregistering agent "
-			      "handling report "
-			      "<~p,~p>: ~n~w", 
-			      [Domain, Addr, Reason]),
+                    user_err("failed unregistering agent "
+                                         "handling report "
+                                         "<~p,~p>: ~n~w",
+                                         [Domain, Addr, Reason]),
 		    ok
 	    end;	    
 
@@ -2771,20 +2771,20 @@ cbp_f(F, A) ->
 %%----------------------------------------------------------------------
 
 handle_invalid_result(Func, Args, C, E, S) ->
-    error_msg("Callback function failed: "
-	      "~n   Function:    ~p"
-	      "~n   Args:        ~p"
-	      "~n   Error Class: ~p"
-	      "~n   Error:       ~p"
-	      "~n   Stacktrace:  ~p", 
-	      [Func, Args, C, E, S]). 
+    user_err("Callback function failed: "
+                         "~n   Function:    ~p"
+                         "~n   Args:        ~p"
+                         "~n   Error Class: ~p"
+                         "~n   Error:       ~p"
+                         "~n   Stacktrace:  ~p",
+                         [Func, Args, C, E, S]).
 
 handle_invalid_result(Func, Args, InvalidResult) ->
-    error_msg("Callback function returned invalid result: "
-	      "~n   Function:       ~p"
-	      "~n   Args:           ~p"
-	      "~n   Invalid result: ~p", 
-	      [Func, Args, InvalidResult]).
+    user_err("Callback function returned invalid result: "
+                         "~n   Function:       ~p"
+                         "~n   Args:           ~p"
+                         "~n   Invalid result: ~p",
+                         [Func, Args, InvalidResult]).
 
 
 handle_netif_down(#state{note_store = NoteStore, 
@@ -3595,9 +3595,6 @@ warning_msg(F) ->
 warning_msg(F, A) ->
     ?snmpm_warning("Server: " ++ F, A).
 
-error_msg(F, A) ->
-    ?snmpm_error("Server: " ++ F, A).
- 
 
 %%----------------------------------------------------------------------
 
@@ -3692,3 +3689,8 @@ note_store_info(Pid) ->
 
 us() ->
     erlang:monotonic_time(micro_seconds).
+
+user_err(F, S) ->
+    snmpm_error:user_err(F, S).
+config_err(F, S) ->
+    snmpm_error:config_err(F, S).

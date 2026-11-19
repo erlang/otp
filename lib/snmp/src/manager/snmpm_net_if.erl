@@ -432,8 +432,8 @@ common_socket_opts(Opts) ->
              ESO when is_list(ESO) ->
                  ESO;
              BadESO ->
-                 error_msg("Invalid 'extra socket options' (=> ignored):"
-                           "~n   ~p", [BadESO]),
+                 config_err("Invalid 'extra socket options' (=> ignored):"
+                            "~n   ~p", [BadESO]),
                  []
          end].
 
@@ -701,16 +701,16 @@ handle_info(Info, State) ->
 handle_udp_error(#transport{socket = Socket}, Error) ->
     try inet:sockname(Socket) of
         {ok, {IP, Port}} ->
-            error_msg("UDP Error for transport: "
+            user_err("UDP Error for transport: "
                       "~n      Socket: ~p (~p, ~p)"
                       "~n      Error:  ~p", [Socket, IP, Port, Error]);
         {error, _} ->
-            error_msg("UDP Error for transport: "
+            user_err("UDP Error for transport: "
                       "~n      Socket: ~p"
                       "~n      Error:  ~p", [Socket, Error])
     catch
         _:_:_ ->
-            error_msg("UDP Error for transport: "
+            user_err("UDP Error for transport: "
                       "~n      Socket: ~p"
                       "~n      Error:  ~p", [Socket, Error])
     end.
@@ -861,7 +861,7 @@ handle_recv_msg(
 	    Pid ! {snmp_error, ErrorInfo, Domain, Addr};
 
 	Error ->
-	    error_msg("processing of received message failed: "
+            user_err("processing of received message failed: "
 		      "~n   ~p", [Error])
     end.
 
@@ -1104,11 +1104,10 @@ maybe_udp_send(
 	_ ->
 	    case select_transport_from_domain(Domain, Transports) of
 		false ->
-		    error_msg(
-		      "Can not find transport~n"
-			"   size:   ~p~n"
-		      "   to:     ~s",
-		      [sz(Msg), format_address(To)]);
+                    user_err("Can not find transport~n"
+                             "   size:   ~p~n"
+                             "   to:     ~s",
+                             [sz(Msg), format_address(To)]);
 		#transport{socket = Socket} ->
 		    udp_send(Socket, Addr, Msg)
 	    end
@@ -1128,13 +1127,13 @@ udp_send(Sock, To, Msg) ->
 		    [sz(Msg), IpAddr, IpPort, Sock]),
 	    ok;
 	{error, Reason} ->
-	    error_msg("failed sending message to ~p:~p:~n"
-		      "   ~p",[IpAddr, IpPort, Reason])
+            user_err("failed sending message to ~p:~p:~n"
+                     "   ~p",[IpAddr, IpPort, Reason])
     catch
 	error:E:S ->
-	    error_msg("failed sending message to ~p:~p:"
-		      "~n   ~p"
-		      "~n   ~p", [IpAddr, IpPort, E, S])
+            user_err("failed sending message to ~p:~p:"
+                     "~n   ~p"
+                     "~n   ~p", [IpAddr, IpPort, E, S])
     end.
 
 sz(B) when is_binary(B) ->
@@ -1154,13 +1153,13 @@ handle_disk_log(_Log, {truncated, NoLostItems}, State) ->
 	  [NoLostItems]),
     State;
 handle_disk_log(_Log, full, State) ->
-    error_msg("Failed to write to Audit Trail Log (full)", []),
+    user_err("Failed to write to Audit Trail Log (full)", []),
     State;
 handle_disk_log(_Log, {error_status, ok}, State) ->
     State;
 handle_disk_log(_Log, {error_status, {error, Reason}}, State) ->
-    error_msg("Error status received from Audit Trail Log: "
-	      "~n~p", [Reason]),
+    user_err("Error status received from Audit Trail Log: "
+             "~n~p", [Reason]),
     State;
 handle_disk_log(_Log, _Info, State) ->
     State.
@@ -1302,9 +1301,10 @@ maybe_process_extra_info(_ExtraInfo) ->
 warning_msg(F, A) ->
     ?snmpm_warning("NET-IF server: " ++ F, A).
 
-error_msg(F, A) ->
-    ?snmpm_error("NET-IF server: " ++ F, A).
-
+user_err(F, A) ->
+    snmpm_error:user_err("NET-IF server: " ++ F, A).
+config_err(F, A) ->
+    snmpm_error:config_err("NET-IF server: " ++ F, A).
 
 
 %%%-------------------------------------------------------------------
