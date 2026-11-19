@@ -82,7 +82,19 @@ send(tls_socket_tcp, _Socket, [], _Handle) ->
 send(tls_socket_tcp, Socket, Data, Handle) ->
     tls_socket_tcp:send_async(Socket, Data, Handle);
 send(Transport, Socket, Data, _Handle) ->
-    Transport:send(Socket, Data).
+    case Transport:send(Socket, Data) of
+        {error, einval} when is_port(Socket) ->
+            %% The connection process owns the port, and the port closes
+            %% when that process exits, which can happen while the sender
+            %% is sending. If the port closes after gen_tcp:send/2 has looked
+            %% it up, prim_inet:send/3 returns einval instead of closed.
+            case erlang:port_info(Socket, connected) of
+                undefined -> {error, closed};
+                _ -> {error, einval}
+            end;
+        Result ->
+            Result
+    end.
 
 listen(Transport, Port, #config{transport_info = {Transport, _, _, _, _},
 				inet_user = Options,
@@ -596,6 +608,12 @@ validate_inet_option(active, Value)
 validate_inet_option(active, Value)
   when Value =/= true, Value =/= false, Value =/= once ->
     throw({error, {options, {active,Value}}});
+validate_inet_option(Name, Value)
+  when Name == high_watermark; Name == low_watermark ->
+    case ssl_shared_opts:is_valid_watermark(Value) of
+        true -> ok;
+        false -> throw({error, {options, {Name, Value}}})
+    end;
 validate_inet_option(_, _) ->
     ok.
 

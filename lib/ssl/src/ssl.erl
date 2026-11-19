@@ -2690,16 +2690,14 @@ send(#sslsocket{payload_sender = Sender,
     ssl_gen_statem:send(Sender, Data);
 send(#sslsocket{payload_sender = Sender, tab = Tab,
                 connection_cb = tls_gen_connection}, Data0) when is_pid(Sender) ->
-    try
-        Packet = ets:lookup_element(Tab, {socket_options, packet}, 2),
-        case encode_packet(Packet, Data0) of
-            {error, _} = Error ->
-                Error;
-            Data ->
-                tls_sender:send_data(Sender,  erlang:iolist_to_iovec(Data))
-        end
-    catch error:badarg ->
-            {error, closed}
+    %% A closed socket is reported by the sender process: the call to it
+    %% fails with noproc, which tls_sender:call/2 turns into {error, closed}.
+    Header = ssl_shared_opts:get_send_header(Tab),
+    case encode_packet(Header, Data0) of
+        {error, _} = Error ->
+            Error;
+        Data ->
+            tls_sender:send_data(Sender,  erlang:iolist_to_iovec(Data))
     end;
 send(#sslsocket{listener_config = #config{connection_cb = dtls_gen_connection}}, _) ->
     {error,enotconn}; %% Emulate connection behaviour
@@ -3961,7 +3959,7 @@ encode_packet(Packet, Data) ->
         4 when Len < (1 bsl 32) -> [<<Len:32>>|Data];
         N when N =:= 1; N =:= 2; N =:= 4 ->
             {error,
-             {badarg, {packet_to_large, Len, (1 bsl (Packet bsl 3)) - 1}}};
+             {badarg, {packet_too_large, Len, (1 bsl (Packet bsl 3)) - 1}}};
         _ ->
             Data
     end.

@@ -154,8 +154,6 @@ initial_state(Role, Sender, Tab, Host, Port, Socket, {SSLOptions, SocketOptions,
 
     SslSocket = tls_socket:socket([self(),Sender], CbModule, Socket, tls_gen_connection, Tab, Trackers),
 
-    true = ets:insert(Tab, {{socket_options, packet}, SocketOptions#socket_options.packet}),
-
     InitStatEnv = #static_env{
                      role = Role,
                      user_socket = SslSocket,
