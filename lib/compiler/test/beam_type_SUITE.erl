@@ -1807,7 +1807,10 @@ float_widens_seq() ->
     float_widens_3(),
     float_widens_4(),
     float_widens_5(),
-
+    2.0 = float_widens_6a(id(2.0)),
+    1.0e20 = float_widens_6a(id(1.0e20)),
+    1 = float_widens_6b(),
+    
     done.
 
 float_widens_1() ->
@@ -1861,6 +1864,14 @@ float_widens_5() ->
     float_widens_5_id(F).
 
 float_widens_5_id(I) -> I.
+
+float_widens_6a(X) ->
+    float_widens_6(case X of 2.0 -> X; 1.0e20 -> X end).
+
+float_widens_6b() ->
+    float_widens_6(1).
+
+float_widens_6(I) -> I.
 
 cover_is_not_wider() ->
     ?assertError(_, find(id(~""), id(""))).

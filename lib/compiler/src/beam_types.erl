@@ -1095,7 +1095,12 @@ norm_number_range(any) ->
 norm_number(N) when is_number(N) ->
     try {float(N-1), float(N), float(N+1)} of
         {F0,F1,F2} when F0 =:= F1; F1 =:= F2 ->
+            %% This number has the same floating point representation
+            %% as its neighbours. Represent it as a float.
             floor(F1);
+        {_,_,_} when is_number(N), trunc(N) == N ->
+            %% This number can be exactly represented as an integer.
+            trunc(N);
         {_,_,_} ->
             N
     catch
