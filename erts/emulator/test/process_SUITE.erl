@@ -125,14 +125,15 @@
 -export([hangaround/2, processes_bif_test/0, do_processes/1,
 	 processes_term_proc_list_test/1, huge_arglist_child/255]).
 
--export([spawn_request_test_exit_child/1]).
+-export([spawn_request_test_exit_child/1, spawn_copy_reductions/1,
+         spawn_copy_receiver/2]).
 
 suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap, {minutes, 9}}].
 
 all() ->
-    [spawn_with_binaries, t_exit_1, {group, t_exit_2},
+    [spawn_copy_reductions, spawn_with_binaries, t_exit_1, {group, t_exit_2},
      trap_exit_badarg, trap_exit_badarg_in_bif,
      bump_reductions, low_prio, yield, yield2, otp_4725,
      dist_unlink_ack_exit_leak, bad_register, garbage_collect,
@@ -268,6 +269,133 @@ end_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
 
 fun_spawn(Fun) ->
     spawn_link(erlang, apply, [Fun, []]).
+
+spawn_copy_reductions(_Config) ->
+    Data = lists:seq(1, 8192),
+    Literal = {literal, [1,2,3,4,5,6,7,8], {a,b,c,d}},
+    Operations = [spawn, spawn_link, spawn_monitor, spawn_opt,
+                  spawn_opt_monitor, spawn_fun, spawn_opt_fun,
+                  spawn_request, spawn_request_fun],
+    lists:foreach(
+      fun(Term) ->
+              SendReds = spawn_copy_measure(send, Term),
+              lists:foreach(
+                fun(Operation) ->
+                        SpawnReds = spawn_copy_measure(Operation, Term),
+                        ?assert(SpawnReds >= SendReds div 2),
+                        ?assert(SpawnReds =< SendReds + 64)
+                end, Operations)
+      end, [Data, {Data, Data}, lists:duplicate(8192, Literal),
+            term_to_binary(Data), [], Literal]),
+    Large = lists:seq(1, 262144),
+    ContextReds = erlang:system_info(context_reductions),
+    lists:foreach(
+      fun(Operation) ->
+              Reds = spawn_copy_measure(Operation, Large),
+              ?assert(Reds >= ContextReds div 2),
+              ?assert(Reds =< ContextReds + 64)
+      end, [send | Operations]),
+    ok.
+
+spawn_copy_measure(Operation, Data) ->
+    Parent = self(),
+    HeapSize = 2 * erts_debug:flat_size(Data) + 65536,
+    {Pid, Ref} = spawn_opt(
+                   fun() ->
+                           Op = case Operation of
+                                    send ->
+                                        {send, spawn(?MODULE, spawn_copy_receiver,
+                                                     [self(), []])};
+                                    _ -> Operation
+                                end,
+                           garbage_collect(),
+                           erlang:yield(),
+                           {reductions, Before} = process_info(self(), reductions),
+                           Result = spawn_copy_start(Op, Data),
+                           {reductions, After} = process_info(self(), reductions),
+                           spawn_copy_finish(Result, Data),
+                           unlink(Parent),
+                           Parent ! {self(), After - Before}
+                   end, [link, monitor, {min_heap_size, HeapSize}]),
+    receive
+        {Pid, Reds} ->
+            receive
+                {'DOWN', Ref, process, Pid, normal} -> Reds
+            end;
+        {'DOWN', Ref, process, Pid, Reason} ->
+            error({spawn_copy_measurement_failed, Operation, Reason})
+    end.
+
+spawn_copy_start({send, Pid}, Data) ->
+    Pid ! Data,
+    Pid;
+spawn_copy_start(spawn, Data) ->
+    spawn(?MODULE, spawn_copy_receiver, [self(), Data]);
+spawn_copy_start(spawn_link, Data) ->
+    spawn_link(?MODULE, spawn_copy_receiver, [self(), Data]);
+spawn_copy_start(spawn_monitor, Data) ->
+    spawn_monitor(?MODULE, spawn_copy_receiver, [self(), Data]);
+spawn_copy_start(spawn_opt, Data) ->
+    spawn_opt(?MODULE, spawn_copy_receiver, [self(), Data], []);
+spawn_copy_start(spawn_opt_monitor, Data) ->
+    spawn_opt(?MODULE, spawn_copy_receiver, [self(), Data], [link, monitor]);
+spawn_copy_start(spawn_fun, Data) ->
+    Parent = self(),
+    spawn(fun() -> spawn_copy_receiver(Parent, Data) end);
+spawn_copy_start(spawn_opt_fun, Data) ->
+    Parent = self(),
+    spawn_opt(fun() -> spawn_copy_receiver(Parent, Data) end, [monitor]);
+spawn_copy_start(spawn_request, Data) ->
+    spawn_request(?MODULE, spawn_copy_receiver, [self(), Data], []);
+spawn_copy_start(spawn_request_fun, Data) ->
+    Parent = self(),
+    spawn_request(fun() -> spawn_copy_receiver(Parent, Data) end).
+
+spawn_copy_finish(Result, Data) ->
+    {Pid, Ref} = case Result of
+                     P when is_pid(P) -> {P, monitor(process, P)};
+                     {P, R} -> {P, R};
+                     R when is_reference(R) ->
+                         receive
+                             {spawn_reply, R, ok, P} -> {P, monitor(process, P)};
+                             {spawn_reply, R, error, Error} -> error({spawn_failed, Error})
+                         after 5000 ->
+                             error(spawn_reply_timeout)
+                         end
+                 end,
+    try
+        Pid ! {check, self()},
+        receive
+            {Pid, Received} -> ?assertEqual(Data, Received);
+            {'DOWN', Ref, process, Pid, Reason} -> error({spawn_child_exit, Reason})
+        after 5000 ->
+            error(spawn_copy_timeout)
+        end,
+        Pid ! stop,
+        receive
+            {'DOWN', Ref, process, Pid, normal} -> ok;
+            {'DOWN', Ref, process, Pid, ExitReason} -> error({spawn_child_exit, ExitReason})
+        after 5000 ->
+            error(spawn_child_stop_timeout)
+        end
+    after
+        unlink(Pid),
+        exit_signal(Pid, kill),
+        demonitor(Ref, [flush])
+    end.
+
+spawn_copy_receiver(Parent, Data) ->
+    link(Parent),
+    spawn_copy_receive(Data).
+
+spawn_copy_receive(Data) ->
+    receive
+        stop -> ok;
+        {check, From} ->
+            From ! {self(), Data},
+            spawn_copy_receive(Data);
+        Message -> spawn_copy_receive(Message)
+    end.
 
 %% Tests that binaries as arguments to spawn/3 doesn't leak
 %% (unclear if this test case will actually prove anything on
