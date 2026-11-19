@@ -38,7 +38,7 @@
          zip64_central_headers/1, unzip64_central_headers/1,
          zip64_central_directory/1,
          basic_timestamp/1, extended_timestamp/1, capped_timestamp/1,
-         uid_gid/1, zip_get_2_to_cwd/1]).
+         uid_gid/1, zip_get_2_to_cwd/1, max_size/1]).
 
 -export([zip/5, unzip/3]).
 
@@ -57,7 +57,7 @@ all() ->
      zip_options, list_dir_options, aliases,
      zip_api, open_leak, unzip_jar, compress_control, foldl,
      unzip_traversal_exploit, fd_leak, unicode, test_zip_dir,
-     explicit_file_info, zip_get_2_to_cwd,
+     explicit_file_info, zip_get_2_to_cwd, max_size,
      {group, zip_group}, {group, zip64_group}].
 
 groups() -> 
@@ -1292,6 +1292,117 @@ explicit_file_info(_Config) ->
              {"seconds", <<>>, FileInfo#file_info{mtime=315532800}}],
     {ok, _} = zip:zip("", Files, [memory]),
     ok.
+
+%% Test the max_size option.
+max_size(Config) when is_list(Config) ->
+    Dir = filename:join(get_value(pdir, Config), "extract"),
+    ok = file:make_dir(Dir),
+
+    Data1 = rand:bytes(1000),
+    Data2 = rand:bytes(2000),
+    Total = byte_size(Data1) + byte_size(Data2),
+    {ok, {_, Bin}} = zip:zip("max_size.zip",
+                             [{"file1", Data1}, {"file2", Data2}], [memory]),
+
+    %% Extraction to memory.
+    {error, too_big} = zip:unzip(Bin, [memory, {max_size, Total - 1}]),
+    {ok, [{"file1", Data1}, {"file2", Data2}]} =
+        zip:unzip(Bin, [memory, {max_size, Total}]),
+    {ok, [{"file1", Data1}, {"file2", Data2}]} =
+        zip:unzip(Bin, [memory, {max_size, infinity}]),
+
+    %% Only the files selected for extraction count.
+    {ok, [{"file1", Data1}]} =
+        zip:unzip(Bin, [memory, {file_list, ["file1"]},
+                        {max_size, byte_size(Data1)}]),
+    {error, too_big} =
+        zip:unzip(Bin, [memory, {file_list, ["file2"]},
+                        {max_size, byte_size(Data1)}]),
+
+    %% Extraction to disk. The limit is reached at file2, which is then
+    %% not written; file1 is left in place.
+    {error, too_big} = zip:unzip(Bin, [{cwd, Dir}, {max_size, Total - 1}]),
+    true = filelib:is_regular(filename:join(Dir, "file1")),
+    false = filelib:is_regular(filename:join(Dir, "file2")),
+    {ok, [File1, File2]} = zip:unzip(Bin, [{cwd, Dir}, {max_size, Total}]),
+    {ok, Data1} = file:read_file(File1),
+    {ok, Data2} = file:read_file(File2),
+
+    %% A stored (uncompressed) file.
+    {ok, {_, Stored}} = zip:zip("stored.zip", [{"stored", Data1}],
+                                [memory, {compress, []}]),
+    {error, too_big} = zip:unzip(Stored, [memory, {max_size, 999}]),
+    {ok, [{"stored", Data1}]} = zip:unzip(Stored, [memory, {max_size, 1000}]),
+
+    %% An open archive: the limit applies to each zip_get call.
+    {ok, Handle} = zip:zip_open(Bin, [memory, {max_size, byte_size(Data1)}]),
+    {ok, {"file1", Data1}} = zip:zip_get("file1", Handle),
+    {error, too_big} = zip:zip_get("file2", Handle),
+    {error, too_big} = zip:zip_get(Handle),
+    {ok, {"file1", Data1}} = zip:zip_get("file1", Handle),
+    ok = zip:zip_close(Handle),
+
+    %% The sizes recorded in the archive are not trusted. This archive
+    %% records a 10 byte file in both headers while its deflate stream
+    %% inflates to 1 MB; the limit stops the extraction while inflating,
+    %% and the file being written is removed.
+    Inflated = <<0:(1024 * 1024 * 8)>>,
+    Lying = zip_with_recorded_sizes(Inflated, 10, 10),
+    {ok, [#zip_comment{}, #zip_file{info = #file_info{size = 10}}]} =
+        zip:table(Lying),
+    {error, too_big} = zip:unzip(Lying, [memory, {max_size, 100000}]),
+    {error, too_big} = zip:unzip(Lying, [{cwd, Dir}, {max_size, 100000}]),
+    false = filelib:is_regular(filename:join(Dir, "a")),
+
+    %% When only the central directory understates the size, the local
+    %% header fails the limit before the file is opened, so an existing
+    %% file is left untouched.
+    LocalHonest = zip_with_recorded_sizes(Inflated, 10, byte_size(Inflated)),
+    Existing = filename:join(Dir, "a"),
+    ok = file:write_file(Existing, <<"old">>),
+    {error, too_big} = zip:unzip(LocalHonest, [{cwd, Dir}, {max_size, 100000}]),
+    {ok, <<"old">>} = file:read_file(Existing),
+
+    %% Invalid values are rejected.
+    {error, {bad_option, {max_size, -1}}} =
+        zip:unzip(Bin, [memory, {max_size, -1}]),
+    {error, {bad_option, {max_size, big}}} =
+        zip:unzip(Bin, [memory, {max_size, big}]),
+    {error, {bad_option, {max_size, -1}}} =
+        zip:zip_open(Bin, [memory, {max_size, -1}]),
+
+    ok.
+
+%% An archive with one deflated file named "a" whose central directory
+%% and local header record CentralSize and LocalSize as its uncompressed
+%% size, whatever the deflate stream inflates to.
+zip_with_recorded_sizes(Data, CentralSize, LocalSize) ->
+    Z = zlib:open(),
+    ok = zlib:deflateInit(Z, default, deflated, -15, 8, default),
+    Deflated = iolist_to_binary(zlib:deflate(Z, Data, finish)),
+    ok = zlib:deflateEnd(Z),
+    zlib:close(Z),
+    CRC = erlang:crc32(Data),
+    Name = <<"a">>,
+    LocalHeader =
+        <<16#04034b50:32/little, 20:16/little, 0:16/little, 8:16/little,
+          0:16/little, 16#0021:16/little, CRC:32/little,
+          (byte_size(Deflated)):32/little, LocalSize:32/little,
+          (byte_size(Name)):16/little, 0:16/little, Name/binary>>,
+    CentralOffset = byte_size(LocalHeader) + byte_size(Deflated),
+    CentralHeader =
+        <<16#02014b50:32/little, 20:16/little, 20:16/little, 0:16/little,
+          8:16/little, 0:16/little, 16#0021:16/little, CRC:32/little,
+          CentralSize:32/little, CentralSize:32/little,
+          (byte_size(Name)):16/little, 0:16/little, 0:16/little,
+          0:16/little, 0:16/little, 16#81a40000:32/little, 0:32/little,
+          Name/binary>>,
+    EndOfCentralDir =
+        <<16#06054b50:32/little, 0:16/little, 0:16/little, 1:16/little,
+          1:16/little, (byte_size(CentralHeader)):32/little,
+          CentralOffset:32/little, 0:16/little>>,
+    <<LocalHeader/binary, Deflated/binary, CentralHeader/binary,
+      EndOfCentralDir/binary>>.
 
 zip_get_2_to_cwd(Config) ->
     Files = [{"file.txt", binary:copy(<<"txt">>, 100)},

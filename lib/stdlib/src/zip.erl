@@ -95,7 +95,8 @@ convention, add `.zip` to the filename.
 	  feedback,    % feeback (fun)
 	  cwd,         % directory to relate paths to
           skip_dirs,   % skip creating empty directories
-          extra        % The extra fields to include
+          extra,       % The extra fields to include
+          max_size     % limit on the total size of extracted data
 	 }).
 
 -record(zip_opts, {
@@ -123,7 +124,8 @@ convention, add `.zip` to the filename.
 	  open_opts,   % file:open options
 	  cwd,	       % directory to relate paths to
           skip_dirs,   % skip creating empty directories
-          extra        % The extra fields to include
+          extra,       % The extra fields to include
+          max_size     % limit on the size of data extracted per request
 	 }).
 
 % openzip record, state for an open zip-file
@@ -136,7 +138,8 @@ convention, add `.zip` to the filename.
 	  zlib,	       % handle to open zlib
 	  cwd,	       % directory to relate paths to
           skip_dirs,   % skip creating empty directories
-          extra        % The extra fields to include
+          extra,       % The extra fields to include
+          max_size     % limit on the size of data extracted per request
 	 }).
 
 % Things that I would like to add to the public record #zip_file,
@@ -391,6 +394,15 @@ Options:
 - **`{cwd, CWD}`** - Uses the specified directory as current directory. It is
   prepended to filenames when extracting them from the zip archive. (Acting like
   `file:set_cwd/1` in Kernel, but without changing the global `cwd` property.)
+
+- **`{max_size, Size}`** - Sets a limit on the total size of extracted data. If
+  the cumulative size of all extracted files exceeds `Size` bytes, extraction
+  fails with `{error, too_big}`. The limit is checked against the size recorded
+  in the archive for each file before the file is extracted, and against the
+  bytes actually produced while it is extracted, so it also holds for an archive
+  whose recorded sizes are wrong. Files extracted before the limit was reached
+  are left in place; the file being extracted when it was reached is removed.
+  Defaults to `infinity` (no limit).
 """.
 -spec(unzip(Archive, Options) -> RetValue when
       Archive :: file:name() | binary(),
@@ -398,8 +410,9 @@ Options:
       Option  :: {file_list, FileList} | cooked
                | keep_old_files | verbose | memory | skip_directories |
                  {file_filter, FileFilter} | {cwd, CWD} |
-                 {extra, extra()},
+                 {extra, extra()} | {max_size, MaxSize},
       FileList :: [file:name()],
+      MaxSize :: non_neg_integer() | infinity,
       FileBinList :: [{file:name(),binary()}],
       FileFilter :: fun((ZipFile) -> boolean()),
       CWD :: file:filename(),
@@ -761,7 +774,8 @@ Opens a zip archive, and reads and saves its directory. This means that later
 reading files from the archive is faster than unzipping files one at a time with
 [`unzip/1,2`](`unzip/1`).
 
-The options are equivalent to those in `unzip/2`.
+The options are equivalent to those in `unzip/2`. A `{max_size, Size}` limit
+applies to each call to [`zip_get/1,2`](`zip_get/1`) on the handle.
 
 The archive must be closed with `zip_close/1`.
 
@@ -772,7 +786,8 @@ dies.
       Archive :: file:name() | binary(),
       ZipHandle :: handle(),
       Options :: [Option],
-      Option :: cooked | memory | {cwd, CWD :: file:filename()} | {extra, extra()},
+      Option :: cooked | memory | {cwd, CWD :: file:filename()} | {extra, extra()}
+              | {max_size, non_neg_integer() | infinity},
       Reason :: term()).
 
 zip_open(Archive, Options) ->
@@ -928,6 +943,9 @@ get_unzip_opt([{extra, What} = O| Rest], Opts) when is_list(What) ->
         false ->
             throw({bad_option, O})
     end;
+get_unzip_opt([{max_size, N} | Rest], Opts)
+  when (is_integer(N) andalso N >= 0) orelse N =:= infinity ->
+    get_unzip_opt(Rest, Opts#unzip_opts{max_size = N});
 get_unzip_opt([Unknown | _Rest], _Opts) ->
     throw({bad_option, Unknown}).
 
@@ -1060,7 +1078,8 @@ get_unzip_options(F, Options) ->
 		       feedback = fun silent/1,
                        skip_dirs = false,
 		       cwd = "",
-                       extra = [extended_timestamp]
+                       extra = [extended_timestamp],
+                       max_size = infinity
 		      },
     get_unzip_opt(Options, Opts).
 
@@ -1069,7 +1088,8 @@ get_openzip_options(Options) ->
 			 output = fun file_io/2,
 			 cwd = "",
                          skip_dirs = false,
-                         extra = ?EXTRA_OPTIONS},
+                         extra = ?EXTRA_OPTIONS,
+                         max_size = infinity},
     get_openzip_opt(Options, Opts).
 
 get_input(F) when is_binary(F) ->
@@ -1171,8 +1191,10 @@ extract(F) -> unzip(F).
       Options :: [Option],
       Option  :: {file_list, FileList}
                | keep_old_files | verbose | memory |
-                 {file_filter, FileFilter} | {cwd, CWD},
+                 {file_filter, FileFilter} | {cwd, CWD} |
+                 {max_size, MaxSize},
       FileList :: [file:name()],
+      MaxSize :: non_neg_integer() | infinity,
       FileBinList :: [{file:name(),binary()}],
       FileFilter :: fun((ZipFile) -> boolean()),
       CWD :: file:filename(),
@@ -1723,7 +1745,8 @@ openzip_open(F, Options) ->
 do_openzip_open(F, Options) ->
     Opts = get_openzip_options(Options),
     #openzip_opts{output = Output, open_opts = OpO, cwd = CWD,
-                  skip_dirs = SkipDirs, extra = ExtraOpts} = Opts,
+                  skip_dirs = SkipDirs, extra = ExtraOpts,
+                  max_size = MaxSize} = Opts,
     Input = get_input(F),
     try Input({open, F, OpO -- [write]}, []) of
         In0 ->
@@ -1738,7 +1761,8 @@ do_openzip_open(F, Options) ->
                           zlib = Z,
                           cwd = CWD,
                           skip_dirs = SkipDirs,
-                          extra = ExtraOpts}}
+                          extra = ExtraOpts,
+                          max_size = MaxSize}}
     catch throw:{_FN, {_, Error}} ->
         Error
     end.
@@ -1752,11 +1776,11 @@ openzip_get(OpenZip) ->
 
 do_openzip_get(#openzip{files = Files, in = In0, input = Input,
 			output = Output, zlib = Z, cwd = CWD, skip_dirs = SkipDirs,
-                        extra = ExtraOpts}) ->
+                        extra = ExtraOpts, max_size = MaxSize}) ->
     ZipOpts = #unzip_opts{output = Output, input = Input,
 			  file_filter = fun all/1, open_opts = [],
 			  feedback = fun silent/1, cwd = CWD, skip_dirs = SkipDirs,
-                          extra = ExtraOpts},
+                          extra = ExtraOpts, max_size = MaxSize},
     R = get_z_files(Files, Z, In0, ZipOpts, []),
     {ok, R};
 do_openzip_get(_) ->
@@ -1777,14 +1801,15 @@ openzip_get(FileName, OpenZip) ->
     end.
 
 do_openzip_get(F, #openzip{files = Files, in = In0, input = Input,
-			   output = Output, zlib = Z, cwd = CWD, extra = ExtraOpts}) ->
+                           output = Output, zlib = Z, cwd = CWD, extra = ExtraOpts,
+                           max_size = MaxSize}) ->
     %%case lists:keysearch(F, #zip_file.name, Files) of
     case file_name_search(F, Files) of
 	{#zip_file{offset = Offset},_}=ZFile ->
 	    In1 = Input({seek, bof, Offset}, In0),
 	    case get_z_file(In1, Z, Input, Output, [], fun silent/1,
-			    CWD, ZFile, fun all/1, false, ExtraOpts) of
-                {file, R, _In2} -> {ok, Output(flush, R)};
+                            CWD, ZFile, fun all/1, false, ExtraOpts, MaxSize) of
+                {file, R, _In2, _Size} -> {ok, Output(flush, R)};
 		_ -> throw(file_not_found)
 	    end;
 	_ -> throw(file_not_found)
@@ -1893,6 +1918,9 @@ get_openzip_opt([{cwd, CWD} | Rest], Opts) ->
     get_openzip_opt(Rest, Opts#openzip_opts{cwd = CWD});
 get_openzip_opt([skip_directories | Rest], Opts) ->
     get_openzip_opt(Rest, Opts#openzip_opts{skip_dirs = true});
+get_openzip_opt([{max_size, N} | Rest], Opts)
+  when (is_integer(N) andalso N >= 0) orelse N =:= infinity ->
+    get_openzip_opt(Rest, Opts#openzip_opts{max_size = N});
 get_openzip_opt([{extra, What} = O| Rest], Opts) when is_list(What) ->
     case lists:all(fun(E) -> lists:member(E, ?EXTRA_OPTIONS) end, What) of
         true ->
@@ -2242,27 +2270,33 @@ cd_file_header_to_file_info(FileName,
 
 %% get all files using file list
 %% (the offset list is already filtered on which file to get... isn't it?)
-get_z_files([], _Z, _In, #unzip_opts{ output = Output }, Acc) ->
+get_z_files(Files, Z, In, #unzip_opts{max_size = MaxSize} = Opts, Acc) ->
+    get_z_files(Files, Z, In, Opts, Acc, MaxSize).
+
+%% Remaining is the extraction allowance left under the max_size option
+get_z_files([], _Z, _In, #unzip_opts{ output = Output }, Acc, _Remaining) ->
     flush_and_reverse(Output, Acc, []);
-get_z_files([#zip_comment{comment = _} | Rest], Z, In, Opts, Acc) ->
-    get_z_files(Rest, Z, In, Opts, Acc);
+get_z_files([#zip_comment{comment = _} | Rest], Z, In, Opts, Acc, Remaining) ->
+    get_z_files(Rest, Z, In, Opts, Acc, Remaining);
 get_z_files([{#zip_file{offset = Offset} = ZipFile, ZipExtra} | Rest], Z, In0,
 	    #unzip_opts{input = Input, output = Output, open_opts = OpO,
 			file_filter = Filter, feedback = FB,
-			cwd = CWD, skip_dirs = SkipDirs, extra = ExtraOpts} = Opts, Acc0) ->
+                        cwd = CWD, skip_dirs = SkipDirs, extra = ExtraOpts} = Opts,
+            Acc0, Remaining0) ->
     case Filter({ZipFile, ZipExtra, CWD}) of
 	true ->
 	    In1 = Input({seek, bof, Offset}, In0),
-	    {In2, Acc1} =
+            {In2, Acc1, Remaining1} =
 		case get_z_file(In1, Z, Input, Output, OpO, FB,
-				CWD, {ZipFile, ZipExtra}, Filter, SkipDirs, ExtraOpts) of
-		    {Type, GZD, Inx} when Type =:= file; Type =:= dir ->
-                        {Inx, [GZD | Acc0]};
-		    {_, Inx}       -> {Inx, Acc0}
+                                CWD, {ZipFile, ZipExtra}, Filter, SkipDirs, ExtraOpts,
+                                Remaining0) of
+                    {Type, GZD, Inx, Size} when Type =:= file; Type =:= dir ->
+                        {Inx, [GZD | Acc0], remaining_after(Remaining0, Size)};
+                    {_, Inx}       -> {Inx, Acc0, Remaining0}
 		end,
-	    get_z_files(Rest, Z, In2, Opts, Acc1);
+            get_z_files(Rest, Z, In2, Opts, Acc1, Remaining1);
 	_ ->
-	    get_z_files(Rest, Z, In0, Opts, Acc0)
+            get_z_files(Rest, Z, In0, Opts, Acc0, Remaining0)
     end.
 
 flush_and_reverse(Output, [H|T], Acc) ->
@@ -2272,7 +2306,7 @@ flush_and_reverse(_Output, [], Acc) ->
 
 %% get a file from the archive, reading chunks
 get_z_file(In0, Z, Input, Output, OpO, FB,
-	   CWD, {ZipFile,ZipExtra}, Filter, SkipDirs, ExtraOpts) ->
+           CWD, {ZipFile,ZipExtra}, Filter, SkipDirs, ExtraOpts, Remaining) ->
     case Input({read, ?LOCAL_FILE_HEADER_SZ}, In0) of
 	{eof, In1} ->
 	    {eof, In1};
@@ -2311,20 +2345,31 @@ get_z_file(In0, Z, Input, Output, OpO, FB,
 
             case ReadAndWrite andalso not (IsDir andalso SkipDirs) of
                 true ->
-                    {Type, Out, In} =
+                    {Type, Out, In, Size} =
                         case lists:last(FileName) of
                             $/ ->
                                 Out1 = Output({ensure_path,FileNameWithCwd},[]),
-                                {dir, Out1, In3};
+                                {dir, Out1, In3, 0};
                             _ ->
-                                {Out1, In4, CRC, _UncompSize} =
+                                %% The sizes recorded for the file in the central
+                                %% directory and in the local header let an archive
+                                %% that does not fit the limit fail before anything
+                                %% is written. The bytes actually produced are
+                                %% checked as they are inflated, since the recorded
+                                %% sizes are part of the untrusted input.
+                                check_max_size(ZipFile#zip_file.info#file_info.size,
+                                               Remaining),
+                                check_max_size(LHExtra#local_file_header.uncomp_size,
+                                               Remaining),
+                                {Out1, In4, CRC, UncompSize} =
                                     get_z_data(CompMethod, In3, FileNameWithCwd,
-                                               CompSize, Input, Output, OpO, Z),
+                                               CompSize, Input, Output, OpO, Z,
+                                               Remaining),
                                 In5 = skip_z_data_descriptor(GPFlag, Input, In4),
 
                                 FB(FileName),
                                 CRC =:= CRC32 orelse throw({FileName, bad_crc}),
-                                {file, Out1, In5}
+                                {file, Out1, In5, UncompSize}
                         end,
 
                     FileInfo = local_file_header_to_file_info(
@@ -2341,7 +2386,7 @@ get_z_file(In0, Z, Input, Output, OpO, FB,
                                 SetFileInfo(Out)
                         end,
 
-                    {Type, Out2, In};
+                    {Type, Out2, In, Size};
                 false ->
                     {ignore, In3}
             end;
@@ -2437,22 +2482,32 @@ sanitize_filename(Filename) ->
             Relative
     end.
 
-%% get compressed or stored data
-get_z_data(?DEFLATED, In0, FileName, CompSize, Input, Output, OpO, Z) ->
+%% get compressed or stored data, producing at most Limit bytes
+get_z_data(?DEFLATED, In0, FileName, CompSize, Input, Output, OpO, Z, Limit) ->
     ok = zlib:inflateInit(Z, -?MAX_WBITS),
     Out0 = Output({open, FileName, [write | OpO]}, []),
     CRC0 = 0,
-    {In1, Out1, UncompSize, CRC} = get_z_data_loop(CompSize, 0, In0, Out0, Input, Output, CRC0, Z),
+    {In1, Out1, UncompSize, CRC} =
+        try
+            get_z_data_loop(CompSize, 0, In0, Out0, Input, Output, CRC0, Z, Limit)
+        catch
+            throw:too_big ->
+                _ = ?CATCH(zlib:inflateEnd(Z)),
+                _ = Output({close, FileName}, Out0),
+                _ = Output({delete, FileName}, []),
+                throw(too_big)
+        end,
     _ = ?CATCH(zlib:inflateEnd(Z)),
     Out2 = Output({close, FileName}, Out1),
     {Out2, In1, CRC, UncompSize};
-get_z_data(?STORED, In0, FileName, CompSize, Input, Output, OpO, _Z) ->
+get_z_data(?STORED, In0, FileName, CompSize, Input, Output, OpO, _Z, Limit) ->
+    check_max_size(CompSize, Limit),
     Out0 = Output({open, FileName, [write | OpO]}, []),
     CRC0 = 0,
     {In1, Out1, CRC} = copy_data_loop(CompSize, In0, Out0, Input, Output, CRC0),
     Out2 = Output({close, FileName}, Out1),
     {Out2, In1, CRC, CompSize};
-get_z_data(_, _, _, _, _, _, _, _) ->
+get_z_data(_, _, _, _, _, _, _, _, _) ->
     throw(bad_file_header).
 
 copy_data_loop(0, In, Out, _Input, _Output, CRC) ->
@@ -2468,21 +2523,35 @@ copy_data_loop(CompSize, In0, Out0, Input, Output, CRC0) ->
             copy_data_loop(CompSize-N, In1, Out1, Input, Output, CRC1)
     end.
 
-get_z_data_loop(0, UncompSize, In, Out, _Input, _Output, CRC0, _Z) ->
+get_z_data_loop(0, UncompSize, In, Out, _Input, _Output, CRC0, _Z, _Limit) ->
     {In, Out, UncompSize, CRC0};
-get_z_data_loop(CompSize, UncompSize, In0, Out0, Input, Output, CRC0, Z) ->
+get_z_data_loop(CompSize, UncompSize0, In0, Out0, Input, Output, CRC0, Z, Limit) ->
     N = erlang:min(?READ_BLOCK_SIZE, CompSize),
     case Input({read, N}, In0) of
         {eof, In1} ->
             {Out0, In1};
         {Compressed, In1} ->
             Uncompressed = zlib:inflate(Z, Compressed),
+            UncompSize1 = UncompSize0 + iolist_size(Uncompressed),
+            check_max_size(UncompSize1, Limit),
             CRC1 = erlang:crc32(CRC0, Uncompressed),
             Out1 = Output({write, Uncompressed}, Out0),
-            get_z_data_loop(CompSize-N, UncompSize + iolist_size(Uncompressed),
-                In1, Out1, Input, Output, CRC1, Z)
+            get_z_data_loop(CompSize-N, UncompSize1,
+                In1, Out1, Input, Output, CRC1, Z, Limit)
     end.
 
+%% Check a size against the allowance left under the max_size option
+check_max_size(_Size, infinity) ->
+    ok;
+check_max_size(Size, Limit) when Size > Limit ->
+    throw(too_big);
+check_max_size(_Size, _Limit) ->
+    ok.
+
+remaining_after(infinity, _Size) ->
+    infinity;
+remaining_after(Remaining, Size) ->
+    Remaining - Size.
 
 %% skip data descriptor if any
 skip_z_data_descriptor(GPFlag, Input, In0) when GPFlag band 8 =:= 8 ->
@@ -2765,6 +2834,8 @@ binary_io(close, {_Pos, B}) ->
     B;
 binary_io({close, FN}, {_Pos, B}) ->
     {FN, B};
+binary_io({delete, _FN}, B) ->
+    B;
 binary_io({list_dir, _F}, _B) ->
     [];
 binary_io({set_file_info, _F, _FI}, B) ->
@@ -2837,6 +2908,9 @@ file_io({close, FN}, {H, FN}) ->
     end;
 file_io(close, {_H, FN} = S) ->
     file_io({close, FN}, S);
+file_io({delete, FN}, _S) ->
+    _ = file:delete(FN),
+    ok;
 file_io({list_dir, FN}, _S) ->
     case file:list_dir(FN) of
 	{ok, Files} -> Files;
