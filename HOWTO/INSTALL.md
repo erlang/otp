@@ -368,7 +368,12 @@ Some of the available `configure` options are:
     try to avoid false sharing. A too large value wastes memory. A to
     small value will increase the amount of false sharing.
 *   `--{with,without}-termcap` - termcap (without implies that only the old
-    Erlang shell can be used)
+    Erlang shell can be used). By default `configure` searches for a shared
+    `tinfo`, `ncurses`, `curses`, `termcap`, or `termlib` library. Set the
+    `TERMCAP_LIB` variable to override the linker flags used, e.g.
+    `TERMCAP_LIB=/usr/lib/x86_64-linux-gnu/libtinfo.a` in order to link the
+    library statically. Note that static linking does not embed the terminfo
+    database; it is still read from the file system at runtime.
 *   `--with-javac=JAVAC` - Specify Java compiler to use
 *   `--{with,without}-javac` - Java compiler (without implies that the
     `jinterface` application won't be built)
