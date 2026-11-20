@@ -51,6 +51,8 @@ This module provides a set of cryptographic functions.
 
   - **SipHash** - [SipHash: a fast short-input PRF](https://ia.cr/2012/351)
 
+  - **Keyed BLAKE2** - [The BLAKE2 Cryptographic Hash and Message Authentication Code (RFC 7693)](https://www.rfc-editor.org/rfc/rfc7693)
+
 - **Symmetric Ciphers** -
 
   - **DES, 3DES and AES** - [Block Cipher Techniques (NIST)](https://csrc.nist.gov/projects/block-cipher-techniques)
@@ -346,7 +348,8 @@ end
 -export_type([
               hmac_hash_algorithm/0,
               cmac_cipher_algorithm/0,
-              siphash_options/0
+              siphash_options/0,
+              blake2_mac_options/0
              ]).
 
 -export_type([engine_ref/0,
@@ -911,7 +914,7 @@ stop() ->
                              KEMs :: [kem()],
                              KDFs :: [kdf()],
                              PKs :: [rsa | dss | ecdsa | dh | ecdh | eddh | ec_gf2m | mldsa() | slh_dsa()],
-                             Macs :: [hmac | cmac | poly1305 | siphash],
+                             Macs :: [hmac | cmac | poly1305 | siphash | blake2()],
                              Curves :: [ec_named_curve() | edwards_curve_dh() | edwards_curve_ed()],
                              RSAopts :: [rsa_sign_verify_opt() | rsa_opt()] .
 supports() ->
@@ -957,7 +960,7 @@ algorithms.
                              KEMs :: [kem()],
                              KDFs :: [kdf()],
                              PKs :: [rsa | dss | ecdsa | dh | ecdh | eddh | ec_gf2m],
-                             Macs :: [hmac | cmac | poly1305 | siphash],
+                             Macs :: [hmac | cmac | poly1305 | siphash | blake2()],
                              Curves :: [ec_named_curve() | edwards_curve_dh() | edwards_curve_ed()],
                              RSAopts :: [rsa_sign_verify_opt() | rsa_opt()] .
 
@@ -1406,7 +1409,7 @@ hash_final_xof(State, Length) ->
 %%%================================================================
 
 -doc(#{group => <<"Digests and hash">>}).
--type hmac_hash_algorithm() ::  sha1() | sha2() | sha3() | sm3 | compatibility_only_hash().
+-type hmac_hash_algorithm() ::  sha1() | sha2() | sha3() | blake2() | sm3 | compatibility_only_hash().
 
 -doc(#{group => <<"Digests and hash">>}).
 -type cmac_cipher_algorithm() :: aes_128_cbc    | aes_192_cbc    | aes_256_cbc    | aes_cbc
@@ -1435,30 +1438,60 @@ cannot monopolise a scheduler.
                              c_rounds => 1..16,
                              d_rounds => 1..16}.
 
+-doc """
+Options for the keyed `blake2b` and `blake2s` MACs, used as the `SubType`
+argument.
+
+- `size` - output size in bytes, in the range `1..64` for `blake2b` and `1..32`
+  for `blake2s`. Defaults to the maximum.
+- `salt` - a binary of at most 16 bytes for `blake2b` and 8 bytes for `blake2s`.
+  Shorter values are padded with zeros. Defaults to all zeros.
+- `personalization` - a binary with the same length limits and padding as
+  `salt`. Defaults to all zeros.
+
+The output size is a BLAKE2 parameter, so for example a 32 byte `blake2b` MAC is
+_not_ the first 32 bytes of the 64 byte one. Use `size` instead of `macN/5` when
+a protocol specifies the BLAKE2 output length. An empty map `#{}` (or
+`undefined`) selects the defaults.
+""".
+-doc(#{group => <<"MAC API">>,
+       since => <<"OTP 30.0">>}).
+-type blake2_mac_options() :: #{size => 1..64,
+                                salt => binary(),
+                                personalization => binary()}.
+
 %%%----------------------------------------------------------------
 %%% Calculate MAC for the whole text at once
 
 -doc """
-Compute a `poly1305` or `siphash` MAC (Message Authentication Code).
+Compute a `poly1305`, `siphash`, `blake2b`, or `blake2s` MAC (Message
+Authentication Code).
 
 For `poly1305` this is the same as [`mac(poly1305, undefined, Key, Data)`](`mac/4`).
 For `siphash` this is the same as [`mac(siphash, #{}, Key, Data)`](`mac/4`), i.e.
 SipHash-2-4 with a 16 byte output; use [`mac/4`](`mac/4`) with a
 [`t:siphash_options/0`](`t:siphash_options/0`) map to configure the rounds or
-output size.
+output size. For `blake2b` and `blake2s` this is keyed BLAKE2 with the full
+64 or 32 byte output; use [`mac/4`](`mac/4`) with a
+[`t:blake2_mac_options/0`](`t:blake2_mac_options/0`) map to set the size, salt,
+or personalization.
+
+The MAC types `blake2b` and `blake2s` are supported since OTP 30.0.
 
 Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 """.
 -doc(#{group => <<"MAC API">>,
        since => <<"OTP 22.1">>}).
 -spec mac(Type, Key, Data) -> Mac
-                     when Type :: poly1305 | siphash,
+                     when Type :: poly1305 | siphash | blake2(),
                           Key :: iodata(),
                           Data :: iodata(),
                           Mac :: binary().
 
 mac(poly1305, Key, Data) -> mac(poly1305, undefined, Key, Data);
-mac(siphash, Key, Data) -> mac(siphash, #{}, Key, Data).
+mac(siphash, Key, Data) -> mac(siphash, #{}, Key, Data);
+mac(blake2b, Key, Data) -> mac(blake2b, #{}, Key, Data);
+mac(blake2s, Key, Data) -> mac(blake2s, #{}, Key, Data).
 
 
 -doc """
@@ -1479,11 +1512,17 @@ Argument `Type` is the type of MAC and `Data` is the full message.
   `undefined` / `#{}` for the defaults), selecting the output size and the
   number of rounds, see [Algorithm Details](algorithm_details.md#siphash) in the
   User's Guide.
+- For `blake2b` and `blake2s` (keyed BLAKE2) it is a
+  [`t:blake2_mac_options/0`](`t:blake2_mac_options/0`) map (or `undefined` /
+  `#{}` for the defaults), selecting the output size, salt, and
+  personalization, see
+  [Algorithm Details](algorithm_details.md#keyed-blake2) in the User's Guide.
 
 `Key` is the authentication key with a length according to the `Type` and
 `SubType`. The key length could be found with the `hash_info/1` (`hmac`) for and
 `cipher_info/1` (`cmac`) functions. For `poly1305` the key length is 32 bytes.
-For `siphash` the key length is 16 bytes.
+For `siphash` the key length is 16 bytes. For `blake2b` it is 1 to 64 bytes and
+for `blake2s` 1 to 32 bytes.
 Note that the cryptographic quality of the key is not checked.
 
 The `Mac` result will have a default length depending on the `Type` and
@@ -1506,8 +1545,8 @@ Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 -doc(#{group => <<"MAC API">>,
        since => <<"OTP 22.1">>}).
 -spec mac(Type, SubType, Key, Data) -> Mac
-                     when Type :: hmac | cmac | poly1305 | siphash,
-                          SubType :: hmac_hash_algorithm() | cmac_cipher_algorithm() | siphash_options() | undefined,
+                     when Type :: hmac | cmac | poly1305 | siphash | blake2(),
+                          SubType :: hmac_hash_algorithm() | cmac_cipher_algorithm() | siphash_options() | blake2_mac_options() | undefined,
                           Key :: iodata(),
                           Data :: iodata(),
                           Mac :: binary().
@@ -1518,8 +1557,8 @@ mac(Type, SubType, Key0, Data) ->
 
 
 -doc """
-Compute a `poly1305` or `siphash` MAC (Message Authentication Code) with a
-limited length.
+Compute a `poly1305`, `siphash`, `blake2b`, or `blake2s` MAC (Message
+Authentication Code) with a limited length.
 
 This is the same as [`macN(Type, undefined, Key, Data, MacLength)`](`macN/5`),
 i.e. the default `SubType` (for `siphash`, SipHash-2-4 with a 16 byte output
@@ -1531,7 +1570,7 @@ Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 -doc(#{group => <<"MAC API">>,
        since => <<"OTP 22.1">>}).
 -spec macN(Type, Key, Data, MacLength) -> Mac
-                     when Type :: poly1305 | siphash,
+                     when Type :: poly1305 | siphash | blake2(),
                           Key :: iodata(),
                           Data :: iodata(),
                           Mac :: binary(),
@@ -1564,8 +1603,8 @@ the User's Guide.
 -doc(#{group => <<"MAC API">>,
        since => <<"OTP 22.1">>}).
 -spec macN(Type, SubType, Key, Data, MacLength) -> Mac
-                     when Type :: hmac | cmac | poly1305 | siphash,
-                          SubType :: hmac_hash_algorithm() | cmac_cipher_algorithm() | siphash_options() | undefined,
+                     when Type :: hmac | cmac | poly1305 | siphash | blake2(),
+                          SubType :: hmac_hash_algorithm() | cmac_cipher_algorithm() | siphash_options() | blake2_mac_options() | undefined,
                           Key :: iodata(),
                           Data :: iodata(),
                           Mac :: binary(),
@@ -1587,25 +1626,32 @@ between function calls.
 -opaque mac_state() :: reference() .
 
 -doc """
-Initialize a state for streaming `poly1305` or `siphash` MAC calculation.
+Initialize a state for streaming `poly1305`, `siphash`, `blake2b`, or `blake2s`
+MAC calculation.
 
 For `poly1305` this is the same as [`mac_init(poly1305, undefined, Key)`](`mac_init/3`).
 For `siphash` this is the same as [`mac_init(siphash, #{}, Key)`](`mac_init/3`),
 i.e. SipHash-2-4 with a 16 byte output; use [`mac_init/3`](`mac_init/3`) with a
-[`t:siphash_options/0`](`t:siphash_options/0`) map to configure it.
+[`t:siphash_options/0`](`t:siphash_options/0`) map to configure it. For
+`blake2b` and `blake2s` this is the same as
+[`mac_init(Type, #{}, Key)`](`mac_init/3`).
 
 Uses the [3-tuple style](`m:crypto#error_3tup`) for error handling.
 """.
 -doc(#{group => <<"MAC API">>,
        since => <<"OTP 22.1">>}).
 -spec mac_init(Type, Key) -> State
-                          when Type :: poly1305 | siphash,
+                          when Type :: poly1305 | siphash | blake2(),
                                Key :: iodata(),
                                State :: mac_state() .
 mac_init(poly1305, Key) ->
     ?nif_call(mac_init_nif(poly1305, undefined, Key));
 mac_init(siphash, Key) ->
-    ?nif_call(mac_init_nif(siphash, #{}, Key)).
+    ?nif_call(mac_init_nif(siphash, #{}, Key));
+mac_init(blake2b, Key) ->
+    ?nif_call(mac_init_nif(blake2b, #{}, Key));
+mac_init(blake2s, Key) ->
+    ?nif_call(mac_init_nif(blake2s, #{}, Key)).
 
 
 -doc """
@@ -1626,11 +1672,17 @@ Initialize the state for streaming MAC calculation.
   `undefined` / `#{}` for the defaults), selecting the output size and the
   number of rounds, see [Algorithm Details](algorithm_details.md#siphash) in the
   User's Guide.
+- For `blake2b` and `blake2s` (keyed BLAKE2) it is a
+  [`t:blake2_mac_options/0`](`t:blake2_mac_options/0`) map (or `undefined` /
+  `#{}` for the defaults), selecting the output size, salt, and
+  personalization, see
+  [Algorithm Details](algorithm_details.md#keyed-blake2) in the User's Guide.
 
 `Key` is the authentication key with a length according to the `Type` and
 `SubType`. The key length could be found with the `hash_info/1` (`hmac`) for and
 `cipher_info/1` (`cmac`) functions. For `poly1305` the key length is 32 bytes.
-For `siphash` the key length is 16 bytes.
+For `siphash` the key length is 16 bytes. For `blake2b` it is 1 to 64 bytes and
+for `blake2s` 1 to 32 bytes.
 Note that the cryptographic quality of the key is not checked.
 
 The returned `State` should be used in one or more subsequent calls to
@@ -1655,8 +1707,8 @@ See
 -doc(#{group => <<"MAC API">>,
        since => <<"OTP 22.1">>}).
 -spec mac_init(Type, SubType, Key) -> State
-                          when Type :: hmac | cmac | poly1305 | siphash,
-                               SubType :: hmac_hash_algorithm() | cmac_cipher_algorithm() | siphash_options() | undefined,
+                          when Type :: hmac | cmac | poly1305 | siphash | blake2(),
+                               SubType :: hmac_hash_algorithm() | cmac_cipher_algorithm() | siphash_options() | blake2_mac_options() | undefined,
                                Key :: iodata(),
                                State :: mac_state() .
 mac_init(Type, SubType, Key0) ->
