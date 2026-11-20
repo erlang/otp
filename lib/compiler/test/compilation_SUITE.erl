@@ -68,7 +68,8 @@
          gh_11415/1,
          gh_7478_a/1,gh_7478_b/1,gh_7478_c/1,
          gh_11735/1,
-         gh_11833/1]).
+         gh_11833/1,
+         gh_12250/1]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("stdlib/include/assert.hrl").
@@ -103,7 +104,8 @@ groups() ->
        gh_11415,
        gh_7478_a,gh_7478_b,gh_7478_c,
        gh_11735,
-       gh_11833]}].
+       gh_11833,
+       gh_12250]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -191,6 +193,34 @@ gh_11735(Config) ->
            ModStr,"() -> ok.\n",
            Cs,
            "f(S, _) -> S.\n"],
+    ok = file:write_file(FileName, Src),
+
+    Timetrap = {minutes,1},
+    ct:timetrap(Timetrap),
+    {ok,Mod} = compile:file(FileName, [{outdir,PrivDir},report]),
+
+    load_and_call(PrivDir, Mod),
+
+    ok.
+
+%% Test fix for very slow `beam_ssa_alias` pass for a function with
+%% many call sites to itself and many distinct return types.
+gh_12250(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    Mod = ?FUNCTION_NAME,
+    ModStr = atom_to_list(Mod),
+    FileName = filename:join(PrivDir, ModStr ++ ".erl"),
+    N = 4000,
+    Ret = fun(S) -> ["{", S, ", A", lists:duplicate(38, ", T"), "}"] end,
+    Cs = [io_lib:format("f(~w, [100|T], A) -> f(~w, T, A + 1);~n"
+                        "f(~w, T, A) -> ~s;~n",
+                        [S, (S + 1) rem N, S, Ret(integer_to_list(S))]) ||
+             S <- lists:seq(0, N - 1)],
+    Src = ["-module(", ModStr, ").\n"
+           "-export([",ModStr,"/0, f/3]).\n",
+           ModStr,"() -> _ = f(0, [100, 101], 0), ok.\n",
+           Cs,
+           "f(S, T, A) -> ", Ret("S"), ".\n"],
     ok = file:write_file(FileName, Src),
 
     Timetrap = {minutes,1},
