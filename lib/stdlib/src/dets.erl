@@ -31,8 +31,12 @@ on a file.
 This module is used by the Mnesia application, and is provided "as is" for users
 who are interested in efficient storage of Erlang terms on disk only. Many
 applications only need to store some terms in a file. Mnesia adds transactions,
-queries, and distribution. The size of Dets files cannot exceed 2 GB. If larger
-tables are needed, table fragmentation in Mnesia can be used.
+queries, and distribution. Files use the existing 32-bit lower storage until
+allocations need the upper storage, which uses 64-bit addresses. Lower index
+pages retain their layout and authority. The file version remains 9. Opening
+an extended file with older OTP invokes its legacy repair path, which recognizes
+lower records and discards upper records as junk. Files that only use lower
+storage retain the ordinary version 9 format.
 
 Three types of Dets tables exist:
 
@@ -2517,11 +2521,22 @@ perform_save(Head, DoSync) when Head#head.update_mode =:= dirty;
     case catch begin
                    {Head1, []} = write_cache(Head),
                    {Head2, ok} = dets_v9:do_perform_save(Head1),
-                   ok = ensure_written(Head2, DoSync),
+                   SaveSync = DoSync orelse
+                       (Head2#head.wide =/= undefined andalso
+                        not Head2#head.ram_file),
+                   ok = ensure_written(Head2, SaveSync),
                    {Head2#head{update_mode = saved}, ok}
                end of
         {NewHead, _} = Reply when is_record(NewHead, head) ->
             Reply
+    end;
+perform_save(Head, true) when Head#head.update_mode =:= saved,
+                              Head#head.access =:= read_write ->
+    try ensure_synced(Head) of
+        ok -> {Head, ok}
+    catch
+        throw:{NewHead, Error} when is_record(NewHead, head) ->
+            {NewHead, Error}
     end;
 perform_save(Head, _DoSync) ->
     {Head, status(Head)}.
@@ -2544,6 +2559,29 @@ ensure_written(Head, true) when not Head#head.ram_file ->
     dets_utils:sync(Head);
 ensure_written(Head, false) when not Head#head.ram_file ->
     ok.
+
+ensure_synced(Head) when not Head#head.ram_file ->
+    dets_utils:sync(Head);
+ensure_synced(Head) ->
+    FileName = Head#head.filename,
+    case file:read_file_info(FileName) of
+        {ok, _} -> ok;
+        InfoError -> dets_utils:corrupt_file(Head, InfoError)
+    end,
+    Result = case file:open(FileName, [read, write, raw, binary]) of
+                 {ok, Fd} ->
+                     Sync = file:sync(Fd),
+                     Close = file:close(Fd),
+                     case Sync of
+                         ok -> Close;
+                         _ -> Sync
+                     end;
+                 OpenError -> OpenError
+             end,
+    case Result of
+        ok -> ok;
+        Error -> dets_utils:corrupt_file(Head, Error)
+    end.
 
 %% -> {NewHead, {cont(), [binary()]}} | {NewHead, Error}
 do_bchunk_init(Head, Tab) ->
@@ -2666,7 +2704,8 @@ do_safe_fixtable(Head, Pid, true) ->
 	    TimeOffset = erlang:time_offset(),
 	    Fixed = {{MonTime, TimeOffset}, [{Pid, 1}]},
 	    Ftab = dets_utils:get_freelists(Head),
-	    Head#head{fixed = Fixed, freelists = {Ftab, Ftab}};
+            dets_utils:fix_wide(Head#head{fixed = Fixed,
+                                        freelists = {Ftab, Ftab}}, true);
 	{TimeStamp, Counters} ->
 	    case lists:keysearch(Pid, 1, Counters) of
 		{value, {Pid, Counter}} -> % when Counter > 1
@@ -2695,8 +2734,9 @@ remove_fix(Head, Pid, How) ->
 			[] -> 
 			    check_growth(Head),
 			    erlang:garbage_collect(),
-			    Head#head{fixed = false, 
-				  freelists = dets_utils:get_freelists(Head)};
+                            H1 = dets_utils:fix_wide(Head, false),
+                            H1#head{fixed = false,
+                                    freelists = dets_utils:get_freelists(Head)};
 			NewCounters ->
 			    Head#head{fixed = {TimeStamp, NewCounters}}
 		    end;
@@ -2719,8 +2759,9 @@ unlink_fixing_procs(Head) ->
 	    Head;
 	{_, Counters} ->
 	    lists:foreach(fun({Pid, _Counter}) -> unlink(Pid) end, Counters),
-	    Head#head{fixed = false, 
-		      freelists = dets_utils:get_freelists(Head)}
+            H1 = dets_utils:fix_wide(Head, false),
+            H1#head{fixed = false,
+                    freelists = dets_utils:get_freelists(Head)}
     end.
 
 check_growth(#head{access = read}) ->
@@ -3832,9 +3873,8 @@ status(Head) ->
 %% -> dets_cont()
 init_scan(Head, NoObjs) ->
     check_safe_fixtable(Head),
-    FreeLists = dets_utils:get_freelists(Head),
     Base = Head#head.base,
-    case dets_utils:find_next_allocated(FreeLists, Base, Base) of
+    case dets_utils:find_next_allocated(Head, Base, Base) of
         {From, To} ->
             #dets_cont{no_objs = NoObjs, bin = <<>>, alloc = {From,To,<<>>}};
         none ->
@@ -3872,8 +3912,7 @@ scan(Bin, H, From, To, L, Ts, R, {C0, Type} = C) ->
         {more, NFrom, NTo, NL, NTs, NR, Sz} ->
             scan_read(H, NFrom, NTo, Sz, NL, NTs, NR, C);
         {stop, <<>>=B, NFrom, NTo, <<>>=NL, NTs} ->
-            Ftab = dets_utils:get_freelists(H),
-            case dets_utils:find_next_allocated(Ftab, NFrom, H#head.base) of
+            case dets_utils:find_next_allocated(H, NFrom, H#head.base) of
                 none ->
                     {NTs, C0#dets_cont{bin = eof, alloc = B}};
                 _ -> 
@@ -3895,12 +3934,11 @@ scan_read(H, From, _To, Min, _L, Ts, R, C) ->
 	      Min < ?CHUNK_SIZE -> ?CHUNK_SIZE; 
 	      true -> Min 
 	  end,
-    FreeLists = dets_utils:get_freelists(H),
-    case dets_utils:find_allocated(FreeLists, From, Max, H#head.base) of
+    case dets_utils:find_allocated(H, From, Max) of
         <<>>=Bin0 ->
             {Cont, _} = C,
             {Ts, Cont#dets_cont{bin = eof, alloc = Bin0}};
-        <<From1:32,To1:32,L1/binary>> ->
+        <<From1:64,To1:64,L1/binary>> ->
             case dets_utils:pread_n(H#head.fptr, From1, Max) of
                 eof ->
                     {scan_error, premature_eof};

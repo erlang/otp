@@ -39,6 +39,15 @@
 
 -define(CHUNK_SIZE, 8192).
 
+-define(DETS64_BASE, (1 bsl 31)).
+-define(DETS64_REF_BASE, (3 bsl 30)).
+-define(DETS64_REF_END, (1 bsl 32)).
+-define(DETS64_REF_SIZE, 16).
+-define(DETS64_META, 16#64abcdef).
+-define(DETS64_HEADER_SIZE, 4096).
+-define(DETS64_INDEX_HEADER_SIZE, 32).
+-define(DETS64_OBJECT_HEADER_SIZE, 32).
+
 -define(SERVER_NAME, dets).
 
 -define(POW(X), (1 bsl (X))).
@@ -61,6 +70,15 @@
                      | 'new_dirty'
                      | 'saved'
                      | {'error', Reason :: term()}.
+
+-record(dets64, {
+          freelists = undefined :: 'undefined' | tuple(),
+          levels = 32 :: pos_integer(),
+          ref_next = ?DETS64_REF_BASE :: non_neg_integer(),
+          no_objects = 0 :: non_neg_integer(),
+          no_keys = 0 :: non_neg_integer(),
+          no_collections = [] :: no_colls()
+         }).
 
 %% Record holding the file header and more.
 -record(head,  {
@@ -106,7 +124,8 @@
 	  server :: 'undefined' | pid(), % The creator of Dets processes.
 
           bump :: non_neg_integer(),
-          base :: non_neg_integer()
+          base :: non_neg_integer(),
+          wide = undefined :: 'undefined' | #dets64{}
 
 	 }).
 
@@ -132,7 +151,8 @@
           md5 :: binary(),
 	  trailer :: non_neg_integer(),
 	  eof :: non_neg_integer(),
-	  n
+          n,
+          wide = undefined :: 'undefined' | #dets64{}
 	}).
 
 -type delay() :: non_neg_integer().
