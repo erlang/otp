@@ -38,7 +38,8 @@
 -export([ start_restricted_from_shell/1,
 	  start_restricted_on_command_line/1,restricted_local/1]).
 
--export([ start_interactive/1, whereis/1 ]).
+-export([ start_interactive/1, whereis/1, whereis_no_user_drv/1,
+          whereis_dead_group/1 ]).
 
 %% Internal export.
 -export([otp_5435_2/0, prompt1/1, prompt2/1, prompt3/1, prompt4/1,
@@ -81,7 +82,8 @@ all() ->
     [forget, known_bugs, otp_5226, otp_5327,
      otp_5435, otp_5195, otp_5915, otp_5916,
      prompt_width,local_definitions_save_to_module_and_forget,
-     start_interactive, whereis, {group, bits},
+     start_interactive, whereis, whereis_no_user_drv, whereis_dead_group,
+     {group, bits},
      {group, refman}, {group, progex}, {group, tickets},
      {group, restricted}, {group, records}, {group, definitions}].
 
@@ -3437,6 +3439,41 @@ whereis(_Config) ->
 
     peer:stop(Peer),
 
+    ok.
+
+%% Test that shell:whereis() returns undefined on a node without
+%% user_drv, such as a peer started with -user peer
+whereis_no_user_drv(_Config) ->
+    {ok, Peer, _Node} = ?CT_PEER(#{connection => standard_io}),
+    undefined = peer:call(Peer, shell, whereis, []),
+    peer:stop(Peer),
+    ok.
+
+%% Test that shell:whereis() returns undefined when the current group has
+%% exited. This cannot be triggered reliably through public APIs, so this
+%% white-box test registers a fake user_drv that, like the real one,
+%% keeps current_group in its process dictionary, but set to a dead pid.
+whereis_dead_group(_Config) ->
+    {ok, Peer, _Node} = ?CT_PEER(#{connection => standard_io}),
+    WhereisDeadGroup =
+        fun() ->
+                {DeadGroup, Ref} = spawn_monitor(fun() -> ok end),
+                receive {'DOWN', Ref, process, DeadGroup, _} -> ok end,
+                Parent = self(),
+                FakeDrv = spawn(
+                            fun() ->
+                                    put(current_group, DeadGroup),
+                                    true = register(user_drv, self()),
+                                    Parent ! registered,
+                                    receive stop -> ok end
+                            end),
+                receive registered -> ok end,
+                Result = shell:whereis(),
+                FakeDrv ! stop,
+                Result
+        end,
+    undefined = peer:call(Peer, erlang, apply, [WhereisDeadGroup, []]),
+    peer:stop(Peer),
     ok.
 
 quit_hosting_node() ->
