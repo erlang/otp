@@ -3295,7 +3295,7 @@ esac
 
 dnl Checks for the Transparent Huge pages (THP) availability on Linux
 AS_CASE([$ARCH-$OPSYS],
-  [amd64-linux*],
+  [amd64-linux*|arm64-linux*],
   [
     AC_CACHE_CHECK(
       [whether the Transparent Huge Pages interface is available],
@@ -3321,7 +3321,8 @@ AS_CASE([$ARCH-$OPSYS],
   	]))
   ])
 
-AS_IF([test "x$erts_cv_linux_thp" = "xyes"],
+EMU_LDFLAGS=""
+AS_IF([test "x$erts_cv_linux_thp" = "xyes" && test "x$ARCH" = "xamd64"],
   [
     saved_LDFLAGS="$LDFLAGS"
     LDFLAGS="$LDFLAGS -Werror -Wunused-command-line-argument"
@@ -3337,7 +3338,6 @@ AS_IF([test "x$erts_cv_linux_thp" = "xyes"],
       ]
     )
     LDFLAGS="$saved_LDFLAGS"
-    EMU_LDFLAGS=""
     for flag in "-Wl,-z,common-page-size=2097152" "-Wl,-z,max-page-size=2097152"
     do
       AC_MSG_CHECKING([if we can add $flag to LDFLAGS])

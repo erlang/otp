@@ -267,6 +267,17 @@ The following letters are used for the allocators:
   costly to allocate or can only be allocated on a best-effort basis.  Currently
   only affects memory segments allocated in a super carrier. Defaults to `off`.
 
+  On Linux/AArch64, super carriers are advised with `MADV_HUGEPAGE` only when
+  a safe transparent huge page policy can be established at startup: the
+  kernel enables 2 MiB transparent huge pages and every larger size is known
+  to be disabled. The per-size policy is honored, including inheritance from
+  the global policy. Kernels before Linux 6.8 have no per-size policy; there,
+  2 MiB must be the PMD size and the global policy must enable transparent huge
+  pages. Physically reserved super carriers are then aligned to 2 MiB.
+  Otherwise, including when a policy cannot be read or recognized, no advice is
+  given and normal super carrier alignment is used. Later policy changes are
+  not observed. The kernel decides the actual page sizes.
+
 - **`+MMsco true|false`{: #MMsco }** - Sets [super carrier](erts_alloc.md#MMscs)
   only flag. Defaults to `true`. When a super carrier is used and this flag is
   `true`, `mseg_alloc` only creates carriers in the super carrier. Notice that
