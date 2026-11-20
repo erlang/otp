@@ -41,6 +41,50 @@ Security Audit and Trailing Functionality
 
 -define(VMODULE,"SEC").
 
+%%====================================================================
+%% TYPES
+%%====================================================================
+-export_type([security_option/0]).
+
+-doc """
+`m:mod_auth` is configured by having a list of `{security_directory, {Path, DirProps}}` tuples in the configuration database.
+
+The properties for the security directories are as follows:
+
+- [](){: #prop_data_file } **`{data_file, path()}`**  
+  Name of the security data file. The filename can either be absolute or
+  relative to the `server_root`. This file is used to store persistent data for
+  module `mod_security`.
+
+- [](){: #prop_max_retries } **`{max_retries, integer()}`**  
+  Specifies the maximum number of attempts to authenticate a user before the
+  user is blocked out. If a user successfully authenticates while blocked, the
+  user receives a 403 (Forbidden) response from the server. If the user makes a
+  failed attempt while blocked, the server returns 401 (Unauthorized), for
+  security reasons. Default is `3`. Can be set to infinity.
+
+- [](){: #prop_block_time } **`{block_time, integer()}`**  
+  Specifies the number of minutes a user is blocked. After this time has passed,
+  the user automatically regains access. Default is `60`.
+
+- [](){: #prop_fail_exp_time } **`{fail_expire_time, integer()}`**  
+  Specifies the number of minutes a failed user authentication is remembered. If
+  a user authenticates after this time has passed, the previous failed
+  authentications are forgotten. Default is `30`.
+
+- [](){: #prop_auth_timeout } **`{auth_timeout, integer()}`**  
+  Specifies the number of seconds a successful user authentication is
+  remembered. After this time has passed, the authentication is no longer
+  reported. Default is `30`.
+""".
+-type security_option() ::
+        {security_directory, {Path :: file:name_all(),
+        [DirProps ::
+            {data_file, file:name_all()} |
+            {max_retries, integer()} |
+            {block_time, integer()} |
+            {fail_expire_time, integer()} |
+            {auth_timeout, integer()}]}}.
 
 %%====================================================================
 %% Internal application API
