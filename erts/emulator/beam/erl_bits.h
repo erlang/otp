@@ -198,12 +198,9 @@ typedef struct erl_bits_state ErlBitsState;
  * state given a pointer to the X register array.
  */
 
-#define ERL_BITS_EBS_FROM_REG(Reg)                              \
-    ((ErlBitsState *) ((char *)(Reg) +                          \
-                       (offsetof(ErtsSchedulerRegisters,        \
-                                 aux_regs.d.erl_bits_state) -   \
-                        offsetof(ErtsSchedulerRegisters,        \
-                                 x_reg_array.d))))
+#define ERL_BITS_EBS_FROM_REG(Reg)                                          \
+    (&ErtsContainerStruct_((Reg), ErtsSchedulerRegisters, x_reg_array.d)    \
+          ->aux_regs.d.erl_bits_state)
 
 /*
  * Return number of Eterm words needed for allocation with HAlloc(),

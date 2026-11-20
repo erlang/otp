@@ -39,8 +39,8 @@ GC_REGEXP=erts_garbage_collect|erts_gc|GcBifFunction;
 // zero, except in a few bit syntax instructions.)
 
 SET_I_REL(Offset) {
-    ASSERT(VALID_INSTR(*(I + ($Offset) + $IP_ADJUSTMENT)));
-    I += $Offset + $IP_ADJUSTMENT;
+    ASSERT(VALID_INSTR(*(I + (Sint)($Offset) + $IP_ADJUSTMENT)));
+    I += (Sint)($Offset) + $IP_ADJUSTMENT;
 }
 
 SET_CP_I_ABS(Target) {
@@ -49,7 +49,7 @@ SET_CP_I_ABS(Target) {
 }
 
 SET_REL_I(Dst, Offset) {
-    $Dst = I + ($Offset);
+    $Dst = I + (Sint)($Offset);
     ASSERT(VALID_INSTR(*(const BeamInstr*)$Dst));
 }
 
