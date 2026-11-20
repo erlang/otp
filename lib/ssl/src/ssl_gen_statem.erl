@@ -1236,10 +1236,10 @@ terminate({shutdown, own_alert}, _StateName, #state{
                                                                          transport_cb = Transport}} = State) ->
     handle_trusted_certs_db(State),
     case application:get_env(ssl, alert_timeout) of
-	{ok, Timeout} when is_integer(Timeout) ->
-	    Connection:close({close, Timeout}, Socket, Transport, undefined);
-	_ ->
-	    Connection:close({close, ?DEFAULT_TIMEOUT}, Socket, Transport, undefined)
+        {ok, Timeout} when is_integer(Timeout) ->
+            Connection:close({close, Timeout}, Socket, Transport, undefined);
+        _ ->
+            Connection:close({close, ?DEFAULT_ALERT_TIMEOUT}, Socket, Transport, undefined)
     end;
 terminate(Reason, connection, #state{static_env = #static_env{
                                                      protocol_cb = Connection,
@@ -1250,9 +1250,12 @@ terminate(Reason, connection, #state{static_env = #static_env{
     
     handle_trusted_certs_db(State),
     Alert = terminate_alert(Reason),
-    %% Send the termination ALERT if possible
-    catch Connection:send_alert_in_connection(Alert, State),
-    Connection:close({close, ?DEFAULT_TIMEOUT}, Socket, Transport, ConnectionStates);
+    %% Send the termination ALERT if possible. For a user close
+    %% the wait is bounded by the timeout given to ssl:close/2.
+    catch Connection:send_alert_in_connection(Alert, close_timeout(Reason), State),
+    %% No need to wait for the peer to close, a plain close delivers
+    %% the alert and any pending data.
+    Connection:close({close, 0}, Socket, Transport, ConnectionStates);
 terminate({shutdown, cancel_hs} = Reason , _StateName,
           #state{static_env = #static_env{transport_cb = Transport,
                                           protocol_cb = Connection,
@@ -1939,6 +1942,12 @@ terminate_alert({Reason, _}) ->
     terminate_alert(Reason);
 terminate_alert(_) ->
     ?ALERT_REC(?FATAL, ?INTERNAL_ERROR).
+
+close_timeout({close, Timeout}) when is_integer(Timeout), Timeout >= 0;
+                                     Timeout =:= infinity ->
+    Timeout;
+close_timeout(_) ->
+    ?DEFAULT_TIMEOUT.
 
 invalidate_session(client, Host, Port, Session) ->
     ssl_manager:invalidate_session(Host, Port, Session);

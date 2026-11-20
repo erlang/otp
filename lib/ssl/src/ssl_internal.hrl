@@ -56,6 +56,11 @@
 -define(DEPTH, 20).
 
 -define(DEFAULT_TIMEOUT, 5000).
+%% Default for the ssl application environment variable alert_timeout:
+%% how long to wait for the peer to close after sending a fatal alert.
+%% The lab probe (all supported platforms) showed that a plain close
+%% delivers the alert, so no wait is needed.
+-define(DEFAULT_ALERT_TIMEOUT, 0).
 -define(NO_DIST_POINT, "http://dummy/no_distribution_point").
 -define(NO_DIST_POINT_PATH, "dummy/no_distribution_point").
 -define(MAX_CRL_SIZE, 10485760). %% 10 * 1024 * 1024 ~ 10 MB

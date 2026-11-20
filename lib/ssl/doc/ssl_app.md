@@ -118,9 +118,9 @@ The environment parameters can be set on the command line, for example:
   bottleneck before ssl-8.1.1. Defaults to false.
 
 - **`alert_timeout = integer() <optional>`** - Number of milliseconds between
-  sending of a fatal alert and closing the connection. Waiting a little while
-  improves the peers chances to properly receiving the alert so it may shutdown
-  gracefully. Defaults to 5000 milliseconds.
+  sending of a fatal alert and closing the connection. Defaults to 0
+  milliseconds, as closing directly delivers the alert just as well. In earlier
+  versions the default was 5000 milliseconds.
 
 - **`internal_active_n = integer() <optional>`** - For TLS connections this
   value is used to handle the internal socket. As the implementation was changed

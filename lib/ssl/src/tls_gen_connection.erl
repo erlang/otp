@@ -65,6 +65,7 @@
 %% Alert and close handling
 -export([send_alert/2,
          send_alert_in_connection/2,
+         send_alert_in_connection/3,
          send_sync_alert/2,
          close/4,
          protocol_name/0]).
@@ -516,16 +517,25 @@ available_version(NegotiatedVersion, _) ->
 %% process so that the ALERT if possible (that is the tls_sender process is
 %% not blocked) is sent before the connection process terminates and
 %% thereby closes the transport socket.
-send_alert_in_connection(#alert{level = ?FATAL} = Alert, State) ->
-    send_sync_alert(Alert, State);
-send_alert_in_connection(#alert{description = ?CLOSE_NOTIFY} = Alert, State) ->
-    send_sync_alert(Alert, State);
-send_alert_in_connection(Alert,
+send_alert_in_connection(Alert, State) ->
+    send_alert_in_connection(Alert, ?DEFAULT_TIMEOUT, State).
+
+%% Timeout bounds the wait for the tls_sender process, which is
+%% blocked if the peer does not read.
+send_alert_in_connection(#alert{level = ?FATAL} = Alert, Timeout, State) ->
+    send_sync_alert(Alert, Timeout, State);
+send_alert_in_connection(#alert{description = ?CLOSE_NOTIFY} = Alert, Timeout, State) ->
+    send_sync_alert(Alert, Timeout, State);
+send_alert_in_connection(Alert, _Timeout,
                          #state{protocol_specific = #{sender := Sender}}) ->
     tls_sender:send_alert(Sender, Alert).
+
+send_sync_alert(Alert, State) ->
+    send_sync_alert(Alert, ?DEFAULT_TIMEOUT, State).
+
 send_sync_alert(
-  Alert, #state{protocol_specific = #{sender := Sender}} = State) ->
-    try tls_sender:send_and_ack_alert(Sender, Alert)
+  Alert, Timeout, #state{protocol_specific = #{sender := Sender}} = State) ->
+    try tls_sender:send_and_ack_alert(Sender, Alert, Timeout)
     catch
         _:Reason:ST ->
             ?SSL_LOG(info, "Send failed", [{error, Reason}, {stacktrace, ST}]),
