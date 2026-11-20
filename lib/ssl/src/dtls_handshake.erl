@@ -42,6 +42,12 @@
 %% Handshake decoding
 -export([get_dtls_handshake/4]).
 
+%% Smallest ClientHello body (RFC 6347 4.2.1): client_version (2) +
+%% random (32) + session_id length (1) + cookie length (1) +
+%% cipher_suites (2 + 2) + compression_methods (1 + 1). The
+%% HelloVerifyRequest that answers it is smaller.
+-define(MIN_CLIENT_HELLO_LENGTH, 42).
+
 -type dtls_handshake() :: #client_hello{} | #hello_verify_request{} |
 			  ssl_handshake:ssl_handshake().
 
@@ -159,11 +165,14 @@ encode_handshake(Handshake, Version, Seq) ->
 
 %%--------------------------------------------------------------------
 -spec get_dtls_handshake(ssl_record:ssl_version(), binary(), #protocol_buffers{}, ssl_options()) ->
-                                {[{dtls_handshake(), binary()}], #protocol_buffers{}}.                
+                                {[{dtls_handshake(), binary()} | peer_retransmission],
+                                 #protocol_buffers{}}.
 %%
 %% Description:  Given buffered and new data from dtls_record, collects
 %% and returns it as a list of handshake messages, also returns 
-%% possible leftover data in the new "protocol_buffers".
+%% possible leftover data in the new "protocol_buffers". The list
+%% contains the atom peer_retransmission if a complete copy of an
+%% already processed message was received.
 %%--------------------------------------------------------------------
 get_dtls_handshake(Version, Fragment, ProtocolBuffers, Options) ->
     handle_fragments(Version, Fragment, ProtocolBuffers, Options, []).
@@ -336,6 +345,11 @@ do_handle_fragments(Version, [Fragment | Fragments], Buffers0,
             {lists:reverse(Acc), Buffers};
         {more_data, Buffers} ->
             do_handle_fragments(Version, Fragments, Buffers, Options, Acc);
+        {peer_retransmission, Buffers} ->
+            %% Report at most once per call
+            do_handle_fragments(Version, Fragments, Buffers, Options,
+                                [peer_retransmission |
+                                 lists:delete(peer_retransmission, Acc)]);
         {{Handshake, _} = HsPacket, Buffers} ->
             ssl_logger:debug(LogLevel, inbound, 'handshake', Handshake),
             do_handle_fragments(Version, Fragments, Buffers, Options, [HsPacket | Acc])
@@ -421,8 +435,9 @@ reassemble(Version,  #handshake_fragment{message_seq = Seq} = Fragment,
 	    {more_data,  Buffers0#protocol_buffers{dtls_handshake_next_fragments = Fragments}};
 	{raw, RawHandshake} ->
 	    Handshake = decode_handshake(Version, RawHandshake),
-	    {NextFragments, LaterFragments} = next_fragments(LaterFragments0),
-	    {{Handshake, RawHandshake}, Buffers0#protocol_buffers{dtls_handshake_next_seq = Seq + 1,
+            NextSeq = Seq + 1,
+            {NextFragments, LaterFragments} = next_fragments(NextSeq, LaterFragments0),
+            {{Handshake, RawHandshake}, Buffers0#protocol_buffers{dtls_handshake_next_seq = NextSeq,
 						  dtls_handshake_next_fragments = NextFragments,
 						  dtls_handshake_later_fragments = LaterFragments}}
     end;
@@ -432,12 +447,30 @@ reassemble(_,  #handshake_fragment{message_seq = FragSeq} = Fragment,
            = Buffers0) when FragSeq > Seq-> 
     {more_data,
      Buffers0#protocol_buffers{dtls_handshake_later_fragments = [Fragment | LaterFragments]}};
-reassemble(_, _, Buffers) -> 
-    %% Disregard fragments FragSeq < Seq
+reassemble(_, #handshake_fragment{type = ?CLIENT_HELLO,
+                                  message_seq = FragSeq,
+                                  fragment_offset = 0,
+                                  length = Length,
+                                  fragment_length = Length},
+           #protocol_buffers{dtls_handshake_next_seq = Seq} = Buffers)
+  when FragSeq < Seq, Length >= ?MIN_CLIENT_HELLO_LENGTH ->
+    %% A complete copy of an already processed ClientHello, that is the
+    %% client retransmitted its previous flight. Report it so that our
+    %% last flight can be resent if appropriate (RFC 6347 4.2.4). Only
+    %% the ClientHello can be answered while the server waits for the
+    %% cookie, and the minimum length ensures the answer
+    %% (a HelloVerifyRequest) is never larger than the request, so it
+    %% cannot be used for amplification (RFC 6347 4.2.1).
+    {peer_retransmission, Buffers};
+reassemble(_, _, Buffers) ->
+    %% Disregard other fragments with FragSeq < Seq
     {more_data, Buffers}.
 
-reassemble_fragments(Current, Fragments0) ->
-    [Frag1 | Frags] = lists:keysort(#handshake_fragment.fragment_offset, [Current | Fragments0]),
+reassemble_fragments(#handshake_fragment{message_seq = Seq} = Current, Fragments0) ->
+    %% Defence in depth: only ever merge fragments that belong to the same
+    %% handshake message (same message_seq).
+    SameSeq = [F || #handshake_fragment{message_seq = S} = F <- Fragments0, S =:= Seq],
+    [Frag1 | Frags] = lists:keysort(#handshake_fragment.fragment_offset, [Current | SameSeq]),
     [Fragment | _] = Fragments = merge_fragment(Frag1, Frags),
     case is_complete_handshake(Fragment) of
 	true ->
@@ -587,12 +620,18 @@ merge_fragments(#handshake_fragment{
 merge_fragments(Previous, Current) ->
     [Previous, Current].
 
-next_fragments(LaterFragments) ->
+%% Promote only the buffered fragments that belong to the message that is
+%% now expected (NextSeq).
+next_fragments(NextSeq, LaterFragments) ->
     case lists:keysort(#handshake_fragment.message_seq, LaterFragments) of
 	[] ->
-	    {[], []}; 
-	[#handshake_fragment{message_seq = Seq} | _] = Fragments ->
-	    split_frags(Fragments, Seq, [])
+            {[], []};
+        [#handshake_fragment{message_seq = NextSeq} | _] = Fragments ->
+            split_frags(Fragments, NextSeq, []);
+        [#handshake_fragment{} | _] ->
+            %% Lowest buffered message_seq is not the one expected next:
+            %% keep everything buffered as later fragments.
+            {[], LaterFragments}
     end.
 
 split_frags([#handshake_fragment{message_seq = Seq} = Frag | Rest], Seq, Acc) ->
@@ -604,8 +643,3 @@ is_complete_handshake(#handshake_fragment{length = Length, fragment_length = Len
     true;
 is_complete_handshake(_) ->
     false.
-
-
-
-
-	    
