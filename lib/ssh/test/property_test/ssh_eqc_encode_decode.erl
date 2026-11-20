@@ -33,10 +33,14 @@
 %% ML-KEM size constants (duplicated from ssh.hrl to avoid LAZY macro
 %% conflict with PropEr's proper_common.hrl)
 -define(MLKEM768_PUBLICKEY_SIZE, 1184).
--define(X25519_PUBLICKEY_SIZE, 32).
--define(MLKEM768_INIT_SIZE, ?MLKEM768_PUBLICKEY_SIZE + ?X25519_PUBLICKEY_SIZE).   % 1216
 -define(MLKEM768_CIPHERTEXT_SIZE, 1088).
--define(MLKEM768_REPLY_SIZE, ?MLKEM768_CIPHERTEXT_SIZE + ?X25519_PUBLICKEY_SIZE). % 1120
+-define(MLKEM1024_PUBLICKEY_SIZE, 1568).
+-define(MLKEM1024_CIPHERTEXT_SIZE, 1568).
+-define(X25519_PUBLICKEY_SIZE, 32).
+-define(NISTP256_PUBLICKEY_SIZE, 65).
+-define(NISTP256_COMPRESSED_PUBLICKEY_SIZE, 33).
+-define(NISTP384_PUBLICKEY_SIZE, 97).
+-define(NISTP384_COMPRESSED_PUBLICKEY_SIZE, 49).
 
 %%% Properties:
 
@@ -58,7 +62,8 @@ prop_ssh_decode_encode() ->
             collect(KexFam,
                     Msg == ssh_message:encode(
                              fix_asym(
-                               ssh_message:decode(decode_state(Msg,KexFam))))
+                               ssh_message:decode(decode_state(Msg,KexFam)),
+                               KexFam))
                    )).
 
 %%%================================================================
@@ -93,14 +98,18 @@ ssh_msg(<<"dh_gex">>) ->
  	     ]),
           list_to_binary(M));
 
-ssh_msg(<<"mlkem768x25519">>) ->
+ssh_msg(<<"mlkem",_/binary>> = KexFam) ->
     ?LET(M,oneof(
              [
-              [msg_code('SSH_MSG_KEX_HYBRID_INIT'),gen_mlkem_init_string()],  % 30
-              [msg_code('SSH_MSG_KEX_HYBRID_REPLY'),gen_pubkey_string(rsa),gen_mlkem_reply_string(),gen_signature_string(rsa)] % 31
+              [msg_code('SSH_MSG_KEX_HYBRID_INIT'),             % 30
+               gen_hybrid_string(KexFam, init)],
+              [msg_code('SSH_MSG_KEX_HYBRID_REPLY'),            % 31
+               gen_pubkey_string(rsa),
+               gen_hybrid_string(KexFam, reply),
+               gen_signature_string(rsa)]
              | rest_ssh_msgs()
              ]),
-	 list_to_binary(M)).
+         list_to_binary(M)).
 
 
 rest_ssh_msgs() -> 
@@ -158,7 +167,10 @@ rest_ssh_msgs() ->
      [msg_code('SSH_MSG_USERAUTH_SUCCESS')]
     ].
 
-kex_family() -> oneof([<<"dh">>, <<"dh_gex">>, <<"ecdh">>, <<"mlkem768x25519">>]).
+kex_family() -> oneof([<<"dh">>, <<"dh_gex">>, <<"ecdh">> | hybrid_families()]).
+
+hybrid_families() ->
+    [<<"mlkem768x25519">>, <<"mlkem768nistp256">>, <<"mlkem1024nistp384">>].
 
 gen_boolean() -> choose(0,1).
 
@@ -216,13 +228,35 @@ gen_signature_string(Type) ->
 	 end,
     gen_string(gen_string(Id) ++ gen_string(Signature)).
 
-%% ML-KEM generators: c_init is MLKEM768_PK (1184) + X25519_PK (32) = 1216 bytes
-gen_mlkem_init_string() ->
-    gen_string(binary_to_list(crypto:strong_rand_bytes(?MLKEM768_INIT_SIZE))).
+%% Hybrid KEX (RFC 10042) payload generators. The engine generates the
+%% bytes so failing cases shrink and replay. Content is opaque to the
+%% decoder; only the length decides acceptance.
+gen_hybrid_string(KexFam, Msg) ->
+    ?LET(Len, elements(hybrid_sizes(KexFam, Msg)),
+         ?LET(Bytes, vector(Len, gen_byte()),
+              gen_string(Bytes))).
 
-%% s_reply is MLKEM768_CT (1088) + X25519_PK (32) = 1120 bytes
-gen_mlkem_reply_string() ->
-    gen_string(binary_to_list(crypto:strong_rand_bytes(?MLKEM768_REPLY_SIZE))).
+%% RFC 10042 #3: allowed c_init (msg 30) and s_reply (msg 31) sizes.
+%% NIST curves allow compressed and uncompressed points.
+hybrid_sizes(<<"mlkem768x25519">>, init) ->
+    [?MLKEM768_PUBLICKEY_SIZE + ?X25519_PUBLICKEY_SIZE];
+hybrid_sizes(<<"mlkem768x25519">>, reply) ->
+    [?MLKEM768_CIPHERTEXT_SIZE + ?X25519_PUBLICKEY_SIZE];
+hybrid_sizes(<<"mlkem768nistp256">>, init) ->
+    [?MLKEM768_PUBLICKEY_SIZE + ?NISTP256_COMPRESSED_PUBLICKEY_SIZE,
+     ?MLKEM768_PUBLICKEY_SIZE + ?NISTP256_PUBLICKEY_SIZE];
+hybrid_sizes(<<"mlkem768nistp256">>, reply) ->
+    [?MLKEM768_CIPHERTEXT_SIZE + ?NISTP256_COMPRESSED_PUBLICKEY_SIZE,
+     ?MLKEM768_CIPHERTEXT_SIZE + ?NISTP256_PUBLICKEY_SIZE];
+hybrid_sizes(<<"mlkem1024nistp384">>, init) ->
+    [?MLKEM1024_PUBLICKEY_SIZE + ?NISTP384_COMPRESSED_PUBLICKEY_SIZE,
+     ?MLKEM1024_PUBLICKEY_SIZE + ?NISTP384_PUBLICKEY_SIZE];
+hybrid_sizes(<<"mlkem1024nistp384">>, reply) ->
+    [?MLKEM1024_CIPHERTEXT_SIZE + ?NISTP384_COMPRESSED_PUBLICKEY_SIZE,
+     ?MLKEM1024_CIPHERTEXT_SIZE + ?NISTP384_PUBLICKEY_SIZE].
+
+hybrid_kem_pk_size(<<"mlkem1024", _/binary>>) -> ?MLKEM1024_PUBLICKEY_SIZE;
+hybrid_kem_pk_size(<<"mlkem768", _/binary>>) -> ?MLKEM768_PUBLICKEY_SIZE.
 
 %% SSH_MSG_EXT_INFO: uint32 N followed by N name-value string pairs
 gen_ext_info() ->
@@ -302,12 +336,17 @@ fix_asym(#ssh_msg_kexinit{cookie=C} = M) -> M#ssh_msg_kexinit{cookie = <<C:128>>
 ?fix_asym_Xdh_reply(ssh_msg_kexdh_reply);
 ?fix_asym_Xdh_reply(ssh_msg_kex_dh_gex_reply);
 ?fix_asym_Xdh_reply(ssh_msg_kex_ecdh_reply);
-%% ML-KEM hybrid: decode returns single binary c_init, encode expects {C_pk2, C_pk1}
-fix_asym(#ssh_msg_kex_hybrid_init{c_init = C} = M) when is_binary(C) ->
-    <<C_pk2:?MLKEM768_PUBLICKEY_SIZE/binary, C_pk1:?X25519_PUBLICKEY_SIZE/binary>> = C,
-    M#ssh_msg_kex_hybrid_init{c_init = {C_pk2, C_pk1}};
 ?fix_asym_Xdh_reply(ssh_msg_kex_hybrid_reply);
 fix_asym(M) -> M.
+
+%% ML-KEM hybrid: decode returns single binary c_init, encode expects
+%% {C_pk2, C_pk1}. The split point depends on the KEM of the family.
+fix_asym(#ssh_msg_kex_hybrid_init{c_init = C} = M, KexFam) when is_binary(C) ->
+    KemSize = hybrid_kem_pk_size(KexFam),
+    <<C_pk2:KemSize/binary, C_pk1/binary>> = C,
+    M#ssh_msg_kex_hybrid_init{c_init = {C_pk2, C_pk1}};
+fix_asym(M, _KexFam) ->
+    fix_asym(M).
 
 
 %%% Message codes 30 and 31 are overloaded depending on kex family so arrange the decoder
@@ -316,3 +355,232 @@ decode_state(<<30,_/binary>>=Msg, KexFam) -> <<KexFam/binary, Msg/binary>>;
 decode_state(<<31,_/binary>>=Msg, KexFam) -> <<KexFam/binary, Msg/binary>>;
 decode_state(Msg, _) -> Msg.
 
+
+%%%================================================================
+%%%
+%%% RFC 10042 hybrid KEX: size gating and point validation
+%%%
+
+%%% Size gating in ssh_message:decode/1 for messages 30/31.
+%%%
+%%% ORACLE SOURCE: RFC 10042 #3 (message sizes) and the hybrid
+%%% ssh_message:decode/1 clauses. An allowed length gives the record; any
+%%% other length gives the documented size error. A message with extra or
+%%% missing bytes is rejected (size error or function_clause); the
+%%% connection handler turns any decode exception into a disconnect.
+prop_hybrid_decode_sizes() ->
+    ?FORALL({KexFam, Msg, Variant, Len}, gen_decode_case(),
+            collect({KexFam, Msg, Variant,
+                     lists:member(Len, hybrid_sizes(KexFam, Msg))},
+                    check_decode(KexFam, Msg, Variant, Len))).
+
+gen_decode_case() ->
+    ?LET({KexFam, Msg}, {elements(hybrid_families()), elements([init, reply])},
+         ?LET({Variant, Len},
+              {elements([exact, exact, trailing, truncated]),
+               gen_hybrid_len(hybrid_sizes(KexFam, Msg))},
+              {KexFam, Msg, Variant, Len})).
+
+gen_hybrid_len(Allowed) ->
+    oneof([elements(Allowed),
+           elements([A + D || A <- Allowed, D <- [-1, 1]]),
+           choose(0, lists:max(Allowed) + 64)]).
+
+check_decode(KexFam, Msg, exact, Len) ->
+    Allowed = hybrid_sizes(KexFam, Msg),
+    IsAllowed = lists:member(Len, Allowed),
+    SizeTag = hybrid_size_tag(Msg),
+    try ssh_message:decode(hybrid_msg(KexFam, Msg, Len)) of
+        #ssh_msg_kex_hybrid_init{c_init = C} when Msg == init ->
+            IsAllowed andalso byte_size(C) == Len;
+        #ssh_msg_kex_hybrid_reply{s_reply = S} when Msg == reply ->
+            IsAllowed andalso byte_size(S) == Len;
+        Other ->
+            io:format("Unexpected decode result: ~p~n", [Other]),
+            false
+    catch
+        throw:{error, {SizeTag, Len, Allowed}} ->
+            not IsAllowed;
+        C:E ->
+            io:format("Unexpected exception: ~p:~p~n", [C, E]),
+            false
+    end;
+check_decode(KexFam, Msg, Variant, Len) ->
+    Bin0 = hybrid_msg(KexFam, Msg, Len),
+    Bin = case Variant of
+              trailing -> <<Bin0/binary, 0>>;
+              truncated -> binary:part(Bin0, 0, byte_size(Bin0) - 1)
+          end,
+    try ssh_message:decode(Bin) of
+        Decoded ->
+            io:format("Accepted malformed message: ~p~n", [Decoded]),
+            false
+    catch
+        throw:{error, _} -> true;
+        error:function_clause -> true;
+        C:E ->
+            io:format("Unexpected exception: ~p:~p~n", [C, E]),
+            false
+    end.
+
+hybrid_size_tag(init) -> mlkem_init_invalid_size;
+hybrid_size_tag(reply) -> mlkem_reply_invalid_size.
+
+%% Wire message as seen by ssh_message:decode/1 (with the kex prefix).
+%% The payload content is opaque to the decoder, so zeros are enough.
+hybrid_msg(KexFam, init, Len) ->
+    Body = binary:copy(<<0>>, Len),
+    <<KexFam/binary, 30, Len:32, Body/binary>>;
+hybrid_msg(KexFam, reply, Len) ->
+    Body = binary:copy(<<0>>, Len),
+    HostKey = ssh_message:ssh2_pubkey_encode(
+                #'RSAPublicKey'{modulus = 3233, publicExponent = 17}),
+    Sig = <<12:32, "rsa-sha2-256", 3:32, 1, 2, 3>>,
+    <<KexFam/binary, 31,
+      (byte_size(HostKey)):32, HostKey/binary,
+      Len:32, Body/binary,
+      (byte_size(Sig)):32, Sig/binary>>.
+
+%%% Point validation in ssh_transport:compute_key/4 (hybrid_server and
+%%% hybrid_client), with real ML-KEM keys so the ECDH step is reached.
+%%%
+%%% ORACLE SOURCE: RFC 10042 #2.4 (K = HASH(K_PQ || K_CL)): both sides
+%%% derive the same secret from valid points. SEC1 v2 #2.3.4
+%%% (octet string to point): a NIST point must have tag 2, 3 (compressed)
+%%% or 4 (uncompressed) and lie on the curve; anything else must be
+%%% rejected, never yield a key. RFC 7748 #6.1 / RFC 8731 #3: an X25519
+%%% exchange that yields the all-zero secret (low-order peer point) must
+%%% be aborted.
+%%%
+%%% Needs ML-KEM-768/1024 and the NIST curves in crypto; the CT case
+%%% skips otherwise (ssh_property_test_SUITE:init_per_testcase/2).
+prop_hybrid_compute_key() ->
+    ?FORALL({KexFam, Role, Form, Mut}, gen_compute_key_case(),
+            collect({KexFam, Role, Form, mutation_class(Mut)},
+                    check_compute_key(KexFam, Role, Form, Mut))).
+
+gen_compute_key_case() ->
+    ?LET(KexFam, elements(hybrid_families()),
+         ?LET({Role, Form, Mut},
+              {elements([server, client]),
+               elements(point_forms(KexFam)),
+               gen_mutation(KexFam)},
+              {KexFam, Role, Form, Mut})).
+
+point_forms(<<"mlkem768x25519">>) -> [raw];
+point_forms(_) -> [uncompressed, compressed].
+
+%% Every 32-byte string is a valid X25519 encoding, but low-order points
+%% give the all-zero secret: u = 0 and u = 1 (RFC 7748 #7).
+gen_mutation(<<"mlkem768x25519">>) ->
+    oneof([valid,
+           ?LET(U, elements([0, 1]), {loworder, U})]);
+gen_mutation(_) ->
+    oneof([valid,
+           offcurve,
+           ?LET(T, choose(0, 255), {badtag, bad_tag(T)})]).
+
+bad_tag(T) when T >= 2, T =< 4 -> T + 3;
+bad_tag(T) -> T.
+
+mutation_class({badtag, _}) -> badtag;
+mutation_class({loworder, _}) -> loworder;
+mutation_class(M) -> M.
+
+hybrid_kem_curve(<<"mlkem768x25519">>) -> {mlkem768, x25519};
+hybrid_kem_curve(<<"mlkem768nistp256">>) -> {mlkem768, secp256r1};
+hybrid_kem_curve(<<"mlkem1024nistp384">>) -> {mlkem1024, secp384r1}.
+
+check_compute_key(KexFam, Role, Form, Mut) ->
+    {Kem, Curve} = KC = hybrid_kem_curve(KexFam),
+    {C_pk2, C_sk2} = crypto:generate_key(Kem, []),
+    {C_pk1_raw, C_sk1} = crypto:generate_key(ecdh, Curve),
+    {S_pk1_raw, S_sk1} = crypto:generate_key(ecdh, Curve),
+    C_pk1 = point_form(Form, C_pk1_raw),
+    S_pk1 = point_form(Form, S_pk1_raw),
+    Bad = fun(Raw, P) -> mutate_point(Mut, Form, Curve, Raw, P) end,
+    case Role of
+        server ->
+            C_init = <<C_pk2/binary, (Bad(C_pk1_raw, C_pk1))/binary>>,
+            case hybrid_compute(hybrid_server, C_init, S_sk1, KC) of
+                {ok, {S_ct, K_srv}} when Mut == valid ->
+                    S_reply = <<S_ct/binary, S_pk1/binary>>,
+                    {ok, K_srv} ==
+                        hybrid_compute(hybrid_client, S_reply,
+                                       {C_sk2, C_sk1}, KC);
+                Res ->
+                    check_rejected(server, Mut, Res)
+            end;
+        client ->
+            {ok, {S_ct, K_srv}} =
+                hybrid_compute(hybrid_server, <<C_pk2/binary, C_pk1/binary>>,
+                               S_sk1, KC),
+            S_reply = <<S_ct/binary, (Bad(S_pk1_raw, S_pk1))/binary>>,
+            case hybrid_compute(hybrid_client, S_reply, {C_sk2, C_sk1}, KC) of
+                {ok, K_cli} when Mut == valid ->
+                    K_cli == K_srv;
+                Res ->
+                    check_rejected(client, Mut, Res)
+            end
+    end.
+
+%% A mutated point must raise; a valid point must not.
+check_rejected(Role, Mut, {ok, Result}) ->
+    io:format("~p accepted ~p point: ~p~n", [Role, Mut, Result]),
+    false;
+check_rejected(_Role, valid, {exception, Reason}) ->
+    io:format("Valid point rejected: ~p~n", [Reason]),
+    false;
+check_rejected(_Role, _Mut, {exception, _}) ->
+    true.
+
+hybrid_compute(Side, Peer, Own, KC) ->
+    try ssh_transport:compute_key(Side, Peer, Own, KC) of
+        R -> {ok, R}
+    catch
+        C:E -> {exception, {C, E}}
+    end.
+
+%% crypto:generate_key(ecdh, ...) returns uncompressed NIST points
+%% (<<4, X, Y>>) and raw 32-byte X25519 keys.
+point_form(raw, P) -> P;
+point_form(uncompressed, P) -> P;
+point_form(compressed, <<4, XY/binary>>) ->
+    N = byte_size(XY) div 2,
+    <<X:N/binary, Y:N/binary>> = XY,
+    <<(2 + (binary:last(Y) band 1)), X/binary>>.
+
+%% offcurve, uncompressed: flip the lowest bit of Y; the result is on
+%% the curve only with negligible probability.
+%% offcurve, compressed: replace X by the next X for which x^3 + ax + b
+%% has no square root mod p, so decompression must fail.
+%% badtag: keep the length of the chosen form, replace the tag byte.
+%% loworder: X25519 u-coordinate of a low-order point, little-endian.
+mutate_point(valid, _Form, _Curve, _Raw, P) -> P;
+mutate_point(offcurve, uncompressed, _Curve, <<4, XY/binary>>, _P) ->
+    Last = binary:last(XY),
+    <<4, (binary:part(XY, 0, byte_size(XY) - 1))/binary, (Last bxor 1)>>;
+mutate_point(offcurve, compressed, Curve, _Raw, <<Tag, X/binary>>) ->
+    <<Tag, (non_residue_x(Curve, X))/binary>>;
+mutate_point({badtag, T}, _Form, _Curve, _Raw, <<_, Rest/binary>>) ->
+    <<T, Rest/binary>>;
+mutate_point({loworder, U}, raw, x25519, _Raw, _P) ->
+    <<U:256/little>>.
+
+%% Smallest X' >= X (mod p) with x^3 + ax + b a quadratic non-residue
+%% (Euler's criterion). About half of all X qualify.
+non_residue_x(Curve, XBin) ->
+    {{prime_field, PBin}, {ABin, BBin, _Seed}, _, _, _} =
+        crypto:ec_curve(Curve),
+    [P, A, B] = [binary:decode_unsigned(V) || V <- [PBin, ABin, BBin]],
+    Size = byte_size(XBin),
+    non_residue_x(binary:decode_unsigned(XBin) rem P, P, A, B, Size).
+
+non_residue_x(X, P, A, B, Size) ->
+    Rhs = (X * X * X + A * X + B) rem P,
+    case Rhs =/= 0 andalso
+        binary:decode_unsigned(
+          crypto:mod_pow(Rhs, (P - 1) div 2, P)) == P - 1 of
+        true -> <<X:Size/unit:8>>;
+        false -> non_residue_x((X + 1) rem P, P, A, B, Size)
+    end.

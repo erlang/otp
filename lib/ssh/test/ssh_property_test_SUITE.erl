@@ -43,7 +43,9 @@
          client_server_parallel_multi/1,
          client_server_sequential/1,
          decode/1,
-         decode_encode/1
+         decode_encode/1,
+         hybrid_compute_key/1,
+         hybrid_decode_sizes/1
         ]).
 
 -include_lib("common_test/include/ct.hrl").
@@ -57,7 +59,9 @@ all() -> [{group, messages},
 
 groups() ->
     [{messages, [], [decode,
-		     decode_encode]},
+                     decode_encode,
+                     hybrid_decode_sizes,
+                     hybrid_compute_key]},
      {client_server, [], [client_server_sequential,
                           client_server_parallel
 			  %% client_server_parallel_multi
@@ -85,6 +89,17 @@ init_per_group(_, Config) ->
 end_per_group(_, Config) ->
     Config.
 
+init_per_testcase(hybrid_compute_key, Config) ->
+    %% The property generates real ML-KEM keys and NIST/X25519 points.
+    Kems = crypto:supports(kems),
+    Curves = crypto:supports(curves),
+    case lists:all(fun(K) -> lists:member(K, Kems) end,
+                   [mlkem768, mlkem1024]) andalso
+        lists:all(fun(C) -> lists:member(C, Curves) end,
+                  [x25519, secp256r1, secp384r1]) of
+        true -> Config;
+        false -> {skip, "ML-KEM-768/1024, X25519, P-256 or P-384 unsupported"}
+    end;
 init_per_testcase(_TestCase, Config) -> Config.
     
 end_per_testcase(_TestCase, Config) -> Config.
@@ -101,6 +116,18 @@ decode(Config) ->
 decode_encode(Config) ->
     ct_property_test:quickcheck(
       ssh_eqc_encode_decode:prop_ssh_decode_encode(),
+      Config
+     ).
+
+hybrid_decode_sizes(Config) ->
+    ct_property_test:quickcheck(
+      ssh_eqc_encode_decode:prop_hybrid_decode_sizes(),
+      Config
+     ).
+
+hybrid_compute_key(Config) ->
+    ct_property_test:quickcheck(
+      ssh_eqc_encode_decode:prop_hybrid_compute_key(),
       Config
      ).
 
