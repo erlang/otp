@@ -22,6 +22,7 @@
 %% Purpose : Converts intermediate assembly code to final format.
 
 -module(beam_flatten).
+-typing([eqwalizer]).
 -moduledoc false.
 
 -export([module/2]).

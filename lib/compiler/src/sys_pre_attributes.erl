@@ -22,6 +22,7 @@
 %% Purpose : Transform Erlang compiler attributes
 
 -module(sys_pre_attributes).
+-typing([eqwalizer]).
 -moduledoc false.
 
 -export([parse_transform/2]).

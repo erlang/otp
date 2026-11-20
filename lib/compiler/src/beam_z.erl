@@ -23,6 +23,7 @@
 %%          (Mandatory.)
 
 -module(beam_z).
+-typing([eqwalizer]).
 -moduledoc false.
 
 -export([module/2]).

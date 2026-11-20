@@ -23,6 +23,7 @@
 %%
 
 -module(beam_utils).
+-typing([eqwalizer]).
 -moduledoc false.
 -export([replace_labels/4,split_even/1]).
 

@@ -21,6 +21,7 @@
 %%
 
 -module(beam_trim).
+-typing([eqwalizer]).
 -moduledoc false.
 -export([module/2]).
 

@@ -53,6 +53,20 @@ jobs:
         ## Run dialyzer
       - name: Run dialyzer
         run: docker run -v $PWD/:/github otp '/github/scripts/run-dialyzer'
+        ## Run eqWAlizer on the modules that opt in with `-typing([eqwalizer]).`
+      - name: Install ELP
+        env:
+          ELP_VERSION: "2026-11-20"
+          ELP_SHA256: "30f726acc7a1a941bffdb4c117d7a147fcf10c9b302fa8cd71bd31dae3bc28d2"
+        run: |
+          curl --fail --silent --show-error --location --output elp.tar.gz \
+            "https://github.com/WhatsApp/erlang-language-platform/releases/download/${ELP_VERSION}/elp-linux-x86_64-unknown-linux-gnu-otp-29.1.tar.gz"
+          echo "${ELP_SHA256}  elp.tar.gz" | sha256sum --check
+          mkdir -p "${RUNNER_TEMP}/elp"
+          tar -xzf elp.tar.gz -C "${RUNNER_TEMP}/elp"
+          rm elp.tar.gz
+      - name: Run eqWAlizer
+        run: docker run -v "${RUNNER_TEMP}/elp:/elp" otp '/elp/elp eqwalize-all --no-connect --bail-on-error --format github'
       - name: Check OSSF compiler flags
         uses: ./.github/actions/ossf-compiler-flags-scanner
         with:

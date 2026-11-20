@@ -21,6 +21,7 @@
 %% %CopyrightEnd%
 
 -module(sys_messages).
+-typing([eqwalizer]).
 -moduledoc false.
 
 -export([format_messages/4, list_errors/3]).
