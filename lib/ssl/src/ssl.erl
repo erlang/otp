@@ -2505,10 +2505,14 @@ with TLS; otherwise, the behavior of this function is undefined. The
 best way to ensure this is to create the ordinary listen socket in
 passive mode.
 
-If `Socket` is an [`sslsocket()`](`t:sslsocket/0`), provides extra
+If `Socket` is an [`sslsocket()`](`t:sslsocket/0`), provides possible extra
 TLS/DTLS options to those specified in `listen/2` and then performs
 the TLS/DTLS handshake. Returns a new TLS/DTLS socket if the handshake
 is successful.
+
+> #### Note {: .note } Providing extra option means they are amended
+to the options set by `listen/2` (provided + default), and hence no
+new default options are derived.
 
 > #### Warning {: .warning }
 Not setting the timeout makes the server more vulnerable to Denial of
