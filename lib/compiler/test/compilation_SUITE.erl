@@ -66,7 +66,8 @@
          gh_11414/1,
          gh_11534/0,gh_11534/1,
          gh_11735/1,
-         gh_11833/1]).
+         gh_11833/1,
+         gh_12239/1]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("stdlib/include/assert.hrl").
@@ -98,7 +99,7 @@ groups() ->
        infinite_loop, native_record,
        use_nifs,gh_11352,gh_11367,gh_11414,
        gh_11534,gh_11735,
-       gh_11833]}].
+       gh_11833,gh_12239]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -181,6 +182,32 @@ gh_11735(Config) ->
            ModStr,"() -> ok.\n",
            Cs,
            "f(S, _) -> S.\n"],
+    ok = file:write_file(FileName, Src),
+
+    Timetrap = {minutes,1},
+    ct:timetrap(Timetrap),
+    {ok,Mod} = compile:file(FileName, [{outdir,PrivDir},report]),
+
+    load_and_call(PrivDir, Mod),
+
+    ok.
+
+%% Test fix for very slow `place_frames` sub pass.
+gh_12239(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    Mod = ?FUNCTION_NAME,
+    ModStr = atom_to_list(Mod),
+    FileName = filename:join(PrivDir, ModStr ++ ".erl"),
+    N = 6000,
+    Cs = [io_lib:format("f(I) when I < ~w -> ?MODULE:id(I), ~w;~n",
+                        [100 + R * 10, R]) ||
+             R <- lists:seq(0, N - 1)],
+    Src = ["-module(", ModStr, ").\n"
+           "-export([",ModStr,"/0, f/1, id/1]).\n",
+           ModStr,"() -> ok.\n",
+           "id(I) -> I.\n",
+           Cs,
+           "f(_) -> none.\n"],
     ok = file:write_file(FileName, Src),
 
     Timetrap = {minutes,1},

@@ -1432,11 +1432,18 @@ vars_to_stack(RPO, Blocks) ->
 
 place_frames(#st{ssa=Blocks}=St) ->
     Ls = beam_ssa:rpo(Blocks),
-    {Doms,_} = beam_ssa:dominators(Ls, Blocks),
-    Tried = gb_sets:empty(),
-    Frames0 = [],
-    {Frames,_} = place_frames_1(Ls, Blocks, Doms, Tried, Frames0),
-    St#st{frames=Frames}.
+    case any(fun(L) -> need_frame(map_get(L, Blocks)) end, Ls) of
+        true ->
+            {Doms0,_} = beam_ssa:dominators(Ls, Blocks),
+            Doms = dominator_intervals(Doms0),
+            Tried = gb_sets:empty(),
+            Frames0 = [],
+            {Frames,_} = place_frames_1(Ls, Blocks, Doms, Tried, Frames0),
+            St#st{frames=Frames};
+        false ->
+            %% No block needs a frame.
+            St#st{frames=[]}
+    end.
 
 place_frames_1([L|Ls], Blocks, Doms, Tried0, Frames0) ->
     Blk = map_get(L, Blocks),
@@ -1553,12 +1560,33 @@ phi_predecessors(L, Blocks) ->
     #b_blk{is=Is} = map_get(L, Blocks),
     [P || #b_set{op=phi,args=Args} <- Is, {_,P} <:- Args].
 
-%% is_dominated_by(Label, DominatedBy, Dominators) -> true|false.
+%% dominator_intervals(Dominators) -> DominatorIntervals.
+%%  Number the dominator tree in preorder, giving each block the
+%%  interval of numbers used by the blocks it dominates.
+
+dominator_intervals(Doms) ->
+    %% A dominator list starts with the block itself,
+    %% followed by its immediate dominator.
+    Children = maps:fold(fun(L, [L,IDom|_], Acc) ->
+                                 Acc#{IDom => [L|maps:get(IDom, Acc, [])]};
+                            (_, [_], Acc) -> Acc
+                         end, #{}, Doms),
+    {_,Intervals} = dominator_intervals(0, Children, 0, #{}),
+    Intervals.
+
+dominator_intervals(L, Children, Pre, Acc0) ->
+    {End,Acc} = foldl(fun(Child, {N,A}) ->
+                              dominator_intervals(Child, Children, N, A)
+                      end, {Pre+1,Acc0}, maps:get(L, Children, [])),
+    {End,Acc#{L => {Pre,End}}}.
+
+%% is_dominated_by(Label, DominatedBy, DominatorIntervals) -> true|false.
 %%  Test whether block Label is dominated by block DominatedBy.
 
 is_dominated_by(L, DomBy, Doms) ->
-    DominatedBy = map_get(L, Doms),
-    member(DomBy, DominatedBy).
+    {Pre,_} = map_get(L, Doms),
+    {DomPre,DomEnd} = map_get(DomBy, Doms),
+    DomPre =< Pre andalso Pre < DomEnd.
 
 %% need_frame(#b_blk{}) -> true|false.
 %%  Test whether any of the instructions in the block requires a stack frame.
