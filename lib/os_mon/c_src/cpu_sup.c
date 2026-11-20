@@ -33,6 +33,7 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
+#include <stdbool.h>
 
 #if (defined(__APPLE__) && defined(__MACH__)) || defined(__OpenBSD__) || defined(__FreeBSD__) || defined(__DragonFly__)
 #include <sys/param.h>
@@ -60,6 +61,14 @@
 #endif
 
 #if defined(__linux__)
+
+/*
+ * sys/time.h and sys/select.h is for select() which is only used for testing.
+ * See small_writes_test in sendv() function for more info.
+ */
+#include <sys/time.h>
+#include <sys/select.h>
+
 
 #define PROCSTAT "/proc/stat"
 #define BUFFERSIZE (256)
@@ -94,6 +103,8 @@ typedef struct {
 #include <sys/sched.h>
 #define CU_OPENBSD_VALUES (6)
 #endif
+
+static bool small_writes_test = false;
 
 #define FD_IN		(0)
 #define FD_OUT		(1)
@@ -234,6 +245,13 @@ int main(int argc, char** argv) {
 	error("cpu_sup: malloc error");
     }
 #endif
+
+  {
+      char *test_env = getenv("CPU_SUP_TEST");
+      if (test_env && strcmp("small_writes_test", test_env) == 0) {
+          small_writes_test = true;
+      }
+  }
 
   while(1) {
 
@@ -809,11 +827,12 @@ static void sendi(unsigned int data) { sendv(&data, 1); }
 static void sendv(unsigned int data[], int ints) {
     static unsigned char *buf = NULL;
     static int bufsz = 0;
-    int rc, di, bi, msgsz;
+    int rc, di, bi, msgsz, part_msgsz;
 
     /* Assumes 32-bit integers... */
 
     msgsz = 4*ints;
+    part_msgsz = msgsz;
 
     if(bufsz < msgsz) {
 	if (buf != NULL) free((void *) buf);
@@ -831,7 +850,32 @@ static void sendv(unsigned int data[], int ints) {
 
   bi = 0;
   do {
-    rc = write(FD_OUT, &buf[bi], msgsz - bi);
+    if (small_writes_test) {
+        /*
+         * This is just for testing; making sure that the receiver
+         * can handle data coming in multiple batches...
+         */
+
+#if defined(__linux__)
+        /*
+         * sleep a while to make it likely that data is delivered
+         * at the other end before we write again...
+         *
+         * Currently only for linux since I don't want to introduce
+         * a configure test just for this test feature...
+         */
+        struct timeval tv;
+        tv.tv_sec = 0;
+        tv.tv_usec = 1;
+        select(0, NULL, NULL, NULL, &tv);
+#endif
+
+        part_msgsz = bi + 3;
+        if (part_msgsz > msgsz) {
+            part_msgsz = msgsz;
+        }
+    }
+    rc = write(FD_OUT, &buf[bi], part_msgsz - bi);
     if (rc < 0) {
       if (errno == EINTR)
 	continue;

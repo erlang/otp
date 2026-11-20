@@ -716,6 +716,30 @@ measurement_server_loop(State) ->
 %% cpu_sup port program server wrapper
 %%----------------------------------------------------------------------
 
+set_timer(Timeout, Message) ->
+    erlang:start_timer(Timeout, self(), Message, []).
+
+cancel_timer(Timer) ->
+    case erlang:cancel_timer(Timer, [{info, true}]) of
+        Integer when is_integer(Integer) -> %% Cancelled...
+            ok;
+        false -> %% Expired but we already got the result; cleanup timer msg...
+            receive {timeout, Timer, _} -> ok end
+    end.
+
+receive_port_data(Port, Timer) ->
+    receive
+        {Port, {data, Data}} -> Data;
+        {timeout, Timer, Msg} -> exit(Msg);
+        {'EXIT', Port, Reason} -> exit({port_exit, Reason})
+    end.
+
+get_uint32(_Port, _Timer, [B3, B2, B1, B0 | Rest]) ->
+    {?INT32(B3,B2,B1,B0), Rest};
+get_uint32(Port, Timer, Data) ->
+    NewData = Data ++ receive_port_data(Port, Timer),
+    get_uint32(Port, Timer, NewData).
+
 port_server_call(Pid, Command) ->
     Pid ! {self(), Command},
     receive
@@ -795,91 +819,79 @@ port_server_loop(Port, Timeout) ->
 
 	% Ignore other commands
 	_ -> port_server_loop(Port, Timeout)
-    end.	
+    end.
 
-port_receive_uint32( Port,  Timeout) -> port_receive_uint32(Port, Timeout, []).
-port_receive_uint32(_Port, _Timeout, [D3,D2,D1,D0]) -> ?INT32(D3,D2,D1,D0);
-port_receive_uint32(_Port, _Timeout, [_,_,_,_ | G]) -> exit({port_garbage, G});
-port_receive_uint32(Port, Timeout, D) ->
-    receive
-	{'EXIT', Port, Reason} -> exit({port_exit, Reason});
-	{Port, {data, ND}} -> port_receive_uint32(Port, Timeout, D ++ ND)
-    after Timeout -> exit(timeout_uint32) end.
+port_receive_uint32(Port, Timeout) ->
+    Timer = set_timer(Timeout, timeout_uint32),
+    {Uint32, Rest} = get_uint32(Port, Timer, []),
+    case Rest of
+        [] -> ok;
+        Garbage -> exit({port_garbage, Garbage})
+    end,
+    cancel_timer(Timer),
+    Uint32.
 
 port_receive_util(Port, Timeout) ->
-    receive
-	{Port, {data, [ NP3,NP2,NP1,NP0,  % Number of processors
-		        NE3,NE2,NE1,NE0   % Number of entries per processor
-		      | CpuData]}} ->
-	    port_receive_cpu_util( ?INT32(NP3,NP2,NP1,NP0),
-				   ?INT32(NE3,NE2,NE1,NE0),
-				   CpuData, []);
-	{'EXIT', Port, Reason} -> exit({port_exit, Reason})
-    after Timeout -> exit(timeout_util) end.
+    Timer = set_timer(Timeout, timeout_util),
+    %% Number of processors
+    {NoCpus, CpuData1} = get_uint32(Port, Timer, []),
+    %% Number of entries per processor
+    {NoEntries, CpuData2} = get_uint32(Port, Timer, CpuData1),
+    Res = port_receive_cpu_util(Port, Timer, NoCpus, NoEntries, CpuData2, []),
+    cancel_timer(Timer),
+    Res.
 
 % per processor receive loop
-port_receive_cpu_util(0, _NE, [], CpuList) ->
+port_receive_cpu_util(_Port, _Timer, 0, _NE, [], CpuList) ->
     % Return in ascending cpu_id order
     lists:reverse(CpuList); 
-port_receive_cpu_util(0, _NE, Garbage, _) ->
-    exit( {port_garbage, Garbage});
-port_receive_cpu_util(NP, NE, CpuData, CpuList) ->
-    {CpuUtil, Rest} = port_receive_cpu_util_entries(NE, #cpu_util{}, CpuData),
-    port_receive_cpu_util(NP - 1, NE, Rest, [ CpuUtil | CpuList]).
+port_receive_cpu_util(_Port, _Timer, 0, _NE, Garbage, _) ->
+    exit({port_garbage, Garbage});
+port_receive_cpu_util(Port, Timer, NP, NE, CpuData, CpuList) ->
+    {CpuUtil, Rest} = port_receive_cpu_util_entries(Port, Timer, NE,
+                                                    #cpu_util{}, CpuData),
+    port_receive_cpu_util(Port, Timer, NP - 1, NE, Rest, [CpuUtil | CpuList]).
 
 % per entry receive loop
-port_receive_cpu_util_entries(0, CU, Rest) ->
+port_receive_cpu_util_entries(_Port, _Timer, 0, CU, Rest) ->
     {CU, Rest};
-port_receive_cpu_util_entries(NE, CU,
-	[ CID3, CID2, CID1, CID0,
-	  Val3, Val2, Val1, Val0 |
-	  CpuData]) ->
+port_receive_cpu_util_entries(Port, Timer, NE, CU, CpuData0) ->
 
-    TagId = ?INT32(CID3,CID2,CID1,CID0),
-    Value = ?INT32(Val3,Val2,Val1,Val0),
+    {TagId, CpuData1} = get_uint32(Port, Timer, CpuData0),
+    {Value, CpuData2} = get_uint32(Port, Timer, CpuData1),
 
     % Conversions from integers to atoms
-    case TagId of
-	?cu_cpu_id ->
-	    NewCU = CU#cpu_util{cpu = Value},
-    	    port_receive_cpu_util_entries(NE - 1, NewCU, CpuData);
-	?cu_user ->
-	    NewCU = CU#cpu_util{
-		busy     = [{user, Value} | CU#cpu_util.busy] },
-    	    port_receive_cpu_util_entries(NE - 1, NewCU, CpuData);
-	?cu_nice_user ->
-	    NewCU = CU#cpu_util{
-		busy     = [{nice_user, Value} | CU#cpu_util.busy] },
-    	    port_receive_cpu_util_entries(NE - 1, NewCU, CpuData);
-	?cu_kernel ->
-	    NewCU = CU#cpu_util{
-		busy     = [{kernel, Value} | CU#cpu_util.busy] },
-    	    port_receive_cpu_util_entries(NE - 1, NewCU, CpuData);
-	?cu_io_wait ->
-	    NewCU = CU#cpu_util{
-		non_busy = [{wait, Value} | CU#cpu_util.non_busy] },
-    	    port_receive_cpu_util_entries(NE - 1, NewCU, CpuData);
-	?cu_idle ->	
-	    NewCU = CU#cpu_util{
-		non_busy = [{idle, Value} | CU#cpu_util.non_busy] },
-    	    port_receive_cpu_util_entries(NE - 1, NewCU, CpuData);
-	?cu_hard_irq -> 	
-	    NewCU = CU#cpu_util{
-		busy =     [{hard_irq, Value} | CU#cpu_util.busy] },
-    	    port_receive_cpu_util_entries(NE - 1, NewCU, CpuData);
-	?cu_soft_irq ->
-	    NewCU = CU#cpu_util{
-		busy =     [{soft_irq, Value} | CU#cpu_util.busy] },
-    	    port_receive_cpu_util_entries(NE - 1, NewCU, CpuData);
-	?cu_steal ->
-	    NewCU = CU#cpu_util{
-		non_busy = [{steal, Value} | CU#cpu_util.non_busy] },
-    	    port_receive_cpu_util_entries(NE - 1, NewCU, CpuData);
-    	Unhandled ->
-	    exit({unexpected_type_id, Unhandled})
-    end;
-port_receive_cpu_util_entries(_, _, Data) -> 
-     exit({data_mismatch, Data}).
+    NewCU = case TagId of
+                ?cu_cpu_id ->
+                    CU#cpu_util{cpu = Value};
+                ?cu_user ->
+                    CU#cpu_util{busy = [{user, Value}
+                                       | CU#cpu_util.busy]};
+                ?cu_nice_user ->
+                    CU#cpu_util{busy = [{nice_user, Value}
+                                       | CU#cpu_util.busy]};
+                ?cu_kernel ->
+                    CU#cpu_util{busy = [{kernel, Value}
+                                       | CU#cpu_util.busy]};
+                ?cu_io_wait ->
+                    CU#cpu_util{non_busy = [{wait, Value}
+                                           | CU#cpu_util.non_busy]};
+                ?cu_idle ->
+                    CU#cpu_util{non_busy = [{idle, Value}
+                                           | CU#cpu_util.non_busy]};
+                ?cu_hard_irq ->
+                    CU#cpu_util{busy = [{hard_irq, Value}
+                                       | CU#cpu_util.busy]};
+                ?cu_soft_irq ->
+                    CU#cpu_util{busy = [{soft_irq, Value}
+                                       | CU#cpu_util.busy]};
+                ?cu_steal ->
+                    CU#cpu_util{non_busy = [{steal, Value}
+                                           | CU#cpu_util.non_busy]};
+                Unhandled ->
+                    exit({unexpected_type_id, Unhandled})
+            end,
+    port_receive_cpu_util_entries(Port, Timer, NE - 1, NewCU, CpuData2).
 
 start_portprogram() ->
     Port = os_mon:open_port("cpu_sup", [stream]),
