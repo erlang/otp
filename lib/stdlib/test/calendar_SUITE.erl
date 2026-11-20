@@ -41,7 +41,7 @@
 	 last_day_of_the_month/1,
 	 local_time_to_universal_time_dst/1,
 	 iso_week_number/1,
-         system_time/1, rfc3339/1]).
+         system_time/1, system_time_integer_units/1, rfc3339/1]).
 
 -define(START_YEAR, 1947).
 -define(END_YEAR, 2032).
@@ -55,7 +55,8 @@ all() ->
     [times, gregorian_days, gregorian_seconds, day_of_the_week,
      day_of_the_week_calibrate, leap_years,
      last_day_of_the_month, local_time_to_universal_time_dst,
-     iso_week_number, system_time, rfc3339, big_gregorian_days,
+     iso_week_number, system_time, system_time_integer_units, rfc3339,
+     big_gregorian_days,
      gregorian_days_edge_cases, negative_gregorian_days,
      negative_gregorian_seconds, negative_leap_years,
      negative_day_of_the_week].
@@ -441,6 +442,23 @@ system_time(Config) when is_list(Config) ->
     LDate = erlang:universaltime_to_localtime(UDate),
     LDate = calendar:system_time_to_local_time(T, second),
 
+    ok.
+
+system_time_integer_units(Config) when is_list(Config) ->
+    lists:foreach(
+      fun(Unit) ->
+              lists:foreach(
+                fun(Time) ->
+                        DateTime = calendar:system_time_to_universal_time(Time, second),
+                        Expected = Time * Unit,
+                        Expected = calendar:universal_time_to_system_time(DateTime,
+                                                                          [{unit, Unit}])
+                end, [-1, 0, 1]),
+              LocalTime = {{2000,1,15},{12,0,0}},
+              LocalSecs = calendar:local_time_to_system_time(LocalTime),
+              ExpectedLocal = LocalSecs * Unit,
+              ExpectedLocal = calendar:local_time_to_system_time(LocalTime, [{unit, Unit}])
+      end, [1, 1000, 1024, 1 bsl 64]),
     ok.
 
 rfc3339(Config) when is_list(Config) ->
