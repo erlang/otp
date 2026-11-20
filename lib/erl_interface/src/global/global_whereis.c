@@ -39,7 +39,7 @@ int ei_global_whereis(ei_cnode *ec, int fd, const char *name, erlang_pid* pid, c
 {
   char buf[EISMALLBUF];
   char *bufp=buf;
-  char tmpbuf[64];
+  char tmpbuf[MAXATOMLEN];
   int index = 0;
   erlang_pid *self = ei_self(ec);
   erlang_pid epid;
