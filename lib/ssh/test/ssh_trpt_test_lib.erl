@@ -652,6 +652,12 @@ set_prefix_if_trouble(Msg = <<?BYTE(Op),_/binary>>, #s{alg=#alg{kex=Kex}})
             <<"mlkem768nistp256",Msg/binary>>;
         "mlkem1024nistp384" ++ _ ->
             <<"mlkem1024nistp384",Msg/binary>>;
+        "mlkem512-sha256" ->
+            <<"kem512",Msg/binary>>;
+        "mlkem768-sha256" ->
+            <<"kem768",Msg/binary>>;
+        "mlkem1024-sha384" ->
+            <<"kem1024",Msg/binary>>;
         _ ->
             Msg
     end;
@@ -915,4 +921,3 @@ maybe_reset_alg_neg_and_guess_sent(#s{ssh = #ssh{send_mac = none}} = S) ->
     S;
 maybe_reset_alg_neg_and_guess_sent(S) ->
     S#s{alg_neg = {undefined, undefined}, guess_sent = false}.
-
