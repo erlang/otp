@@ -61,7 +61,9 @@
          client_restarts/1,
          client_restarts_multiple_acceptors/1,
          sockname/0,
-         sockname/1
+         sockname/1,
+         lost_hello_verify_request/0,
+         lost_hello_verify_request/1
         ]).
 
 -include("ssl_test_lib.hrl").
@@ -98,7 +100,8 @@ api_tests() ->
      dtls_listen_two_sockets_6,
      client_restarts,
      client_restarts_multiple_acceptors,
-     sockname
+     sockname,
+     lost_hello_verify_request
     ].
 
 init_per_suite(Config0) ->
@@ -435,8 +438,10 @@ client_restarts(Config) ->
                                          {from, self()},
                                          {options, ClientOpts}]),
 
-    ssl_test_lib:send(Client0, Msg1 = "from client 0"),
-    ssl_test_lib:send(Server, Msg2 = "from server to client 0"),
+    Msg1 = "from client 0",
+    Msg2 = "from server to client 0",
+    ssl_test_lib:send(Client0, Msg1),
+    ssl_test_lib:send(Server, Msg2),
 
     Server ! {active_receive, Msg1},
     Client0 ! {active_receive, Msg2},
@@ -520,8 +525,10 @@ client_restarts_multiple_acceptors(Config) ->
               after 5000 -> ct:fail(msg_timeout)
               end,
 
-    ssl_test_lib:send(Client0, Msg1 = "from client 0"),
-    ssl_test_lib:send(Server, Msg2 = "from server to client 0"),
+    Msg1 = "from client 0",
+    Msg2 = "from server to client 0",
+    ssl_test_lib:send(Client0, Msg1),
+    ssl_test_lib:send(Server, Msg2),
 
     Server ! {active_receive, Msg1},
     Client0 ! {active_receive, Msg2},
@@ -557,8 +564,10 @@ client_restarts_multiple_acceptors(Config) ->
             ct:fail({wrong_msg, ErrMsg})
     end,
 
-    ok = ssl_test_lib:send(Client0, Msg3 = "from client 2"),
-    ok = ssl_test_lib:send(Server2, Msg4 = "from server 2 to client 2"),
+    Msg3 = "from client 2",
+    Msg4 = "from server 2 to client 2",
+    ok = ssl_test_lib:send(Client0, Msg3),
+    ok = ssl_test_lib:send(Server2, Msg4),
     {error, closed} = ssl_test_lib:send(Server,  "Should be closed"),
 
     Msgs2 = lists:sort([{Server2, Msg3}, {Client0, Msg4}]),
@@ -604,10 +613,57 @@ sockname(Config) when is_list(Config) ->
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
+lost_hello_verify_request() ->
+    [{doc,"The server starts no retransmission timer after HelloVerifyRequest "
+      "(RFC 6347 4.2.1). If it is lost, the server must resend it when the client "
+      "retransmits its first ClientHello, or the handshake hangs."}].
+lost_hello_verify_request(Config) when is_list(Config) ->
+    ClientOpts = ssl_test_lib:ssl_options(client_rsa_opts, Config),
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    {ok, Listen} = ssl:listen(0, [{protocol, dtls} | ServerOpts]),
+    {ok, {_, ServerPort}} = ssl:sockname(Listen),
+    Self = self(),
+    spawn_link(fun() ->
+                       {ok, ASocket} = ssl:transport_accept(Listen, 8000),
+                       Self ! {server, ssl:handshake(ASocket, 8000)}
+               end),
+    %% UDP proxy that drops the first datagram from the server,
+    %% that is the HelloVerifyRequest.
+    {ok, ProxySocket} = gen_udp:open(0, [binary, {active, true}, {ip, loopback}]),
+    {ok, ProxyPort} = inet:port(ProxySocket),
+    Proxy = spawn_link(fun() -> udp_proxy(ProxySocket, ServerPort, undefined, 1) end),
+    ok = gen_udp:controlling_process(ProxySocket, Proxy),
+    %% The client retransmits its ClientHello after about one second
+    {ok, Client} = ssl:connect({127,0,0,1}, ProxyPort,
+                               [{verify, verify_none} | ClientOpts], 8000),
+    receive
+        {server, {ok, Server}} ->
+            ssl:close(Server)
+    after 8000 ->
+            ct:fail(server_handshake_hangs)
+    end,
+    ssl:close(Client),
+    unlink(Proxy),
+    exit(Proxy, kill),
+    ssl:close(Listen).
+
 
 %%--------------------------------------------------------------------
 %% Internal functions ------------------------------------------------
 %%--------------------------------------------------------------------
+
+udp_proxy(Socket, ServerPort, Client, Drop) ->
+    receive
+        {udp, Socket, _, ServerPort, _Data} when Drop > 0 ->
+            udp_proxy(Socket, ServerPort, Client, Drop - 1);
+        {udp, Socket, _, ServerPort, Data} ->
+            {IP, Port} = Client,
+            ok = gen_udp:send(Socket, IP, Port, Data),
+            udp_proxy(Socket, ServerPort, Client, Drop);
+        {udp, Socket, IP, Port, Data} ->
+            ok = gen_udp:send(Socket, {127,0,0,1}, ServerPort, Data),
+            udp_proxy(Socket, ServerPort, {IP, Port}, Drop)
+    end.
 
 %% Helper function for init_per_testcase.
 test_listen_on_all_interfaces(S0, Config) ->
