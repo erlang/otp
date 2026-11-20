@@ -415,6 +415,41 @@ if test X"$with_ets_write_concurrency_locks" != X""; then
 		      [Define to override the default number of write_concurrency locks])
 fi
 
+AC_ARG_WITH(ets-prefetch-distance,
+AS_HELP_STRING([--with-ets-prefetch-distance=N],
+               [specify how many buckets ahead full-table traversals of ets hash tables prefetch. 0 disables prefetching.])
+AS_HELP_STRING([--without-ets-prefetch-distance],
+               [disable prefetching in full-table traversals of ets hash tables]))
+
+case "$with_ets_prefetch_distance" in
+    ""|yes)
+        ;;
+    no)
+        AC_DEFINE(ERTS_DB_HASH_PREFETCH_DISTANCE, 0,
+                  [Define to override the default ets hash traversal prefetch distance])
+        ;;
+    *)
+        AC_DEFINE_UNQUOTED(ERTS_DB_HASH_PREFETCH_DISTANCE,$with_ets_prefetch_distance,
+                  [Define to override the default ets hash traversal prefetch distance])
+        ;;
+esac
+
+AC_ARG_WITH(ets-prefetch-min-slots,
+AS_HELP_STRING([--with-ets-prefetch-min-slots=N],
+               [specify the minimum active slots for ets hash traversal prefetching (default: 6144). 0 removes the size gate.]),
+[case "$with_ets_prefetch_min_slots" in
+    ""|*[[!0-9]]*)
+        AC_MSG_ERROR([--with-ets-prefetch-min-slots requires a non-negative integer])
+        ;;
+    *)
+        # Avoid treating values with leading zeroes as octal in C.
+        with_ets_prefetch_min_slots=`echo "$with_ets_prefetch_min_slots" | sed 's/^0*//'`
+        test -n "$with_ets_prefetch_min_slots" || with_ets_prefetch_min_slots=0
+        AC_DEFINE_UNQUOTED(ERTS_DB_HASH_PREFETCH_MIN_SLOTS,$with_ets_prefetch_min_slots,
+                  [Define to override the minimum active slots for ets hash traversal prefetching])
+        ;;
+esac])
+
 AC_ARG_WITH(spectre-mitigation,
     AS_HELP_STRING([--with-spectre-mitigation={yes|incomplete}],
                    [enable spectre mitigation, either fully or with mitigations

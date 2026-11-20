@@ -54,6 +54,14 @@ typedef struct hash_db_term {
 #define DB_HASH_LOCK_CNT 64
 #endif
 
+/* Buckets ahead, in traversal order, that full-table traversals prefetch.
+ * 0 disables prefetching. */
+#ifdef ERTS_DB_HASH_PREFETCH_DISTANCE
+#define DB_HASH_PREFETCH_DISTANCE ERTS_DB_HASH_PREFETCH_DISTANCE
+#else
+#define DB_HASH_PREFETCH_DISTANCE 8
+#endif
+
 typedef struct DbTableHashLockAndCounter {
     erts_atomic_t nitems;
     Sint lck_stat;
