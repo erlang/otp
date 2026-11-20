@@ -48,19 +48,20 @@
          recompose_fragment/1, recompose_parse_fragment/1,
          recompose_query/1, recompose_parse_query/1,
          recompose_path/1, recompose_parse_path/1,
-         recompose_autogen/1, parse_recompose_autogen/1,
+         recompose_autogen/1, parse_recompose_autogen/1, recompose_negative/1,
          resolve_normal_examples/1, resolve_abnormal_examples/1,
-         resolve_base_uri/1, resolve_return_map/1,
+         resolve_base_uri/1, resolve_return_map/1, resolve_negative/1,
          transcode_basic/1, transcode_options/1, transcode_mixed/1, transcode_negative/1,
          compose_query/1, compose_query_latin1/1, compose_query_negative/1,
          compose_query_negative_unicode_guard/1,
          dissect_query/1, dissect_query_negative/1,
+         percent_decode_negative/1, unquote_negative/1,
          interop_query_latin1/1, interop_query_utf8/1,
          regression_parse/1, regression_recompose/1, regression_normalize/1,
          recompose_host_relative_path/1,
          recompose_host_absolute_path/1,
          doctests/1,
-         quote/1
+         quote/1, quote_negative/1
         ]).
 
 
@@ -136,10 +137,12 @@ all() ->
      recompose_parse_path,
      recompose_autogen,
      parse_recompose_autogen,
+     recompose_negative,
      resolve_normal_examples,
      resolve_abnormal_examples,
      resolve_base_uri,
      resolve_return_map,
+     resolve_negative,
      transcode_basic,
      transcode_options,
      transcode_mixed,
@@ -150,6 +153,8 @@ all() ->
      compose_query_negative_unicode_guard,
      dissect_query,
      dissect_query_negative,
+     percent_decode_negative,
+     unquote_negative,
      interop_query_latin1,
      interop_query_utf8,
      regression_parse,
@@ -158,7 +163,8 @@ all() ->
      recompose_host_relative_path,
      recompose_host_absolute_path,
      doctests,
-     quote
+     quote,
+     quote_negative
     ].
 
 groups() ->
@@ -756,6 +762,18 @@ parse_special2(_Config) ->
     #{host := "localhost",path := "/",port := undefined} = uri_string:parse("//localhost:/"),
     #{host := [],path := [],port := undefined} = uri_string:parse("//:").
 
+regression_parse(_Config) ->
+    #{host := "Bar",path := [],scheme := "FOo"} =
+        uri_string:parse("FOo://Bar"),
+    #{host := "bar",path := [],scheme := "foo"} =
+        uri_string:parse("foo://bar"),
+    #{host := "A%2f",path := "/%62ar",scheme := "foo"} =
+        uri_string:parse("foo://A%2f/%62ar"),
+    #{host := "a%2F",path := "/bar",scheme := "foo"} =
+        uri_string:parse("foo://a%2F/bar"),
+    #{host := "%C3%B6",path := [],scheme := "FOo"} =
+        uri_string:parse("FOo://%C3%B6").
+
 parse_negative(_Config) ->
     {error,invalid_uri,"å"} = uri_string:parse("å"),
     {error,invalid_uri,"å"} = uri_string:parse("aå:/foo"),
@@ -767,7 +785,8 @@ parse_negative(_Config) ->
     %% GH-7862: error should pinpoint the offending byte, not a cascade-
     %% failure character from a fallback re-parse attempt.
     {error,invalid_uri,"|"} = uri_string:parse("http://localhost/A|B"),
-    {error,invalid_uri,"<"} = uri_string:parse("http://localhost/A<B").
+    {error,invalid_uri,"<"} = uri_string:parse("http://localhost/A<B"),
+    {error,invalid_input,<<255>>} = uri_string:parse([<<255>>]).
 
 
 %%-------------------------------------------------------------------------
@@ -855,6 +874,24 @@ parse_recompose_autogen(_Config) ->
     Tests = generate_test_vectors(uri_combinations()),
     lists:map(fun run_test_parse_recompose/1, Tests).
 
+regression_recompose(_Config) ->
+    "FOo://Bar" =
+        uri_string:recompose(#{host => "Bar",path => [],scheme => "FOo"}),
+    "foo://bar" =
+        uri_string:recompose(#{host => "bar",path => [],scheme => "foo"}),
+    "foo://A%2f/%62ar" =
+        uri_string:recompose(#{host => "A%2f",path => "/%62ar",scheme => "foo"}),
+    "foo://a%2F/bar" =
+        uri_string:recompose(#{host => "a%2F",path => "/bar",scheme => "foo"}),
+    "FOo://%C3%B6" =
+        uri_string:recompose(#{host => "%C3%B6",path => [],scheme => "FOo"}),
+    "FOo://%C3%B6" =
+        uri_string:recompose(#{host => "ö",path => [],scheme => "FOo"}).
+
+%%-------------------------------------------------------------------------
+%% Resolve tests
+%%-------------------------------------------------------------------------
+
 resolve_normal_examples(_Config) ->
     BaseURI = <<"http://a/b/c/d;p?q">>,
     <<"g:h">> = uri_string:resolve(<<"g:h">>, BaseURI),
@@ -917,6 +954,29 @@ resolve_return_map(_Config) ->
     #{scheme := <<"http">>,host := <<"a">>,path := <<"/b/c/g">>} =
         uri_string:resolve(<<"g">>, BaseURI, [return_map]).
 
+resolve_negative(_Config) ->
+    {error,invalid_uri,"|"} =
+        uri_string:resolve("http://localhost/A|B", "http://localhost"),
+    {error,invalid_scheme,[]} =
+        uri_string:resolve("relative", #{path => "/base"}),
+    {error,invalid_uri,"|"} =
+        uri_string:resolve("relative", "http://localhost/A|B"),
+    {error,invalid_uri,"|"} =
+        uri_string:resolve(<<"http://localhost/A|B">>,
+                           <<"http://localhost">>, [return_map]),
+    {error,invalid_scheme,<<>>} =
+        uri_string:resolve(#{scheme => <<>>, path => <<>>},
+                           [<<"http://local">>, "host"]),
+    {error,invalid_input,<<255>>} =
+        uri_string:resolve(#{scheme => "http", path => [<<255>>]},
+                           "http://localhost"),
+    {error,invalid_input,<<255>>} =
+        uri_string:resolve("relative", [<<255>>]).
+
+%%-------------------------------------------------------------------------
+%% Transcode tests
+%%-------------------------------------------------------------------------
+
 transcode_basic(_Config) ->
     <<"foo%C3%B6bar"/utf8>> =
         uri_string:transcode(<<"foo%00%00%00%F6bar"/utf32>>, [{in_encoding, utf32},{out_encoding, utf8}]),
@@ -949,7 +1009,16 @@ transcode_negative(_Config) ->
     {error,invalid_percent_encoding,"%BXbar"} =
         uri_string:transcode(<<"foo%C3%BXbar"/utf8>>, [{in_encoding, utf8},{out_encoding, utf32}]),
     {error,invalid_input,<<"ö">>} =
-        uri_string:transcode("foo%F6bar", [{in_encoding, utf8},{out_encoding, utf8}]).
+        uri_string:transcode("foo%F6bar", [{in_encoding, utf8},{out_encoding, utf8}]),
+    {error,invalid_percent_encoding,"%BXbar"} =
+        uri_string:transcode("foo%C3%BXbar", [{out_encoding, utf32}]),
+    {error,invalid_percent_encoding,"%BXbar"} =
+        uri_string:transcode(["foo%C3", <<"%BXbar">>], [{out_encoding, utf32}]),
+    {error,invalid_input,[<<255>>]} = uri_string:transcode([<<255>>], []).
+
+%%-------------------------------------------------------------------------
+%% Compose query tests
+%%-------------------------------------------------------------------------
 
 compose_query(_Config) ->
     [] = uri_string:compose_query([]),
@@ -991,6 +1060,10 @@ compose_query_negative_unicode_guard(_Config) ->
     {error,invalid_input,42} =
         uri_string:compose_query([{42,"v"}], [{encoding,unicode}]).
 
+%%-------------------------------------------------------------------------
+%% Dissect query tests
+%%-------------------------------------------------------------------------
+
 dissect_query(_Config) ->
     [] = uri_string:dissect_query(""),
     [{"foo","1"}, {"amp;bar", "2"}] = uri_string:dissect_query("foo=1&amp;bar=2"),
@@ -1022,6 +1095,10 @@ dissect_query_negative(_Config) ->
     {error,invalid_character,"ö"} = uri_string:dissect_query(<<"föo+bar=1&%C3%B6=2">>),
     {error,invalid_input,<<"ö">>} =
         uri_string:dissect_query([<<"foo+bar=1&amp;">>,<<"%C3%B6=2ö">>]).
+
+%%-------------------------------------------------------------------------
+%% Normalize tests
+%%-------------------------------------------------------------------------
 
 normalize(_Config) ->
     "/a/g" = uri_string:normalize("/a/b/c/./../../g"),
@@ -1116,18 +1193,6 @@ normalize_return_map(_Config) ->
           uri_string:normalize(
             #{scheme => <<"https">>,port => 443,path => <<>>,
               host => <<"localhost">>}, [return_map])).
-
-normalize_negative(_Config) ->
-    {error,invalid_uri,">"} =
-        uri_string:normalize("http://local>host"),
-    {error,invalid_uri,">"} =
-        uri_string:normalize(<<"http://local>host">>),
-    {error,invalid_uri,"192.168.0.1"} =
-        uri_string:normalize("http://[192.168.0.1]", [return_map]),
-    {error,invalid_uri,"192.168.0.1"} =
-        uri_string:normalize(<<"http://[192.168.0.1]">>, [return_map]),
-    {error,invalid_utf8,<<47,47,0,0,0,246>>} =
-        uri_string:percent_decode(uri_string:normalize("//%00%00%00%F6")).
 
 normalize_binary_pct_encoded_userinfo(_Config) ->
     #{scheme := <<"user">>, path := <<"合@気道"/utf8>>} =
@@ -1263,45 +1328,6 @@ normalize_pct_encoded_negative(_Config) ->
         uri_string:percent_decode(
           uri_string:normalize("//%00%00%00%F6", [])).
 
-interop_query_utf8(_Config) ->
-    Q = uri_string:compose_query([{"foo bar","1"}, {"合", "2"}]),
-    Uri = uri_string:recompose(#{path => "/", query => Q}),
-    #{query := Q1} = uri_string:parse(Uri),
-    [{"foo bar","1"}, {"合", "2"}] = uri_string:dissect_query(Q1).
-
-interop_query_latin1(_Config) ->
-    Q = uri_string:compose_query([{"foo bar","1"}, {"合", "2"}], [{encoding,latin1}]),
-    Uri = uri_string:recompose(#{path => "/", query => Q}),
-    Uri1 = uri_string:transcode(Uri, [{in_encoding, latin1}]),
-    #{query := Q1} = uri_string:parse(Uri1),
-    [{"foo bar","1"}, {"合", "2"}] = uri_string:dissect_query(Q1).
-
-regression_parse(_Config) ->
-    #{host := "Bar",path := [],scheme := "FOo"} =
-        uri_string:parse("FOo://Bar"),
-    #{host := "bar",path := [],scheme := "foo"} =
-        uri_string:parse("foo://bar"),
-    #{host := "A%2f",path := "/%62ar",scheme := "foo"} =
-        uri_string:parse("foo://A%2f/%62ar"),
-    #{host := "a%2F",path := "/bar",scheme := "foo"} =
-        uri_string:parse("foo://a%2F/bar"),
-    #{host := "%C3%B6",path := [],scheme := "FOo"} =
-        uri_string:parse("FOo://%C3%B6").
-
-regression_recompose(_Config) ->
-    "FOo://Bar" =
-        uri_string:recompose(#{host => "Bar",path => [],scheme => "FOo"}),
-    "foo://bar" =
-        uri_string:recompose(#{host => "bar",path => [],scheme => "foo"}),
-    "foo://A%2f/%62ar" =
-        uri_string:recompose(#{host => "A%2f",path => "/%62ar",scheme => "foo"}),
-    "foo://a%2F/bar" =
-        uri_string:recompose(#{host => "a%2F",path => "/bar",scheme => "foo"}),
-    "FOo://%C3%B6" =
-        uri_string:recompose(#{host => "%C3%B6",path => [],scheme => "FOo"}),
-    "FOo://%C3%B6" =
-        uri_string:recompose(#{host => "ö",path => [],scheme => "FOo"}).
-
 regression_normalize(_Config) ->
     "foo://bar" =
         uri_string:normalize("FOo://Bar"),
@@ -1361,6 +1387,51 @@ regression_normalize(_Config) ->
     #{host := "ö",path := [],scheme := "foo"} =
         uri_string:normalize(#{host => "ö",path => [],scheme => "FOo"}, [return_map]).
 
+normalize_negative(_Config) ->
+    {error,invalid_uri,">"} =
+        uri_string:normalize("http://local>host"),
+    {error,invalid_uri,">"} =
+        uri_string:normalize(<<"http://local>host">>),
+    {error,invalid_uri,"192.168.0.1"} =
+        uri_string:normalize("http://[192.168.0.1]", [return_map]),
+    {error,invalid_uri,"192.168.0.1"} =
+        uri_string:normalize(<<"http://[192.168.0.1]">>, [return_map]),
+    {error,invalid_utf8,<<47,47,0,0,0,246>>} =
+        uri_string:percent_decode(uri_string:normalize("//%00%00%00%F6")),
+    {error,invalid_percent_encoding,<<"%XY">>} =
+        uri_string:normalize(#{path => "%XY"}),
+    {error,invalid_percent_encoding,<<"%XY">>} =
+        uri_string:normalize(#{path => "%XY"}, [return_map]),
+    {error,invalid_percent_encoding,<<"%XY">>} =
+        uri_string:normalize("%XY"),
+    {error,invalid_percent_encoding,<<"%XY">>} =
+        uri_string:normalize([<<"%X">>, "Y"]),
+    {error,invalid_percent_encoding,<<"%XY">>} =
+        uri_string:normalize("%XY", [return_map]),
+    {error,invalid_percent_encoding,<<"%XY">>} =
+        uri_string:normalize(<<"%XY">>, [return_map]),
+    {error,invalid_input,<<255>>} =
+        uri_string:normalize(#{path => [<<255>>]}).
+
+%%-------------------------------------------------------------------------
+%% Interop tests
+%%-------------------------------------------------------------------------
+
+interop_query_utf8(_Config) ->
+    Q = uri_string:compose_query([{"foo bar","1"}, {"合", "2"}]),
+    Uri = uri_string:recompose(#{path => "/", query => Q}),
+    #{query := Q1} = uri_string:parse(Uri),
+    [{"foo bar","1"}, {"合", "2"}] = uri_string:dissect_query(Q1).
+
+interop_query_latin1(_Config) ->
+    Q = uri_string:compose_query([{"foo bar","1"}, {"合", "2"}], [{encoding,latin1}]),
+    Uri = uri_string:recompose(#{path => "/", query => Q}),
+    Uri1 = uri_string:transcode(Uri, [{in_encoding, latin1}]),
+    #{query := Q1} = uri_string:parse(Uri1),
+    [{"foo bar","1"}, {"合", "2"}] = uri_string:dissect_query(Q1).
+
+
+
 recompose_host_relative_path(_Config) ->
     "//example.com/.foo" =
         uri_string:recompose(#{host => "example.com", path => ".foo"}),
@@ -1383,15 +1454,16 @@ recompose_host_absolute_path(_Config) ->
                                path => [<<"/f">>,<<"oo">>]}),
     ok.
 
-%%-------------------------------------------------------------------------
-%% Doctest tests
-%%-------------------------------------------------------------------------
-doctests(Config) ->
-    Path = filename:join(proplists:get_value(data_dir, Config),
-    "uri_string_usage.md"),
-    ok = ct_doctest:file(Path),
-    ok = ct_doctest:module(uri_string, [{skipped_blocks, 0},
-                                        {missing_tests, [{allowed_characters, 0}]}]).
+recompose_negative(_Config) ->
+    {error,invalid_map,#{}} = uri_string:recompose(#{}),
+    {error,invalid_scheme,[]} =
+        uri_string:recompose(#{scheme => "", path => ""}),
+    {error,invalid_scheme,<<>>} =
+        uri_string:recompose(#{scheme => <<>>, path => <<>>}),
+    {error,invalid_scheme,[<<"invalid">>, ":"]} =
+        uri_string:recompose(#{scheme => [<<"invalid">>, ":"], path => <<>>}),
+    {error,invalid_input,<<255>>} =
+        uri_string:recompose(#{path => [<<255>>]}).
 
 %%-------------------------------------------------------------------------
 %% Quote tests
@@ -1465,6 +1537,11 @@ quote(_Config) ->
                                           "%")}),
     ok.
 
+quote_negative(_Config) ->
+    {error,invalid_input,<<255>>} = uri_string:quote([<<255>>]),
+    {error,invalid_input,<<255>>} = uri_string:quote(<<255>>),
+    {error,invalid_input,<<255>>} = uri_string:quote(<<255>>, []).
+
 get_quote_data() ->
     [%% reserved/gen-delims
      #{unquoted => ":", quoted => "%3A", unquoted_b =><<":">>, quoted_b=> <<"%3A">>},
@@ -1508,3 +1585,41 @@ get_quote_data() ->
      #{unquoted => "_", quoted => "_", unquoted_b =><<"_">>, quoted_b=> <<"_">>},
      #{unquoted => "~", quoted => "~", unquoted_b =><<"~">>, quoted_b=> <<"~">>}
     ].
+
+unquote_negative(_Config) ->
+    {error,invalid_input,<<255>>} = uri_string:unquote([<<255>>]),
+    {error,invalid_percent_encoding,<<"%XY">>} = uri_string:unquote("%XY"),
+    {error,invalid_percent_encoding,<<"%XY">>} = uri_string:unquote(<<"%XY">>),
+    {error,invalid_utf8,<<255>>} = uri_string:unquote("%FF"),
+    {error,invalid_utf8,<<255>>} = uri_string:unquote(<<"%FF">>).
+
+%%-------------------------------------------------------------------------
+%% Error tests
+%%-------------------------------------------------------------------------
+
+percent_decode_negative(_Config) ->
+    {error,invalid_input,<<255>>} = uri_string:percent_decode([<<255>>]),
+    {error,invalid_percent_encoding,<<"%XY">>} =
+        uri_string:percent_decode("%XY"),
+    {error,invalid_percent_encoding,<<"%XY">>} =
+        uri_string:percent_decode([<<"%X">>, "Y"]),
+    {error,invalid_percent_encoding,<<"%XY">>} =
+        uri_string:percent_decode(<<"%XY">>),
+    {error,invalid_utf8,<<255>>} = uri_string:percent_decode("%FF"),
+    {error,invalid_utf8,<<255>>} = uri_string:percent_decode(<<"%FF">>),
+    {error,{invalid,{path,{invalid_percent_encoding,<<"%XY">>}}}} =
+        uri_string:percent_decode(#{path => "%XY"}),
+    {error,{invalid,{path,{invalid_percent_encoding,<<"%XY">>}}}} =
+        uri_string:percent_decode(#{path => [<<"%X">>, "Y"]}),
+    {error,{invalid,{path,{invalid_utf8,<<255>>}}}} =
+        uri_string:percent_decode(#{path => <<"%FF">>}).
+
+%%-------------------------------------------------------------------------
+%% Doctest tests
+%%-------------------------------------------------------------------------
+doctests(Config) ->
+    Path = filename:join(proplists:get_value(data_dir, Config),
+    "uri_string_usage.md"),
+    ok = ct_doctest:file(Path),
+    ok = ct_doctest:module(uri_string, [{skipped_blocks, 0},
+                                        {missing_tests, [{allowed_characters, 0}]}]).
