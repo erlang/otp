@@ -896,7 +896,8 @@ static int db_put_dbterm_tree(DbTable* tbl, /* [in out] */
 }
 
 int db_put_tree_common(DbTableCommon *tb, TreeDbTerm **root, Eterm obj,
-                       bool key_clash_fail, DbTableTree *stack_container)
+                       bool key_clash_fail, DbTableTree *stack_container,
+                       SWord *consumed_reds_p)
 {
     /* Non recursive insertion in AVL tree, building our own stack */
     TreeDbTerm **tstack[STACK_NEED];
@@ -938,6 +939,8 @@ int db_put_tree_common(DbTableCommon *tb, TreeDbTerm **root, Eterm obj,
 	} else {
 	    return DB_ERROR_BADKEY; /* key already exists */
 	}
+
+    *consumed_reds_p += db_insert_copy_iterations((*this)->dbterm.size);
 
     while (state && ( dir = dstack[--dpos] ) != DIR_END) {
 	this = tstack[--tpos];
@@ -1013,7 +1016,8 @@ static int db_put_tree(DbTable *tbl, Eterm obj, bool key_clash_fail,
                        SWord *consumed_reds_p)
 {
     DbTableTree *tb = &tbl->tree;
-    return db_put_tree_common(&tb->common, &tb->root, obj, key_clash_fail, tb);
+    return db_put_tree_common(&tb->common, &tb->root, obj, key_clash_fail,
+                              tb, consumed_reds_p);
 }
 
 int db_get_tree_common(Process *p, DbTableCommon *tb, TreeDbTerm *root, Eterm key,
@@ -3504,6 +3508,8 @@ bool db_lookup_dbterm_tree_common(Process *p, DbTable *tbl, TreeDbTerm **root,
             Eterm *objp = tuple_val(obj);
             int arity = arityval(*objp);
             Eterm *htop, *hend;
+            SWord consumed_reds = 0;
+            int cret;
 
             ASSERT(arity >= tbl->common.keypos);
             htop = HAlloc(p, arity + 1);
@@ -3512,8 +3518,10 @@ bool db_lookup_dbterm_tree_common(Process *p, DbTable *tbl, TreeDbTerm **root,
             htop[tbl->common.keypos] = key;
             obj = make_tuple(htop);
 
-            if (db_put_tree_common(&tbl->common, root,
-                                   obj, 1, stack_container) != DB_ERROR_NONE) {
+            cret = db_put_tree_common(&tbl->common, root, obj, 1,
+                                      stack_container, &consumed_reds);
+            BUMP_REDS(p, consumed_reds / DB_INSERT_ITERATIONS_PER_RED);
+            if (cret != DB_ERROR_NONE) {
                 return 0;
             }
 
@@ -3609,11 +3617,13 @@ Eterm db_binary_info_tree_common(Process* p, TreeDbTerm* this)
 }
 
 
-void* db_eterm_to_dbterm_tree_common(bool compress, int keypos, Eterm obj)
+void* db_eterm_to_dbterm_tree_common(bool compress, int keypos, Eterm obj,
+                                    SWord *copy_iterations_p)
 {
     TreeDbTerm* term = new_dbterm_no_tab(compress, keypos, obj);
     term->left = NULL;
     term->right = NULL;
+    *copy_iterations_p = db_insert_copy_iterations(term->dbterm.size);
     return term;
 }
 
