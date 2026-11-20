@@ -147,6 +147,10 @@
          pkix_extensionreq/1,
          pkix_path_validation_bad_date/0,
          pkix_path_validation_bad_date/1,
+         pkix_ip_subject_alt_name_critical/0,
+         pkix_ip_subject_alt_name_critical/1,
+         pkix_ip_name_constraints/0,
+         pkix_ip_name_constraints/1,
          pkix_verify_hostname_cn/1,
          pkix_verify_hostname_subjAltName/1,
          pkix_verify_hostname_options/1,
@@ -237,6 +241,8 @@ all() ->
      pkix_ext_key_usage,
      pkix_ext_key_usage_any,
      pkix_path_validation_bad_date,
+     pkix_ip_subject_alt_name_critical,
+     pkix_ip_name_constraints,
      pkix_iso_rsa_oid,
      pkix_iso_dsa_oid,
      pkix_rsa_md2_oid,
@@ -1785,6 +1791,83 @@ pkix_cmp(Config) when is_list(Config) ->
     #'PKIMessage'{} = public_key:der_decode('PKIMessage', Der),
 
     ok.
+
+%%--------------------------------------------------------------------
+pkix_ip_subject_alt_name_critical() ->
+    [{doc, "A critical subjectAltName holding an iPAddress is validated "
+      "without crashing"}].
+pkix_ip_subject_alt_name_critical(Config) when is_list(Config) ->
+    %% Well-formed IPv4/IPv6 accepted; a bad length rejected, not crash.
+    {ok, _} = ip_critical_san_validate(<<10,1,2,3>>),
+    {ok, _} = ip_critical_san_validate(<<16#2001:16,16#db8:16,0:88,1>>),
+    {error, {bad_cert, unknown_critical_extension}} =
+        ip_critical_san_validate(<<10,1,2>>),
+    ok.
+
+ip_critical_san_validate(Address) ->
+    Key = [{key, hardcode_rsa_key(1)}],
+    SubjAltName = #'Extension'{extnID = ?'id-ce-subjectAltName', critical = true,
+                               extnValue = [{iPAddress, Address}]},
+    Data = public_key:pkix_test_data(
+             #{root => Key,
+               intermediates => [],
+               peer => [{extensions, [SubjAltName]} | Key]}),
+    Peer = proplists:get_value(cert, Data),
+    [Root | _] = proplists:get_value(cacerts, Data),
+    public_key:pkix_path_validation(Root, [Peer], []).
+
+%%--------------------------------------------------------------------
+pkix_ip_name_constraints() ->
+    [{doc, "iPAddress name constraints of two intermediate CAs are intersected "
+      "(RFC 5280 6.1.4 (g)), not only accepted when identical"}].
+pkix_ip_name_constraints(Config) when is_list(Config) ->
+    Net8 = ip4_range({10,0,0,0}, 8),
+    Net16 = ip4_range({10,1,0,0}, 16),
+    Other16 = ip4_range({10,2,0,0}, 16),
+    V6Net = <<16#2001:16, 16#db8:16, 0:96, ((1 bsl 32 - 1) bsl 96):128>>,
+    Inside = <<10,1,2,3>>,
+    Outside = <<10,2,0,1>>,
+    %% Nested subnets, in both orders
+    ok = ip_constraints_validate(Net8, Net16, Inside),
+    {error, {bad_cert, name_not_permitted}} = ip_constraints_validate(Net8, Net16, Outside),
+    ok = ip_constraints_validate(Net16, Net8, Inside),
+    {error, {bad_cert, name_not_permitted}} = ip_constraints_validate(Net16, Net8, Outside),
+    %% Identical and disjoint subnets
+    ok = ip_constraints_validate(Net16, Net16, Inside),
+    {error, {bad_cert, name_not_permitted}} = ip_constraints_validate(Net16, Other16, Inside),
+    %% IPv4 constraint followed by an IPv6 constraint permits no IPv4 address
+    {error, {bad_cert, name_not_permitted}} = ip_constraints_validate(Net16, V6Net, Inside),
+    ok.
+
+ip4_range({A,B,C,D}, Prefix) ->
+    Mask = (16#FFFFFFFF bsl (32 - Prefix)) band 16#FFFFFFFF,
+    <<A,B,C,D, Mask:32>>.
+
+%% root -> CA permitting Range1 -> CA permitting Range2 -> peer with IP subjAltName
+ip_constraints_validate(Range1, Range2, Address) ->
+    Key = [{key, hardcode_rsa_key(1)}],
+    NameConstraints =
+        fun(Range) ->
+                #'Extension'{extnID = ?'id-ce-nameConstraints', critical = true,
+                             extnValue = #'NameConstraints'{
+                                            permittedSubtrees =
+                                                [#'GeneralSubtree'{base = {iPAddress, Range}}]}}
+        end,
+    SubjAltName = #'Extension'{extnID = ?'id-ce-subjectAltName', critical = false,
+                               extnValue = [{iPAddress, Address}]},
+    Data = public_key:pkix_test_data(
+             #{root => Key,
+               intermediates => [[{extensions, [NameConstraints(Range1)]} | Key],
+                                 [{extensions, [NameConstraints(Range2)]} | Key]],
+               peer => [{extensions, [SubjAltName]} | Key]}),
+    Peer = proplists:get_value(cert, Data),
+    [Root | _] = CACerts = proplists:get_value(cacerts, Data),
+    %% cacerts holds the root and the intermediates, peer issuer first
+    Chain = lists:reverse([C || C <- CACerts, not public_key:pkix_is_self_signed(C)]),
+    case public_key:pkix_path_validation(Root, Chain ++ [Peer], []) of
+        {ok, _} -> ok;
+        Error -> Error
+    end.
 
 %%--------------------------------------------------------------------
 %% To generate the PEM file contents:
