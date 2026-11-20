@@ -6,19 +6,21 @@
 #ifndef ASMJIT_CORE_COMPILER_H_INCLUDED
 #define ASMJIT_CORE_COMPILER_H_INCLUDED
 
-#include <asmjit/core/api-config.h>
+#include <asmjit/core/build_defs.h>
 #ifndef ASMJIT_NO_COMPILER
 
+#include <asmjit/axl/arena.h>
+#include <asmjit/axl/arena_vector.h>
+#include <asmjit/axl/commons.h>
 #include <asmjit/core/assembler.h>
 #include <asmjit/core/builder.h>
-#include <asmjit/core/constpool.h>
-#include <asmjit/core/compilerdefs.h>
+#include <asmjit/core/const_pool.h>
+#include <asmjit/core/compiler_defs.h>
 #include <asmjit/core/func.h>
+#include <asmjit/core/globals.h>
 #include <asmjit/core/inst.h>
 #include <asmjit/core/operand.h>
-#include <asmjit/support/arena.h>
-#include <asmjit/support/arenavector.h>
-#include <asmjit/support/support.h>
+#include <asmjit/core/pauth.h>
 
 ASMJIT_BEGIN_NAMESPACE
 
@@ -59,9 +61,9 @@ public:
   //! Current function.
   FuncNode* _func;
   //! Stores array of `VirtReg` pointers.
-  ArenaVector<VirtReg*> _virt_regs;
+  axl::ArenaVector<VirtReg*> _virt_regs;
   //! Stores jump annotations.
-  ArenaVector<JumpAnnotation*> _jump_annotations;
+  axl::ArenaVector<JumpAnnotation*> _jump_annotations;
 
   //! Local and global constant pools.
   //!
@@ -86,10 +88,10 @@ public:
   //! \overload
   template<typename PassT, typename... Args>
   [[nodiscard]]
-  ASMJIT_INLINE PassT* new_pass(Args&&... args) noexcept { return _builder_arena.new_oneshot<PassT>(*this, std::forward<Args>(args)...); }
+  ASMJIT_INLINE PassT* new_pass(Args&&... args) noexcept { return _builder_arena.new_oneshot<PassT>(*this, axl::forward<Args>(args)...); }
 
   template<typename T, typename... Args>
-  ASMJIT_INLINE Error add_pass(Args&&... args) { return _add_pass(new_pass<T, Args...>(std::forward<Args>(args)...)); }
+  ASMJIT_INLINE Error add_pass(Args&&... args) { return _add_pass(new_pass<T, Args...>(axl::forward<Args>(args)...)); }
 
   //! \}
 
@@ -147,8 +149,12 @@ public:
 
   //! Creates a new \ref InvokeNode.
   ASMJIT_API Error new_invoke_node(Out<InvokeNode*> out, InstId inst_id, const Operand_& o0, const FuncSignature& signature);
+  //! \overload
+  ASMJIT_API Error new_invoke_node(Out<InvokeNode*> out, InstId inst_id, const Operand_& o0, const FuncSignature& signature, const PAuthInfo& pauth_info);
   //! Creates a new \ref InvokeNode and adds it to the instruction stream.
   ASMJIT_API Error add_invoke_node(Out<InvokeNode*> out, InstId inst_id, const Operand_& o0, const FuncSignature& signature);
+  //! \overload
+  ASMJIT_API Error add_invoke_node(Out<InvokeNode*> out, InstId inst_id, const Operand_& o0, const FuncSignature& signature, const PAuthInfo& pauth_info);
 
   //! \}
 
@@ -191,10 +197,10 @@ public:
       return _new_reg_with_name(Out<Reg>(out.value()), type_id, name_or_fmt);
     }
     else {
-      return _new_reg_with_vfmt(Out<Reg>(out.value()), type_id, name_or_fmt, std::forward<Args>(args)...);
+      return _new_reg_with_vfmt(Out<Reg>(out.value()), type_id, name_or_fmt, axl::forward<Args>(args)...);
     }
 #else
-    Support::maybe_unused(name_or_fmt, std::forward<Args>(args)...);
+    axl::maybe_unused(name_or_fmt, axl::forward<Args>(args)...);
     return _new_reg_with_name(Out<Reg>(out.value()), type_id, nullptr);
 #endif
   }
@@ -211,10 +217,10 @@ public:
       return _new_reg_with_name(Out<Reg>(out.value()), ref, name_or_fmt);
     }
     else {
-      return _new_reg_with_vfmt(Out<Reg>(out.value()), ref, name_or_fmt, std::forward<Args>(args)...);
+      return _new_reg_with_vfmt(Out<Reg>(out.value()), ref, name_or_fmt, axl::forward<Args>(args)...);
     }
 #else
-    Support::maybe_unused(name_or_fmt, std::forward<Args>(args)...);
+    axl::maybe_unused(name_or_fmt, axl::forward<Args>(args)...);
     return _new_reg_with_name(Out<Reg>(out.value()), ref, nullptr);
 #endif
   }
@@ -224,7 +230,7 @@ public:
   template<typename RegT, typename... Args>
   ASMJIT_INLINE_NODEBUG RegT new_reg(TypeId type_id, Args&&... args) {
     RegT reg(Globals::NoInit);
-    (void)_new_reg<RegT>(Out(reg), type_id, std::forward<Args>(args)...);
+    (void)_new_reg<RegT>(Out(reg), type_id, axl::forward<Args>(args)...);
     return reg;
   }
 
@@ -234,7 +240,7 @@ public:
   template<typename RegT, typename... Args>
   ASMJIT_INLINE_NODEBUG RegT new_similar_reg(const RegT& ref, Args&&... args) {
     RegT reg(Globals::NoInit);
-    (void)_new_reg<RegT>(Out(reg), ref, std::forward<Args>(args)...);
+    (void)_new_reg<RegT>(Out(reg), ref, axl::forward<Args>(args)...);
     return reg;
   }
 
@@ -269,9 +275,9 @@ public:
   [[nodiscard]]
   ASMJIT_INLINE_NODEBUG VirtReg* virt_reg_by_index(uint32_t index) const noexcept { return _virt_regs[index]; }
 
-  //! Returns an array of all virtual registers managed by the Compiler.
+  //! Returns an array of all virtual registers managed by the Compiler (const).
   [[nodiscard]]
-  ASMJIT_INLINE_NODEBUG Span<VirtReg*> virt_regs() const noexcept { return _virt_regs.as_span(); }
+  ASMJIT_INLINE_NODEBUG Span<VirtReg*> virt_regs() const noexcept { return _virt_regs.span_mut(); }
 
   //! \name Stack
   //! \{
@@ -314,7 +320,7 @@ public:
   //! \{
 
   [[nodiscard]]
-  ASMJIT_INLINE_NODEBUG Span<JumpAnnotation*> jump_annotations() const noexcept { return _jump_annotations.as_span(); }
+  ASMJIT_INLINE_NODEBUG Span<JumpAnnotation*> jump_annotations() const noexcept { return _jump_annotations.span_mut(); }
 
   ASMJIT_API Error new_jump_node(Out<JumpNode*> out, InstId inst_id, InstOptions inst_options, const Operand_& o0, JumpAnnotation* annotation);
   ASMJIT_API Error emit_annotated_jump(InstId inst_id, const Operand_& o0, JumpAnnotation* annotation);
@@ -354,7 +360,7 @@ public:
   //! Annotation identifier.
   uint32_t _annotation_id;
   //! Vector of label identifiers, see \ref label_ids().
-  ArenaVector<uint32_t> _label_ids;
+  axl::ArenaVector<uint32_t> _label_ids;
 
   //! \}
 
@@ -380,7 +386,7 @@ public:
 
   //! Returns a vector of label identifiers that lists all targets of the jump.
   [[nodiscard]]
-  ASMJIT_INLINE_NODEBUG Span<uint32_t> label_ids() const noexcept { return _label_ids.as_span(); }
+  ASMJIT_INLINE_NODEBUG Span<const uint32_t> label_ids() const noexcept { return _label_ids.span(); }
 
   //! Tests whether the given `label` is a target of this JumpAnnotation.
   [[nodiscard]]
@@ -542,56 +548,51 @@ public:
   //! \{
   //! \name Accessors
 
+  //! Returns function node flags, see \ref FuncNodeFlags.
+  //!
+  //! These flags are currently only used by Builder/Compiler to mark that the emitter is running passes, so AsmJit
+  //! knows whether the passes already executed or whether something failed and passes should not be attempted to
+  //! run again.
+  [[nodiscard]] ASMJIT_INLINE_NODEBUG FuncNodeFlags func_flags() const noexcept { return _func_data._func_node_flags; }
+
   //! Returns function exit `LabelNode`.
-  [[nodiscard]]
-  ASMJIT_INLINE_NODEBUG LabelNode* exit_node() const noexcept { return _exit_node; }
+  [[nodiscard]] ASMJIT_INLINE_NODEBUG LabelNode* exit_node() const noexcept { return _exit_node; }
 
   //! Returns function exit label.
-  [[nodiscard]]
-  ASMJIT_INLINE_NODEBUG Label exit_label() const noexcept { return _exit_node->label(); }
+  [[nodiscard]] ASMJIT_INLINE_NODEBUG Label exit_label() const noexcept { return _exit_node->label(); }
 
   //! Returns "End of Func" sentinel node.
-  [[nodiscard]]
-  ASMJIT_INLINE_NODEBUG SentinelNode* end_node() const noexcept { return _end; }
+  [[nodiscard]] ASMJIT_INLINE_NODEBUG SentinelNode* end_node() const noexcept { return _end; }
 
   //! Returns function detail.
-  [[nodiscard]]
-  ASMJIT_INLINE_NODEBUG FuncDetail& detail() noexcept { return _func_detail; }
+  [[nodiscard]] ASMJIT_INLINE_NODEBUG FuncDetail& detail() noexcept { return _func_detail; }
 
   //! Returns function detail.
-  [[nodiscard]]
-  ASMJIT_INLINE_NODEBUG const FuncDetail& detail() const noexcept { return _func_detail; }
+  [[nodiscard]] ASMJIT_INLINE_NODEBUG const FuncDetail& detail() const noexcept { return _func_detail; }
 
   //! Returns function frame.
-  [[nodiscard]]
-  ASMJIT_INLINE_NODEBUG FuncFrame& frame() noexcept { return _frame; }
+  [[nodiscard]] ASMJIT_INLINE_NODEBUG FuncFrame& frame() noexcept { return _frame; }
 
   //! Returns function frame.
-  [[nodiscard]]
-  ASMJIT_INLINE_NODEBUG const FuncFrame& frame() const noexcept { return _frame; }
+  [[nodiscard]] ASMJIT_INLINE_NODEBUG const FuncFrame& frame() const noexcept { return _frame; }
 
   //! Returns function attributes.
-  [[nodiscard]]
-  ASMJIT_INLINE_NODEBUG FuncAttributes attributes() const noexcept { return _frame.attributes(); }
+  [[nodiscard]] ASMJIT_INLINE_NODEBUG FuncAttributes attributes() const noexcept { return _frame.attributes(); }
 
   //! Adds `attrs` to the function attributes.
   ASMJIT_INLINE_NODEBUG void add_attributes(FuncAttributes attrs) noexcept { _frame.add_attributes(attrs); }
 
   //! Returns arguments count.
-  [[nodiscard]]
-  ASMJIT_INLINE_NODEBUG uint32_t arg_count() const noexcept { return _func_detail.arg_count(); }
+  [[nodiscard]] ASMJIT_INLINE_NODEBUG uint32_t arg_count() const noexcept { return _func_detail.arg_count(); }
 
   //! Returns argument packs.
-  [[nodiscard]]
-  ASMJIT_INLINE_NODEBUG ArgPack* arg_packs() const noexcept { return _args; }
+  [[nodiscard]] ASMJIT_INLINE_NODEBUG ArgPack* arg_packs() const noexcept { return _args; }
 
   //! Tests whether the function has a return value.
-  [[nodiscard]]
-  ASMJIT_INLINE_NODEBUG bool has_ret() const noexcept { return _func_detail.has_ret(); }
+  [[nodiscard]] ASMJIT_INLINE_NODEBUG bool has_ret() const noexcept { return _func_detail.has_ret(); }
 
   //! Returns argument pack at `arg_index`.
-  [[nodiscard]]
-  inline ArgPack& arg_pack(size_t arg_index) const noexcept {
+  [[nodiscard]] inline ArgPack& arg_pack(size_t arg_index) const noexcept {
     ASMJIT_ASSERT(arg_index < arg_count());
     return _args[arg_index];
   }
@@ -693,6 +694,10 @@ public:
 
   //! Function detail.
   FuncDetail _func_detail;
+
+  //! Pointer authentication information.
+  PAuthInfo _pauth_info;
+
   //! Function return value(s).
   OperandPack _rets;
   //! Function arguments.
@@ -704,9 +709,10 @@ public:
   //! \{
 
   //! Creates a new `InvokeNode` instance.
-  inline InvokeNode(InstId inst_id, InstOptions options) noexcept
+  inline InvokeNode(InstId inst_id, InstOptions options, const PAuthInfo& pauth_info) noexcept
     : InstNodeWithOperands(inst_id, options, 0),
       _func_detail(),
+      _pauth_info(pauth_info),
       _args(nullptr) {
     _set_type(NodeType::kInvoke);
     _reset_ops();
@@ -732,6 +738,33 @@ public:
   //! Returns the function detail.
   [[nodiscard]]
   ASMJIT_INLINE_NODEBUG const FuncDetail& detail() const noexcept { return _func_detail; }
+
+  //! Returns the pointer authentication information.
+  //!
+  //! Generally not applicable to relative calls (via Label).
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG PAuthInfo pauth_info() noexcept { return _pauth_info; }
+
+  //! Sets pointer authentication information to `pauth_info`.
+  //!
+  //! Generally not applicable to relative calls (via Label).
+  ASMJIT_INLINE_NODEBUG void set_pauth_info(const PAuthInfo& pauth_info) noexcept { _pauth_info = pauth_info; }
+
+  //! Returns whether the pointer to the function has authentication information and therefore must be authenticated.
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG bool has_authentication() const noexcept { return _pauth_info.has_authentication(); }
+
+  //! Returns the pointer authentication key.
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG PAuthKey pauth_key() const noexcept { return _pauth_info.key(); }
+
+  //! Returns the pointer authentication flags.
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG PAuthFlags pauth_flags() const noexcept { return _pauth_info.flags(); }
+
+  //! Returns the pointer authentication modifier.
+  [[nodiscard]]
+  ASMJIT_INLINE_NODEBUG uint64_t pauth_modifier() const noexcept { return _pauth_info.modifier(); }
 
   //! Returns the target operand.
   [[nodiscard]]
@@ -843,10 +876,10 @@ public:
   //! \{
 
   //! Calls `run_on_function()` on each `FuncNode` node found.
-  ASMJIT_API Error run(Arena& arena, Logger* logger) override;
+  ASMJIT_API Error run(axl::Arena& arena, Logger* logger) override;
 
   //! Called once per `FuncNode`.
-  ASMJIT_API virtual Error run_on_function(Arena& arena, Logger* logger, FuncNode* func);
+  ASMJIT_API virtual Error run_on_function(axl::Arena& arena, Logger* logger, FuncNode* func);
 
   //! \}
 };

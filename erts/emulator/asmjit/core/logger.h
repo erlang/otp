@@ -7,8 +7,8 @@
 #define ASMJIT_CORE_LOGGING_H_INCLUDED
 
 #include <asmjit/core/inst.h>
-#include <asmjit/core/string.h>
 #include <asmjit/core/formatter.h>
+#include <asmjit/core/string.h>
 
 #ifndef ASMJIT_NO_LOGGING
 
@@ -27,7 +27,7 @@ ASMJIT_BEGIN_NAMESPACE
 //!   - \ref StringLogger - concatenates all logs into a \ref String.
 class ASMJIT_VIRTAPI Logger {
 public:
-  ASMJIT_BASE_CLASS(Logger)
+  ASMJIT_OVERRIDE_NEW_DELETE(Logger)
   ASMJIT_NONCOPYABLE(Logger)
 
   //! Format options.

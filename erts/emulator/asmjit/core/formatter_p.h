@@ -6,7 +6,7 @@
 #ifndef ASMJIT_CORE_FORMATTER_P_H_INCLUDED
 #define ASMJIT_CORE_FORMATTER_P_H_INCLUDED
 
-#include <asmjit/core/compilerdefs.h>
+#include <asmjit/core/compiler_defs.h>
 #include <asmjit/core/formatter.h>
 #include <asmjit/core/operand.h>
 

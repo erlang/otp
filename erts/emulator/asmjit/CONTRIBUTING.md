@@ -1,8 +1,3 @@
-<!--
-SPDX-License-Identifier: Zlib
-Copyright (c) 2024-2025 The AsmJit Authors
--->
-
 ## How to Contribute to AsmJit
 
 ### Did you find a bug or something isn't working as expected?
@@ -68,7 +63,7 @@ Copyright (c) 2024-2025 The AsmJit Authors
 
   * Other tests have their own executables based on what is tested.
 
-  * Always add assembler tests when adding new instructions, see [asmjit_test_assembler_x64.cpp](./asmjit-testing/tests/asmjit_test_assembler_x64.cpp) and [asmjit_test_assembler_a64.cpp](./asmjit-testing/tests/asmjit_test_assembler_a64.cpp) for more details.
+  * Always add assembler tests when adding new instructions, see [x86_assembler_64b_test.cpp](./asmjit/x86/x86_assembler_64b_test.cpp) and [a64_assembler_test.cpp](./asmjit/core/a64_assembler_test.cpp) for more details.
 
 ## Pull Request Messages
 
@@ -86,7 +81,7 @@ Copyright (c) 2024-2025 The AsmJit Authors
 
   * ABI changes happen, but they are usually accumulated and committed within a short time window to not break it often. In general we prefer to break ABI once a year, or once 6 months if there is something that has a high priority. There are no hard rules though.
 
-  * AsmJit uses an `inline namespace`, which should make it impossible to link to AsmJit library that is ABI incompatible. When ABI break happens both AsmJit version and ABI namespace are changed, see [asmjit/core/api-config.h](./src/asmjit/core/api-config.h) for more details.
+  * AsmJit uses an `inline namespace`, which should make it impossible to link to AsmJit library that is ABI incompatible. When ABI break happens both AsmJit version and ABI namespace are changed, see [asmjit/build_defs.h](./asmjit/build_defs.h) for more details.
 
   * What is an ABI break?
 

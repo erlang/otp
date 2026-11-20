@@ -167,14 +167,14 @@ void BeamModuleAssembler::emit_bif_is_ge(const ArgSource &LHS,
     bool both_small = always_small(LHS) && always_small(RHS);
 
     if (both_small && LHS.isRegister() && RHS.isImmed() &&
-        Support::is_int_n<32>(RHS.as<ArgImmed>().get())) {
+        Bitwise::fits_signed<32>(RHS.as<ArgImmed>().get())) {
         comment("simplified compare because one operand is an immediate small");
         a.cmp(getArgRef(LHS.as<ArgRegister>()), imm(RHS.as<ArgImmed>().get()));
         emit_cond_to_bool(x86::Inst::kIdCmovl, Dst);
 
         return;
     } else if (both_small && RHS.isRegister() && LHS.isImmed() &&
-               Support::is_int_n<32>(LHS.as<ArgImmed>().get())) {
+               Bitwise::fits_signed<32>(LHS.as<ArgImmed>().get())) {
         comment("simplified compare because one operand is an immediate small");
         a.cmp(getArgRef(RHS.as<ArgRegister>()), imm(LHS.as<ArgImmed>().get()));
         emit_cond_to_bool(x86::Inst::kIdCmovg, Dst);
@@ -425,7 +425,8 @@ void BeamModuleAssembler::emit_bif_element(const ArgLabel &Fail,
 
         if (exact_type<BeamTypeId::Tuple>(Tuple)) {
             comment("skipped tuple test since source is always a tuple");
-            ERTS_CT_ASSERT(Support::is_int_n<32>(make_arityval(MAX_ARITYVAL)));
+            ERTS_CT_ASSERT(
+                    Bitwise::fits_signed<32>(make_arityval(MAX_ARITYVAL)));
             a.cmp(emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)),
                   imm(make_arityval_unchecked(position)));
 
@@ -950,7 +951,7 @@ void BeamModuleAssembler::emit_bif_tuple_size(const ArgWord &Bif,
         mov_arg(RET, Src);
 
         /* Instructions operating on dwords are shorter. */
-        ERTS_CT_ASSERT(Support::is_int_n<32>(make_arityval(MAX_ARITYVAL)));
+        ERTS_CT_ASSERT(Bitwise::fits_signed<32>(make_arityval(MAX_ARITYVAL)));
         x86::Gp boxed_ptr = emit_ptr_val(RET, RET);
         a.mov(RETd, emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)));
 

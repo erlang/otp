@@ -108,6 +108,7 @@ void BeamModuleAssembler::embed_vararg_rodata(const Span<const ArgVal> &args,
     bool inlineData = args.size() <= 6;
 
     Label data = a.new_label(), next = a.new_label();
+    auto section = a.current_section();
 
     if (inlineData) {
         a.adr(reg, data);
@@ -154,7 +155,7 @@ void BeamModuleAssembler::embed_vararg_rodata(const Span<const ArgVal> &args,
     }
 
     if (!inlineData) {
-        a.section(code.text_section());
+        a.section(section);
     }
 
     a.bind(next);

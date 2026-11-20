@@ -6,11 +6,13 @@
 #ifndef ASMJIT_CORE_FUNC_H_INCLUDED
 #define ASMJIT_CORE_FUNC_H_INCLUDED
 
-#include <asmjit/core/archtraits.h>
+#include <asmjit/axl/commons.h>
+#include <asmjit/axl/inplace_array.h>
+#include <asmjit/core/arch_traits.h>
 #include <asmjit/core/environment.h>
+#include <asmjit/core/globals.h>
 #include <asmjit/core/operand.h>
 #include <asmjit/core/type.h>
-#include <asmjit/support/support.h>
 
 ASMJIT_BEGIN_NAMESPACE
 
@@ -134,7 +136,9 @@ enum class CallConvFlags : uint32_t {
   //! MMX registers are passed and returned via XMM registers.
   kPassMmxByXmm = 0x0020u,
   //! Calling convention can be used with variable arguments.
-  kVarArgCompatible = 0x0080u
+  kVarArgCompatible = 0x0080u,
+  //! Enforce pointer authentication.
+  kPtrAuth = 0x0100u
 };
 ASMJIT_DEFINE_ENUM_FLAGS(CallConvFlags)
 
@@ -182,25 +186,23 @@ struct CallConv {
   CallConvFlags _flags;
 
   //! Size to save/restore per register group.
-  Support::Array<uint8_t, Globals::kNumVirtGroups> _save_restore_reg_size;
+  axl::InplaceArray<uint8_t, Globals::kNumVirtGroups> _save_restore_reg_size;
   //! Alignment of save/restore groups.
-  Support::Array<uint8_t, Globals::kNumVirtGroups> _save_restore_alignment;
+  axl::InplaceArray<uint8_t, Globals::kNumVirtGroups> _save_restore_alignment;
 
   //! Mask of all passed registers, per group.
-  Support::Array<RegMask, Globals::kNumVirtGroups> _passed_regs;
+  axl::InplaceArray<RegMask, Globals::kNumVirtGroups> _passed_regs;
   //! Mask of all preserved registers, per group.
-  Support::Array<RegMask, Globals::kNumVirtGroups> _preserved_regs;
+  axl::InplaceArray<RegMask, Globals::kNumVirtGroups> _preserved_regs;
 
-  //! Passed registers' order.
-  union RegOrder {
+  //! Passed registers ordered.
+  struct RegOrder {
     //! Passed registers, ordered.
     uint8_t id[kMaxRegArgsPerGroup];
-    //! Packed IDs in `uint32_t` array.
-    uint32_t packed[(kMaxRegArgsPerGroup + 3) / 4];
   };
 
   //! Passed registers' order, per register group.
-  Support::Array<RegOrder, Globals::kNumVirtGroups> _passed_order;
+  axl::InplaceArray<RegOrder, Globals::kNumVirtGroups> _passed_order;
 
   //! \}
 
@@ -250,7 +252,7 @@ struct CallConv {
 
   //! Tests whether the calling convention has the given `flag` set.
   [[nodiscard]]
-  ASMJIT_INLINE_NODEBUG bool has_flag(CallConvFlags flag) const noexcept { return Support::test(_flags, flag); }
+  ASMJIT_INLINE_NODEBUG bool has_flag(CallConvFlags flag) const noexcept { return axl::test(_flags, flag); }
 
   //! Returns the calling convention flags, see `Flags`.
   [[nodiscard]]
@@ -322,20 +324,11 @@ struct CallConv {
     return _passed_regs[size_t(group)];
   }
 
-  ASMJIT_INLINE void _set_passed_as_packed(RegGroup group, uint32_t p0, uint32_t p1, uint32_t p2, uint32_t p3) noexcept {
-    ASMJIT_ASSERT(group <= RegGroup::kMaxVirt);
-
-    _passed_order[group].packed[0] = p0;
-    _passed_order[group].packed[1] = p1;
-    _passed_order[group].packed[2] = p2;
-    _passed_order[group].packed[3] = p3;
-  }
-
   //! Resets the order and mask of passed registers.
   ASMJIT_INLINE void set_passed_to_none(RegGroup group) noexcept {
     ASMJIT_ASSERT(group <= RegGroup::kMaxVirt);
 
-    _set_passed_as_packed(group, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFFu);
+    memset(_passed_order[group].id, 0xFF, sizeof(_passed_order[group].id));
     _passed_regs[size_t(group)] = 0u;
   }
 
@@ -345,19 +338,20 @@ struct CallConv {
 
     // NOTE: This should always be called with all arguments known at compile time, so even if it looks scary it
     // should be translated into few instructions.
-    _set_passed_as_packed(group, Support::bytepack32_4x8(a0, a1, a2, a3),
-                                 Support::bytepack32_4x8(a4, a5, a6, a7),
-                                 0xFFFFFFFFu,
-                                 0xFFFFFFFFu);
+    constexpr uint8_t kNA = 0xFFu;
+    _passed_order[group] = RegOrder{
+      uint8_t(a0), uint8_t(a1), uint8_t(a2), uint8_t(a3),
+      uint8_t(a4), uint8_t(a5), uint8_t(a6), uint8_t(a7), kNA, kNA, kNA, kNA, kNA, kNA, kNA, kNA
+    };
 
-    _passed_regs[group] = (a0 != 0xFF ? 1u << a0 : 0u) |
-                         (a1 != 0xFF ? 1u << a1 : 0u) |
-                         (a2 != 0xFF ? 1u << a2 : 0u) |
-                         (a3 != 0xFF ? 1u << a3 : 0u) |
-                         (a4 != 0xFF ? 1u << a4 : 0u) |
-                         (a5 != 0xFF ? 1u << a5 : 0u) |
-                         (a6 != 0xFF ? 1u << a6 : 0u) |
-                         (a7 != 0xFF ? 1u << a7 : 0u) ;
+    _passed_regs[group] = (a0 != 0xFF ? (1u << a0) : 0u) |
+                          (a1 != 0xFF ? (1u << a1) : 0u) |
+                          (a2 != 0xFF ? (1u << a2) : 0u) |
+                          (a3 != 0xFF ? (1u << a3) : 0u) |
+                          (a4 != 0xFF ? (1u << a4) : 0u) |
+                          (a5 != 0xFF ? (1u << a5) : 0u) |
+                          (a6 != 0xFF ? (1u << a6) : 0u) |
+                          (a7 != 0xFF ? (1u << a7) : 0u) ;
   }
 
   //! Returns preserved register mask of the given `group`.
@@ -435,7 +429,7 @@ struct FuncSignature {
       _arg_count(uint8_t(sizeof...(args))),
       _va_index(uint8_t(va_index)),
       _ret(ret),
-      _args{std::forward<Args>(args)...} {}
+      _args{axl::forward<Args>(args)...} {}
 
   //! Builds a function signature based on `RetValueAndArgs`. The first template argument is a function return type,
   //! and function arguments follow.
@@ -670,7 +664,7 @@ struct FuncValue {
 
   //! Tests whether the `FuncValue` has a flag `flag` set.
   [[nodiscard]]
-  ASMJIT_INLINE_NODEBUG bool has_flag(uint32_t flag) const noexcept { return Support::test(_data, flag); }
+  ASMJIT_INLINE_NODEBUG bool has_flag(uint32_t flag) const noexcept { return axl::test(_data, flag); }
 
   //! Adds `flags` to `FuncValue`.
   ASMJIT_INLINE_NODEBUG void add_flags(uint32_t flags) noexcept { _data |= flags; }
@@ -725,7 +719,7 @@ struct FuncValue {
 
   //! Tests whether the argument or return value has associated `TypeId`.
   [[nodiscard]]
-  ASMJIT_INLINE_NODEBUG bool has_type_id() const noexcept { return Support::test(_data, kTypeIdMask); }
+  ASMJIT_INLINE_NODEBUG bool has_type_id() const noexcept { return axl::test(_data, kTypeIdMask); }
 
   //! Returns a TypeId of this argument or return value.
   [[nodiscard]]
@@ -855,6 +849,15 @@ enum class FuncAttributes : uint32_t {
   //! FuncFrame is finalized and can be used by prolog/epilog inserter (PEI).
   kIsFinalized = 0x00000800u,
 
+  //  Attributes
+  // ----------------
+
+  //! Prolog & Epilog sequence must match Apple ABI requirements (AArch64).
+  kAppleABI = 0x00010000u,
+
+  //! Enforce pointer authentication - influences prolog, epilog, jumps, and subroutine calls (AArch64).
+  kPtrAuth = 0x00002000u,
+
   // X86 Specific Attributes
   // -----------------------
 
@@ -908,7 +911,7 @@ public:
   //! Reserved for future use.
   uint16_t _reserved = 0;
   //! Registers that contain arguments.
-  Support::Array<RegMask, Globals::kNumVirtGroups> _used_regs {};
+  axl::InplaceArray<RegMask, Globals::kNumVirtGroups> _used_regs {};
   //! Size of arguments passed by stack.
   uint32_t _arg_stack_size = 0;
   //! Function return value(s).
@@ -1138,7 +1141,7 @@ public:
   //! \name Types
   //! \{
 
-  using RegMasks = Support::Array<RegMask, Globals::kNumVirtGroups>;
+  using RegMasks = axl::InplaceArray<RegMask, Globals::kNumVirtGroups>;
 
   //! \}
 
@@ -1200,9 +1203,9 @@ public:
   //! Registers that are unavailable.
   RegMasks _unavailable_regs {};
   //! Size to save/restore per register group.
-  Support::Array<uint8_t, Globals::kNumVirtGroups> _save_restore_reg_size {};
+  axl::InplaceArray<uint8_t, Globals::kNumVirtGroups> _save_restore_reg_size {};
   //! Alignment of save/restore area per register group.
-  Support::Array<uint8_t, Globals::kNumVirtGroups> _save_restore_alignment {};
+  axl::InplaceArray<uint8_t, Globals::kNumVirtGroups> _save_restore_alignment {};
 
   //! Stack size required to save registers with push/pop.
   uint16_t _push_pop_save_size = 0;
@@ -1256,7 +1259,7 @@ public:
 
   //! Checks whether the FuncFame contains an attribute `attr`.
   [[nodiscard]]
-  ASMJIT_INLINE_NODEBUG bool has_attribute(FuncAttributes attr) const noexcept { return Support::test(_attributes, attr); }
+  ASMJIT_INLINE_NODEBUG bool has_attribute(FuncAttributes attr) const noexcept { return axl::test(_attributes, attr); }
 
   //! Adds attributes `attrs` to the FuncFrame.
   ASMJIT_INLINE_NODEBUG void add_attributes(FuncAttributes attrs) noexcept { _attributes |= attrs; }
@@ -1430,7 +1433,7 @@ public:
   //! \note This also updates the final stack alignment.
   ASMJIT_INLINE void set_call_stack_alignment(uint32_t alignment) noexcept {
     _call_stack_alignment = uint8_t(alignment);
-    _final_stack_alignment = Support::max(_natural_stack_alignment, _call_stack_alignment, _local_stack_alignment);
+    _final_stack_alignment = axl::max(_natural_stack_alignment, _call_stack_alignment, _local_stack_alignment);
   }
 
   //! Sets local stack alignment.
@@ -1438,23 +1441,23 @@ public:
   //! \note This also updates the final stack alignment.
   ASMJIT_INLINE void set_local_stack_alignment(uint32_t value) noexcept {
     _local_stack_alignment = uint8_t(value);
-    _final_stack_alignment = Support::max(_natural_stack_alignment, _call_stack_alignment, _local_stack_alignment);
+    _final_stack_alignment = axl::max(_natural_stack_alignment, _call_stack_alignment, _local_stack_alignment);
   }
 
   //! Combines call stack alignment with `alignment`, updating it to the greater value.
   //!
   //! \note This also updates the final stack alignment.
   ASMJIT_INLINE void update_call_stack_alignment(uint32_t alignment) noexcept {
-    _call_stack_alignment = uint8_t(Support::max<uint32_t>(_call_stack_alignment, alignment));
-    _final_stack_alignment = Support::max(_final_stack_alignment, _call_stack_alignment);
+    _call_stack_alignment = uint8_t(axl::max<uint32_t>(_call_stack_alignment, alignment));
+    _final_stack_alignment = axl::max(_final_stack_alignment, _call_stack_alignment);
   }
 
   //! Combines local stack alignment with `alignment`, updating it to the greater value.
   //!
   //! \note This also updates the final stack alignment.
   ASMJIT_INLINE void update_local_stack_alignment(uint32_t alignment) noexcept {
-    _local_stack_alignment = uint8_t(Support::max<uint32_t>(_local_stack_alignment, alignment));
-    _final_stack_alignment = Support::max(_final_stack_alignment, _local_stack_alignment);
+    _local_stack_alignment = uint8_t(axl::max<uint32_t>(_local_stack_alignment, alignment));
+    _final_stack_alignment = axl::max(_final_stack_alignment, _local_stack_alignment);
   }
 
   //! Returns call stack size.
@@ -1472,10 +1475,10 @@ public:
   ASMJIT_INLINE_NODEBUG void set_local_stack_size(uint32_t size) noexcept { _local_stack_size = size; }
 
   //! Combines call stack size with `size`, updating it to the greater value.
-  ASMJIT_INLINE_NODEBUG void update_call_stack_size(uint32_t size) noexcept { _call_stack_size = Support::max(_call_stack_size, size); }
+  ASMJIT_INLINE_NODEBUG void update_call_stack_size(uint32_t size) noexcept { _call_stack_size = axl::max(_call_stack_size, size); }
 
   //! Combines local stack size with `size`, updating it to the greater value.
-  ASMJIT_INLINE_NODEBUG void update_local_stack_size(uint32_t size) noexcept { _local_stack_size = Support::max(_local_stack_size, size); }
+  ASMJIT_INLINE_NODEBUG void update_local_stack_size(uint32_t size) noexcept { _local_stack_size = axl::max(_local_stack_size, size); }
 
   //! Returns final stack size (only valid after the FuncFrame is finalized).
   [[nodiscard]]
@@ -1531,14 +1534,14 @@ public:
   //! \overload
   inline void add_dirty_regs(const Reg& reg) noexcept {
     ASMJIT_ASSERT(reg.id() < Globals::kMaxPhysRegs);
-    add_dirty_regs(reg.reg_group(), Support::bit_mask<RegMask>(reg.id()));
+    add_dirty_regs(reg.reg_group(), axl::bit_mask<RegMask>(reg.id()));
   }
 
   //! \overload
   template<typename... Args>
   inline void add_dirty_regs(const Reg& reg, Args&&... args) noexcept {
     add_dirty_regs(reg);
-    add_dirty_regs(std::forward<Args>(args)...);
+    add_dirty_regs(axl::forward<Args>(args)...);
   }
 
   //! A helper function to set all registers from all register groups dirty.
@@ -1566,11 +1569,11 @@ public:
     return _dirty_regs[group] & _preserved_regs[group];
   }
 
-  //! Returns all dirty registers as a Support::Array<> type.
+  //! Returns all dirty registers as axl::InplaceArray<>.
   [[nodiscard]]
   ASMJIT_INLINE_NODEBUG const RegMasks& dirty_regs() const noexcept { return _dirty_regs; }
 
-  //! Returns all preserved registers as a Support::Array<> type.
+  //! Returns all preserved registers as axl::InplaceArray<>.
   [[nodiscard]]
   ASMJIT_INLINE_NODEBUG const RegMasks& preserved_regs() const noexcept { return _preserved_regs; }
 
@@ -1601,14 +1604,14 @@ public:
   //! Adds a single register to the unavailable set.
   ASMJIT_INLINE void add_unavailable_regs(const Reg& reg) noexcept {
     ASMJIT_ASSERT(reg.id() < Globals::kMaxPhysRegs);
-    add_unavailable_regs(reg.reg_group(), Support::bit_mask<RegMask>(reg.id()));
+    add_unavailable_regs(reg.reg_group(), axl::bit_mask<RegMask>(reg.id()));
   }
 
   //! Adds multiple registers to the unavailable set.
   template<typename... Args>
   ASMJIT_INLINE void add_unavailable_regs(const Reg& reg, Args&&... args) noexcept {
     add_unavailable_regs(reg);
-    add_unavailable_regs(std::forward<Args>(args)...);
+    add_unavailable_regs(axl::forward<Args>(args)...);
   }
 
   //! Clears all unavailable registers across all register groups (i.e., makes them all available again).
@@ -1630,7 +1633,7 @@ public:
     return _unavailable_regs[group];
   }
 
-  //! Returns all unavailable registers as a Support::Array<>.
+  //! Returns all unavailable registers as axl::InplaceArray<>.
   [[nodiscard]]
   ASMJIT_INLINE_NODEBUG const RegMasks& unavailable_regs() const noexcept {
     return _unavailable_regs;
@@ -1845,7 +1848,7 @@ public:
   template<typename... Args>
   ASMJIT_INLINE void _assign_all_internal(size_t arg_index, const Reg& reg, Args&&... args) noexcept {
     assign_reg(arg_index, reg);
-    _assign_all_internal(arg_index + 1, std::forward<Args>(args)...);
+    _assign_all_internal(arg_index + 1, axl::forward<Args>(args)...);
   }
   //! \endcond
 
@@ -1854,7 +1857,7 @@ public:
   //! \note This function can be only used if the arguments don't contain value packs (multiple values per argument).
   template<typename... Args>
   ASMJIT_INLINE void assign_all(Args&&... args) noexcept {
-    _assign_all_internal(0, std::forward<Args>(args)...);
+    _assign_all_internal(0, axl::forward<Args>(args)...);
   }
 
   //! \}

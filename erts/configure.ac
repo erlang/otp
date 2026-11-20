@@ -3130,76 +3130,136 @@ AS_IF([test ${enable_jit} != no],
    esac
   ])
 
-dnl Test for C++17
-AS_IF([test ${enable_jit} != no -o "$builtin_ryu" = "no"],
+AS_IF([test "$CXX" != "false"],
   [
-       AS_IF([test "$CXX" != false],
-         [
-          AC_LANG_PUSH(C++)
-          old_CXXFLAGS=$CXXFLAGS
-          CXXFLAGS="$CXXFLAGS -std=c++17"
-          AC_MSG_CHECKING([for C++17 support])
-          AC_COMPILE_IFELSE(
-              [AC_LANG_PROGRAM([[]],
-               [[#if __cplusplus < 201703L
-                #error "Needs C++17 compiler"
-                #endif
-                ]])
-              ],[
-               AC_MSG_RESULT([yes])
-               HAVE_CXX17=true
+    AC_LANG_PUSH(C++)
+    old_CXXFLAGS=$CXXFLAGS
+    CXXFLAGS="$CXXFLAGS -std=c++20"
+    AC_MSG_CHECKING([for C++20 support])
+    AC_COMPILE_IFELSE(
+        [AC_LANG_PROGRAM([[]],
+          [[#if __cplusplus < 202002L
+            #  error "Needs C++20 compiler"
+            #endif
+          ]])
+        ],[
+          AC_MSG_RESULT([yes])
+          HAVE_CXX20=true
+        ],[
+          AC_MSG_RESULT([no])
+          CXXFLAGS=$old_CXXFLAGS
+          HAVE_CXX20=false
 
-               AS_IF([test "$builtin_ryu" = "no"],
-                 [
-                   AC_MSG_CHECKING([for C++ std::to_chars])
-                   AC_COMPILE_IFELSE(
-                     [AC_LANG_PROGRAM(
-                        [[
-                          #include <charconv>
-                        ]],
-                        [[
-                          char fbuf[20];
-                          std::to_chars(fbuf, fbuf + sizeof(fbuf), 3.14);
-                        ]])
-                     ],[
-                       AC_MSG_RESULT([yes])
-                     ],[
-                       AC_MSG_RESULT([no])
-                       AC_MSG_WARN([C++17 support found but no std::to_chars for floating point])
-                       AC_MSG_ERROR([Alternative to builtin ryu needs C++17 with std::to_chars])
-                     ])
-                 ])
-              ],[
-               AC_MSG_RESULT([no])
-               CXXFLAGS=$old_CXXFLAGS
-               HAVE_CXX17=false
-              ])
-          AC_LANG_POP()
-         ])
-       if test "$CXX" = false -o "$HAVE_CXX17" = false; then
-         # C++17 not found
-         if test "$builtin_ryu" = "no"; then
-           AC_MSG_ERROR([Alternative to builtin ryu needs C++17 support])
-         else
-           builtin_ryu=yes
-         fi
-         if test ${enable_jit} = yes; then
-           AC_MSG_ERROR([JIT needs a C++ compiler with C++17 support])
-         fi
-         if test ${enable_jit} != no; then
-           enable_jit=no
-           cat >> $ERL_TOP/erts/CONF_INFO <<EOF
+          AS_IF([test "$CXX" != false],
+            [
+              old_CXXFLAGS=$CXXFLAGS
+              CXXFLAGS="$CXXFLAGS -std=c++17"
+              AC_MSG_CHECKING([for C++17 support])
+              AC_COMPILE_IFELSE(
+                  [AC_LANG_PROGRAM([[]],
+                    [[#if __cplusplus < 201703L
+                    #error "Needs C++17 compiler"
+                    #endif
+                    ]])
+                  ],[
+                    AC_MSG_RESULT([yes])
+                    HAVE_CXX17=true
+                  ],[
+                    AC_MSG_RESULT([no])
+                    CXXFLAGS=$old_CXXFLAGS
+                    HAVE_CXX17=false
+                  ])
+            ])
+        ])
+    AC_LANG_POP()
+  ])
 
-                 JIT disabled due to lack of compiler with C++17 support
+dnl JIT requires C++20
+AS_IF([test "${enable_jit}" != no],
+  [
+      if test "$CXX" = "false" -o "$HAVE_CXX20" = "false"; then
+        if test ${enable_jit} = yes; then
+          AC_MSG_ERROR([JIT needs a C++ compiler with C++20 support])
+        fi
+        if test "${enable_jit}" != "no"; then
+          enable_jit=no
+          cat >> $ERL_TOP/erts/CONF_INFO <<EOF
+
+                 JIT disabled due to lack of compiler with C++20 support
 EOF
-           AC_MSG_WARN([JIT disable due to lack of C++ compiler with C++17 support])
-         fi
-       else
-         # C++17 found
-         if test ${enable_jit} != no; then
-           enable_jit=yes
-         fi
-       fi
+          AC_MSG_WARN([JIT disabled due to lack of C++ compiler with C++20 support])
+        fi
+      else
+        # C++20 support is at least advertised, check for various deficiencies
+        # we're aware of that don't come with handy feature macros.
+        AC_MSG_CHECKING([for C++20 compiler deficiencies])
+        AC_LANG_PUSH(C++)
+        AC_COMPILE_IFELSE(
+            [AC_LANG_PROGRAM([[
+                /* Check for P0634R3, "typename optional in more contexts" */
+                template<typename T> struct gurka { using type = T; };
+                template<typename T> using gaffel = gurka<T>::type;
+
+                /* Check for P1073R3, "immediate functions"
+                 *
+                 * This can also be checked with __cpp_consteval < 201811L,
+                 * but that rejects compilers that work for our code in
+                 * particular (notably clang 16). */
+                template<typename T>
+                consteval unsigned cexpr(const T& x) noexcept {
+                  return x;
+                }
+
+                template<typename T>
+                struct mazurka {
+                    static inline constexpr int maracas = cexpr(sizeof(T));
+                };
+              ]],
+              [[
+                return 0;
+              ]])
+            ],[
+              AC_MSG_RESULT([passed])
+            ],[
+              AC_MSG_RESULT([failed])
+              enable_jit=no
+              cat >> $ERL_TOP/erts/CONF_INFO <<EOF
+
+                 JIT disabled because the compiler has only partial C++20 support
+EOF
+              AC_MSG_WARN([JIT disabled due to C++ compiler with incomplete C++20 support])
+            ])
+        AC_LANG_POP()
+
+        if test "${enable_jit}" != "no"; then
+          enable_jit=yes
+        fi
+      fi
+  ])
+
+dnl ryu alternative requires C++17
+AS_IF([test "${builtin_ryu}" = "no"],
+  [
+    AC_MSG_CHECKING([for C++ std::to_chars])
+    AC_LANG_PUSH(C++)
+    AC_COMPILE_IFELSE(
+      [AC_LANG_PROGRAM(
+        [[
+          #include <charconv>
+        ]],
+        [[
+          char fbuf[20];
+          std::to_chars(fbuf, fbuf + sizeof(fbuf), 3.14);
+        ]])
+      ],[
+        AC_MSG_RESULT([yes])
+        builtin_ryu=yes
+      ],[
+        AC_MSG_RESULT([no])
+        AC_MSG_ERROR([Alternative to builtin ryu needs at least C++17 with std::to_chars])
+        builtin_ryu=no
+      ])
+    AC_LANG_POP()
   ])
 
 AS_IF([test "$builtin_ryu" = "no"],
@@ -3214,7 +3274,7 @@ AC_SUBST(ERTS_USE_BUILTIN_RYU)
 
 
 dnl Test if we can use the native stack for Erlang code
-AS_IF([test ${enable_jit} != no],
+AS_IF([test "${enable_jit}" != "no"],
  [
   AS_CASE([$host_os],
     [openbsd*],

@@ -3,61 +3,225 @@
 // See <asmjit/core.h> or LICENSE.md for license and copyright information
 // SPDX-License-Identifier: Zlib
 
-#include <asmjit/core/api-build_p.h>
+#include <asmjit/core/api_build_p.h>
+
+#include <asmjit/axl/commons.h>
+#include <asmjit/axl/mem_alloc.h>
 #include <asmjit/core/string.h>
-#include <asmjit/support/support.h>
 
 ASMJIT_BEGIN_NAMESPACE
 
 // String - Globals
 // ================
 
-static const char String_base_n[] = "0123456789ABCDEF";
+// NOTE: Generally, we can allow up to SIZE_MAX allocations - but when the allocation is large (and will never be
+// allocated by the underlying allocator as it overflows theoretical address space, like `SIZE_MAX`, some tools
+// such as valgrind and ASAN would start complaining). Thus, it's better to restrict the allocations on 64-bit
+// targets to 56 bits. The allocations would fail anyway, but sanitizers would not complain.
+static constexpr size_t kStringCapacityAlignment = 32;
+static constexpr size_t kStringMinAllocSize = 128;
+static constexpr size_t kStringMaxAllocSize = sizeof(size_t) >= 8 ? ((SIZE_MAX >> 8) + 1u) : SIZE_MAX - 4095;
+static constexpr size_t kStringFormatBufferSize = 128;
 
-constexpr size_t kMinAllocSize = 128;
-constexpr size_t kMaxAllocSize = SIZE_MAX - Globals::kGrowThreshold;
+static ASMJIT_INLINE size_t String_expand_capacity(size_t byte_size) noexcept {
+  // Always added regardless of size.
+  static constexpr uint32_t kGrowthAddend = 64;
+  // 50% growth rate of containers after its size in bytes reached 128 KiB.
+  static constexpr uint32_t kGrowthLimit50 = 1u << 17;
+  // 25% growth rate of containers after its size in bytes reached 4 MiB.
+  static constexpr uint32_t kGrowthLimit25 = 1u << 22;
 
-// Based on ArenaVector_growCapacity().
-//
-// NOTE: The sizes here include null terminators - that way we can have aligned allocations that are power of 2s
-// initially.
-static ASMJIT_INLINE size_t String_grow_capacity(size_t byte_size, size_t min_byte_size) noexcept {
-  static constexpr size_t kGrowThreshold = Globals::kGrowThreshold;
+  size_t n = size_t(byte_size);
+  size_t s = size_t(n >= kGrowthLimit50) + size_t(n >= kGrowthLimit25);
+  size_t max_growth = kStringMaxAllocSize - byte_size;
+  size_t growth = (n >> s) + kGrowthAddend;
 
-  ASMJIT_ASSERT(min_byte_size < kMaxAllocSize);
+  return axl::align_up((n + axl::min(growth, max_growth)), kStringCapacityAlignment);
+}
 
-  // This is more than exponential growth at the beginning.
-  if (byte_size < kMinAllocSize) {
-    byte_size = kMinAllocSize;
+// String - Formatting
+// ===================
+
+static const char string_hex_chars[] = "0123456789ABCDEF";
+
+static Error String_format_number(char buf[kStringFormatBufferSize], uint64_t i, uint32_t base, StringFormatFlags flags, Out<Span<char>> output, Out<size_t> sign_alt_size) noexcept {
+  uint64_t orig = i;
+
+  char* p = buf + kStringFormatBufferSize;
+  char sign = '\0';
+
+  if (base == 0) {
+    base = 10;
   }
-  else if (byte_size < 512) {
-    byte_size = 512;
+
+  // Sign Part
+  // ---------
+
+  if (axl::test(flags, StringFormatFlags::kSigned) && int64_t(i) < 0) {
+    i = axl::neg(i);
+    sign = '-';
+  }
+  else if (axl::test(flags, StringFormatFlags::kShowSign)) {
+    sign = '+';
+  }
+  else if (axl::test(flags, StringFormatFlags::kShowSpace)) {
+    sign = ' ';
   }
 
-  if (byte_size < min_byte_size) {
-    // Exponential growth before we reach `kGrowThreshold`.
-    byte_size = Support::align_up_power_of_2(min_byte_size);
+  // Number Part
+  // -----------
 
-    // Bail to `min_byte_size` in case of overflow - most likely whatever that is happening afterwards would just fail.
-    if (byte_size < min_byte_size) {
-      return min_byte_size;
+  switch (base) {
+    case 2:
+    case 8:
+    case 16: {
+      uint32_t shift = axl::ctz(base);
+      uint32_t mask = base - 1;
+
+      do {
+        uint64_t d = i >> shift;
+        size_t r = size_t(i & mask);
+
+        *--p = string_hex_chars[r];
+        i = d;
+      } while (i);
+
+      break;
     }
 
-    // Pretty much chunked growth advancing by `kGrowThreshold` after we exceed it.
-    if (byte_size > kGrowThreshold) {
-      // Align to kGrowThreshold.
-      size_t remainder = min_byte_size % kGrowThreshold;
+    case 10: {
+      do {
+        uint64_t d = i / 10u;
+        uint64_t r = i % 10u;
 
-      byte_size = min_byte_size + remainder;
+        *--p = char(uint32_t('0') + uint32_t(r));
+        i = d;
+      } while (i);
+      break;
+    }
 
-      // Bail to `min_byte_size` in case of overflow.
-      if (byte_size < min_byte_size) {
-        return min_byte_size;
+    default:
+      return make_error(Error::kInvalidArgument);
+  }
+
+  // Alternate Form
+  // --------------
+
+  char* prev_p = p;
+
+  if (axl::test(flags, StringFormatFlags::kAlternate)) {
+    if (base == 8) {
+      if (orig != 0) {
+        *--p = '0';
       }
     }
+    if (base == 16) {
+      *--p = 'x';
+      *--p = '0';
+    }
   }
 
-  return Support::min<size_t>(byte_size, kMaxAllocSize);
+  if (sign != 0) {
+    *--p = sign;
+  }
+
+  output = Span<char>(p, static_cast<size_t>(buf + kStringFormatBufferSize - p));
+  sign_alt_size = static_cast<size_t>(prev_p - p);
+  return Error::kOk;
+}
+
+static inline Error String_copy_formatted_number(char* dst_ptr, Span<const char> formatted_span, size_t sign_alt_size, size_t zero_fill_size) noexcept {
+  // sign_alt_size describes a portion in formatted_span.
+  ASMJIT_ASSERT(formatted_span.size() >= sign_alt_size);
+
+  if (zero_fill_size != 0u) {
+    if (sign_alt_size) {
+      memcpy(dst_ptr, formatted_span.data(), sign_alt_size);
+      dst_ptr += sign_alt_size;
+    }
+    memset(dst_ptr, '0', zero_fill_size);
+    dst_ptr += zero_fill_size;
+    memcpy(dst_ptr, formatted_span.data() + sign_alt_size, formatted_span.size() - sign_alt_size);
+    return Error::kOk;
+  }
+  else {
+    memcpy(dst_ptr, formatted_span.data(), formatted_span.size());
+    return Error::kOk;
+  }
+}
+
+static Error String_format_hex(char* dst, const void* data, size_t size, char separator) noexcept {
+  ASMJIT_ASSERT(size > 0u);
+
+  size_t i = 0;
+  const uint8_t* src = static_cast<const uint8_t*>(data);
+
+  if (separator) {
+    for (;;) {
+      dst[0] = string_hex_chars[(src[0] >> 4) & 0xF];
+      dst[1] = string_hex_chars[(src[0]     ) & 0xF];
+
+      if (++i >= size) {
+        break;
+      }
+
+      // This makes sure that the separator is only put between two hexadecimal bytes.
+      dst[2] = separator;
+
+      dst += 3;
+      src += 1;
+    }
+  }
+  else {
+    do {
+      dst[0] = string_hex_chars[(src[0] >> 4) & 0xF];
+      dst[1] = string_hex_chars[(src[0]     ) & 0xF];
+
+      dst += 2;
+      src += 1;
+    } while (++i < size);
+  }
+
+  return Error::kOk;
+}
+
+template<bool IsAppend>
+inline Error String_vformat(String& self, const char* fmt, va_list ap) noexcept {
+  constexpr size_t kStaticBufferSize = 2048 + 1024;
+  char static_buf[kStaticBufferSize];
+
+  va_list ap_copy;
+  va_copy(ap_copy, ap);
+
+  int fmt_result = vsnprintf(static_buf, kStaticBufferSize, fmt, ap);
+  size_t result_size = static_cast<size_t>(fmt_result);
+
+  Error err = Error::kOk;
+  if (ASMJIT_LIKELY(result_size < kStaticBufferSize)) {
+    err = !IsAppend ? self.assign(static_buf, result_size) : self.append(static_buf, result_size);
+  }
+  else if (fmt_result < 0) {
+    err = make_error(Error::kInvalidArgument);
+  }
+  else {
+    char* dynamic_buf = axl::mem_alloc<char>(result_size + 1u);
+    if (!dynamic_buf) {
+      err = make_error(Error::kOutOfMemory);
+    }
+    else {
+      fmt_result = vsnprintf(dynamic_buf, result_size + 1u, fmt, ap_copy);
+      if (static_cast<size_t>(fmt_result) != result_size) {
+        err = make_error(Error::kInvalidState);
+      }
+      else {
+        err = !IsAppend ? self.assign(dynamic_buf, result_size) : self.append(dynamic_buf, result_size);
+      }
+      axl::mem_free(dynamic_buf);
+    }
+  }
+
+  va_end(ap_copy);
+  return err;
 }
 
 // String - Clear & Reset
@@ -65,7 +229,7 @@ static ASMJIT_INLINE size_t String_grow_capacity(size_t byte_size, size_t min_by
 
 Error String::reset() noexcept {
   if (_type == kTypeLarge) {
-    ::free(_large.data);
+    axl::mem_free(_large.data);
   }
 
   _reset_internal();
@@ -87,446 +251,392 @@ Error String::clear() noexcept {
 // String - Prepare
 // ================
 
-char* String::prepare(ModifyOp op, size_t size) noexcept {
-  uint8_t type = _type;
-
-  char* cur_data;
-  size_t cur_size;
-  size_t cur_capacity;
-
-  if (is_large_or_external(type)) {
-    cur_data = _large.data;
-    cur_size = _large.size;
-    cur_capacity = _large.capacity;
+static ASMJIT_INLINE void String_extract(String& s, uint8_t type, Out<char*> data, Out<size_t> size, Out<size_t> capacity) noexcept {
+  if (s.is_large_or_external(type)) {
+    data = s._large.data;
+    size = s._large.size;
+    capacity = s._large.capacity;
   }
   else {
     // For some reason clang's static analysis flags this function having "use-after-free". The step
     // to get to that is to execute this branch (`is_large_or_external()` returning false) and then
     // assuming `type == kTypeLarge` in another condition, which contradicts the first condition.
-    ASMJIT_ASSERT(type < kTypeLarge);
+    ASMJIT_ASSERT(type < String::kTypeLarge);
 
-    cur_data = _small.data;
-    cur_size = _small.type;
-    cur_capacity = kSSOCapacity;
+    data = s._small.data;
+    size = s._small.type;
+    capacity = s.kSSOCapacity;
   }
+}
 
-  if (op == ModifyOp::kAssign) {
-    if (size > cur_capacity) {
-      // Prevent arithmetic overflow.
-      if (ASMJIT_UNLIKELY(size >= kMaxAllocSize)) {
-        return nullptr;
-      }
+char* String::assign_uninitialized(size_t assign_size) noexcept {
+  uint8_t type = _type;
 
-      size_t new_capacity = Support::align_up<size_t>(size + 1, kMinAllocSize);
-      char* new_data = static_cast<char*>(::malloc(new_capacity));
+  char* data;
+  size_t size;
+  size_t capacity;
+  String_extract(*this, type, Out(data), Out(size), Out(capacity));
 
-      if (ASMJIT_UNLIKELY(!new_data)) {
-        return nullptr;
-      }
-
-      if (type == kTypeLarge) {
-        ::free(cur_data);
-      }
-
-      _large.type = kTypeLarge;
-      _large.size = size;
-      _large.capacity = new_capacity - 1;
-      _large.data = new_data;
-
-      new_data[size] = '\0';
-      return new_data;
-    }
-    else {
-      _set_size(size);
-      cur_data[size] = '\0';
-      return cur_data;
-    }
-  }
-  else {
+  if (assign_size > capacity) {
     // Prevent arithmetic overflow.
-    if (ASMJIT_UNLIKELY(size >= kMaxAllocSize - cur_size - 1)) {
+    if (ASMJIT_UNLIKELY(assign_size >= kStringMaxAllocSize)) {
       return nullptr;
     }
 
-    size_t new_size = size + cur_size;
-    size_t new_size_plus_one = new_size + 1;
+    size_t new_capacity = axl::align_up<size_t>(assign_size + 1, kStringMinAllocSize);
+    char* new_data = axl::mem_alloc<char>(new_capacity);
 
-    if (new_size > cur_capacity) {
-      size_t new_capacity_plus_one = String_grow_capacity(size + 1u, new_size_plus_one);
-      ASMJIT_ASSERT(new_capacity_plus_one >= new_size_plus_one);
-
-      if (ASMJIT_UNLIKELY(new_capacity_plus_one < new_size_plus_one)) {
-        return nullptr;
-      }
-
-      char* new_data = static_cast<char*>(::malloc(new_capacity_plus_one));
-      if (ASMJIT_UNLIKELY(!new_data)) {
-        return nullptr;
-      }
-
-      memcpy(new_data, cur_data, cur_size);
-
-      if (type == kTypeLarge) {
-        ::free(cur_data);
-      }
-
-      _large.type = kTypeLarge;
-      _large.size = new_size;
-      _large.capacity = new_capacity_plus_one - 1;
-      _large.data = new_data;
-
-      new_data[new_size] = '\0';
-      return new_data + cur_size;
+    if (ASMJIT_UNLIKELY(!new_data)) {
+      return nullptr;
     }
-    else {
-      _set_size(new_size);
-      cur_data[new_size] = '\0';
-      return cur_data + cur_size;
+
+    if (type == kTypeLarge) {
+      axl::mem_free(data);
     }
+
+    _large.type = kTypeLarge;
+    _large.size = assign_size;
+    _large.capacity = new_capacity - 1;
+    _large.data = new_data;
+
+    new_data[assign_size] = '\0';
+    return new_data;
   }
+  else {
+    _set_size(assign_size);
+    data[assign_size] = '\0';
+    return data;
+  }
+}
+
+char* String::append_uninitialized(size_t append_size) noexcept {
+  uint8_t type = _type;
+
+  char* data;
+  size_t size;
+  size_t capacity;
+  String_extract(*this, type, Out(data), Out(size), Out(capacity));
+
+  size_t new_size = append_size + size;
+
+  if (ASMJIT_LIKELY(capacity - size >= append_size)) {
+    _set_size(new_size);
+    data[new_size] = '\0';
+    return data + size;
+  }
+
+  // Prevent arithmetic overflow.
+  if (ASMJIT_UNLIKELY(append_size >= kStringMaxAllocSize - size)) {
+    return nullptr;
+  }
+
+  size_t new_capacity_plus_one = String_expand_capacity(new_size + 1u);
+  ASMJIT_ASSERT(new_capacity_plus_one >= new_size + 1u);
+
+  char* new_data = axl::mem_alloc<char>(new_capacity_plus_one);
+  if (ASMJIT_UNLIKELY(!new_data)) {
+    return nullptr;
+  }
+
+  memcpy(new_data, data, size);
+
+  if (type == kTypeLarge) {
+    axl::mem_free(data);
+  }
+
+  _large.type = kTypeLarge;
+  _large.size = new_size;
+  _large.capacity = new_capacity_plus_one - 1u;
+  _large.data = new_data;
+
+  new_data[new_size] = '\0';
+  return new_data + size;
 }
 
 // String - Assign
 // ===============
 
-Error String::assign(const char* data, size_t size) noexcept {
+Error String::assign(const char* data, size_t data_size) noexcept {
   uint8_t type = _type;
   char* dst = nullptr;
 
-  // Null terminated string without `size` specified.
-  if (size == SIZE_MAX) {
-    size = data ? strlen(data) : size_t(0);
+  // Null terminated string without `data_size` specified.
+  if (data_size == SIZE_MAX) {
+    data_size = data ? strlen(data) : size_t(0);
   }
 
   if (is_large_or_external(type)) {
-    if (size <= _large.capacity) {
+    if (data_size <= _large.capacity) {
+      // Enough buffer size - this goes to `memmove` at the end.
       dst = _large.data;
-      _large.size = size;
+      _large.size = data_size;
     }
     else {
-      size_t capacity_plus_one = Support::align_up(size + 1, 32);
-      if (ASMJIT_UNLIKELY(capacity_plus_one < size)) {
+      if (ASMJIT_UNLIKELY(data_size >= kStringMaxAllocSize)) {
         return make_error(Error::kOutOfMemory);
       }
 
-      dst = static_cast<char*>(::malloc(capacity_plus_one));
+      size_t capacity_plus_one = axl::align_up(data_size + 1, 32);
+      dst = axl::mem_alloc<char>(capacity_plus_one);
+
       if (ASMJIT_UNLIKELY(!dst)) {
         return make_error(Error::kOutOfMemory);
       }
 
+      // Do memcpy before free in case `data` is a span of the string itself.
+      ::memcpy(dst, data, data_size);
+
       if (type == kTypeLarge) {
-        ::free(_large.data);
+        axl::mem_free(_large.data);
       }
 
       _large.type = kTypeLarge;
       _large.data = dst;
-      _large.size = size;
-      _large.capacity = capacity_plus_one - 1;
+      _large.size = data_size;
+      _large.capacity = capacity_plus_one - 1u;
+
+      dst[data_size] = '\0';
+      return Error::kOk;
     }
   }
   else {
-    if (size <= kSSOCapacity) {
-      ASMJIT_ASSERT(size < 0xFFu);
+    if (data_size <= kSSOCapacity) {
+      ASMJIT_ASSERT(data_size < 0xFFu);
 
+      // Enough buffer size - this goes to `memmove` at the end.
       dst = _small.data;
-      _small.type = uint8_t(size);
+      _small.type = uint8_t(data_size);
     }
     else {
-      dst = static_cast<char*>(::malloc(size + 1));
+      if (ASMJIT_UNLIKELY(data_size >= kStringMaxAllocSize)) {
+        return make_error(Error::kOutOfMemory);
+      }
+
+      size_t capacity_plus_one = axl::align_up(data_size + 1, 32);
+      dst = axl::mem_alloc<char>(capacity_plus_one);
+
       if (ASMJIT_UNLIKELY(!dst)) {
         return make_error(Error::kOutOfMemory);
       }
 
+      // Do memcpy before we alter string data in case `data` is a span of the string itself.
+      ::memcpy(dst, data, data_size);
+
       _large.type = kTypeLarge;
       _large.data = dst;
-      _large.size = size;
-      _large.capacity = size;
+      _large.size = data_size;
+      _large.capacity = capacity_plus_one - 1u;
+
+      dst[data_size] = '\0';
+      return Error::kOk;
     }
   }
 
-  // Optionally copy data from `data` and null-terminate.
-  if (data && size) {
-    // NOTE: It's better to use `memmove()`. If, for any reason, somebody uses
-    // this function to substring the same string it would work as expected.
-    ::memmove(dst, data, size);
+  // NOTE: It's better to use `memmove()` in case `data` is a span of the string itself.
+  if (data_size) {
+    ::memmove(dst, data, data_size);
   }
 
-  dst[size] = '\0';
+  dst[data_size] = '\0';
   return Error::kOk;
 }
 
-// String - Operations
-// ===================
-
-Error String::_op_string(ModifyOp op, const char* str, size_t size) noexcept {
-  if (size == SIZE_MAX) {
-    size = str ? strlen(str) : size_t(0);
-  }
-
-  if (!size) {
-    return Error::kOk;
-  }
-
-  char* p = prepare(op, size);
-  if (!p) {
+Error String::assign_chars(char c, size_t n) noexcept {
+  char* p = assign_uninitialized(n);
+  if (ASMJIT_UNLIKELY(p == nullptr)) {
     return make_error(Error::kOutOfMemory);
   }
-
-  memcpy(p, str, size);
-  return Error::kOk;
-}
-
-Error String::_op_char(ModifyOp op, char c) noexcept {
-  char* p = prepare(op, 1);
-  if (!p) {
-    return make_error(Error::kOutOfMemory);
-  }
-
-  *p = c;
-  return Error::kOk;
-}
-
-Error String::_op_chars(ModifyOp op, char c, size_t n) noexcept {
-  if (!n) {
-    return Error::kOk;
-  }
-
-  char* p = prepare(op, n);
-  if (!p) {
-    return make_error(Error::kOutOfMemory);
-  }
-
   memset(p, c, n);
   return Error::kOk;
 }
 
-Error String::pad_end(size_t n, char c) noexcept {
-  size_t size = this->size();
-  return n > size ? append_chars(c, n - size) : Error::kOk;
-}
+Error String::_assign_int(uint64_t i, uint32_t base, size_t width, StringFormatFlags flags) noexcept {
+  char buffer[kStringFormatBufferSize];
+  Span<char> formatted_span;
+  size_t sign_alt_size;
 
-Error String::_op_number(ModifyOp op, uint64_t i, uint32_t base, size_t width, StringFormatFlags flags) noexcept {
-  if (base == 0) {
-    base = 10;
+  ASMJIT_PROPAGATE(String_format_number(buffer, i, base, flags, Out(formatted_span), Out(sign_alt_size)));
+
+  // Just correct the width here so no calculations would overflow. If it's that large it will fail later.
+  if (width > kStringMaxAllocSize + 1u) {
+    width = kStringMaxAllocSize + 1u;
   }
 
-  char buf[128];
-  char* p = buf + ASMJIT_ARRAY_SIZE(buf);
+  size_t number_size = formatted_span.size() - sign_alt_size;
+  size_t full_width_size = axl::max(width, number_size);
+  size_t zero_fill_size = full_width_size - number_size;
 
-  uint64_t orig = i;
-  char sign = '\0';
-
-  // Format Sign
-  // -----------
-
-  if (Support::test(flags, StringFormatFlags::kSigned) && int64_t(i) < 0) {
-    i = Support::neg(i);
-    sign = '-';
-  }
-  else if (Support::test(flags, StringFormatFlags::kShowSign)) {
-    sign = '+';
-  }
-  else if (Support::test(flags, StringFormatFlags::kShowSpace)) {
-    sign = ' ';
-  }
-
-  // Format Number
-  // -------------
-
-  switch (base) {
-    case 2:
-    case 8:
-    case 16: {
-      uint32_t shift = Support::ctz(base);
-      uint32_t mask = base - 1;
-
-      do {
-        uint64_t d = i >> shift;
-        size_t r = size_t(i & mask);
-
-        *--p = String_base_n[r];
-        i = d;
-      } while (i);
-
-      break;
-    }
-
-    case 10: {
-      do {
-        uint64_t d = i / 10;
-        uint64_t r = i % 10;
-
-        *--p = char(uint32_t('0') + uint32_t(r));
-        i = d;
-      } while (i);
-
-      break;
-    }
-
-    default:
-      return make_error(Error::kInvalidArgument);
-  }
-
-  size_t number_size = (size_t)(buf + ASMJIT_ARRAY_SIZE(buf) - p);
-
-  // Alternate Form
-  // --------------
-
-  if (Support::test(flags, StringFormatFlags::kAlternate)) {
-    if (base == 8) {
-      if (orig != 0) {
-        *--p = '0';
-      }
-    }
-    if (base == 16) {
-      *--p = 'x';
-      *--p = '0';
-    }
-  }
-
-  // String Width
-  // ------------
-
-  if (sign != 0) {
-    *--p = sign;
-  }
-
-  if (width > 256) {
-    width = 256;
-  }
-
-  if (width <= number_size) {
-    width = 0;
-  }
-  else {
-    width -= number_size;
-  }
-
-  // Finalize
-  // --------
-
-  size_t prefix_size = (size_t)(buf + ASMJIT_ARRAY_SIZE(buf) - p) - number_size;
-  char* data = prepare(op, prefix_size + width + number_size);
-
-  if (!data) {
+  char* p = assign_uninitialized(formatted_span.size() + zero_fill_size);
+  if (ASMJIT_UNLIKELY(p == nullptr)) {
     return make_error(Error::kOutOfMemory);
   }
-
-  memcpy(data, p, prefix_size);
-  data += prefix_size;
-
-  memset(data, '0', width);
-  data += width;
-
-  memcpy(data, p + prefix_size, number_size);
-  return Error::kOk;
+  return String_copy_formatted_number(p, formatted_span, sign_alt_size, zero_fill_size);
 }
 
-Error String::_op_hex(ModifyOp op, const void* data, size_t size, char separator) noexcept {
-  char* dst;
-  const uint8_t* src = static_cast<const uint8_t*>(data);
-
-  if (!size) {
-    return Error::kOk;
+Error String::assign_hex(const void* data, size_t size, char separator) noexcept {
+  if (size - 1u >= (kStringMaxAllocSize - 1u) / 2u) {
+    return size == 0 ? clear() : make_error(Error::kOutOfMemory);
   }
 
+  size_t formatted_size = size * 2u;
   if (separator) {
-    if (ASMJIT_UNLIKELY(size >= SIZE_MAX / 3)) {
+    if (size > (kStringMaxAllocSize - 1u) / 3u) {
       return make_error(Error::kOutOfMemory);
     }
-
-    dst = prepare(op, size * 3 - 1);
-    if (ASMJIT_UNLIKELY(!dst)) {
-      return make_error(Error::kOutOfMemory);
-    }
-
-    size_t i = 0;
-    for (;;) {
-      dst[0] = String_base_n[(src[0] >> 4) & 0xF];
-      dst[1] = String_base_n[(src[0]     ) & 0xF];
-
-      if (++i == size) {
-        break;
-      }
-
-      // This makes sure that the separator is only put between two hexadecimal bytes.
-      dst[2] = separator;
-      dst += 3;
-      src++;
-    }
-  }
-  else {
-    if (ASMJIT_UNLIKELY(size >= SIZE_MAX / 2)) {
-      return make_error(Error::kOutOfMemory);
-    }
-
-    dst = prepare(op, size * 2);
-    if (ASMJIT_UNLIKELY(!dst)) {
-      return make_error(Error::kOutOfMemory);
-    }
-
-    for (size_t i = 0; i < size; i++, dst += 2, src++) {
-      dst[0] = String_base_n[(src[0] >> 4) & 0xF];
-      dst[1] = String_base_n[(src[0]     ) & 0xF];
-    }
+    formatted_size += size - 1u;
   }
 
-  return Error::kOk;
+  char* dst = assign_uninitialized(formatted_size);
+  if (ASMJIT_UNLIKELY(dst == nullptr)) {
+    return make_error(Error::kOutOfMemory);
+  }
+  return String_format_hex(dst, data, size, separator);
 }
 
-Error String::_op_format(ModifyOp op, const char* fmt, ...) noexcept {
+Error String::assign_format(const char* fmt, ...) noexcept {
   Error err;
   va_list ap;
 
   va_start(ap, fmt);
-  err = _op_vformat(op, fmt, ap);
+  err = assign_vformat(fmt, ap);
   va_end(ap);
 
   return err;
 }
 
-Error String::_op_vformat(ModifyOp op, const char* fmt, va_list ap) noexcept {
-  size_t start_at = (op == ModifyOp::kAssign) ? size_t(0) : size();
-  size_t remaining_capacity = capacity() - start_at;
+Error String::assign_vformat(const char* fmt, va_list ap) noexcept {
+  return String_vformat<false>(*this, fmt, ap);
+}
 
-  char buf[1024];
-  int fmt_result;
-  size_t output_size;
+// String - Append
+// ===============
 
-  va_list ap_copy;
-  va_copy(ap_copy, ap);
-
-  if (remaining_capacity >= 128) {
-    fmt_result = vsnprintf(data() + start_at, remaining_capacity, fmt, ap);
-    output_size = size_t(fmt_result);
-
-    if (ASMJIT_LIKELY(output_size <= remaining_capacity)) {
-      _set_size(start_at + output_size);
-      return Error::kOk;
-    }
-  }
-  else {
-    fmt_result = vsnprintf(buf, ASMJIT_ARRAY_SIZE(buf), fmt, ap);
-    output_size = size_t(fmt_result);
-
-    if (ASMJIT_LIKELY(output_size < ASMJIT_ARRAY_SIZE(buf))) {
-      return _op_string(op, buf, output_size);
-    }
+Error String::append(const char* data, size_t data_size) noexcept {
+  if (data_size == SIZE_MAX) {
+    data_size = data ? strlen(data) : size_t(0);
   }
 
-  if (ASMJIT_UNLIKELY(fmt_result < 0)) {
-    return make_error(Error::kInvalidState);
+  if (data_size == 0u) {
+    return Error::kOk;
   }
 
-  char* p = prepare(op, output_size);
-  if (ASMJIT_UNLIKELY(!p)) {
+  uint8_t type = _type;
+
+  char* self_data;
+  size_t self_size;
+  size_t capacity;
+  String_extract(*this, type, Out(self_data), Out(self_size), Out(capacity));
+
+  if (capacity - self_size >= data_size) {
+    self_data += self_size;
+    memmove(self_data, data, data_size);
+    self_data[data_size] = '\0';
+    _set_size(self_size + data_size);
+    return Error::kOk;
+  }
+
+  // Prevent arithmetic overflow.
+  if (ASMJIT_UNLIKELY(data_size >= kStringMaxAllocSize - self_size)) {
     return make_error(Error::kOutOfMemory);
   }
 
-  fmt_result = vsnprintf(p, output_size + 1, fmt, ap_copy);
-  ASMJIT_ASSERT(size_t(fmt_result) == output_size);
+  size_t new_size = data_size + self_size;
+  size_t new_capacity_plus_one = String_expand_capacity(new_size + 1u);
+  ASMJIT_ASSERT(new_capacity_plus_one >= new_size + 1u);
 
+  char* new_data = axl::mem_alloc<char>(new_capacity_plus_one);
+  if (ASMJIT_UNLIKELY(!new_data)) {
+    return make_error(Error::kOutOfMemory);
+  }
+
+  memcpy(new_data, self_data, self_size);
+  memcpy(new_data + self_size, data, data_size);
+
+  if (type == kTypeLarge) {
+    axl::mem_free(self_data);
+  }
+
+  _large.type = kTypeLarge;
+  _large.size = new_size;
+  _large.capacity = new_capacity_plus_one - 1u;
+  _large.data = new_data;
+
+  new_data[new_size] = '\0';
   return Error::kOk;
+}
+
+Error String::append_chars(char c, size_t n) noexcept {
+  char* p = append_uninitialized(n);
+  if (ASMJIT_UNLIKELY(p == nullptr)) {
+    return make_error(Error::kOutOfMemory);
+  }
+  memset(p, c, n);
+  return Error::kOk;
+}
+
+Error String::_append_int(uint64_t i, uint32_t base, size_t width, StringFormatFlags flags) noexcept {
+  char buffer[kStringFormatBufferSize];
+  Span<char> formatted_span;
+  size_t sign_alt_size;
+
+  // Just correct the width here so no calculations would overflow. If it's large the function will fail.
+  if (width > kStringMaxAllocSize + 1u) {
+    width = kStringMaxAllocSize + 1u;
+  }
+
+  ASMJIT_PROPAGATE(String_format_number(buffer, i, base, flags, Out(formatted_span), Out(sign_alt_size)));
+  size_t number_size = formatted_span.size() - sign_alt_size;
+  size_t full_width_size = axl::max(width, number_size);
+  size_t zero_fill_size = full_width_size - number_size;
+
+  char* p = append_uninitialized(formatted_span.size() + zero_fill_size);
+  if (ASMJIT_UNLIKELY(p == nullptr)) {
+    return make_error(Error::kOutOfMemory);
+  }
+  return String_copy_formatted_number(p, formatted_span, sign_alt_size, zero_fill_size);
+}
+
+Error String::append_hex(const void* data, size_t size, char separator) noexcept {
+  if (size - 1u >= kStringMaxAllocSize / 2u) {
+    return size == 0 ? Error::kOk : make_error(Error::kOutOfMemory);
+  }
+
+  size_t formatted_size = size * 2u;
+  if (separator) {
+    if (size >= kStringMaxAllocSize / 3u) {
+      return make_error(Error::kOutOfMemory);
+    }
+    formatted_size += size - 1u;
+  }
+
+  char* dst = append_uninitialized(formatted_size);
+  if (ASMJIT_UNLIKELY(dst == nullptr)) {
+    return make_error(Error::kOutOfMemory);
+  }
+  return String_format_hex(dst, data, size, separator);
+}
+
+Error String::append_format(const char* fmt, ...) noexcept {
+  Error err;
+  va_list ap;
+
+  va_start(ap, fmt);
+  err = append_vformat(fmt, ap);
+  va_end(ap);
+
+  return err;
+}
+
+Error String::append_vformat(const char* fmt, va_list ap) noexcept {
+  return String_vformat<true>(*this, fmt, ap);
+}
+
+// String - Operations
+// ===================
+
+Error String::pad_end(size_t n, char c) noexcept {
+  size_t self_size = size();
+  return n > self_size ? append_chars(c, n - self_size) : Error::kOk;
 }
 
 Error String::truncate(size_t new_size) noexcept {
@@ -545,6 +655,9 @@ Error String::truncate(size_t new_size) noexcept {
 
   return Error::kOk;
 }
+
+// String - Equality
+// =================
 
 bool String::equals(const char* other, size_t size) const noexcept {
   const char* a_data = data();
@@ -566,101 +679,8 @@ bool String::equals(const char* other, size_t size) const noexcept {
     if (a_size != b_size) {
       return false;
     }
-    return ::memcmp(a_data, b_data, a_size) == 0;
+    return a_size == 0 || ::memcmp(a_data, b_data, a_size) == 0;
   }
 }
-
-// String - Tests
-// ==============
-
-#if defined(ASMJIT_TEST)
-static void test_string_grow() noexcept {
-  String s;
-  size_t c = s.capacity();
-
-  INFO("Testing string grow strategy (SSO capacity: %zu)", c);
-  for (size_t i = 0; i < 1000000; i++) {
-    s.append('x');
-    if (s.capacity() != c) {
-      c = s.capacity();
-      INFO("  String reallocated to new capacity: %zu", c);
-    }
-  }
-
-  // We don't expect a 1 million character string to occupy 4MiB, for example. So verify that!
-  EXPECT_LT(c, size_t(4 * 1024 * 1024));
-}
-
-UNIT(core_string) {
-  String s;
-
-  INFO("Testing string functionality");
-
-  EXPECT_FALSE(s.is_large_or_external());
-  EXPECT_FALSE(s.is_external());
-
-  EXPECT_EQ(s.assign('a'), Error::kOk);
-  EXPECT_EQ(s.size(), 1u);
-  EXPECT_EQ(s.capacity(), String::kSSOCapacity);
-  EXPECT_EQ(s.data()[0], 'a');
-  EXPECT_EQ(s.data()[1], '\0');
-  EXPECT_TRUE(s.equals("a"));
-  EXPECT_TRUE(s.equals("a", 1));
-
-  EXPECT_EQ(s.assign_chars('b', 4), Error::kOk);
-  EXPECT_EQ(s.size(), 4u);
-  EXPECT_EQ(s.capacity(), String::kSSOCapacity);
-  EXPECT_EQ(s.data()[0], 'b');
-  EXPECT_EQ(s.data()[1], 'b');
-  EXPECT_EQ(s.data()[2], 'b');
-  EXPECT_EQ(s.data()[3], 'b');
-  EXPECT_EQ(s.data()[4], '\0');
-  EXPECT_TRUE(s.equals("bbbb"));
-  EXPECT_TRUE(s.equals("bbbb", 4));
-
-  EXPECT_EQ(s.assign("abc"), Error::kOk);
-  EXPECT_EQ(s.size(), 3u);
-  EXPECT_EQ(s.capacity(), String::kSSOCapacity);
-  EXPECT_EQ(s.data()[0], 'a');
-  EXPECT_EQ(s.data()[1], 'b');
-  EXPECT_EQ(s.data()[2], 'c');
-  EXPECT_EQ(s.data()[3], '\0');
-  EXPECT_TRUE(s.equals("abc"));
-  EXPECT_TRUE(s.equals("abc", 3));
-
-  const char* large = "Large string that will not fit into SSO buffer";
-  EXPECT_EQ(s.assign(large), Error::kOk);
-  EXPECT_TRUE(s.is_large_or_external());
-  EXPECT_EQ(s.size(), strlen(large));
-  EXPECT_GT(s.capacity(), String::kSSOCapacity);
-  EXPECT_TRUE(s.equals(large));
-  EXPECT_TRUE(s.equals(large, strlen(large)));
-
-  const char* additional = " (additional content)";
-  EXPECT_TRUE(s.is_large_or_external());
-  EXPECT_EQ(s.append(additional), Error::kOk);
-  EXPECT_EQ(s.size(), strlen(large) + strlen(additional));
-
-  EXPECT_EQ(s.clear(), Error::kOk);
-  EXPECT_EQ(s.size(), 0u);
-  EXPECT_TRUE(s.is_empty());
-  EXPECT_EQ(s.data()[0], '\0');
-  EXPECT_TRUE(s.is_large_or_external()); // Clear should never release the memory.
-
-  EXPECT_EQ(s.append_uint(1234), Error::kOk);
-  EXPECT_TRUE(s.equals("1234"));
-
-  EXPECT_EQ(s.assign_uint(0xFFFF, 16, 0, StringFormatFlags::kAlternate), Error::kOk);
-  EXPECT_TRUE(s.equals("0xFFFF"));
-
-  StringTmp<64> s_tmp;
-  EXPECT_TRUE(s_tmp.is_large_or_external());
-  EXPECT_TRUE(s_tmp.is_external());
-  EXPECT_EQ(s_tmp.append_chars(' ', 1000), Error::kOk);
-  EXPECT_FALSE(s_tmp.is_external());
-
-  test_string_grow();
-}
-#endif
 
 ASMJIT_END_NAMESPACE

@@ -3,15 +3,16 @@
 // See <asmjit/core.h> or LICENSE.md for license and copyright information
 // SPDX-License-Identifier: Zlib
 
-#include <asmjit/core/api-build_p.h>
+#include <asmjit/core/api_build_p.h>
 #ifndef ASMJIT_NO_BUILDER
 
+#include <asmjit/axl/commons.h>
 #include <asmjit/core/builder.h>
-#include <asmjit/core/emitterutils_p.h>
-#include <asmjit/core/errorhandler.h>
+#include <asmjit/core/emitter_utils_p.h>
+#include <asmjit/core/error_handler.h>
 #include <asmjit/core/formatter.h>
+#include <asmjit/core/globals.h>
 #include <asmjit/core/logger.h>
-#include <asmjit/support/support.h>
 
 ASMJIT_BEGIN_NAMESPACE
 
@@ -24,7 +25,7 @@ ASMJIT_BEGIN_NAMESPACE
 class PostponedErrorHandler : public ErrorHandler {
 public:
   void handle_error(Error err, const char* message, BaseEmitter* origin) override {
-    Support::maybe_unused(err, origin);
+    axl::maybe_unused(err, origin);
     _message.assign(message);
   }
 
@@ -65,7 +66,7 @@ Error BaseBuilder::new_inst_node(Out<InstNode*> out, InstId inst_id, InstOptions
     return report_error(make_error(Error::kOutOfMemory));
   }
 
-  out = new(Support::PlacementNew{ptr}) InstNode(inst_id, inst_options, op_count, op_capacity);
+  out = new(axl::PlacementNew{ptr}) InstNode(inst_id, inst_options, op_count, op_capacity);
   return Error::kOk;
 }
 
@@ -92,16 +93,16 @@ Error BaseBuilder::new_embed_data_node(Out<EmbedDataNode*> out, TypeId type_id, 
   }
 
   uint32_t type_size = TypeUtils::size_of(final_type_id);
-  Support::FastUInt8 of = 0;
+  axl::OverflowFlag of {};
 
-  size_t node_size = Support::madd_overflow(item_count, size_t(type_size), sizeof(EmbedDataNode), &of);
-  if (ASMJIT_UNLIKELY(of)) {
+  size_t node_size = axl::madd_overflow(item_count, size_t(type_size), sizeof(EmbedDataNode), of);
+  if (ASMJIT_UNLIKELY(axl::did_overflow(of))) {
     return report_error(make_error(Error::kOutOfMemory));
   }
 
   EmbedDataNode* node = nullptr;
   ASMJIT_PROPAGATE(
-    new_node_with_size_t<EmbedDataNode>(Out(node), Arena::aligned_size(node_size), type_id, uint8_t(type_size), item_count, repeat_count)
+    new_node_with_size_t<EmbedDataNode>(Out(node), axl::Arena::aligned_size(node_size), type_id, uint8_t(type_size), item_count, repeat_count)
   );
 
   if (data) {
@@ -584,13 +585,13 @@ Error BaseBuilder::run_passes() {
   set_error_handler(&postponed);
 
   for (Pass* pass : _passes) {
-    _pass_arena.reset();
+    _pass_arena.clear();
     err = pass->run(_pass_arena, _logger);
     if (err != Error::kOk) {
       break;
     }
   }
-  _pass_arena.reset();
+  _pass_arena.clear();
   set_error_handler(prev);
 
   if (ASMJIT_UNLIKELY(err != Error::kOk)) {
@@ -607,7 +608,7 @@ Error BaseBuilder::_emit(InstId inst_id, const Operand_& o0, const Operand_& o1,
   uint32_t op_count = EmitterUtils::op_count_from_emit_args(o0, o1, o2, op_ext);
   InstOptions options = inst_options() | forced_inst_options();
 
-  if (Support::test(options, InstOptions::kReserved)) {
+  if (axl::test(options, InstOptions::kReserved)) {
     if (ASMJIT_UNLIKELY(!_code)) {
       return make_error(Error::kNotInitialized);
     }
@@ -650,7 +651,7 @@ Error BaseBuilder::_emit(InstId inst_id, const Operand_& o0, const Operand_& o1,
     return report_error(make_error(Error::kOutOfMemory));
   }
 
-  InstNode* node = new(Support::PlacementNew{ptr}) InstNode(inst_id, options, op_count, op_capacity);
+  InstNode* node = new(axl::PlacementNew{ptr}) InstNode(inst_id, options, op_count, op_capacity);
   node->set_extra_reg(extra_reg());
   node->set_op(0, o0);
   node->set_op(1, o1);
@@ -739,7 +740,7 @@ Error BaseBuilder::embed_const_pool(const Label& label, const ConstPool& pool) {
 // ==========================================
 
 Error BaseBuilder::embed_label(const Label& label, size_t data_size) {
-  if (ASMJIT_UNLIKELY(!Support::bool_and(_code, Support::is_zero_or_power_of_2_up_to(data_size, 8u)))) {
+  if (ASMJIT_UNLIKELY(!axl::bool_and(_code, axl::is_zero_or_power_of_2_up_to(data_size, 8u)))) {
     return report_error(make_error(!_code ? Error::kNotInitialized : Error::kInvalidArgument));
   }
 
@@ -751,7 +752,7 @@ Error BaseBuilder::embed_label(const Label& label, size_t data_size) {
 }
 
 Error BaseBuilder::embed_label_delta(const Label& label, const Label& base, size_t data_size) {
-  if (ASMJIT_UNLIKELY(!Support::bool_and(_code, Support::is_zero_or_power_of_2_up_to(data_size, 8u)))) {
+  if (ASMJIT_UNLIKELY(!axl::bool_and(_code, axl::is_zero_or_power_of_2_up_to(data_size, 8u)))) {
     return report_error(make_error(!_code ? Error::kNotInitialized : Error::kInvalidArgument));
   }
 
@@ -869,24 +870,25 @@ static ASMJIT_INLINE void BaseBuilder_clear_all(BaseBuilder* self) noexcept {
   self->_section_nodes.reset();
   self->_label_nodes.reset();
 
-  self->_builder_arena.reset();
-  self->_pass_arena.reset();
+  self->_builder_arena.clear();
+  self->_pass_arena.clear();
 
   self->_cursor = nullptr;
   self->_node_list.reset();
 }
 
 static ASMJIT_INLINE Error BaseBuilder_init_section(BaseBuilder* self) noexcept {
+  ASMJIT_PROPAGATE(self->_section_nodes.reserve_fit(self->_builder_arena, 4u));
+  ASMJIT_PROPAGATE(self->_passes.reserve_additional(self->_builder_arena, 4u));
+
   SectionNode* initial_section;
+  ASMJIT_PROPAGATE(self->new_node_no_report<SectionNode>(Out(initial_section), 0u));
 
-  ASMJIT_PROPAGATE(self->section_node_of(Out(initial_section), 0));
-  ASMJIT_PROPAGATE(self->_passes.reserve_additional(self->_builder_arena, 4));
-
-  ASMJIT_ASSUME(initial_section != nullptr);
   self->_cursor = initial_section;
   self->_node_list.reset(initial_section, initial_section);
-  initial_section->_assign_flags(NodeFlags::kIsActive);
+  self->_section_nodes.append_unchecked(initial_section);
 
+  initial_section->_assign_flags(NodeFlags::kIsActive);
   return Error::kOk;
 }
 
@@ -928,8 +930,8 @@ Pass::~Pass() noexcept {}
 // ================
 
 // [[pure virtual]]
-Error Pass::run(Arena& arena, Logger* logger) {
-  Support::maybe_unused(arena, logger);
+Error Pass::run(axl::Arena& arena, Logger* logger) {
+  axl::maybe_unused(arena, logger);
   return make_error(Error::kInvalidState);
 }
 
