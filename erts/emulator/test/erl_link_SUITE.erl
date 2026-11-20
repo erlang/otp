@@ -28,6 +28,9 @@
 %%%----------------------------------------------------------------------
 
 -module(erl_link_SUITE).
+
+-behaviour(ct_suite).
+
 -author('rickard.green@uab.ericsson.se').
 
 %-define(line_trace, 1).

@@ -28,6 +28,9 @@
 %%% Created : 10 Mar 2005 by Rickard Green <rickard.s.green@ericsson.com>
 %%%-------------------------------------------------------------------
 -module(erl_print_SUITE).
+
+-behaviour(ct_suite).
+
 -author('rickard.s.green@ericsson.com').
 
 -export([all/0, suite/0, init_per_testcase/2, end_per_testcase/2]).

@@ -21,6 +21,8 @@
 %%
 -module(uri_string_SUITE).
 
+-behaviour(ct_suite).
+
 -include_lib("common_test/include/ct.hrl").
 -compile({nowarn_deprecated_function, [{http_uri, encode, 1}]}).
 -compile({nowarn_deprecated_function, [{http_uri, decode, 1}]}).

@@ -22,6 +22,8 @@
 
 -module(dirty_bif_SUITE).
 
+-behaviour(ct_suite).
+
 %%-define(line_trace,true).
 -define(CHECK(Exp,Got), check(Exp,Got,?LINE)).
 %%-define(CHECK(Exp,Got), Exp = Got).

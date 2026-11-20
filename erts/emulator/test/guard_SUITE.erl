@@ -22,6 +22,8 @@
 
 -module(guard_SUITE).
 
+-behaviour(ct_suite).
+
 -export([all/0, suite/0,
          bad_arith/1, bad_tuple/1,
 	 test_heap_guards/1, guard_bifs/1,

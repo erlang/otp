@@ -22,6 +22,9 @@
 
 %%
 -module(openssl_mfl_SUITE).
+
+-behaviour(ct_suite).
+
 -include_lib("common_test/include/ct.hrl").
 
 %% Common test

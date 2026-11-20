@@ -21,6 +21,8 @@
 %%
 -module(logger_olp_SUITE).
 
+-behaviour(ct_suite).
+
 -compile(export_all).
 
 -include_lib("kernel/src/logger_olp.hrl").

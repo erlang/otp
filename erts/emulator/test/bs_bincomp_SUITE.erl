@@ -25,6 +25,8 @@
 
 -module(bs_bincomp_SUITE).
 
+-behaviour(ct_suite).
+
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
 	 byte_aligned/1,bit_aligned/1,extended_byte_aligned/1,

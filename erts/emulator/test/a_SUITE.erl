@@ -29,6 +29,8 @@
 %%%-------------------------------------------------------------------
 -module(a_SUITE).
 
+-behaviour(ct_suite).
+
 -include_lib("common_test/include/ct.hrl").
 
 -export([all/0, suite/0, init_per_suite/1, end_per_suite/1,

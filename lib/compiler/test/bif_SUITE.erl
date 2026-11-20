@@ -21,6 +21,8 @@
 %%
 -module(bif_SUITE).
 
+-behaviour(ct_suite).
+
 -include_lib("syntax_tools/include/merl.hrl").
 
 -export([all/0,suite/0,groups/0,init_per_suite/1,end_per_suite/1,

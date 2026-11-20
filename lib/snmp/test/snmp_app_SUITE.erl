@@ -25,6 +25,8 @@
 %%----------------------------------------------------------------------
 -module(snmp_app_SUITE).
 
+-behaviour(ct_suite).
+
 %% Note: This directive should only be used in test suites.
 -export([
         suite/0, all/0,

@@ -20,6 +20,9 @@
 %% %CopyrightEnd%
 %%
 -module(sasl_report_SUITE).
+
+-behaviour(ct_suite).
+
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
 	 init_per_group/2,end_per_group/2]).
 -export([gen_server_crash/1, gen_server_crash_unicode/1]).

@@ -21,6 +21,8 @@
 %%
 -module(bs_match_misc_SUITE).
 
+-behaviour(ct_suite).
+
 -export([all/0, suite/0,
 	 bound_var/1,bound_tail/1,t_float/1,little_float/1,sean/1,
 	 kenneth/1,encode_binary/1,native/1,happi/1,

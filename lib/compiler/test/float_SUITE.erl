@@ -20,6 +20,9 @@
 %% %CopyrightEnd%
 %%
 -module(float_SUITE).
+
+-behaviour(ct_suite).
+
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
 	 pending/1,bif_calls/1,math_functions/1,mixed_float_and_int/1,

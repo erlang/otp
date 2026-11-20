@@ -23,6 +23,9 @@
 %% File    : xmerl_sax_stream_SUITE.erl
 %%----------------------------------------------------------------------
 -module(xmerl_sax_stream_SUITE).
+
+-behaviour(ct_suite).
+
 -compile(export_all).
 
 %%----------------------------------------------------------------------

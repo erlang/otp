@@ -20,6 +20,8 @@
 %% %CopyrightEnd%
 -module(erl_types_SUITE).
 
+-behaviour(ct_suite).
+
 -export([all/0,groups/0,init_per_group/2,end_per_group/2,
          consistency_and_to_string/1,misc/1,map_multiple_representations/1,
          absorption/1,associativity/1,commutativity/1,idempotence/1,

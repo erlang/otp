@@ -58,6 +58,8 @@
 
 -module(prim_net_SUITE).
 
+-behaviour(ct_suite).
+
 -include_lib("common_test/include/ct.hrl").
 -include_lib("common_test/include/ct_event.hrl").
 -include("socket_test_evaluator.hrl").

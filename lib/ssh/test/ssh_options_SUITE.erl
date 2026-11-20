@@ -24,6 +24,8 @@
 
 -module(ssh_options_SUITE).
 
+-behaviour(ct_suite).
+
 %%% This test suite tests different options for the ssh functions
 
 -include_lib("common_test/include/ct.hrl").

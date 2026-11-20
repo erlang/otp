@@ -20,6 +20,9 @@
 %% %CopyrightEnd%
 %%
 -module(atomics_SUITE).
+
+-behaviour(ct_suite).
+
 -export([suite/0, all/0,
          signed/1, unsigned/1, bad/1, signed_limits/1, unsigned_limits/1,
          new_limits/1, error_info/1]).

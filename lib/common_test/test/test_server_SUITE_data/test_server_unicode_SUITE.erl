@@ -21,6 +21,8 @@
 %%
 -module(test_server_unicode_SUITE).
 
+-behaviour(ct_suite).
+
 -export([all/1, init_per_suite/1, end_per_suite/1]).
 -export([init_per_testcase/2, end_per_testcase/2]).
 -export(['#=@: difficult_case_name_äöå'/1,

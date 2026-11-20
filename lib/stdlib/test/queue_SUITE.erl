@@ -20,6 +20,9 @@
 %% %CopyrightEnd%
 %%
 -module(queue_SUITE).
+
+-behaviour(ct_suite).
+
 -compile([warnings_as_errors,
           {nowarn_deprecated_function,[{queue,lait,1}]}]).
 

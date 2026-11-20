@@ -22,6 +22,8 @@
 %%
 -module(int_break_SUITE).
 
+-behaviour(ct_suite).
+
 %% Test break points.
 
 -include_lib("common_test/include/ct.hrl").

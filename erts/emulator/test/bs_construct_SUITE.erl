@@ -22,6 +22,8 @@
 
 -module(bs_construct_SUITE).
 
+-behaviour(ct_suite).
+
 -export([all/0, suite/0,
          init_per_suite/1, end_per_suite/1,
 	 test1/1, test2/1, test3/1, test4/1, test5/1, testf/1,

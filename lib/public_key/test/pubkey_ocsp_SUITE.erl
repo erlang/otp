@@ -22,6 +22,8 @@
 
 -module(pubkey_ocsp_SUITE).
 
+-behaviour(ct_suite).
+
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
 %% Note: This directive should only be used in test suites.

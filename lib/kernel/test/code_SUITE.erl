@@ -21,6 +21,8 @@
 %%
 -module(code_SUITE).
 
+-behaviour(ct_suite).
+
 -include_lib("common_test/include/ct.hrl").
 -include_lib("syntax_tools/include/merl.hrl").
 

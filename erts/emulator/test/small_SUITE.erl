@@ -21,6 +21,8 @@
 %%
 -module(small_SUITE).
 
+-behaviour(ct_suite).
+
 -include_lib("syntax_tools/include/merl.hrl").
 
 -export([all/0, suite/0, groups/0]).

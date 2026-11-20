@@ -23,6 +23,8 @@
 
 -module(inets_sup_SUITE).
 
+-behaviour(ct_suite).
+
 -include_lib("common_test/include/ct.hrl").
 
 %% Note: This directive should only be used in test suites.

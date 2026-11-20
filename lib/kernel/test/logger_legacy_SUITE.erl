@@ -21,6 +21,8 @@
 %%
 -module(logger_legacy_SUITE).
 
+-behaviour(ct_suite).
+
 -compile(export_all).
 -compile({nowarn_deprecated_function,[{gen_fsm,start,3},
                                       {gen_fsm,send_all_state_event,2}]}).

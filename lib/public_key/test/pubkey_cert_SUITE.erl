@@ -22,6 +22,8 @@
 
 -module(pubkey_cert_SUITE).
 
+-behaviour(ct_suite).
+
 -include_lib("common_test/include/ct.hrl").
 
 %% CT callbacks

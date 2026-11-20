@@ -20,6 +20,9 @@
 %% %CopyrightEnd%
 %%
 -module(warnings_SUITE).
+
+-behaviour(ct_suite).
+
 -include_lib("stdlib/include/assert.hrl").
 
 %%-define(STANDALONE, true).

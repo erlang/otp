@@ -22,6 +22,8 @@
 
 -module(statistics_SUITE).
 
+-behaviour(ct_suite).
+
 %% Tests the statistics/1 bif.
 
 -export([all/0, suite/0, groups/0,

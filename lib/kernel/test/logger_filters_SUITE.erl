@@ -21,6 +21,8 @@
 %%
 -module(logger_filters_SUITE).
 
+-behaviour(ct_suite).
+
 -compile(export_all).
 
 -include_lib("common_test/include/ct.hrl").

@@ -22,6 +22,8 @@
 
 -module(trace_local_SUITE).
 
+-behaviour(ct_suite).
+
 -export([basic_test/0, bit_syntax_test/0, return_test/0,
 	 on_and_off_test/0, stack_grow_test/0,
 	 info_test/0, delete_test/1, exception_test/1]).

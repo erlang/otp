@@ -31,6 +31,8 @@
 
 -module(systools_SUITE).
 
+-behaviour(ct_suite).
+
 -compile(export_all).
 
 %%-define(debug, true).

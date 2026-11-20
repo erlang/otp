@@ -22,6 +22,8 @@
 
 -module(iovec_SUITE).
 
+-behaviour(ct_suite).
+
 -export([all/0, suite/0, init_per_suite/1, end_per_suite/1]).
 
 -export([integer_lists/1, binary_lists/1, empty_lists/1, empty_binary_lists/1,

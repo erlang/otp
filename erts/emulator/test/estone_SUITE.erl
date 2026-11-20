@@ -20,6 +20,9 @@
 %% %CopyrightEnd%
 
 -module(estone_SUITE).
+
+-behaviour(ct_suite).
+
 %% Test functions
 -export([all/0, suite/0, groups/0,
 	 estone/1, estone_bench/1, pgo/0]).

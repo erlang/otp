@@ -21,6 +21,8 @@
 %%
 -module(binary_property_test_SUITE).
 
+-behaviour(ct_suite).
+
 -compile([export_all, nowarn_export_all]).
 
 all() ->

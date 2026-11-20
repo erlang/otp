@@ -23,6 +23,8 @@
 %%
 -module(ei_connect_SUITE).
 
+-behaviour(ct_suite).
+
 -include_lib("common_test/include/ct.hrl").
 -include("ei_connect_SUITE_data/ei_connect_test_cases.hrl").
 

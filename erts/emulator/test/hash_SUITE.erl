@@ -33,6 +33,9 @@
 %% Also tests that the limit can be between 0 and 16#FFFFFFFF.
 %%
 -module(hash_SUITE).
+
+-behaviour(ct_suite).
+
 -compile([{nowarn_deprecated_function, [{erlang,phash,2}]}]).
 
 -export([basic_test/0,cmp_test/1,range_test/0,spread_test/1,

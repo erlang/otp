@@ -21,6 +21,8 @@
 %%
 -module(global_SUITE).
 
+-behaviour(ct_suite).
+
 -compile(r27). % many_nodes()
 
 -export([all/0, suite/0, groups/0, 

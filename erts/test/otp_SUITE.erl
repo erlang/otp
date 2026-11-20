@@ -22,6 +22,8 @@
 
 -module(otp_SUITE).
 
+-behaviour(ct_suite).
+
 -export([all/0, suite/0,
          init_per_suite/1,end_per_suite/1]).
 -export([undefined_functions/1,deprecated_not_in_obsolete/1,

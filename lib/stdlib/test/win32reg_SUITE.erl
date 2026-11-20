@@ -21,6 +21,8 @@
 %%
 -module(win32reg_SUITE).
 
+-behaviour(ct_suite).
+
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,long/1,evil_write/1,
          read_write_default_1/1,read_write_default_2/1,

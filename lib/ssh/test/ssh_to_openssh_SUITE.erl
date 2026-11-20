@@ -23,6 +23,8 @@
 %%
 -module(ssh_to_openssh_SUITE).
 
+-behaviour(ct_suite).
+
 -include_lib("common_test/include/ct.hrl").
 -include("ssh_test_lib.hrl").
 -include("ssh_transport.hrl").

@@ -22,6 +22,7 @@
 
 -module(port_bif_SUITE).
 
+-behaviour(ct_suite).
 
 -export([all/0, suite/0, groups/0,
          command/1,

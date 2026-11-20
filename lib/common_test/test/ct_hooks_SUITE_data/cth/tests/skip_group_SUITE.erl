@@ -22,6 +22,8 @@
 
 -module(skip_group_SUITE).
 
+-behaviour(ct_suite).
+
 -compile(export_all).
 
 -include("ct.hrl").

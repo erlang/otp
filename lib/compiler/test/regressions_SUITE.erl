@@ -21,6 +21,9 @@
 
 %% Test specific code snippets that has crashed the compiler in the past.
 -module(regressions_SUITE).
+
+-behaviour(ct_suite).
+
 -include_lib("common_test/include/ct.hrl").
 
 -export([all/0,groups/0,init_per_testcase/2,end_per_testcase/2,

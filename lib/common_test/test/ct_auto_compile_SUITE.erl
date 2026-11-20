@@ -29,6 +29,9 @@
 %%% The suites used for the test are located in the data directory.
 %%%-------------------------------------------------------------------
 -module(ct_auto_compile_SUITE).
+
+-behaviour(ct_suite).
+
 -warning("Ignore me -- testing that the debugger can handle warnings").
 
 -compile(export_all).

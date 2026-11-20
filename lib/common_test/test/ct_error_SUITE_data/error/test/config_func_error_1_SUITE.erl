@@ -21,6 +21,8 @@
 %%
 -module(config_func_error_1_SUITE).
 
+-behaviour(ct_suite).
+
 -compile(export_all).
 
 -include_lib("common_test/include/ct.hrl").

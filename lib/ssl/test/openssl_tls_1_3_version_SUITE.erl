@@ -24,6 +24,8 @@
 
 -module(openssl_tls_1_3_version_SUITE).
 
+-behaviour(ct_suite).
+
 -include_lib("common_test/include/ct.hrl").
 -include_lib("public_key/include/public_key.hrl").
 

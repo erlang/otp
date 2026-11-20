@@ -28,6 +28,8 @@
 
 -module(os_signal_SUITE).
 
+-behaviour(ct_suite).
+
 -include_lib("common_test/include/ct.hrl").
 -export([all/0, suite/0]).
 -export([init_per_testcase/2, end_per_testcase/2]).

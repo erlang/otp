@@ -21,6 +21,9 @@
 %%
 
 -module(syntax_SUITE).
+
+-behaviour(ct_suite).
+
 -export([suite/0,all/0,groups/0,
 	 assignment/1,
 	 class/1,

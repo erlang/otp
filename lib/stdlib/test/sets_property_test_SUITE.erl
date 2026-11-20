@@ -21,6 +21,8 @@
 %%
 -module(sets_property_test_SUITE).
 
+-behaviour(ct_suite).
+
 -include_lib("common_test/include/ct.hrl").
 
 -compile(export_all).

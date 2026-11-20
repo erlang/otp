@@ -23,6 +23,8 @@
 
 -module(ssl_reject_SUITE).
 
+-behaviour(ct_suite).
+
 -include_lib("common_test/include/ct.hrl").
 -include_lib("ssl/src/ssl_record.hrl").
 -include_lib("ssl/src/ssl_alert.hrl").
