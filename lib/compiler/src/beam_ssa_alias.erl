@@ -75,7 +75,9 @@ fn(#b_local{name=#b_literal{val=N},arity=A}) ->
               prune_strategy = #{} :: #{ func_id() =>
                                              #{beam_ssa:label() =>
                                                    'add' | 'del'} },
-              forced_aliases :: #{ func_id() => var_set() }
+              forced_aliases :: #{ func_id() => var_set() },
+              %% Result status of local calls in the current function
+              call_result_cache = #{} :: #{ {func_id(), beam_types:type()} => term() }
              }).
 
 %% A code location refering to either the #b_set{} defining a variable
@@ -423,7 +425,8 @@ aa_fun(F, #opt_st{ssa=Linear0,args=Args},
     Strategy0 = maps:get(F, StrategyMap0, #{}),
     {SS,Strategy,AAS1} =
         aa_blocks(Linear0, LiveIns, PhiLiveIns,
-                  Kills, #{0=>SS0}, Strategy0, AAS0#aas{cnt=Cnt},
+                  Kills, #{0=>SS0}, Strategy0,
+                  AAS0#aas{cnt=Cnt,call_result_cache=#{}},
                   maps:get(F, ForcedAliases)),
     Lbl2SS0 = maps:get(F, AliasMap0, #{}),
     Type2Status0 = maps:get(returns, Lbl2SS0, #{}),
@@ -1325,13 +1328,24 @@ aa_call(Dst, [#b_local{}=Callee|Args], Anno, SS0,
             %% same as one of the types in ReturnStatusByType.
             ?DP("  returned type: ~s~n",
                 [beam_ssa_pp:format_type(ReturnedType)]),
-            ResultStatus = aa_get_status_by_type(ReturnedType,
-                                                 ReturnStatusByType),
+            %% The callee's alias map cannot change while this function
+            %% is analyzed, so the status can be reused for each call site.
+            #aas{call_result_cache=Cache0} = AAS,
+            CacheKey = {Callee,ReturnedType},
+            {ResultStatus,Cache} =
+                case Cache0 of
+                    #{CacheKey:=Cached} ->
+                        {Cached,Cache0};
+                    #{} ->
+                        Status = aa_get_status_by_type(ReturnedType,
+                                                       ReturnStatusByType),
+                        {Status,Cache0#{CacheKey=>Status}}
+                end,
             ?DP("  result status: ~p~n", [ResultStatus]),
             {SS,Cnt} =
                 beam_ssa_ss:set_call_result(Dst, ResultStatus, SS1, Cnt0),
             ?DP("~s~n", [beam_ssa_ss:dump(SS)]),
-            {SS, AAS#aas{cnt=Cnt}};
+            {SS, AAS#aas{cnt=Cnt,call_result_cache=Cache}};
         false ->
             ?DP("  The callee has not been analyzed~n"),
             %% We don't know anything about the function, so
