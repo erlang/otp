@@ -1229,11 +1229,28 @@ AC_SUBST(THR_DEFS)
 dnl ----------------------------------------------------------------------
 dnl Try to figure out where to get the termcap functions from.
 dnl We use tgetent(), tgetflag(), tgetnum(), tgetstr() and tputs()
+dnl
+dnl The precious variable TERMCAP_LIB (see LM_PRECIOUS_VARS) can be used to
+dnl override the search, e.g. in order to link the library statically.
 dnl ----------------------------------------------------------------------
 
-TERMCAP_LIB=
-
-AS_IF([test "x$with_termcap" != "xno" && test "X$host" != "Xwin32"],
+AS_IF([test "x$with_termcap" = "xno" || test "X$host" = "Xwin32"],
+  [
+    dnl Ignore a user supplied TERMCAP_LIB. with_termcap=no is also implied
+    dnl by --enable-bootstrap-only, so this is not necessarily a user error.
+    TERMCAP_LIB=
+  ],
+  [test "x$TERMCAP_LIB" != "x"],
+  [
+    AC_MSG_CHECKING([for tgetent in $TERMCAP_LIB])
+    termcap_save_LIBS=$LIBS
+    LIBS="$TERMCAP_LIB $LIBS"
+    AC_LINK_IFELSE([AC_LANG_CALL([], [tgetent])],
+                   [AC_MSG_RESULT([yes])],
+                   [AC_MSG_RESULT([no])
+                    AC_MSG_ERROR([No curses library functions found in TERMCAP_LIB=$TERMCAP_LIB])])
+    LIBS=$termcap_save_LIBS
+  ],
   [
     # try these libs
     termcap_libs="tinfo ncurses curses termcap termlib"
@@ -1249,8 +1266,6 @@ AS_IF([test "x$with_termcap" != "xno" && test "X$host" != "Xwin32"],
 	AC_MSG_ERROR([No curses library functions found])
     fi
   ])
-
-AC_SUBST(TERMCAP_LIB)
 
 AC_CHECK_HEADERS([termcap.h ncurses/curses.h curses.h term.h])
 
