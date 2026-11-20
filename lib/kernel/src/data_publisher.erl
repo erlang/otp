@@ -315,7 +315,7 @@ translate_local_data(LocalState, Version, #state{module = Module} = State) ->
         {'$plain_message', Message} ->
             Message;
         TranslatedLocalState ->
-            {local_data, self(), Version, TranslatedLocalState}
+            {local_data, self(), State#state.version, TranslatedLocalState}
     end.
 
 -spec do_send(pid() | {scope(), node()}, dynamic()) -> term().
