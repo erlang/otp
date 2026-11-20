@@ -1343,7 +1343,7 @@ bind_all_generators1([{Generate, Anno, P, <<_/bitstring>>=Bin}|Qs],
 bind_all_generators1([{Generate, Anno, P, [H|T]}|Qs], Acc, Bs0, Ieval, ContinueSkip)
   when Generate =:= generate;
        Generate =:= generate_strict ->
-    case {catch match1(P, H, erl_eval:new_bindings(Bs0), Bs0), Generate} of
+    case {catch match(P, H, erl_eval:new_bindings(Bs0), Bs0), Generate} of
         {{match,Bsn}, _} ->
             Bs2 = zip_add_bindings(Bsn, Bs0),
             case {Bs2, Generate, ContinueSkip} of
@@ -1372,7 +1372,7 @@ bind_all_generators1([{Generate, Anno, P, Iter0}|Qs], Acc, Bs0, Ieval, ContinueS
        Generate =:= m_generate_strict->
     case maps:next(Iter0) of
         {K,V,Iter} ->
-            case {catch match1(P, {K,V}, erl_eval:new_bindings(Bs0), Bs0), Generate} of
+            case {catch match(P, {K,V}, erl_eval:new_bindings(Bs0), Bs0), Generate} of
                 {{match,Bsn}, _} ->
                     Bs2 = zip_add_bindings(Bsn, Bs0),
                     case {Bs2, Generate, ContinueSkip} of
@@ -1639,7 +1639,7 @@ eval_generator({Generate,Line,P,Map0}, Bs0, CompFun, Ieval0) when Generate =:= m
     eval_m_generate(Iter, {tuple,Line,[K,V]}, Bs0, CompFun, Generate =:= m_generate, Ieval).
 
 eval_generate([V|Rest], P, Bs0, CompFun, Relaxed, Ieval) ->
-    case catch match1(P, V, erl_eval:new_bindings(), Bs0) of
+    case catch match(P, V, erl_eval:new_bindings(), Bs0) of
         {match,Bsn} ->
             Bs2 = add_bindings(Bsn, Bs0),
             CompFun(Bs2) ++ eval_generate(Rest, P, Bs0, CompFun, Relaxed, Ieval);
@@ -1675,7 +1675,7 @@ eval_b_generate(Term, _P, Bs, _CompFun, _Relaxed, Ieval) ->
 eval_m_generate(Iter0, P, Bs0, CompFun, Relaxed, Ieval) ->
     case maps:next(Iter0) of
         {K,V,Iter} ->
-            case catch match1(P, {K,V}, erl_eval:new_bindings(), Bs0) of
+            case catch match(P, {K,V}, erl_eval:new_bindings(), Bs0) of
                 {match,Bsn} ->
                     Bs2 = add_bindings(Bsn, Bs0),
                     CompFun(Bs2) ++ eval_m_generate(Iter, P, Bs0, CompFun, Relaxed, Ieval);
@@ -2105,9 +2105,114 @@ eval_new_map_fields([], Bs, _, _, Acc) ->
 
 %% match(Pattern,Term,Bs) -> {match,Bs} | nomatch
 match(Pat, Term, Bs) ->
-    try match1(Pat, Term, Bs, Bs)
+    match(Pat, Term, Bs, Bs).
+
+match(Pat, Term, Bs, BBs) ->
+    try match1(Pat, Term, Bs, BBs)
     catch
+        map_key_deferred -> match_dep_keys(Pat, Term, Bs, BBs);
 	Result -> Result
+    end.
+
+%% match_dep_keys(Pattern, Term, Bs, BBs) -> {match,Bs} | nomatch
+%%  A map key in Pattern uses a variable that is not bound before the
+%%  pattern, but that can be bound by another part of the pattern.
+%%  Match the pattern without the map associations whose keys cannot
+%%  be evaluated yet, then match those associations with the new
+%%  bindings available to their keys. A key variable bound both before
+%%  the pattern and in a fun head refers to the one bound before.
+
+match_dep_keys(Pat0, Term, Bs0, BBs) ->
+    case dep_keys_pat(Pat0, BBs, 1, []) of
+        {_,_,[]} ->
+            nomatch;
+        {Pat,_,Deferred} ->
+            try match1(Pat, Term, Bs0, BBs) of
+                {match,Bs1} ->
+                    {Names,Maps} = lists:unzip(lists:reverse(Deferred)),
+                    Vals = [V || N <- Names, {value,V} <- [binding(N, Bs1)]],
+                    Bs = [B || {N,_}=B <- Bs1, not lists:member(N, Names)],
+                    KeyBs = BBs ++ Bs,
+                    case lists:any(fun(M) -> dep_keys_progress(M, KeyBs) end,
+                                   Maps) of
+                        true ->
+                            match({tuple,0,Maps}, list_to_tuple(Vals),
+                                  Bs, KeyBs);
+                        false ->
+                            %% Circular or unbound keys.
+                            nomatch
+                    end
+            catch
+                Result -> Result
+            end
+    end.
+
+%% Replace each map pattern that has associations whose keys cannot be
+%% evaluated with an alias of its other associations and a new variable.
+
+dep_keys_pat({map,A,Fs0}, BBs, N0, D0) ->
+    {Dep,Indep0} =
+        lists:partition(fun({map_field_exact,_,K,_}) ->
+                                not dep_keys_ready(K, BBs)
+                        end, Fs0),
+    {Indep,N1,D1} = dep_keys_fields(Indep0, BBs, N0, D0),
+    case Dep of
+        [] ->
+            {{map,A,Indep},N1,D1};
+        [_|_] ->
+            Name = {'$map_key',N1},
+            {{match,A,{map,A,Indep},{var,A,Name}},N1+1,
+             [{Name,{map,A,Dep}}|D1]}
+    end;
+dep_keys_pat({cons,A,H0,T0}, BBs, N0, D0) ->
+    {H,N1,D1} = dep_keys_pat(H0, BBs, N0, D0),
+    {T,N,D} = dep_keys_pat(T0, BBs, N1, D1),
+    {{cons,A,H,T},N,D};
+dep_keys_pat({tuple,A,Es0}, BBs, N0, D0) ->
+    {Es,N,D} = dep_keys_pats(Es0, BBs, N0, D0),
+    {{tuple,A,Es},N,D};
+dep_keys_pat({match,A,P10,P20}, BBs, N0, D0) ->
+    {P1,N1,D1} = dep_keys_pat(P10, BBs, N0, D0),
+    {P2,N,D} = dep_keys_pat(P20, BBs, N1, D1),
+    {{match,A,P1,P2},N,D};
+dep_keys_pat({Tag,A,Id,KVs0}, BBs, N0, D0) when Tag =:= record;
+                                                Tag =:= record_wildcard ->
+    {KVs,N,D} = dep_keys_record_fields(KVs0, BBs, N0, D0),
+    {{Tag,A,Id,KVs},N,D};
+dep_keys_pat(P, _BBs, N, D) ->
+    {P,N,D}.
+
+dep_keys_pats([P0|Ps0], BBs, N0, D0) ->
+    {P,N1,D1} = dep_keys_pat(P0, BBs, N0, D0),
+    {Ps,N,D} = dep_keys_pats(Ps0, BBs, N1, D1),
+    {[P|Ps],N,D};
+dep_keys_pats([], _BBs, N, D) ->
+    {[],N,D}.
+
+dep_keys_fields([{map_field_exact,A,K,P0}|Fs0], BBs, N0, D0) ->
+    {P,N1,D1} = dep_keys_pat(P0, BBs, N0, D0),
+    {Fs,N,D} = dep_keys_fields(Fs0, BBs, N1, D1),
+    {[{map_field_exact,A,K,P}|Fs],N,D};
+dep_keys_fields([], _BBs, N, D) ->
+    {[],N,D}.
+
+dep_keys_record_fields([{K,P0}|KVs0], BBs, N0, D0) ->
+    {P,N1,D1} = dep_keys_pat(P0, BBs, N0, D0),
+    {KVs,N,D} = dep_keys_record_fields(KVs0, BBs, N1, D1),
+    {[{K,P}|KVs],N,D};
+dep_keys_record_fields([], _BBs, N, D) ->
+    {[],N,D}.
+
+dep_keys_progress({map,_,Fs}, Bs) ->
+    lists:any(fun({map_field_exact,_,K,_}) -> dep_keys_ready(K, Bs) end, Fs).
+
+%% A key is ready unless it uses an unbound variable.
+dep_keys_ready(K, Bs) ->
+    try guard_expr(K, Bs) of
+        _ -> true
+    catch
+        error:{badmatch,unbound} -> false;
+        _:_ -> true
     end.
 
 match1({value,_,V}, V, Bs,_BBs) ->
@@ -2170,7 +2275,12 @@ match_map([{map_field_exact,_,K0,Pat}|Fs], Map, Bs0, BBs) ->
                 #{} ->
                     throw(nomatch)
             end
-    catch _:_ ->
+    catch
+        error:{badmatch,unbound} ->
+            %% The key can use a variable bound elsewhere in the
+            %% pattern; see match_dep_keys/4.
+            throw(map_key_deferred);
+        _:_ ->
             throw(nomatch)
     end;
 match_map([], _, Bs, _BBs) ->
@@ -2216,13 +2326,20 @@ match_record_field([{K, V}|KVs], R, Bs0, BBs) ->
 match_record_field([], _, Bs, _) ->
     {match, Bs}.
 
-head_match([Par|Pars], [Arg|Args], Bs0, BBs) ->
-    try match1(Par, Arg, Bs0, BBs) of
-	{match,Bs} -> head_match(Pars, Args, Bs, BBs)
+head_match(Pars, Args, Bs0, BBs) ->
+    try head_match_1(Pars, Args, Bs0, BBs)
     catch
+        map_key_deferred ->
+            %% A map key can use a variable bound by another parameter,
+            %% so match all of them together.
+            match_dep_keys({tuple,0,Pars}, list_to_tuple(Args), Bs0, BBs);
 	Result -> Result
-    end;
-head_match([],[],Bs,_) -> {match,Bs}.
+    end.
+
+head_match_1([Par|Pars], [Arg|Args], Bs0, BBs) ->
+    {match,Bs} = match1(Par, Arg, Bs0, BBs),
+    head_match_1(Pars, Args, Bs, BBs);
+head_match_1([],[],Bs,_) -> {match,Bs}.
 
 rec_match([Par],Msg,Bs0) ->
     match(Par,Msg,Bs0).

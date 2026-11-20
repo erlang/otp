@@ -182,7 +182,9 @@ f(Signal, To) ->
 
 The compound pattern operator does not imply that its operands are matched in
 any particular order. That means that it is not legal to bind a variable in
-`Pattern1` and use it in `Pattern2`, or vice versa.
+`Pattern1` and use it as the size of a binary segment in `Pattern2`, or vice
+versa. A variable bound in one of the operands can, however, be used in a map
+key in the other operand; see [Maps in Patterns](expressions.md#maps-in-patterns).
 
 ### String Prefix in Patterns
 
@@ -277,20 +279,27 @@ determined by context.
 The _compound pattern operator_ is used to construct a compound pattern from two
 patterns. Compound patterns are accepted everywhere a pattern is accepted. A
 compound pattern matches if all of its constituent patterns match. It is not
-legal for a pattern that is part of a compound pattern to use variables (as keys
-in map patterns or sizes in binary patterns) bound in other sub patterns of the
-same compound pattern.
+legal for a pattern that is part of a compound pattern to use variables as sizes
+in binary patterns if they are bound in other sub patterns of the same compound
+pattern. Such variables can be used as keys in map patterns.
 
 _Examples:_
 
 ```
-1> fun(#{Key := Value} = #{key := Key}) -> Value end.
-* 1:7: variable 'Key' is unbound
+1> fun(<<Sz:8,_/binary>> = <<_:8,X:Sz>>) -> X end.
+* 1:33: variable 'Sz' is unbound
 2> F = fun({A, B} = E) -> {E, A + B} end, F({1,2}).
 {{1,2},3}
 3> G = fun(<<A:8,B:8>> = <<C:16>>) -> {A, B, C} end, G(<<42,43>>).
 {42,43,10795}
+4> H = fun(#{Key := Value} = #{key := Key}) -> Value end, H(#{key => k, k => v}).
+v
 ```
+
+> #### Change {: .info }
+>
+> Before Erlang/OTP 30, a variable bound in another sub pattern could not be
+> used as a key in a map pattern, as in `#{Key := Value} = #{key := Key}`.
 
 The _match operator_ is allowed everywhere an expression is allowed. It is used
 to match the value of an expression to a pattern. If multiple match operators
@@ -306,7 +315,7 @@ value
 3> f(Key), #{Key := Value} = (#{key := Key} = M), Value.
 value
 4> f(Key), (#{Key := Value} = #{key := Key}) = M, Value.
-* 1:12: variable 'Key' is unbound
+value
 5> <<X:Y>> = begin Y = 8, <<42:8>> end, X.
 42
 ```
@@ -325,9 +334,10 @@ order as in _2_; therefore, the parentheses are redundant.
 In the expression at prompt `4>`, the expression `M` is matched against a pattern
 inside parentheses. Since the construct inside the parentheses is a pattern, the
 `=` that separates the two patterns is the compound pattern operator (_not_ the
-match operator). The match fails because the two sub patterns are matched at the
-same time, and the variable `Key` is therefore not bound when matching against
-pattern `#{Key := Value}`.
+match operator). The two sub patterns are matched as one pattern. Because `Key`
+is used as a map key, the association `Key := Value` is matched after `Key` has
+been bound by the sub pattern `#{key := Key}`; see
+[Maps in Patterns](expressions.md#maps-in-patterns).
 
 In the expression at prompt `5>`, the expressions inside the
 [block expression](expressions.md#block-expressions) are evaluated first,
@@ -1218,8 +1228,10 @@ Matching of key-value associations from maps is done as follows:
 ```
 
 Here `M` is any map. The key `K` must be a
-[guard expression](expressions.md#guard-expressions), with all variables already
-bound. `V` can be any pattern with either bound or unbound variables.
+[guard expression](expressions.md#guard-expressions). All variables in `K` must
+be bound before the pattern, or be bound by other parts of the same pattern; see
+[Keys Bound in the Same Pattern](#keys-bound-in-the-same-pattern). `V` can be any
+pattern with either bound or unbound variables.
 
 If the variable `V` is unbound, it becomes bound to the value associated with
 the key `K`, which must exist in the map `M`. If the variable `V` is bound, it
@@ -1229,6 +1241,9 @@ must match the value associated with `K` in `M`.
 >
 > Before Erlang/OTP 23, the expression defining the key `K` was restricted to be
 > either a single variable or a literal.
+>
+> Before Erlang/OTP 30, all variables in the key `K` had to be bound before the
+> pattern.
 
 _Example:_
 
@@ -1249,8 +1264,9 @@ Similarly, multiple values from the map can be matched:
 #{K1 := V1, ..., Kn := Vn} = M
 ```
 
-Here keys `K1` through `Kn` are any expressions with literals or bound
-variables. If all key expressions evaluate successfully and all keys
+Here keys `K1` through `Kn` are any guard expressions with literals or
+variables bound before the pattern or by other parts of the pattern. If all key
+expressions evaluate successfully and all keys
 exist in map `M`, all variables in `V1 .. Vn` are matched to the
 associated values of their respective keys.
 
@@ -1283,7 +1299,66 @@ Here the key to be retrieved is constructed from an expression:
 #{{tag,length(List)} := V} = Map
 ```
 
-`List` must be an already bound variable.
+`List` must be bound before the pattern, or by another part of the same pattern.
+
+[](){: #keys-bound-in-the-same-pattern }
+#### Keys Bound in the Same Pattern
+
+A variable used in a key can be bound by another part of the same pattern, such
+as another argument in a function head, another element of a tuple, or another
+association in the same map:
+
+```
+local_number(Number, #{numbers := #{Number := Metadata}}) ->
+    {Number, Metadata};
+local_number(_, _) ->
+    not_local.
+
+attachment(#{handler := Name}, #{Name := Settings}) ->
+    {Name, Settings}.
+
+current(#{current := Name, Name := State}) ->
+    State.
+```
+
+An association whose key uses such variables is matched after the parts of the
+pattern that bind them, whatever the order in which the parts are written. If
+the association does not match, the clause does not match, and the next clause
+is tried as usual.
+
+The dependencies must not be circular. In the following examples, the variables
+in the keys can only be bound by matching the keys themselves, so they are
+reported as unbound:
+
+```
+f(#{K := K}) -> K.
+g({#{A := B}, #{B := A}}) -> {A, B}.
+```
+
+A variable that occurs more than once must match the same value everywhere, as
+usual. The following clause matches a map that associates the second argument
+with itself:
+
+```
+h(#{K := K}, K) -> K.
+```
+
+In a fun head or a generator pattern, a variable shadows any variable with the
+same name bound before it. If a variable in a key is also bound before the fun or
+the generator, the key refers to that variable, not to the shadowing one. The
+compiler warns about the shadowing.
+
+In a zip of generators (`G1 && G2`), the generators are matched from left to
+right. A key in the pattern of a generator can therefore only use variables
+bound in the same generator or in a generator to its left:
+
+```
+[Y || {K, _} <- L1 && #{K := Y} <- L2]
+```
+
+> #### Change {: .info }
+>
+> Keys bound in the same pattern were introduced in Erlang/OTP 30.
 
 #### Matching Syntax
 

@@ -289,17 +289,26 @@ maps_warnings(Config) when is_list(Config) ->
              ">>,
 	    [return],
 	    []},
+	%% Since OTP 30, a map key can use a variable bound in the
+	%% same pattern.
+	{map_key_bound_in_pattern,
+	   <<"
+              -export([t/2]).
+	      t(K,#{ K := V }) -> V.
+             ">>,
+	    [return],
+	    []},
 	{map_illegal_use_of_pattern,
 	   <<"
-              -export([t/0,t/2]).
-	      t(K,#{ K := V }) -> V.
+              -export([t/0,t/1]).
+	      t(#{ K := K }) -> K.
               t() ->
                  V = 32,
                  #{<<\"hi\",V,\"all\">> := 1} = id(#{<<\"hi all\">> => 1}).
               id(I) -> I.
              ">>,
 	    [return],
-	    {error,[{{3,15},erl_lint,{unbound_var,'K'}}],[]}}
+	    {error,[{{3,13},erl_lint,{unbound_var,'K'}}],[]}}
     ],
     [] = run2(Config, Ts1),
     ok.

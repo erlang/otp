@@ -232,7 +232,11 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
                feature_keywords =               %Keywords in
                                                 %configurable features
                    feature_keywords() :: #{atom() => atom()},
-               bvt = none :: 'none' | [any()],  %Variables in binary pattern
+               bvt = none :: 'none' | [any()]   %Variables in binary pattern
+                           | {'map_key',[{atom(),anno()}]},
+               map_key_uses = none              %Map key variables not
+                                                %bound before the pattern
+                   :: 'none' | [{atom(),anno()}],
                gexpr_context = guard            %Context of guard expression
                    :: gexpr_context(),
                load_nif=false :: boolean(),      %true if calls erlang:load_nif/2
@@ -2350,13 +2354,122 @@ clause({clause,_Anno,H,G,B}, St0) ->
 head(Ps, Vt, St0) ->
     head(Ps, Vt, Vt, St0).    % Old = Vt
 
-head([P|Ps], Vt0, Old, St0) ->
+head(Ps, Vt, Old, St) ->
+    top_pattern(fun(St0) -> head_1(Ps, Vt, Old, St0) end, Ps, Vt, St).
+
+head_1([P|Ps], Vt0, Old, St0) ->
     {Pvt, Pnew, St1} = pattern(P, Vt0, Old, St0),
-    {Psvt, Psnew, St2} = head(Ps, Vt0, Old, St1),
+    {Psvt, Psnew, St2} = head_1(Ps, Vt0, Old, St1),
     {Vt, St3} = vtmerge_pat(Pvt, Psvt, St2),
     {New, St4} = vtmerge_pat(Pnew, Psnew, St3),
     {Vt, New, St4};
-head([], _Vt, _Env, St) -> {[],[],St}.
+head_1([], _Vt, _Env, St) -> {[],[],St}.
+
+%% top_pattern(CheckFun, [Pattern], VarTable, State) ->
+%%      {UpdVarTable,NewVars,State}.
+%%  Check a complete pattern, or the list of patterns in a head, using
+%%  CheckFun. The variables in map keys that are not bound before the
+%%  pattern are collected while checking, and resolved when the whole
+%%  pattern is known.
+
+top_pattern(Check, Ps, Vt, St0) ->
+    Uses0 = St0#lint.map_key_uses,
+    {Pvt0,Pnew0,St1} = Check(St0#lint{map_key_uses=[]}),
+    {Pvt,Pnew,St2} = map_key_uses(Ps, Vt, Pvt0, Pnew0, St1),
+    {Pvt,Pnew,St2#lint{map_key_uses=Uses0}}.
+
+%% map_key_uses([Pattern], VarTable, UpdVarTable, NewVars, State) ->
+%%      {UpdVarTable,NewVars,State}.
+%%  A variable used in a map key, and not bound before the pattern, is
+%%  allowed if it is bound by a part of the same pattern that can be
+%%  matched before the key is needed. It is then marked as used.
+%%  Otherwise it is unbound, as in #{K := K} or {#{A := B},#{B := A}}.
+
+map_key_uses(_Ps, _Vt, Pvt, Pnew, #lint{map_key_uses=[]}=St) ->
+    {Pvt,Pnew,St};
+map_key_uses(Ps, Vt, Pvt0, Pnew0, #lint{map_key_uses=Uses}=St0) ->
+    Avail = map_key_avail(Ps, Vt),
+    foldl(fun({V,Anno}, {Pvt,Pnew,St}) ->
+                  case ordsets:is_element(V, Avail) of
+                      true ->
+                          {Pvt,map_key_used(V, Pnew),St};
+                      false ->
+                          {Uvt,St1} = do_expr_var(V, Anno, Vt, St),
+                          {vtmerge(Uvt, Pvt),Pnew,St1}
+                  end
+          end, {Pvt0,Pnew0,St0}, reverse(Uses)).
+
+map_key_used(V, New) ->
+    case orddict:find(V, New) of
+        {ok,{State,_Usage,As}} -> orddict:store(V, {State,used,As}, New);
+        error -> New
+    end.
+
+%% map_key_avail([Pattern], VarTable) -> ordset(Var).
+%%  Return the variables that the patterns bind, given that a map
+%%  association whose key uses variables bound in the same pattern is
+%%  matched only after those variables have been bound, wherever they
+%%  occur. A variable that is only bound inside associations that can
+%%  never be matched (circular or unbound keys) is not returned.
+
+map_key_avail(Ps, Vt) ->
+    Ready = fun(K) -> map_key_ready(K, Vt, []) end,
+    {Bs,Ds} = mk_pats(Ps, Ready, {[],[]}),
+    map_key_avail_1(Ds, ordsets:from_list(Bs), Vt).
+
+map_key_avail_1(Ds0, Avail, Vt) ->
+    Ready = fun(K) -> map_key_ready(K, Vt, Avail) end,
+    case lists:partition(fun({map_field_exact,_,K,_}) -> Ready(K) end, Ds0) of
+        {[],_} ->
+            Avail;
+        {Now,Later} ->
+            {Bs,Ds} = foldl(fun({map_field_exact,_,_,V}, Acc) ->
+                                    mk_pat(V, Ready, Acc)
+                            end, {[],Later}, Now),
+            map_key_avail_1(Ds, ordsets:union(Avail, ordsets:from_list(Bs)), Vt)
+    end.
+
+map_key_ready(K, Vt, Avail) ->
+    all(fun(V) ->
+                orddict:is_key(V, Vt) orelse ordsets:is_element(V, Avail)
+        end, mk_expr_vars(K, [])).
+
+%% mk_pat(Pattern, ReadyFun, {Bound,Deferred}) -> {Bound,Deferred}.
+%%  Collect the variables bound by the parts of Pattern that can be
+%%  matched now, and the map associations whose keys are not ready.
+
+mk_pats(Ps, Ready, Acc) ->
+    foldl(fun(P, A) -> mk_pat(P, Ready, A) end, Acc, Ps).
+
+mk_pat({var,_,'_'}, _Ready, Acc) -> Acc;
+mk_pat({var,_,V}, _Ready, {Bs,Ds}) -> {[V|Bs],Ds};
+mk_pat({cons,_,H,T}, Ready, Acc) -> mk_pat(T, Ready, mk_pat(H, Ready, Acc));
+mk_pat({tuple,_,Ps}, Ready, Acc) -> mk_pats(Ps, Ready, Acc);
+mk_pat({map,_,Ps}, Ready, Acc) -> mk_pats(Ps, Ready, Acc);
+mk_pat({map_field_exact,_,K,V}=Assoc, Ready, {Bs,Ds}=Acc) ->
+    case Ready(K) of
+        true -> mk_pat(V, Ready, Acc);
+        false -> {Bs,[Assoc|Ds]}
+    end;
+mk_pat({record,_,_,Fs}, Ready, Acc) -> mk_pats(Fs, Ready, Acc);
+mk_pat({record_field,_,_,P}, Ready, Acc) -> mk_pat(P, Ready, Acc);
+mk_pat({bin,_,Es}, Ready, Acc) -> mk_pats(Es, Ready, Acc);
+mk_pat({bin_element,_,P,_,_}, Ready, Acc) -> mk_pat(P, Ready, Acc);
+mk_pat({match,_,P1,P2}, Ready, Acc) -> mk_pat(P2, Ready, mk_pat(P1, Ready, Acc));
+mk_pat({op,_,'++',_,P}, Ready, Acc) -> mk_pat(P, Ready, Acc);
+mk_pat(_, _Ready, Acc) -> Acc.
+
+%% mk_expr_vars(GuardExpr, Acc) -> [Var].
+%%  Return the variables used in a map key (a guard expression, which
+%%  cannot bind variables).
+
+mk_expr_vars({var,_,'_'}, Acc) -> Acc;
+mk_expr_vars({var,_,V}, Acc) -> [V|Acc];
+mk_expr_vars(T, Acc) when is_tuple(T), tuple_size(T) >= 2 ->
+    [_Tag,_Anno|Es] = tuple_to_list(T),
+    mk_expr_vars(Es, Acc);
+mk_expr_vars([E|Es], Acc) -> mk_expr_vars(Es, mk_expr_vars(E, Acc));
+mk_expr_vars(_, Acc) -> Acc.
 
 %% pattern(Pattern, VarTable, Old, State) ->
 %%                  {UpdVarTable,NewVars,State}.
@@ -2374,7 +2487,7 @@ head([], _Vt, _Env, St) -> {[],[],St}.
 %%  A = 4, fun(<<A:8,16:A>>) -> % A #1 unused
 
 pattern(P, Vt, St) ->
-    pattern(P, Vt, Vt, St).    % Old = Vt
+    top_pattern(fun(St0) -> pattern(P, Vt, Vt, St0) end, [P], Vt, St).    % Old = Vt
 
 pattern({var,_Anno,'_'}, _Vt, _Old, St) ->
     {[],[],St}; %Ignore anonymous variable
@@ -2540,13 +2653,26 @@ pattern_map(Ps, Vt0, Old, St0) ->
                   {Psvt,Psnew,add_error(A, illegal_map_assoc_in_pattern, St1)};
              ({map_field_exact,_A,K,V}, {Psvt,Psnew,St1}) ->
                   St2 = St1#lint{gexpr_context=map_key},
-                  {Kvt, St3} = gexpr(K, Vt0, St2),
+                  {Kvt, St3} = map_key(K, Vt0, St2),
                   {Vvt, Vnew, St4} = pattern(V, Vt0, Old, St3),
                   {Vt1, St5} = vtmerge_pat(Kvt, Vvt, St4),
                   {Vt2, St6} = vtmerge_pat(Vt1, Psvt, St5),
                   {New, St7} = vtmerge_pat(Psnew, Vnew, St6),
                   {Vt2, New, St7}
           end, {[],[], St0}, Ps).
+
+%% map_key(Key, VarTable, State) -> {UpdVarTable,State}.
+%%  Check the key of a map association in a pattern. A variable in the
+%%  key that is not bound before the pattern can be bound by another
+%%  part of the same pattern; that is decided by top_pattern/4 when the
+%%  whole pattern has been checked.
+
+map_key(K, Vt, #lint{bvt=Bvt0,map_key_uses=Uses0}=St0) when is_list(Uses0) ->
+    {Kvt,St1} = gexpr(K, Vt, St0#lint{bvt={map_key,[]}}),
+    {map_key,Uses} = St1#lint.bvt,
+    {Kvt,St1#lint{bvt=Bvt0,map_key_uses=Uses++Uses0}};
+map_key(K, Vt, St) ->
+    gexpr(K, Vt, St).
 
 %% pattern_bin([Element], VarTable, Old, State) ->
 %%           {UpdVarTable,NewVars,State}.
@@ -4926,14 +5052,74 @@ handle_generator(P,E,Vt,Uvt,CheckUnusedE,St0) ->
     Vt3 = vtupdate(vtsubtract(Vt2, Pnew), Pnew),
     {Vt3,NUvt,St5}.
 
-comprehension_pattern([_|_]=Ps, Vt, St) ->
+comprehension_pattern([_|_]=Ps, Vt, St0) ->
     Mps = [K || {map_field_exact,_,K,_} <- Ps] ++ [V || {map_field_exact,_,_,V} <- Ps],
     Ps1 = [P || P <- Ps, element(1,P)=/=map_field_exact],
-    pattern_list(Ps1++Mps, Vt, [], St);
+    {Pvt,Pnew,St} = comprehension_pattern_list(Ps1++Mps, Vt, St0),
+    {Pvt,Pnew,zip_map_keys(Ps, Vt, St)};
 comprehension_pattern({map_field_exact,_,K,V}, Vt, St) ->
-    pattern_list([K,V], Vt, [], St);
+    comprehension_pattern_list([K,V], Vt, St);
 comprehension_pattern(P, Vt, St) ->
-    pattern(P, Vt, [], St).
+    top_pattern(fun(St0) -> pattern(P, Vt, [], St0) end, [P], Vt, St).
+
+comprehension_pattern_list(Ps, Vt, St) ->
+    top_pattern(fun(St0) -> pattern_list(Ps, Vt, [], St0) end, Ps, Vt, St).
+
+%% zip_map_keys([GeneratorPattern], VarTable, State) -> State.
+%%  The generators of a zip are matched from left to right by erl_eval
+%%  and the debugger. Therefore, a map key in the pattern of a generator
+%%  can only use variables bound before the comprehension, in the same
+%%  generator, or in a generator to its left.
+
+zip_map_keys(Gens, Vt, St0) ->
+    GenPats = [case G of
+                   {map_field_exact,_,K,V} -> [K,V];
+                   P -> [P]
+               end || G <- Gens],
+    Bound = [map_key_bound_vars(Ps) || Ps <- GenPats],
+    All = ordsets:union(Bound),
+    {_,St} = foldl(fun({Ps,Own}, {Left0,St1}) ->
+                           Left = ordsets:union(Left0, Own),
+                           St2 = foldl(fun({V,Anno}, S) ->
+                                               case orddict:is_key(V, Vt) orelse
+                                                   ordsets:is_element(V, Left) orelse
+                                                   not ordsets:is_element(V, All) of
+                                                   true -> S;
+                                                   false -> add_error(Anno, {unbound_var,V}, S)
+                                               end
+                                       end, St1, map_key_var_uses(Ps)),
+                           {Left,St2}
+                   end, {[],St0}, lists:zip(GenPats, Bound)),
+    St.
+
+%% All variables bound by the patterns, inside map values too.
+map_key_bound_vars(Ps) ->
+    {Bs,[]} = mk_pats(Ps, fun(_) -> true end, {[],[]}),
+    ordsets:from_list(Bs).
+
+%% The variables used in the map keys of the patterns, as {Var,Anno}.
+map_key_var_uses(Ps) ->
+    mk_key_uses(Ps, []).
+
+mk_key_uses({map_field_exact,_,K,V}, Acc) ->
+    mk_key_uses(V, mk_key_var_annos(K, Acc));
+mk_key_uses(T, Acc) when is_tuple(T), tuple_size(T) >= 2 ->
+    [_Tag,_Anno|Es] = tuple_to_list(T),
+    mk_key_uses(Es, Acc);
+mk_key_uses([E|Es], Acc) ->
+    mk_key_uses(Es, mk_key_uses(E, Acc));
+mk_key_uses(_, Acc) ->
+    Acc.
+
+mk_key_var_annos({var,_,'_'}, Acc) -> Acc;
+mk_key_var_annos({var,Anno,V}, Acc) -> [{V,Anno}|Acc];
+mk_key_var_annos(T, Acc) when is_tuple(T), tuple_size(T) >= 2 ->
+    [_Tag,_Anno|Es] = tuple_to_list(T),
+    mk_key_var_annos(Es, Acc);
+mk_key_var_annos([E|Es], Acc) ->
+    mk_key_var_annos(Es, mk_key_var_annos(E, Acc));
+mk_key_var_annos(_, Acc) ->
+    Acc.
 
 handle_bitstring_gen_pat({bin,_,Segments=[_|_]},St) ->
     case lists:last(Segments) of
@@ -5149,6 +5335,13 @@ pat_binsize_var(V, Anno, Vt, New, St) ->
 
 expr_var(V, Anno, Vt, #lint{bvt=none}=St) ->
     do_expr_var(V, Anno, Vt, St);
+expr_var(V, Anno, Vt, #lint{bvt={map_key,Uses}}=St) ->
+    %% A variable in a map key in a pattern. If it is not bound before
+    %% the pattern, it can still be bound elsewhere in the pattern.
+    case orddict:is_key(V, Vt) of
+        true -> do_expr_var(V, Anno, Vt, St);
+        false -> {[],St#lint{bvt={map_key,[{V,Anno}|Uses]}}}
+    end;
 expr_var(V, Anno, Vt0, #lint{bvt=Bvt0}=St0) when is_list(Bvt0) ->
     %% handles variables in a binary segment size expression
     {Vt,Bvt,St} = pat_binsize_var(V, Anno, Vt0, Bvt0, St0),
