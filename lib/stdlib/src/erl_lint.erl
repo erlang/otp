@@ -175,8 +175,7 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
 %% Define the lint state record.
 %% 'called' and 'exports' contain {Anno, {Function, Arity}},
 %% the other function collections contain {Function, Arity}.
--record(lint, {state=start		:: 'start' | 'attribute' | 'function',
-               module='',                       %Module
+-record(lint, {module='',                        %Module
                behaviour=[],                    %Behaviour
                exports=gb_sets:empty()	:: gb_sets:set(fa()),%Exports
                imports=[] :: orddict:orddict(fa(), module()),%Imports
@@ -288,8 +287,6 @@ format_error_1(invalid_record) ->
 format_error_1({future_feature, Ftr, Atom}) ->
     {~"atom '~p' is reserved in the experimental feature '~p'",
      [Atom, Ftr]};
-format_error_1({attribute,A}) ->
-    {~"attribute ~tw after function definitions", [A]};
 format_error_1({missing_qlc_hrl,A}) ->
     {~"qlc:q/~w called, but \"qlc.hrl\" not included", [A]};
 format_error_1({redefine_import,{{F,A},M}}) ->
@@ -788,7 +785,7 @@ exprs(Exprs, BindingsList) ->
 exprs_opt(Exprs, BindingsList, Opts) ->
     {St0,Vs} = foldl(fun({{record,_SequenceNumber,_Name},Attr0}, {St1,Vs1}) ->
                              Attr = set_file(Attr0, "none"),
-			     {attribute_state(Attr, St1),Vs1};
+                             {form(Attr, St1),Vs1};
                         ({V,_}, {St1,Vs1}) ->
 			     {St1,[{V,{bound,unused,[]}} | Vs1]}
 		     end, {start("nofile",Opts),[]}, BindingsList),
@@ -906,8 +903,7 @@ start(File, Opts) ->
     %% and the compiler presents the total set of enabled features as
     %% the option `{features, ...}` to erl_lint and other passes; they
     %% do not change after the epp pass
-    #lint{state = start,
-          exports = gb_sets:from_list([{module_info,0},{module_info,1}]),
+    #lint{exports = gb_sets:from_list([{module_info,0},{module_info,1}]),
           compile = Opts,
           %% Internal pseudo-functions must appear as defined/reached.
           defined = gb_sets:from_list(pseudolocals()),
@@ -1095,8 +1091,9 @@ forms(Forms0, St0) ->
     St3 = not_deprecated(Forms, St2),
     St4 = not_removed(Forms, St3),
     St5 = not_unsafe(Forms, St4),
-    St6 = foldl(fun form/2, pre_scan(Forms, St5), Forms),
-    post_traversal_check(Forms, St6).
+    {Rest,St6} = module_header(Forms, pre_scan(Forms, St5)),
+    St7 = foldl(fun form/2, St6, Rest),
+    post_traversal_check(Forms, St7).
 
 pre_scan([{attribute,A,compile,C} | Fs], St) ->
     case is_warn_enabled(export_all, St) andalso
@@ -1106,6 +1103,8 @@ pre_scan([{attribute,A,compile,C} | Fs], St) ->
  	false ->
 	    pre_scan(Fs, St)
     end;
+pre_scan([{attribute,A,import,Is} | Fs], St) ->
+    pre_scan(Fs, import(A, Is, St));
 pre_scan([_ | Fs], St) ->
     pre_scan(Fs, St);
 pre_scan([], St) ->
@@ -1148,6 +1147,26 @@ anno_set_file(T, File) ->
     F = fun(Anno) -> erl_anno:set_file(File, Anno) end,
     erl_parse:map_anno(F, T).
 
+module_header([{attribute,Anno,module,{_,_}}=Form | Forms], St0) ->
+    St1 = add_error(Anno, pmod_unsupported, St0),
+    {Forms,form(Form, St1)};
+module_header([{attribute,Anno,module,M} | Forms], St) ->
+    {Forms,check_module_name(M, Anno, St#lint{module=M})};
+module_header([{attribute,_,Tag,_}=Form | Forms], St)
+  when Tag =:= file; Tag =:= compile ->
+    module_header(Forms, form(Form, St));
+module_header([Form | Forms], St)
+  when element(1, Form) =:= error; element(1, Form) =:= warning ->
+    module_header(Forms, form(Form, St));
+module_header([Form | _]=Forms, St) ->
+    Anno = case Form of
+               {eof, Location} -> erl_anno:new(Location);
+               _ -> element(2, Form)
+           end,
+    {Forms,add_error(Anno, undefined_module, St)};
+module_header([], St) ->
+    {[],St}.
+
 %% form(Form, State) -> State'
 %%  Check a form returning the updated State. Handle generic cases here.
 
@@ -1157,80 +1176,54 @@ form({attribute,_A,file,{File,_Line}}, St) ->
     St#lint{file = File};
 form({attribute,_A,compile,_}, St) ->
     St;
-form(Form, #lint{state=State}=St) ->
-    case State of
-	start -> start_state(Form, St);
-	attribute -> attribute_state(Form, St);
-	function -> function_state(Form, St)
-    end.
-
-%% start_state(Form, State) -> State'
-
-start_state({attribute,Anno,module,{_,_}}=Form, St0) ->
-    St1 = add_error(Anno, pmod_unsupported, St0),
-    attribute_state(Form, St1#lint{state=attribute});
-start_state({attribute,Anno,module,M}, St0) ->
-    St1 = St0#lint{module=M},
-    St2 = St1#lint{state=attribute},
-    check_module_name(M, Anno, St2);
-start_state(Form, St) ->
-    Anno = case Form of
-               {eof, Location} -> erl_anno:new(Location);
-               %% {warning, Warning} and {error, Error} not possible here.
-               _ -> element(2, Form)
-           end,
-    St1 = add_error(Anno, undefined_module, St),
-    attribute_state(Form, St1#lint{state=attribute}).
-
-%% attribute_state(Form, State) ->
-%%      State'
-
-attribute_state({attribute,_A,module,_M}, #lint{module=''}=St) ->
+form({attribute,_A,module,_M}, #lint{module=''}=St) ->
     St;
-attribute_state({attribute,A,module,_M}, St) ->
+form({attribute,A,module,_M}, St) ->
     add_error(A, redefine_module, St);
-attribute_state({attribute,A,export,Es}, St) ->
+form({attribute,A,export,Es}, St) ->
     export(A, Es, St);
-attribute_state({attribute,A,export_type,Es}, St) ->
+form({attribute,A,export_type,Es}, St) ->
     export_type(A, Es, St);
-attribute_state({attribute,A,import,Is}, St) ->
-    import(A, Is, St);
-attribute_state({attribute,A,import_record,Ss}, St) ->
+form({attribute,_A,import,_Is}, St) ->
+    St;
+form({attribute,A,import_record,Ss}, St) ->
     import_native_record(A, Ss, St);
-attribute_state({attribute,A,record,{Name,Fields}}, St) ->
+form({attribute,A,record,{Name,Fields}}, St) ->
     record_def(A, tuple, Name, Fields, St);
-attribute_state({attribute,A,native_record,{Name,Fields}}, St) ->
+form({attribute,A,native_record,{Name,Fields}}, St) ->
     record_def(A, native, Name, Fields, St);
-attribute_state({attribute,Aa,behaviour,Behaviour}, St) ->
+form({attribute,Aa,behaviour,Behaviour}, St) ->
     St#lint{behaviour=St#lint.behaviour ++ [{Aa,Behaviour}]};
-attribute_state({attribute,Aa,behavior,Behaviour}, St) ->
+form({attribute,Aa,behavior,Behaviour}, St) ->
     St#lint{behaviour=St#lint.behaviour ++ [{Aa,Behaviour}]};
-attribute_state({attribute,A,type,{TypeName,TypeDef,Args}}, St) ->
+form({attribute,A,type,{TypeName,TypeDef,Args}}, St) ->
     St1 = untrack_doc({type, TypeName, length(Args)}, St),
     type_def(type, A, TypeName, TypeDef, Args, St1);
-attribute_state({attribute,A,opaque,{TypeName,TypeDef,Args}}, St) ->
+form({attribute,A,opaque,{TypeName,TypeDef,Args}}, St) ->
     St1 = untrack_doc({type, TypeName, length(Args)}, St),
     type_def(opaque, A, TypeName, TypeDef, Args, St1);
-attribute_state({attribute,A,nominal,{TypeName,TypeDef,Args}}=AST, St) ->
+form({attribute,A,nominal,{TypeName,TypeDef,Args}}=AST, St) ->
     St1 = untrack_doc(AST, St),
     type_def(nominal, A, TypeName, TypeDef, Args, St1);
-attribute_state({attribute,A,spec,{Fun,Types}}, St) ->
+form({attribute,A,spec,{Fun,Types}}, St) ->
     spec_decl(A, Fun, Types, St);
-attribute_state({attribute,A,callback,{Fun,Types}}, St) ->
+form({attribute,A,callback,{Fun,Types}}, St) ->
     St1 = untrack_doc({callback, Fun}, St),
     callback_decl(A, Fun, Types, St1);
-attribute_state({attribute,A,optional_callbacks,Es}, St) ->
+form({attribute,A,optional_callbacks,Es}, St) ->
     optional_callbacks(A, Es, St);
-attribute_state({attribute,A,on_load,Val}, St) ->
+form({attribute,A,on_load,Val}, St) ->
     on_load(A, Val, St);
-attribute_state({attribute, _A, moduledoc, _Doc}=AST, St)  ->
+form({attribute, _A, moduledoc, _Doc}=AST, St)  ->
     track_doc(AST, St);
-attribute_state({attribute, _A, doc, _Doc}=AST, St)  ->
+form({attribute, _A, doc, _Doc}=AST, St)  ->
     track_doc(AST, St);
-attribute_state({attribute,_A,_Other,_Val}, St) -> % Ignore others
+form({attribute,_A,_Other,_Val}, St) -> % Ignore others
     St;
-attribute_state(Form, St) ->
-    function_state(Form, St#lint{state=function}).
+form({function,Anno,N,A,Cs}, St) ->
+    St1 = untrack_doc({function, N, A}, St),
+    function(Anno, N, A, Cs, St1);
+form({eof,Location}, St) -> eof(Location, St).
 
 
 %% Tracks whether we have read a documentation attribute string multiple times.
@@ -1280,42 +1273,6 @@ untrack_doc({function, F, A}, #lint{ hidden_docs = Ds, moduledoc_defined = {_, _
 untrack_doc(_KFA, St) ->
     St#lint{ doc_defined = false }.
 
-
-%% function_state(Form, State) ->
-%%      State'
-%%  Allow for record, type and opaque type definitions and spec
-%%  declarations to be intersperced within function definitions.
-%%  Dialyzer attributes are also allowed everywhere.
-
-function_state({attribute,A,record,{Name,Fields}}, St) ->
-    record_def(A, tuple, Name, Fields, St);
-function_state({attribute,A,native_record,{Name,Fields}}, St) ->
-    record_def(A, native, Name, Fields, St);
-function_state({attribute,A,import_record,Ss}, St) ->
-    import_native_record(A, Ss, St);
-function_state({attribute,A,type,{TypeName,TypeDef,Args}}, St) ->
-    St1 = untrack_doc({type, TypeName, length(Args)}, St),
-    type_def(type, A, TypeName, TypeDef, Args, St1);
-function_state({attribute,A,opaque,{TypeName,TypeDef,Args}}, St) ->
-    St1 = untrack_doc({type, TypeName, length(Args)}, St),
-    type_def(opaque, A, TypeName, TypeDef, Args, St1);
-function_state({attribute,A,nominal,{TypeName,TypeDef,Args}}=AST, St) ->
-    St1 = untrack_doc(AST, St),
-    type_def(nominal, A, TypeName, TypeDef, Args, St1);
-function_state({attribute,A,spec,{Fun,Types}}, St) ->
-    spec_decl(A, Fun, Types, St);
-function_state({attribute,_A,doc,_Val}=AST, St) ->
-    track_doc(AST, St);
-function_state({attribute,_A,moduledoc,_Val}=AST, St) ->
-    track_doc(AST, St);
-function_state({attribute,_A,dialyzer,_Val}, St) ->
-    St;
-function_state({attribute,Aa,Attr,_Val}, St) ->
-    add_error(Aa, {attribute,Attr}, St);
-function_state({function,Anno,N,A,Cs}, St) ->
-    St1 = untrack_doc({function, N, A}, St),
-    function(Anno, N, A, Cs, St1);
-function_state({eof,Location}, St) -> eof(Location, St).
 
 %% eof(LastLocation, State) ->
 %%      State'
