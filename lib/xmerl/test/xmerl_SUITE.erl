@@ -45,7 +45,8 @@
 all() ->
     [doctests,
      {group, cpd_tests}, xpath_text1, xpath_main,
-     xpath_abbreviated_syntax, xpath_functions, xpath_namespaces,
+     xpath_abbreviated_syntax, xpath_functions, xpath_relational,
+     xpath_namespaces, ucs_is_incharset,
      {group, misc}, {group, eventp_tests},
      {group, ticket_tests}, {group, app_test},
      {group, appup_test}, {group, format_test}].
@@ -191,6 +192,10 @@ xpath_abbreviated_syntax(Config) ->
 xpath_functions(Config) ->
     file:set_cwd(filename:join(datadir(Config),xpath)),
     ok = xpath_abbrev:functions().
+
+xpath_relational(Config) ->
+    file:set_cwd(filename:join(datadir(Config),xpath)),
+    ok = xpath_abbrev:relational_operators().
 
 xpath_namespaces(Config) ->
     file:set_cwd(filename:join(datadir(Config),xpath)),
@@ -671,6 +676,16 @@ allow_entities_test(Config) ->
     %% Disallow entities
     {'EXIT',{fatal, {{error,entities_not_allowed}, _, _, _}}} =
         (catch xmerl_scan:file(File, [{allow_entities, false}])),
+    ok.
+
+%% Regression: xmerl_ucs:is_incharset/2 crashed with a case_clause on a
+%% multi-character list for charsets handled via to_unicode/2 (e.g. utf-8),
+%% because the clause only matched a single-element result.
+ucs_is_incharset(_Config) ->
+    true = xmerl_ucs:is_incharset("abc", 'utf-8'),
+    true = xmerl_ucs:is_incharset("a", 'utf-8'),
+    true = xmerl_ucs:is_incharset("abc", 'iso-8859-1'),
+    false = xmerl_ucs:is_incharset([256, 257], 'iso-8859-1'),
     ok.
 
 %%======================================================================

@@ -1,13 +1,27 @@
-%%%-------------------------------------------------------------------
-%%% File    : xpath_abbrev.erl
-%%% Author  : Bertil Karlsson <bertil@finrod>
-%%% Description : 
-%%%
-%%% Created : 17 Jan 2006 by Bertil Karlsson <bertil@finrod>
-%%%-------------------------------------------------------------------
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2026. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+
 -module(xpath_abbrev).
 
 -export([test/0, check_node_set/2, ticket_6873/0, ticket_7496/0, functions/0]).
+-export([relational_operators/0]).
 -export([namespaces/0]).
 
 -include_lib("common_test/include/ct.hrl").
@@ -61,7 +75,7 @@ test() ->
     Res22 = xmerl_xpath:string("blipp[@id and @test]",E),
     ok = check_node_set("blipp[@id and @test]",Res22).
 
-check_node_set("blipp",[E1,E2,E3]) -> 
+check_node_set("blipp",[E1,E2,E3]) ->
     ok = xml_element_name(E1,blipp),
     ok = xml_element_name(E2,blipp),
     ok = xml_element_name(E3,blipp),
@@ -106,7 +120,7 @@ check_node_set("/myBS_model/blipp[3]/blupp[2]",[E]) ->
     #xmlElement{name=blupp,
                 attributes=[#xmlAttribute{name=att,value="bluppc2"}]}=E,
     ok;
-check_node_set("blipp//plopp",[#xmlElement{name=plopp},#xmlElement{name=plopp}]) -> 
+check_node_set("blipp//plopp",[#xmlElement{name=plopp},#xmlElement{name=plopp}]) ->
     ok;
 check_node_set("//plopp",[E1,E2,E3]) ->
     ok = xml_element_name(E1,plopp),
@@ -218,6 +232,33 @@ ticket_7496() ->
     ok = Test(Doc3,"//*[starts-with(local-name(),'p')]",
               [parent,pet,pet]).
 
+%% Regression test for the relational operators '<', '<=' and '>='.
+%% These three clauses of xmerl_xpath_pred:comp_expr/4 each carried the
+%% body of '>' (a copy-paste error), so every one evaluated as 'a > b'.
+%% The cases below fail on the buggy code (each selects [e,f] / [] instead
+%% of the expected node sets) and pass once the operators are correct.
+relational_operators() ->
+    Test = fun(Doc, XPath, Exp) ->
+                   Result = xmerl_xpath:string(XPath, Doc),
+                   Exp = [Name || #xmlElement{name = Name} <- Result],
+                   ok
+           end,
+    {Doc,_} = xmerl_scan:string("<a><b/><c/><d/><e/><f/></a>"),
+
+    %% Relational predicates over position() (number vs number).
+    ok = Test(Doc, "/a/*[position() < 3]",  [b, c]),
+    ok = Test(Doc, "/a/*[position() <= 3]", [b, c, d]),
+    ok = Test(Doc, "/a/*[position() >= 3]", [d, e, f]),
+    ok = Test(Doc, "/a/*[position() > 3]",  [e, f]),
+
+    %% Constant relational predicates, independent of position(): each is a
+    %% boolean that is true, so it selects every child.
+    All = [b, c, d, e, f],
+    ok = Test(Doc, "/a/*[2 < 3]",  All),
+    ok = Test(Doc, "/a/*[3 <= 3]", All),
+    ok = Test(Doc, "/a/*[3 >= 3]", All),
+    ok = Test(Doc, "/a/*[3 > 2]",  All),
+    ok.
 
 functions() ->
     Test = fun(Doc, XPath, Exp) ->
@@ -234,7 +275,7 @@ functions() ->
                           end|| Obj <- Result],
                    ok
            end,
-    Foo = 
+    Foo =
     "<foo>"
     "  <bar>"
     "    <name>Xml</name>"
@@ -257,6 +298,16 @@ functions() ->
     ok = Test(Doc,"/foo/bar[starts-with(name, 'X')]",[bar,bar]),
     ok = Test(Doc,"/foo/bar[value = string(1)]/value/text()",["1"]),
 
+    %% Regression tests: substring-before used to include the separator's
+    %% first character (off-by-one); string-length and round returned bare
+    %% numbers instead of #xmlObj{type=number}; and sum and number() (no
+    %% args) called string/2 with a bare node, crashing on any non-empty
+    %% node-set.
+    ok = Test(Doc,"/foo/bar[substring-before(name, 'a') = 'Xp']",[bar]),
+    ok = Test(Doc,"/foo/bar[string-length(name) = 3]",[bar]),
+    ok = Test(Doc,"/foo/bar[round(value) = 2]",[bar]),
+    ok = Test(Doc,"/foo[sum(bar/value) = 6]",[foo]),
+    ok = Test(Doc,"/foo/bar/value[number() = 2]",[value]),
 
     {Doc2,_}= xmerl_scan:file("purchaseOrder.xml"),
     ok = Test(Doc2,"//*[starts-with(local-name(),'c')]",
@@ -265,7 +316,6 @@ functions() ->
               [city,city,comment]),
     ok = Test(Doc2,"//*[starts-with(name(),'{http://www.example.com/PO1')]",
               ['apo:purchaseOrder','apo:comment']).
-
 
 namespaces() ->
     {Doc,_} = xmerl_scan:file("purchaseOrder.xml", [{namespace_conformant, true}]),
