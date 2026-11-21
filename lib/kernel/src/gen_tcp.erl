@@ -1012,8 +1012,8 @@ If the process identified by `Pid` is not an existing local `t:pid/0`,
 `{error, badarg}` is returned. `{error, badarg}` may also be returned
 in some cases when `Socket` is closed during the execution of this function.
 
-If the socket is in _active mode_, this function will transfer any messages
-from the socket in the mailbox of the caller to the new controlling process.
+This function will transfer any messages from the socket in the mailbox
+of the caller to the new controlling process.
 
 If any other process is interacting with the socket during the transfer,
 it may not work correctly and messages may remain in the caller's mailbox.
