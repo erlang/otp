@@ -1204,10 +1204,57 @@ lit_type(Val) ->
 opt_redundant_tests(Blocks) ->
     All = #{0 => #{}, ?EXCEPTION_BLOCK => #{}},
     RPO = beam_ssa:rpo(Blocks),
-    Linear = opt_redundant_tests(RPO, Blocks, All),
+    Useful = useful_operands(RPO, Blocks),
+    Linear = opt_redundant_tests(RPO, Blocks, All, Useful),
     beam_ssa:trim_unreachable(Linear).
 
-opt_redundant_tests([L|Ls], Blocks, All0) ->
+%% useful_operands(Labels, Blocks) -> #{Operands => true}.
+%%  Return the operands that are tested by more than one block. A
+%%  known test result can only be used by a block that tests the same
+%%  operands, so there is no need to remember any other results.
+%%  Remembering them can be expensive: a large switch followed by a
+%%  long chain of tests would carry one entry for each value of the
+%%  switch through the whole chain.
+
+useful_operands(Ls, Blocks) ->
+    Tested = [Operands || L <:- Ls,
+                          Operands <:- tested_operands(map_get(L, Blocks))],
+    Count = fun(Operands, Acc) ->
+                    maps:update_with(Operands, fun(N) -> N + 1 end, 1, Acc)
+            end,
+    Counts = foldl(Count, #{}, Tested),
+    #{Operands => true || Operands := N <:- Counts, N > 1}.
+
+%% Return the operands of the test that ends the block, if any, and
+%% of its switch, if any.
+tested_operands(#b_blk{is=Is,last=Last}) ->
+    Switch = case Last of
+                 #b_switch{arg=Arg,list=List} ->
+                     [{Arg,Lit} || {Lit,_} <:- List];
+                 _ ->
+                     []
+             end,
+    case Is of
+        [_|_] ->
+            #b_set{op=Op,args=Args} = last(Is),
+            case canonical_test(Op, Args) of
+                {Test,_} -> [test_operands(Test)|Switch];
+                none -> Switch
+            end;
+        [] ->
+            Switch
+    end.
+
+test_operands({_Op,A,B}) -> {A,B};
+test_operands({_TypeTest,A}) -> {A}.
+
+add_test(Test, Value, Tests, Useful) ->
+    case is_map_key(test_operands(Test), Useful) of
+        true -> Tests#{Test => Value};
+        false -> Tests
+    end.
+
+opt_redundant_tests([L|Ls], Blocks, All0, Useful) ->
     case All0 of
         #{L := Tests} ->
             Blk0 = map_get(L, Blocks),
@@ -1216,12 +1263,12 @@ opt_redundant_tests([L|Ls], Blocks, All0) ->
             #b_blk{is=Is0} = Blk1,
             case opt_redundant_tests_is(Is0, Tests, []) of
                 none ->
-                    All = update_successors(Blk1, Tests, All0),
-                    [{L,Blk1}|opt_redundant_tests(Ls, Blocks, All)];
+                    All = update_successors(Blk1, Tests, All0, Useful),
+                    [{L,Blk1}|opt_redundant_tests(Ls, Blocks, All, Useful)];
                 {new_test,Bool,Test,MustInvert} ->
                     All = update_successors(Blk1, Bool, Test, MustInvert,
-                                            Tests, All0),
-                    [{L,Blk1}|opt_redundant_tests(Ls, Blocks, All)];
+                                            Tests, All0, Useful),
+                    [{L,Blk1}|opt_redundant_tests(Ls, Blocks, All, Useful)];
                 {old_test,Is,BoolVar,BoolValue} ->
                     Blk = case Blk1 of
                               #b_blk{last=#b_br{bool=BoolVar}=Br0} ->
@@ -1230,13 +1277,13 @@ opt_redundant_tests([L|Ls], Blocks, All0) ->
                               #b_blk{}=Blk2 ->
                                   Blk2#b_blk{is=Is}
                           end,
-                    All = update_successors(Blk, Tests, All0),
-                    [{L,Blk}|opt_redundant_tests(Ls, Blocks, All)]
+                    All = update_successors(Blk, Tests, All0, Useful),
+                    [{L,Blk}|opt_redundant_tests(Ls, Blocks, All, Useful)]
             end;
         #{} ->
-            opt_redundant_tests(Ls, Blocks, All0)
+            opt_redundant_tests(Ls, Blocks, All0, Useful)
     end;
-opt_redundant_tests([], _Blocks, _All) -> [].
+opt_redundant_tests([], _Blocks, _All, _Useful) -> [].
 
 opt_switch(#b_blk{last=#b_switch{arg=Arg,list=List0}=Sw}=Blk, Tests)
   when map_size(Tests) =/= 0 ->
@@ -1409,33 +1456,36 @@ canonical_test(Op, Args) ->
     end.
 
 update_successors(#b_blk{last=#b_br{bool=Bool,succ=Succ,fail=Fail}},
-                  Bool, Test, MustInvert, Tests, All0) ->
-    All1 = update_successor(Succ, Tests#{Test => not MustInvert}, All0),
-    update_successor(Fail, Tests#{Test => MustInvert}, All1);
-update_successors(Blk, _, _, _, TestsA, All) ->
-    update_successors(Blk, TestsA, All).
+                  Bool, Test, MustInvert, Tests, All0, Useful) ->
+    SuccTests = add_test(Test, not MustInvert, Tests, Useful),
+    All1 = update_successor(Succ, SuccTests, All0),
+    FailTests = add_test(Test, MustInvert, Tests, Useful),
+    update_successor(Fail, FailTests, All1);
+update_successors(Blk, _, _, _, TestsA, All, Useful) ->
+    update_successors(Blk, TestsA, All, Useful).
 
-update_successors(#b_blk{last=#b_ret{}}, _Tests, All) ->
+update_successors(#b_blk{last=#b_ret{}}, _Tests, All, _Useful) ->
     All;
 update_successors(#b_blk{last=#b_switch{arg=Arg,fail=Fail,list=List}},
-                  Tests, All0) ->
-    All1 = update_successors_sw_fail(List, Arg, Fail, Tests, All0),
-    update_successors_sw(List, Arg, Tests, All1);
-update_successors(Blk, Tests, All) ->
+                  Tests, All0, Useful) ->
+    All1 = update_successors_sw_fail(List, Arg, Fail, Tests, All0, Useful),
+    update_successors_sw(List, Arg, Tests, All1, Useful);
+update_successors(Blk, Tests, All, _Useful) ->
     foldl(fun(L, A) ->
                   update_successor(L, Tests, A)
           end, All, beam_ssa:successors(Blk)).
 
-update_successors_sw_fail(List, Arg, Fail, Tests0, All) ->
+update_successors_sw_fail(List, Arg, Fail, Tests0, All, Useful) ->
     Tests = foldl(fun({Lit,_}, A) ->
-                          A#{{'=:=',Arg,Lit} => false}
+                          add_test({'=:=',Arg,Lit}, false, A, Useful)
                   end, Tests0, List),
     update_successor(Fail, Tests, All).
 
-update_successors_sw([{Lit,L}|T], Arg, Tests, All0) ->
-    All = update_successor(L, Tests#{{'=:=',Arg,Lit} => true}, All0),
-    update_successors_sw(T, Arg, Tests, All);
-update_successors_sw([], _, _, All) -> All.
+update_successors_sw([{Lit,L}|T], Arg, Tests, All0, Useful) ->
+    LitTests = add_test({'=:=',Arg,Lit}, true, Tests, Useful),
+    All = update_successor(L, LitTests, All0),
+    update_successors_sw(T, Arg, Tests, All, Useful);
+update_successors_sw([], _, _, All, _Useful) -> All.
 
 update_successor(?EXCEPTION_BLOCK, _Tests, All) ->
     All;
