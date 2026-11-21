@@ -39,6 +39,7 @@
     rootset/0, rootset/1,
     set_on_spawn/0, set_on_spawn/1, seq/1,
     separate_sessions/0, separate_sessions/1,
+    concurrent_ad_hoc/0, concurrent_ad_hoc/1,
     live_trace/0, live_trace/1,
     patterns/0, patterns/1, pattern_fun/1, pattern_fun/2, pattern_fun/3,
     processes/0, processes/1,
@@ -67,7 +68,7 @@ groups() ->
     [{all, parallel(),
       [call_time_ad_hoc, call_memory_ad_hoc,
        call_memory_total, sort, rootset, set_on_spawn,
-       code_load, code_reload, separate_sessions,
+       code_load, code_reload, separate_sessions, concurrent_ad_hoc,
        {group, default_session},
        {group, custom_session}]},
      {default_session,[],session()},
@@ -383,6 +384,53 @@ separate_sessions(Config) when is_list(Config) ->
     ?assert(lists:all(fun({lists, reverse, 1, _}) -> true; (_) -> false end, Profile1)),
     ?assert(lists:all(fun({lists, map, 2, _}) -> true; (_) -> false end, Profile2)).
 
+concurrent_ad_hoc() ->
+    [{doc, "Tests overlapping ad-hoc profiles using the same trace pattern"}].
+
+concurrent_ad_hoc(Config) when is_list(Config) ->
+    Parent = self(),
+    Ref = make_ref(),
+    Start = fun(Tag) ->
+        spawn_link(fun() ->
+            Result = tprof:profile(
+                fun() ->
+                    %% Reaching this point means that this profile's pattern and
+                    %% process trace have both been enabled.
+                    Parent ! {Ref, ready, Tag, self()},
+                    receive
+                        {Ref, run} ->
+                            _ = lists:seq(1, 32),
+                            done
+                    end
+                end,
+                #{pattern => {lists, seq_loop, 3}, report => return,
+                    set_on_spawn => false, type => call_memory}),
+            Parent ! {Ref, result, Tag, Result}
+        end)
+    end,
+
+    _ = Start(first),
+    _ = Start(second),
+    Profiled1 = receive {Ref, ready, first, Pid1} -> Pid1 end,
+    Profiled2 = receive {Ref, ready, second, Pid2} -> Pid2 end,
+
+    %% Complete and tear down the first session while the second is active.
+    Profiled1 ! {Ref, run},
+    First = receive {Ref, result, first, Result1} -> Result1 end,
+    ?assertMatch(
+        {done, {call_memory,
+            [{lists, seq_loop, 3, [{Profiled1, 9, 64}]}]}},
+        First),
+    ?assert(is_process_alive(Profiled2)),
+
+    %% Destroying the first same-named trace session must not affect this one.
+    Profiled2 ! {Ref, run},
+    Second = receive {Ref, result, second, Result2} -> Result2 end,
+    ?assertMatch(
+        {done, {call_memory,
+            [{lists, seq_loop, 3, [{Profiled2, 9, 64}]}]}},
+        Second).
+
 live_trace() ->
     [{doc, "Tests memory tracing for pre-existing processes"}].
 
@@ -517,7 +565,7 @@ server(Config) when is_list(Config) ->
 
     %% test ad-hoc profiling can be done while running server-aided
     %% for that, profiler should have very specific pattern
-    {_, AdHoc} = tprof:profile(lists, seq, [1, 32], #{registered => false, pattern => {lists, '_', '_'},
+    {_, AdHoc} = tprof:profile(lists, seq, [1, 32], #{pattern => {lists, '_', '_'},
         report => return, type => call_memory}),
     %% check totals: must be 64 words allocated by a single lists:seq_loop
     ?assertMatch(#{all := {call_memory, 64, [{lists, _, _, 64, _, _}]}},
