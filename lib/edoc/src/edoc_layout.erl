@@ -889,6 +889,8 @@ t_type([E=#xmlElement{name = range}], _Opts) ->
     t_range(E);
 t_type([E=#xmlElement{name = binary}], _Opts) ->
     t_binary(E);
+t_type([E=#xmlElement{name = binary_literal}], _Opts) ->
+    t_binary_literal(E);
 t_type([E=#xmlElement{name = float}], _Opts) ->
     t_float(E);
 t_type([#xmlElement{name = nil}], _Opts) ->
@@ -925,6 +927,9 @@ t_range(E) ->
     [get_attrval(value, E)].
 
 t_binary(E) ->
+    [get_attrval(value, E)].
+
+t_binary_literal(E) ->
     [get_attrval(value, E)].
 
 t_float(E) ->
@@ -1128,6 +1133,8 @@ ot_type([E=#xmlElement{name = range}]) ->
     ot_range(E);
 ot_type([E=#xmlElement{name = binary}]) ->
     ot_binary(E);
+ot_type([E=#xmlElement{name = binary_literal}]) ->
+    ot_binary_literal(E);
 ot_type([E=#xmlElement{name = float}]) ->
     ot_float(E);
 ot_type([#xmlElement{name = nil}]) ->
@@ -1179,6 +1186,12 @@ ot_binary(E) ->
                 {list_to_integer(B), list_to_integer(U)}
         end,
     {type,0,binary,[{integer,0,Base},{integer,0,Unit}]}.
+
+ot_binary_literal(E) ->
+    %% The value is a binary literal type, see edoc_types:to_xml/3.
+    {ok, Ts, _} = erl_scan:string("-type t() :: " ++ get_attrval(value, E) ++ "."),
+    {ok, {attribute,_,type,{t,{bin_type,_,Bin},[]}}} = erl_parse:parse_form(Ts),
+    {bin_type,0,Bin}.
 
 ot_float(E) ->
     {float,0,list_to_float(get_attrval(value, E))}.

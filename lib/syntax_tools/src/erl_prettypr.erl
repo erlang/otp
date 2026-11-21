@@ -1139,6 +1139,11 @@ lay_2(Node, Ctxt) ->
                     lay_type_application(Name, Arguments, Ctxt)
             end;
 
+        binary_literal_type ->
+            text(binary_literal_type(
+                   erl_syntax:binary_literal_type_value(Node),
+                   Ctxt#ctxt.encoding));
+
         bitstring_type ->
                 Ctxt1 = set_prec(Ctxt, max_prec()),
             M = erl_syntax:bitstring_type_m(Node),
@@ -1347,6 +1352,20 @@ maybe_parentheses(D, Prec, Ctxt) ->
 	    lay_parentheses(D, Ctxt);
 	_ ->
 	    D
+    end.
+
+%% A binary literal type must be a single string segment. Values that
+%% are valid UTF-8 with non-ASCII characters are printed as such.
+binary_literal_type(Bin, Encoding) ->
+    Write = case Encoding of
+                latin1 -> fun io_lib:write_string_as_latin1/1;
+                _ -> fun io_lib:write_string/1
+            end,
+    case unicode:characters_to_list(Bin, utf8) of
+        Chars when is_list(Chars), length(Chars) < byte_size(Bin) ->
+            "<<" ++ Write(Chars) ++ "/utf8>>";
+        _ ->
+            "<<" ++ Write(binary_to_list(Bin)) ++ ">>"
     end.
 
 lay_string(S, Ctxt) ->

@@ -511,6 +511,8 @@ check_type(#t_integer_range{}, P, Ls, Ts) ->
     check_types3(Ts, P, Ls);
 check_type(#t_binary{}, P, Ls, Ts) ->
     check_types3(Ts, P, Ls);
+check_type(#t_binary_literal{}, P, Ls, Ts) ->
+    check_types3(Ts, P, Ls);
 check_type(#t_float{}, P, Ls, Ts) ->
     check_types3(Ts, P, Ls);
 check_type(#t_union{types = Types}, P, Ls, Ts) ->

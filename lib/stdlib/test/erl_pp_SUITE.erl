@@ -54,6 +54,7 @@
 	  quoted_atom_types/1,
           native_records/1,
           unicode_binary_attributes/1,
+          bin_type_literals/1,
 
 	  otp_6321/1, otp_6911/1, otp_6914/1, otp_8150/1, otp_8238/1,
 	  otp_8473/1, otp_8522/1, otp_8567/1, otp_8664/1, otp_9147/1,
@@ -89,7 +90,8 @@ groups() ->
      {attributes, [], [misc_attrs,
                        import_export,
                        dialyzer_attrs,
-                       unicode_binary_attributes]},
+                       unicode_binary_attributes,
+                       bin_type_literals]},
      {tickets, [],
       [otp_6321, otp_6911, otp_6914, otp_8150, otp_8238,
        otp_8473, otp_8522, otp_8567, otp_8664, otp_9147,
@@ -930,7 +932,12 @@ type_examples() ->
            "f17 :: 'undefined',"
            "f18 :: 1 | 2 | 'undefined',"
            "f19 = 3 :: integer()|undefined,"
-           "f5 = 3 :: undefined|integer()}). ">>}].
+           "f5 = 3 :: undefined|integer()}). ">>},
+     {ex_bin_type1,<<"-type cmd() :: <<\"start\">> | <<\"stop\">>. ">>},
+     {ex_bin_type2,<<"-type bin_arg() :: <<\"hello\">>. ">>},
+     {ex_bin_type3,<<"-type empty() :: <<\"\">>. ">>},
+     {ex_bin_type4,<<"-type bin_utf8() :: <<\"hello\"/utf8>>. ">>},
+     {ex_bin_type5,<<"-type bin_sigil() :: ~\"hello\". ">>}].
 
 %% OTP_8473. Bugfix abstract type 'fun'.
 otp_8473(Config) when is_list(Config) ->
@@ -1447,6 +1454,48 @@ unicode_binary_attributes(_) ->
     assert_same(~s'-doc(<<240,159,152,128>>).\n', [{encoding,latin1}]),
 
     ok.
+
+bin_type_literals(_) ->
+    %% Every syntax for a binary literal type produces the expected
+    %% binary, and printing and parsing it again gives the same binary.
+    Cases = [{~S'<<"">>', <<>>},
+             {~S'~""', <<>>},
+             {~S'<<"abc">>', <<"abc">>},
+             {~S'<<"a\n\x00">>', <<"a\n",0>>},
+             {~S'<<"\xff">>', <<255>>},
+             {~S'<<"\xe9"/latin1>>', <<233>>},
+             {~S'<<"a"/utf16>>', <<0,97>>},
+             {~S'<<"a"/utf32>>', <<0,0,0,97>>},
+             {~S'<<"\x{e9}"/utf8>>', <<195,169>>},
+             {~S'<<"\x{1F600}"/utf8>>', <<240,159,152,128>>},
+             {~S'~"\x{e9}"', <<195,169>>},
+             {~S'~b"a\nb"', <<"a\nb">>},
+             {~S'~B"a\nb"', <<"a\\nb">>},
+             {~S'<<"\xe9"/utf16>>', <<0,233>>},
+             {~S'<<"\xc3\xa9">>', <<195,169>>}],
+    _ = [begin
+             Form = "-type t() :: " ++ Type ++ ".",
+             {bin_type, _, Bin} = bin_type_of(Form),
+             Printed = lists:flatten(erl_pp:form(parse_form(Form), Opts)),
+             {bin_type, _, Bin} = bin_type_of(Printed)
+         end || {Type, Bin} <- Cases,
+                Opts <- [[], [{encoding,unicode}], [{encoding,latin1}]]],
+
+    %% Values that are valid UTF-8 with non-ASCII characters are
+    %% printed as such.
+    assert_same(~s'-type t() :: <<"åäö"/utf8>>.\n', [{encoding,unicode}]),
+    assert_same(~s'-type t() :: <<"😀"/utf8>>.\n', [{encoding,unicode}]),
+    assert_same(~s'-type t() :: <<"\\x{1F600}"/utf8>>.\n', [{encoding,latin1}]),
+    assert_same(~s'-type t() :: <<"ÿ">>.\n', [{encoding,unicode}]),
+    ok.
+
+bin_type_of(String) ->
+    {attribute, _, type, {t, Type, []}} = parse_form(String),
+    Type.
+
+parse_form(String) ->
+    [Form] = parse_forms(String),
+    Form.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
