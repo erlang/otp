@@ -97,7 +97,6 @@ index_put_entry(IndexTable* t, void* tmpl)
 	t->seg_table[ix>>INDEX_PAGE_SHIFT] = erts_alloc(t->type, sz);
 	t->size += INDEX_PAGE_SIZE;
     }
-    p->index = ix;
     t->seg_table[ix>>INDEX_PAGE_SHIFT][ix&INDEX_PAGE_MASK] = p;
 
     /*
@@ -106,6 +105,15 @@ index_put_entry(IndexTable* t, void* tmpl)
      */
     ERTS_THR_WRITE_MEMORY_BARRIER;
     t->entries++;
+
+    /*
+     * A lock-free reader (atom.c) that finds p in the hash table and sees
+     * p->index >= 0 may use the index at once, for example in
+     * erts_is_atom_index_ok(), so the slot and the entry count must be
+     * visible first.
+     */
+    ERTS_THR_WRITE_MEMORY_BARRIER;
+    p->index = ix;
 
     return p;
 }

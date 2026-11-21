@@ -49,7 +49,9 @@
          module_limit/1, export_limit/1,
          module_limit_barrier/1, export_limit_barrier/1,
          procs_bug/1,
-         ets_count/1, atom_count/1, system_logger/1]).
+         ets_count/1, atom_count/1, atom_table_initial_size/1,
+         system_logger/1]).
+-export([atom_hash_slots/0, create_atoms/1]).
 
 -export([init/1, handle_event/2, handle_call/2]).
 
@@ -62,6 +64,7 @@ suite() ->
 all() ->
     [process_count, system_version, misc_smoke_tests,
      ets_count, heap_size, wordsize, memory, ets_limit, atom_limit, atom_count,
+     atom_table_initial_size,
      module_limit, export_limit, module_limit_barrier, export_limit_barrier,
      procs_bug,
      system_logger].
@@ -566,6 +569,37 @@ atom_count(Config) when is_list(Config) ->
     true = Count2 > Count1,
     ok.
 
+%% Verify that +zatis sizes the atom table for the given number of atoms,
+%% so that it does not grow while filling up to that many, and that the
+%% size is limited by +t.
+atom_table_initial_size(Config) when is_list(Config) ->
+    {ok, Peer, Node} = ?CT_PEER(["+zatis", "1000000"]),
+    Slots = rpc:call(Node, ?MODULE, atom_hash_slots, []),
+    %% The table grows at 160% load.
+    true = Slots * 8 div 5 >= 1000000,
+    ok = rpc:call(Node, ?MODULE, create_atoms, [500000]),
+    Slots = rpc:call(Node, ?MODULE, atom_hash_slots, []),
+    peer:stop(Peer),
+
+    {ok, LPeer, LNode} = ?CT_PEER(["+t", "100000", "+zatis", "1000000"]),
+    LSlots = rpc:call(LNode, ?MODULE, atom_hash_slots, []),
+    true = LSlots * 8 div 5 >= 100000,
+    true = LSlots < Slots,
+    peer:stop(LPeer),
+    ok.
+
+%% The number of slots in the atom table's hash, from system_info(info).
+atom_hash_slots() ->
+    Info = erlang:system_info(info),
+    {match, [Slots]} = re:run(Info, "=hash_table:atom_tab\nsize: ([0-9]+)\n",
+                              [{capture, all_but_first, binary}]),
+    binary_to_integer(Slots).
+
+create_atoms(N) ->
+    Prefix = integer_to_list(erlang:unique_integer([positive])),
+    _ = [list_to_atom(Prefix ++ "_" ++ integer_to_list(I))
+         || I <- lists:seq(1, N)],
+    ok.
 
 %% Verify system_info(module_limit) reflects the +zmml setting, reported as
 %% the effective limit (rounded up to a whole number of index pages), and
