@@ -374,7 +374,7 @@ edit(Buf, P, {LB, {Bef,Aft}, LA}=MultiLine, {ShellMode1, EscapePrefix}, Rs0) ->
                 history_down -> {history_down,Cs,Cont,reverse(Rs0)};
                 new_line ->
                     MultiLine1 = {[lists:reverse(Bef)|LB],{[],Aft},LA},
-                    edit(Cs, P, MultiLine1, {NextMode, none}, reverse(redraw(P, MultiLine1, Rs0)));
+                    edit(Cs, P, MultiLine1, {NextMode, none}, redraw(P, MultiLine1, Rs0));
                 new_line_finish ->
                     % Move to end
                     {{LB1,{Bef1,[]},[]}, Rs1} = do_op(end_of_expression, MultiLine, Rs0),
