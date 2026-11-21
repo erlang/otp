@@ -27,7 +27,7 @@
 -compile([{nowarn_possibly_unsafe_function, {erlang, list_to_atom, 1}}]).
 
 -export([childspecs/0]).
--export([select/1, address/0, is_node_name/1,
+-export([select/1, address/0,
          listen/2, accept/1, accept_connection/5,
 	 setup/5, close/1]).
 
@@ -79,11 +79,6 @@ address() ->
 fam_address(Family) ->
     NetAddress = inet_tcp_dist:fam_address(Family),
     NetAddress#net_address{ protocol = ?PROTOCOL }.
-%% -------------------------------------------------------------------------
-%% Is this one really needed??
-is_node_name(Node) ->
-    dist_util:is_node_name(Node).
-%% -------------------------------------------------------------------------
 
 hs_data_inet_tcp(Driver, Socket) ->
     Family = Driver:family(),
