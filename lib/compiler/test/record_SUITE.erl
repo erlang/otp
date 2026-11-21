@@ -828,6 +828,7 @@ record_updates(_Config) ->
     _ = id(0),
 
     #foo{a=42,b=99,c=3,d=999} = Foo1#foo{d=999},
+    #foo{a=0,b=99,c=4,d=999} = Foo1#foo{d=999}#foo{c=4}#foo{a=0},
 
     F2 = fun(N) when is_integer(N) ->
                  R0 = #bar{a=N},
@@ -836,6 +837,10 @@ record_updates(_Config) ->
                  R2#bar{d=N+3}
          end,
     #bar{a=100,b=101,c=102,d=103} = F2(id(100)),
+
+    %% updates on expressions and with chaining
+    #bar{a=0,b=101,c=102,d=103} = (F2(id(100)))#bar{a=0},
+    #bar{a=0,b=101,c=102,d=1} = (F2(id(100)))#bar{a=0}#bar{d=1},
 
     F3 = fun(R0, N) when is_integer(N) ->
                  R1 = R0#foo{a=N},
