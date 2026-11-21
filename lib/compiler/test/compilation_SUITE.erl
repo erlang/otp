@@ -69,7 +69,7 @@
          gh_7478_a/1,gh_7478_b/1,gh_7478_c/1,
          gh_11735/1,
          gh_11833/1,
-         gh_12259_a/1]).
+         gh_12259_a/1,gh_12259_b/1]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("stdlib/include/assert.hrl").
@@ -105,7 +105,7 @@ groups() ->
        gh_7478_a,gh_7478_b,gh_7478_c,
        gh_11735,
        gh_11833,
-       gh_12259_a]}].
+       gh_12259_a,gh_12259_b]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -225,6 +225,43 @@ gh_12259_a(Config) ->
            integer_to_list(N + 3), "), ok.\n",
            Cs,
            "f(_) -> none.\n"],
+    ok = file:write_file(FileName, Src),
+
+    Timetrap = {minutes,1},
+    ct:timetrap(Timetrap),
+    {ok,Mod} = compile:file(FileName, [{outdir,PrivDir},report]),
+
+    load_and_call(PrivDir, Mod),
+
+    ok.
+
+%% Test fix for very slow `beam_ssa_dead` pass for many long chains
+%% of `=:=` tests. Each `if` is combined into a switch, and the rest
+%% of the function can be reached from every test.
+gh_12259_b(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    Mod = ?FUNCTION_NAME,
+    ModStr = atom_to_list(Mod),
+    FileName = filename:join(PrivDir, ModStr ++ ".erl"),
+    M = 300,
+    T = 100,
+    Ifs = [begin
+               Cs = lists:join("; ", [io_lib:format("C~w =:= ~w -> ~w",
+                                                    [I, J, J]) ||
+                                         J <- lists:seq(1, T)]),
+               io_lib:format("    [C~w|L~w] = L~w,~n"
+                             "    A~w = A~w + (if ~s; true -> 0 end),~n",
+                             [I, I, I - 1, I, I - 1, Cs])
+           end || I <- lists:seq(1, M)],
+    Sum = lists:sum(lists:seq(1, T)),
+    Src = ["-module(", ModStr, ").\n"
+           "-export([",ModStr,"/0, f/1]).\n",
+           ModStr,"() -> {", integer_to_list(Sum), ", []} = f(lists:seq(1, ",
+           integer_to_list(M), ")), ok.\n"
+           "f(L0) ->\n"
+           "    A0 = 0,\n",
+           Ifs,
+           "    {A", integer_to_list(M), ", L", integer_to_list(M), "}.\n"],
     ok = file:write_file(FileName, Src),
 
     Timetrap = {minutes,1},
