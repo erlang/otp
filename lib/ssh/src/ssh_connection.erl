@@ -1180,7 +1180,10 @@ handle_msg(#ssh_msg_channel_request{recipient_channel = ChannelId,
                 %% subsystem must fail. See RFC 4254 6.5
                 channel_failure_msg(RemoteId)
         end,
-    {[{connection_reply,Reply}], Connection};
+    case WantReply of
+        true -> {[{connection_reply, Reply}], Connection};
+        false -> {[], Connection}
+    end;
 
 handle_msg(#ssh_msg_channel_request{request_type = "subsystem"},
 	   Connection, client, _SSH) ->

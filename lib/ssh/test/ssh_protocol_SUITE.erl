@@ -118,6 +118,8 @@
          service_name_length_too_short/1,
          client_close_after_hello/1,
          channel_close_timeout/1,
+         subsystem_want_reply_success/1,
+         subsystem_want_reply_failure/1,
          extra_ssh_msg_service_request/1,
          client_guesses_correctly/1,
          client_guesses_incorrectly/1
@@ -221,6 +223,8 @@ all() ->
      {group,preferred_algorithms},
      {group,client_close_early},
      {group,channel_close},
+     subsystem_want_reply_success,
+     subsystem_want_reply_failure,
      {group,alive},
      {group,dh},
      {group,ecdh},
@@ -2556,6 +2560,70 @@ get_kex_variant_ops(ecdh) ->
 get_kex_variant_ops(hybrid) ->
     [{send, ssh_msg_kex_hybrid_init},
      {match, #ssh_msg_kex_hybrid_reply{_='_'}, receive_msg}].
+
+%% RFC 4254 section 5.4: channel status is sent only when requested.
+subsystem_want_reply_success(Config0) ->
+    Echo = <<"subsystem data">>,
+    Config = start_std_daemon(Config0, [{subsystems,
+                                        [{"echo", {ssh_echo_server, [byte_size(Echo)]}}]}]),
+    Channel = 7,
+    try
+        lists:foreach(
+          fun(WantReply) ->
+                  %% The echo proves startup succeeded. An unsolicited status
+                  %% would arrive before the echo and fail the match.
+                  check_subsystem_reply(
+                    Config, Channel, <<"echo">>, WantReply,
+                    #ssh_msg_channel_success{recipient_channel = Channel},
+                    [{send, #ssh_msg_channel_data{recipient_channel = '$server_channel',
+                                                  data = Echo}},
+                     {match, #ssh_msg_channel_data{recipient_channel = Channel,
+                                                   data = Echo}, receive_msg},
+                     {match, #ssh_msg_channel_eof{recipient_channel = Channel}, receive_msg},
+                     {match, #ssh_msg_channel_close{recipient_channel = Channel}, receive_msg},
+                     {send, #ssh_msg_channel_close{recipient_channel = '$server_channel'}}])
+          end, [true, false])
+    after
+        stop_std_daemon(Config)
+    end.
+
+subsystem_want_reply_failure(Config) ->
+    Channel = 7,
+    lists:foreach(
+      fun(WantReply) ->
+              %% The close reply follows processing of the subsystem request
+              %% on the same channel, so an unsolicited failure is observable.
+              check_subsystem_reply(
+                Config, Channel, <<"unknown-subsystem">>, WantReply,
+                #ssh_msg_channel_failure{recipient_channel = Channel},
+                [{send, #ssh_msg_channel_close{recipient_channel = '$server_channel'}},
+                 {match, #ssh_msg_channel_close{recipient_channel = Channel}, receive_msg}])
+      end, [true, false]).
+
+check_subsystem_reply(Config, Channel, Name, WantReply, Reply, ChannelOps) ->
+    {ok, AfterKex} = connect_and_kex(Config),
+    {User, Pwd} = server_user_password(Config),
+    {ok, _} =
+        ssh_trpt_test_lib:exec(
+          [{send, #ssh_msg_service_request{name = "ssh-userauth"}},
+           {match, #ssh_msg_service_accept{name = "ssh-userauth"}, receive_msg},
+           {send, #ssh_msg_userauth_request{user = User,
+                                           service = "ssh-connection",
+                                           method = "password",
+                                           data = <<?BOOLEAN(?FALSE),
+                                                    ?STRING(unicode:characters_to_binary(Pwd))>>}},
+           {match, #ssh_msg_userauth_success{}, receive_msg},
+           {send, ssh_connection:channel_open_msg("session", Channel, 65536, 32768, <<>>)},
+           {match, #ssh_msg_channel_open_confirmation{recipient_channel = Channel,
+                                                      sender_channel = '$server_channel',
+                                                      _ = '_'}, receive_msg},
+           {send, #ssh_msg_channel_request{recipient_channel = '$server_channel',
+                                           request_type = "subsystem",
+                                           want_reply = WantReply,
+                                           data = <<?STRING(Name)>>}}] ++
+              [{match, Reply, receive_msg} || WantReply] ++ ChannelOps ++ [close_socket],
+          AfterKex),
+    ok.
 
 channel_close_timeout(Config) ->
     {User,_Pwd} = server_user_password(Config),
