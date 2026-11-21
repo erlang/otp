@@ -24,6 +24,18 @@
 #include <math.h>
 
 #include "eidef.h"
+
+/*
+ * On some systems (e.g., QNX), the isinf/isnan macros in <math.h> may expand
+ * to calls to __isinf/__isnan which are not exported from the math library.
+ * Use compiler builtins when available to avoid linker errors.
+ */
+#if defined(__GNUC__) || defined(__clang__)
+#  undef isinf
+#  undef isnan
+#  define isinf(x) __builtin_isinf(x)
+#  define isnan(x) __builtin_isnan(x)
+#endif
 #include "eiext.h"
 #include "putget.h"
 
