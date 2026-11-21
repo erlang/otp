@@ -375,7 +375,7 @@ nomatch(Config) when is_list(Config) ->
     <<>> = id(<< <<C:8>> || C <- [], _ <- ok >>),
     <<>> = id(<<0 || _ <- [], _ <- ok, false>>),
 
-    ?assertError({bad_generator,false}, << [] || <<0:0>> <= false >>),
+    ?assertError({bad_generator,false}, << [] || <<0:1>> <= false >>),
 
     ok.
 
@@ -585,26 +585,42 @@ no_generator(_Config) ->
 
     ok.
 
-zero_pattern(Config) ->
-    case is_atom(Config) of
-        true ->
-            %% Patterns that match zero bits loops forever, so we must
-            %% be careful not to execute them.
-            _ = << <<>> || <<>> <= <<>> >>,
-            _ = << <<42>> || <<>> <= <<42>> >>,
-            _ = <<
-                  <<>> ||
-                    <<>> <= << >>,
-                    <<3:back>> <= << >>
-                >>,
-            _ = <<
-                  <<>> ||
-                    <<>> <= <<>>,
-                    <<>> <- << <<>> || area >>
-                >>;
-        false ->
-            ok
-    end.
+zero_pattern(_Config) ->
+    %% Patterns that match zero bits would loop forever. Patterns
+    %% with a literal size of zero are rejected by the compiler,
+    %% while patterns with a variable size of zero raise an
+    %% exception at runtime.
+    Zero = id(0),
+    ?assertError({bad_generator,<<>>}, [X || <<X:Zero>> <= <<>>]),
+    ?assertError({bad_generator,<<42>>}, [X || <<X:Zero>> <= <<42>>]),
+    ?assertError({bad_generator,<<42>>}, [X || <<X:Zero>> <:= <<42>>]),
+    ?assertError({bad_generator,<<42>>}, [ok || <<1:Zero>> <= <<42>>]),
+    ?assertError({bad_generator,<<42>>}, [ok || <<1:Zero>> <:= <<42>>]),
+    ?assertError({bad_generator,<<42>>}, << <<X>> || <<X:Zero>> <= <<42>> >>),
+    ?assertError({bad_generator,<<42>>}, << <<X>> || <<X:Zero>> <:= <<42>> >>),
+    ?assertError({bad_generator,<<42>>}, [X || <<X:Zero/float>> <= <<42>>]),
+    ?assertError({bad_generator,<<42>>}, [X || <<X:Zero/binary>> <= <<42>>]),
+    ?assertError({bad_generator,<<42>>}, [X || <<X:Zero, _:X>> <= <<42>>]),
+    ?assertError({bad_generator,<<42>>}, [X || <<X:Zero, _:0>> <= <<42>>]),
+    ?assertError({bad_generator,<<42>>},
+                 [{X,Y} || <<X:Zero>> <= <<42>> && Y <- [a]]),
+    ?assertError({bad_generator,<<42>>},
+                 [{X,Y} || Y <- [a,b], <<X:Zero>> <= <<42>>]),
+    ?assertError({bad_generator,<<42>>},
+                 #{X => X || <<X:Zero>> <= <<42>>}),
+
+    %% A zero-sized segment is fine as long as the pattern as a
+    %% whole matches at least one bit.
+    [0,0] = [X || <<X:Zero, _:8>> <= <<1,2>>],
+    [1,2] = [X || <<X:8, _:Zero>> <= <<1,2>>],
+    [<<>>,<<>>] = [X || <<_:8, X:Zero/binary>> <= <<1,2>>],
+    [0,0] = [X || <<Size:8, X:Size>> <= <<0,0>>],
+
+    %% The generator is never evaluated if a previous generator
+    %% produces no elements.
+    [] = [X || _ <- id([]), <<X:Zero>> <= <<42>>],
+
+    ok.
 
 multiple_segments(_Config) ->
     cs_init(),
@@ -649,7 +665,7 @@ grab_bag(_Config) ->
     ?assertError({badmatch,<<>>}, grab_bag_gh_6553(<<42>>)),
 
     %% Cover a line v3_kernel:get_line/1.
-    ?assertError(_, << ok || <<>> <= ok, ok >>),
+    ?assertError(_, << ok || <<_>> <= ok, ok >>),
 
     [] = grab_bag_gh_8617(<<>>),
     [0] = grab_bag_gh_8617(<<1:1>>),
