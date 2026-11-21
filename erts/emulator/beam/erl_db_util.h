@@ -81,6 +81,8 @@ typedef struct db_term {
      */
 } DbTerm;
 
+#define DB_INSERT_ITERATIONS_PER_RED 8
+
 #define ERTS_SIZEOF_DBTERM(WORDS) (offsetof(DbTerm,tpl) + sizeof(Eterm)*(WORDS))
 
 #define DB_MUST_RESIZE 1
@@ -247,7 +249,8 @@ typedef struct db_table_method
     ** dbterm was not updated. If the handle was of a new object and cret is
     ** not DB_ERROR_NONE, the object is removed from the table. */
     void (*db_finalize_dbterm)(int cret, DbUpdateHandle* handle);
-    void* (*db_eterm_to_dbterm)(bool compress, int keypos, Eterm obj);
+    void* (*db_eterm_to_dbterm)(bool compress, int keypos, Eterm obj,
+                               SWord *copy_iterations_p);
     void* (*db_dbterm_list_append)(void* last_term, void* db_term);
     void* (*db_dbterm_list_remove_first)(void** list);
     int (*db_put_dbterm)(DbTable* tb, /* [in out] */
@@ -395,6 +398,7 @@ typedef struct db_table_common {
 #define GETKEY(dth, tplp)   (*((tplp) + ((DbTableCommon*)(dth))->keypos))
 
 
+ERTS_GLB_INLINE SWord db_insert_copy_iterations(Uint words);
 ERTS_GLB_INLINE Eterm db_copy_key(Process* p, DbTable* tb, DbTerm* obj);
 Eterm db_copy_from_comp(DbTableCommon* tb, DbTerm* bp, Eterm** hpp,
 			ErlOffHeap* off_heap);
@@ -408,6 +412,15 @@ ERTS_GLB_INLINE bool db_eq(DbTableCommon* tb, Eterm a, DbTerm* b);
 Eterm db_do_read_element(DbUpdateHandle* handle, Sint position);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
+
+ERTS_GLB_INLINE SWord db_insert_copy_iterations(Uint words)
+{
+    if (words <= ERTS_MSG_COPY_WORDS_PER_REDUCTION)
+        return 0;
+
+    return MIN(words / ERTS_MSG_COPY_WORDS_PER_REDUCTION, CONTEXT_REDS)
+           * DB_INSERT_ITERATIONS_PER_RED;
+}
 
 ERTS_GLB_INLINE Eterm db_copy_key(Process* p, DbTable* tb, DbTerm* obj)
 {
