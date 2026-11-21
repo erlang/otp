@@ -2346,6 +2346,10 @@ delete_global_name(_Name, _Pid) ->
          known = [],          % Copy of global_name_server's known nodes. It's
                               % faster to keep a copy of known than asking 
                               % for it when needed.
+         locked = [],         % Nodes the `global` lock was set on by the last
+                              % successful `lock_nodes_safely/3` call, including
+                              % any nodes that dropped out of a stage,
+                              % on which the lock may not actually be set.
          the_boss,            % max([node() | 'known'])
          just_synced = false, % true if node() synced just a moment ago
                               %% Statistics:
@@ -2437,7 +2441,13 @@ the_locker_message({lock_set, Pid, true, _HisKnown, MyTag} = _Msg, S) ->
             LockId = locker_lock_id(Pid, HisVsn),
             {IsLockSet, S1} = lock_nodes_safely(LockId, [], S),
             send_lock_set(S1, IsLockSet, Pid, HisVsn, HisTag),
-            Known2 = [node() | S1#multi.known],
+            Known2 = case IsLockSet of
+                         true -> S1#multi.locked;
+                         %% Prevent `?trace/1` from incorrectly using
+                         %% `locked`, which may either be `[]` or have
+                         %% been set during a previous session.
+                         false -> [node() | S1#multi.known]
+                     end,
             ?trace({the_locker, spontaneous, {known2, Known2},
                     {node,Node}, {is_lock_set,IsLockSet}}),
             case IsLockSet of
@@ -2515,16 +2525,14 @@ select_node(S) ->
             #him{locker = HisTheLocker, vsn = HisVsn,
                  node = Node, my_tag = MyTag, his_tag = HisTag} = Him,
             HisNode = [Node],
-            Us = [node() | HisNode],
             LockId = locker_lock_id(HisTheLocker, HisVsn),
-            ?trace({select_node, self(), {us, Us}}),
+            ?trace({select_node, self(), {us, [node() | HisNode]}}),
             %% HisNode = [Node] prevents deadlock:
             {IsLockSet, S2} = lock_nodes_safely(LockId, HisNode, S1),
             case IsLockSet of
-                true -> 
-                    Known1 = Us ++ S2#multi.known,
+                true ->
                     send_lock_set(S2, true, HisTheLocker, HisVsn, HisTag),
-                    S3 = lock_is_set(S2, Him, MyTag, Known1, LockId),
+                    S3 = lock_is_set(S2, Him, MyTag, S2#multi.locked, LockId),
                     loop_the_locker(S3);
                 false ->
                     loop_the_locker(S2)
@@ -2568,10 +2576,18 @@ lock_nodes_safely(LockId, Extra, S0) ->
                     case set_lock(LockId, Second, 0) of
                         true ->
                             Known = S#multi.known,
-                            case set_lock(LockId, Known -- First, 0) of
+                            Third = Known -- First,
+                            case set_lock(LockId, Third, 0) of
                                 true ->
                                     _ = locker_trace(S, ok, {First, Known}),
-                                    {true, S};
+                                    %% `update_locker_known/1` can delete
+                                    %% the already locked `First` stage boss
+                                    %% from `known`. Store all nodes the lock
+                                    %% was set on, including the `First` stage
+                                    %% boss, to ensure the lock will later be
+                                    %% deleted on every one of them.
+                                    Locked = lists:usort(First ++ Second ++ Third),
+                                    {true, S#multi{locked = Locked}};
                                 false ->
                                     %% Since the boss is locked we
                                     %% should have gotten the lock, at
