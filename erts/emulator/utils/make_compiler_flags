@@ -23,7 +23,7 @@
 use strict;
 use File::Copy;
 # This program generates global constants that contains
-# config.h, CFLAGS and LDFLAGS
+# config.h, CFLAGS, CXXFLAGS and LDFLAGS
 
 my $file = "";
 my %constants = ();
