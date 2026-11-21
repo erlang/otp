@@ -30,7 +30,7 @@
 -export([opt/1]).
 
 -include("beam_ssa.hrl").
--import(lists, [append/1,foldl/3,last/1,member/2,
+-import(lists, [all/2,append/1,foldl/3,last/1,member/2,
                 reverse/1,reverse/2,search/2,takewhile/2]).
 
 -type used_vars() :: #{beam_ssa:label():=sets:set(beam_ssa:b_var())}.
@@ -48,7 +48,8 @@
    us :: used_vars(),
    skippable :: #{beam_ssa:label():='true'},
    test=none :: 'none' | test(),
-   target=any :: 'any' | 'one_way' | beam_ssa:label()
+   target=any :: 'any' | 'one_way' | beam_ssa:label(),
+   order=none :: 'none' | #{beam_ssa:label() => pos_integer()}
   }.
 
 -spec opt([{Label0,Block0}]) -> [{Label,Block}] when
@@ -986,10 +987,11 @@ shortcut_failed_succeeded([], _FailMap, Blocks) -> Blocks.
 %%%
 
 combine_eqs(#st{bs=Blocks}=St) ->
-    Ls = reverse(beam_ssa:rpo(Blocks)),
-    combine_eqs_1(Ls, St).
+    RPO = beam_ssa:rpo(Blocks),
+    Order = topological_order(RPO, Blocks),
+    combine_eqs_1(reverse(RPO), St#st{order=Order}).
 
-combine_eqs_1([L|Ls], #st{bs=Blocks0}=St0) ->
+combine_eqs_1([L|Ls], #st{bs=Blocks0,order=Order}=St0) ->
     case comb_get_sw(L, St0) of
         none ->
             combine_eqs_1(Ls, St0);
@@ -999,7 +1001,7 @@ combine_eqs_1([L|Ls], #st{bs=Blocks0}=St0) ->
                 {true,Arg,Fail1,Fail,List1} ->
                     %% Another switch/br with the same arguments was
                     %% found at the fail label. Try combining them.
-                    case combine_lists(Fail1, List0, List1, Blocks0) of
+                    case combine_lists(Fail1, List0, List1, Blocks0, Order) of
                         none ->
                             %% Different types of literals in the lists,
                             %% or the success cases in the first switch
@@ -1081,7 +1083,7 @@ comb_is([#b_set{}=I|Is], Bool, Safe0) ->
 comb_is([], _Bool, Safe) ->
     {none,Safe}.
 
-%% combine_list(Fail, List1, List2, Blocks) -> List|none.
+%% combine_list(Fail, List1, List2, Blocks, Order) -> List|none.
 %%  Try to combine two switch lists, returning the combined
 %%  list or 'none' if not possible.
 %%
@@ -1092,9 +1094,8 @@ comb_is([], _Bool, Safe) ->
 %%  be repeated).
 %%
 
-combine_lists(Fail, L1, L2, Blocks) ->
-    Ls = beam_ssa:rpo([Lbl || {_,Lbl} <:- L1], Blocks),
-    case member(Fail, Ls) of
+combine_lists(Fail, L1, L2, Blocks, Order) ->
+    case can_reach([Lbl || {_,Lbl} <:- L1], Fail, Blocks, Order) of
         true ->
             %% One or more of labels in the first list
             %% could reach the failure label. That
@@ -1108,6 +1109,52 @@ combine_lists(Fail, L1, L2, Blocks) ->
             %% size and potentially also in execution time.
             combine_lists_1(L1, L2)
     end.
+
+%% topological_order(RPO, Blocks) -> #{Label => Position} | none.
+%%  If there are no receive loops, the reverse post order is also a
+%%  topological order: each block only branches to blocks that come
+%%  after it. In that case, return the position of each label in
+%%  the reverse post order. Otherwise, return 'none'.
+
+topological_order(RPO, Blocks) ->
+    Order = #{L => N || {N,L} <:- lists:enumerate(RPO)},
+    IsForward = fun(L) ->
+                        N = map_get(L, Order),
+                        all(fun(Succ) -> map_get(Succ, Order) > N end,
+                            beam_ssa:successors(L, Blocks))
+                end,
+    case all(IsForward, RPO) of
+        true -> Order;
+        false -> none
+    end.
+
+%% can_reach(Labels, Fail, Blocks, Order) -> true|false.
+%%  Test whether any of the labels can reach the failure label.
+%%  With a topological order, the search does not need to go past
+%%  the failure label. Otherwise, it would visit everything reachable
+%%  from the labels once for each test in a long chain of `=:=` tests.
+%%  Combining two switches only adds branches to blocks that come
+%%  later in the order, so the order stays topological.
+
+can_reach(Labels, Fail, Blocks, none) ->
+    member(Fail, beam_ssa:rpo(Labels, Blocks));
+can_reach(Labels, Fail, Blocks, Order) ->
+    Limit = map_get(Fail, Order),
+    can_reach_1(Labels, Fail, Limit, Blocks, Order, sets:new()).
+
+can_reach_1([Fail|_], Fail, _Limit, _Blocks, _Order, _Seen) ->
+    true;
+can_reach_1([L|Ls], Fail, Limit, Blocks, Order, Seen0) ->
+    case map_get(L, Order) > Limit orelse sets:is_element(L, Seen0) of
+        true ->
+            can_reach_1(Ls, Fail, Limit, Blocks, Order, Seen0);
+        false ->
+            Seen = sets:add_element(L, Seen0),
+            Succs = beam_ssa:successors(L, Blocks),
+            can_reach_1(Succs ++ Ls, Fail, Limit, Blocks, Order, Seen)
+    end;
+can_reach_1([], _Fail, _Limit, _Blocks, _Order, _Seen) ->
+    false.
 
 combine_lists_1(List0, List1) ->
     case are_lists_compatible(List0, List1) of
