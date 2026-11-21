@@ -68,7 +68,8 @@
          gh_11415/1,
          gh_7478_a/1,gh_7478_b/1,gh_7478_c/1,
          gh_11735/1,
-         gh_11833/1]).
+         gh_11833/1,
+         gh_12259_a/1]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("stdlib/include/assert.hrl").
@@ -103,7 +104,8 @@ groups() ->
        gh_11415,
        gh_7478_a,gh_7478_b,gh_7478_c,
        gh_11735,
-       gh_11833]}].
+       gh_11833,
+       gh_12259_a]}].
 
 init_per_suite(Config) ->
     test_lib:recompile(?MODULE),
@@ -191,6 +193,38 @@ gh_11735(Config) ->
            ModStr,"() -> ok.\n",
            Cs,
            "f(S, _) -> S.\n"],
+    ok = file:write_file(FileName, Src),
+
+    Timetrap = {minutes,1},
+    ct:timetrap(Timetrap),
+    {ok,Mod} = compile:file(FileName, [{outdir,PrivDir},report]),
+
+    load_and_call(PrivDir, Mod),
+
+    ok.
+
+%% Test fix for very slow `beam_ssa_dead` pass for a large switch
+%% followed by a long chain of range tests, as in a lookup table.
+gh_12259_a(Config) ->
+    PrivDir = proplists:get_value(priv_dir, Config),
+    Mod = ?FUNCTION_NAME,
+    ModStr = atom_to_list(Mod),
+    FileName = filename:join(PrivDir, ModStr ++ ".erl"),
+    N = 20000,
+    %% The ranges are not sorted, so that the time is spent
+    %% removing redundant tests and not shortcutting branches.
+    Ranges = [N + 10 * ((I * 7919) rem N) || I <- lists:seq(0, N - 1)],
+    Cs = [[io_lib:format("f(~w) -> ~w;~n", [V, V]) ||
+              V <- lists:seq(0, N - 1)],
+          [io_lib:format("f(X) when ~w =< X, X =< ~w -> ~w;~n",
+                         [A, A + 5, A]) ||
+              A <- Ranges]],
+    Src = ["-module(", ModStr, ").\n"
+           "-export([",ModStr,"/0, f/1]).\n",
+           ModStr,"() -> 42 = f(42), ", integer_to_list(N), " = f(",
+           integer_to_list(N + 3), "), ok.\n",
+           Cs,
+           "f(_) -> none.\n"],
     ok = file:write_file(FileName, Src),
 
     Timetrap = {minutes,1},
