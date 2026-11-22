@@ -1768,8 +1768,9 @@ check_unused_functions(Forms, St0) ->
             UsedOrNowarn = ordsets:union(Used, Nowarn),
             Unused = ordsets:subtract(gb_sets:to_list(St1#lint.defined),
 				      UsedOrNowarn),
-            Functions = [{{N,A},Anno} || {function,Anno,N,A,_} <- Forms],
-            Bad = [{FA,Anno} || FA <- Unused, {FA2,Anno} <- Functions, FA =:= FA2],
+            UnusedSet = sets:from_list(Unused),
+            Bad = [{{N,A},Anno} || {function,Anno,N,A,_} <- Forms,
+                                  sets:is_element({N,A}, UnusedSet)],
             func_location_warning(unused_function, Bad, St1)
     end.
 

@@ -34,6 +34,7 @@
 -define(datadir, proplists:get_value(data_dir, Conf)).
 -define(privdir, proplists:get_value(priv_dir, Conf)).
 -endif.
+-include_lib("stdlib/include/assert.hrl").
 
 -export([all/0, suite/0, groups/0]).
 
@@ -49,6 +50,7 @@
          shadow_vars/1,
          unused_import/1,
          unused_function/1,
+         unused_function_scaling/1,
          unsafe_vars/1,unsafe_vars2/1,
          unsafe_vars_try/1,
          unsized_binary_in_bin_gen_pattern/1,
@@ -105,7 +107,7 @@ suite() ->
 
 all() -> 
     [{group, unused_vars_warn}, export_vars_warn,
-     shadow_vars, unused_import, unused_function,
+     shadow_vars, unused_import, unused_function, unused_function_scaling,
      unsafe_vars, unsafe_vars2, unsafe_vars_try, guard,
      unsized_binary_in_bin_gen_pattern,
      otp_4886, otp_4988, otp_5091, otp_5276, otp_5338,
@@ -1262,6 +1264,22 @@ unused_function(Config) when is_list(Config) ->
 
     [] = run(Config, Ts),
     ok.
+
+unused_function_scaling(_Config) ->
+    Small = unused_function_reductions(1000),
+    Large = unused_function_reductions(4000),
+    ?assert(Large < 8 * Small, [{small, Small}, {large, Large}]).
+
+unused_function_reductions(Count) ->
+    Functions = [{function,Line,list_to_atom("unused_" ++ integer_to_list(Line)),
+                  0,[{clause,Line,[],[],[{atom,Line,ok}]}]} ||
+                     Line <- lists:seq(2, Count + 1)],
+    Forms = [{attribute,1,module,unused_function_scaling} | Functions],
+    {reductions,Before} = process_info(self(), reductions),
+    {ok,[{"nofile",Warnings}]} = erl_lint:module(Forms),
+    {reductions,After} = process_info(self(), reductions),
+    Count = length(Warnings),
+    After - Before.
 
 %% Test warnings for unused types
 types(Config) ->
