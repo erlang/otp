@@ -493,10 +493,10 @@ the accumulator.
 ```
 """.
 -spec fold(Function, Acc0, Ordset) -> Acc1 when
-      Function :: fun((Element :: T, AccIn :: term()) -> AccOut :: term()),
+      Function :: fun((Element :: T, AccIn :: Acc) -> AccOut :: Acc),
       Ordset :: ordset(T),
-      Acc0 :: term(),
-      Acc1 :: term().
+      Acc0 :: Acc,
+      Acc1 :: Acc.
 
 fold(F, Acc, Set) ->
     lists:foldl(F, Acc, Set).
