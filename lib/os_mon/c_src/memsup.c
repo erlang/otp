@@ -226,6 +226,16 @@ typedef struct mem_table_struct {
 static char *program_name;
 
 static void
+handle_write_failure(int result)
+{
+    if (result < 0 && errno == EPIPE) {
+        exit(EXIT_SUCCESS);
+    }
+    perror("Error writing to pipe");
+    exit(EXIT_FAILURE);
+}
+
+static void
 send(unsigned long value, unsigned long pagesize) {
     char buf[32];
     int left, bytes, res;
@@ -247,8 +257,7 @@ send(unsigned long value, unsigned long pagesize) {
     while (left > 0) {
 	res = write(ERLOUT_FD, buf+bytes-left, left);
 	if (res <= 0){
-	    perror("Error writing to pipe");
-	    exit(1);
+            handle_write_failure(res);
 	}
 	left -= res;
     }
@@ -264,8 +273,7 @@ send_tag(int value){
     left = 2;
     while(left > 0) {
 	if((res = write(ERLOUT_FD, buf+left-2,left)) <= 0){
-	    perror("Error writing to pipe");
-	    exit(1);
+            handle_write_failure(res);
 	} else {
 	    left -= res;
 	}

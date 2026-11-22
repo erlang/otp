@@ -33,7 +33,7 @@
 %% Test cases
 -export([api/1, alarm1/1, alarm2/1, process/1]).
 -export([config/1, timeout/1, unavailable/1, port/1]).
--export([otp_5910/1, improved_system_memory_data/1]).
+-export([otp_5910/1, improved_system_memory_data/1, closed_reply_pipe/1]).
 
 
 -define(SYSTEM_MEMORY_DATA_TAGS,
@@ -77,7 +77,37 @@ all() ->
               _OS -> [api, alarm1, alarm2, process]
           end,
     Bugs = [otp_5910],
-    All ++ Bugs ++ [improved_system_memory_data].
+    PortTests = case os:type() of
+                    {unix, _} -> [closed_reply_pipe];
+                    _ -> []
+                end,
+    All ++ Bugs ++ [improved_system_memory_data] ++ PortTests.
+
+closed_reply_pipe(Config) ->
+    BinDir = filename:join(code:priv_dir(os_mon), "bin"),
+    Released = filename:join(BinDir, "memsup"),
+    Memsup = case filelib:is_regular(Released) of
+                 true -> Released;
+                 false ->
+                     Arch = erlang:system_info(system_architecture),
+                     filename:join([BinDir, Arch, "memsup"])
+             end,
+    Script = "set -e; mkfifo memsup_reply; trap 'rm -f memsup_reply' 0; "
+             "(exec 3<memsup_reply; exec 3<&-; printf '%b' \"$2\") | "
+             "(trap '' PIPE; exec \"$1\" >memsup_reply)",
+    SimpleRequest = "\\0001\\0001",
+    ExtendedRequest = "\\0001\\0002",
+    lists:foreach(
+      fun(Request) ->
+              Port = open_port({spawn_executable, "/bin/sh"},
+                               [binary, exit_status, stderr_to_stdout,
+                                {cd, ?config(priv_dir, Config)},
+                                {args, ["-c", Script, "sh", Memsup, Request]}]),
+              receive
+                  {Port, {data, Message}} -> ct:fail({memsup_output, Message});
+                  {Port, {exit_status, Status}} -> 0 = Status
+              end
+      end, [SimpleRequest, ExtendedRequest]).
 
 
 %% Test of API functions
