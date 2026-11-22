@@ -26,9 +26,11 @@
           nowarn_deprecated_catch]).
 
 %% Test server specific exports
--export([all/0, suite/0]).
+-export([all/0, suite/0, groups/0]).
 -export([init_per_suite/1, end_per_suite/1]).
 -export([init_per_testcase/2, end_per_testcase/2]).
+-export([init_per_group/2, end_per_group/2]).
+
 
 %% Test cases
 -export([load_api/1]).
@@ -37,11 +39,9 @@
 -export([terminate/1, unavailable/1, restart/1]).
 
 init_per_suite(Config) when is_list(Config) ->
-    ok = application:start(os_mon),
     Config.
 
 end_per_suite(Config) when is_list(Config) ->
-    ok = application:stop(os_mon),
     Config.
 
 init_per_testcase(unavailable, Config) ->
@@ -60,7 +60,11 @@ suite() ->
     [{ct_hooks,[ts_install_cth]},
      {timetrap,{minutes,1}}].
 
-all() -> 
+all() ->
+    [{group, opt}, {group, small_writes_test}].
+
+groups() ->
+    Tests =
     case os:type() of
         {unix, sunos} ->
             [load_api, util_api, util_values, port, unavailable];
@@ -75,7 +79,23 @@ all() ->
         {unix, netbsd} -> [unavailable];
         {unix, _OSname} -> [load_api];
         _OS -> [unavailable]
-    end.
+    end,
+    [{opt, [], Tests},
+     {small_writes_test, [], Tests}].
+
+init_per_group(opt, Config) ->
+    true = os:unsetenv("CPU_SUP_TEST"),
+    ok = application:start(os_mon),
+    Config;
+init_per_group(small_writes_test, Config) ->
+    true = os:putenv("CPU_SUP_TEST", "small_writes_test"),
+    ok = application:start(os_mon),
+    Config.
+
+end_per_group(_, Config) ->
+    ok = application:stop(os_mon),
+    true = os:unsetenv("CPU_SUP_TEST"),
+    Config.
 
 %% Test of load API functions
 load_api(Config) when is_list(Config) ->
