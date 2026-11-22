@@ -3902,13 +3902,15 @@ do_format_error({options, {insufficient_crypto_support=R, Opts}}) ->
 do_format_error({options, Options}) ->
     lists:flatten(io_lib:format("Invalid TLS option: ~p", [Options]));
 
-do_format_error(Error) ->
+do_format_error(Error) when is_atom(Error) ->
     case inet:format_error(Error) of
         "unknown POSIX" ++ _ ->
             unexpected_format(Error);
         Other ->
             Other
-    end.
+    end;
+do_format_error(Error) ->
+    unexpected_format(Error).
 
 unexpected_format(Error) ->
     lists:flatten(io_lib:format("Unexpected error: ~p", [Error])).
