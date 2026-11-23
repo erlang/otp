@@ -193,6 +193,8 @@
 	 erierl1362_own_engine_id/1,
 	 erierl1362_empty_engine_id/1,
 	 erierl1362_unknown_engine_id/1,
+	 originating_disco_stage1/1,
+	 originating_disco_stage1_no_note/1,
 
 	 %% major_tcs - test_v3 - standard_mibs_3
 	 snmpv2_mib_3/1, 
@@ -430,6 +432,8 @@
 	 erierl1362_own_engine_id_test/1,
 	 erierl1362_empty_engine_id_test/1,
 	 erierl1362_unknown_engine_id_test/1,
+	 originating_disco_stage1_test/2,
+	 originating_disco_stage1_no_note_test/2,
 	 otp_3725_test/1, 
 	 otp_4394_test/0, 
 	 otp_7157_test/1, 
@@ -6968,7 +6972,9 @@ reported_bugs3_cases() ->
      otp_3542,
      erierl1362_own_engine_id,
      erierl1362_empty_engine_id,
-     erierl1362_unknown_engine_id
+     erierl1362_unknown_engine_id,
+     originating_disco_stage1,
+     originating_disco_stage1_no_note
     ].
    
     
@@ -7578,6 +7584,137 @@ erierl1362_send_probe(EngineID, UserName) ->
                      vsn_hdr = V3Hdr,
                      data    = snmp_pdus:enc_scoped_pdu(SPdu)},
     snmp_test_mgr:send_bytes(snmp_pdus:enc_message_only(Msg)).
+
+
+%%-----------------------------------------------------------------
+%% Slogan: Agent-originated stage-1 discovery must accept the manager's
+%%         Report, which carries the manager's (unknown) engine ID
+%%
+%% RFC 3414 #4: the discovery request has a zero-length
+%% msgAuthoritativeEngineID, the Report answering it carries the
+%% snmpEngineID of the authoritative engine. RFC 3414 #3.2 step 3a lets
+%% the non-authoritative engine accept that unknown engine ID. The ERIERL-1362
+%% guard on the terminating stage-1 clause in snmpa_usm removed the only
+%% path that accepted it, so snmpa:discovery/2 timed out and no INFORM
+%% was ever sent (OTP 27.3.4.19, 28.5.0.8, 29.1.2).
+%%
+%% The test process plays the manager on a raw UDP socket, so the exact
+%% Report bytes are under the test's control.
+%%-----------------------------------------------------------------
+
+-define(ODISCO_TARGET,      "odisco_target").
+-define(ODISCO_MGR_ENGINE,  "odisco-mgr-engine").
+-define(ODISCO_TIMEOUT,     300). % 1/100 s, i.e. 3 s per attempt
+
+originating_disco_stage1(Config) when is_list(Config) ->
+    ?P(originating_disco_stage1),
+    init_case(Config),
+    try_test(originating_disco_stage1_test,
+             [?GCONF(snmp_master, Config), get(mip)]).
+
+originating_disco_stage1_test(AgentNode, MIP) ->
+    odisco_run(AgentNode, MIP,
+               fun(MsgID) -> MsgID end,
+               fun(Result, EngineID) ->
+                       {{ok, ?ODISCO_MGR_ENGINE}, {ok, ?ODISCO_MGR_ENGINE}} =
+                           {Result, EngineID},
+                       ok
+               end).
+
+%% A Report with the manager's engine ID that does not answer any
+%% outstanding discovery request (wrong msgID) must not be accepted.
+originating_disco_stage1_no_note(Config) when is_list(Config) ->
+    ?P(originating_disco_stage1_no_note),
+    init_case(Config),
+    try_test(originating_disco_stage1_no_note_test,
+             [?GCONF(snmp_master, Config), get(mip)]).
+
+originating_disco_stage1_no_note_test(AgentNode, MIP) ->
+    odisco_run(AgentNode, MIP,
+               fun(MsgID) -> (MsgID + 1) band 16#7FFFFFFF end,
+               fun(Result, EngineID) ->
+                       {{error, timeout}, {ok, discovery}} =
+                           {Result, EngineID},
+                       ok
+               end).
+
+odisco_run(AgentNode, MIP, ReplyMsgID, Check) ->
+    {ok, Sock} = gen_udp:open(0, [list, {active, false},
+                                  {ip, list_to_tuple(MIP)}]),
+    {ok, Port} = inet:port(Sock),
+    {ok, _}    = rpc:call(AgentNode, snmp_target_mib, add_addr,
+                          [?ODISCO_TARGET, MIP, Port, ?ODISCO_TIMEOUT, 0,
+                           "", "target_v3", discovery, [], 2048]),
+    try
+        Self = self(),
+        spawn_link(
+          fun() ->
+                  Res = rpc:call(AgentNode, snmpa, discovery,
+                                 [?ODISCO_TARGET, coldStart], 30000),
+                  Self ! {odisco_result, Res}
+          end),
+        {ok, {AgentIP, AgentPort, Req}} = gen_udp:recv(Sock, 0, 10000),
+        #message{version = 'version-3',
+                 vsn_hdr = #v3_hdr{msgID                 = MsgID,
+                                   msgSecurityParameters = ReqSP},
+                 data    = #scopedPdu{data = #pdu{type       = Type,
+                                                  request_id = ReqID}}} =
+            snmp_pdus:dec_message(Req),
+        #usmSecurityParameters{msgAuthoritativeEngineID = [],
+                               msgUserName              = UserName} =
+            snmp_pdus:dec_usm_security_parameters(ReqSP),
+        ?IPRINT("odisco_run -> stage-1 request received"
+                "~n   msgID:    ~w"
+                "~n   PDU type: ~w"
+                "~n   user:     ~p", [MsgID, Type, UserName]),
+        Report = odisco_report(ReplyMsgID(MsgID), ReqID, UserName),
+        ok = gen_udp:send(Sock, AgentIP, AgentPort, Report),
+        Result = receive {odisco_result, R} -> R
+                 after 30000 -> ?FAIL(no_discovery_result)
+                 end,
+        EngineID = rpc:call(AgentNode, snmp_target_mib,
+                            get_target_engine_id, [?ODISCO_TARGET]),
+        ?IPRINT("odisco_run -> done"
+                "~n   discovery result: ~p"
+                "~n   target engine ID: ~p", [Result, EngineID]),
+        Check(Result, EngineID)
+    after
+        rpc:call(AgentNode, snmp_target_mib, delete_addr, [?ODISCO_TARGET]),
+        gen_udp:close(Sock)
+    end.
+
+%% The manager's stage-1 Report (RFC 3414 #4): noAuthNoPriv, not
+%% reportable, the manager's engine ID, usmStatsUnknownEngineIDs varbind.
+odisco_report(MsgID, ReqID, UserName) ->
+    VB    = #varbind{oid          = [1,3,6,1,6,3,15,1,1,4,0],
+                     variabletype = 'Counter32',
+                     value        = 1,
+                     org_index    = 1},
+    Pdu   = #pdu{type         = report,
+                 request_id   = ReqID,
+                 error_status = noError,
+                 error_index  = 0,
+                 varbinds     = [VB]},
+    SPdu  = #scopedPdu{contextEngineID = ?ODISCO_MGR_ENGINE,
+                       contextName     = "",
+                       data            = Pdu},
+    SecParams =
+        #usmSecurityParameters{msgAuthoritativeEngineID    = ?ODISCO_MGR_ENGINE,
+                               msgAuthoritativeEngineBoots = 0,
+                               msgAuthoritativeEngineTime  = 0,
+                               msgUserName                 = UserName,
+                               msgAuthenticationParameters = "",
+                               msgPrivacyParameters        = ""},
+    V3Hdr = #v3_hdr{msgID                 = MsgID,
+                    msgMaxSize            = 484,
+                    msgFlags              = [0],
+                    msgSecurityModel      = 3,
+                    msgSecurityParameters =
+                        snmp_pdus:enc_usm_security_parameters(SecParams)},
+    Msg   = #message{version = 'version-3',
+                     vsn_hdr = V3Hdr,
+                     data    = snmp_pdus:enc_scoped_pdu(SPdu)},
+    snmp_pdus:enc_message_only(Msg).
 
 
 %%-----------------------------------------------------------------
