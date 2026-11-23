@@ -75,6 +75,7 @@ static int eargc;		/* Number of arguments in eargv. */
 
 static void error(char* format, ...);
 static void* emalloc(size_t size);
+static void check_option_argument(int cnt, int argc, const char* arg);
 #ifdef HAVE_COPYING_PUTENV
 static void efree(void *p);
 #endif
@@ -209,11 +210,13 @@ int main(int argc, char** argv)
 	    erl_args = cnt;
 	}
 	else if (strcmp(argv[1], "-sname") == 0) {
+        check_option_argument(cnt, argc, "-sname");
 	    strncpy(nodename, argv[2], sizeof(nodename));
 	    nodename[sizeof(nodename)-1] = '\0';
 	    cnt++, argv++;
 	}
 	else if (strcmp(argv[1], "-name") == 0) {
+        check_option_argument(cnt, argc, "-name");
 	    strncpy(nodename, argv[2], sizeof(nodename));
 	    nodename[sizeof(nodename)-1] = '\0';
 	    dist_mode = FULL_NAME;
@@ -225,6 +228,7 @@ int main(int argc, char** argv)
 		    ct_mode = VTS_MODE;
 		}
 		else if (strcmp(argv[1], "-browser") == 0) {
+            check_option_argument(cnt, argc, "-browser");
 		    strncpy(browser, argv[2], sizeof(browser));
 		    browser[sizeof(browser)-1] = '\0';
 		    cnt++, argv++;
@@ -237,6 +241,7 @@ int main(int argc, char** argv)
 		    ct_mode = MASTER_MODE;
 		}
 		else if (strcmp(argv[1], "-ctname") == 0) {
+            check_option_argument(cnt, argc, "-ctname");
 		    strncpy(nodename, argv[2], sizeof(nodename));
 		    nodename[sizeof(nodename)-1] = '\0';
 		    ct_mode = ERL_SHELL_MODE;
@@ -570,3 +575,9 @@ possibly_quote(char* arg)
     return narg;
 }
 #endif /* __WIN32__ */
+
+static void check_option_argument(int cnt, int argc, const char* arg)
+{
+    if (cnt >= (argc - 1))
+        error("Missing argument to %s", arg);
+}
