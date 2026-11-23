@@ -101,6 +101,7 @@
 	 exit_many_many_tables_owner/1]).
 -export([write_concurrency/1, heir/1, give_away/1, setopts/1]).
 -export([bad_table/1, types/1]).
+-export([bad_continuation/1]).
 -export([otp_9932/1]).
 -export([otp_9423/1]).
 -export([otp_10182/1]).
@@ -181,6 +182,7 @@ all() ->
      exit_many_many_tables_owner, write_concurrency, heir,
      give_away, setopts, bad_table, types,
      otp_10182,
+     bad_continuation,
      otp_9932,
      otp_9423,
      compress_magic_ref,
@@ -7929,6 +7931,12 @@ types_do(Opts) ->
     ets:delete(T),
     verify_etsmem(EtsMem).
 
+%% Bad continuation with a 'got' value larger than the length of the list.
+%% Expect badarg, not SEGV.
+bad_continuation(Config) when is_list(Config) ->
+    T = ets:new(t, []),
+    MP = ets:match_spec_compile([{'_', [], [true]}]),
+    ?assertError(badarg, ets:select({T, 0, 1, MP, [], 2})).
 
 %% OTP-9932: Memory overwrite when inserting large integers in compressed bag.
 %% Will crash with segv on 64-bit opt if not fixed.
