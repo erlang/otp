@@ -538,9 +538,14 @@ v3_proc(NoteStore, Packet, LocalEngineID, V3Hdr, Data, Log) ->
 	    "~n   SecLevel     = ~p"
 	    "~n   IsReportable = ~p",
 	    [SecModule, SecLevel, IsReportable]),
+    %% Responses and Reports are never reportable (RFC 3412 #7.1), so only
+    %% they can answer a discovery request we sent: look for the note then.
+    DiscoResponse = (not IsReportable) andalso
+        is_disco_stage1_pending(NoteStore, MsgID),
     SecRes = (catch SecModule:process_incoming_msg(Packet, Data,
 						   SecParams, SecLevel, 
-						   LocalEngineID)),
+						   LocalEngineID,
+						   DiscoResponse)),
     ?vtrace("v3_proc -> message processing result: "
 	    "~n   SecRes: ~p", [SecRes]),
     {SecEngineID, SecName, ScopedPDUBytes, SecData, DiscoOrPlain} =
@@ -765,6 +770,16 @@ snmpUnknownPDUHandlers_ei(SecName, SecLevel,
     make_error_info(snmpUnknownPDUHandlers, 
 		    ?snmpUnknownPDUHandlers_instance,
 		    SecName, Opts).
+
+%% True if we sent a stage-1 discovery request with this msgID and are
+%% still waiting for the answer (see generate_discovery_msg/12).
+is_disco_stage1_pending(NoteStore, MsgID) ->
+    case snmp_note_store:get_note(NoteStore, {agent, MsgID}) of
+        #note{sec_engine_id = "", disco = true} ->
+            true;
+        _ ->
+            false
+    end.
 
 get_security_module(?SEC_USM) ->
     snmpa_usm;
