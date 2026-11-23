@@ -113,6 +113,38 @@
 -define(STR_TERMINATOR, 0).
 -define(MAX_SEQ_TIMEOUTS, 10).
 
+%% Upper bound for the declared maximum length (Max) of a string
+%% parameter (sql_char/varchar/wchar/... in param_query/3,4). The
+%% odbcserver port program allocates num_param_values slots per column,
+%% each slot sized from Max: Max + 2 bytes for the narrow types
+%% (sql_char/sql_varchar) and (Max + 1) * sizeof(SQLWCHAR) bytes for the
+%% wide types (sql_wchar/sql_wvarchar/sql_wlongvarchar). An unbounded Max
+%% lets the application drive that allocation into overflow/truncation
+%% territory. This cap rejects such values early with a clear error
+%% instead of relying on the port program's defensive allocation checks.
+%%
+%% The ceiling is the largest Max whose worst-case slot still fits a
+%% signed 32-bit SQLLEN (2^31 - 1), used on some platforms. The worst
+%% case is the wide slot (Max + 1) * sizeof(SQLWCHAR); with
+%% sizeof(SQLWCHAR) = 2 that is 2 * (Max + 1), so the bound is
+%% Max =< (2^31 - 1) / 2 - 1. That gives (1 bsl 30) - 2 = 1073741822,
+%% for which the wide slot is 2147483646 =< 2^31 - 1. This comfortably
+%% exceeds any real bound-column width a driver reports as a usable
+%% parameter size (e.g. psqlODBC MaxLongVarcharSize defaults to 8190),
+%% while still rejecting driver "max/unlimited" sentinel widths such as
+%% SQL Server VARCHAR(MAX) / NVARCHAR(MAX) (2^31 - 1 / 2^30 - 1), which
+%% cannot be honored as a literal bound width on a 32-bit SQLLEN
+%% platform in any case.
+-define(MAX_PARAM_STRING_LEN, ((1 bsl 30) - 2)).
+
+%% Largest request message (command byte, external term format and the
+%% terminator added by odbc_send/2) the port program accepts. It
+%% decodes requests with the ei API, whose read index is a C int, so a
+%% larger message would wrap the index.
+%% The port program enforces the same limit (receive_msg/2 in
+%% odbcserver.c, INT_MAX).
+-define(MAX_ODBC_MSG_SIZE, ((1 bsl 31) - 1)).
+
 %% Handling of C exit codes
 -define(ENCODE_EXIT_FUN, 
 	(fun(?EXIT_SUCCESS) ->

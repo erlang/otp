@@ -45,3 +45,26 @@ an ODBC driver to the database that you want to connect to. The Erlang ODBC
 application is designed using the version 3.0 of the ODBC-standard, however
 using the option `{scrollable_cursors, off} `for a connection has been known to
 make it work for at least some 2.X drivers.
+
+## Security Considerations
+
+The Erlang ODBC application follows the same threat model as the rest of
+Erlang/OTP, see the [Secure Coding Guidelines](`e:system:secure_coding.md`).
+In particular:
+
+- The ODBC driver runs in a separate port program, one per connection. If the
+  port program crashes, only that connection is terminated; the Erlang runtime
+  system and other connections are not affected.
+- Queries and parameters passed to the API are trusted to come from the
+  application itself. Data from end users or other external sources should be
+  validated by the application before it is passed on, including its size.
+  A query, or a [param_query/3,4](`odbc:param_query/4`) call with many rows or
+  large declared maximum lengths, makes the port program allocate a
+  corresponding amount of memory.
+- Use [param_query/3,4](`odbc:param_query/4`) rather than building SQL
+  statements from external input, to avoid SQL injection.
+- As with any ODBC client, the connection to the database is only as secure as
+  the driver configuration and the network. Run the database connection in a
+  trusted environment, or use the TLS/encryption support of the ODBC driver,
+  and connect with a database account that has only the privileges the
+  application needs.
