@@ -423,6 +423,7 @@ erts_gc_after_bif_call_lhf(Process* p, ErlHeapFragment *live_hf_end,
     if (!p->mbuf) {
         /* Must have GC:d in BIF call... invalidate live_hf_end */
         live_hf_end = ERTS_INVALID_HFRAG_PTR;
+        p->live_hf_end = ERTS_INVALID_HFRAG_PTR;
     }
 
     if (p->flags & (F_HIBERNATE_SCHED | F_DISABLE_GC)) {
@@ -443,6 +444,12 @@ erts_gc_after_bif_call_lhf(Process* p, ErlHeapFragment *live_hf_end,
          * up the hibernation by an ordinary GC...
          */
 	return result;
+    }
+
+    /* Consume the marker from the completed trapping BIF exactly once. */
+    if (p->live_hf_end != ERTS_INVALID_HFRAG_PTR) {
+        live_hf_end = p->live_hf_end;
+        p->live_hf_end = ERTS_INVALID_HFRAG_PTR;
     }
 
     if (p->sig_qs.flags & (FS_ON_HEAP_MSGQ|FS_OFF_HEAP_MSGQ_CHNG)) {
@@ -792,10 +799,11 @@ garbage_collect(Process* p, ErlHeapFragment *live_hf_end,
 	    goto delay_gc_before_start;
     }
 
+    /* A saved marker is consumed by erts_gc_after_bif_call_lhf. */
+    ASSERT(p->live_hf_end == ERTS_INVALID_HFRAG_PTR);
+
     if (p->abandoned_heap)
 	live_hf_end = ERTS_INVALID_HFRAG_PTR;
-    else if (p->live_hf_end != ERTS_INVALID_HFRAG_PTR)
-	live_hf_end = p->live_hf_end;
 
     ERTS_MSACC_SET_STATE_CACHED(ERTS_MSACC_STATE_GC);
 
