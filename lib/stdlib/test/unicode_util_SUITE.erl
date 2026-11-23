@@ -28,6 +28,7 @@
          uppercase/1, lowercase/1, titlecase/1, casefold/1,
          cp/1, gc/1,
          nfd/1, nfc/1, nfkd/1, nfkc/1,
+         nfc_hangul/1,
          whitespace/1,
          get/1,
          lookup/1, category/1, is_id_func/1,
@@ -47,6 +48,7 @@ all() ->
      uppercase, lowercase, titlecase, casefold,
      cp, gc,
      nfd, nfc, nfkd, nfkc,
+     nfc_hangul,
      whitespace,
      category,
      is_id_func,
@@ -354,6 +356,52 @@ verify_nfkc(Data0, LineNo, _Acc) ->
             erlang:raise(Cl,R,Stacktrace)
     end,
     ok.
+
+%% GH-11889: compose/compose_compat left a precomposed Hangul syllable
+%% decomposed when it was preceded, within the same grapheme cluster,
+%% by a non-composing starter - an "old Hangul" L (choseong) jamo or a
+%% Prepend concatenation mark (UAX #29 GB6/GB9b).  A <Lead, Syllable>
+%% sequence must keep the syllable precomposed, i.e. it must normalize
+%% to nfc(Lead) ++ nfc(Syllable).
+nfc_hangul(_) ->
+    %% U+B3A0 is a precomposed LVT Hangul syllable.
+    Syllable = 16#B3A0,
+
+    Leads =
+        lists:seq(16#1100, 16#115F) ++   % L jamo (Hangul Jamo)
+        lists:seq(16#A960, 16#A97C) ++   % L jamo (Hangul Jamo Extended-A)
+        [16#0600,16#0601,16#0602,16#0603,16#0604,16#0605,
+         16#06DD,16#070F,16#0890,16#0891,16#08E2,16#0D4E,
+         16#110BD,16#110CD,16#111C2,16#111C3,16#113D1,16#1193F,
+         16#11941,16#11A3A,16#11A84,16#11A85,16#11A86,16#11A87,
+         16#11A88,16#11A89,16#11D46,16#11F02],
+
+    [nfc_hangul_lead(Lead, Syllable) || Lead <- Leads],
+
+    %% Explicit cases from the issue report.
+    [16#110CD,16#B3A0] = lists:flatten(fetch([16#110CD,16#B3A0], fun unicode_util:nfc/1)),
+    [16#0600,16#AC00]  = lists:flatten(fetch([16#0600,16#AC00],  fun unicode_util:nfc/1)),
+    [16#1113,16#B3A0]  = lists:flatten(fetch([16#1113,16#B3A0],  fun unicode_util:nfc/1)),
+
+    %% A non-starter between the lead and the syllable blocks the
+    %% Lead+Vowel cross-join (D115); the syllable itself still composes
+    %% on its own, so it stays precomposed.
+    [16#1100,16#0334,16#B3A0] =
+        lists:flatten(fetch([16#1100,16#0334,16#B3A0], fun unicode_util:nfc/1)),
+    ok.
+
+nfc_hangul_lead(Lead, Syllable) ->
+    Input = [Lead, Syllable],
+    ExpectC = lists:flatten(fetch([Lead], fun unicode_util:nfc/1)) ++ [Syllable],
+    case lists:flatten(fetch(Input, fun unicode_util:nfc/1)) of
+        ExpectC -> ok;
+        OtherC -> ct:fail({nfc, Lead, OtherC, ExpectC})
+    end,
+    ExpectK = lists:flatten(fetch([Lead], fun unicode_util:nfkc/1)) ++ [Syllable],
+    case lists:flatten(fetch(Input, fun unicode_util:nfkc/1)) of
+        ExpectK -> ok;
+        OtherK -> ct:fail({nfkc, Lead, OtherK, ExpectK})
+    end.
 
 get(_) ->
     add_get_tests.

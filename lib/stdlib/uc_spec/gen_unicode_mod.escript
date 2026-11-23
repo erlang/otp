@@ -548,21 +548,6 @@ gen_norm(Fd) ->
     io:put_chars(Fd,
                  """
                  compose(CP) when is_integer(CP) -> CP;
-                 compose([Lead,Vowel|Trail]) %% Hangul
-                   when is_integer(Lead, 16#1100, 16#1112), is_integer(Vowel) ->
-                     if 16#1161 =< Vowel, Vowel =< 16#1175 ->
-                             CP = 16#AC00 + ((Lead - 16#1100) * 588) + ((Vowel - 16#1161) * 28),
-                             case Trail of
-                                 [T|Acc] when is_integer(T, 16#11A7, 16#11C2) ->
-                                      nolist(CP+T-16#11A7,Acc);
-                                 Acc -> nolist(CP,Acc)
-                             end;
-                        true ->
-                             case compose([Vowel|Trail]) of
-                                 [_|_] = CPs -> [Lead|CPs];
-                                 CP -> [Lead,CP]
-                             end
-                     end;
                  compose([Base,Accent]=GC0) ->
                      case compose_pair(Base,Accent) of
                          false -> GC0;
@@ -610,21 +595,6 @@ gen_norm(Fd) ->
                      end.
 
                  compose_compat(CP) when is_integer(CP) -> CP;
-                 compose_compat([Lead,Vowel|Trail]) %% Hangul
-                   when is_integer(Lead, 16#1100, 16#1112), is_integer(Vowel) ->
-                     if 16#1161 =< Vowel, Vowel =< 16#1175 ->
-                             CP = 16#AC00 + ((Lead - 16#1100) * 588) + ((Vowel - 16#1161) * 28),
-                             case Trail of
-                                 [T|Acc] when is_integer(T, 16#11A7, 16#11C2) ->
-                                     nolist(CP+T-16#11A7,Acc);
-                                 Acc -> nolist(CP,Acc)
-                             end;
-                        true ->
-                             case compose_compat([Vowel|Trail]) of
-                                 [_|_] = CPs -> [Lead|CPs];
-                                 CP -> [Lead,CP]
-                             end
-                     end;
                  compose_compat([Base,Accent]=GC0) ->
                      case compose_pair(Base,Accent) of
                          false -> GC0;
@@ -1106,10 +1076,22 @@ gen_compose_pairs(Fd, ExclData, Data) ->
         end,
     DeCmp2 = array:sparse_foldl(GetPairs, [], ExclData),
     [io:format(Fd, "compose_pair(~w,~w) -> ~w;~n", [A,B,CP]) || {[A,B],CP} <- lists:sort(DeCmp2)],
+    %% Hangul syllables are Primary Composites (see D117/D132): compose
+    %% L+V -> LV and LV+T -> LVT algorithmically so that the generic
+    %% canonical composition loop recomposes syllables even when a
+    %% non-composing starter (e.g. an old-Hangul L jamo or a Prepend
+    %% mark) precedes them. See GH-11889.
+    io:put_chars(Fd,
+                 "compose_pair(Lead, Vowel)\n"
+                 "  when is_integer(Lead, 16#1100, 16#1112),\n"
+                 "       is_integer(Vowel, 16#1161, 16#1175) ->\n"
+                 "    16#AC00 + ((Lead - 16#1100) * 588) + ((Vowel - 16#1161) * 28);\n"
+                 "compose_pair(LV, Trail)\n"
+                 "  when is_integer(LV, 16#AC00, 16#D7A3),\n"
+                 "       (LV - 16#AC00) rem 28 =:= 0,\n"
+                 "       is_integer(Trail, 16#11A8, 16#11C2) ->\n"
+                 "    LV + (Trail - 16#11A7);\n"),
     io:put_chars(Fd, "compose_pair(_,_) -> false.\n\n"),
-
-    io:put_chars(Fd, "nolist(CP, []) when ?IS_CP(CP) -> CP;\n"
-                 "nolist(CP, L) when ?IS_CP(CP) -> [CP|L].\n\n"),
     ok.
 
 gen_case_table(Fd, Data) ->
