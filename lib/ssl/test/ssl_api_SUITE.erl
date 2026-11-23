@@ -116,6 +116,8 @@
          call_in_error_state/1,
          close_transport_accept/0,
          close_transport_accept/1,
+         sender_send_error_no_death_row/0,
+         sender_send_error_no_death_row/1,
          abuse_transport_accept_socket/0,
          abuse_transport_accept_socket/1,
          honor_server_cipher_order/0,
@@ -309,7 +311,8 @@ simple_api_tests() ->
      invalid_dhfile,
      options_not_proplist,
      options_whitebox,
-     format_error
+     format_error,
+     sender_send_error_no_death_row
     ].
 
 gen_api_tests() ->
@@ -2070,6 +2073,39 @@ close_transport_accept(Config) when is_list(Config) ->
 	Other ->
 	    exit({?LINE, Other})
     end.
+%%--------------------------------------------------------------------
+sender_send_error_no_death_row() ->
+    [{doc,"Test that a failed send on a non distribution connection does not "
+          "make tls_sender ignore the downgrade call made by ssl:close/1"}].
+sender_send_error_no_death_row(Config) when is_list(Config) ->
+    {ok, LSock} = gen_tcp:listen(0, [binary, {active, false}]),
+    {ok, Port} = inet:port(LSock),
+    {ok, CSock} = gen_tcp:connect({127,0,0,1}, Port, [binary, {active, false}]),
+    ok = gen_tcp:close(CSock),
+    ok = gen_tcp:close(LSock),
+
+    {ok, Sender} = tls_sender:start_link(),
+    ConnStates = tls_record:init_connection_states(client, {3,3}, disabled, 0),
+    #{current_write := WriteState} = ConnStates,
+    Init = #{current_write => WriteState,
+             beast_mitigation => disabled,
+             role => client,
+             socket => CSock,
+             socket_options => #socket_options{},
+             erl_dist => false,
+             trackers => [],
+             transport_cb => gen_tcp,
+             negotiated_version => {3,3},
+             renegotiate_at => 268435456,
+             key_update_at => 38873663997,
+             log_level => none,
+             hibernate_after => infinity,
+             keylog_fun => undefined},
+    ok = tls_sender:initialize(Sender, Init),
+    ok = tls_sender:update_connection_state(Sender, WriteState, {3,3}, undefined),
+    {error, _} = tls_sender:send_data(Sender, [<<"data">>]),
+    {ok, _} = tls_sender:downgrade(Sender, 1000),
+    ok.
 %%--------------------------------------------------------------------
 abuse_transport_accept_socket() ->
     [{doc,"Only ssl:handshake and ssl:controlling_process is allowed for transport_accept:sockets"}].
