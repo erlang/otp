@@ -76,6 +76,7 @@
 #include <signal.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 #include "sys.h"
 #include "erl_alloc.h"
@@ -90,27 +91,25 @@
 #endif
 
 /*
- * Set alternate signal stack for the invoking thread.
+ * Set up alternate signal stack for an Erlang process scheduler thread.
  */
-static void sys_sigaltstack(void *ss_sp) {
+void sys_thread_init_signal_stack(void) {
     stack_t ss;
 
-    ss.ss_sp = ss_sp;
-    ss.ss_flags = 0;
+#if defined(_SC_MINSIGSTKSZ)
+    {
+        long min = sysconf(_SC_MINSIGSTKSZ);
+        ss.ss_size = MAX((size_t) (min > 0 ? min : SIGSTKSZ), (size_t) SIGSTKSZ);
+    }
+#else
     ss.ss_size = SIGSTKSZ;
+#endif
+    ss.ss_sp = malloc(ss.ss_size);  // Never freed
+    ss.ss_flags = 0;
 
     if (sigaltstack(&ss, NULL) < 0) {
         ERTS_INTERNAL_ERROR("Failed to set alternate signal stack");
     }
-}
-
-/*
- * Set up alternate signal stack for an Erlang process scheduler thread.
- */
-void sys_thread_init_signal_stack(void) {
-    /* This will never be freed. */
-    char *stack = malloc(SIGSTKSZ);
-    sys_sigaltstack(stack);
 }
 
 /*
