@@ -267,7 +267,9 @@ method(Method) ->
 http_headers([], Headers) ->
     lists:flatten(Headers);
 http_headers([{Key,Value} | Rest], Headers) ->
-    Header = Key ++ ": " ++ Value ++ ?CRLF,
+    %% headers_as_is bypasses http_request:http_headers/1
+    Header = http_util:strip_ctl_chars(Key) ++ ": " ++
+        http_util:strip_ctl_chars(Value) ++ ?CRLF,
     http_headers(Rest, [Header | Headers]).
 
 handle_proxy(_, Headers) when is_list(Headers) ->
