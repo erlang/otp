@@ -179,12 +179,26 @@ normalize(Config) when is_list(Config) ->
 		ok
 	end,
 	[ true = (A =:= prim_file:internal_normalize_utf8(B)) ||
-	    {A,B} <- Pairs ]
+            {A,B} <- Pairs ],
+
+        %% A combining symbol first in the string could crash the
+        %% runtime system.
+        [769,$b] = do_normalize(<<204,129,$b>>),           %Crashed
+        [225,98] = "áb" = do_normalize(<<$a,204,129,$b>>)  %Works
 
     catch
 	throw:need_unicode_mode ->
 	    io:format("Sorry, can only run in unicode mode.~n"),
 	    {skipped,"VM needs to be started in Unicode filename mode"}
+    end.
+
+do_normalize(B) ->
+    Res = prim_file:internal_normalize_utf8(B),
+    case os:type() of
+        {unix,darwin} ->
+            Res = prim_file:internal_native2name(B);
+        _ ->
+            Res
     end.
 
 %% Check file operations on normal file names regardless of unicode mode.
