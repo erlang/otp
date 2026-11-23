@@ -6339,6 +6339,26 @@ Failed: error 115 at offset 53: reference to non-existent subpattern
  0: \x{6535}#\x{6536}#\x{6538}#\x{6539}#\x{653b}#\x{653c}#\x{653e}#\x{653f}#\x{6541}#\x{6542}#\x{8000}#\x{c246}#
  1: \x{c246}#
 
+/[\x{ff}\x{100}\x{8000}\x{8002}\x{8004}\x{8006}\x{8008}\x{800a}\x{800c}\x{800e}]+/B,utf
+------------------------------------------------------------------
+        Bra
+        [\xff\x{100}\x{8000}\x{8002}\x{8004}\x{8006}\x{8008}\x{800a}\x{800c}\x{800e}]++
+        Ket
+        End
+------------------------------------------------------------------
+  \x{ff}\x{100}\x{8000}\x{800a}\x{800e}\x{101}
+ 0: \x{ff}\x{100}\x{8000}\x{800a}\x{800e}
+
+/[\x{ff}-\x{104}\x{8000}\x{8002}\x{8004}\x{8006}\x{8008}\x{800a}\x{800c}\x{800e}]+/B,utf
+------------------------------------------------------------------
+        Bra
+        [\xff\x{100}-\x{104}\x{8000}\x{8002}\x{8004}\x{8006}\x{8008}\x{800a}\x{800c}\x{800e}]++
+        Ket
+        End
+------------------------------------------------------------------
+  \x{ff}\x{100}\x{101}\x{104}\x{8000}\x{800a}\x{800e}\x{105}
+ 0: \x{ff}\x{100}\x{101}\x{104}\x{8000}\x{800a}\x{800e}
+
 /[[:xdigit:]\x{400}-\x{600}]+/utf,ucp
   !a0\x{400}\x{600}9\x{3ff}
  0: a0\x{400}\x{600}9
@@ -8314,5 +8334,12 @@ Failed: error 150 at offset 5: invalid range in character class
  0: \x{e1}
     \x{c1}
  0: \x{c1}
+
+# An unterminated \N{U+ escape at the end of the pattern must
+# report an error offset that lies within the pattern.
+
+/(*UTF)\N{U+2/
+Failed: error 167 at offset 12: non-hex character in \x{} (closing brace missing?)
+        here: ...UTF)\N{U+2 |<--|
 
 # End of testinput5
