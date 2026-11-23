@@ -3741,6 +3741,16 @@ validate_cipher_suite(CipherSuite, ClientCipherSuites) ->
         false -> throw(?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER))
     end.
 
+validate_application_protocol(_, undefined) ->
+    %% Server sent an ALPN extension the client did not request at all.
+    %% RFC 5246 7.4.1.4: an unrequested extension MUST be rejected with
+    %% unsupported_extension (matches the TLS-1.3 client, RFC 8446 4.2).
+    throw(?ALERT_REC(?FATAL, ?UNSUPPORTED_EXTENSION, unexpected_alpn));
+validate_application_protocol(Alpn, ClientAlpn) ->
+    case lists:member(Alpn, ClientAlpn) of
+        true -> ok;
+        false -> throw(?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER, not_advertised_alpn))
+    end.
 
 handle_renegotiation_extension(Role, RecordCB, Version, Info, Random,
                                NegotiatedCipherSuite,
@@ -3770,15 +3780,6 @@ assert_max_frag_length(true, Exts, ConnectionStates) ->
     end;
 assert_max_frag_length(_, _, _) ->
     ok.
-
-validate_application_protocol(_, undefined) ->
-    %% Server sent ALPN protocol not requested by client
-    throw(?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER, unexpected_alpn));
-validate_application_protocol(Alpn, ClientAlpn) ->
-    case lists:member(Alpn, ClientAlpn) of
-        true -> ok;
-        false -> throw(?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER, not_advertised_alpn))
-    end.
 
 %% Receive protocols, choose one from the list, return it.
 handle_alpn_extension(_, {error, Reason}) ->
