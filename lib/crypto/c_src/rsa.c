@@ -452,7 +452,6 @@ static ERL_NIF_TERM rsa_generate_key(ErlNifEnv* env, int argc, const ERL_NIF_TER
 {/* (ModulusSize, PublicExponent/binary, PublicExponent) */
     ERL_NIF_TERM ret;
     unsigned int msize;
-    ErlNifBinary pub_exp;
     OSSL_PARAM params[3];
     EVP_PKEY *pkey = NULL;
     EVP_PKEY_CTX *pctx = NULL;
@@ -466,11 +465,6 @@ static ERL_NIF_TERM rsa_generate_key(ErlNifEnv* env, int argc, const ERL_NIF_TER
         goto ret;
     }
 
-    if (!enif_inspect_binary(env, argv[1], &pub_exp)) {
-        ret = EXCP_BADARG_N(env, 1, "Can't get binary public exponent");
-        goto ret;
-    }
-
     /* https://www.openssl.org/docs/man3.0/man7/EVP_PKEY-RSA.html */
     pctx = EVP_PKEY_CTX_new_from_name(NULL, "RSA", NULL);
 
@@ -480,7 +474,10 @@ static ERL_NIF_TERM rsa_generate_key(ErlNifEnv* env, int argc, const ERL_NIF_TER
     }
 
     params[0] = OSSL_PARAM_construct_uint("bits", &msize);
-    params[1] = OSSL_PARAM_construct_BN("e", pub_exp.data, pub_exp.size);
+    if (!get_ossl_BN_param_from_bin(env, "e", argv[1], &params[1])) {
+        ret = EXCP_BADARG_N(env, 1, "Can't get public exponent");
+        goto ret;
+    }
     params[2] = OSSL_PARAM_construct_end();
 
     if (!EVP_PKEY_CTX_set_params(pctx, params))  {
