@@ -24,6 +24,7 @@
 
 -include_lib("kernel/include/file.hrl").
 -include_lib("common_test/include/ct.hrl").
+-include_lib("inets/include/httpd.hrl").
 -include("inets_test_lib.hrl").
 
 
@@ -31,6 +32,33 @@
 -compile(export_all).
 
 -define(URL_START, "http://localhost:").
+
+%% The ESI env keys for the standard request headers, i.e. the
+%% {http_<lowercase name>, string()} contract documented in mod_esi. The
+%% list mirrors the standard fields of #http_request_h{} in
+%% http_internal.hrl with '-' replaced by '_', and deliberately does NOT
+%% include http_other, which is the env key carrying the headers that get
+%% no atom of their own.
+%%
+%% Written out literally on purpose. Deriving it from
+%% record_info(fields, http_request_h) would only restate whatever
+%% httpd_request_handler:get_esi_headers/0 computes, and this list is the
+%% complete set of atoms a request header name is allowed to reach, so a
+%% change to it has to be noticed rather than silently followed.
+-define(ESI_STD_HEADER_ATOMS,
+        [http_cache_control, http_connection, http_date, http_pragma,
+         http_trailer, http_transfer_encoding, http_upgrade, http_via,
+         http_warning,
+         http_accept, http_accept_charset, http_accept_encoding,
+         http_accept_language, http_authorization, http_expect, http_from,
+         http_host, http_if_match, http_if_modified_since,
+         http_if_none_match, http_if_range, http_if_unmodified_since,
+         http_max_forwards, http_proxy_authorization, http_range,
+         http_referer, http_te, http_user_agent,
+         http_allow, http_content_encoding, http_content_language,
+         http_content_length, http_content_location, http_content_md5,
+         http_content_range, http_content_type, http_expires,
+         http_last_modified]).
 
 suite() -> [{ct_hooks,[ts_install_cth]},
 	    {timetrap, {seconds, 30}}].
@@ -51,7 +79,8 @@ groups() ->
                                 {group, slowdose},
                                 keep_alive_timeout,
                                 invalid_rfc1123_date,
-                                ip_comm_options_fixed_port]},
+                                ip_comm_options_fixed_port,
+                                esi_header_atom_growth]},
      {slowdose, [parallel], [slowdose_min_bytes, slowdose_slow_header, slowdose_slow_body, slowdose_trickle_body]}].
 
 init_per_group(_GroupName, Config) ->
@@ -487,6 +516,190 @@ slowdose_trickle_body(Config, HttpdConfig, Status) ->
     end,
     inets_test_lib:close(ip_comm, Socket),
     ok = inets:stop(httpd, Pid).
+
+%%-------------------------------------------------------------------------
+
+%%-------------------------------------------------------------------------
+
+esi_header_atom_growth() ->
+    [{doc, "ESI request header names must not create atoms"}].
+esi_header_atom_growth(Config) when is_list(Config) ->
+    ct:comment("A request header name must never mint an atom"),
+    HttpdConf = proplists:get_value(httpd_conf, Config),
+    {ok, Pid} = inets:start(httpd, [{port, 0},
+                                    {erl_script_alias,
+                                     {"/esi", [httpd_example, io]}}
+                                    | HttpdConf]),
+    Info = httpd:info(Pid),
+    Port = proplists:get_value(port, Info),
+    Address = proplists:get_value(bind_address, Info),
+
+    %% Header names that already exist as atoms, so they pass the raw name
+    %% guard in httpd_script_env, but that are not standard HTTP headers.
+    %% Before the fix each one permanently created "http_" ++ Name, and
+    %% that atom then let a header of that name create yet another one.
+    Seeds = ["node", "port", "data", "name", "path", "id", "error"],
+    Rounds = [Seeds,
+              ["http_" ++ N || N <- Seeds],
+              ["http_http_" ++ N || N <- Seeds]],
+
+    lists:foreach(
+      fun(Names) ->
+              lists:foreach(
+                fun(Name) ->
+                        Prefixed = "http_" ++ Name,
+                        %% Some of these atoms may already exist for
+                        %% reasons of their own in a given node; only the
+                        %% ones that do not are evidence either way.
+                        Existed = atom_exists(Prefixed),
+                        ok = httpd_test_lib:verify_request(
+                               ip_comm, Address, Port, node(),
+                               "GET /esi/httpd_example:get?x=1 HTTP/1.0\r\n" ++
+                                   Name ++ ": v\r\n\r\n",
+                               [{statuscode, 200}, {version, "HTTP/1.0"}]),
+                        %% The header name must not have created an atom.
+                        case Existed of
+                            true ->
+                                ok;
+                            false ->
+                                false = atom_exists(Prefixed)
+                        end
+                end, Names)
+      end, Rounds),
+
+    %% The property above only holds because the lookup in
+    %% httpd_script_env picks from a closed set of atoms. Check that the
+    %% set is the documented one, and that the headers it names really do
+    %% end up as atom keys rather than under http_other.
+    ok = verify_esi_header_atoms(),
+    ok = verify_esi_header_categorization(),
+
+    inets:stop(httpd, Pid).
+
+%% The closed set of atoms a request header name may reach must be
+%% exactly the standard request headers -- no more (every extra entry is
+%% a permanent atom reachable from request data) and no fewer (a missing
+%% entry silently demotes a standard header to http_other).
+verify_esi_header_atoms() ->
+    Actual = httpd_request_handler:get_esi_headers(),
+
+    %% A duplicate would mean two record fields map to the same ESI key.
+    [] = Actual -- lists:usort(Actual),
+
+    Expected = lists:sort(?ESI_STD_HEADER_ATOMS),
+    case lists:sort(Actual) of
+        Expected ->
+            ok;
+        Sorted ->
+            ct:fail({esi_header_atoms_mismatch,
+                     [{unexpected, Sorted -- Expected},
+                      {missing, Expected -- Sorted}]})
+    end,
+
+    %% Implied by the comparison above, kept explicit because it is the
+    %% one collision that silently loses data: http_other is the env key
+    %% carrying the non-standard headers, so it must not also be
+    %% reachable as a header name.
+    false = lists:member(http_other, Actual),
+    ok.
+
+%% A standard header name becomes its own {http_<name>, Value} env
+%% element; anything else keeps its raw name under http_other and gets no
+%% atom key at all.
+verify_esi_header_categorization() ->
+    Standard = ?ESI_STD_HEADER_ATOMS,
+    StdHeaders = [{esi_key_to_header_name(Key), atom_to_list(Key)}
+                  || Key <- Standard],
+    %% "node", "other" and "error" exist as atoms, so they pass the
+    %% list_to_existing_atom/1 guard in httpd_script_env and reach the
+    %% lookup; the last one does not exist as an atom at all. None of
+    %% them is a standard header.
+    NonStdHeaders =
+        [{"node", "node-value"},
+         {"other", "other-value"},
+         {"error", "error-value"},
+         {"x-unknown-" ++ integer_to_list(erlang:unique_integer([positive])),
+          "x-value"}],
+    Env = esi_env(StdHeaders ++ NonStdHeaders),
+    Other = proplists:get_value(http_other, Env),
+    true = is_list(Other),
+
+    lists:foreach(
+      fun(Key) ->
+              Value = atom_to_list(Key),
+              case proplists:lookup(Key, Env) of
+                  {Key, Value} ->
+                      ok;
+                  none ->
+                      ct:fail({standard_header_not_categorized, Key, Other});
+                  {Key, Wrong} ->
+                      ct:fail({wrong_value, Key, Wrong})
+              end,
+              %% ... and it is not duplicated under http_other.
+              none = proplists:lookup(esi_key_to_header_name(Key), Other)
+      end, Standard),
+
+    lists:foreach(
+      fun({Name, Value} = Header) ->
+              case proplists:lookup(Name, Other) of
+                  Header ->
+                      ok;
+                  Unexpected ->
+                      ct:fail({non_standard_header_not_in_other, Name,
+                               Unexpected})
+              end,
+              %% No atom key carries the value. Checked by value rather
+              %% than by key absence because for "other" the key does
+              %% exist -- it is the catch-all element itself.
+              Prefixed = "http_" ++ Name,
+              case atom_exists(Prefixed) of
+                  false ->
+                      ok;
+                  true ->
+                      false = lists:member({list_to_existing_atom(Prefixed),
+                                            Value}, Env)
+              end
+      end, NonStdHeaders),
+    ok.
+
+esi_key_to_header_name(Key) ->
+    "http_" ++ Name = atom_to_list(Key),
+    re:replace(Name, "_", "-", [{return, list}, global]).
+
+%% httpd_script_env:create_env/3 is called directly instead of going
+%% through a request: content-length and transfer-encoding cannot be put
+%% on the wire as plain header values without changing how the request
+%% itself is framed, so a socket based check would leave exactly the
+%% entity headers untested.
+esi_env(ParsedHeader) ->
+    ConfigDb = ets:new(httpd_test_config_db, [set, protected]),
+    true = ets:insert(ConfigDb, [{server_name, "httpd_test"}, {port, 0}]),
+    {ok, Socket} = gen_tcp:listen(0, [{ip, {127,0,0,1}}]),
+    ModData = #mod{init_data = #init_data{peername = {0, "127.0.0.1"},
+                                          sockname = {0, "127.0.0.1"},
+                                          resolve = "localhost"},
+                   socket_type = ip_comm,
+                   socket = Socket,
+                   config_db = ConfigDb,
+                   method = "GET",
+                   request_uri = "/esi/httpd_example:get",
+                   http_version = "HTTP/1.1",
+                   parsed_header = ParsedHeader},
+    try
+        httpd_script_env:create_env(esi, ModData, [])
+    after
+        gen_tcp:close(Socket),
+        ets:delete(ConfigDb)
+    end.
+
+atom_exists(Name) ->
+    try list_to_existing_atom(Name) of
+        _ ->
+            true
+    catch
+        error:badarg ->
+            false
+    end.
 
 %%-------------------------------------------------------------------------
 
