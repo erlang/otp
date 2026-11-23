@@ -152,8 +152,10 @@
          legacy_server_certificate_authorities_disabled/0,
          legacy_server_certificate_authorities_disabled/1,
          cert_auth_in_first_ca/0,
-         cert_auth_in_first_ca/1
-         ]).
+         cert_auth_in_first_ca/1,
+         eddsa_curve_binding_client_auth/0,
+         eddsa_curve_binding_client_auth/1
+        ]).
 
 %%--------------------------------------------------------------------
 %% Common Test interface functions -----------------------------------
@@ -190,7 +192,7 @@ groups() ->
           [signature_algorithms_bad_curve_secp256r1,
            signature_algorithms_bad_curve_secp384r1,
            signature_algorithms_bad_curve_secp521r1]},
-     {eddsa_1_3, [], all_version_tests() ++ tls_1_3_tests()}
+     {eddsa, [parallel], all_version_tests() ++ tls_1_3_tests() ++ tls_1_3_eddsa_tests()}
     ].
 
 ssl_protocol_groups() ->
@@ -208,7 +210,7 @@ tls_1_2_protocol_groups() ->
 tls_1_3_protocol_groups() ->
     [{group, rsa_1_3},
      {group, ecdsa_1_3},
-     {group, eddsa_1_3},
+     {group, eddsa},
      {group, rsa_pss_rsae_1_3},
      {group, rsa_pss_pss_1_3}
     ].
@@ -224,6 +226,9 @@ tls_1_3_tests() ->
      hello_retry_client_auth_empty_cert_rejected,
      server_certificate_authorities_disabled
     ].
+
+tls_1_3_eddsa_tests() ->
+    [eddsa_curve_binding_client_auth].
 
 pre_tls_1_3_rsa_tests() ->
     [
@@ -396,7 +401,7 @@ do_init_per_group(Group, Config0) when Group == ecdsa;
         false ->
             {skip, "Missing EC crypto support"}
     end;
-do_init_per_group(eddsa_1_3, Config0) ->
+do_init_per_group(eddsa, Config0) ->
     PKAlg = crypto:supports(public_keys),
     PrivDir = proplists:get_value(priv_dir, Config0),
     case lists:member(eddsa, PKAlg) andalso (lists:member(ecdh, PKAlg)) of
@@ -1683,6 +1688,11 @@ legacy_server_certificate_authorities_disabled(Config) ->
                                                                   {fail_if_no_peer_cert, true},
                                                                   {certificate_authorities, false} | ServerOpts], Config).
 
+
+eddsa_curve_binding_client_auth() ->
+      ssl_cert_tests:eddsa_curve_binding_client_auth().
+eddsa_curve_binding_client_auth(Config) ->
+      ssl_cert_tests:eddsa_curve_binding_client_auth(Config).
 %%--------------------------------------------------------------------
 %% Internal functions  -----------------------------------------------
 %%--------------------------------------------------------------------
