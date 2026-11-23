@@ -266,6 +266,11 @@ otp_6230(Config) when is_list(Config) ->
 
     B = list_to_binary(lists:duplicate(30000, $a)),
     "<<\"aaaa"++_ = fmt("~P", [B, 20000]),
+
+    "<<\"\\\"\">>" = fmt("~p", [<<"\"">>]),
+    "<<\"a\\\"b\">>" = fmt("~p", [<<"a\"b">>]),
+    "<<\"ab\\\"cdefg\"...>>" = fmt("~P", [<<"ab\"cdefghij">>, 3]),
+    "#{k => <<\"x\\\"y\">>}" = fmt("~p", [#{k => <<"x\"y">>}]),
     ok.
 
 %% OTP-6282. ~p truncates strings (like binaries) depending on depth.
