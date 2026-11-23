@@ -125,7 +125,9 @@
          tls13_reject_unsolicited_psk/0,
          tls13_reject_unsolicited_psk/1,
          tls_reject_non_null_compression/0,
-         tls_reject_non_null_compression/1
+         tls_reject_non_null_compression/1,
+         tls_reject_unauthenticated_ecdhe_rsa/0,
+         tls_reject_unauthenticated_ecdhe_rsa/1
         ]).
 
 %% Apply export
@@ -230,7 +232,8 @@ rogue_server_tests() ->
     [tls_reject_unoffered_cipher_suite,
      tls_reject_unoffered_alpn,
      tls13_reject_unsolicited_psk,
-     tls_reject_non_null_compression].
+     tls_reject_non_null_compression,
+     tls_reject_unauthenticated_ecdhe_rsa].
 
 init_per_suite(Config0) ->
     catch application:stop(crypto),
@@ -878,6 +881,35 @@ tls_reject_non_null_compression(Config) when is_list(Config) ->
                   | ssl_test_lib:ssl_options(client_rsa_verify_opts, Config)],
     rogue_server_illegal_parameter(compression, ClientOpts).
 
+%%--------------------------------------------------------------------
+tls_reject_unauthenticated_ecdhe_rsa() ->
+    [{doc, "An on-path attacker answers a TLS-1.2 client with an *offered* "
+      "ECDHE_RSA cipher suite but sends no Certificate message and an "
+      "unsigned ServerKeyExchange, i.e. anonymous ECDH presented as an "
+      "authenticated suite. The client must abort the handshake with a fatal "
+      "alert; it must not send ClientKeyExchange, as that would complete the "
+      "handshake without any server authentication, bypassing verify_peer, "
+      "the trust store and hostname checking. Covers both an absent signature "
+      "and an explicit anonymous signature algorithm with an empty signature."}].
+tls_reject_unauthenticated_ecdhe_rsa(Config) when is_list(Config) ->
+    %% verify_peer with proper cacerts, and an offered ECDHE_RSA suite echoed by
+    %% the attacker, so the ServerKeyExchange signature check is the only thing
+    %% standing between the client and a server-authentication bypass.
+    ClientOpts = [{ciphers, [?ALPN_TEST_SUITE_MAP]}
+                  | ssl_test_lib:ssl_options(client_rsa_verify_opts, Config)],
+    %% Check every variant before failing, so all accepted variants are reported.
+    Failures = [Reason || Kind <- [ecdhe_rsa_no_cert_no_sig,
+                                   ecdhe_rsa_no_cert_anon_sig],
+                          Reason <- try rogue_server_reject(Kind, ClientOpts) of
+                                        ok -> []
+                                    catch
+                                        exit:{test_case_failed, R} -> [R]
+                                    end],
+    case Failures of
+        [] -> ok;
+        _ -> ct:fail(Failures)
+    end.
+
 %% Drive a real ssl client against a raw-TCP attacker that hand-forges a
 %% TLS-1.2 server flight, and assert the client aborts with illegal_parameter.
 rogue_server_illegal_parameter(Kind, ClientOpts) ->
@@ -908,6 +940,38 @@ rogue_server_illegal_parameter(Kind, ClientOpts) ->
                     "handshake (msg type ~p) instead of alerting", [MsgType]);
         _ ->
             ok
+    end.
+
+%% Like rogue_server_illegal_parameter/2, but any fatal alert is accepted: the
+%% essential property is that the client aborts and never continues the
+%% handshake towards an unauthenticated server.
+rogue_server_reject(Kind, ClientOpts) ->
+    {ok, LSock} = gen_tcp:listen(0, [binary, {active, false},
+                                     {reuseaddr, true}, {packet, 0}]),
+    {ok, Port} = inet:port(LSock),
+    Parent = self(),
+    Attacker = spawn_link(fun() -> Parent ! {attacker, run_rogue_server(LSock, Kind)} end),
+    Opts = [{versions, ['tlsv1.2']}, {active, false},
+            {server_name_indication, disable} | ClientOpts],
+    Result = ssl:connect("localhost", Port, Opts, 5000),
+    gen_tcp:close(LSock),
+    Observed = receive {attacker, O} -> O after 5000 -> unlink(Attacker), timeout end,
+    ct:log("~p: ssl:connect returned: ~p~nattacker observed: ~p",
+           [Kind, Result, Observed]),
+    case Observed of
+        {client_handshake, MsgType} ->
+            ct:fail("~p: client accepted the unauthenticated server flight and "
+                    "continued the handshake (msg type ~p); ssl:connect "
+                    "returned ~p", [Kind, MsgType, Result]);
+        _ ->
+            ok
+    end,
+    case Result of
+        {error, {tls_alert, _}} ->
+            ok;
+        Other ->
+            ct:fail("~p: expected a fatal alert, client returned ~p "
+                    "(attacker observed ~p)", [Kind, Other, Observed])
     end.
 
 %% ---- Raw-TCP attacker: forges the TLS-1.2 server flight --------------------
@@ -942,7 +1006,27 @@ rogue_server_flight(compression) ->
     %% ServerHello echoing an *offered* cipher suite but with a non-null
     %% legacy_compression_method (1). Must be rejected with illegal_parameter.
     SH = rogue_server_hello_bad_compression(?ALPN_TEST_SUITE_BIN),
-    rogue_record(?HANDSHAKE, SH).
+    rogue_record(?HANDSHAKE, SH);
+rogue_server_flight(ecdhe_rsa_no_cert_no_sig) ->
+    %% ServerHello echoing the offered ECDHE_RSA suite, *no* Certificate, a
+    %% ServerKeyExchange with ECDH parameters but no signature at all, and
+    %% ServerHelloDone. A client that authenticates the server must reject this
+    %% instead of replying with ClientKeyExchange.
+    rogue_unauthenticated_ecdhe_flight(<<>>);
+rogue_server_flight(ecdhe_rsa_no_cert_anon_sig) ->
+    %% As above, but the ServerKeyExchange carries a TLS-1.2
+    %% SignatureAndHashAlgorithm of {sha256, anonymous} and an empty signature.
+    rogue_unauthenticated_ecdhe_flight(<<?SHA256, ?ANON, 0:16>>).
+
+rogue_unauthenticated_ecdhe_flight(SignaturePart) ->
+    SH = rogue_server_hello(?ALPN_TEST_SUITE_BIN, <<>>),
+    {Pub, _Priv} = crypto:generate_key(ecdh, x25519),
+    %% ECParameters: curve_type = named_curve (3), namedcurve = x25519;
+    %% followed by the ECPoint (opaque<1..2^8-1>).
+    Params = <<?NAMED_CURVE, ?TLS13_GROUP_X25519:16, (byte_size(Pub)), Pub/binary>>,
+    SKE = rogue_handshake(?SERVER_KEY_EXCHANGE, <<Params/binary, SignaturePart/binary>>),
+    SHD = rogue_handshake(?SERVER_HELLO_DONE, <<>>),
+    rogue_record(?HANDSHAKE, <<SH/binary, SKE/binary, SHD/binary>>).
 
 rogue_observe(Sock) ->
     case rogue_read_record(Sock) of
