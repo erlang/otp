@@ -528,12 +528,14 @@ validate_finished(#state{connection_states = ConnectionStates,
     ControlData = tls_v1:finished_verify_data(FinishedKey, HKDFAlgo, Messages),
     compare_verify_data(ControlData, VerifyData).
 
-
 compare_verify_data(Data1, Data2) ->
-    case crypto:hash_equals(Data1, Data2) of
+    try crypto:hash_equals(Data1, Data2) of
         true ->
             ok;
         false ->
+            {error, ?ALERT_REC(?FATAL, ?DECRYPT_ERROR, decrypt_error)}
+    catch
+        error:badarg ->
             {error, ?ALERT_REC(?FATAL, ?DECRYPT_ERROR, decrypt_error)}
     end.
 
