@@ -3081,6 +3081,62 @@ options_verify(Config) ->  %% fail_if_no_peer_cert, verify, verify_fun, partial_
                                                                {verify_fun, {NewF3, bar}}],
                                                               client, DefOpts),
 
+    %% A custom verify_fun configured at ssl:listen/2 under verify_peer
+    %% must SURVIVE ssl:handshake/3 extra options that merely restate
+    %% {verify, verify_peer} and not fallback to the default verify_peer fun.
+    {ok, #config{ssl = PeerOpts}} =
+        ssl_config:handle_options([{verify, verify_peer}, {cacerts, [Cert]},
+                                   {verify_fun, {NewF3, bar}}],
+                                  client, net_adm:localhost()),
+    #{verify_fun := {NewF3, bar}} = PeerOpts,
+    %% Restate verify_peer with NO verify_fun -> fun preserved (the fix).
+    #{verify_fun := {NewF3, bar}} =
+        ssl_config:update_options([{verify, verify_peer}], client, PeerOpts),
+    %% Unrelated override -> fun preserved.
+    #{verify_fun := {NewF3, bar}} =
+        ssl_config:update_options([{depth, 5}], client, PeerOpts),
+    %% Explicit new verify_fun in the same override -> override honored.
+    #{verify_fun := {NewF4, baz}} =
+        ssl_config:update_options([{verify, verify_peer}, {verify_fun, {NewF4, baz}}],
+                                  client, PeerOpts),
+
+    %% The same holds for a server and the options related to verify_peer:
+    %% restating {verify, verify_peer} must not reset an explicit
+    %% fail_if_no_peer_cert (nor verify_fun) to what a verify_none ->
+    %% verify_peer transition implies.
+    ServerCertKey = [{certs_keys, [#{cert => <<>>, key => {rsa, <<>>}}]}],
+    {ok, #config{ssl = SrvPeerOpts}} =
+        ssl_config:handle_options([{verify, verify_peer}, {cacerts, [Cert]},
+                                   {fail_if_no_peer_cert, false},
+                                   {verify_fun, {NewF3, bar}} | ServerCertKey],
+                                  server, net_adm:localhost()),
+    #{fail_if_no_peer_cert := false, verify_fun := {NewF3, bar}} = SrvPeerOpts,
+    #{verify := verify_peer, fail_if_no_peer_cert := false,
+      verify_fun := {NewF3, bar}} =
+        ssl_config:update_options([{verify, verify_peer}], server, SrvPeerOpts),
+    %% Explicit values in the same override are honored.
+    #{fail_if_no_peer_cert := true, verify_fun := {NewF4, baz}} =
+        ssl_config:update_options([{verify, verify_peer},
+                                   {fail_if_no_peer_cert, true},
+                                   {verify_fun, {NewF4, baz}}],
+                                  server, SrvPeerOpts),
+    %% Default fail_if_no_peer_cert (true) is kept as well.
+    {ok, #config{ssl = SrvDefOpts}} =
+        ssl_config:handle_options([{verify, verify_peer}, {cacerts, [Cert]}
+                                   | ServerCertKey],
+                                  server, net_adm:localhost()),
+    #{fail_if_no_peer_cert := true} =
+        ssl_config:update_options([{verify, verify_peer}], server, SrvDefOpts),
+    %% A genuine verify_none -> verify_peer transition still resets
+    %% verify_fun (the internal none_verify_fun) and takes the default
+    %% fail_if_no_peer_cert for verify_peer.
+    {ok, #config{ssl = SrvNoneOpts}} =
+        ssl_config:handle_options(ServerCertKey, server, net_adm:localhost()),
+    #{verify := verify_none, fail_if_no_peer_cert := false} = SrvNoneOpts,
+    #{verify := verify_peer, fail_if_no_peer_cert := true, verify_fun := undefined} =
+        ssl_config:update_options([{verify, verify_peer}, {cacerts, [Cert]}],
+                                  server, SrvNoneOpts),
+
     ?OK(#{allow_any_ca_purpose := true},
         [{allow_any_ca_purpose, true}, {verify, verify_peer}, {cacerts, [Cert]}],
         server),
