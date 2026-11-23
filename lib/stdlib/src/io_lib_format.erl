@@ -839,16 +839,19 @@ limit_cdata_to_chars(Cs, 0, normal) ->
 limit_cdata_to_chars(_Cs, 0, final) -> [];
 limit_cdata_to_chars(Cs, Limit, Mode) ->
     case string:next_grapheme(Cs) of
-        {error, <<C,Cs1/binary>>} ->
-            %% This is how ~ts handles Latin1 binaries with option
-            %% chars_limit.
-            [C | limit_cdata_to_chars(Cs1, Limit - 1, Mode)];
-        {error, [C|Cs1]} -> % not all versions of module string return this
-            [C | limit_cdata_to_chars(Cs1, Limit - 1, Mode)];
         [] ->
             [];
         [GC|Cs1] ->
-            [GC | limit_cdata_to_chars(Cs1, Limit - 1, Mode)]
+            [GC | limit_cdata_to_chars(Cs1, Limit - 1, Mode)];
+        {error, Error} ->
+            %% This is how ~ts handles Latin1 binaries with option
+            %% chars_limit.
+            case Error of
+                [<<C:8, Cs1/binary>>| Cs2] ->
+                    [C | limit_cdata_to_chars([Cs1, Cs2], Limit - 1, Mode)];
+                <<C:8, Cs1/binary>> ->
+                    [C | limit_cdata_to_chars(Cs1, Limit - 1, Mode)]
+            end
     end.
 
 iolist_to_bin(L, F, CharsLimit, latin1) when CharsLimit < 0; CharsLimit >= F ->
@@ -899,29 +902,34 @@ limit_iolist_to_bin(Bin0, Limit, unicode, Size0, Acc)
     try string:length(Bin0) of
         Sz when Sz > Limit ->
             B1 = string:slice(Bin0, 0, Limit),
-            Skip = byte_size(Bin0) - byte_size(B1),
+            Skip = byte_size(B1),
             <<_:Skip/binary, B2/binary>> = Bin0,
             {<<Acc/binary, B1/binary>>, Size0+Limit, 0, B2};
         Sz ->
             {<<Acc/binary, Bin0/binary>>, Size0+Sz, Limit-Sz, []}
-    catch _:_ ->  %% We allow latin1 as binary strings, so try that
-            limit_iolist_to_bin(Bin0, Limit, latin1, Size0, Acc)
+    catch _:_ ->
+            %% Invalid UTF-8: walk it grapheme by grapheme, the
+            %% invalid bytes are then handled as Latin-1.
+            limit_iolist_to_bin([Bin0], Limit, unicode, Size0, Acc)
     end;
 limit_iolist_to_bin(CPs, Limit, unicode, Size, Acc) ->
     case string:next_grapheme(CPs) of
-        {error, <<C,Cs1/binary>>} ->
-            %% This is how ~ts handles Latin1 binaries with option
-            %% chars_limit.
-            limit_iolist_to_bin(Cs1, Limit-1, unicode, Size+1, <<Acc/binary, C/utf8>>);
-        {error, [C|Cs1]} -> % not all versions of module string return this
-            limit_iolist_to_bin(Cs1, Limit-1, unicode, Size+1, <<Acc/binary, C/utf8>>);
         [] ->
             {Acc, Size, Limit, []};
         [GC|Cs1] when is_integer(GC) ->
             limit_iolist_to_bin(Cs1, Limit-1, unicode, Size+1, <<Acc/binary, GC/utf8>>);
         [GC|Cs1] ->
             Utf8 = unicode:characters_to_binary(GC),
-            limit_iolist_to_bin(Cs1, Limit-1, unicode, Size+1, <<Acc/binary, Utf8/binary>>)
+            limit_iolist_to_bin(Cs1, Limit-1, unicode, Size+1, <<Acc/binary, Utf8/binary>>);
+        {error, Error} ->
+            %% This is how ~ts handles Latin1 binaries with option
+            %% chars_limit.
+            case Error of
+                [<<C:8, Cs1/binary>>| Cs2] ->
+                    limit_iolist_to_bin([Cs1,Cs2], Limit-1, unicode, Size+1, <<Acc/binary, C/utf8>>);
+                <<C:8, Cs1/binary>> ->
+                    limit_iolist_to_bin(Cs1, Limit-1, unicode, Size+1, <<Acc/binary, C/utf8>>)
+            end
     end;
 limit_iolist_to_bin([Deep|Cs], Limit0, Enc, Size0, Acc0) ->
     {Acc, Sz, L, Cont} = limit_iolist_to_bin(Deep, Limit0, Enc, Size0, Acc0),
