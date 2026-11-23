@@ -79,7 +79,7 @@ int BeamModuleAssembler::emit_bs_get_field_size(const ArgSource &Size,
         }
 
         if (max_size) {
-            ASSERT(Support::is_int_n<32>((Sint)make_small(max_size)));
+            ASSERT(Bitwise::fits_signed<32>((Sint)make_small(max_size)));
             a.cmp(RET, imm(make_small(max_size)));
             a.ja(fail);
         }
@@ -91,8 +91,8 @@ int BeamModuleAssembler::emit_bs_get_field_size(const ArgSource &Size,
             if (can_fail) {
                 a.js(fail);
             }
-        } else if (!can_fail && Support::is_power_of_2(unit)) {
-            int trailing_bits = Support::ctz<Eterm>(unit);
+        } else if (!can_fail && Bitwise::is_power_of_2(unit)) {
+            int trailing_bits = Bitwise::ctz<Eterm>(unit);
             a.and_(RET, imm(~_TAG_IMMED1_MASK));
             if (trailing_bits < _TAG_IMMED1_SIZE) {
                 a.sar(RET, imm(_TAG_IMMED1_SIZE - trailing_bits));
@@ -1189,7 +1189,7 @@ void BeamModuleAssembler::update_bin_state(x86::Gp bin_offset,
     x86::Mem mem_bin_offset =
             x86::Mem(registers, cur_bin_offset - x_reg_offset, sizeof(UWord));
 
-    if (bit_offset % 8 != 0 || !Support::is_int_n<32>(bit_offset + size)) {
+    if (bit_offset % 8 != 0 || !Bitwise::fits_signed<32>(bit_offset + size)) {
         /* The bit offset is unknown or not byte-aligned. Alternatively,
          * the sum of bit_offset and size does not fit in an immediate. */
         a.mov(current_byte, mem_bin_offset);
@@ -2380,7 +2380,7 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
                         a.shr(RET, imm(complete_bytes));
                         a.and_(RETd, imm((1ull << num_partial) - 1));
                         a.shl(RET, imm(complete_bytes + 8 - num_partial));
-                        if (Support::is_int_n<32>(mask)) {
+                        if (Bitwise::fits_signed<32>(mask)) {
                             a.and_(bin_data, imm(mask));
                         } else {
                             mov_imm(tmp, mask);
@@ -2512,8 +2512,8 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
                 } else {
                     mov_arg(ARG3, seg.size);
                     a.sar(ARG3, imm(_TAG_IMMED1_SIZE));
-                    if (Support::is_power_of_2(seg.unit)) {
-                        Uint trailing_bits = Support::ctz<Eterm>(seg.unit);
+                    if (Bitwise::is_power_of_2(seg.unit)) {
+                        Uint trailing_bits = Bitwise::ctz<Eterm>(seg.unit);
                         if (trailing_bits) {
                             a.shl(ARG3, imm(trailing_bits));
                         }

@@ -148,7 +148,8 @@ void BeamModuleAssembler::emit_i_plus(const ArgLabel &Fail,
                                       const ArgSource &RHS,
                                       const ArgRegister &Dst) {
     bool rhs_is_arm_literal =
-            RHS.isSmall() && Support::is_uint_n<12>(RHS.as<ArgSmall>().get());
+            RHS.isSmall() &&
+            Bitwise::fits_unsigned<12>(RHS.as<ArgSmall>().get());
     bool is_small_result = is_sum_small_if_args_are_small(LHS, RHS);
 
     if (always_small(LHS) && always_small(RHS) && is_small_result) {
@@ -337,7 +338,8 @@ void BeamModuleAssembler::emit_i_minus(const ArgLabel &Fail,
                                        const ArgSource &RHS,
                                        const ArgRegister &Dst) {
     bool rhs_is_arm_literal =
-            RHS.isSmall() && Support::is_uint_n<12>(RHS.as<ArgSmall>().get());
+            RHS.isSmall() &&
+            Bitwise::fits_unsigned<12>(RHS.as<ArgSmall>().get());
     bool is_small_result = is_diff_small_if_args_are_small(LHS, RHS);
 
     if (always_small(LHS) && always_small(RHS) && is_small_result) {
@@ -575,8 +577,8 @@ void BeamModuleAssembler::emit_i_mul_add(const ArgLabel &Fail,
 
     if (Src2.isSmall()) {
         factor = Src2.as<ArgSmall>().getSigned();
-        if (Support::is_power_of_2(factor)) {
-            left_shift = Support::ctz<Eterm>(factor);
+        if (Bitwise::is_power_of_2(factor)) {
+            left_shift = Bitwise::ctz<Eterm>(factor);
         }
     }
 
@@ -589,7 +591,7 @@ void BeamModuleAssembler::emit_i_mul_add(const ArgLabel &Fail,
 
         comment("multiplication without overflow check");
         if (left_shift > 0 &&
-            Support::is_uint_n<12>(_TAG_IMMED1_SMALL * (factor - 1))) {
+            Bitwise::fits_unsigned<12>(_TAG_IMMED1_SMALL * (factor - 1))) {
             comment("optimized multiplication by replacing with left "
                     "shift and sub");
             /* Only a 12-bit immediate can be used by sub,
@@ -959,9 +961,9 @@ void BeamModuleAssembler::emit_div_rem_literal(Sint divisor,
         a.b_ne(generic);
     }
 
-    if (Support::is_power_of_2(divisor)) {
+    if (Bitwise::is_power_of_2(divisor)) {
         a64::Gp original_dividend = dividend;
-        int shift = Support::ctz<Eterm>(divisor);
+        int shift = Bitwise::ctz<Eterm>(divisor);
 
         if (need_div && small_dividend) {
             mov_imm(small_tag, _TAG_IMMED1_SMALL);
@@ -979,7 +981,7 @@ void BeamModuleAssembler::emit_div_rem_literal(Sint divisor,
                 a.orr(quotient, small_tag, dividend, a64::lsr(shift));
             }
             if (need_rem) {
-                auto mask = Support::lsb_mask<Uint>(shift + _TAG_IMMED1_SIZE);
+                Uint mask = (1ULL << (shift + _TAG_IMMED1_SIZE)) - 1;
                 comment("optimized rem by replacing with masking");
                 a.and_(remainder, original_dividend, imm(mask));
             }
@@ -1718,7 +1720,7 @@ static int count_leading_zeroes(UWord value) {
         return word_bits;
     }
 
-    return Support::clz(value);
+    return Bitwise::clz(value);
 }
 
 void BeamModuleAssembler::emit_i_bsl(const ArgLabel &Fail,

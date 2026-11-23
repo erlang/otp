@@ -536,7 +536,7 @@ void BeamModuleAssembler::emit_move_two_trim(const ArgYRegister &Src1,
     ASSERT(ArgVal::memory_relation(Src1, Src2) ==
            ArgVal::Relation::consecutive);
 
-    if (src_index == 0 && Support::is_int_n<9>(trim)) {
+    if (src_index == 0 && Bitwise::fits_signed<9>(trim)) {
         /* Combine fetching of y0 and y1 with trimming. */
         mem = a64::Mem(E).post(trim);
         a.ldp(dst1.reg, dst2.reg, mem);
@@ -551,13 +551,13 @@ void BeamModuleAssembler::emit_move_two_trim(const ArgYRegister &Src1,
 
         if (Dst1.isYRegister() &&
             Dst1.as<ArgYRegister>().get() == Words.get() &&
-            Support::is_int_n<9>(trim)) {
+            Bitwise::fits_signed<9>(trim)) {
             const a64::Mem dst_ref = a64::Mem(E, trim).pre();
             flush_var(dst2);
             a.str(dst1.reg, dst_ref);
         } else if (Dst2.isYRegister() &&
                    Dst2.as<ArgYRegister>().get() == Words.get() &&
-                   Support::is_int_n<9>(trim)) {
+                   Bitwise::fits_signed<9>(trim)) {
             const a64::Mem dst_ref = a64::Mem(E, trim).pre();
             flush_var(dst1);
             a.str(dst2.reg, dst_ref);
@@ -577,7 +577,7 @@ void BeamModuleAssembler::emit_move_trim(const ArgSource &Src,
 
     if (Src.isYRegister()) {
         auto src_index = Src.as<ArgYRegister>().get();
-        if (src_index == 0 && Support::is_int_n<9>(trim)) {
+        if (src_index == 0 && Bitwise::fits_signed<9>(trim)) {
             const a64::Mem src_ref = a64::Mem(E).post(trim);
             auto dst = init_destination(Dst.trimmed(Words.get()), TMP1);
             a.ldr(dst.reg, src_ref);
@@ -589,7 +589,7 @@ void BeamModuleAssembler::emit_move_trim(const ArgSource &Src,
 
     if (Dst.isYRegister()) {
         auto dst_index = Dst.as<ArgYRegister>().get();
-        if (dst_index == Words.get() && Support::is_int_n<9>(trim)) {
+        if (dst_index == Words.get() && Bitwise::fits_signed<9>(trim)) {
             auto src = load_source(Src, TMP1);
             const a64::Mem dst_ref = a64::Mem(E, trim).pre();
             a.str(src.reg, dst_ref);
@@ -735,7 +735,7 @@ void BeamModuleAssembler::emit_put_list_deallocate(const ArgSource &Hd,
     ASSERT(dealloc < MAX_REG * sizeof(Eterm));
 
     if (Hd.isYRegister() && !Tl.isYRegister() && dealloc > 0 &&
-        Support::is_int_n<9>(dealloc)) {
+        Bitwise::fits_signed<9>(dealloc)) {
         auto hd_index = Hd.as<ArgYRegister>().get();
 
         if (hd_index == 0) {
@@ -747,7 +747,7 @@ void BeamModuleAssembler::emit_put_list_deallocate(const ArgSource &Hd,
             dealloc = 0;
         }
     } else if (!Hd.isYRegister() && Tl.isYRegister() && dealloc > 0 &&
-               Support::is_int_n<9>(dealloc)) {
+               Bitwise::fits_signed<9>(dealloc)) {
         auto tl_index = Tl.as<ArgYRegister>().get();
 
         if (tl_index == 0) {
@@ -883,7 +883,7 @@ void BeamModuleAssembler::emit_copy_words_increment(a64::Gp from,
     } else {
         Label copy_next = a.new_label();
 
-        ASSERT(Support::is_uint_n<16>(count / 4));
+        ASSERT(Bitwise::fits_unsigned<16>(count / 4));
         mov_imm(SUPER_TMP, count / 4);
         a.bind(copy_next);
         {

@@ -979,7 +979,7 @@ protected:
              *   49 c7 c0 2a 00 00 00    mov    r8, 42
              *   41 b8 2a 00 00 00       mov    r8d, 42
              */
-            if (Support::is_uint_n<32>((Uint)value)) {
+            if (Bitwise::fits_unsigned<32>((Uint)value)) {
                 a.mov(to.r32(), imm(value));
             } else {
                 a.mov(to, imm(value));
@@ -1616,7 +1616,7 @@ protected:
             /* Note that the cast to Sint is necessary to handle
              * negative numbers such as NIL. */
             if (val.isImmed() &&
-                Support::is_int_n<32>((Sint)val.as<ArgImmed>().get())) {
+                Bitwise::fits_signed<32>((Sint)val.as<ArgImmed>().get())) {
                 comment("simplified compare of BEAM register");
                 preserve_cache([&]() {
                     a.cmp(reg, imm(val.as<ArgImmed>().get()));
@@ -1633,7 +1633,7 @@ protected:
             /* Note that the cast to Sint is necessary to handle
              * negative numbers such as NIL. */
             if (val.isImmed() &&
-                Support::is_int_n<32>((Sint)val.as<ArgImmed>().get())) {
+                Bitwise::fits_signed<32>((Sint)val.as<ArgImmed>().get())) {
                 preserve_cache([&]() {
                     a.cmp(mem, imm(val.as<ArgImmed>().get()));
                 });
@@ -1646,7 +1646,7 @@ protected:
 
     void cmp_arg(x86::Gp gp, const ArgVal &val, const x86::Gp &spill) {
         if (val.isImmed() &&
-            Support::is_int_n<32>((Sint)val.as<ArgImmed>().get())) {
+            Bitwise::fits_signed<32>((Sint)val.as<ArgImmed>().get())) {
             preserve_cache([&]() {
                 a.cmp(gp, imm(val.as<ArgImmed>().get()));
             });
@@ -1657,7 +1657,7 @@ protected:
     }
 
     void cmp(x86::Gp gp, int64_t val, const x86::Gp &spill) {
-        if (Support::is_int_n<32>(val)) {
+        if (Bitwise::fits_signed<32>(val)) {
             preserve_cache([&]() {
                 a.cmp(gp, imm(val));
             });
@@ -1673,7 +1673,7 @@ protected:
     }
 
     void sub(x86::Gp gp, int64_t val, const x86::Gp &spill) {
-        if (Support::is_int_n<32>(val)) {
+        if (Bitwise::fits_signed<32>(val)) {
             preserve_cache(
                     [&]() {
                         a.sub(gp, imm(val));
@@ -1757,7 +1757,7 @@ protected:
         if (from.isImmed()) {
             auto val = from.as<ArgImmed>().get();
 
-            if (Support::is_int_n<32>((Sint)val)) {
+            if (Bitwise::fits_signed<32>((Sint)val)) {
                 preserve_cache(
                         [&]() {
                             a.mov(to, imm(val));
@@ -1775,7 +1775,7 @@ protected:
         } else if (from.isWord()) {
             auto val = from.as<ArgWord>().get();
 
-            if (Support::is_int_n<32>((Sint)val)) {
+            if (Bitwise::fits_signed<32>((Sint)val)) {
                 preserve_cache(
                         [&]() {
                             a.mov(to, imm(val));
@@ -1811,7 +1811,7 @@ protected:
     void mov_arg(const ArgRegister &to, BeamInstr from, const x86::Gp &spill) {
         preserve_cache(
                 [&]() {
-                    if (Support::is_int_n<32>((Sint)from)) {
+                    if (Bitwise::fits_signed<32>((Sint)from)) {
                         a.mov(getArgRef(to), imm(from));
                     } else {
                         a.mov(spill, imm(from));

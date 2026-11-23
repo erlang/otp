@@ -76,7 +76,7 @@ This is the short story though, for the experienced and impatient:
 
 *   Get and install complete WSL environment
 
-*   Install Visual Studio 2019
+*   Install Visual Studio 2022 17.0 or later
 
 *   Get and install windows JDK-8
 

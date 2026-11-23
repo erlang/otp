@@ -106,7 +106,7 @@ void BeamModuleAssembler::emit_move_call_last(const ArgYRegister &Src,
         flush_var(dst);
         a.b(resolve_beam_label(CallTarget, disp128MB));
         mark_unreachable();
-    } else if (src_index == 0 && Support::is_int_n<9>(deallocate)) {
+    } else if (src_index == 0 && Bitwise::fits_signed<9>(deallocate)) {
         auto dst = init_destination(Dst, TMP1);
         const a64::Mem src_ref = a64::Mem(E).post(deallocate);
         a.ldr(dst.reg, src_ref);
@@ -203,7 +203,7 @@ void BeamModuleAssembler::emit_move_call_ext_last(const ArgYRegister &Src,
         flush_var(dst);
         branch(target);
         mark_unreachable();
-    } else if (src_index == 0 && Support::is_int_n<9>(deallocate)) {
+    } else if (src_index == 0 && Bitwise::fits_signed<9>(deallocate)) {
         auto dst = init_destination(Dst, TMP1);
         const a64::Mem src_ref = a64::Mem(E).post(deallocate);
         a.ldr(dst.reg, src_ref);

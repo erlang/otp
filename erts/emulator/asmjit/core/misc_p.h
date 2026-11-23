@@ -6,12 +6,12 @@
 #ifndef ASMJIT_CORE_MISC_P_H_INCLUDED
 #define ASMJIT_CORE_MISC_P_H_INCLUDED
 
-#include <asmjit/core/api-config.h>
+#include <asmjit/core/build_defs.h>
 
 ASMJIT_BEGIN_NAMESPACE
 
 //! \cond INTERNAL
-//! \addtogroup asmjit_utilities
+//! \addtogroup asmjit_core
 //! \{
 
 #define ASMJIT_LOOKUP_TABLE_4(T, I) T((I)), T((I+1)), T((I+2)), T((I+3))

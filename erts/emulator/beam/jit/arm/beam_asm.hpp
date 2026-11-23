@@ -834,9 +834,9 @@ protected:
     }
 
     void subs(a64::Gp to, a64::Gp src, int64_t val) {
-        if (Support::is_uint_n<12>(val)) {
+        if (Bitwise::fits_unsigned<12>(val)) {
             a.subs(to, src, imm(val));
-        } else if (Support::is_uint_n<12>(-val)) {
+        } else if (Bitwise::fits_unsigned<12>(-val)) {
             a.adds(to, src, imm(-val));
         } else {
             a64::Gp super_tmp = follow_size(SUPER_TMP, to);
@@ -847,9 +847,9 @@ protected:
     }
 
     void cmp(a64::Gp src, int64_t val) {
-        if (Support::is_uint_n<12>(val)) {
+        if (Bitwise::fits_unsigned<12>(val)) {
             a.cmp(src, imm(val));
-        } else if (Support::is_uint_n<12>(-val)) {
+        } else if (Bitwise::fits_unsigned<12>(-val)) {
             a.cmn(src, imm(-val));
         } else {
             a64::Gp super_tmp = follow_size(SUPER_TMP, src);
@@ -872,7 +872,7 @@ protected:
 
         ASSERT(mem.has_base_reg() && !mem.has_index());
 
-        if (Support::is_int_n<9>(offset)) {
+        if (Bitwise::fits_signed<9>(offset)) {
             a.emit(instId, reg, mem);
         } else {
             lea(SUPER_TMP, mem);
@@ -1634,7 +1634,8 @@ protected:
                 auto val = arg.isImmed() ? arg.as<ArgImmed>().get()
                                          : arg.as<ArgWord>().get();
 
-                if (Support::is_int_n<32>(val) || Support::is_uint_n<32>(val)) {
+                if (Bitwise::fits_signed<32>(val) ||
+                    Bitwise::fits_unsigned<32>(val)) {
                     preserve_cache(
                             [&]() {
                                 mov_imm(tmp, val);

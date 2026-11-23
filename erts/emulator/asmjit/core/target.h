@@ -6,8 +6,8 @@
 #ifndef ASMJIT_CORE_TARGET_H_INCLUDED
 #define ASMJIT_CORE_TARGET_H_INCLUDED
 
-#include <asmjit/core/archtraits.h>
-#include <asmjit/core/cpuinfo.h>
+#include <asmjit/core/arch_traits.h>
+#include <asmjit/core/cpu_info.h>
 #include <asmjit/core/func.h>
 
 ASMJIT_BEGIN_NAMESPACE
@@ -18,7 +18,7 @@ ASMJIT_BEGIN_NAMESPACE
 //! Target is an abstract class that describes a machine code target.
 class ASMJIT_VIRTAPI Target {
 public:
-  ASMJIT_BASE_CLASS(Target)
+  ASMJIT_OVERRIDE_NEW_DELETE(Target)
   ASMJIT_NONCOPYABLE(Target)
 
   //! Target environment information.

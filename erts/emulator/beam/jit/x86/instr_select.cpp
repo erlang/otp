@@ -65,7 +65,7 @@ void BeamModuleAssembler::emit_i_select_tuple_arity(
     emit_is_boxed(resolve_beam_label(Fail), Src, ARG2);
 
     x86::Gp boxed_ptr = emit_ptr_val(ARG2, ARG2);
-    ERTS_CT_ASSERT(Support::is_int_n<32>(make_arityval(MAX_ARITYVAL)));
+    ERTS_CT_ASSERT(Bitwise::fits_signed<32>(make_arityval(MAX_ARITYVAL)));
     a.mov(ARG2d, emit_boxed_val(boxed_ptr, 0, sizeof(Uint32)));
 
     if (masked_types<BeamTypeId::MaybeBoxed>(Src) == BeamTypeId::Tuple) {
@@ -77,7 +77,7 @@ void BeamModuleAssembler::emit_i_select_tuple_arity(
         a.jne(resolve_beam_label(Fail));
     }
 
-    ERTS_CT_ASSERT(Support::is_int_n<32>(make_arityval(MAX_ARITYVAL)));
+    ERTS_CT_ASSERT(Bitwise::fits_signed<32>(make_arityval(MAX_ARITYVAL)));
 
     int count = args.size() / 2;
     for (int i = 0; i < count; i++) {
@@ -224,7 +224,7 @@ void BeamModuleAssembler::emit_i_jump_on_val(const ArgSource &Src,
     a.sar(ARG1, imm(_TAG_IMMED1_SIZE));
 
     if (Base.get() != 0) {
-        if (Support::is_int_n<32>((Sint)Base.get())) {
+        if (Bitwise::fits_signed<32>((Sint)Base.get())) {
             a.sub(ARG1, imm(Base.get()));
         } else {
             a.mov(ARG2, imm(Base.get()));
@@ -286,7 +286,7 @@ bool BeamModuleAssembler::emit_optimized_two_way_select(bool destructive,
             diff,
             combined);
 
-    if (destructive && Support::is_int_n<32>((Sint)diff)) {
+    if (destructive && Bitwise::fits_signed<32>((Sint)diff)) {
         a.or_(ARG2, imm(diff));
         cmp_arg(ARG2, val, RET);
     } else {

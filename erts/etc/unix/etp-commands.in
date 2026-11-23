@@ -332,6 +332,47 @@ document etpf-cons
 %---------------------------------------------------------------------------
 end
 
+define etp-record-1
+# Args: ErtsRecordInstance*, ErtsRecordDefinition*, int depth
+#
+# Reentrant
+#
+  printf "#"
+  etp-1 ($arg1)->module
+  printf ":"
+  etp-1 ($arg1)->name
+  printf "{"
+  etp-record-fields-1 ((Eterm*)(($arg1)->field_order&etp_ptr_mask)) \
+                      ($arg0)->values \
+                      ($arg1)->keys \
+                      ($arg2) \
+                      0 \
+                      0 \
+                      (((($arg0)->thing_word)>>etp_header_arity_offs)-1)
+end
+
+define etp-record-fields-1
+# Args: Eterm *field_order, Eterm *values, Eterm *keys, \
+#       int depth, int width, int pos, int size
+#
+# Reentrant
+#
+  if ($arg5) < ($arg6)
+    if (($arg3) < $etp_max_depth) && (($arg4) < $etp_max_depth)
+      etp-1 (($arg2)[(($arg0)[($arg5)+1])>>etp_tag_immed1_size]) (($arg3)+1)
+        printf " = "
+      etp-1 (($arg1)[(($arg0)[($arg5)+1])>>etp_tag_immed1_size]) (($arg3)+1)
+      if (($arg5) + 1) != ($arg6)
+        printf ","
+      end
+      etp-record-fields-1 ($arg0) ($arg1) ($arg2) ($arg3) (($arg4)+1) (($arg5)+1) ($arg6)
+    else
+      printf "...}"
+    end
+  else
+    printf "}"
+  end
+end
 
 
 define etp-boxed-1
@@ -359,32 +400,39 @@ define etp-boxed-1
         etp-array-1 ((Eterm*)(($arg0)&etp_ptr_mask)) ($arg1) ($arg1) \
                     1 ((((Eterm*)(($arg0)&etp_ptr_mask))[0]>>etp_header_arity_offs)+1) '}'
       else
-        if ((((Eterm*)(($arg0) & etp_ptr_mask))[0] & etp_header_subtag_mask) \
-            == etp_tag_header_map)
-	  # A map
-	  if (((Eterm*)(($arg0) & etp_ptr_mask))[0] & 0xc0) == 0x0
-	    # Flat map
-	    printf "#{Keys:"
-	    etp-1 ((flatmap_t*)(($arg0)&etp_ptr_mask))->keys (($arg1)+1)
-	    printf " Values:{"
-	    etp-array-1 ((Eterm*)(($arg0)&etp_ptr_mask)+3) ($arg1) ($arg1) \
-                        0 ((flatmap_t*)(($arg0)&etp_ptr_mask))->size '}'
-	    printf "}"
-          else
-	    # Hashmap
-            printf "#<%x>{", (((((Eterm*)(($arg0)&etp_ptr_mask))[0])>>(6+2+8))&0xffff)
-	    if (((Eterm*)(($arg0) & etp_ptr_mask))[0] & 0xc0) >= 0x80
-              # head bitmap/array
-	      etp-bitmap-array-1 ((Eterm*)(($arg0)&etp_ptr_mask)+2) ($arg1) ($arg1) \
-                        0 (((((Eterm*)(($arg0)&etp_ptr_mask))[0])>>(6+2+8))&0xffff) '}'
-            else
-              # node bitmap
-	      etp-bitmap-array-1 ((Eterm*)(($arg0)&etp_ptr_mask)+1) ($arg1) ($arg1) \
-                        0 (((((Eterm*)(($arg0)&etp_ptr_mask))[0])>>(6+2+8))&0xffff) '}'
-            end
-	  end
+        if ((((Eterm*)(($arg0) & etp_ptr_mask))[0] & etp_tag_header_mask) \
+            == etp_tag_header_record)
+          etp-record-1 ((ErtsRecordInstance*)(($arg0)&etp_ptr_mask)) \
+                       ((ErtsRecordDefinition*)((((ErtsRecordInstance*)(($arg0)&etp_ptr_mask))->record_definition)&etp_ptr_mask)) \
+                       ($arg1)
         else
-          etp-boxed-immediate-1 ($arg0)
+          if ((((Eterm*)(($arg0) & etp_ptr_mask))[0] & etp_header_subtag_mask) \
+              == etp_tag_header_map)
+            # A map
+            if (((Eterm*)(($arg0) & etp_ptr_mask))[0] & 0xc0) == 0x0
+              # Flat map
+              printf "#{Keys:"
+              etp-1 ((flatmap_t*)(($arg0)&etp_ptr_mask))->keys (($arg1)+1)
+              printf " Values:{"
+              etp-array-1 ((Eterm*)(($arg0)&etp_ptr_mask)+3) ($arg1) ($arg1) \
+                          0 ((flatmap_t*)(($arg0)&etp_ptr_mask))->size '}'
+              printf "}"
+            else
+              # Hashmap
+              printf "#<%x>{", (((((Eterm*)(($arg0)&etp_ptr_mask))[0])>>(6+2+8))&0xffff)
+              if (((Eterm*)(($arg0) & etp_ptr_mask))[0] & 0xc0) >= 0x80
+                # head bitmap/array
+                etp-bitmap-array-1 ((Eterm*)(($arg0)&etp_ptr_mask)+2) ($arg1) ($arg1) \
+                          0 (((((Eterm*)(($arg0)&etp_ptr_mask))[0])>>(6+2+8))&0xffff) '}'
+              else
+                # node bitmap
+                etp-bitmap-array-1 ((Eterm*)(($arg0)&etp_ptr_mask)+1) ($arg1) ($arg1) \
+                          0 (((((Eterm*)(($arg0)&etp_ptr_mask))[0])>>(6+2+8))&0xffff) '}'
+              end
+            end
+          else
+            etp-boxed-immediate-1 ($arg0)
+          end
         end
       end
     end
@@ -2320,22 +2368,26 @@ define etp-term-dump-header
               if ((($arg0) & etp_tag_header_mask) == etp_tag_header_fun)
                 printf  "| H:fun %6u ", ($arg0) >> etp_header_arity_offs
               else
-                if ((($arg0) & etp_header_map_subtag_mask) \
-                    == etp_map_subtag_head_flatmap)
-                  set $etp_heapdump_skips = (($arg0)>>(etp_header_arity_offs+2)) & 0xff
-                  printf  "| flatmap %5u ", $etp_heapdump_skips
+                if ((($arg0) & etp_tag_header_mask) == etp_tag_header_record)
+                  printf  "| H:record %6u ", ($arg0) >> etp_header_arity_offs
                 else
-                  if ((($arg0) & etp_header_map_hashmap_head_mask) \
-                      == etp_map_subtag_head_array)
-                    # Matches both bitmap and array.
+                  if ((($arg0) & etp_header_map_subtag_mask) \
+                      == etp_map_subtag_head_flatmap)
                     set $etp_heapdump_skips = (($arg0)>>(etp_header_arity_offs+2)) & 0xff
-                    printf  "| hashmap %4u ", $etp_heapdump_skips
+                    printf  "| flatmap %5u ", $etp_heapdump_skips
                   else
-                    printf  "| header %5u ", ($arg0) >> etp_header_arity_offs
+                    if ((($arg0) & etp_header_map_hashmap_head_mask) \
+                        == etp_map_subtag_head_array)
+                      # Matches both bitmap and array.
+                      set $etp_heapdump_skips = (($arg0)>>(etp_header_arity_offs+2)) & 0xff
+                      printf  "| hashmap %4u ", $etp_heapdump_skips
+                    else
+                      printf  "| header %5u ", ($arg0) >> etp_header_arity_offs
+                    end
                   end
                 end
               end
-	    end
+            end
           end
         end
       end

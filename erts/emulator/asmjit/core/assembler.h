@@ -6,7 +6,7 @@
 #ifndef ASMJIT_CORE_ASSEMBLER_H_INCLUDED
 #define ASMJIT_CORE_ASSEMBLER_H_INCLUDED
 
-#include <asmjit/core/codeholder.h>
+#include <asmjit/core/code_holder.h>
 #include <asmjit/core/emitter.h>
 #include <asmjit/core/operand.h>
 

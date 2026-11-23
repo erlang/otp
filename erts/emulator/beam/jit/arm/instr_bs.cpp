@@ -91,8 +91,8 @@ int BeamModuleAssembler::emit_bs_get_field_size(const ArgSource &Size,
         } else if (unit == 1 && !can_fail) {
             /* The result is already in the out register. */
             ;
-        } else if (Support::is_power_of_2(unit)) {
-            int trailing_bits = Support::ctz<Eterm>(unit);
+        } else if (Bitwise::is_power_of_2(unit)) {
+            int trailing_bits = Bitwise::ctz<Eterm>(unit);
 
             /* The tag bits were cleared out by the argument check, so all we
              * need to do is shift the result into place. */
@@ -2333,8 +2333,8 @@ void BeamModuleAssembler::emit_i_bs_create_bin(const ArgLabel &Fail,
                 } else {
                     auto size = load_source(seg.size, TMP1);
                     a.lsr(ARG3, size.reg, imm(_TAG_IMMED1_SIZE));
-                    if (Support::is_power_of_2(seg.unit)) {
-                        Uint trailing_bits = Support::ctz<Eterm>(seg.unit);
+                    if (Bitwise::is_power_of_2(seg.unit)) {
+                        Uint trailing_bits = Bitwise::ctz<Eterm>(seg.unit);
                         if (trailing_bits) {
                             a.lsl(ARG3, ARG3, imm(trailing_bits));
                         }

@@ -41,7 +41,6 @@
 //!   - \ref x86::SReg - segment register.
 //!   - \ref x86::CReg - control register.
 //!   - \ref x86::DReg - debug register.
-//!   - \ref x86::Bnd - bound register (discontinued).
 //!   - \ref x86::Rip - relative instruction pointer.
 //!
 //! ### Memory Operands
@@ -71,14 +70,14 @@
 
 #include <asmjit/core.h>
 
-#include <asmjit/asmjit-scope-begin.h>
-#include <asmjit/x86/x86assembler.h>
-#include <asmjit/x86/x86builder.h>
-#include <asmjit/x86/x86compiler.h>
-#include <asmjit/x86/x86emitter.h>
-#include <asmjit/x86/x86globals.h>
-#include <asmjit/x86/x86instdb.h>
-#include <asmjit/x86/x86operand.h>
-#include <asmjit/asmjit-scope-end.h>
+#include <asmjit/build_scope_begin.h>
+#include <asmjit/x86/x86_assembler.h>
+#include <asmjit/x86/x86_builder.h>
+#include <asmjit/x86/x86_compiler.h>
+#include <asmjit/x86/x86_emitter.h>
+#include <asmjit/x86/x86_globals.h>
+#include <asmjit/x86/x86_inst_db.h>
+#include <asmjit/x86/x86_operand.h>
+#include <asmjit/build_scope_end.h>
 
 #endif // ASMJIT_X86_H_INCLUDED
