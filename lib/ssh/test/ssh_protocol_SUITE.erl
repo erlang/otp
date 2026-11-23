@@ -93,6 +93,7 @@
          lib_no_match/1,
          lib_works_as_client/1,
          lib_works_as_server/1,
+         password_not_utf8/1,
          modify_append/1,
          modify_combo/1,
          modify_prepend/1,
@@ -182,6 +183,9 @@ suite() ->
                 ok;
            (extra_ssh_msg_service_request, 1) ->
                 ok;
+           (password_not_utf8, 2) ->
+                %% one failfun report per user (known and unknown)
+                ok;
            (_, EventNumber) ->
                 {fail, lists:flatten(
                          io_lib:format("unexpected event cnt: ~s",
@@ -219,7 +223,8 @@ groups() ->
     [{tool_tests, [], [lib_works_as_client,
 		       lib_works_as_server,
 		       lib_match,
-		       lib_no_match
+                       lib_no_match,
+                       password_not_utf8
 		      ]},
      {packet_error, [], [decompression_bomb_client,
                          decompression_bomb_client_after_auth,
@@ -474,6 +479,36 @@ lib_works_as_client(Config) ->
 	   close_socket
 	  ], EndState).
 
+
+%%--------------------------------------------------------------------
+%%% A password that is not valid UTF-8 must give a normal auth failure
+%%% for known and unknown users alike (GHSA-3w6p-vwhf-wvp4).
+password_not_utf8(Config) ->
+    {KnownUser, _Pwd} = server_user_password(Config),
+    [password_not_utf8(Config, User) || User <- [KnownUser, "no_such_user"]],
+    ok.
+
+password_not_utf8(Config, User) ->
+    {ok, AfterKexState} = connect_and_kex(Config),
+    BadPwd = <<255, $a, 16#c3>>,
+    {ok, EndState} =
+        ssh_trpt_test_lib:exec(
+          [{send, #ssh_msg_service_request{name = "ssh-userauth"}},
+           {match, #ssh_msg_service_accept{name = "ssh-userauth"}, receive_msg},
+           {send, #ssh_msg_userauth_request{user = User,
+                                            service = "ssh-connection",
+                                            method = "password",
+                                            data = <<?BOOLEAN(?FALSE),
+                                                     ?STRING(BadPwd)>>}},
+           {match, #ssh_msg_userauth_failure{_ = '_'}, receive_msg}
+          ], AfterKexState),
+    {ok, _} =
+        ssh_trpt_test_lib:exec(
+          [{send, #ssh_msg_disconnect{code = ?SSH_DISCONNECT_BY_APPLICATION,
+                                      description = "End of test",
+                                      language = ""}},
+           close_socket
+          ], EndState).
 
 %%--------------------------------------------------------------------
 %%% Connect an erlang client and check that the testlib can act as a server.
