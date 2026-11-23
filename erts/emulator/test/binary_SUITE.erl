@@ -1226,8 +1226,10 @@ bad_binary_to_term(Config) when is_list(Config) ->
     bad_bin_to_term(fun(X, Y, Z) -> {X,Y,Z} end),
     bad_bin_to_term(bit_sized_binary(term_to_binary({you,should,'not',see,this,term}))),
 
-    %% Bad float.
+    %% Bad floats.
     bad_bin_to_term(<<131,70,-1:64>>),
+    bad_bin_to_term(<<131,?FLOAT_EXT,"1.3456789012345678901234567e+01">>),
+    bad_bin_to_term(<<131,?FLOAT_EXT,"1.3456789012345678901234567e+01",0>>),
 
     %% Truncated UTF8 character (ERL-474)
     bad_bin_to_term(<<131,119,1,194,163>>),
