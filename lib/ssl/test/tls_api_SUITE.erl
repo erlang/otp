@@ -120,6 +120,10 @@
          tls_reject_unoffered_cipher_suite/1,
          tls_reject_unoffered_alpn/0,
          tls_reject_unoffered_alpn/1,
+         tls13_reject_missing_key_share/0,
+         tls13_reject_missing_key_share/1,
+         tls13_reject_unoffered_key_share_group/0,
+         tls13_reject_unoffered_key_share_group/1,
          tls13_reject_unsolicited_psk/0,
          tls13_reject_unsolicited_psk/1,
          tls_reject_non_null_compression/0,
@@ -152,6 +156,8 @@
 -define(TLS13_PRE_SHARED_KEY_EXT, 41).
 -define(TLS13_SUPPORTED_VERSIONS_EXT, 43).
 -define(TLS13_GROUP_X25519, 16#001d).
+-define(TLS13_GROUP_SECP256R1, 16#0017).
+-define(TLS13_GROUP_X448, 16#001e).
 -define(ALPN_TEST_SUITE_BIN, <<16#C0, 16#2F>>). %% TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256
 -define(ALPN_TEST_SUITE_MAP, #{key_exchange => ecdhe_rsa, cipher => aes_128_gcm,
                                mac => aead, prf => sha256}).
@@ -168,7 +174,8 @@ all() ->
      {group, 'tlsv1.2'},
      {group, 'tlsv1.1'},
      {group, 'tlsv1'},
-     {group, rogue_server_tests}
+     {group, rogue_server_tests},
+     {group, rogue_server_tests_1_3}
     ].
 
 groups() ->
@@ -178,7 +185,8 @@ groups() ->
      {'tlsv1.2', [],  api_tests()},
      {'tlsv1.1', [],  api_tests()},
      {'tlsv1', [],  api_tests()},
-     {rogue_server_tests, [parallel], rogue_server_tests()}
+     {rogue_server_tests, [parallel], rogue_server_tests()},
+     {rogue_server_tests_1_3, [parallel], rogue_server_tests_1_3()}
     ].
 
 api_tests() ->
@@ -221,8 +229,14 @@ api_tests() ->
 rogue_server_tests() ->
     [tls_reject_unoffered_cipher_suite,
      tls_reject_unoffered_alpn,
-     tls13_reject_unsolicited_psk,
      tls_reject_non_null_compression].
+
+%% Rogue server tests that need TLS-1.3, the group is set up and skipped
+%% in the same way as the 'tlsv1.3' group, see init_per_group/2.
+rogue_server_tests_1_3() ->
+    [tls13_reject_unsolicited_psk,
+     tls13_reject_missing_key_share,
+     tls13_reject_unoffered_key_share_group].
 
 init_per_suite(Config0) ->
     catch crypto:stop(),
@@ -241,9 +255,14 @@ end_per_suite(_Config) ->
     application:unload(ssl),
     application:stop(crypto).
 
+init_per_group(rogue_server_tests_1_3, Config) ->
+    %% Same crypto support check and set up as for the 'tlsv1.3' group
+    ssl_test_lib:init_per_group('tlsv1.3', Config);
 init_per_group(GroupName, Config) ->
     ssl_test_lib:init_per_group(GroupName, Config).
 
+end_per_group(rogue_server_tests_1_3, Config) ->
+    ssl_test_lib:end_per_group('tlsv1.3', Config);
 end_per_group(GroupName, Config) ->
   ssl_test_lib:end_per_group(GroupName, Config).
 
@@ -997,6 +1016,149 @@ tls13_reject_unsolicited_psk(Config) when is_list(Config) ->
     ok = rogue_tls13_psk(ClientOpts, []),
     ok = rogue_tls13_psk(ClientOpts, [{session_tickets, auto}]),
     ok.
+
+%%--------------------------------------------------------------------
+tls13_reject_missing_key_share() ->
+    [{doc, "A malicious/on-path server sends a (non-HRR) TLS-1.3 ServerHello "
+      "that omits the mandatory key_share extension. RFC 8446 4.1.3/4.2.8 "
+      "requires the client to abort. The client must return an "
+      "{error,{tls_alert,{missing_extension,_}}} from ssl:connect, not crash "
+      "with function_clause/badmatch in handle_server_hello (GH-12000). "
+      "The abort happens on the plaintext ServerHello, before any encrypted "
+      "flight, so the forged server only needs to send the ServerHello."}].
+tls13_reject_missing_key_share(Config) when is_list(Config) ->
+    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    {ok, LSock} = gen_tcp:listen(0, [binary, {active, false},
+                                     {reuseaddr, true}, {packet, 0}]),
+    {ok, Port} = inet:port(LSock),
+    Parent = self(),
+    Attacker = spawn_link(fun() ->
+                                  Parent ! {attacker, rogue_tls13_no_key_share_server(LSock)}
+                          end),
+    ClientOpts = [{versions, ['tlsv1.3']},
+                  {ciphers, ["TLS_AES_128_GCM_SHA256"]},
+                  {supported_groups, [x25519]},
+                  {server_name_indication, disable},
+                  {active, false} | ClientOpts0],
+    Result = ssl:connect("localhost", Port, ClientOpts, 5000),
+    gen_tcp:close(LSock),
+    Observed = receive {attacker, O} -> O after 5000 -> unlink(Attacker), timeout end,
+    ct:log("ssl:connect -> ~p~n attacker -> ~p", [Result, Observed]),
+    case Result of
+        {error, {missing_extension, _}} ->
+            ok;
+        {error, {tls_alert, {missing_extension, _}}} ->
+            ok;
+        {ok, Sock} ->
+            ssl:close(Sock),
+            ct:fail("Client accepted a TLS-1.3 ServerHello with no key_share "
+                    "extension. Attacker observed ~p.", [Observed]);
+        Other ->
+            ct:fail({unexpected_connect_result, Other})
+    end.
+
+%%--------------------------------------------------------------------
+tls13_reject_unoffered_key_share_group() ->
+    [{doc, "A malicious/on-path server sends a (non-HRR) TLS-1.3 ServerHello "
+      "with a key_share for a group the client did not send a key_share "
+      "entry for. RFC 8446 4.2.8 requires the client to abort with "
+      "illegal_parameter, and it must not crash with function_clause/badmatch "
+      "(GH-12001). Both a group that is in the client's supported_groups, "
+      "but has no key_share entry, and a group that is not supported at all "
+      "must be rejected. The abort happens on the plaintext ServerHello, so "
+      "the forged server only needs to send the ServerHello."}].
+tls13_reject_unoffered_key_share_group(Config) when is_list(Config) ->
+    ClientOpts0 = ssl_test_lib:ssl_options(client_rsa_verify_opts, Config),
+    %% Only the most preferred group, x25519, gets a key_share entry
+    ClientOpts = [{versions, ['tlsv1.3']},
+                  {ciphers, ["TLS_AES_128_GCM_SHA256"]},
+                  {supported_groups, [x25519, secp256r1]},
+                  {server_name_indication, disable},
+                  {active, false} | ClientOpts0],
+    %% In supported_groups, but no key_share entry was sent for it
+    SupportedNotOffered =
+        {?TLS13_GROUP_SECP256R1, <<4, (crypto:strong_rand_bytes(64))/binary>>},
+    %% Not in supported_groups at all
+    NotSupported = {?TLS13_GROUP_X448, crypto:strong_rand_bytes(56)},
+    ok = rogue_unoffered_key_share_group(ClientOpts, SupportedNotOffered),
+    ok = rogue_unoffered_key_share_group(ClientOpts, NotSupported).
+
+%% Forge a minimal TLS-1.3 ServerHello that selects TLS-1.3 but carries NO
+%% key_share extension (only supported_versions). The client must abort on
+%% this plaintext message, so no encrypted flight is needed.
+rogue_tls13_no_key_share_server(LSock) ->
+    {ok, Sock} = gen_tcp:accept(LSock, 5000),
+    {?HANDSHAKE, CHHandshake} = rogue_read_record(Sock),
+    SessionId = rogue_tls13_client_session_id(CHHandshake),
+    SHBody = rogue_tls13_server_hello_body_no_key_share(SessionId),
+    SHHandshake = rogue_handshake(?SERVER_HELLO, SHBody),
+    ok = gen_tcp:send(Sock, rogue_record(?HANDSHAKE, SHHandshake)),
+    Obs = rogue_observe(Sock),
+    gen_tcp:close(Sock),
+    Obs.
+
+rogue_tls13_server_hello_body_no_key_share(SessionId) ->
+    Random = crypto:strong_rand_bytes(32),
+    %% supported_versions selecting TLS-1.3, and deliberately NO key_share.
+    SVExt = <<?TLS13_SUPPORTED_VERSIONS_EXT:16, 2:16, 16#03, 16#04>>,
+    Exts  = SVExt,
+    <<16#03, 16#03, Random/binary,
+      (byte_size(SessionId)), SessionId/binary,
+      16#13, 16#01, 0,                                %% TLS_AES_128_GCM_SHA256, compression=null
+      (byte_size(Exts)):16, Exts/binary>>.
+
+%% Connect a real TLS-1.3 client to a raw-TCP attacker that answers with a
+%% ServerHello carrying a key_share for Group, which the client did not
+%% send a key_share entry for, and assert the mandated illegal_parameter.
+rogue_unoffered_key_share_group(ClientOpts, {Group, KeyExchange}) ->
+    {ok, LSock} = gen_tcp:listen(0, [binary, {active, false},
+                                     {reuseaddr, true}, {packet, 0}]),
+    {ok, Port} = inet:port(LSock),
+    Parent = self(),
+    Attacker = spawn_link(fun() ->
+                                  Parent ! {attacker,
+                                            rogue_tls13_unoffered_group_server(LSock, Group,
+                                                                               KeyExchange)}
+                          end),
+    Result = ssl:connect("localhost", Port, ClientOpts, 5000),
+    gen_tcp:close(LSock),
+    Observed = receive {attacker, O} -> O after 5000 -> unlink(Attacker), timeout end,
+    ct:log("group ~.16B: ssl:connect -> ~p~n attacker -> ~p", [Group, Result, Observed]),
+    case Result of
+        {error, {illegal_parameter, _}} ->
+            ok;
+        {error, {tls_alert, {illegal_parameter, _}}} ->
+            ok;
+        {ok, Sock} ->
+            ssl:close(Sock),
+            ct:fail("Client accepted a TLS-1.3 ServerHello with a key_share for "
+                    "a group it did not offer a key_share for (group ~.16B). "
+                    "Attacker observed ~p.", [Group, Observed]);
+        Other ->
+            ct:fail({unexpected_connect_result, Group, Other})
+    end.
+
+rogue_tls13_unoffered_group_server(LSock, Group, KeyExchange) ->
+    {ok, Sock} = gen_tcp:accept(LSock, 5000),
+    {?HANDSHAKE, CHHandshake} = rogue_read_record(Sock),
+    SessionId = rogue_tls13_client_session_id(CHHandshake),
+    SHBody = rogue_tls13_server_hello_body_group(SessionId, Group, KeyExchange),
+    SHHandshake = rogue_handshake(?SERVER_HELLO, SHBody),
+    ok = gen_tcp:send(Sock, rogue_record(?HANDSHAKE, SHHandshake)),
+    Obs = rogue_observe(Sock),
+    gen_tcp:close(Sock),
+    Obs.
+
+rogue_tls13_server_hello_body_group(SessionId, Group, KeyExchange) ->
+    Random = crypto:strong_rand_bytes(32),
+    SVExt  = <<?TLS13_SUPPORTED_VERSIONS_EXT:16, 2:16, 16#03, 16#04>>,
+    KSData = <<Group:16, (byte_size(KeyExchange)):16, KeyExchange/binary>>,
+    KSExt  = <<?TLS13_KEY_SHARE_EXT:16, (byte_size(KSData)):16, KSData/binary>>,
+    Exts   = <<SVExt/binary, KSExt/binary>>,
+    <<16#03, 16#03, Random/binary,
+      (byte_size(SessionId)), SessionId/binary,
+      16#13, 16#01, 0,                                %% TLS_AES_128_GCM_SHA256, compression=null
+      (byte_size(Exts)):16, Exts/binary>>.
 
 %% Drive a real TLS-1.3 verify_peer client against a raw-TCP attacker that
 %% forges the full flight, and assert the mandated illegal_parameter alert.
