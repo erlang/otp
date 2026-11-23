@@ -511,7 +511,7 @@ disc_delete_table(Tab, Storage) ->
 		    case get({?MODULE,Tab}) of
 			{opened_dumper, dcl} ->
 			    del_opened_tab(Tab),
-			    mnesia_log:unsafe_close_log(Tab);
+                            mnesia_log:unsafe_close_log({?MODULE, Tab});
 			_ ->
 			    ok
 		    end,
