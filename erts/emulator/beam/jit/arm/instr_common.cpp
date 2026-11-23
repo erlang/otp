@@ -2704,27 +2704,25 @@ void BeamModuleAssembler::emit_is_ge_lt(ArgLabel const &Fail1,
     mov_arg(ARG2, A);
     mov_arg(ARG3, B);
 
-    preserve_cache(
-            [&]() {
-                a.and_(TMP1, src.reg, imm(_TAG_IMMED1_MASK));
-                a.cmp(TMP1, imm(_TAG_IMMED1_SMALL));
-                a.b_ne(generic);
+    /* The shared fragment can clobber cached registers when Src is not
+     * small. */
+    a.and_(TMP1, src.reg, imm(_TAG_IMMED1_MASK));
+    a.cmp(TMP1, imm(_TAG_IMMED1_SMALL));
+    a.b_ne(generic);
 
-                a.cmp(src.reg, ARG2);
-                a.b_lt(resolve_beam_label(Fail1, disp1MB));
-                a.cmp(ARG3, src.reg);
-                a.b_ge(resolve_beam_label(Fail2, disp1MB));
-                a.b(next);
+    a.cmp(src.reg, ARG2);
+    a.b_lt(resolve_beam_label(Fail1, disp1MB));
+    a.cmp(ARG3, src.reg);
+    a.b_ge(resolve_beam_label(Fail2, disp1MB));
+    a.b(next);
 
-                a.bind(generic);
-                mov_var(ARG1, src);
-                fragment_call(ga->get_is_ge_lt_shared());
-                a.b_lt(resolve_beam_label(Fail1, disp1MB));
-                a.b_gt(resolve_beam_label(Fail2, disp1MB));
+    a.bind(generic);
+    mov_var(ARG1, src);
+    fragment_call(ga->get_is_ge_lt_shared());
+    a.b_lt(resolve_beam_label(Fail1, disp1MB));
+    a.b_gt(resolve_beam_label(Fail2, disp1MB));
 
-                a.bind(next);
-            },
-            TMP1);
+    a.bind(next);
 }
 
 /*
