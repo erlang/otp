@@ -222,6 +222,7 @@ not_implemented(_Config) ->
                {compute_key, 4},
                %% KDF - to be implemented
                {pbkdf2_hmac, 5},
+               {kdf, 4},
                %% PQC - to be implemented
                {encapsulate_key, 2},
                {decapsulate_key, 3}],
