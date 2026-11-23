@@ -125,6 +125,7 @@
     slow_writes/1,
     spawn_driver/1,
     spawn_executable/1,
+    spawn_executable_nul/1,
     stderr_to_stdout/1,
     stream_big/1,
     stream_small/1,
@@ -177,7 +178,8 @@ all() ->
      stderr_to_stdout, otp_3906, otp_4389, win_massive,
      mix_up_ports, otp_5112, otp_5119,
      exit_status_multi_scheduling_block, ports, spawn_driver,
-     spawn_executable, close_deaf_port, unregister_name,
+     spawn_executable, spawn_executable_nul,
+     close_deaf_port, unregister_name,
      port_setget_data,
      parallelism_option,
      mon_port_invalid_type,
@@ -1698,6 +1700,42 @@ spawn_executable(Config) when is_list(Config) ->
             test_sh_file(SpaceDir)
     end,
     ok.
+
+%% Ensure that open_port/2 does not truncate binary arguments,
+%% arg0, cd and executable name at NUL bytes.
+spawn_executable_nul(Config) when is_list(Config) ->
+    DataDir = proplists:get_value(data_dir, Config),
+    EchoArgs = filename:join([DataDir,"echo_args"]),
+    ExactFile = filename:nativename(os:find_executable(EchoArgs)),
+
+    %% The name of the executable.
+    ?assertError(badarg, open_port({spawn_executable,append_nul(ExactFile)}, [])),
+    ?assertError(badarg, open_port({spawn_executable,
+                                    unicode:characters_to_binary(append_nul(ExactFile))}, [])),
+
+    %% The args, arg0 and cd options. Options are converted before the
+    %% executable is looked up, so these fail with badarg rather than
+    %% enoent/eacces.
+    lists:foreach(
+      fun(Value) ->
+              ?assertError(badarg, open_port({spawn_executable,ExactFile},
+                                             [{args,[Value]}])),
+              ?assertError(badarg, open_port({spawn_executable,ExactFile},
+                                             [{args,["fine",Value]}])),
+              ?assertError(badarg, open_port({spawn_executable,ExactFile},
+                                             [{arg0,Value}])),
+              ?assertError(badarg, open_port({spawn_executable,ExactFile},
+                                             [{cd,Value}]))
+      end, [append_nul("hello world"),
+            unicode:characters_to_binary(append_nul("hello world")),
+            append_nul(DataDir),
+            unicode:characters_to_binary(append_nul(DataDir))]),
+
+    ok.
+
+%% Append a NUL and some trailing garbage that must not be dropped.
+append_nul(Str) ->
+    Str ++ [0] ++ "dropped".
 
 unregister_name(Config) when is_list(Config) ->
     Cmd = case os:getenv("WSLENV") of
