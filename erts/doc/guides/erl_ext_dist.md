@@ -593,7 +593,7 @@ Encodes a reference term generated with `erlang:make_ref/0`.
 - **`Node`** - The name of the originating node,
   [encoded as an atom](erl_ext_dist.md#utf8_atoms).
 
-- **`Len`** - A 16-bit big endian unsigned integer not larger than 5.
+- **`Len`** - A 16-bit big endian unsigned integer between 1 and 5.
 
 - **`ID`** - A sequence of `Len` big-endian unsigned integers (4 bytes each, so
   `N'` = 4 \* `Len`), but is to be regarded as uninterpreted data.
