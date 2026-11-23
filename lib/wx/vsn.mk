@@ -1,4 +1,4 @@
-WX_VSN = 2.5.4.1
+WX_VSN = 2.5.4.2
 
 # %CopyrightBegin%
 #
