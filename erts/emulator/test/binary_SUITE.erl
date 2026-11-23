@@ -84,6 +84,8 @@
 %% Internal exports.
 -export([sleeper/0,trapping_loop/4]).
 
+-include_lib("stdlib/include/assert.hrl").
+
 suite() -> [{ct_hooks,[ts_install_cth]},
 	    {timetrap,{minutes,4}}].
 
@@ -758,6 +760,25 @@ t2b_deterministic(_Config) ->
 
     Map1 = maps:merge(make_map(10000), Map0),
     test_deterministic(Map1),
+
+    %% Test deterministic encoding of maps with maps as keys
+    CmpTerm =
+        fun(Map) ->
+                {ok, Peer, Node} = ?CT_PEER(),
+                try
+                    erpc:call(Node,
+                              fun() ->
+                                      erlang:term_to_binary(
+                                        erl_eval:eval_str(Map ++ ".\n"),
+                                     [deterministic])
+                              end)
+                after
+                    peer:stop(Peer)
+                end
+        end,
+    Res1 = CmpTerm("#{ #{ bbb => 2, aaa => 1 } => 1, #{ bbb => 1, aaa => 2 } => 2 }"),
+    Res2 = CmpTerm("#{ #{ aaa => 1, bbb => 2 } => 1, #{ aaa => 2, bbb => 1 } => 2 }"),
+    ?assertEqual(Res1, Res2),
 
     case total_memory() of
         Amount when Amount > 15 ->
