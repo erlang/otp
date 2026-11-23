@@ -21,6 +21,18 @@ limitations under the License.
 
 This document describes the changes made to the odbc application.
 
+## ODBC 2.15.0.2
+
+### Fixed Bugs and Malfunctions
+
+- Validate string parameter values before they are sent to the odbcserver
+  port program, and harden the port program against malformed or oversized
+  input, so bad input fails early with a clear error instead of corrupting the port program heap.
+
+  Own Id: OTP-20537 Aux Id: [PR-12117]
+
+[PR-12117]: https://github.com/erlang/otp/pull/12117
+
 ## ODBC 2.15.0.1
 
 ### Fixed Bugs and Malfunctions
