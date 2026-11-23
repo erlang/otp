@@ -3220,6 +3220,24 @@ dec_pid(ErtsDistExternal *edep, ErtsHeapFactory* factory, const byte* ep,
     return ep;
 }
 
+static const byte*
+dec_int32(const byte* ep, Sint32* val)
+{
+    switch (*ep++) {
+    case SMALL_INTEGER_EXT:
+        *val = get_int8(ep);
+        ep++;
+        break;
+    case INTEGER_EXT:
+        *val = get_int32(ep);
+        ep += 4;
+        break;
+    default:
+        return NULL;
+    }
+    return ep;
+}
+
 
 #define ENC_TERM ((Eterm) 0)
 #define ENC_ONE_CONS ((Eterm) 1)
@@ -5033,8 +5051,7 @@ dec_term_atom_common:
                 Export *export;
                 Eterm mod;
                 Eterm name;
-                Eterm temp;
-                Sint arity;
+                Sint32 arity;
 
                 if ((ep = dec_atom(edep, ep, &mod, flags)) == NULL) {
                     goto error;
@@ -5043,15 +5060,9 @@ dec_term_atom_common:
                     goto error;
                 }
                 factory->hp = hp;
-                ep = dec_term(edep, factory, ep, &temp, NULL, flags);
-                if (ep == NULL) {
-                    goto error;
-                }
-                if (!is_small(temp)) {
-                    goto error;
-                }
-                arity = signed_val(temp);
-                if (arity < 0) {
+
+                ep = dec_int32(ep, &arity);
+                if (!ep || arity < 0 || arity > 255) {
                     goto error;
                 }
                 if (flags & ERTS_DIST_EXT_BTT_SAFE) {
@@ -5131,8 +5142,8 @@ dec_term_atom_common:
 		Eterm module;
 		const byte* uniq;
 		int index;
-		Sint old_uniq;
-		Sint old_index;
+                Sint32 old_uniq;
+                Sint32 old_index;
 		unsigned num_free;
 		int i;
 		Eterm temp;
@@ -5158,30 +5169,24 @@ dec_term_atom_common:
 		}
 		factory->hp = hp;
 		/* Index */
-		if ((ep = dec_term(edep, factory, ep, &temp, NULL, flags)) == NULL) {
+                if ((ep = dec_int32(ep, &old_index)) == NULL) {
 		    goto error;
 		}
-		if (!is_small(temp)) {
-		    goto error;
-		}
-		old_index = unsigned_val(temp);
 
 		/* Uniq */
-		if ((ep = dec_term(edep, factory, ep, &temp, NULL, flags)) == NULL) {
+                if ((ep = dec_int32(ep, &old_uniq)) == NULL) {
 		    goto error;
 		}
-		if (!is_small(temp)) {
-		    goto error;
-		}
-		old_uniq = unsigned_val(temp);
 
                 /* Creator pid, discarded */
-                if ((ep = dec_term(edep, factory, ep, &temp, NULL,
-                                   flags)) == NULL) {
-                    goto error;
-                }
-                if (!is_pid(temp)) {
-                    goto error;
+                {
+                    byte pid_tag = *ep++;
+                    if ((pid_tag != PID_EXT && pid_tag != NEW_PID_EXT)
+                        ||
+                        (ep = dec_pid(edep, factory, ep, &temp, pid_tag,
+                                      flags)) == NULL) {
+                        goto error;
+                    }
                 }
 
                 funp->entry.fun = erts_fun_entry_get_or_make_stub(module,
