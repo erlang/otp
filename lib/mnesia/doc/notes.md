@@ -27,6 +27,31 @@ as all enhancements and bugfixes for every release of Mnesia. Each release of
 Mnesia thus constitutes one section in this document. The title of each section
 is the version number of Mnesia.
 
+## Mnesia 4.27.2
+
+### Fixed Bugs and Malfunctions
+
+- The mnesia checkpoint retainer process no longer crashes when `mnesia:change_table_copy_type/3` is called on a table that is part of an active checkpoint.
+
+  Own Id: OTP-20466 Aux Id: [PR-11844]
+
+- Fixed a bug where a dirty write to a `disc_copies` table racing with `mnesia:delete_table/1` could leave the table's log file open, so data written after the table was recreated could be lost at the next transaction log dump.
+
+  Own Id: OTP-20467 Aux Id: [PR-11915]
+
+- The `mnesia_subscr` process could crash if a table subscriber terminated after the table had been deleted.
+
+  Own Id: OTP-20517 Aux Id: [PR-11960]
+
+- [`mnesia:sync_transaction/1,2,3`](`mnesia:sync_transaction/3`) could return before all nodes had committed when the transaction used the asymmetric commit protocol. This happens, for example, when the transaction updates a table with the `majority` option, or updates several tables whose replicas differ in storage type or nodes. Synchronous transactions now always wait for all participants to commit.
+
+  Own Id: OTP-20526 Aux Id: [PR-12144]
+
+[PR-11844]: https://github.com/erlang/otp/pull/11844
+[PR-11915]: https://github.com/erlang/otp/pull/11915
+[PR-11960]: https://github.com/erlang/otp/pull/11960
+[PR-12144]: https://github.com/erlang/otp/pull/12144
+
 ## Mnesia 4.27.1
 
 ### Fixed Bugs and Malfunctions

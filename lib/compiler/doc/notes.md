@@ -23,6 +23,23 @@ limitations under the License.
 
 This document describes the changes made to the Compiler application.
 
+## Compiler 10.0.8
+
+### Fixed Bugs and Malfunctions
+
+- An unsafe optimization for native record access has been removed.
+
+  Own Id: OTP-20424 Aux Id: [GH-11726], [PR-11837]
+
+- A variable substitution bug has been fixed for native record operations.
+
+  Own Id: OTP-20449 Aux Id: [GH-11725], [PR-11843]
+
+[GH-11726]: https://github.com/erlang/otp/issues/11726
+[PR-11837]: https://github.com/erlang/otp/pull/11837
+[GH-11725]: https://github.com/erlang/otp/issues/11725
+[PR-11843]: https://github.com/erlang/otp/pull/11843
+
 ## Compiler 10.0.7
 
 ### Fixed Bugs and Malfunctions

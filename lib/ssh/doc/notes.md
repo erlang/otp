@@ -21,6 +21,21 @@ limitations under the License.
 -->
 # SSH Release Notes
 
+## Ssh 6.0.8
+
+### Fixed Bugs and Malfunctions
+
+- When strict key exchange was negotiated and the peer sent another message before its first `SSH_MSG_KEXINIT`, the connection was closed with reason `SSH_DISCONNECT_BY_APPLICATION` and the description "Internal error". Such a connection is now closed with reason `SSH_DISCONNECT_KEY_EXCHANGE_FAILED`, as for other key exchange failures.
+
+  Own Id: OTP-20460 Aux Id: [PR-11827]
+
+- Starting an SSH daemon with the `user_passwords` option and no `pwdfun` is now faster, as the password-hashing work done at daemon start has been reduced.
+
+  Own Id: OTP-20469 Aux Id: ERIERL-1375, [PR-11907]
+
+[PR-11827]: https://github.com/erlang/otp/pull/11827
+[PR-11907]: https://github.com/erlang/otp/pull/11907
+
 ## Ssh 6.0.7
 
 ### Fixed Bugs and Malfunctions

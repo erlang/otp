@@ -23,6 +23,35 @@ limitations under the License.
 
 This document describes the changes made to the Xmerl application.
 
+## Xmerl 2.2.1
+
+### Fixed Bugs and Malfunctions
+
+- A bug in the AArch64 (ARM64) JIT could crash the BEAM virtual machine when processing certain input. The flaw caused the runtime system to misuse a CPU register in some chained comparison operations, leading to a segmentation fault.
+    
+  One way this was triggered was by parsing XML containing an oversized numeric character reference (for example, `&#576460752303423488;`) with `xmerl_sax_parser`. Any application that passed attacker-controlled input through an affected code path could be vulnerable to a denial-of-service crash.
+    
+  Only AArch64 (ARM64) systems running the JIT were affected. The x86-64 JIT, interpreter (emu) builds, and 32-bit platforms were not affected.
+
+  Own Id: OTP-20523 Aux Id: [CVE-2026-115747], [PR-11967]
+
+- An external DTD was automatically fetched by `xmerl_scan` which resulted in a scan of an untrusted DTD that may result in an out of memory crash.
+  
+  `xmerl_xcan` has now got a new option `{fetch_external_DTD, Boolean}` which default set to `false` to protect against this.
+  This result in an incompatibility if one took advantage of that `xmerl_scan` auto fetched the external DTD.
+  
+  The secure way to use a DTD is to let `fetch_external_DTD` be `false` (default) and use doctype_DTD to provide the needed 
+  DTD in the call to `xmerl_scan`.
+
+  *** POTENTIAL INCOMPATIBILITY ***
+
+  Own Id: OTP-20556 Aux Id: [PR-12241], [CVE-2026-119443]
+
+[CVE-2026-115747]: https://nvd.nist.gov/vuln/detail/2026-115747
+[PR-11967]: https://github.com/erlang/otp/pull/11967
+[PR-12241]: https://github.com/erlang/otp/pull/12241
+[CVE-2026-119443]: https://nvd.nist.gov/vuln/detail/2026-119443
+
 ## Xmerl 2.2
 
 ### Improvements and New Features

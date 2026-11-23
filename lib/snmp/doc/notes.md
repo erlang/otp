@@ -21,6 +21,34 @@ limitations under the License.
 -->
 # SNMP Release Notes
 
+## SNMP 5.20.7
+
+### Fixed Bugs and Malfunctions
+
+- snmp_pdus now enforces the OBJECT IDENTIFIER limits given in RFC 2578, section 3.5, when decoding: at most 128 sub-identifiers per OID, and a maximum sub-identifier value of 2^32-1, which requires at most five BER content octets.
+  A single sub-identifier spread over a large number of continuation octets was previously accepted, and the decoding time grew quadratically with its length — decoding one sub-identifier of 64 kB took roughly 230 ms of CPU, and 500 kB took over 13 seconds. Since OIDs are also decoded for messages that have not been authenticated, a peer could use this to make an agent or manager unresponsive.
+
+  Own Id: OTP-20429 Aux Id: GHSA-9p2q-5p4x-rhpq, [CVE-2026-116225], [PR-12261]
+
+- The SNMP agent can once again complete engine-ID discovery that it initiates
+  itself with `snmpa:discovery/2,3,4,5,6`. Since OTP 27.3.4.19, 28.5.0.8 and
+  29.1.2 (OTP-20427), the agent silently discarded the manager's Report
+  answering a stage-1 discovery request, because the Report carries the
+  manager's engine ID, which is not yet known to the agent. Discovery
+  therefore timed out, the engine ID of the target was never learned, and no
+  INFORM was sent to managers whose engine ID is not configured.
+  
+  The agent now accepts such a Report, as allowed by RFC 3414, section 3.2,
+  step 3a, provided it answers a discovery request still pending from the
+  agent. The behaviour introduced by OTP-20427 for incoming messages is
+  unchanged.
+
+  Own Id: OTP-20584 Aux Id: [PR-12274], ERIERL-1362, ERIERL-1385, ERIERL-1384
+
+[CVE-2026-116225]: https://nvd.nist.gov/vuln/detail/2026-116225
+[PR-12261]: https://github.com/erlang/otp/pull/12261
+[PR-12274]: https://github.com/erlang/otp/pull/12274
+
 ## SNMP 5.20.6
 
 ### Fixed Bugs and Malfunctions

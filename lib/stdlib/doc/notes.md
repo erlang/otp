@@ -23,6 +23,28 @@ limitations under the License.
 
 This document describes the changes made to the STDLIB application.
 
+## STDLIB 8.1.2
+
+### Fixed Bugs and Malfunctions
+
+- Fix race between `ets:delete/1` and exiting process auto unfixing the table. Could cause emulator crash.
+
+  Own Id: OTP-20462 Aux Id: ERIERL-1338, [PR-11908]
+
+- Fixed Unicode NFC/NFKC normalization leaving a Hangul syllable decomposed when preceded by an L jamo or a prepend character.
+
+  Own Id: OTP-20472 Aux Id: [GH-11889], [PR-11898]
+
+- A bug occurred in the auto-repair when opening dets has been fixed.
+
+  Own Id: OTP-20527 Aux Id: [GH-8513], [PR-11220]
+
+[PR-11908]: https://github.com/erlang/otp/pull/11908
+[GH-11889]: https://github.com/erlang/otp/issues/11889
+[PR-11898]: https://github.com/erlang/otp/pull/11898
+[GH-8513]: https://github.com/erlang/otp/issues/8513
+[PR-11220]: https://github.com/erlang/otp/pull/11220
+
 ## STDLIB 8.1.1
 
 ### Fixed Bugs and Malfunctions

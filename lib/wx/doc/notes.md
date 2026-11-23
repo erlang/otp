@@ -23,6 +23,16 @@ limitations under the License.
 
 This document describes the changes made to the Wx application.
 
+## Wx 2.7.1
+
+### Fixed Bugs and Malfunctions
+
+- Fixed vendor information in SBOM.
+
+  Own Id: OTP-20567 Aux Id: [PR-12226]
+
+[PR-12226]: https://github.com/erlang/otp/pull/12226
+
 ## Wx 2.7
 
 ### Fixed Bugs and Malfunctions

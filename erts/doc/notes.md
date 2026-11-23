@@ -23,6 +23,87 @@ limitations under the License.
 
 This document describes the changes made to the ERTS application.
 
+## Erts 17.1.2
+
+### Fixed Bugs and Malfunctions
+
+- Fix race between `ets:delete/1` and exiting process auto unfixing the table. Could cause emulator crash.
+
+  Own Id: OTP-20462 Aux Id: ERIERL-1338, [PR-11908]
+
+- Fixed an issue where comparisons of maps were not deterministic between runtime instances; one node in a cluster could say `A < B` where another said `A >= B`.
+
+  Own Id: OTP-20511 Aux Id: [PR-11568]
+
+- A bug in the AArch64 (ARM64) JIT could crash the BEAM virtual machine when processing certain input. The flaw caused the runtime system to misuse a CPU register in some chained comparison operations, leading to a segmentation fault.
+    
+  One way this was triggered was by parsing XML containing an oversized numeric character reference (for example, `&#576460752303423488;`) with `xmerl_sax_parser`. Any application that passed attacker-controlled input through an affected code path could be vulnerable to a denial-of-service crash.
+    
+  Only AArch64 (ARM64) systems running the JIT were affected. The x86-64 JIT, interpreter (emu) builds, and 32-bit platforms were not affected.
+
+  Own Id: OTP-20523 Aux Id: [CVE-2026-115747], [PR-11967]
+
+- A bug in x86 JIT that caused `<<>>` to be compared equal to some non-empty bitstrings has been fixed.
+
+  Own Id: OTP-20525 Aux Id: [PR-11954]
+
+- A bug that reduced garbage collection efficiency has been fixed.
+
+  Own Id: OTP-20528 Aux Id: [GH-11923], [PR-11971]
+
+- Fixed `binary_to_term` to handle incorrectly encoded reference with `Len=0`. Could cause beam emulator crash instead of badarg exception.
+
+  Own Id: OTP-20530 Aux Id: [CVE-2026-116293], [PR-12043]
+
+- Port commands with the `nosuspend` option could be executed by the port even though it had set itself in a busy state.
+
+  Own Id: OTP-20534 Aux Id: [PR-11942], [GH-11941]
+
+- Fixed bug in `term_to_binary(Term,[local])`. Caused emulator crash if `Term` contained funs.
+
+  Own Id: OTP-20545 Aux Id: [PR-12148]
+
+- The `ct_run` command no longer crashes with a segmentation fault when `-sname`, `-name`, `-browser` or `-ctname` is given as the last argument without a value. It now prints an error message and exits with status 1.
+
+  Own Id: OTP-20546 Aux Id: [PR-12147]
+
+- Fixed `binary_to_term` for Erlang fun terms deliberately incorrectly encoded. Could cause the Erlang VM to abort due to stack exhaustion.
+
+  Own Id: OTP-20555 Aux Id: [PR-12182], [CVE-2026-117642]
+
+- When `erlang:open_port/2` with `{spawn_executable, FileName}` accepts the executable name and the `args`, `arg0` and `cd` option values as binaries, the previous implementation did not check for embedded NUL bytes. Everything after NUL would be silently dropped. Now NUL bytes will be rejected with `badarg`.
+
+  Own Id: OTP-20559 Aux Id: [PR-12198]
+
+- Fixed `binary_to_term` of old `FLOAT_EXT` with an invalid string without zero termination. Avoid dangerous buffer overrun and instead fail safely with badarg.
+
+  Own Id: OTP-20561 Aux Id: [CVE-2026-120961], [PR-12181]
+
+- On macOS, the runtime system could crash or hang when using a file operation on a file name starting with certain Unicode symbols.
+
+  Own Id: OTP-20569 Aux Id: [PR-12231], [CVE-2026-125658]
+
+[PR-11908]: https://github.com/erlang/otp/pull/11908
+[PR-11568]: https://github.com/erlang/otp/pull/11568
+[CVE-2026-115747]: https://nvd.nist.gov/vuln/detail/2026-115747
+[PR-11967]: https://github.com/erlang/otp/pull/11967
+[PR-11954]: https://github.com/erlang/otp/pull/11954
+[GH-11923]: https://github.com/erlang/otp/issues/11923
+[PR-11971]: https://github.com/erlang/otp/pull/11971
+[CVE-2026-116293]: https://nvd.nist.gov/vuln/detail/2026-116293
+[PR-12043]: https://github.com/erlang/otp/pull/12043
+[PR-11942]: https://github.com/erlang/otp/pull/11942
+[GH-11941]: https://github.com/erlang/otp/issues/11941
+[PR-12148]: https://github.com/erlang/otp/pull/12148
+[PR-12147]: https://github.com/erlang/otp/pull/12147
+[PR-12182]: https://github.com/erlang/otp/pull/12182
+[CVE-2026-117642]: https://nvd.nist.gov/vuln/detail/2026-117642
+[PR-12198]: https://github.com/erlang/otp/pull/12198
+[CVE-2026-120961]: https://nvd.nist.gov/vuln/detail/2026-120961
+[PR-12181]: https://github.com/erlang/otp/pull/12181
+[PR-12231]: https://github.com/erlang/otp/pull/12231
+[CVE-2026-125658]: https://nvd.nist.gov/vuln/detail/2026-125658
+
 ## Erts 17.1.1
 
 ### Fixed Bugs and Malfunctions
