@@ -994,15 +994,19 @@ enqueue_task(Port *pp,
     if (ns_pthlp)
 	fail_flags |= ERTS_PTS_FLG_BUSY_PORT;
     erts_port_task_sched_lock(&pp->sched);
-    flags = erts_atomic32_read_nob(&pp->sched.flags);
+    if (ns_pthlp) {
+        /* set_busy_port() sets BUSY_PORT without the sched lock */
+        flags = erts_atomic32_read_bor_nob(&pp->sched.flags,
+                                           ERTS_PTS_FLG_HAVE_NS_TASKS);
+    }
+    else
+        flags = erts_atomic32_read_nob(&pp->sched.flags);
     if (flags & fail_flags)
 	res = 0;
     else {
 	if (ns_pthlp) {
 	    ns_pthlp->u.next = pp->sched.taskq.local.busy.nosuspend;
 	    pp->sched.taskq.local.busy.nosuspend = ns_pthlp;
-            erts_atomic32_read_bor_nob(&pp->sched.flags,
-                                       ERTS_PTS_FLG_HAVE_NS_TASKS);
 	}
 	if (pp->sched.taskq.in.last) {
 	    ASSERT(pp->sched.taskq.in.first);
