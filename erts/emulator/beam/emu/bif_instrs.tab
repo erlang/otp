@@ -271,6 +271,8 @@ call_light_bif(Bif, Exp) {
         result = erts_gc_after_bif_call_lhf(c_p, live_hf_end, result,
                                             reg, arity);
         E = c_p->stop;
+    } else if (c_p->live_hf_end != ERTS_INVALID_HFRAG_PTR) {
+        c_p->live_hf_end = ERTS_INVALID_HFRAG_PTR;
     }
     HTOP = HEAP_TOP(c_p);
     FCALLS = c_p->fcalls;
@@ -372,6 +374,8 @@ call_light_bif_only(Bif, Exp) {
         result = erts_gc_after_bif_call_lhf(c_p, live_hf_end, result,
                                             reg, arity);
         E = c_p->stop;
+    } else if (c_p->live_hf_end != ERTS_INVALID_HFRAG_PTR) {
+        c_p->live_hf_end = ERTS_INVALID_HFRAG_PTR;
     }
     HTOP = HEAP_TOP(c_p);
     FCALLS = c_p->fcalls;
@@ -606,6 +610,8 @@ nif_bif.epilogue() {
         nif_bif_result = erts_gc_after_bif_call_lhf(c_p, live_hf_end,
                                                     nif_bif_result,
                                                     reg, bif_nif_arity);
+    } else if (c_p->live_hf_end != ERTS_INVALID_HFRAG_PTR) {
+        c_p->live_hf_end = ERTS_INVALID_HFRAG_PTR;
     }
     SWAPIN;  /* There might have been a garbage collection. */
     FCALLS = c_p->fcalls;
