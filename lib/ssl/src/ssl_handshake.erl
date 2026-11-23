@@ -3673,7 +3673,6 @@ validate_cipher_suite(CipherSuite, ClientCipherSuites) ->
         false -> throw(?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER))
     end.
 
-
 handle_renegotiation_extension(Role, RecordCB, Version, Info, Random,
                                NegotiatedCipherSuite,
 			       ClientCipherSuites,
@@ -3705,7 +3704,7 @@ assert_max_frag_length(_, _, _) ->
 
 validate_application_protocol(_, undefined) ->
     %% Server sent ALPN protocol not requested by client
-    throw(?ALERT_REC(?FATAL, ?ILLEGAL_PARAMETER, unexpected_alpn));
+    throw(?ALERT_REC(?FATAL, ?UNSUPPORTED_EXTENSION, unexpected_alpn));
 validate_application_protocol(Alpn, ClientAlpn) ->
     case lists:member(Alpn, ClientAlpn) of
         true ->
