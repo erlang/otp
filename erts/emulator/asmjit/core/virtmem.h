@@ -151,6 +151,11 @@ enum class MemoryFlags : uint32_t {
   //! additional mechanism to allocate regular page(s) when large page(s) allocation fails.
   kMMapLargePages = 0x00000200u,
 
+  //! Advise to use large pages.
+  //!
+  //! \remarks When enabled, `MADV_HUGEPAGE` will be used to advise using large pages on supported platforms.
+  kMAdviseLargePages = 0x00000400u,
+
   //! Not an access flag, only used by `alloc_dual_mapping()` to override the default allocation strategy to always use
   //! a 'tmp' directory instead of "/dev/shm" (on POSIX platforms). Please note that this flag will be ignored if the
   //! operating system allows to allocate an executable memory by a different API than `open()` or `shm_open()`. For
@@ -168,6 +173,18 @@ ASMJIT_DEFINE_ENUM_FLAGS(MemoryFlags)
 //! corrected by the implementation and the allocation would not succeed in such case.
 [[nodiscard]]
 ASMJIT_API Error alloc(void** p, size_t size, MemoryFlags flags) noexcept;
+
+//! Allocates anonymous memory on Linux with a caller-selected alignment, optionally with large page advice.
+//!
+//! Alignment must be a power of two and at least the system page size. Size must be a nonzero multiple of alignment.
+//! Shared mappings and explicit large pages are not supported. Release with the original size using \ref release().
+//!
+//! With \ref MemoryFlags::kMAdviseLargePages, advice is applied after alignment. The caller is responsible for
+//! checking kernel policy; alignment does not select a page size or guarantee large page backing. Unlike \ref alloc(),
+//! failed advice releases the mapping and returns an error. The caller can retry without advice.
+//! Unsupported platforms return \ref Error::kFeatureNotEnabled. On failure, `p` is set to `nullptr`.
+[[nodiscard]]
+ASMJIT_API Error alloc_aligned(void** p, size_t size, size_t alignment, MemoryFlags flags) noexcept;
 
 //! Releases virtual memory previously allocated by \ref VirtMem::alloc().
 //!

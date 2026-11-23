@@ -136,8 +136,9 @@ get_cp_opt(Node, Alloc) ->
 erts_mmap(Config) when is_list(Config) ->
     case {os:type(), mmsc_flags()} of
 	{{unix,_}, false} ->
-	    [erts_mmap_do(SCO, SCRPM, SCRFSD)
-	     || SCO <-[true,false], SCRFSD <-[1234,0], SCRPM <- [true,false]];
+            [erts_mmap_do(SCO, SCRPM, SCRFSD, LP)
+             || SCO <-[true,false], SCRFSD <-[1234,0], SCRPM <- [true,false],
+                LP <- [off,on]];
 	{{unix,_}, Flags} ->
 	    {skipped, Flags};
 	{{SkipOs,_},_} ->
@@ -162,7 +163,7 @@ mmsc_flags(Env) ->
             end
     end.
 
-erts_mmap_do(SCO, SCRPM, SCRFSD) ->
+erts_mmap_do(SCO, SCRPM, SCRFSD, LP) ->
     %% We use the number of schedulers + 1 * approx main carriers size
     %% to calculate how large the super carrier has to be
     %% and then use a minimum of 100 for systems with a low amount of
@@ -171,7 +172,7 @@ erts_mmap_do(SCO, SCRPM, SCRFSD) ->
     SCS = max(round((262144 * 6 + 3 * 1048576) * Schldr / 1024 / 1024),100),
     O1 = ["+MMscs" ++ integer_to_list(SCS),
 	"+MMsco" ++ atom_to_list(SCO),
-	"+MMscrpm" ++ atom_to_list(SCRPM)],
+        "+MMscrpm" ++ atom_to_list(SCRPM), "+MMlp" ++ atom_to_list(LP)],
     Opts = case SCRFSD of
 	       0 -> O1;
 	       _ -> O1 ++ ["+MMscrfsd"++integer_to_list(SCRFSD)]
@@ -195,13 +196,122 @@ erts_mmap_do(SCO, SCRPM, SCRFSD) ->
                     {false, {os,_}} -> ok
                 end,
 
+                case SCRPM of
+                    true -> erts_mmap_check_large_pages(LP);
+                    false -> ok
+                end,
                 exit(ok)
         end,
 
     {Pid, MRef} = spawn_monitor(Node, F),
     Result = receive {'DOWN', MRef, process, Pid, Rslt} -> Rslt end,
     peer:stop(Peer),
-    Result.
+    ok = Result.
+
+erts_mmap_check_large_pages(LP) ->
+    Arch = erlang:system_info(system_architecture),
+    SupportedArch = lists:prefix("aarch64-", Arch)
+        orelse lists:prefix("x86_64-", Arch),
+    case os:type() =:= {unix,linux} andalso SupportedArch andalso
+        filelib:is_file("/sys/kernel/mm/transparent_hugepage/hpage_pmd_size") of
+        true ->
+            Available = erts_debug:set_internal_state(available_internal_state, true),
+            Mmap = try erts_debug:get_internal_state(mmap)
+                   after
+                       erts_debug:set_internal_state(available_internal_state, Available)
+                   end,
+            {sabot, Start} = lists:keyfind(sabot, 1, Mmap),
+            {suatop, End} = lists:keyfind(suatop, 1, Mmap),
+            {ok, Smaps} = file:read_file("/proc/self/smaps"),
+            Mappings = re:split(Smaps, "(?m)(?=^[0-9a-f]+-[0-9a-f]+ )",
+                                [{return,binary}]),
+            %% The kernel can merge a super carrier with adjacent mappings.
+            Flags = [F || Mapping <- Mappings,
+                          {match,[From,To]} <-
+                              [re:run(Mapping, "^([0-9a-f]+)-([0-9a-f]+) ",
+                                      [{capture,[1,2],list}])],
+                          list_to_integer(From, 16) < End,
+                          list_to_integer(To, 16) > Start,
+                          {match,[F]} <-
+                              [re:run(Mapping, "^VmFlags:[ \\t]+([^\\n]*)",
+                                      [multiline,{capture,[1],binary}])]],
+            ?assertNotEqual([], Flags),
+            Advised = LP =:= on andalso
+                thp_advice_expected(Arch, "/sys/kernel/mm/transparent_hugepage/"),
+            [?assertEqual(Advised,
+                          lists:member(<<"hg">>, binary:split(F, <<" ">>, [global])))
+             || F <- Flags];
+        false ->
+            ok
+    end.
+
+%% An independent model of when ERTS advises super carriers with
+%% MADV_HUGEPAGE. On AArch64, 2 MiB must be enabled and every larger size
+%% known to be disabled. Kernels before Linux 6.8 have no per-size policies.
+thp_advice_expected("x86_64-" ++ _, Dir) ->
+    thp_pmd_size(Dir) > 0;
+thp_advice_expected("aarch64-" ++ _, Dir) ->
+    Global = thp_mode(Dir ++ "enabled"),
+    PmdSize = thp_pmd_size(Dir),
+    case file:list_dir(Dir) of
+        {ok, Names} when PmdSize >= 2097152, PmdSize band (PmdSize - 1) =:= 0 ->
+            case [thp_size_mode(Dir, Name, Global)
+                  || "hugepages-" ++ _ = Name <- Names] of
+                [] ->
+                    PmdSize =:= 2097152 andalso
+                        lists:member(Global, [always, madvise]);
+                Sizes ->
+                    lists:keymember(PmdSize div 1024, 1, Sizes) andalso
+                        lists:member(proplists:get_value(2048, Sizes), [always, madvise])
+                        andalso lists:all(fun({KB, Mode}) ->
+                                                  KB =< 2048 orelse Mode =:= never
+                                          end, Sizes)
+            end;
+        _ ->
+            false
+    end.
+
+thp_pmd_size(Dir) ->
+    case file:read_file(Dir ++ "hpage_pmd_size") of
+        {ok, Bin} ->
+            case string:to_integer(string:trim(Bin)) of
+                {Size, _} when is_integer(Size), Size > 0 -> Size;
+                _ -> 0
+            end;
+        {error, _} ->
+            0
+    end.
+
+thp_size_mode(Dir, Name, Global) ->
+    case re:run(Name, "^hugepages-([0-9]+)kB$", [{capture, [1], list}]) of
+        {match, [KB]} ->
+            Mode = thp_mode(Dir ++ Name ++ "/enabled"),
+            {list_to_integer(KB), thp_resolve(Mode, Global)};
+        nomatch ->
+            {unknown_size, unknown}
+    end.
+
+thp_mode(File) ->
+    Modes = ["never", "always", "madvise", "inherit"],
+    case file:read_file(File) of
+        {ok, Bin} ->
+            case re:run(Bin, "\\[([a-z]+)\\]", [global, {capture, [1], list}]) of
+                {match, [[Mode]]} ->
+                    case length(binary:matches(Bin, <<"[">>)) =:= 1 andalso
+                        lists:member(Mode, Modes) of
+                        true -> list_to_atom(Mode);
+                        false -> unknown
+                    end;
+                _ ->
+                    unknown
+            end;
+        {error, _} ->
+            unknown
+    end.
+
+thp_resolve(inherit, inherit) -> unknown;
+thp_resolve(inherit, Global) -> Global;
+thp_resolve(Mode, _Global) -> Mode.
 
 
 %% Test erlang:system_flag(erts_alloc, ...)
