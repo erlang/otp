@@ -476,29 +476,39 @@ del_subscr({Tab, commit_work}, What, Pid) ->
 		    {subscribers, SL1, SL2} -> 
 			{SL1, SL2}
 		end,
-	    Subscr = 
-		case What of %% Ignore user error delete subscr from any list
-		    {table, _, simple} -> 
-			NewL1 = lists:delete(Pid, L1),
-			NewL2 = lists:delete(Pid, L2),
-			{subscribers, NewL1, NewL2};
-		    {table, _, detailed} ->
-			NewL1 = lists:delete(Pid, L1),
-			NewL2 = lists:delete(Pid, L2),
-			{subscribers, NewL1, NewL2}
-		end,
-	    case Subscr of
-		{subscribers, [], []} ->
-		    NewC = lists:keydelete(subscribers, 1, Commit),
-		    mnesia_lib:del({Tab, subscribers}, Pid),
-		    mnesia_lib:set({Tab, commit_work}, 
-				   mnesia_lib:sort_commit(NewC));
-		_ ->
-		    NewC = lists:keyreplace(subscribers, 1, Commit, Subscr),
-		    mnesia_lib:del({Tab, subscribers}, Pid),
-		    mnesia_lib:set({Tab, commit_work}, 
-				   mnesia_lib:sort_commit(NewC))
-	    end
+            case lists:member(Pid, L1) orelse lists:member(Pid, L2) of
+                false ->
+                    %% Not subscribed, could be already removed by
+                    %% {deactivate_table, Tab} which is called before
+                    %% mnesia_dumper removes gvar for table. Calling
+                    %% mnesia_lib:set in this case could leave stale
+                    %% entries for already deleted table
+                    false;
+                true ->
+                    Subscr =
+                        case What of %% Ignore user error delete subscr from any list
+                            {table, _, simple} ->
+                                NewL1 = lists:delete(Pid, L1),
+                                NewL2 = lists:delete(Pid, L2),
+                                {subscribers, NewL1, NewL2};
+                            {table, _, detailed} ->
+                                NewL1 = lists:delete(Pid, L1),
+                                NewL2 = lists:delete(Pid, L2),
+                                {subscribers, NewL1, NewL2}
+                        end,
+                    case Subscr of
+                        {subscribers, [], []} ->
+                            NewC = lists:keydelete(subscribers, 1, Commit),
+                            mnesia_lib:del({Tab, subscribers}, Pid),
+                            mnesia_lib:set({Tab, commit_work},
+                                           mnesia_lib:sort_commit(NewC));
+                        _ ->
+                            NewC = lists:keyreplace(subscribers, 1, Commit, Subscr),
+                            mnesia_lib:del({Tab, subscribers}, Pid),
+                            mnesia_lib:set({Tab, commit_work},
+                                           mnesia_lib:sort_commit(NewC))
+                    end
+            end
     end.
 
 handle_exit(ClientPid, SubscrTab) ->
@@ -506,13 +516,17 @@ handle_exit(ClientPid, SubscrTab) ->
     ?ets_delete(SubscrTab, ClientPid).
 
 do_handle_exit([{ClientPid, What} | Tail]) ->
-    case What of
-	system ->
-	    del_subscr(subscribers, What, ClientPid);
-	activity ->
-	    del_subscr(activity_subscribers, What, ClientPid);
-	{_, Tab, _Level} ->
-	    del_subscr({Tab, commit_work}, What, ClientPid)    
+    ?eval_debug_fun({?MODULE, do_handle_exit}, [{client_pid, ClientPid}, {what, What}]),
+    try
+        case What of
+            system ->
+                del_subscr(subscribers, What, ClientPid);
+            activity ->
+                del_subscr(activity_subscribers, What, ClientPid);
+            {_, Tab, _Level} ->
+                del_subscr({Tab, commit_work}, What, ClientPid)
+        end
+    catch exit : {aborted, {no_exists, _}} -> ok %% Table already deleted
     end,
     do_handle_exit(Tail);
 do_handle_exit([]) ->

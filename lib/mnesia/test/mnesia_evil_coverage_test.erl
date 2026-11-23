@@ -48,6 +48,7 @@
          snmp_open_table/1, snmp_close_table/1, snmp_get_next_index/1,
          snmp_get_row/1, snmp_get_mnesia_key/1, snmp_update_counter/1,
          snmp_order/1, subscribe_standard/1, subscribe_extended/1,
+         subscriber_exit_after_table_deleted/1,
          foldl/1, info/1, schema_0/1, schema_1/1, view_0/1, view_1/1, view_2/1,
          lkill/1, kill/1,
          record_name_dirty_access_ram/1,
@@ -104,7 +105,8 @@ groups() ->
        snmp_get_row, snmp_get_mnesia_key, snmp_update_counter,
        snmp_order]},
      {subscriptions, [],
-      [subscribe_standard, subscribe_extended]},
+      [subscribe_standard, subscribe_extended,
+       subscriber_exit_after_table_deleted]},
      {iteration, [], [foldl]},
      {debug_support, [],
       [info, schema_0, schema_1, view_0, view_1, view_2,
@@ -2329,6 +2331,75 @@ recv_event() ->
     after 1000 -> 
 	    timeout
     end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+subscriber_exit_after_table_deleted(suite) -> [];
+subscriber_exit_after_table_deleted(Config) when is_list(Config) ->
+    ?is_debug_compiled,
+    process_flag(trap_exit, true),
+    [N1] = Nodes = ?acquire_nodes(1, Config),
+    Tab = subscriber_exit_after_table_deleted,
+    ?match({atomic, ok}, mnesia:create_table(Tab, [{ram_copies, Nodes}])),
+
+    TestPid = self(),
+    %% Stop mnesia dumper after it removed subscriptions, but before gvar of Tab is deleted
+    DumperDebugId = {mnesia_dumper, delete_table, post_unsubscribe},
+    DumperDebugFun =
+        fun(_PreviousCtx, [{tab, T}] = Ctx) when Tab =:= T ->
+                TestPid ! {self(), dumper_blocked},
+                receive {TestPid, continue} -> ok end,
+                ?deactivate_debug_fun(DumperDebugId),
+                Ctx;
+           (PreviousCtx, _) ->
+                PreviousCtx
+        end,
+    ?activate_debug_fun(DumperDebugId, DumperDebugFun, ok),
+
+    %% Signal when handle_exit has been called for Tab
+    SubscrDebugId = {mnesia_subscr, do_handle_exit},
+    SubscrDebugFun =
+        fun(_PreviousCtx, [{client_pid, _Pid}, {what, {table, T, simple}}] = Ctx) when Tab =:= T ->
+                TestPid ! {handle_exit, Ctx},
+                ?deactivate_debug_fun(SubscrDebugId),
+                Ctx;
+           (PreviousCtx, _Ctx) ->
+                PreviousCtx
+        end,
+    ?activate_debug_fun(SubscrDebugId, SubscrDebugFun, ok),
+
+    Deleter = spawn_link(fun() ->
+                                 TestPid ! {self(), mnesia:delete_table(Tab)}
+                         end),
+    Dumper = receive {Pid, dumper_blocked} -> Pid end,
+    %% Dumper has removed subscriptions, but cstruct still exists for Tab
+
+    Subscriber = spawn_link(fun() ->
+                                    TestPid ! {self(), mnesia:subscribe({table, Tab, simple})},
+                                    timer:sleep(infinity)
+                            end),
+    ?match({ok, N1}, receive {Subscriber, Res} -> Res end),
+
+    Dumper ! {self(), continue},
+    ?match({atomic, ok}, receive {Deleter, Res} -> Res end),
+    %% Now cstruct is deleted
+
+    MnesiaSubscr = whereis(mnesia_subscr),
+    MonRef = monitor(process, whereis(mnesia_subscr)),
+
+    %% Kill subscriber
+    exit(Subscriber, kill),
+    ?match([{client_pid, Subscriber}, {what, {table, Tab, simple}}], receive {handle_exit, Ctx} -> Ctx end),
+    receive {'EXIT', Subscriber, killed} -> ok end,
+
+    receive {'DOWN', process, MnesiaSubscr, MonRef, _} ->
+            ct:fail("mnesia_subscr crashed~n")
+    after 1000 ->
+            demonitor(MonRef, [flush]),
+            ok
+    end,
+
+    ?verify_mnesia(Nodes, []).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
