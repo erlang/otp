@@ -21,6 +21,46 @@ limitations under the License.
 -->
 # Inets Release Notes
 
+## Inets 9.8.2
+
+### Fixed Bugs and Malfunctions
+
+- Fixed a vulnerability in the inets HTTP server (httpd) where a request
+  header name could create a new atom in the atom table. Since atoms are
+  never reclaimed, an unauthenticated client able to reach an Erlang Server
+  Interface (ESI) URL prefix could grow the atom table with ordinary HTTP
+  requests until the runtime system aborted when the atom limit was reached,
+  taking down all applications on the node.
+  Only servers with at least one `erl_script_alias` configured are affected.
+  Servers without ESI, CGI scripts served by `mod_cgi`, and the `httpc`
+  client are unaffected.
+  When building the environment passed to an ESI callback, `httpd` now
+  derives the `{http_<header-name>, string()}` keys from a fixed set of
+  standard request header names instead of constructing an atom from the
+  header name received. The documented `mod_esi` contract is unchanged for
+  those headers. A header outside that set is now reported under
+  `http_other`, which is already where a header whose name is not an
+  existing atom has always been placed.
+
+  Own Id: OTP-20458 Aux Id: GHSA-7fjc-wcvc-vp96, [CVE-2026-116382], [PR-12262]
+
+- CR, LF and NUL characters in HTTP header field names and values are now replaced with a space before the header is sent. This applies to request headers sent by httpc, including when the headers_as_is option is used, to response headers sent by httpd, and to chunked trailers.
+  
+  Previously, an application that placed untrusted data in an httpc request header could allow injection of additional header lines or of a second request.
+
+  Own Id: OTP-20571 Aux Id: GHSA-84cc-vh37-jqpf, [CVE-2026-116295], [PR-12263]
+
+- Fixed a memory leak in the process calling httpc:request/4,5. Every asynchronous request, and every request given an explicit receiver option, left an active process alias behind in the calling process, so a long-lived process making many such requests would grow without bound. An alias is now only created for synchronous requests, and it is always deactivated when the request completes or fails.
+
+  Own Id: OTP-20580 Aux Id: [GH-11829], [PR-11687]
+
+[CVE-2026-116382]: https://nvd.nist.gov/vuln/detail/2026-116382
+[PR-12262]: https://github.com/erlang/otp/pull/12262
+[CVE-2026-116295]: https://nvd.nist.gov/vuln/detail/2026-116295
+[PR-12263]: https://github.com/erlang/otp/pull/12263
+[GH-11829]: https://github.com/erlang/otp/issues/11829
+[PR-11687]: https://github.com/erlang/otp/pull/11687
+
 ## Inets 9.8.1
 
 ### Fixed Bugs and Malfunctions

@@ -1,4 +1,4 @@
-COMPILER_VSN = 10.0.7
+COMPILER_VSN = 10.0.8
 
 # %CopyrightBegin%
 #

@@ -23,6 +23,31 @@ limitations under the License.
 
 This document describes the changes made to the Crypto application.
 
+## Crypto 5.10.1
+
+### Fixed Bugs and Malfunctions
+
+- Fixed two bugs in the AES-GCM decryption fallback used when crypto is built against OpenSSL 1.0.1 through 1.0.1c: the ciphertext and AAD arguments were swapped, and an empty authentication tag was not rejected. AES-GCM decryption on these builds now behaves the same as on all other OpenSSL versions.
+
+  Own Id: OTP-20381 Aux Id: [PR-11927]
+
+- Added bounds checks to `crypto:pbkdf2_hmac/5`. The password, salt, iteration count and derived key length must now be at most INT_MAX, otherwise a `badarg` exception is raised.
+
+  Own Id: OTP-20514 Aux Id: [PR-11938]
+
+- When crypto was built against OpenSSL 3.x, `crypto:generate_key(rsa, {ModulusSize, PublicExponent})` could generate a key with a different public exponent than requested on little-endian machines.
+
+  Own Id: OTP-20515 Aux Id: [PR-11939]
+
+- `crypto:hash_final_xof/2` (SHAKE128/SHAKE256) now runs on a dirty CPU scheduler when the requested output is large. Before this fix, asking for a long XOF output could block a normal scheduler for a long time and hurt the responsiveness of other processes.
+
+  Own Id: OTP-20551 Aux Id: [PR-12200]
+
+[PR-11927]: https://github.com/erlang/otp/pull/11927
+[PR-11938]: https://github.com/erlang/otp/pull/11938
+[PR-11939]: https://github.com/erlang/otp/pull/11939
+[PR-12200]: https://github.com/erlang/otp/pull/12200
+
 ## Crypto 5.10
 
 ### Improvements and New Features

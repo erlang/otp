@@ -23,6 +23,16 @@ limitations under the License.
 
 This document describes the changes made to the OS_Mon application.
 
+## Os_Mon 2.12.1
+
+### Fixed Bugs and Malfunctions
+
+- `cpu_sup:util()` failed on systems with a huge amount of logical processors.
+
+  Own Id: OTP-20582 Aux Id: ERIERL-1383, [PR-12252]
+
+[PR-12252]: https://github.com/erlang/otp/pull/12252
+
 ## Os_Mon 2.12
 
 ### Improvements and New Features
