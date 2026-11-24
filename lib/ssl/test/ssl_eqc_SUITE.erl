@@ -36,6 +36,7 @@
 %% Test cases
 -export([tls_handshake_encoding/1,
          tls_handshake_extensions/1,
+         tls_verify_signature_rejects_anon/1,
          tls_cipher_suite_names/1,
          tls_cipher_openssl_suite_names/1,
          tls_anon_cipher_suite_names/1,
@@ -57,6 +58,7 @@ all() ->
     [
      tls_handshake_encoding,
      tls_handshake_extensions,
+     tls_verify_signature_rejects_anon,
      tls_cipher_suite_names,
      tls_cipher_openssl_suite_names,
      tls_anon_cipher_suite_names,
@@ -107,6 +109,14 @@ tls_handshake_extensions(Config) when is_list(Config) ->
     %% manual test:  eqc:quickcheck(ssl_eqc_handshake:prop_hello_ext_unwrap()).
     true =  ct_property_test:quickcheck(ssl_eqc_handshake:prop_hello_ext_unwrap(),
                                         Config).
+tls_verify_signature_rejects_anon(Config) when is_list(Config) ->
+    %% verify_signature/5 must never accept an anonymous hashsign
+    %% on a non-anonymous suite (TLS-1.2 client server-auth bypass).
+    %% manual test:
+    %%   eqc:quickcheck(ssl_eqc_handshake:prop_verify_signature_rejects_anon()).
+    true =  ct_property_test:quickcheck(
+              ssl_eqc_handshake:prop_verify_signature_rejects_anon(),
+              Config).
 tls_cipher_suite_names(Config) when is_list(Config) ->
     %% manual test:  eqc:quickcheck(ssl_eqc_cipher_format:prop_tls_cipher_suite_rfc_name()).
     true =  ct_property_test:quickcheck(ssl_eqc_cipher_format:prop_tls_cipher_suite_rfc_name(),

@@ -65,6 +65,53 @@ prop_tls_hs_encode_decode() ->
             end
 	   ).
 
+%% TLS 1.0/1.1/1.2 the server-key
+%% signature verifier must never ACCEPT an anonymous ({_, anon}) hashsign on
+%% a non-anonymous (certificate-authenticated) suite. An unsigned
+%% ServerKeyExchange on, e.g., ECDHE_RSA decodes to {null, anon}; before the
+%% fix verify_signature/5 had a clause returning true unconditionally for
+%% {_, anon}, which — combined with a server that sends no Certificate
+%% (PubKeyInfo = undefined) — let an on-path attacker impersonate any server
+%% to a verify_peer client.
+prop_verify_signature_rejects_anon() ->
+    ?FORALL({Version, Msg, Signature, PubKeyInfo},
+            {pre_tls_1_3_version(), binary(), binary(), anon_verify_pubkey_info()},
+            begin
+                Result =
+                    try
+                        ssl_handshake:verify_signature(
+                          Version, Msg, {null, anon}, Signature, PubKeyInfo)
+                    catch
+                        %% No matching clause / crypto rejection -> handshake
+                        %% aborts. That is a safe (rejecting) outcome.
+                        _:_ ->
+                            rejected
+                    end,
+                Result =/= true
+            end).
+
+%% TLS 1.0/1.1/1.2 only; the anon verify_signature clause was guarded by
+%% ?TLS_LTE(Version, ?TLS_1_2) and the bypass does not apply to TLS 1.3.
+pre_tls_1_3_version() ->
+    oneof([?TLS_1_2, ?TLS_1_1, ?TLS_1_0]).
+
+%% The public-key-info shapes the client may hold when it reaches
+%% verify_signature. 'undefined' is the critical case: the server sent no
+%% Certificate, so no key was ever learned. The OID shapes model a server
+%% that did send a certificate of the given key type.
+anon_verify_pubkey_info() ->
+    oneof([undefined,
+           {?rsaEncryption, dummy_key(), undefined},
+           {?'id-ecPublicKey', dummy_key(), dummy_params()},
+           {?'id-dsa', dummy_key(), dummy_params()}]).
+
+dummy_key() ->
+    crypto:strong_rand_bytes(32).
+
+dummy_params() ->
+    crypto:strong_rand_bytes(8).
+
+
 raw_handshake(#client_hello{extensions = Exts} = Hello)->
     NewExts = raw_ext_client(Exts),
     Hello#client_hello{extensions = NewExts};
