@@ -67,6 +67,7 @@
 	 bad_size/1,
          unsorted_map_in_map/1,
 	 bad_term_to_binary/1,
+         bad_binary_to_term_3/1,
 	 bad_binary_to_term_2/1,safe_binary_to_term2/1,
 	 bad_binary_to_term/1, bad_terms/1, more_bad_terms/1,
          big_binary_to_term/1,
@@ -101,6 +102,7 @@ all() ->
      {group, iolist_size_benchmarks},
      b2t_used_big, t2b_deterministic,
      t2b_minor_version,
+     bad_binary_to_term_3,
      bad_binary_to_term_2, safe_binary_to_term2,
      bad_binary_to_term, bad_terms, t_hash, bad_size,
      big_binary_to_term,
@@ -170,6 +172,11 @@ end_per_testcase(_Func, _Config) ->
 -define(MAP_SMALL_MAP_LIMIT, 32).
 -define(FLOAT_EXT, 99).
 -define(NEW_FLOAT_EXT, 70).
+-define(NEW_REFERENCE_EXT, 114).
+-define(NEWER_REFERENCE_EXT, 90).
+-define(SMALL_TUPLE_EXT, 104).
+-define(BINARY_EXT, 109).
+-define(LARGE_TUPLE_EXT, 105).
 
 copy_terms(Config) when is_list(Config) ->
     Self = self(),
@@ -1154,7 +1161,45 @@ run_when_enough_resources(Fun) ->
              io_lib:format("Not enough resources (System Memory >= ~p, Word Size = ~p)",
                            [Mem, WordSize])}
     end.
-    
+
+%% OTP-20528: Bad reference with Len=0
+bad_binary_to_term_3(Config) when is_list(Config) ->
+    [begin
+         io:format("Tag=~p, Input ~p bytes~n", [RefTag, byte_size(Bin)]),
+         R = try binary_to_term(Bin) of T -> {ok, T} catch C:E -> {C, E} end,
+         io:format("Result: ~P~n", [R, 12]),
+         {error, badarg} = R,
+         erlang:garbage_collect(),
+         io:format("Survived GC~n")
+     end
+     || RefTag <- [?NEW_REFERENCE_EXT, ?NEWER_REFERENCE_EXT],
+        Bin <- [<<131, (make_bad_0ref(RefTag))/binary>>,
+                bad_0ref_in_term(4000, RefTag),
+                bad_0ref_in_term(40, RefTag)
+               ]],
+    ok.
+
+%% decoded_size() sees Bin as BINARY_EXT whose payload is
+%% opaque bytes. dec_term(), shifted by 4, starts at the low byte of the
+%% binary length (105 = LARGE_TUPLE_EXT) and decodes a tuple of N small
+%% integers from the payload. Heap was sized for a ref and a refc binary.
+bad_0ref_in_term(N, RefTag) ->
+    Elems = binary:copy(<<?SMALL_INTEGER_EXT, 65>>, N),
+    Payload0 = <<N:32, Elems/binary>>,
+    Len = (byte_size(Payload0) bor 16#ff) + 1 + ?LARGE_TUPLE_EXT, % low byte must be 105
+    ?LARGE_TUPLE_EXT = Len band 16#ff,
+    Payload = <<Payload0/binary, 0:((Len - byte_size(Payload0)) * 8)>>,
+    <<131, ?SMALL_TUPLE_EXT, 2,
+      (make_bad_0ref(RefTag))/binary,
+      ?BINARY_EXT, Len:32, Payload/binary>>.
+
+make_bad_0ref(RefTag) ->
+    Node = <<?SMALL_ATOM_UTF8_EXT, 13, "nonode@nohost">>,
+    CreationBits = case RefTag of
+                       ?NEW_REFERENCE_EXT -> 8;
+                       ?NEWER_REFERENCE_EXT -> 32
+                   end,
+    <<RefTag, 0:16, Node/binary, 1:CreationBits>>.
 
 %% OTP-4053
 bad_binary_to_term_2(Config) when is_list(Config) ->
