@@ -4686,8 +4686,16 @@ dec_term_atom_common:
 	case FLOAT_EXT:
 	    {
 		FloatDef ff;
+                char float_buf[31+2];
 
-		if (sys_chars_to_double((char*)ep, &ff.fd) != 0) {
+                // Ensure sys_chars_to_double() does not read (or even write)
+                // out of bounds. Append an invalid character to fail safely
+                // if original string was not zero terminated.
+                sys_memcpy(float_buf, ep, 31);
+                float_buf[31] = '!';
+                float_buf[32] = 0;
+
+                if (sys_chars_to_double(float_buf, &ff.fd) != 0) {
 		    goto error;
 		}
 		ep += 31;
