@@ -104,7 +104,7 @@ Possible options are:
 - **`{quiet, Flag}`** - Set to `true` if Xmerl should behave quietly
   and not output any information to standard output (default `false`).
 - **`{doctype_DTD, DTD}`** - Allows to specify DTD name when it isn't available in the XML
-  document. This option has effect only together with `{validation,dtd}` option.
+  document or when `fetch_external_DTD` is `false` (which is default).
 - **`{xmlbase, Dir}`** - XML Base directory. If using string/1 default is current directory.
   If using file/1 default is directory of given file.
 - **`{encoding, Enc}`** - Set default character set used (default UTF-8).
@@ -117,6 +117,8 @@ Possible options are:
   missing attributes with a defined default value (default `false`).
 - **`{allow_entities, Flag}`** - Set to `true` if `xmerl_scan` shouldn't fail
   when there is an ENTITY declaration in the XML document (default `false`).
+- **`{fetch_external_DTD, Flag}`** - Set to `true` if you want an external DTD 
+   automatically fetched by the parser (default `false`).
 """.
 -type option_list() ::
         [{atom(), term()} |
@@ -475,6 +477,8 @@ initial_state([{encoding, Enc}|T], S) ->
     initial_state(T, S#xmerl_scanner{encoding = Enc});
 initial_state([{allow_entities, F} |T], S) when F==true; F==false ->
     initial_state(T, S#xmerl_scanner{allow_entities = F});
+initial_state([{fetch_external_DTD, F} |T], S) when F==true; F==false ->
+    initial_state(T, S#xmerl_scanner{fetch_external_DTD = F});
 initial_state([], S=#xmerl_scanner{rules = undefined}) ->
     Tab = ets:new(rules, [set, public]),
     S#xmerl_scanner{rules = Tab};
@@ -1340,12 +1344,15 @@ scan_doctype3(T, S, DTD) ->
 
 fetch_DTD(undefined, S=#xmerl_scanner{doctype_DTD=URI}) when is_list(URI)->
     %% allow to specify DTD name when it isn't available in xml stream
+    %% io:format("\n\nOption Provided DTD\n\n", []),
     fetch_DTD({system,URI},S#xmerl_scanner{doctype_DTD=option_provided});
 fetch_DTD(undefined, S) ->
     S;
-% fetch_DTD(_,S=#xmerl_scanner{validation=false}) ->
-%     S;
-fetch_DTD(DTDSpec, S)->
+fetch_DTD(_DTDSpec, S=#xmerl_scanner{doctype_DTD=URI, fetch_external_DTD=false}) when is_list(URI) ->
+    %% io:format("\n\nOption Used DTD\n\n", []),
+    fetch_DTD({system,URI},S#xmerl_scanner{doctype_DTD=option_provided});
+fetch_DTD(DTDSpec, S) ->
+    %% io:format("\n\nOptions: validation=~p fetch_external_DTD=~p doctype_DTD=~p\n\n", [S#xmerl_scanner.validation, S#xmerl_scanner.fetch_external_DTD, S#xmerl_scanner.doctype_DTD]),
     case fetch_and_parse(DTDSpec,S,[{text_decl,true},
 				    {environment,{external,subset}}]) of
 	NewS when is_record(NewS,xmerl_scanner) ->
@@ -1356,8 +1363,12 @@ fetch_DTD(DTDSpec, S)->
 
 fetch_and_parse(ExtSpec,S=#xmerl_scanner{fetch_fun=Fetch,
 					 rules=Rules,
-					 xmlbase = XMLBase},
-		Options0) ->
+					 xmlbase = XMLBase,
+                                         doctype_DTD=DoctypeDTD,
+                                         fetch_external_DTD=FetchExternalDTD},
+                Options0) when (DoctypeDTD =:= option_provided) orelse
+                               FetchExternalDTD ->
+    %% io:format("Fetch: ~p:~p\n\n", [ExtSpec, DoctypeDTD]),
     RetS =
     case Fetch(ExtSpec, S) of
 	{ok, NewS} ->
@@ -1379,7 +1390,8 @@ fetch_and_parse(ExtSpec,S=#xmerl_scanner{fetch_fun=Fetch,
 			validation = Valid,
 			quiet = Quiet,
 			encoding = Charset,
-                        allow_entities = AllowEntities
+                        allow_entities = AllowEntities,
+                        fetch_external_DTD=FetchDTD      
 		       }} ->
 	    EvS = event_state(NewS),
 	    HoS = hook_state(NewS),
@@ -1398,7 +1410,8 @@ fetch_and_parse(ExtSpec,S=#xmerl_scanner{fetch_fun=Fetch,
 				 {validation,Valid},
 				 {quiet,Quiet},
 				 {encoding,Charset},
-                                 {allow_entities, AllowEntities}],
+                                 {allow_entities, AllowEntities},
+                                 {fetch_external_DTD, FetchDTD}],
 
 	    case DataRet of
 		{file, F} ->
@@ -1417,7 +1430,11 @@ fetch_and_parse(ExtSpec,S=#xmerl_scanner{fetch_fun=Fetch,
 	    RetS#xmerl_scanner{text_decl=false,
 			       environment=S#xmerl_scanner.environment};
 	_ -> RetS
-    end.
+    end;
+fetch_and_parse(_ExtSpec, S, _) ->
+    %% io:format("Skipped: ~p\n\n", [_ExtSpec]),
+    S.
+
 
 
 fetch_not_parse(ExtSpec,S=#xmerl_scanner{fetch_fun=Fetch}) ->
