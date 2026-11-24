@@ -49,6 +49,7 @@ groups() ->
                                 script_timeout,
                                 chunked_body_size_unbounded,
                                 {group, slowdose},
+                                response_header_ctl_sanitation,
                                 keep_alive_timeout,
                                 invalid_rfc1123_date,
                                 ip_comm_options_fixed_port]},
@@ -389,6 +390,47 @@ verify_script_timeout(Config, ScriptTimeout, StatusCode) ->
 
 %%-------------------------------------------------------------------------
 
+%%-------------------------------------------------------------------------
+response_header_ctl_sanitation() ->
+    [{doc, "Test that CR, LF and NUL in a response header from a customize "
+      "callback or an ESI script cannot inject headers or split the "
+      "response."}].
+response_header_ctl_sanitation(Config) when is_list(Config) ->
+    HttpdConf = proplists:get_value(httpd_conf, Config),
+    {ok, Pid} = inets:start(httpd, [{port, 0},
+                                    {customize, ?MODULE},
+                                    {erl_script_alias,
+                                     {"/cgi-bin/erl", [?MODULE]}}
+                                    | HttpdConf]),
+    Info = httpd:info(Pid),
+    Port = proplists:get_value(port, Info),
+    Address = proplists:get_value(bind_address, Info),
+
+    try
+        %% customize callback returning a CRLF-carrying value
+        Response1 = raw_request(Address, Port,
+                                "GET /dummy.html HTTP/1.1\r\n"
+                                "Host: localhost\r\n"
+                                "Connection: close\r\n\r\n"),
+        no_injected_header(Response1),
+
+        %% ESI script emitting NUL in a header value
+        Response2 = raw_request(Address, Port,
+                                "GET /cgi-bin/erl/" ++ atom_to_list(?MODULE) ++
+                                    ":esi_ctl_header HTTP/1.1\r\n"
+                                "Host: localhost\r\n"
+                                "Connection: close\r\n\r\n"),
+        {Head2, _} = split_response(Response2),
+        case binary:match(Head2, <<0>>) of
+            nomatch -> ok;
+            _ -> ct:fail({nul_byte_in_response_headers, Head2})
+        end,
+        no_injected_header(Response2)
+    after
+        inets:stop(httpd, Pid)
+    end.
+
+%%-------------------------------------------------------------------------
 slowdose_min_bytes() ->
     [{doc, "Testing minimum bytes per second option"}].
 slowdose_min_bytes(Config) when is_list(Config) ->
@@ -588,6 +630,65 @@ max_clients_default(Config) when is_list(Config) ->
 %%-------------------------------------------------------------------------
 %% Internal functions
 %%-------------------------------------------------------------------------
+
+%% Callbacks used by response_header_ctl_sanitation/1
+
+%% httpd_custom_api callback
+response_header({"x-injection-test", _}) ->
+    {true, {"x-injection-test", "legit\r\nX-Injected: evil"}};
+response_header(Header) ->
+    {true, Header}.
+
+request_header(Header) ->
+    {true, Header}.
+
+response_default_headers() ->
+    [{"x-injection-test", "placeholder"}].
+
+%% ESI callback
+esi_ctl_header(SessionID, _Env, _Input) ->
+    mod_esi:deliver(SessionID,
+                    "content-type: text/plain\r\n"
+                    "x-esi-test: legit\0hidden\r\n"
+                    "\r\n"),
+    mod_esi:deliver(SessionID, "body").
+
+raw_request(Address, Port, RequestStr) ->
+    {ok, Socket} = gen_tcp:connect(Address, Port,
+                                   [binary, {packet, 0}, {active, false}]),
+    ok = gen_tcp:send(Socket, RequestStr),
+    Response = recv_response(Socket, <<>>),
+    gen_tcp:close(Socket),
+    Response.
+
+recv_response(Socket, Acc) ->
+    case gen_tcp:recv(Socket, 0, 5000) of
+        {ok, Data} ->
+            recv_response(Socket, <<Acc/binary, Data/binary>>);
+        {error, closed} ->
+            Acc;
+        {error, timeout} ->
+            Acc
+    end.
+
+split_response(Response) ->
+    case binary:split(Response, <<"\r\n\r\n">>) of
+        [Head, Body] -> {Head, Body};
+        [Head] -> {Head, <<>>}
+    end.
+
+%% No header line of its own, and no second response
+no_injected_header(Response) ->
+    {Head, _Body} = split_response(Response),
+    Lines = binary:split(Head, <<"\r\n">>, [global]),
+    case [L || L <- Lines, binary:match(L, <<"X-Injected">>) =:= {0, 10}] of
+        [] -> ok;
+        Injected -> ct:fail({injected_header_line, Injected})
+    end,
+    case binary:matches(Response, <<"HTTP/1.">>) of
+        [_] -> ok;
+        Many -> ct:fail({response_split, length(Many), Response})
+    end.
 
 verify_script_nocache(Config, CgiNoCache, EsiNoCache, CgiOption, EsiOption) ->
     HttpdConf = proplists:get_value(httpd_conf, Config),

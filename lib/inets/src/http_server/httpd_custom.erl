@@ -72,11 +72,13 @@ response_default_headers(Module) ->
 %% Internal functions -----------------------------------
 %%--------------------------------------------------------------------
 httpify({Key0, Value}) ->
+    %% Every response header passes here, including ESI/CGI/customize ones
+    Key1 = http_util:strip_ctl_chars(Key0),
     %% make sure first letter is capital (defacto standard)
-    Words1 = string:tokens(Key0, "-"),
+    Words1 = string:tokens(Key1, "-"),
     Words2 = upify(Words1, []),
     Key    = new_key(Words2),
-    Key ++ ": " ++ Value ++ ?CRLF .
+    Key ++ ": " ++ http_util:strip_ctl_chars(Value) ++ ?CRLF .
 
 new_key([]) ->
     "";

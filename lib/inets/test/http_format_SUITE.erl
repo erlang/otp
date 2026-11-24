@@ -32,7 +32,8 @@
 all() -> 
     [{group, chunk}, http_response, http_request,
      validate_request_line, {group, script}, is_absolut_uri,
-     convert_netscapecookie_date, check_content_length_encoding].
+     convert_netscapecookie_date, check_content_length_encoding,
+     header_serializer_ctl_sanitation].
 
 groups() -> 
     [{script, [], [esi_parse_headers, cgi_parse_headers]},
@@ -543,6 +544,65 @@ check_content_length_encoding(Config) when is_list(Config) ->
     %% Check that content-length=0 is handled correctly.
     Header2 = http_request:http_headers(#http_request_h{'content-length'="0"}),
     true = (string:str(Header2, "content-length: 0\r\n") > 0).
+
+%%-------------------------------------------------------------------------
+header_serializer_ctl_sanitation() ->
+    [{doc, "Test that every header serialization choke point replaces CR, "
+      "LF and NUL in field names and values with SP, so no value can "
+      "inject extra header lines or split the message (RFC 9110 5.5)."}].
+header_serializer_ctl_sanitation(Config) when is_list(Config) ->
+    ct:comment("CR/LF/NUL at every serializer"),
+
+    %% Expect one SP per replaced octet - two for a CRLF pair.
+    Injected = "legit\r\nX-Injected: evil",
+
+    %% Server side: httpd_custom:httpify/1
+    {true, "X-Test: legit  X-Injected: evil\r\n"} =
+        httpd_custom:response_header({"x-test", Injected}),
+    {true, "X-Nul: a b\r\n"} =
+        httpd_custom:response_header({"x-nul", "a\0b"}),
+    {true, "X-Bad  x-Injected: v\r\n"} =
+        httpd_custom:response_header({"x-bad\r\nx-injected", "v"}),
+    %% Clean values are untouched.
+    {true, "Content-Type: text/html\r\n"} =
+        httpd_custom:response_header({"content-type", "text/html"}),
+
+    %% Chunked trailers
+    <<"0\r\nWarning:199 x  X-Injected: evil\r\n\r\n\r\n">> =
+        http_chunk:encode_last([{"Warning", "199 x\r\nX-Injected: evil"}]),
+    <<"0\r\nWarning:a b\r\n\r\n\r\n">> =
+        http_chunk:encode_last([{"Warning", "a\0b"}]),
+
+    %% Client side: http_request:mk_key_value_str/2
+    Bare = #http_request_h{connection = undefined,
+                           'content-length' = undefined},
+    "x-custom: legit  X-Injected: evil\r\n" =
+        http_request:http_headers(Bare#http_request_h{
+                                    other = [{"x-custom", Injected}]}),
+    "referer: http://x  X-Injected: evil\r\n" =
+        http_request:http_headers(
+          Bare#http_request_h{referer = "http://x\r\nX-Injected: evil"}),
+    "x-bad  X-Injected: v\r\n" =
+        http_request:http_headers(Bare#http_request_h{
+                                    other = [{"x-bad\r\nX-Injected", "v"}]}),
+    "x-custom: a b\r\n" =
+        http_request:http_headers(Bare#http_request_h{
+                                    other = [{"x-custom", "a\0b"}]}),
+    "x-custom: a  X-Injected: evil\r\n" =
+        http_request:http_headers(
+          Bare#http_request_h{other = [{"x-custom",
+                                        <<"a\r\nX-Injected: evil">>}]}),
+    "x-custom: plain value\r\n" =
+        http_request:http_headers(Bare#http_request_h{
+                                    other = [{"x-custom", "plain value"}]}),
+
+    %% The helper: same iodata shape out, same length
+    "a   b" = http_util:strip_ctl_chars("a\r\n\0b"),
+    <<"a   b">> = http_util:strip_ctl_chars(<<"a\r\n\0b">>),
+    <<"a   b">> = iolist_to_binary(
+                    http_util:strip_ctl_chars(["a", <<"\r\n">>, [0, $b]])),
+    "   " = http_util:strip_ctl_chars("\r\n\0"),
+    "untouched" = http_util:strip_ctl_chars("untouched").
 
 %%-------------------------------------------------------------------------
 esi_parse_headers() ->

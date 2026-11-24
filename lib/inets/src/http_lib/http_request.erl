@@ -294,7 +294,8 @@ headers_other([{Key, Value} | Rest], Headers) ->
     headers_other(Rest, [mk_key_value_str(Key, Value) | Headers]).
 
 mk_key_value_str(Key, Value) ->
-    try Key ++ ": " ++ value_to_list(Value) ++ ?CRLF of
+    try http_util:strip_ctl_chars(Key) ++ ": " ++
+        value_to_list(http_util:strip_ctl_chars(Value)) ++ ?CRLF of
         HeaderStr ->
             HeaderStr
     catch
