@@ -49,6 +49,7 @@
 	 otp8563/1, 
 	 otp9022/1, 
 	 otp10132/1,
+	 gh11888/1,
 
          dec_value_int_size_limits/1,
          dec_pdu_int_size_limits/1,
@@ -78,7 +79,8 @@ tickets_cases() ->
      otp7575,
      otp8563,
      otp9022,
-     otp10132
+     otp10132,
+     gh11888
     ].
 
 ber_limits_cases() ->
@@ -402,6 +404,57 @@ otp10132(Config) when is_list(Config) ->
 	    ?IPRINT("  => ~w", [Unexpected9]),
 	    exit({unexpected_encode_result, Unexpected9, Val9})
     end,
+
+    ?IPRINT("done"),
+    ok.
+
+
+%% GH-11888: the first subidentifier (40*X+Y) must be base-128, and
+%% values >= 80 decode as arc 2 (X.690 8.19.4). div/rem 40 mapped
+%% 2.40 to 3.0, and a combined value >= 128 was emitted as one octet.
+gh11888(suite) -> [];
+gh11888(doc) -> ["GH-11888 - OBJECT IDENTIFIER with a large second arc"];
+gh11888(Config) when is_list(Config) ->
+    Oid = [2,160,160,167],
+    Enc = [6,6,129,112,129,32,129,39],
+    ?IPRINT("encode ~p", [Oid]),
+    Enc = snmp_pdus:enc_value('OBJECT IDENTIFIER', Oid),
+    ?IPRINT("decode ~p", [Enc]),
+    {{'OBJECT IDENTIFIER', Oid}, []} = snmp_pdus:dec_value(Enc),
+
+    %% Trailing bytes stay outside the OID (length covers the
+    %% multi-byte first subidentifier).
+    {{'OBJECT IDENTIFIER', Oid}, [5,0]} =
+        snmp_pdus:dec_value(Enc ++ [5,0]),
+
+    Oids = [Oid,
+            [2,40,160,167],
+            [2,39],
+            [2,999999,1],
+            [1,3,6,1,2,1,1,1,0],
+            [0,0],
+            [1,39,5],
+            [1,3,6,1,4,1,4294967295]],
+    lists:foreach(
+      fun(RoundOid) ->
+              ?IPRINT("round trip ~p", [RoundOid]),
+              RoundEnc = snmp_pdus:enc_value('OBJECT IDENTIFIER', RoundOid),
+              {{'OBJECT IDENTIFIER', RoundOid}, []} =
+                  snmp_pdus:dec_value(RoundEnc)
+      end, Oids),
+
+    %% Encodings the old decoder already handled.
+    ?IPRINT("previously correct internet OIDs"),
+    {{'OBJECT IDENTIFIER', [1,3,6,1,2,1,1,1,0]}, []} =
+        snmp_pdus:dec_value([6,8,43,6,1,2,1,1,1,0]),
+    {{'OBJECT IDENTIFIER', [1,3,6,1,2,1,1,5,0]}, [5,0]} =
+        snmp_pdus:dec_value([6,8,43,6,1,2,1,1,5,0,5,0]),
+    {{'OBJECT IDENTIFIER', [1,3,6,1]}, []} =
+        snmp_pdus:dec_value([6,3,43,6,1]),
+    {{'OBJECT IDENTIFIER', [0,0]}, []} =
+        snmp_pdus:dec_value([6,1,0]),
+    {{'OBJECT IDENTIFIER', [1,39,5]}, []} =
+        snmp_pdus:dec_value([6,2,79,5]),
 
     ?IPRINT("done"),
     ok.

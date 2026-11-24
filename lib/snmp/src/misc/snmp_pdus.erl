@@ -670,9 +670,20 @@ dec_oid_tag([6 | Bytes]) ->
     dec_oid_notag(Bytes).
 
 dec_oid_notag(Bytes) ->
-    {Size, [H | Tail]} = dec_len(Bytes),
-    {Oid, Rest} = dec_oid_elements(Tail, Size - 1, []),
-    {[H div 40, H rem 40 | Oid], Rest}.
+    {Size, Tail} = dec_len(Bytes),
+    %% The first subidentifier is base-128 like the others, so it may
+    %% take more than one octet (X.690 8.19.2).
+    {[H | Oid], Rest} = dec_oid_elements(Tail, Size, []),
+    {dec_oid_first_arcs(H) ++ Oid, Rest}.
+
+%% X.690 8.19.4: the first subidentifier is 40*X + Y, where X is 0, 1 or 2
+%% and Y may exceed 39 only when X is 2.
+dec_oid_first_arcs(N) when N < 40 ->
+    [0, N];
+dec_oid_first_arcs(N) when N < 80 ->
+    [1, N - 40];
+dec_oid_first_arcs(N) ->
+    [2, N - 80].
 
 dec_oid_elements(L, 0, Acc) ->
     {lists:reverse(Acc), L};
@@ -1066,10 +1077,12 @@ enc_trap_data(#trappdu{enterprise = Enterprise,
     L6 = enc_VarBindList(VBs),
     lists:append([L1,L2,L3,L4,L5,L6]).
 
-enc_oid_tag([E1,E2|RestOid]) when E1 * 40 + E2 =< 255 ->
+enc_oid_tag([E1,E2|RestOid]) ->
     Head = 40*E1 + E2,  % weird
-    Res = e_object_elements(RestOid, []),
-    lists:append([6 | elength(length(Res) + 1)],[Head|Res]).
+    %% Head is base-128 encoded like the other subidentifiers, so a value
+    %% of 128 or more takes more than one octet (X.690 8.19.2).
+    Res = e_object_elements([Head|RestOid], []),
+    lists:append([6 | elength(length(Res))], Res).
 
 e_object_elements([Num | T], Res)  ->
     e_object_elements(T, lists:append(e_object_element(Num),Res));
