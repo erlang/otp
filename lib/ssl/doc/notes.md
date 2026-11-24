@@ -1090,6 +1090,59 @@ This document describes the changes made to the SSL application.
 [PR-9511]: https://github.com/erlang/otp/pull/9511
 [PR-9670]: https://github.com/erlang/otp/pull/9670
 
+## SSL 11.2.12.15
+
+### Fixed Bugs and Malfunctions
+
+- TLS client now enforces EdDSA curve binding in TLS-1.3 CertificateVerify selection.
+
+  Own Id: OTP-20468 Aux Id: [PR-11847]
+
+- Server now verifies that the cipher suite in the second `ClientHello` (after a `HelloRetryRequest`) matches the one it selected in the HRR, aborting with `illegal_parameter` on mismatch
+
+  Own Id: OTP-20519 Aux Id: [PR-11959]
+
+- Resend  DTLS `HelloRetryRequest` on retransmitted `ClientHello` to avoid 
+  handshake hang or timeout.
+  
+  Corner case coverage of TLS handshake parsing to improve error handling. DTLS handshake fragment reassembling safeguard for preserving handshake message boundaries. 
+  
+  Client Keyshare sanity check.
+  
+  Added missing ocsp extension in paused handshake,
+  
+  Stop claiming client supports unimplemented PSK only mode.
+
+  Own Id: OTP-20524 Aux Id: [PR-12108]
+
+- Correct backport fix that accidently made closing of TLS connections take longer than necessary.
+
+  Own Id: OTP-20529 Aux Id: [PR-11894]
+
+- Make sure crypto:hash_equals/2 length error exception is caught generating appropriate TLS ALERT . Will not happen during valid connection attempts.
+
+  Own Id: OTP-20563 Aux Id: [PR-12199], ERIERL-1382
+
+- Restating of  `verify_peer` option in handshake could loose `verify_fun` option set in listen falling back to default.
+
+  Own Id: OTP-20572 Aux Id: [PR-12238]
+
+[PR-11847]: https://github.com/erlang/otp/pull/11847
+[PR-11959]: https://github.com/erlang/otp/pull/11959
+[PR-12108]: https://github.com/erlang/otp/pull/12108
+[PR-11894]: https://github.com/erlang/otp/pull/11894
+[PR-12199]: https://github.com/erlang/otp/pull/12199
+[PR-12238]: https://github.com/erlang/otp/pull/12238
+
+### Improvements and New Features
+
+- Add in-depth-defense for TLS-1.3 session tickets and TLS-1.3 client ALPN choice.
+  And also decline resumption for runtime tightened configuration change.
+
+  Own Id: OTP-20486 Aux Id: [PR-11918]
+
+[PR-11918]: https://github.com/erlang/otp/pull/11918
+
 ## SSL 11.2.12.14
 
 ### Fixed Bugs and Malfunctions

@@ -749,6 +749,16 @@ limitations under the License.
 [PR-9214]: https://github.com/erlang/otp/pull/9214
 [PR-9298]: https://github.com/erlang/otp/pull/9298
 
+## Ssh 5.2.11.15
+
+### Fixed Bugs and Malfunctions
+
+- When strict key exchange was negotiated and the peer sent another message before its first `SSH_MSG_KEXINIT`, the connection was closed with reason `SSH_DISCONNECT_BY_APPLICATION` and the description "Internal error". Such a connection is now closed with reason `SSH_DISCONNECT_KEY_EXCHANGE_FAILED`, as for other key exchange failures.
+
+  Own Id: OTP-20460 Aux Id: [PR-11827]
+
+[PR-11827]: https://github.com/erlang/otp/pull/11827
+
 ## Ssh 5.2.11.14
 
 ### Fixed Bugs and Malfunctions
