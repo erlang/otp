@@ -29,7 +29,8 @@
          complex_relop/1,unsafe_fusing/1,
          range_tests/1,combined_relops/1,typed_relop/1,
          term_equivalence/1,is_in_range/1,
-         huge_bitstring_relop/1]).
+         huge_bitstring_relop/1,
+         range_cache/1]).
 
 -import(lists, [foldl/3,flatmap/2]).
 
@@ -42,7 +43,8 @@ all() ->
      complex_relop, unsafe_fusing, range_tests,
      combined_relops, typed_relop, term_equivalence,
      is_in_range,
-     huge_bitstring_relop].
+     huge_bitstring_relop,
+     range_cache].
 
 %% Test the bsl and bsr operators.
 bsl_bsr(Config) when is_list(Config) ->
@@ -1224,6 +1226,44 @@ cmp_float(A0, B0) ->
         A > B -> +1;
         A =:= B -> 0
     end.
+
+%% The ARM64 JIT used to retain a cached Y register across the generic
+%% is_ge_lt helper, which overwrites the machine register holding it.
+range_cache(_Config) ->
+    Values = [9, 10, 13, 32, 38, 55295, 57344, 65533, 65536, 1114111,
+              57344.0, 65533.0, 65536.0, 1114111.0],
+    [begin
+         {{character, IsDelimiter, Value}, rest, state} =
+             range_cache_1(fun() -> {Value, reference, rest, state} end),
+         IsDelimiter = (Value =:= 38)
+     end || Value <- Values],
+    Invalid = [-1 bsl 128, -1 bsl 59, -1, 0, 31, 55296, 57343,
+               65534, 65535, 1114112, (1 bsl 59) - 1, 1 bsl 59,
+               1 bsl 128, 1.0e100, atom, [], {}],
+    [try range_cache_1(fun() -> {Value, reference, rest, state} end) of
+         Result -> ct:fail({unexpected_result, Value, Result})
+     catch
+         throw:{invalid, state, reference} -> ok
+     end || Value <- Invalid],
+    ok.
+
+%% Keep the value on the stack and its type unknown, as in xmerl's
+%% character reference parser. The last range must reload the value
+%% after the preceding combined comparison falls through.
+range_cache_1(GetValue) ->
+    {Value, Ref, Rest, State} = GetValue(),
+    if
+        32 =< Value, Value =< 55295;
+        Value =:= 13; Value =:= 10; Value =:= 9;
+        57344 =< Value, Value =< 65533;
+        65536 =< Value, Value =< 1114111 ->
+            {{character, range_cache_delimiter(Value), Value}, Rest, State};
+        true ->
+            throw({invalid, State, Ref})
+    end.
+
+range_cache_delimiter(38) -> true;
+range_cache_delimiter(_) -> false.
 
 is_in_range(_Config) ->
     10.0 = is_in_range_1(id(10)),
