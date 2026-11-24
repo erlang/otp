@@ -1,4 +1,4 @@
-WX_VSN = 2.7
+WX_VSN = 2.7.1
 
 # %CopyrightBegin%
 #
