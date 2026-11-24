@@ -66,6 +66,16 @@ This document describes the changes made to the Erl_interface application.
 
   Own Id: OTP-16607 Aux Id: OTP-16608
 
+## Erl_Interface 5.7.0.3
+
+### Fixed Bugs and Malfunctions
+
+- Fixed error handling in `erl_call` to exit nicely with error message if it fails to resolve `localhost`.
+
+  Own Id: OTP-20459 Aux Id: [PR-11826], ERIERL-1374
+
+[PR-11826]: https://github.com/erlang/otp/pull/11826
+
 ## Erl_Interface 5.7.0.2
 
 ### Fixed Bugs and Malfunctions
