@@ -1241,10 +1241,7 @@ discard(Reason, Report) ->
     throw({discarded, Reason, Report}).
 
 user_err(F, A) ->
-    error_msg("USER ERROR: " ++ F ++ "~n", A).
+    snmpm_error:user_err("USER ERROR: " ++ F ++ "~n", A).
 
 config_err(F, A) ->
-    error_msg("CONFIG ERROR: " ++ F ++ "~n", A).
-
-error_msg(F, A) ->
-    ?snmpm_error("MPD: " ++ F, A).
+    snmpm_error:config_err("CONFIG ERROR: " ++ F ++ "~n", A).
