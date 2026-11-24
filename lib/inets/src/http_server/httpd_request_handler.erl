@@ -29,7 +29,7 @@
 -behaviour(gen_server).
 
 %% Application internal API
--export([start_link/2, start_link/3, socket_ownership_transfered/3]).
+-export([start_link/2, start_link/3, socket_ownership_transfered/3, get_esi_headers/0]).
 
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
@@ -840,3 +840,22 @@ protocol({ssl,_}) ->
     https;
 protocol(_) ->
     http.
+
+get_esi_headers() ->
+    get_esi_headers(get(esi_headers)).
+
+get_esi_headers(undefined) ->
+    %% 'other' is the catch-all field of #http_request_h{} rather than a
+    %% header name, and http_other is already taken as the ESI env key
+    %% that carries the headers which get no atom of their own. Mapping
+    %% it here would shadow that key.
+    HeaderList = record_info(fields, http_request_h) -- [other],
+    EsiHeaders = lists:map(fun(Header) ->
+                            HeaderStr = atom_to_list(Header),
+                            EsiHeader = "http_" ++ re:replace(HeaderStr, "-", "_", [{return, list}, global]),
+                            list_to_atom(EsiHeader)
+                           end, HeaderList),
+    put(esi_headers, EsiHeaders),
+    EsiHeaders;
+get_esi_headers(EsiHeaders) when is_list(EsiHeaders) ->
+    EsiHeaders.

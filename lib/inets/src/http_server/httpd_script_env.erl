@@ -31,6 +31,14 @@
 -include("httpd.hrl").
 -include("httpd_internal.hrl").
 
+%% The ESI env keys for standard request headers follow the
+%% {http_<name>, string()} contract documented in mod_esi. The set of
+%% names is derived once from the standard fields of #http_request_h{}
+%% in http_internal.hrl, with '-' replaced by '_', so http_env_element/3
+%% can look a name up in that fixed set and fail closed on everything
+%% else instead of creating an atom from a request supplied header name.
+%% See httpd_request_handler:get_esi_headers/0.
+
 %%%=========================================================================
 %%%  Internal application API 
 %%%=========================================================================
@@ -180,7 +188,36 @@ http_env_element(esi, VarName0, Value)  ->
     list_to_existing_atom(VarName0),
     VarName = re:replace(VarName0,"-","_", [{return,list}, global]),
     HeaderName = http_util:to_lower(VarName),
-    {list_to_atom("http_"++ HeaderName), Value}.
+    %% The guard above only proves that the raw header name is a known
+    %% atom; it says nothing about the prefixed one built here, which used
+    %% to be created with list_to_atom/1 unconditionally. That grew the
+    %% atom table by one permanent entry per distinct header name ever
+    %% received, and since every atom so created is itself a valid seed
+    %% for the guard on a later request the reachable set of names grew
+    %% without bound: header "node" created http_node, which let a later
+    %% header named "http_node" create http_http_node, and so on.
+    %%
+    %% Only the standard header names get an atom key now, and it is
+    %% picked out of a fixed list rather than built from request data.
+    %% Anything else raises here and the caller puts it under http_other,
+    %% which is where a non-standard header belongs anyway.
+    {esi_header_atom("http_" ++ HeaderName), Value}.
+
+esi_header_atom(Prefixed) ->
+    EsiHeaderAtoms = httpd_request_handler:get_esi_headers(),
+    esi_header_atom(Prefixed, EsiHeaderAtoms).
+
+esi_header_atom(Prefixed, [Atom | Atoms]) ->
+    case atom_to_list(Atom) of
+        Prefixed ->
+            Atom;
+        _ ->
+            esi_header_atom(Prefixed, Atoms)
+    end;
+esi_header_atom(Prefixed, []) ->
+    %% Not a standard header. Raise so create_http_header_elements/4
+    %% routes it to http_other instead of minting an atom for it.
+    error({not_a_standard_header, Prefixed}).
 
 multi_value([]) ->
   [];
