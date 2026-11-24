@@ -190,6 +190,16 @@ limitations under the License.
 [PR-10839]: https://github.com/erlang/otp/pull/10839
 [PR-10993]: https://github.com/erlang/otp/pull/10993
 
+## Public_Key 1.20.3.7
+
+### Fixed Bugs and Malfunctions
+
+- Correct decoding of mldsa expanded key only
+
+  Own Id: OTP-20499 Aux Id: [PR-11849]
+
+[PR-11849]: https://github.com/erlang/otp/pull/11849
+
 ## Public_Key 1.20.3.6
 
 ### Fixed Bugs and Malfunctions

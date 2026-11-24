@@ -79,6 +79,16 @@ This document describes the changes made to the Wx application.
 [PR-10187]: https://github.com/erlang/otp/pull/10187
 [PR-10839]: https://github.com/erlang/otp/pull/10839
 
+## Wx 2.5.4.2
+
+### Fixed Bugs and Malfunctions
+
+- Fixed vendor information in SBOM.
+
+  Own Id: OTP-20567 Aux Id: [PR-12226]
+
+[PR-12226]: https://github.com/erlang/otp/pull/12226
+
 ## Wx 2.5.4.1
 
 ### Fixed Bugs and Malfunctions

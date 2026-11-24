@@ -559,6 +559,42 @@ This document describes the changes made to the STDLIB application.
 [PR-10938]: https://github.com/erlang/otp/pull/10938
 [PR-10948]: https://github.com/erlang/otp/pull/10948
 
+## STDLIB 7.3.0.4
+
+### Fixed Bugs and Malfunctions
+
+- Fix race between `ets:delete/1` and exiting process auto unfixing the table. Could cause emulator crash.
+
+  Own Id: OTP-20462 Aux Id: ERIERL-1338, [PR-11908]
+
+- Fixed Unicode NFC/NFKC normalization leaving a Hangul syllable decomposed when preceded by an L jamo or a prepend character.
+
+  Own Id: OTP-20472 Aux Id: [GH-11889], [PR-11898]
+
+- A bug occurred in the auto-repair when opening dets has been fixed.
+
+  Own Id: OTP-20527 Aux Id: [GH-8513], [PR-11220]
+
+- Fixed `io_lib:bformat/2,3` to escape double quotes inside printable binaries when using `~p`/`~P`, so its output matches `io_lib:format/2,3`.
+
+  Own Id: OTP-20542 Aux Id: [GH-12116], [PR-12142]
+
+- Several functions in STDLIB handled invalid UTF-8 in `t:unicode:chardata/0` incorrectly.  For example:
+    
+  - `io_lib:format/3` and `io_lib:bformat/3` with option `chars_limit` could crash or return wrong output for `~ts`  arguments containing invalid UTF-8. Invalid bytes are now handled as Latin-1, as when `chars_limit` is not given.
+  - `string:take/3,4` could return an internal error tuple as part of its result when given a list containing a binary with invalid UTF-8. A `badarg` exception is now raised instead.
+
+  Own Id: OTP-20564 Aux Id: [PR-12193]
+
+[PR-11908]: https://github.com/erlang/otp/pull/11908
+[GH-11889]: https://github.com/erlang/otp/issues/11889
+[PR-11898]: https://github.com/erlang/otp/pull/11898
+[GH-8513]: https://github.com/erlang/otp/issues/8513
+[PR-11220]: https://github.com/erlang/otp/pull/11220
+[GH-12116]: https://github.com/erlang/otp/issues/12116
+[PR-12142]: https://github.com/erlang/otp/pull/12142
+[PR-12193]: https://github.com/erlang/otp/pull/12193
+
 ## STDLIB 7.3.0.3
 
 ### Fixed Bugs and Malfunctions
