@@ -2545,7 +2545,16 @@ check_type(S=#state{recordtopname=TopName},Type,Ts) when is_record(Ts,type) ->
 		{_, MaybeChoice} = get_referenced_type(S, Tref, true),
 		case catch((MaybeChoice#typedef.typespec)#type.def) of
 		    {'CHOICE',_} ->
-			maybe_illicit_implicit_tag(S, choice, Tag);
+            %% X.680 31.2.7 c) / 31.2.9: default (IMPLICIT/AUTOMATIC)
+            %% tag turns into EXPLICIT only if the referenced type
+            %% is an untagged choice type. Tagged choice types
+            %% have a definite outer tag and are replaced by implicit tagging.
+            case is_untagged_choice_ref(S, Tref) of
+                true ->
+                maybe_illicit_implicit_tag(S, choice, Tag);
+                false ->
+                Tag
+            end;
 		    'ANY' ->
 			maybe_illicit_implicit_tag(S, open_type, Tag);
 		    'ANY DEFINED BY' ->
@@ -2927,6 +2936,19 @@ get_class_def(_S, #classdef{}=CD) ->
 get_class_def(_S, _) ->
     none.
     
+%% Returns True if type ref is X.680 31.2.7 c) untagged choice type:
+%% - the ref chain ends in a CHOICE
+%% - no type definition along the chain has a tag
+is_untagged_choice_ref(S, Tref) ->
+    case get_referenced_type(S, Tref) of
+   {_,#typedef{typespec=#type{tag=[],def={'CHOICE',_}}}} ->
+       true;
+   {_,#typedef{typespec=#type{tag=[],def=#'Externaltypereference'{}=Next}}} ->
+       is_untagged_choice_ref(S, Next);
+   _ ->
+       false
+    end.
+
 maybe_illicit_implicit_tag(S, Kind, Tag) ->
     case Tag of
 	[#tag{type='IMPLICIT'}|_T] ->
