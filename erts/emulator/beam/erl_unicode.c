@@ -1494,6 +1494,7 @@ static void cleanup_norm(Eterm **hpp, Uint16 *savepoints, int numpoints, Eterm *
 	    i += res;
 	}
     }
+    *hpp = hp;
     *retp = ret;
 }
     
