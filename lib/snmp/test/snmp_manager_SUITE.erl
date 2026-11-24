@@ -697,6 +697,8 @@ init_per_testcase2(Case, Config) ->
     ?DBG("init [~w] Nodes [2]: ~p", [Case, erlang:nodes()]),
     Conf2.
 
+init_per_testcase3(discovery = Case, Config) ->
+    init_v3_testcase(Case, [{auth_alg, md5} | Config]);
 init_per_testcase3(simple_v3_exchange_md5 = Case, Config) ->
     init_v3_testcase(Case, [{auth_alg, md5} | Config]);
 init_per_testcase3(simple_v3_exchange_sha = Case, Config) ->
@@ -869,7 +871,8 @@ end_per_testcase(Case, Config) when is_list(Config) ->
     Conf2.
 
 end_per_testcase2(Case, Config)
-  when ((Case =:= simple_v3_exchange_md5)    orelse
+  when ((Case =:= discovery)                 orelse
+        (Case =:= simple_v3_exchange_md5)    orelse
         (Case =:= simple_v3_exchange_sha)    orelse
         (Case =:= simple_v3_exchange_sha224) orelse
         (Case =:= simple_v3_exchange_sha256) orelse
@@ -3944,8 +3947,69 @@ v3_usm_unknown_engine_id_error_info(Config) when is_list(Config) ->
 
 %%======================================================================
 
+%% Agent-originated discovery (snmpa:discovery/2) against snmpm, which
+%% is the authoritative engine for the INFORMs the agent sends
+%% (RFC 3414 #4):
+%%
+%%   stage 1: noAuthNoPriv INFORM with a zero-length engine ID,
+%%            answered with a usmStatsUnknownEngineIDs Report that
+%%            carries the manager's engine ID;
+%%   stage 2: (authNoPriv target only) authenticated INFORM with the
+%%            learned engine ID and boots/time = 0, answered with an
+%%            authenticated usmStatsNotInTimeWindows Report.
+%%
+%% Stage 1 was broken in OTP 27.3.4.19, 28.5.0.8 and 29.1.2: the agent
+%% discarded the Report because its engine ID was unknown.
 discovery(Config) when is_list(Config) ->
-    ?SKIP(not_yet_implemented).
+    ?TC_TRY(discovery,
+            fun() -> do_discovery(Config) end).
+
+do_discovery(Config) ->
+    MgrNode   = ?config(manager_node, Config),
+    AgentNode = ?config(agent_node, Config),
+    Ip        = tuple_to_list(?config(ip, Config)),
+
+    %% The manager is authoritative for incoming INFORMs, so stage 2
+    %% needs a user for the manager's own engine ID.
+    ok = mgr_register_usm_user(MgrNode, ?MGR_ENGINE_ID, "authMD5",
+                               [{auth,     usmHMACMD5AuthProtocol},
+                                {auth_key, "passwd_md5xxxxxx"}]),
+    {ok, _} = rcall(AgentNode, snmp_target_mib, add_params,
+                    ["disco_auth", v3, usm, "authMD5", authNoPriv]),
+
+    Disco =
+        fun(TargetName, Params) ->
+                ?IPRINT("discovery using target ~p (params ~p)",
+                        [TargetName, Params]),
+                {ok, _} = rcall(AgentNode, snmp_target_mib, add_addr,
+                                [TargetName, transportDomainUdpIpv4, Ip,
+                                 ?MGR_PORT, 300, 3, "", Params, discovery,
+                                 [], 2048]),
+                try
+                    Res = rcall(AgentNode, snmpa, discovery,
+                                [TargetName, coldStart]),
+                    EngineID = rcall(AgentNode, snmp_target_mib,
+                                     get_target_engine_id, [TargetName]),
+                    ?IPRINT("discovery using target ~p:"
+                            "~n   result:           ~p"
+                            "~n   target engine ID: ~p",
+                            [TargetName, Res, EngineID]),
+                    {{ok, ?MGR_ENGINE_ID}, {ok, ?MGR_ENGINE_ID}} =
+                        {Res, EngineID},
+                    ok
+                after
+                    rcall(AgentNode, snmp_target_mib, delete_addr,
+                          [TargetName])
+                end
+        end,
+    try
+        ok = Disco("disco_noauth", "target_v3"),
+        ok = Disco("disco_auth",   "disco_auth"),
+        display_log(Config),
+        ok
+    after
+        rcall(AgentNode, snmp_target_mib, delete_params, ["disco_auth"])
+    end.
 
 
 %%======================================================================

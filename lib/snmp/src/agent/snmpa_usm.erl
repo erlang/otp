@@ -31,7 +31,8 @@
 -compile({no_auto_import, [error/1, error/2, error/3]}).
 
 -export([
-	 process_incoming_msg/4, process_incoming_msg/5, 
+	 process_incoming_msg/4, process_incoming_msg/5,
+	 process_incoming_msg/6,
 	 generate_outgoing_msg/5, generate_outgoing_msg/6,
 	 generate_discovery_msg/4, generate_discovery_msg/5,
 	 current_statsNotInTimeWindows_vb/0
@@ -75,6 +76,14 @@ process_incoming_msg(Packet, Data, SecParams, SecLevel) ->
     process_incoming_msg(Packet, Data, SecParams, SecLevel, LocalEngineID).
 
 process_incoming_msg(Packet, Data, SecParams, SecLevel, LocalEngineID) ->
+    process_incoming_msg(Packet, Data, SecParams, SecLevel, LocalEngineID,
+                         false).
+
+%% DiscoResponse is true when the caller (snmpa_mpd) holds a pending
+%% stage-1 discovery note for the msgID of this message, i.e. the message
+%% claims to answer a discovery request originated by this agent.
+process_incoming_msg(Packet, Data, SecParams, SecLevel, LocalEngineID,
+                     DiscoResponse) ->
     TermDiscoEnabled    = is_terminating_discovery_enabled(), 
     TermTriggerUsername = terminating_trigger_username(), 
     %% 3.2.1
@@ -94,6 +103,18 @@ process_incoming_msg(Packet, Data, SecParams, SecLevel, LocalEngineID) ->
 	    ?vtrace("process_incoming_msg -> [~p] discovery step 1", 
 		    [TermTriggerUsername]),
 	    process_discovery_msg([], Data, SecLevel);
+
+        #usmSecurityParameters{msgAuthoritativeEngineID = MsgAuthEngineID,
+                               msgUserName              = MsgUserName}
+          when DiscoResponse andalso
+               (MsgAuthEngineID =/= []) andalso
+               (MsgAuthEngineID =/= LocalEngineID) ->
+            %% Response to a stage-1 discovery request sent by us. It
+            %% carries the authoritative engine's snmpEngineID, which is
+            %% unknown to us by definition (RFC 3414 #4).
+            ?vtrace("process_incoming_msg -> discovery stage 1 response", []),
+            process_discovery_response(MsgAuthEngineID, MsgUserName,
+                                       Data, SecLevel);
 	
 	#usmSecurityParameters{msgAuthoritativeEngineID = MsgAuthEngineID,
 			       msgUserName = MsgUserName} ->
@@ -164,6 +185,25 @@ process_incoming_msg(Packet, Data, SecParams, SecLevel, LocalEngineID) ->
 		  CachedSecData, DiscoOrPlain}}
     end.
     
+%% Process the response to a stage-1 discovery request originated by us.
+%% RFC 3414 #3.2 step 3a: a non-authoritative engine that performs
+%% discovery may accept the unknown msgAuthoritativeEngineID and continue
+%% processing. snmpa_mpd:v3_proc/6 then matches the discovery note and
+%% hands the engine ID to the agent. A stage-1 exchange is noAuthNoPriv;
+%% an authenticated message cannot be verified against an unknown engine,
+%% so it gets the step 3b treatment instead.
+process_discovery_response(MsgAuthEngineID, MsgUserName, Data, SecLevel) ->
+    case snmp_misc:is_auth(SecLevel) of
+        false ->
+            SecData = {MsgUserName,
+                       ?usmNoAuthProtocol, ?usmNoPrivProtocol, "", ""},
+            {ok, {MsgAuthEngineID, "", Data, SecData, discovery}};
+        true ->
+            error(usmStatsUnknownEngineIDs,
+                  ?usmStatsUnknownEngineIDs_instance,
+                  undefined, [{sec_data, [MsgUserName]}])
+    end.
+
 %% Process a step 1 discovery message
 process_discovery_msg(MsgAuthEngineID, Data, SecLevel) ->
     ?vtrace("process_discovery_msg -> entry with"
