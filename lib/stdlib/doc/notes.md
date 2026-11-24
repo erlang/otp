@@ -1412,6 +1412,22 @@ This document describes the changes made to the STDLIB application.
 [PR-9705]: https://github.com/erlang/otp/pull/9705
 [PR-9680]: https://github.com/erlang/otp/pull/9680
 
+## STDLIB 6.2.2.6
+
+### Fixed Bugs and Malfunctions
+
+- Fix race between `ets:delete/1` and exiting process auto unfixing the table. Could cause emulator crash.
+
+  Own Id: OTP-20462 Aux Id: ERIERL-1338, [PR-11908]
+
+- A bug occurred in the auto-repair when opening dets has been fixed.
+
+  Own Id: OTP-20527 Aux Id: [GH-8513], [PR-11220]
+
+[PR-11908]: https://github.com/erlang/otp/pull/11908
+[GH-8513]: https://github.com/erlang/otp/issues/8513
+[PR-11220]: https://github.com/erlang/otp/pull/11220
+
 ## STDLIB 6.2.2.5
 
 ### Fixed Bugs and Malfunctions
