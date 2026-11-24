@@ -59,6 +59,14 @@ process.
 -define(UINT64_MAX_OCTETS,  9).  %% Counter64
 -define(VERSION_MAX_OCTETS, 10). %% msgVersion -- deliberately generous
 
+%% RFC 2578 #3.5: an OBJECT IDENTIFIER value has at most 128
+%% sub-identifiers and each sub-identifier has a maximum value of 2^32-1,
+%% which needs ceil(32/7) = 5 base-128 octets. Five octets carry 35 bits,
+%% so the octet count alone does not enforce the value constraint.
+-define(OID_SUBID_MAX_OCTETS, 5).
+-define(OID_SUBID_MAX_VALUE,  16#FFFFFFFF).
+-define(OID_MAX_SUBIDS,       128).
+
 %% See RFC1155, RFC1157, RFC1901, RFC1902, RFC1905, RFC2272
 
 -dialyzer({nowarn_function, dec_Counter64/1}).
@@ -672,7 +680,13 @@ dec_oid_tag([6 | Bytes]) ->
 dec_oid_notag(Bytes) ->
     {Size, [H | Tail]} = dec_len(Bytes),
     {Oid, Rest} = dec_oid_elements(Tail, Size - 1, []),
-    {[H div 40, H rem 40 | Oid], Rest}.
+    %% The two leading arcs are both encoded in H, hence the - 2.
+    case length(Oid) of
+        N when N =< ?OID_MAX_SUBIDS - 2 ->
+            {[H div 40, H rem 40 | Oid], Rest};
+        N ->
+            exit({error, {bad_oid_length, {N + 2, ?OID_MAX_SUBIDS}}})
+    end.
 
 dec_oid_elements(L, 0, Acc) ->
     {lists:reverse(Acc), L};
@@ -682,8 +696,25 @@ dec_oid_elements([Dig|Tail], Size, Acc) ->
     {Num, Neaten, Tl} = dec_oid_element(Tail,1,Dig band 127),
     dec_oid_elements(Tl, Size - Neaten, [Num|Acc]).
 
+%% The octet cap must be tested before the terminating clause below: the
+%% last octet of an over-long sub-identifier has its 8th bit cleared and
+%% would otherwise be accepted. Stopping here rather than walking to the end
+%% of the sub-identifier is what keeps the cost independent of the input
+%% size, so the reported count is the limit plus one, not the true octet
+%% count.
+dec_oid_element(_Bytes, Neaten, _Num) when Neaten >= ?OID_SUBID_MAX_OCTETS ->
+    exit({error, {bad_oid_subidentifier,
+                  {Neaten + 1, ?OID_SUBID_MAX_OCTETS}}});
 dec_oid_element([Dig|Tail], Neaten, Num) when Dig < 128 ->
-    {Num*128+Dig,Neaten+1,Tail};
+    %% Five octets hold 35 bits, so a sub-identifier can be within the
+    %% octet cap and still exceed the value RFC 2578 #3.5 allows.
+    case Num*128+Dig of
+        SubId when SubId =< ?OID_SUBID_MAX_VALUE ->
+            {SubId,Neaten+1,Tail};
+        SubId ->
+            exit({error, {bad_oid_subidentifier_value,
+                          {SubId, ?OID_SUBID_MAX_VALUE}}})
+    end;
 dec_oid_element([Dig|Tail],Neaten, Num) ->
     dec_oid_element(Tail, Neaten+1, Num*128 + (Dig band 127)).
 

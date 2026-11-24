@@ -54,7 +54,9 @@
          dec_pdu_int_size_limits/1,
          dec_v3_hdr_int_size_limits/1,
          dec_v3_hdr_value_checks/1,
-         dec_usm_sec_params_int_size_limits/1
+         dec_usm_sec_params_int_size_limits/1,
+         dec_oid_size_limits/1,
+         dec_oid_bounded_time/1
 	]).
 
 
@@ -87,7 +89,9 @@ ber_limits_cases() ->
      dec_pdu_int_size_limits,
      dec_v3_hdr_int_size_limits,
      dec_v3_hdr_value_checks,
-     dec_usm_sec_params_int_size_limits
+     dec_usm_sec_params_int_size_limits,
+     dec_oid_size_limits,
+     dec_oid_bounded_time
     ].
 
 
@@ -689,6 +693,108 @@ dec_usm_sec_params_int_size_limits(Config) when is_list(Config) ->
 
 
 %%======================================================================
+%% OBJECT IDENTIFIER limits
+%%======================================================================
+
+%% RFC 2578 #3.5: "there are at most 128 sub-identifiers in a value, and
+%% each sub-identifier has a maximum value of 2^32-1". 2^32-1 needs
+%% ceil(32/7) = 5 base-128 octets, so a sub-identifier spanning more than
+%% five content octets cannot be legal.
+%%
+%% Without those bounds dec_oid_element/3 accumulates Num*128 + Dig over
+%% as many continuation octets as the sender supplies. The accumulator
+%% becomes a bignum and the decode is O(n^2). The path is reachable
+%% pre-authentication: varbind OIDs are decoded by snmpa_mpd:v3_proc/6 via
+%% dec_scoped_pdu/1 even for an unauthenticated USM stage-1 discovery
+%% message, and for v1/v2c on any inbound packet.
+
+dec_oid_size_limits(suite) -> [];
+dec_oid_size_limits(doc) ->
+    ["Sub-identifier octet count and sub-identifier count limits for "
+     "OBJECT IDENTIFIER"];
+dec_oid_size_limits(Config) when is_list(Config) ->
+    ?IPRINT("a plain OID decodes"),
+    {{'OBJECT IDENTIFIER', [1, 3, 6, 1, 2, 1, 1, 5, 0]}, []} =
+        snmp_pdus:dec_value(oid_tlv([43, 6, 1, 2, 1, 1, 5, 0])),
+
+    ?IPRINT("the largest legal sub-identifier (2^32-1) decodes"),
+    {{'OBJECT IDENTIFIER', [1, 3, 4294967295]}, []} =
+        snmp_pdus:dec_value(
+          oid_tlv([43, 16#8F, 16#FF, 16#FF, 16#FF, 16#7F])),
+
+    %% Five content octets carry 35 bits, so the octet cap alone would let
+    %% values between 2^32 and 2^35-1 through. 16#90 8*80 80 80 00 is
+    %% 16 * 128^4 = 4294967296, one above the limit.
+    ?IPRINT("a 5 octet sub-identifier above 2^32-1 is rejected"),
+    expect_exit(oid_subidentifier_value,
+                {error, {bad_oid_subidentifier_value,
+                         {4294967296, 4294967295}}},
+                fun() ->
+                        snmp_pdus:dec_value(
+                          oid_tlv([43, 16#90, 16#80, 16#80, 16#80, 0]))
+                end),
+
+    %% The guard stops at the point of detection rather than walking to the
+    %% end of the sub-identifier, so the reported count is the limit plus
+    %% one regardless of how many octets actually follow.
+    ?IPRINT("a sub-identifier of 6 content octets is rejected"),
+    expect_exit(oid_subidentifier, {error, {bad_oid_subidentifier, {6, 5}}},
+                fun() ->
+                        snmp_pdus:dec_value(
+                          oid_tlv([43, 16#81, 16#80, 16#80, 16#80, 16#80, 0]))
+                end),
+
+    ?IPRINT("128 sub-identifiers decode"),
+    {{'OBJECT IDENTIFIER', Oid128}, []} =
+        snmp_pdus:dec_value(oid_tlv([43 | lists:duplicate(126, 1)])),
+    128 = length(Oid128),
+
+    ?IPRINT("129 sub-identifiers are rejected"),
+    expect_exit(oid_length, {error, {bad_oid_length, {129, 128}}},
+                fun() ->
+                        snmp_pdus:dec_value(
+                          oid_tlv([43 | lists:duplicate(127, 1)]))
+                end),
+
+    ?IPRINT("done"),
+    ok.
+
+
+dec_oid_bounded_time(suite) -> [];
+dec_oid_bounded_time(doc) ->
+    ["OID decoding cost does not grow with the length of a single "
+     "sub-identifier"];
+dec_oid_bounded_time(Config) when is_list(Config) ->
+    %% The sub-identifier cap makes the rejection cost independent of the
+    %% input size -- the decoder gives up after six content octets -- so a
+    %% generous wall clock budget is safe even on the slow test variants
+    %% (debug, asan, valgrind, cover). Without the cap this vector is
+    %% O(n^2) on a bignum accumulator: ~0.2 s for 64 kB of octets and tens
+    %% of seconds for the 500 kB below.
+    Budget = 2000000,                           % microseconds
+    TLV    = oid_tlv([43 | big_subid(500000)]),
+    {Micros, Result} =
+        timer:tc(fun() ->
+                         dec_class(fun() -> snmp_pdus:dec_value(TLV) end)
+                 end),
+    ?IPRINT("500000 octet sub-identifier handled in ~w us", [Micros]),
+    case Result of
+        {exit, {error, {bad_oid_subidentifier, {6, 5}}}} ->
+            ok;
+        Unexpected ->
+            exit({unexpected_decode_result, oid_subidentifier, Unexpected})
+    end,
+    case Micros < Budget of
+        true ->
+            ok;
+        false ->
+            exit({decode_too_slow, Micros, Budget})
+    end,
+    ?IPRINT("done"),
+    ok.
+
+
+%%======================================================================
 %% Internal functions
 %%======================================================================
 
@@ -778,3 +884,22 @@ trap_pdu(GenericTLV, SpecificTLV) ->
     Content = [6, 1, 43] ++ [64, 4, 127, 0, 0, 1] ++
               GenericTLV ++ SpecificTLV ++ [67, 1, 0] ++ [48, 0],
     [164, length(Content) | Content].
+
+%% OBJECT IDENTIFIER TLV. Unlike the helpers above this one needs long form
+%% lengths, so it encodes them explicitly.
+oid_tlv(Content) ->
+    [6 | ber_len(length(Content))] ++ Content.
+
+ber_len(N) when N < 128 ->
+    [N];
+ber_len(N) when N < 256 ->
+    [16#81, N];
+ber_len(N) when N < 65536 ->
+    [16#82, N bsr 8, N band 255];
+ber_len(N) when N < 16777216 ->
+    [16#83, (N bsr 16) band 255, (N bsr 8) band 255, N band 255].
+
+%% One sub-identifier spread over Size content octets, with every
+%% continuation octet carrying a payload so that the accumulator grows.
+big_subid(Size) when is_integer(Size), Size >= 2 ->
+    lists:duplicate(Size - 1, 16#FF) ++ [0].
