@@ -641,7 +641,7 @@ and indents objects and lists.
 
 -spec format_value(Value::dynamic(), Encode::formatter(), State::map()) -> iodata().
 format_value(Atom, UserEnc, State) when is_atom(Atom) ->
-    json:encode_atom(Atom, fun(Value, Enc) ->  UserEnc(Value, Enc, State) end);
+    json:encode_atom(Atom, fun(Value, _Enc) -> UserEnc(Value, UserEnc, State) end);
 format_value(Bin, _Enc, _State) when is_binary(Bin) ->
     json:encode_binary(Bin);
 format_value(Int, _Enc, _State) when is_integer(Int) ->

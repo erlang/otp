@@ -678,6 +678,18 @@ test_format_fun(_Config) ->
 
     """,
     ?assertEqual(Formatted, format(All, Formatter)),
+
+    %% An atom reaches the formatter as a binary, and the formatter
+    %% passed along with it is still the user's formatter.
+    NumericStrings = fun(Bin, Fun, State) when is_binary(Bin) ->
+                             case string:to_integer(Bin) of
+                                 {Int, <<>>} -> Fun(Int, Fun, State);
+                                 _ -> json:format_value(Bin, Fun, State)
+                             end;
+                        (Other, Fun, State) ->
+                             json:format_value(Other, Fun, State)
+                     end,
+    ?assertEqual(~"[42,\"abc\"]\n", format(['42', abc], NumericStrings)),
     ok.
 
 
