@@ -519,7 +519,7 @@ clear_seq_token_gen_exit(ErtsMessage *sig)
     ASSERT(ERTS_SIG_Q_OP_EXIT == ERTS_PROC_SIG_OP(tag)
            || ERTS_SIG_Q_OP_EXIT_LINKED == ERTS_PROC_SIG_OP(tag)
            || ERTS_SIG_Q_OP_MONITOR_DOWN == ERTS_PROC_SIG_OP(tag));
-    if (ERTS_PROC_SIG_XTRA(tag)) {
+    if (ERTS_PROC_SIG_XTRA(tag) & ERTS_SIG_ALTACT_SIG_X_TOKEN) {
         ErtsSeqTokenExitSignalData *datap
             = (ErtsSeqTokenExitSignalData *) get_exit_signal_data(sig);
         datap->token = ERTS_CLEAR_SEQ_TOKEN_VALUE(sig);
