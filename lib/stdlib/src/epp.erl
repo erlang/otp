@@ -383,7 +383,9 @@ the list as tuples `{error, ErrorInfo}`.
       Loc :: erl_anno:location(),
       ErrorInfo :: erl_scan:error_info(),
       Extra :: [{'encoding', source_encoding() | 'none'}],
-      OpenError :: file:posix() | badarg | system_limit.
+      OpenError :: file:posix() | badarg | system_limit
+                 | {'redefine', atom()} | {'redefine_predef', atom()}
+                 | {'bad', term()}.
 
 scan_file(Ifile, Options) ->
     case open([{name, Ifile}, extra | Options]) of
@@ -420,7 +422,9 @@ Equivalent to
       PredefMacros :: macros(),
       Location :: erl_anno:location(),
       ErrorInfo :: erl_scan:error_info() | erl_parse:error_info(),
-      OpenError :: file:posix() | badarg | system_limit.
+      OpenError :: file:posix() | badarg | system_limit
+                 | {'redefine', atom()} | {'redefine_predef', atom()}
+                 | {'bad', term()}.
 
 parse_file(Ifile, Path, Predefs) ->
     parse_file(Ifile, [{includes, Path}, {macros, Predefs}]).
@@ -462,7 +466,9 @@ scanner, see [`{compiler_internal,term()}`](`m:erl_scan#compiler_interal`).
       Location :: erl_anno:location(),
       ErrorInfo :: erl_scan:error_info() | erl_parse:error_info(),
       Extra :: [{'encoding', source_encoding() | 'none'}],
-      OpenError :: file:posix() | badarg | system_limit.
+      OpenError :: file:posix() | badarg | system_limit
+                 | {'redefine', atom()} | {'redefine_predef', atom()}
+                 | {'bad', term()}.
 
 parse_file(Ifile, Options) ->
     case open([{name, Ifile} | Options]) of
