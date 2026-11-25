@@ -2525,9 +2525,11 @@ validate_dh_gex_group(_P, _G, PBits, MinBits) when PBits < MinBits ->
 validate_dh_gex_group(_P, _G, _PBits, _MinBits) ->
     ok.
 
-%% Number of significant bits in a positive integer.
+%% Number of significant bits in a positive integer. The leading zero
+%% bits of the most significant byte are not counted.
 nbits(N) when is_integer(N), N > 0 ->
-    bit_size(binary:encode_unsigned(N));
+    <<First, Tail/binary>> = binary:encode_unsigned(N),
+    byte_size(Tail) * 8 + length(integer_to_list(First, 2));
 nbits(_) ->
     0.
 

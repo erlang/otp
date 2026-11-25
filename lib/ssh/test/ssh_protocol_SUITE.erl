@@ -89,6 +89,7 @@
          gex_client_rejects_small_group/1,
          gex_client_rejects_bad_generator/1,
          gex_client_rejects_even_modulus/1,
+         gex_client_rejects_short_modulus/1,
          gex_server_gex_limit/1,
          lib_match/1,
          lib_no_match/1,
@@ -244,6 +245,7 @@ groups() ->
                 gex_client_rejects_small_group,
                 gex_client_rejects_bad_generator,
                 gex_client_rejects_even_modulus,
+                gex_client_rejects_short_modulus,
                 kex_strict_negotiated,
                 kex_strict_violation_key_exchange,
                 kex_strict_violation_new_keys,
@@ -366,7 +368,8 @@ init_per_testcase(TC, Config) when TC == kex_strict_negotiated;
     [{saved_log_level, Level} | Config];
 init_per_testcase(TC, Config) when TC == gex_client_rejects_small_group;
                                    TC == gex_client_rejects_bad_generator;
-                                   TC == gex_client_rejects_even_modulus ->
+                                   TC == gex_client_rejects_even_modulus;
+                                   TC == gex_client_rejects_short_modulus ->
     Config;
 init_per_testcase(TC, Config) when TC == gex_client_init_option_groups ;
 				   TC == gex_client_init_option_groups_moduli_file ;
@@ -837,6 +840,16 @@ gex_client_rejects_even_modulus(Config) ->
     {ok, Events} = ssh_test_lib:get_log_events(
                      proplists:get_value(log_handler_ref, Config)),
     true = ssh_test_lib:event_logged(client, Events, "DH GEX invalid prime").
+
+%%% Client rejects a DH GEX group with an odd 2041-bit modulus. The
+%%% modulus occupies 256 bytes, so a size count in whole bytes would
+%%% wrongly report 2048 bits and accept it.
+gex_client_rejects_short_modulus(Config) ->
+    ok = gex_client_rejects_group(Config, (1 bsl 2040) + 1, 2),
+    {ok, Events} = ssh_test_lib:get_log_events(
+                     proplists:get_value(log_handler_ref, Config)),
+    true = ssh_test_lib:event_logged(client, Events,
+                                     "DH GEX group too small: 2041 bits").
 
 gex_client_rejects_group(Config, P, G) ->
     {ok, InitialState} = ssh_trpt_test_lib:exec(listen),
