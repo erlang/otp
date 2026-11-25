@@ -1165,8 +1165,7 @@ handle_msg(#ssh_msg_channel_request{recipient_channel = ChannelId,
     Reply =
         case session_started(Channel) of
             false ->
-                case start_subsystem(SsName, Connection, Channel,
-                                     {subsystem, ChannelId, WantReply, binary_to_list(SsName)}) of
+                case start_subsystem(SsName, Connection, Channel) of
                     {ok, Pid} ->
                         erlang:monitor(process, Pid),
                         ssh_client_channel:cache_update(Cache, Channel#channel{user=Pid,sys="subsystem"}),
@@ -1555,7 +1554,7 @@ start_cli(#connection{cli_spec = CliSpec,
 
 start_subsystem(BinName, #connection{options = Options,
                                      connection_supervisor = ConnectionSup},
-	       #channel{local_id = ChannelId}, _ReplyMsg) ->
+                #channel{local_id = ChannelId}) ->
     Name = binary_to_list(BinName),
     Subsystems = ?GET_OPT(subsystems, Options),
     case proplists:get_value(Name, Subsystems, {none, []}) of
