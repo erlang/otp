@@ -247,7 +247,8 @@ api_tests() ->
      transport_close,
      emulated_options,
      accept_pool,
-     reuseaddr
+     reuseaddr,
+     signature_algs
     ].
 
 seq_test() ->
@@ -264,7 +265,9 @@ rogue_server_tests() ->
 rogue_server_tests_1_3() ->
     [tls13_reject_unsolicited_psk,
      tls13_reject_missing_key_share,
-     tls13_reject_unoffered_key_share_group].
+     tls13_reject_unoffered_key_share_group,
+     tls13_reject_unsolicited_alpn,
+     tls13_reject_unadvertised_alpn].
 
 init_per_suite(Config0) ->
     catch application:stop(crypto),
@@ -2235,7 +2238,10 @@ tls_password_badarg(Config) when is_list(Config) ->
 signature_algs() ->
     [{doc, "Check that listing of signature algorithms for different version and configure combinations"}].
 signature_algs(Config) when is_list(Config) ->
-    true = [] =/= [Alg || Alg <- ssl:signature_algs(default, 'tlsv1.3'), is_tuple(Alg)],
+    %% The default list holds scheme atoms only, legacy {Hash, Sign} tuples
+    %% would duplicate wire values that the scheme atoms already cover.
+    true = [] =/= ssl:signature_algs(default, 'tlsv1.3'),
+    true = [] == [Alg || Alg <- ssl:signature_algs(default, 'tlsv1.3'), is_tuple(Alg)],
     true = [] == [Alg || Alg <- ssl:signature_algs(exclusive, 'tlsv1.3'), is_tuple(Alg)],
     true = ssl:signature_algs(exclusive, 'tlsv1.3') =/=  ssl:signature_algs(exclusive, 'tlsv1.2'),
     true = length(ssl:signature_algs(default, 'tlsv1.2')) <
@@ -2244,13 +2250,13 @@ signature_algs(Config) when is_list(Config) ->
     true = lists:member(rsa_pkcs1_sha512, TLS_1_3_All) andalso (not lists:member({sha512, rsa}, TLS_1_3_All)),
     true = lists:member(rsa_pkcs1_sha384, TLS_1_3_All) andalso (not lists:member({sha384, rsa}, TLS_1_3_All)),
     true = lists:member(rsa_pkcs1_sha256, TLS_1_3_All) andalso (not lists:member({sha256, rsa}, TLS_1_3_All)),
-    true = lists:member(rsa_pkcs1_sha, TLS_1_3_All) andalso (not lists:member({sha, rsa}, TLS_1_3_All)),
+    true = lists:member(rsa_pkcs1_sha1, TLS_1_3_All) andalso (not lists:member({sha, rsa}, TLS_1_3_All)),
     true = lists:member(ecdsa_sha1, TLS_1_3_All) andalso (not lists:member({sha, ecdsa}, TLS_1_3_All)),
     TLS_1_2_All = ssl:signature_algs(all, 'tlsv1.2'),
     true = (not lists:member(rsa_pkcs1_sha512, TLS_1_2_All)) andalso lists:member({sha512, rsa}, TLS_1_2_All),
     true = (not lists:member(rsa_pkcs1_sha384, TLS_1_2_All)) andalso lists:member({sha384, rsa}, TLS_1_2_All),
     true = (not lists:member(rsa_pkcs1_sha256, TLS_1_2_All)) andalso lists:member({sha256, rsa}, TLS_1_2_All),
-    true = (not lists:member(rsa_pkcs1_sha, TLS_1_2_All)) andalso lists:member({sha, rsa}, TLS_1_2_All),
+    true = (not lists:member(rsa_pkcs1_sha1, TLS_1_2_All)) andalso lists:member({sha, rsa}, TLS_1_2_All),
     true = (not lists:member(ecdsa_sha1, TLS_1_2_All)) andalso lists:member({sha, ecdsa}, TLS_1_2_All),
     All = ssl_cipher:signature_schemes_1_2(ssl:signature_algs(default, 'tlsv1.3')),
     true = length(All) == length(lists:uniq(All)).

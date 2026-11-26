@@ -335,6 +335,7 @@ gen_api_tests() ->
      controlling_process_transport_accept_socket,
      close_with_timeout,
      close_transport_accept,
+     abuse_transport_accept_socket,
      ipv6,
      der_input,
      max_handshake_size,
