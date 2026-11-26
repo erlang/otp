@@ -108,38 +108,42 @@ result(Response = {{_, Code, _}, _, _}, Request)
 %% In redirect loop
 result(Response = {{_, Code, _}, _, _}, Request =
        #request{redircount = Redirects,
-		settings = #http_options{autoredirect = true}}) 
-  when ((Code div 100) =:= 3) andalso (Redirects > ?HTTP_MAX_REDIRECTS) ->
+                settings = #http_options{autoredirect = AutoRedirect}})
+  when (AutoRedirect =/= false) andalso
+       ((Code div 100) =:= 3) andalso (Redirects > ?HTTP_MAX_REDIRECTS) ->
     transparent(Response, Request);
 
-%% multiple choices 
-result(Response = {{_, 300, _}, _, _}, 
-       Request = #request{settings = 
-			  #http_options{autoredirect = 
-					true}}) ->
+%% multiple choices
+result(Response = {{_, 300, _}, _, _},
+       Request = #request{settings =
+                              #http_options{autoredirect = AutoRedirect}})
+  when AutoRedirect =/= false ->
     redirect(Response, Request);
 
-result(Response = {{_, Code, _}, _, _}, 
+result(Response = {{_, Code, _}, _, _},
        Request = #request{settings =
-              #http_options{autoredirect = true},
-              method = post}) when (Code =:= 301) orelse
+              #http_options{autoredirect = AutoRedirect},
+              method = post}) when (AutoRedirect =/= false) andalso
+                           ((Code =:= 301) orelse
                            (Code =:= 302) orelse
-                           (Code =:= 303) ->
+                           (Code =:= 303)) ->
     redirect(Response, Request#request{method = get});
-result(Response = {{_, Code, _}, _, _}, 
+result(Response = {{_, Code, _}, _, _},
         Request = #request{settings =
-            #http_options{autoredirect = true},
-                method = post}) when (Code =:= 307) orelse
-                    (Code =:= 308) ->
+            #http_options{autoredirect = AutoRedirect},
+                method = post}) when (AutoRedirect =/= false) andalso
+                    ((Code =:= 307) orelse
+                    (Code =:= 308)) ->
     redirect(Response, Request);
-result(Response = {{_, Code, _}, _, _}, 
-        Request = #request{settings = 
-			#http_options{autoredirect = true},
-                method = Method}) when (Code =:= 301) orelse
+result(Response = {{_, Code, _}, _, _},
+        Request = #request{settings =
+                               #http_options{autoredirect = AutoRedirect},
+                method = Method}) when (AutoRedirect =/= false) andalso
+                    ((Code =:= 301) orelse
                     (Code =:= 302) orelse
                     (Code =:= 303) orelse
                     (Code =:= 307) orelse
-                    (Code =:= 308) ->
+                    (Code =:= 308)) ->
     case lists:member(Method, [get, head, options, trace]) of
     true ->
         redirect(Response, Request);
@@ -425,7 +429,14 @@ redirect(Response = {_, Headers, _}, Request) ->
                 {error, Reason, _} ->
                     {ok, error(Request, Reason), Data};
                 %% Automatic redirection
-                URI ->
+                URI0 ->
+                    %% RFC 3986 §3.1: scheme names are case-insensitive, but
+                    %% uri_string:parse/1 preserves the case as given in the
+                    %% Location header. Normalize.
+                    URI = case maps:get(scheme, URI0, undefined) of
+                              undefined -> URI0;
+                              URIScheme -> URI0#{scheme => string:lowercase(URIScheme)}
+                          end,
                     {Host, Port0} = Request#request.address,
                     Port = maybe_to_integer(Port0),
                     Path = Request#request.path,
@@ -433,63 +444,76 @@ redirect(Response = {_, Headers, _}, Request) ->
                     Query = Request#request.pquery,
                     URIMap = resolve_uri(Scheme, Host, Port, Path, Query, URI),
                     TScheme = list_to_atom(maps:get(scheme, URIMap)),
-                    THost = http_util:maybe_add_brackets(maps:get(host, URIMap), Brackets),
-                    TPort = maps:get(port, URIMap),
-                    TPath = maps:get(path, URIMap),
-                    TQuery = add_question_mark(maps:get(query, URIMap, "")),
-                    NewURI = uri_string:normalize(
-                               uri_string:recompose(URIMap)),
-                    HostPort = http_request:normalize_host(TScheme, THost, TPort),
-                    NewHeaders0 =
-                        (Request#request.headers)#http_request_h{host = HostPort},
-                    %% RFC 9110 §15.4: strip Authorization, Proxy-Authorization,
-                    %% Cookie, Origin, and Referer on cross-origin redirects
-                    %% (different host or port).
-                    CrossOrigin = Request#request.address =/= {THost, TPort},
-                    NewHeaders =
-                        case CrossOrigin of
-                            false ->
-                                NewHeaders0;
-                            true ->
-                                CrossOriginOther = ["cookie", "origin"],
-                                OtherStripped = lists:filter(
-                                    fun({K, _}) ->
-                                        not lists:member(string:lowercase(K), CrossOriginOther)
-                                    end,
-                                    NewHeaders0#http_request_h.other),
-                                NewHeaders0#http_request_h{
-                                    authorization = undefined,
-                                    'proxy-authorization' = undefined,
-                                    referer = undefined,
-                                    other = OtherStripped}
-                        end,
-                    %% The 'userinfo' field (URL "user:pass@host" credentials)
-                    %% is re-derived into an Authorization header on every
-                    %% send by httpc_request:handle_user_info/2, independent
-                    %% of the 'headers' record above. Without clearing it
-                    %% here, a cross-origin redirect would strip the
-                    %% Authorization header above only to have it
-                    %% immediately reconstructed from the stale userinfo
-                    %% when the redirected request is sent (missed codepath
-                    %% from GHSA-m75x-4vwg-ggjh / CVE-2026-48856).
-                    NewUserInfo =
-                        case CrossOrigin of
-                            false -> Request#request.userinfo;
-                            true  -> ""
-                        end,
-                    NewRequest =
-                        Request#request{redircount =
-                                            Request#request.redircount+1,
-                                        scheme = TScheme,
-                                        headers = NewHeaders,
-                                        userinfo = NewUserInfo,
-                                        address = {THost,TPort},
-                                        path = TPath,
-                                        pquery = TQuery,
-                                        abs_uri = NewURI},
-                    {redirect, NewRequest, Data}
+                    AutoRedirect = (Request#request.settings)#http_options.autoredirect,
+                    case {AutoRedirect, Request#request.scheme, TScheme} of
+                        {no_downgrade, https, http} ->
+                            %% Following this redirect would silently drop
+                            %% transport security; return the 30X response
+                            %% instead, as if autoredirect was false.
+                            transparent(Response, Request);
+                        _ ->
+                            redirect_to(URIMap, TScheme, Request, Brackets, Data)
+                    end
             end
     end.
+
+redirect_to(URIMap, TScheme, Request, Brackets, Data) ->
+    THost = http_util:maybe_add_brackets(maps:get(host, URIMap), Brackets),
+    TPort = maps:get(port, URIMap),
+    TPath = maps:get(path, URIMap),
+    TQuery = add_question_mark(maps:get(query, URIMap, "")),
+    NewURI = uri_string:normalize(
+               uri_string:recompose(URIMap)),
+    HostPort = http_request:normalize_host(TScheme, THost, TPort),
+    NewHeaders0 =
+        (Request#request.headers)#http_request_h{host = HostPort},
+
+    %% RFC 9110 §15.4: strip Authorization, Proxy-Authorization,
+    %% Cookie, Origin, and Referer on cross-origin redirects
+    %% (different host or port).
+    CrossOrigin = Request#request.address =/= {THost, TPort},
+    NewHeaders =
+        case CrossOrigin of
+            false ->
+                NewHeaders0;
+            true ->
+                CrossOriginOther = ["cookie", "origin"],
+                OtherStripped = lists:filter(
+                    fun({K, _}) ->
+                        not lists:member(string:lowercase(K), CrossOriginOther)
+                    end,
+                    NewHeaders0#http_request_h.other),
+                NewHeaders0#http_request_h{
+                    authorization = undefined,
+                    'proxy-authorization' = undefined,
+                    referer = undefined,
+                    other = OtherStripped}
+        end,
+    %% The 'userinfo' field (URL "user:pass@host" credentials)
+    %% is re-derived into an Authorization header on every
+    %% send by httpc_request:handle_user_info/2, independent
+    %% of the 'headers' record above. Without clearing it
+    %% here, a cross-origin redirect would strip the
+    %% Authorization header above only to have it
+    %% immediately reconstructed from the stale userinfo
+    %% when the redirected request is sent (missed codepath
+    %% from GHSA-m75x-4vwg-ggjh / CVE-2026-48856).
+    NewUserInfo =
+        case CrossOrigin of
+            false -> Request#request.userinfo;
+            true  -> ""
+        end,
+    NewRequest =
+        Request#request{redircount =
+                            Request#request.redircount+1,
+                        scheme = TScheme,
+                        headers = NewHeaders,
+                        userinfo = NewUserInfo,
+                        address = {THost,TPort},
+                        path = TPath,
+                        pquery = TQuery,
+                        abs_uri = NewURI},
+    {redirect, NewRequest, Data}.
 
 add_question_mark(<<>>) ->
     <<>>;
