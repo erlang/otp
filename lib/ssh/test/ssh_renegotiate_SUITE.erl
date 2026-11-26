@@ -193,12 +193,12 @@ rekey_limit_client(Config) ->
     %% Check that datatransfer triggers rekeying
     ok = ssh_sftp:write_file(SftpPid, DataFile, Data),
     timer:sleep(?REKEY_DATA_TMO),
-    ?wait_match(false, Kex1==(Kex2=ssh_test_lib:get_kex_init(ConnectionRef)), Kex2, 2000, 10),
+    ?wait_match(Kex2, Kex2 /= Kex1, ssh_test_lib:get_kex_init(ConnectionRef), Kex2, 2000, 10),
 
     %% Check that datatransfer continues to trigger rekeying
     ok = ssh_sftp:write_file(SftpPid, DataFile, Data),
     timer:sleep(?REKEY_DATA_TMO),
-    ?wait_match(false, Kex2==(Kex3=ssh_test_lib:get_kex_init(ConnectionRef)), Kex3, 2000, 10),
+    ?wait_match(Kex3, Kex3 /= Kex2, ssh_test_lib:get_kex_init(ConnectionRef), Kex3, 2000, 10),
 
     %% Check that it doesn't rekey without data transfer
     timer:sleep(?REKEY_DATA_TMO),
@@ -246,12 +246,12 @@ rekey_limit_daemon(Config) ->
     %% Check that datatransfer triggers rekeying
     {ok,_} = ssh_sftp:read_file(SftpPid, DataFile1),
     timer:sleep(?REKEY_DATA_TMO),
-    ?wait_match(false, Kex1==(Kex2=ssh_test_lib:get_kex_init(ConnectionRef)), Kex2, 2000, 10),
+    ?wait_match(Kex2, Kex2 /= Kex1, ssh_test_lib:get_kex_init(ConnectionRef), Kex2, 2000, 10),
 
     %% Check that datatransfer continues to trigger rekeying
     {ok,_} = ssh_sftp:read_file(SftpPid, DataFile1),
     timer:sleep(?REKEY_DATA_TMO),
-    ?wait_match(false, Kex2==(Kex3=ssh_test_lib:get_kex_init(ConnectionRef)), Kex3, 2000, 10),
+    ?wait_match(Kex3, Kex3 /= Kex2, ssh_test_lib:get_kex_init(ConnectionRef), Kex3, 2000, 10),
 
     %% Check that it doesn't rekey without data transfer
     timer:sleep(?REKEY_DATA_TMO),
@@ -384,7 +384,7 @@ rekey_time_limit(Pid, ConnectionRef) ->
 
     %% Check that it rekeys when the max time + 30s has passed
     timer:sleep(?REKEY_DATA_TMO + 30*1000),
-    ?wait_match(false, Kex1==(Kex2=ssh_test_lib:get_kex_init(ConnectionRef)), Kex2, 2000, 10),
+    ?wait_match(Kex2, Kex2 /= Kex1, ssh_test_lib:get_kex_init(ConnectionRef), Kex2, 2000, 10),
 
     %% Check that it does not rekey when nothing is transferred
     timer:sleep(?REKEY_DATA_TMO + 30*1000),

@@ -36,14 +36,16 @@
 -behaviour(gen_event).
 
 add_report_handler() ->
-    error_logger:add_report_handler(?MODULE, [self(),Ref=make_ref()]),
+    Ref = make_ref(),
+    error_logger:add_report_handler(?MODULE, [self(),Ref]),
     receive
 	{event_handler_started,HandlerPid,Ref} ->
 	    {ok,HandlerPid}
     end.
 
 get_reports(Pid) ->
-    Pid ! {get_reports,self(),Ref=make_ref()},
+    Ref = make_ref(),
+    Pid ! {get_reports,self(),Ref},
     receive
 	{reports,Reports,Ref} ->
 	    {ok,Reports}

@@ -1422,15 +1422,17 @@ do_sftp_tests_erl_client(sftp, _C, Ch, _Id, RootDir) ->
     F0 = filename:join(RootDir, FileName0),
 
     %% Create and write a file:
+    Data0 = mkbin(1234,240),
     ok = ssh_sftp:write_file(Ch,
                              F0 = filename:join(RootDir, FileName0),
-                             Data0 = mkbin(1234,240)),
+                             Data0),
     {ok,Data0} = ssh_sftp:read_file(Ch, F0),
     {ok, #file_info{type=regular, access=read_write, size=1234}} = ssh_sftp:read_file_info(Ch, F0),
 
     %% Re-write:
     {ok,Handle0} = ssh_sftp:open(Ch, F0, [write,read,binary]),
-    ok = ssh_sftp:pwrite(Ch, Handle0, 16, Data0_1=mkbin(10,255)),
+    Data0_1 = mkbin(10,255),
+    ok = ssh_sftp:pwrite(Ch, Handle0, 16, Data0_1),
 
     <<B1:16/binary, _:10/binary, B2:(1234-26)/binary>> = Data0,
     FileContents = <<B1:16/binary, Data0_1:10/binary, B2:(1234-26)/binary>>,
