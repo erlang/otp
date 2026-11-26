@@ -47,8 +47,6 @@
          client_auth_empty_cert_accepted/1,
          client_auth_empty_cert_rejected/0,
          client_auth_empty_cert_rejected/1,
-         client_auth_partial_chain/0,
-         client_auth_partial_chain/1,
          missing_root_cert_no_auth/0,
          missing_root_cert_no_auth/1,
          unsupported_sign_algo_client_auth/0,
@@ -93,6 +91,10 @@ groups() ->
      {dsa, [parallel], all_version_tests()},
      {rsa_1_3, [parallel], all_version_tests() ++ tls_1_3_tests()},
       %% TODO: Create proper conf of openssl server
+      %% Should use  -client_sigalgs it does reject the
+      %% client, but with internal_error (TLS-1.3) or handshake_failure
+      %% (TLS-1.2, openssl 3.0.2), not the insufficient_security that
+      %% the tests expect from an Erlang server.
       %%++ [unsupported_sign_algo_client_auth,
       %% unsupported_sign_algo_cert_client_auth]},
      {rsa_pss_rsae, [parallel], all_version_tests() ++ tls_1_3_tests()},
@@ -150,7 +152,9 @@ all_version_tests() ->
     [
      no_auth,
      auth,
-     missing_root_cert_no_auth
+     missing_root_cert_no_auth,
+     client_auth_empty_cert_accepted,
+     client_auth_empty_cert_rejected
     ].
 
 init_per_suite(Config) ->
@@ -253,12 +257,6 @@ client_auth_empty_cert_rejected() ->
       ssl_cert_tests:client_auth_empty_cert_rejected().
 client_auth_empty_cert_rejected(Config) ->
     ssl_cert_tests:client_auth_empty_cert_rejected(Config).
-%%--------------------------------------------------------------------
-client_auth_partial_chain() ->
-    ssl_cert_tests:client_auth_partial_chain().
-client_auth_partial_chain(Config) when is_list(Config) ->
-    ssl_cert_tests:client_auth_partial_chain(Config).
-
 %%--------------------------------------------------------------------
 missing_root_cert_no_auth() ->
    ssl_cert_tests:missing_root_cert_no_auth().
