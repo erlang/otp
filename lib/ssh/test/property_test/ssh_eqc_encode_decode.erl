@@ -23,7 +23,7 @@
 
 -module(ssh_eqc_encode_decode).
 
--compile(export_all).
+-compile([export_all, nowarn_export_all]).
 
 -include_lib("common_test/include/ct_property_test.hrl").
 
@@ -232,10 +232,7 @@ gen_ext_info() ->
                   uint32_to_list(N) ++
                   lists:append([[Name, Val] || {Name, Val} <- Pairs]))).
 
--define(MSG_CODE(Name,Num),
-msg_code(Name) -> Num;
-msg_code(Num) -> Name
-).
+-define(MSG_CODE(Name,Num), msg_code(Name) -> Num).
 
 ?MSG_CODE('SSH_MSG_USERAUTH_REQUEST',   50);
 ?MSG_CODE('SSH_MSG_USERAUTH_FAILURE',   51);
