@@ -159,7 +159,7 @@ setup_server_client(#state{config=Config} = State) ->
     PrivDir = proplists:get_value(priv_dir, Config),
 	    
     FtpRootDir = filename:join(PrivDir, "ftp_root"),
-    catch file:make_dir(FtpRootDir),
+    ?OLD_CATCH(file:make_dir(FtpRootDir)),
 	
     SFTP = ssh_sftpd:subsystem_spec([{root,FtpRootDir},{cwd,FtpRootDir}]),
 
@@ -195,7 +195,7 @@ test_connection(FileName, FileContents,
 		    ct:fail("ssh_sftp:read_file(~p,~p) -> ~p~n" 
 			    "ssh_sftp:list_dir(~p,\".\") -> ~p", 
 			    [ChannelPid,FileName,Other,
-			     ChannelPid, catch ssh_sftp:list_dir(ChannelPid, ".")])
+                             ChannelPid, ?OLD_CATCH(ssh_sftp:list_dir(ChannelPid, "."))])
 	    end;
 
 	Other ->
