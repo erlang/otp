@@ -5060,6 +5060,7 @@ dec_term_atom_common:
             }
         case EXPORT_EXT:
             {
+                ErtsThrPrgrDelayHandle dhndl;
                 Export *export;
                 Eterm mod;
                 Eterm name;
@@ -5077,13 +5078,17 @@ dec_term_atom_common:
                 if (!ep || arity < 0 || arity > 255) {
                     goto error;
                 }
+                /* This can run on a dirty scheduler, e.g. through
+                 * enif_binary_to_term/5. */
+                dhndl = erts_thr_progress_unmanaged_delay();
                 if (flags & ERTS_DIST_EXT_BTT_SAFE) {
                     if (!erts_active_export_entry(mod, name, arity)) {
+                        erts_thr_progress_unmanaged_continue(dhndl);
                         goto error;
                     }
                 }
-
                 export = erts_export_get_or_make_stub(mod, name, arity);
+                erts_thr_progress_unmanaged_continue(dhndl);
                 *objp = export->lambda;
             }
             break;
