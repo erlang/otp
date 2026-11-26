@@ -436,10 +436,11 @@ specification. The following two CTHs are delivered with `Common Test`:
   in-between test cases.
 
   The log events are handled using a [Logger](`m:logger`) handler called
-  cth_log_redirect. The formatting and level is copied from the current
+  cth_log_redirect. The formatting, level and filters are copied from the current
   `default` handler when the cth is started. If you want to use another level
-  either change the `default` handler level before starting common_test, or use
-  the `logger:set_handler_config/3` API.
+  or other filters, for example to capture log events with a custom `domain`,
+  either change the `default` handler configuration before starting
+  common_test, or use the `logger:set_handler_config/3` API.
 
   This hook supports the following options:
 
