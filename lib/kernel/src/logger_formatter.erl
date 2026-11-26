@@ -260,8 +260,19 @@ the default formatter used by Logger.
 
 -doc """
 The function can be called by a log handler to convert a log event term to a
-printable string. The returned value can, for example, be printed as a log entry
-to the console or a file using [`io:put_chars/1,2`](`io:put_chars/1`).
+printable string or plain binary data. The returned value can, for example, be
+printed as a log entry to the console or a file using
+[`io:put_chars/1,2`](`io:put_chars/1`).
+
+The handlers `m:logger_std_h` and `m:logger_disk_log_h` pass through a plain
+binary return value unchanged. Any other return value is treated as Unicode
+character data and converted to UTF-8. If the conversion fails, the handler
+writes `FORMATTER ERROR: bad return value` instead.
+
+A formatter that returns plain binaries is responsible for making them valid for
+the log destination. Files accept any binary, but I/O devices, such as
+[`standard_io`](`t:io:standard_io/0`) and
+[`standard_error`](`t:io:standard_error/0`), require valid UTF-8.
 
 See `m:logger_formatter` for an example implementation. `m:logger_formatter` is
 the default formatter used by Logger.
