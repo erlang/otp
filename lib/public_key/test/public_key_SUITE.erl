@@ -150,6 +150,8 @@
          pkix_verify_hostname_cn/1,
          pkix_verify_hostname_subjAltName/1,
          pkix_verify_hostname_options/1,
+         pkix_verify_hostname_https_wildcard/0,
+         pkix_verify_hostname_https_wildcard/1,
          pkix_verify_hostname_subjAltName_IP/1,
          pkix_dist_point_uri/0,
          pkix_dist_point_uri/1,
@@ -250,6 +252,7 @@ all() ->
      pkix_verify_hostname_subjAltName,
      pkix_verify_hostname_subjAltName_IP,
      pkix_verify_hostname_options,
+     pkix_verify_hostname_https_wildcard,
      pkix_dist_point_uri,
      pkix_test_data_all_default,
      pkix_test_data,
@@ -1902,6 +1905,41 @@ pkix_verify_hostname_options(Config) ->
                                            [{dns_id,"foobar.example.org"}],
                                            [{match_fun,
                                              public_key:pkix_verify_hostname_match_fun(https)}]).
+
+%%--------------------------------------------------------------------
+pkix_verify_hostname_https_wildcard() ->
+    [{doc, "Wildcard rules of pkix_verify_hostname_match_fun(https), the same "
+      "as the OpenSSL X509_check_host default (RFC 6125 6.4.3)"}].
+pkix_verify_hostname_https_wildcard(Config) when is_list(Config) ->
+    Match = public_key:pkix_verify_hostname_match_fun(https),
+    Check = fun(Name, FQDN) -> Match({dns_id, FQDN}, {dNSName, Name}) end,
+    %% Full-label wildcard
+    true  = Check("*.example.com", "foo.example.com"),
+    true  = Check("*.example.com", "FOO.EXAMPLE.COM"),
+    false = Check("*.example.com", "a.b.example.com"),
+    false = Check("*.example.com", "example.com"),
+    true  = Check("*.example.com", "xn--bcher-kva.example.com"),
+    %% Partial wildcard at the start or end of the label
+    true  = Check("f*.example.com", "foo.example.com"),
+    true  = Check("f*.example.com", "f.example.com"),
+    true  = Check("*o.example.com", "foo.example.com"),
+    false = Check("x*.example.com", "xn--bcher-kva.example.com"),
+    false = Check("xn--*.example.com", "xn--abc.example.com"),
+    %% Wildcard in the middle of the label, or more than one
+    false = Check("f*o.example.com", "foo.example.com"),
+    false = Check("f*o.example.com", "fo.example.com"),
+    false = Check("**.example.com", "foo.example.com"),
+    false = Check("f*o*.example.com", "foo.example.com"),
+    %% Wildcard not in the leftmost label, or too few labels after it
+    false = Check("foo.*.example.com", "foo.bar.example.com"),
+    false = Check("*.com", "example.com"),
+    false = Check("*", "localhost"),
+    %% No wildcard
+    true  = Check("www.example.com", "www.example.com"),
+    false = Check("www.example.com", "ww.example.com"),
+    true  = Check("example.com", "example.com"),
+    true  = Check("localhost", "localhost"),
+    ok.
 
 %%--------------------------------------------------------------------
 %% To generate the PEM file contents:
