@@ -22,6 +22,8 @@
 
 -module(crypto_property_test_SUITE).
 
+-behaviour(ct_suite).
+
 -export([
          all/0,
          init_per_suite/1,

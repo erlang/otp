@@ -28,6 +28,9 @@
 %%%----------------------------------------------------------------------
 
 -module(node_container_SUITE).
+
+-behaviour(ct_suite).
+
 -author('rickard.green@uab.ericsson.se').
 
 -include_lib("stdlib/include/assert.hrl").

@@ -22,6 +22,8 @@
 
 -module(z_SUITE).
 
+-behaviour(ct_suite).
+
 %%
 %% This suite expects to be run as the last suite of all suites.
 %%

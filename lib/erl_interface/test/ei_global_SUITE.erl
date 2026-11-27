@@ -23,6 +23,8 @@
 %%
 -module(ei_global_SUITE).
 
+-behaviour(ct_suite).
+
 -include_lib("common_test/include/ct.hrl").
 -include("ei_global_SUITE_data/ei_global_test_cases.hrl").
 

@@ -27,6 +27,8 @@
 
 -module(megaco_codec_mini_SUITE).
 
+-behaviour(ct_suite).
+
 %% ----
 
 -include_lib("megaco/include/megaco.hrl").

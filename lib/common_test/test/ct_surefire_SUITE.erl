@@ -29,6 +29,8 @@
 %%%-------------------------------------------------------------------
 -module(ct_surefire_SUITE).
 
+-behaviour(ct_suite).
+
 -compile([export_all, nowarn_export_all]).
 
 -include_lib("common_test/include/ct.hrl").
@@ -513,23 +515,23 @@ assert_lines(Case, A) when Case =/= fail_pre_init_per_suite,
     ?assertMatch("surefire_SUITE.erl",filename:basename(File#xmlAttribute.value)),
     case Name#xmlAttribute.value of
         "init_per_suite" ->
-            ?assertMatch("53", Line#xmlAttribute.value);
-        "end_per_suite" ->
             ?assertMatch("56", Line#xmlAttribute.value);
-        "tc_ok" ->
-            ?assertMatch("82", Line#xmlAttribute.value);
-        "tc_fail" ->
-            ?assertMatch("87", Line#xmlAttribute.value);
-        "tc_badmatch" ->
-            ?assertMatch("91", Line#xmlAttribute.value);
-        "tc_skip" ->
-            ?assertMatch("93", Line#xmlAttribute.value);
-        "tc_autoskip_require" ->
-            ?assertMatch("98", Line#xmlAttribute.value);
-        "init_per_group" ->
+        "end_per_suite" ->
             ?assertMatch("59", Line#xmlAttribute.value);
+        "tc_ok" ->
+            ?assertMatch("85", Line#xmlAttribute.value);
+        "tc_fail" ->
+            ?assertMatch("90", Line#xmlAttribute.value);
+        "tc_badmatch" ->
+            ?assertMatch("94", Line#xmlAttribute.value);
+        "tc_skip" ->
+            ?assertMatch("96", Line#xmlAttribute.value);
+        "tc_autoskip_require" ->
+            ?assertMatch("101", Line#xmlAttribute.value);
+        "init_per_group" ->
+            ?assertMatch("62", Line#xmlAttribute.value);
         "end_per_group" ->
-            ?assertMatch("64", Line#xmlAttribute.value)
+            ?assertMatch("67", Line#xmlAttribute.value)
     end;
 assert_lines(_, _) ->
     ok.

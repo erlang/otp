@@ -21,6 +21,8 @@
 %%
 -module(systools_rc_SUITE).
 
+-behaviour(ct_suite).
+
 -include_lib("common_test/include/ct.hrl").
 -include_lib("sasl/src/systools.hrl").
 -export([all/0,groups/0,init_per_group/2,end_per_group/2, 

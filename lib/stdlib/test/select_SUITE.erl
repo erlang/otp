@@ -21,6 +21,9 @@
 %%
 
 -module(select_SUITE).
+
+-behaviour(ct_suite).
+
 -author('pan@erix.ericsson.se').
 
 -export([test/0]).

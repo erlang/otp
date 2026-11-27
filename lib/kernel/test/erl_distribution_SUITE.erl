@@ -21,6 +21,8 @@
 %%
 -module(erl_distribution_SUITE).
 
+-behaviour(ct_suite).
+
 -include_lib("common_test/include/ct.hrl").
 -include_lib("kernel/include/dist.hrl").
 -include_lib("stdlib/include/assert.hrl").

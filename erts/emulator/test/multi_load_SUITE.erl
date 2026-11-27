@@ -21,6 +21,9 @@
 %%
 
 -module(multi_load_SUITE).
+
+-behaviour(ct_suite).
+
 -export([all/0, suite/0, many/1, on_load/1, errors/1]).
 
 -include_lib("common_test/include/ct.hrl").

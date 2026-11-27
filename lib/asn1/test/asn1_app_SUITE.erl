@@ -24,6 +24,9 @@
 %% Purpose: Verify the application specifics of the asn1 application
 %%----------------------------------------------------------------------
 -module(asn1_app_SUITE).
+
+-behaviour(ct_suite).
+
 -export([all/0,groups/0,init_per_group/2,end_per_group/2,
          init_per_suite/1,end_per_suite/1,
          appup/1,fields/1,modules/1,export_all/1,app_depend/1]).

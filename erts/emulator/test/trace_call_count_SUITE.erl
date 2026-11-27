@@ -33,6 +33,8 @@
 
 -module(trace_call_count_SUITE).
 
+-behaviour(ct_suite).
+
 %% Exported end user tests
 -export([basic_test/0, on_and_off_test/0, info_test/0, 
 	 pause_and_restart_test/0, combo_test/0]).

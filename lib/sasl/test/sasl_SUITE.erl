@@ -21,6 +21,8 @@
 %%
 -module(sasl_SUITE).
 
+-behaviour(ct_suite).
+
 -compile(r27).
 
 -include_lib("common_test/include/ct.hrl").

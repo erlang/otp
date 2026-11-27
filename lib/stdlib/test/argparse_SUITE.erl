@@ -20,6 +20,9 @@
 %% %CopyrightEnd%
 
 -module(argparse_SUITE).
+
+-behaviour(ct_suite).
+
 -author("maximfca@gmail.com").
 
 -export([suite/0, all/0, groups/0]).

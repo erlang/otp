@@ -30,6 +30,8 @@
 
 -module(megaco_flex_SUITE).
 
+-behaviour(ct_suite).
+
 -include("megaco_test_lib.hrl").
 
 -export([

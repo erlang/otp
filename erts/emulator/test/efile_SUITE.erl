@@ -20,6 +20,9 @@
 %% %CopyrightEnd%
 
 -module(efile_SUITE).
+
+-behaviour(ct_suite).
+
 -export([all/0, suite/0]).
 -export([init_per_testcase/2, end_per_testcase/2]).
 -export([iter_max_files/1, proc_zero_sized_files/1]).

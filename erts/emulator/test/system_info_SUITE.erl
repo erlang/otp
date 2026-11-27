@@ -29,6 +29,9 @@
 %%% Created : 15 Jul 2005 by Rickard Green <rickard.s.green@ericsson.com>
 %%%-------------------------------------------------------------------
 -module(system_info_SUITE).
+
+-behaviour(ct_suite).
+
 -author('rickard.s.green@ericsson.com').
 
 %-define(line_trace, 1).

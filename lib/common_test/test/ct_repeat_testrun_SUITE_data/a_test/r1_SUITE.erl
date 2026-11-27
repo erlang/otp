@@ -23,6 +23,9 @@
 %% File: r1_SUITE.erl
 %%----------------------------------------------------------------------
 -module(r1_SUITE).
+
+-behaviour(ct_suite).
+
 -include_lib("common_test/include/ct.hrl").
 
 -compile(export_all).

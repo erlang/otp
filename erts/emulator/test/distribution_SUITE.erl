@@ -22,6 +22,8 @@
 
 -module(distribution_SUITE).
 
+-behaviour(ct_suite).
+
 -define(VERSION_MAGIC,       131).
 
 -define(ATOM_EXT,            100).

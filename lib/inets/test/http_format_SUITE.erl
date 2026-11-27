@@ -23,6 +23,8 @@
 
 -module(http_format_SUITE).
 
+-behaviour(ct_suite).
+
 -include_lib("common_test/include/ct.hrl").
 -include("http_internal.hrl").
 

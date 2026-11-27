@@ -22,6 +22,8 @@
 
 -module(beam_1_SUITE).
 
+-behaviour(ct_suite).
+
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
 

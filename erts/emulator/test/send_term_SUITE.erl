@@ -22,6 +22,8 @@
 
 -module(send_term_SUITE).
 
+-behaviour(ct_suite).
+
 -export([all/0, suite/0, basic/1]).
 
 -export([generate_external_terms_files/1]).

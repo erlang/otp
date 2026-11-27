@@ -20,6 +20,8 @@
 %% %CopyrightEnd%
 -module(upgrade_SUITE).
 
+-behaviour(ct_suite).
+
 -compile(r27).
 
 -compile(export_all).

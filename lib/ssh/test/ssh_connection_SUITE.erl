@@ -23,6 +23,8 @@
 %%
 -module(ssh_connection_SUITE).
 
+-behaviour(ct_suite).
+
 -include("ssh_connect.hrl").
 -include("ssh_test_lib.hrl").
 -include_lib("common_test/include/ct.hrl").

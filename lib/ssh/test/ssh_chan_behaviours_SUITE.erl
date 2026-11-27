@@ -24,6 +24,8 @@
 
 -module(ssh_chan_behaviours_SUITE).
 
+-behaviour(ct_suite).
+
 -include_lib("common_test/include/ct.hrl").
 -include("ssh.hrl").
 -include("ssh_test_lib.hrl").

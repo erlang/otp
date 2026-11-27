@@ -21,6 +21,9 @@
 %%
 
 -module(persistent_term_SUITE).
+
+-behaviour(ct_suite).
+
 -include_lib("common_test/include/ct.hrl").
 -include_lib("stdlib/include/assert.hrl").
 

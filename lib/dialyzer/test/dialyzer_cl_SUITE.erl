@@ -22,6 +22,8 @@
 %%
 -module(dialyzer_cl_SUITE).
 
+-behaviour(ct_suite).
+
 -include_lib("common_test/include/ct.hrl").
 -include_lib("stdlib/include/assert.hrl").
 -include_lib("dialyzer/src/dialyzer.hrl").

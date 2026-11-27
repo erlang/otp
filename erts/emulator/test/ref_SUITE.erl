@@ -22,6 +22,8 @@
 
 -module(ref_SUITE).
 
+-behaviour(ct_suite).
+
 -export([all/0, suite/0]).
 -export([wrap_1/1]).
 -export([compare_list/1, compare_ets/1]).

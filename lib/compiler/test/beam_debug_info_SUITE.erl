@@ -21,6 +21,8 @@
 %%
 -module(beam_debug_info_SUITE).
 
+-behaviour(ct_suite).
+
 %% Make sure that we test running code compiled using the
 %% `beam_debug_info` option. This will ensure that we test
 %% `beam_disasm` on a module with debug information.

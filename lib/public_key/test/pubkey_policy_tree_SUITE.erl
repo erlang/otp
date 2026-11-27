@@ -21,6 +21,9 @@
 %%
 
 -module(pubkey_policy_tree_SUITE).
+
+-behaviour(ct_suite).
+
 -compile([export_all, nowarn_export_all]).
 
 -include_lib("stdlib/include/assert.hrl").

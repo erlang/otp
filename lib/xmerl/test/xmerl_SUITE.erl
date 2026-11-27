@@ -24,6 +24,8 @@
 
 -module(xmerl_SUITE).
 
+-behaviour(ct_suite).
+
 -compile(export_all).
 
 %%----------------------------------------------------------------------

@@ -27,6 +27,8 @@
 
 -module(diameter_transport_SUITE).
 
+-behaviour(ct_suite).
+
 %% all tests, no common_test dependency
 -export([run/0]).
 

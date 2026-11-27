@@ -22,6 +22,8 @@
 
 -module(binary_SUITE).
 
+-behaviour(ct_suite).
+
 %% Tests binaries and the BIFs:
 %%	list_to_binary/1
 %%      iolist_to_binary/1

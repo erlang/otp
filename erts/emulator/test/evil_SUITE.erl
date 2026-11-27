@@ -21,6 +21,8 @@
 
 -module(evil_SUITE).
 
+-behaviour(ct_suite).
+
 -export([all/0, suite/0,
          heap_frag/1,
          encode_decode_ext/1,

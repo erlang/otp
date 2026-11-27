@@ -24,6 +24,8 @@
 
 -module(bs_bit_binaries_SUITE).
 
+-behaviour(ct_suite).
+
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1, 
 	 init_per_group/2,end_per_group/2,
 	 misc/1,horrid_match/1,test_bitstr/1,test_bit_size/1,asymmetric_tests/1,

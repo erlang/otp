@@ -22,6 +22,9 @@
 
 %%
 -module(mnesia_SUITE).
+
+-behaviour(ct_suite).
+
 -author('hakan@erix.ericsson.se').
 -export([init_per_testcase/2, end_per_testcase/2,
          init_per_suite/1, end_per_suite/1,

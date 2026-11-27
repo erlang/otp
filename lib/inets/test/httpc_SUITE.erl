@@ -27,6 +27,8 @@
 
 -module(httpc_SUITE).
 
+-behaviour(ct_suite).
+
 -include_lib("stdlib/include/assert.hrl").
 -include_lib("kernel/include/file.hrl").
 -include_lib("common_test/include/ct.hrl").

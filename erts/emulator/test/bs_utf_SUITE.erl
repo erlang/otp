@@ -22,6 +22,8 @@
 
 -module(bs_utf_SUITE).
 
+-behaviour(ct_suite).
+
 -export([all/0, suite/0, init_per_suite/1, end_per_suite/1,
 	 utf8_roundtrip/1,utf16_roundtrip/1,utf32_roundtrip/1,
 	 utf8_illegal_sequences/1,utf16_illegal_sequences/1,

@@ -21,6 +21,8 @@
 %%
 -module(core_alias_SUITE).
 
+-behaviour(ct_suite).
+
 -export([all/0, suite/0, groups/0,init_per_suite/1, end_per_suite/1,
          init_per_group/2, end_per_group/2,
          tuples/1, cons/1, catastrophic_runtime/1,

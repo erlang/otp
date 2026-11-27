@@ -1,5 +1,28 @@
+%%
+%% %CopyrightBegin%
+%%
+%% SPDX-License-Identifier: Apache-2.0
+%%
+%% Copyright Ericsson AB 2009-2025. All Rights Reserved.
+%%
+%% Licensed under the Apache License, Version 2.0 (the "License");
+%% you may not use this file except in compliance with the License.
+%% You may obtain a copy of the License at
+%%
+%%     http://www.apache.org/licenses/LICENSE-2.0
+%%
+%% Unless required by applicable law or agreed to in writing, software
+%% distributed under the License is distributed on an "AS IS" BASIS,
+%% WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+%% See the License for the specific language governing permissions and
+%% limitations under the License.
+%%
+%% %CopyrightEnd%
+
 %% Modify your ts.unix.config or ts.win32.config file before running these tests
 -module(ct_telnet_basic_SUITE).
+
+-behaviour(ct_suite).
 
 -compile(export_all).
 
@@ -8,7 +31,7 @@
 -define(no_of_sessions, 4).
 -define(conn_name(N), (list_to_atom("telnet_server_conn"++integer_to_list(N)))).
 -define(get_n(Cfg), (proplists:get_value(n, Cfg))).
-	       
+
 %%--------------------------------------------------------------------
 %% TEST SERVER CALLBACK FUNCTIONS
 %%--------------------------------------------------------------------
@@ -18,17 +41,17 @@ suite() -> [
  	    {ct_hooks, [{cth_conn_log,[]}]}
 	   ].
 
-operations() -> 
-    [start_stop, send_and_get, expect, already_closed, 
+operations() ->
+    [start_stop, send_and_get, expect, already_closed,
      cmd, sendf, no_newline, close_wrong_type].
 
 mult_case(_Case, 0) ->
     [];
 mult_case(Case, N) ->
-    [list_to_atom(atom_to_list(Case)++integer_to_list(N)) | 
+    [list_to_atom(atom_to_list(Case)++integer_to_list(N)) |
      mult_case(Case, N-1)].
 
-groups() -> 
+groups() ->
     [{single_connection,[],operations()},
      {multiple_connections,[parallel],
       lists:reverse(mult_case(sessions,?no_of_sessions))}].
@@ -97,7 +120,7 @@ send_and_get(Config) ->
     {ok, _Data} = ct_telnet:get_data(Handle),
     ok = ct_telnet:close(Handle),
     ok.
-    
+
 expect(Config) ->
     {ok, Handle} = ct_telnet:open(?conn_name(?get_n(Config))),
     ok = ct_telnet:send(Handle, "echo ayt"),
@@ -145,5 +168,3 @@ close_wrong_type(_) ->
 
 %%%-----------------------------------------------------------------
 %%% HELP FUNCS
-
-	    

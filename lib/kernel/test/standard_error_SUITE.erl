@@ -22,6 +22,8 @@
 
 -module(standard_error_SUITE).
 
+-behaviour(ct_suite).
+
 -include_lib("stdlib/include/assert.hrl").
 
 -export([all/0,suite/0]).

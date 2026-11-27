@@ -22,6 +22,8 @@
 
 -module(tls_1_3_record_SUITE).
 
+-behaviour(ct_suite).
+
 -include("ssl_test_lib.hrl").
 -include_lib("common_test/include/ct.hrl").
 -include_lib("ssl/src/tls_record.hrl").

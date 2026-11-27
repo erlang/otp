@@ -30,6 +30,7 @@
 %%%-------------------------------------------------------------------
 -module(scheduler_SUITE).
 
+-behaviour(ct_suite).
 
 %-define(line_trace, 1).
 

@@ -27,6 +27,8 @@
 
 -module(diameter_capx_SUITE).
 
+-behaviour(ct_suite).
+
 %% testcases, no common_test dependency
 -export([run/0]).
 

@@ -20,6 +20,8 @@
 %%
 -module(map_SUITE).
 
+-behaviour(ct_suite).
+
 %% Copied from map_SUITE in erts.
 
 -export([all/0, suite/0,groups/0,init_per_suite/1, end_per_suite/1,
