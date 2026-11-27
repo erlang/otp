@@ -51,10 +51,12 @@ MODULES= \
 	c \
 	calendar \
 	dets \
+	dets_addr \
 	dets_server \
 	dets_sup \
 	dets_utils \
 	dets_v9 \
+	dets_wire \
 	dict \
 	graph \
 	digraph \
