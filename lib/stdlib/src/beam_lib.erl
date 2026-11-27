@@ -986,7 +986,12 @@ scan_beam(FD, Pos, What, Mod, Data) ->
 get_atom_data(Cs, Id, FD, Size, Pos, Pos2, Data, Encoding) ->
     NewCs = del_chunk(Id, Cs),
     {NFD, Chunk} = get_chunk(Id, Pos, Size, FD),
-    Module = extract_module(Chunk, Encoding),
+    Module = try
+                 extract_module(Chunk, Encoding)
+             catch
+                 error:_ ->
+                     error({invalid_chunk, filename(FD), Id})
+             end,
     C = case Cs of
 	    info -> 
 		{Id, Pos, Size};
@@ -1128,8 +1133,18 @@ chunk_to_data(abstract_code=Id, Chunk, File, _Cs, AtomTable, Mod) ->
                     end
 	    end
     end;
-chunk_to_data(atoms=Id, _Chunk, _File, Cs, AtomTable0, _Mod) ->
-    AtomTable = ensure_atoms(AtomTable0, Cs),
+chunk_to_data(atoms=Id, _Chunk, File, Cs, AtomTable0, _Mod) ->
+    AtomTable = try
+                    ensure_atoms(AtomTable0, Cs)
+                catch
+                    error:_ ->
+                        AtomChunkId =
+                            case lists:keyfind("AtU8", 1, Cs) of
+                                {"AtU8", Bin} when is_binary(Bin) -> "AtU8";
+                                _ -> "Atom"
+                            end,
+                        error({invalid_chunk, File, AtomChunkId})
+                end,
     Atoms = ets:tab2list(AtomTable),
     {AtomTable, {Id, lists:sort(Atoms)}};
 chunk_to_data(literals=Id, Chunk, File, _Cs, AtomTable, _Mod) ->
