@@ -117,6 +117,10 @@
          close_with_timeout/1,
          close_transport_accept/0,
          close_transport_accept/1,
+         transport_accept_dead_option_tracker/0,
+         transport_accept_dead_option_tracker/1,
+         transport_accept_option_tracker_dies/0,
+         transport_accept_option_tracker_dies/1,
          abuse_transport_accept_socket/0,
          abuse_transport_accept_socket/1,
          honor_server_cipher_order/0,
@@ -264,17 +268,26 @@ groups() ->
                                    handshake_paus_tests()) --
                                   [new_options_in_handshake,
                                    handshake_continue_tls13_client])
-      ++ (since_1_2() -- [conf_signature_algs])},
+      ++ (since_1_2() -- [conf_signature_algs]) ++ tls_listen_tests()},
      {'tlsv1.2', [parallel],  gen_api_tests() ++ since_1_2() ++ handshake_paus_tests() ++ pre_1_3() ++
-          [honor_client_cipher_order_tls12,honor_server_cipher_order_tls12]},
-     {'tlsv1.1', [parallel],  gen_api_tests() ++ handshake_paus_tests() ++ pre_1_3() ++ pre_1_2()},
+          [honor_client_cipher_order_tls12,honor_server_cipher_order_tls12] ++ tls_listen_tests()},
+     {'tlsv1.1', [parallel],  gen_api_tests() ++ handshake_paus_tests() ++ pre_1_3() ++ pre_1_2() ++
+          tls_listen_tests()},
      {'tlsv1', [parallel],  gen_api_tests() ++ handshake_paus_tests() ++ pre_1_3() ++ pre_1_2() ++
-          beast_mitigation_test()},
+          beast_mitigation_test() ++ tls_listen_tests()},
      {'dtlsv1.2', [parallel], gen_api_tests() -- [new_options_in_handshake, hibernate_server] ++
           handshake_paus_tests() -- [handshake_continue_tls13_client] ++ pre_1_3()},
      {'dtlsv1', [parallel],  gen_api_tests() -- [new_options_in_handshake, hibernate_server] ++
           handshake_paus_tests() -- [handshake_continue_tls13_client] ++ pre_1_3() ++ pre_1_2()},
-     {transport_socket,  [parallel], gen_api_tests() -- [ssl_not_started, dh_params, dh_params_handshake_option]}
+     {transport_socket,  [parallel], (gen_api_tests() -- [ssl_not_started, dh_params, dh_params_handshake_option])
+      ++ tls_listen_tests()}
+    ].
+
+%% TLS only, the option tracker does not exist for DTLS listen sockets
+tls_listen_tests() ->
+    [
+     transport_accept_dead_option_tracker,
+     transport_accept_option_tracker_dies
     ].
 
 since_1_2() ->
@@ -2079,6 +2092,74 @@ close_transport_accept(Config) when is_list(Config) ->
 	Other ->
 	    exit({?LINE, Other})
     end.
+%%--------------------------------------------------------------------
+transport_accept_dead_option_tracker() ->
+    [{doc,"ssl:transport_accept/1 on a listen socket whose option tracker is dead "
+      "returns {error, closed} without waiting for a connection and closes the "
+      "listen socket"}].
+
+transport_accept_dead_option_tracker(Config) when is_list(Config) ->
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    {ok, ListenSocket} = ssl:listen(0, [{active, false} | ServerOpts]),
+    {ok, {_, Port}} = ssl:sockname(ListenSocket),
+    kill_option_tracker(ListenSocket),
+
+    {error, closed} = ssl:transport_accept(ListenSocket, 5000),
+    {error, econnrefused} = gen_tcp:connect("localhost", Port, [], 5000).
+
+%%--------------------------------------------------------------------
+transport_accept_option_tracker_dies() ->
+    [{doc,"If the option tracker dies while ssl:transport_accept/1 waits in the "
+      "transport accept, the accepted socket and the listen socket are closed "
+      "and {error, closed} is returned"}].
+
+transport_accept_option_tracker_dies(Config) when is_list(Config) ->
+    ServerOpts = ssl_test_lib:ssl_options(server_rsa_opts, Config),
+    {ok, ListenSocket} = ssl:listen(0, [{active, false} | ServerOpts]),
+    {ok, {_, Port}} = ssl:sockname(ListenSocket),
+
+    Parent = self(),
+    {Acceptor, AcceptorRef} =
+        spawn_monitor(fun() ->
+                          Parent ! {self(), ssl:transport_accept(ListenSocket)}
+                      end),
+    %% Make sure the alive check has passed and the acceptor is blocked
+    %% in the transport accept before the tracker is killed
+    wait_for_status(Acceptor, waiting),
+    kill_option_tracker(ListenSocket),
+
+    {ok, Client} = gen_tcp:connect("localhost", Port, [{active, false}], 5000),
+    receive
+        {Acceptor, Result} ->
+            {error, closed} = Result,
+            receive {'DOWN', AcceptorRef, process, Acceptor, normal} -> ok end;
+        {'DOWN', AcceptorRef, process, Acceptor, Reason} ->
+            ct:fail({acceptor_crashed, Reason})
+    after 5000 ->
+        ct:fail(acceptor_did_not_return)
+    end,
+
+    %% Accepted socket is closed
+    {error, closed} = gen_tcp:recv(Client, 0, 5000),
+    ok = gen_tcp:close(Client),
+    %% Listen socket is closed
+    {error, econnrefused} = gen_tcp:connect("localhost", Port, [], 5000).
+
+kill_option_tracker(#sslsocket{listener_config = #config{trackers = Trackers}}) ->
+    Tracker = proplists:get_value(option_tracker, Trackers),
+    Ref = erlang:monitor(process, Tracker),
+    exit(Tracker, kill),
+    receive {'DOWN', Ref, process, Tracker, killed} -> ok end.
+
+wait_for_status(Pid, Status) ->
+    case erlang:process_info(Pid, status) of
+        {status, Status} ->
+            ok;
+        {status, _} ->
+            ct:sleep(10),
+            wait_for_status(Pid, Status)
+    end.
+
 %%--------------------------------------------------------------------
 abuse_transport_accept_socket() ->
     [{doc,"Only ssl:handshake and ssl:controlling_process is allowed for transport_accept:sockets"}].

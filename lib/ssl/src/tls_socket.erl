@@ -127,12 +127,28 @@ listen(Transport, Port, #config{transport_info = {Transport, _, _, _, _},
 accept(ListenSocket, #config{transport_info = {Transport,_,_,_,_} = CbInfo,
                              ssl = SslOpts,
                              trackers = Trackers0}, Timeout) ->
+    Tracker = proplists:get_value(option_tracker, Trackers0),
+    case erlang:is_process_alive(Tracker) of
+        true ->
+            ok;
+        false ->
+            %% We still call Transport:accept/2 afterwards so we
+            %% return what the Transport returns when the socket is
+            %% closed.
+            close(Transport, ListenSocket)
+    end,
     case Transport:accept(ListenSocket, Timeout) of
 	{ok, Socket} ->
-            Tracker = proplists:get_value(option_tracker, Trackers0),
-            {ok, EmOpts, Trackers} = accept_options(Tracker),
-	    {ok, Port} = tls_socket:port(Transport, Socket),
-            start_tls_server_connection(SslOpts, Port, Socket, EmOpts, Trackers, CbInfo);
+            try accept_options(Tracker) of
+                {ok, EmOpts, Trackers} ->
+                    {ok, Port} = tls_socket:port(Transport, Socket),
+                    start_tls_server_connection(SslOpts, Port, Socket, EmOpts, Trackers, CbInfo)
+            catch
+                exit:_ ->
+                    close(Transport, Socket),
+                    close(Transport, ListenSocket),
+                    {error, closed}
+            end;
 	{error, Reason} ->
 	    {error, Reason}
     end.
