@@ -40,6 +40,8 @@
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
 	 terminate/2, code_change/3]).
 
+-include("ssh_test_lib.hrl").
+
 -record(hold, {
 	  port,
 	  n,
@@ -321,7 +323,7 @@ do_release(HPos, S) when element(HPos, S) == undefined ->
 do_release(HPos, S) ->
     #hold{port = Port, tref = TRef, q = Q} = element(HPos, S),
     lists:foreach(fun(M) -> gen_tcp:send(Port, M), erlang:yield() end, Q),
-    catch erlang:cancel_timer(TRef),
+    ?OLD_CATCH(erlang:cancel_timer(TRef)),
     receive
 	{release, HPos} -> ok
     after 0 ->
@@ -384,7 +386,7 @@ do_local(Data, S) when is_binary(Data) ->
        TxH#hold.n == 0 ->
 	    lists:foreach(fun(M) -> gen_tcp:send(S#state.peer, M) end, TxH#hold.q),
 	    gen_tcp:send(S#state.peer, Data),
-	    catch erlang:cancel_timer(TxH#hold.tref),
+            ?OLD_CATCH(erlang:cancel_timer(TxH#hold.tref)),
 	    TxP = #state.tx_hold,
 	    receive
 		{release, TxP} ->
@@ -413,7 +415,7 @@ do_peer(Data, S) when is_binary(Data) ->
        RxH#hold.n == 0 ->
 	    lists:foreach(fun(M) -> gen_tcp:send(S#state.local, M) end, RxH#hold.q),
 	    gen_tcp:send(S#state.local, Data),
-	    catch erlang:cancel_timer(RxH#hold.tref),
+            ?OLD_CATCH(erlang:cancel_timer(RxH#hold.tref)),
 	    RxP = #state.rx_hold,
 	    receive
 		{release, RxP} ->

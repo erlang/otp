@@ -235,7 +235,7 @@ init_per_suite(Config) ->
       ).
 
 end_per_suite(_Config) ->
-    catch ssh:stop(),
+    ?OLD_CATCH(ssh:stop()),
     ok.
 
 %%--------------------------------------------------------------------

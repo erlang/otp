@@ -92,7 +92,7 @@ init_per_suite(Config) ->
       ).
 
 end_per_suite(Config) ->
-    catch crypto:engine_unload( proplists:get_value(engine,Config) ),
+    ?OLD_CATCH(crypto:engine_unload( proplists:get_value(engine,Config) )),
     ssh:stop().
 
 %%--------------------------------------------------------------------
@@ -127,7 +127,7 @@ start_daemon(Config, KeyType, KeyId) ->
 
 
 end_per_group(_, Config) ->
-    catch ssh:stop_daemon(proplists:get_value(daemon_pid,Config)),
+    ?OLD_CATCH(ssh:stop_daemon(proplists:get_value(daemon_pid,Config))),
     Config.
 
 %%--------------------------------------------------------------------

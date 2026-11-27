@@ -80,6 +80,19 @@
 -define(wait_match(Pattern, FunctionCall),
         ?wait_match(Pattern, FunctionCall, ok)).
 
+%% Same result as the deprecated 'catch Expr'.
+%% The fun keeps the macro's variables local to each use.
+-define(OLD_CATCH(Expr),
+        (fun() ->
+                 try Expr
+                 catch
+                     throw:OLD_CATCH_T__ -> OLD_CATCH_T__;
+                     error:OLD_CATCH_R__:OLD_CATCH_St__ ->
+                         {'EXIT', {OLD_CATCH_R__, OLD_CATCH_St__}};
+                     exit:OLD_CATCH_R__ -> {'EXIT', OLD_CATCH_R__}
+                 end
+         end)()).
+
 -define(ct_log_show_file(File),
         (fun(File__) ->
                 {ok,Contents__} = file:read_file(File__),
