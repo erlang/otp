@@ -1905,9 +1905,13 @@ handle_cli_msg(C0, ChId, Reply0) ->
                     Ch = Ch0#channel{user = Pid, sys = NewSys},
                     ssh_client_channel:cache_update(Cache, Ch),
                     reply_msg(Ch, C0, Reply0);
-                {error, _Error} ->
+                %% Reply0 is {pty|shell|exec|env, ChId, WantReply, ...}
+                {error, _Error} when element(3, Reply0) =:= true ->
                     Reply = {connection_reply, channel_failure_msg(Ch0#channel.remote_id)},
-                    {[Reply], C0}
+                    {[Reply], C0};
+                {error, _Error} ->
+                    %% RFC 4254 5.4: no response when 'want reply' is FALSE
+                    {[], C0}
             end;
         _ ->
             Ch = Ch0#channel{sys = NewSys},

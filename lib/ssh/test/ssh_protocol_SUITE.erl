@@ -120,6 +120,7 @@
          channel_close_timeout/1,
          subsystem_want_reply_success/1,
          subsystem_want_reply_failure/1,
+         cli_want_reply_failure/1,
          extra_ssh_msg_service_request/1,
          client_guesses_correctly/1,
          client_guesses_incorrectly/1
@@ -225,6 +226,7 @@ all() ->
      {group,channel_close},
      subsystem_want_reply_success,
      subsystem_want_reply_failure,
+     cli_want_reply_failure,
      {group,alive},
      {group,dh},
      {group,ecdh},
@@ -2600,7 +2602,34 @@ subsystem_want_reply_failure(Config) ->
                  {match, #ssh_msg_channel_close{recipient_channel = Channel}, receive_msg}])
       end, [true, false]).
 
+cli_want_reply_failure(Config0) ->
+    %% With no cli, each cli request fails. The failure must only be
+    %% sent when the client asked for a reply (RFC 4254 5.4).
+    Config = start_std_daemon(Config0, [{ssh_cli, no_cli}]),
+    Channel = 7,
+    Requests = [{"exec", <<?STRING(<<"1+1.">>)>>},
+                {"shell", <<>>},
+                {"pty-req", <<?STRING(<<"vt100">>), ?UINT32(80), ?UINT32(24),
+                              ?UINT32(0), ?UINT32(0), ?UINT32(0)>>},
+                {"env", <<?STRING(<<"VAR">>), ?STRING(<<"value">>)>>}],
+    try
+        [check_channel_request_reply(
+           Config, Channel, Type, Data, WantReply,
+           #ssh_msg_channel_failure{recipient_channel = Channel},
+           [{send, #ssh_msg_channel_close{recipient_channel = '$server_channel'}},
+            {match, #ssh_msg_channel_close{recipient_channel = Channel}, receive_msg}])
+         || {Type, Data} <- Requests,
+            WantReply <- [true, false]],
+        ok
+    after
+        stop_std_daemon(Config)
+    end.
+
 check_subsystem_reply(Config, Channel, Name, WantReply, Reply, ChannelOps) ->
+    check_channel_request_reply(Config, Channel, "subsystem", <<?STRING(Name)>>,
+                                WantReply, Reply, ChannelOps).
+
+check_channel_request_reply(Config, Channel, Type, Data, WantReply, Reply, ChannelOps) ->
     {ok, AfterKex} = connect_and_kex(Config),
     {User, Pwd} = server_user_password(Config),
     {ok, _} =
@@ -2618,9 +2647,9 @@ check_subsystem_reply(Config, Channel, Name, WantReply, Reply, ChannelOps) ->
                                                       sender_channel = '$server_channel',
                                                       _ = '_'}, receive_msg},
            {send, #ssh_msg_channel_request{recipient_channel = '$server_channel',
-                                           request_type = "subsystem",
+                                           request_type = Type,
                                            want_reply = WantReply,
-                                           data = <<?STRING(Name)>>}}] ++
+                                           data = Data}}] ++
               [{match, Reply, receive_msg} || WantReply] ++ ChannelOps ++ [close_socket],
           AfterKex),
     ok.
