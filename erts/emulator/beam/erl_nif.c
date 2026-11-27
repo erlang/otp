@@ -1126,7 +1126,7 @@ enif_port_command(ErlNifEnv *env, const ErlNifPort* to_port,
     else
         res = erts_port_output_async(prt, c_p->common.id, msg);
 
-    if (scheduler <= 0)
+    if (scheduler <= 0 && prt)
 	erts_port_dec_refc(prt);
 
     return res;
