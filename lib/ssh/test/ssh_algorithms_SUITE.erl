@@ -48,6 +48,10 @@
          mlkem1024nistp384_sha384/1,
          mlkem_nist_message_sizes/1,
          mlkem_nist_secret_encoding/1,
+         mlkem512_sha256/1,
+         mlkem768_sha256/1,
+         mlkem1024_sha384/1,
+         mlkem_kex_message_sizes/1,
          simple_connect/1,
          simple_exec/1,
          simple_exec_groups/0,
@@ -71,7 +75,9 @@ all() ->
     %% [{group,kex},{group,cipher}... etc
     [mlkem768x25519_hybrid_secret_encoding,
      mlkem768nistp256_sha256, mlkem1024nistp384_sha384,
-     mlkem_nist_message_sizes, mlkem_nist_secret_encoding |
+     mlkem_nist_message_sizes, mlkem_nist_secret_encoding,
+     mlkem512_sha256, mlkem768_sha256, mlkem1024_sha384,
+     mlkem_kex_message_sizes |
      [{group,C} || C <- tags()]].
 
 
@@ -254,6 +260,12 @@ init_per_testcase(mlkem_nist_secret_encoding, Config) ->
         true -> Config;
         false -> {skip, "P-256 or P-384 unsupported"}
     end;
+init_per_testcase(mlkem512_sha256, Config) ->
+    init_mlkem_test(mlkem512, sha256, Config);
+init_per_testcase(mlkem768_sha256, Config) ->
+    init_mlkem_test(mlkem768, sha256, Config);
+init_per_testcase(mlkem1024_sha384, Config) ->
+    init_mlkem_test(mlkem1024, sha384, Config);
 init_per_testcase(sshd_simple_exec, Config) ->
     case proplists:get_value(tag_alg, Config) of
         {public_key, Algs} ->
@@ -288,6 +300,13 @@ init_mlkem_nist_test(Kem, Curve, Hash, Config) ->
         true -> Config;
         false -> {skip, io_lib:format("~p, ~p, or ~p unsupported",
                                      [Kem, Curve, Hash])}
+    end.
+
+init_mlkem_test(Kem, Hash, Config) ->
+    case lists:member(Kem, crypto:supports(kems)) andalso
+        lists:member(Hash, crypto:supports(hashs)) of
+        true -> Config;
+        false -> {skip, io_lib:format("~p or ~p not supported", [Kem, Hash])}
     end.
 
 %%--------------------------------------------------------------------
@@ -456,6 +475,114 @@ mlkem_nist_reject_size(Message, Error, Actual, Allowed) ->
 mlkem_nist_reject_trailing(Message) ->
     try ssh_message:decode(Message) of
         Decoded -> ct:fail({accepted_mlkem_nist_trailing_data, Decoded})
+    catch
+        error:function_clause -> ok;
+        throw:{error, _} -> ok
+    end.
+
+%% Exercise every pure ML-KEM exchange with a real authenticated SSH session,
+%% then force a second exchange over the same connection. The dynamic kex
+%% groups above cover initial connections, exec, and SFTP separately.
+mlkem512_sha256(Config) ->
+    mlkem_rekey(Config, 'mlkem512-sha256').
+
+mlkem768_sha256(Config) ->
+    mlkem_rekey(Config, 'mlkem768-sha256').
+
+mlkem1024_sha384(Config) ->
+    mlkem_rekey(Config, 'mlkem1024-sha384').
+
+mlkem_rekey(Config, Alg) ->
+    true = lists:member(Alg,
+                        proplists:get_value(kex,
+                                            ssh_transport:supported_algorithms())),
+    {Host, Port} = proplists:get_value(srvr_addr, Config),
+    ConnectionRef = ssh_test_lib:std_connect(
+                      Config, Host, Port,
+                      [{preferred_algorithms, [{kex, [Alg]}]}]),
+    try
+        mlkem_assert_negotiated(ConnectionRef, Alg),
+        KexInit = ssh_test_lib:get_kex_init(ConnectionRef),
+        ok = ssh_connection_handler:renegotiate(ConnectionRef),
+        ?wait_match(false,
+                    KexInit == ssh_test_lib:get_kex_init(ConnectionRef),
+                    [], 200, 20),
+        mlkem_assert_negotiated(ConnectionRef, Alg),
+        {ok, ChannelId} = ssh_connection:session_channel(ConnectionRef, infinity),
+        success = ssh_connection:exec(ConnectionRef, ChannelId, "21+21.", infinity),
+        Expected = {ssh_cm, ConnectionRef, {data, ChannelId, 0, <<"42">>}},
+        expected = ssh_test_lib:receive_exec_result(Expected),
+        ssh_test_lib:receive_exec_end(ConnectionRef, ChannelId)
+    after
+        ssh:close(ConnectionRef)
+    end.
+
+mlkem_assert_negotiated(ConnectionRef, Alg) ->
+    {algorithms, Negotiated} = ssh:connection_info(ConnectionRef, algorithms),
+    Alg = proplists:get_value(kex, Negotiated).
+
+%% The three methods reuse message numbers 30/31, so the decoder must apply
+%% the size of the negotiated KEM and consume each message completely.
+mlkem_kex_message_sizes(_Config) ->
+    HostKey = #'RSAPublicKey'{modulus = 3233, publicExponent = 17},
+    EncHostKey = iolist_to_binary(ssh_message:ssh2_pubkey_encode(HostKey)),
+    Signature = <<12:32, "rsa-sha2-256", 3:32, 1, 2, 3>>,
+    lists:foreach(
+      fun({Prefix, PublicKeySize, CiphertextSize}) ->
+              PublicKey = binary:copy(<<0>>, PublicKeySize),
+              Init = kem_init_message(Prefix, PublicKey),
+              #ssh_msg_kex_kem_init{c_init = PublicKey} =
+                  ssh_message:decode(Init),
+              check_invalid_kem_size(
+                kem_init_message(Prefix, binary:part(PublicKey, 0,
+                                                      PublicKeySize - 1)),
+                kem_init_invalid_size, PublicKeySize - 1, PublicKeySize),
+              check_invalid_kem_size(
+                kem_init_message(Prefix, <<PublicKey/binary, 0>>),
+                kem_init_invalid_size, PublicKeySize + 1, PublicKeySize),
+              check_kem_trailing_data(<<Init/binary, 0>>),
+
+              Ciphertext = binary:copy(<<0>>, CiphertextSize),
+              Reply = kem_reply_message(Prefix, EncHostKey,
+                                        Ciphertext, Signature),
+              #ssh_msg_kex_kem_reply{s_reply = Ciphertext,
+                                     h_sig = {"rsa-sha2-256", <<1, 2, 3>>}} =
+                  ssh_message:decode(Reply),
+              check_invalid_kem_size(
+                kem_reply_message(Prefix, EncHostKey,
+                                  binary:part(Ciphertext, 0, CiphertextSize - 1),
+                                  Signature),
+                kem_reply_invalid_size, CiphertextSize - 1, CiphertextSize),
+              check_invalid_kem_size(
+                kem_reply_message(Prefix, EncHostKey,
+                                  <<Ciphertext/binary, 0>>, Signature),
+                kem_reply_invalid_size, CiphertextSize + 1, CiphertextSize),
+              check_kem_trailing_data(<<Reply/binary, 0>>)
+      end,
+      [{<<"kem512">>, 800, 768},
+       {<<"kem768">>, 1184, 1088},
+       {<<"kem1024">>, 1568, 1568}]).
+
+kem_init_message(Prefix, PublicKey) ->
+    <<Prefix/binary, 30, (byte_size(PublicKey)):32,
+      PublicKey/binary>>.
+
+kem_reply_message(Prefix, HostKey, Ciphertext, Signature) ->
+    <<Prefix/binary, 31,
+      (byte_size(HostKey)):32, HostKey/binary,
+      (byte_size(Ciphertext)):32, Ciphertext/binary,
+      (byte_size(Signature)):32, Signature/binary>>.
+
+check_invalid_kem_size(Message, Error, Actual, Expected) ->
+    try ssh_message:decode(Message) of
+        Decoded -> ct:fail({accepted_invalid_kem_size, Decoded})
+    catch
+        throw:{error, {Error, Actual, Expected}} -> ok
+    end.
+
+check_kem_trailing_data(Message) ->
+    try ssh_message:decode(Message) of
+        Decoded -> ct:fail({accepted_kem_trailing_data, Decoded})
     catch
         error:function_clause -> ok;
         throw:{error, _} -> ok

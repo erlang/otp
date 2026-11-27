@@ -43,7 +43,9 @@
 
 -define(MAX_RND_PADDING_LEN, 15).
 
-%% Hybrid KEX limits
+%% ML-KEM KEX limits (NIST FIPS 203)
+-define(MLKEM512_PUBLICKEY_SIZE, 800).
+-define(MLKEM512_CIPHERTEXT_SIZE, 768).
 -define(MLKEM768_PUBLICKEY_SIZE, 1184).
 -define(MLKEM768_CIPHERTEXT_SIZE, 1088).
 -define(MLKEM1024_PUBLICKEY_SIZE, 1568).
@@ -252,6 +254,9 @@ ssh:daemon(Port, [{subsystems, [ssh_sftpd:subsystem_spec([])]} | Options])
         'mlkem768x25519-sha256' |
         'mlkem768nistp256-sha256' |
         'mlkem1024nistp384-sha384' |
+        'mlkem512-sha256' |
+        'mlkem768-sha256' |
+        'mlkem1024-sha384' |
         legacy_kex_alg().
 
 -doc(#{group => <<"Legacy Algorithms">>}).
