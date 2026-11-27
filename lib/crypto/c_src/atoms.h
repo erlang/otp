@@ -161,8 +161,10 @@ extern ERL_NIF_TERM atom_mlkem768;
 extern ERL_NIF_TERM atom_mlkem1024;
 #endif
 
-#ifdef HAVE_KDF
 extern ERL_NIF_TERM atom_salt;
+extern ERL_NIF_TERM atom_personalization;
+
+#ifdef HAVE_KDF
 extern ERL_NIF_TERM atom_info;
 extern ERL_NIF_TERM atom_iterations;
 extern ERL_NIF_TERM atom_n;

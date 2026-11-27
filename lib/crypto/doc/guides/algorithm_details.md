@@ -236,6 +236,33 @@ Note that the 8 and 16 byte outputs are _not_ truncations of one another; they
 differ in finalization, so the output size must be chosen explicitly through the
 `size` option.
 
+### Keyed BLAKE2
+
+Keyed BLAKE2 ([RFC 7693](https://www.rfc-editor.org/rfc/rfc7693)) is available
+as the MAC types `blake2b` and `blake2s` with OpenSSL 3.0 or later if not
+disabled by configuration.
+
+To dynamically check availability, check that the name `blake2b` or `blake2s` is
+present in the list returned by [crypto:supports(macs)](`crypto:supports/1`).
+
+The key is 1 to 64 bytes for `blake2b` and 1 to 32 bytes for `blake2s`. The
+`SubType` argument is a
+[`t:crypto:blake2_mac_options/0`](`t:crypto:blake2_mac_options/0`) map, which
+may contain these optional keys:
+
+| Key               | Meaning                | `blake2b`         | `blake2s`        | Default   |
+| ----------------- | ---------------------- | ----------------- | ---------------- | --------- |
+| `size`            | output size in bytes   | `1`..`64`         | `1`..`32`        | maximum   |
+| `salt`            | salt                   | binary, ≤16 bytes | binary, ≤8 bytes | all zeros |
+| `personalization` | personalization string | binary, ≤16 bytes | binary, ≤8 bytes | all zeros |
+
+If a `salt` or `personalization` value is shorter than the maximum, it is padded
+with zeros, as in the BLAKE2 reference implementation. So `<<"ab">>` and
+`<<"ab",0>>` give the same output.
+
+The output size is a BLAKE2 parameter, so different sizes give unrelated
+outputs: `#{size => 32}` is _not_ the first 32 bytes of the 64 byte output.
+
 ## Hash
 
 To dynamically check availability, check that the wanted name in the _Names_
