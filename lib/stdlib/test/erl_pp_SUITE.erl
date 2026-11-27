@@ -1221,16 +1221,17 @@ pr_1014(Config) ->
     ok.
 
 otp_13662(Config) ->
-    Include = "abcdefghijabcdefghijabcdefghijabcdefghijabcde"
+    Include = "test_app/include/abcdefghijabcdefghijabcdefghijabcdefghijabcde"
               "fghij-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.hrl",
     IncludeFile = filename(Include, Config),
+    ok = filelib:ensure_dir(IncludeFile),
     ok = file:write_file(IncludeFile, <<>>),
     Ts = [{otp_13662,
           <<"-file(\"abcdefghijabcdefghijabcdefghijabcdefghijabcde\"\n
                    \"fghij-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.erl\", 0).\n
-            -include(\"abcdefghijabcdefghijabcdefghijabcdefghijabcde\"
+            -include(\"test_app/include/abcdefghijabcdefghijabcdefghijabcdefghijabcde\"
                      \"fghij-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.hrl\").\n
-            -include_lib(\"abcdefghijabcdefghijabcdefghijabcdefghijabcde\"
+            -include_lib(\"test_app/include/abcdefghijabcdefghijabcdefghijabcdefghijabcde\"
                          \"fghij-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.hrl\").
             -compile(export_all).\n
             t() ->\n
