@@ -1705,7 +1705,7 @@ int ei_receive_tmo(int fd, unsigned char *bufp, int bufsize, unsigned ms)
 	return ERL_TICK;
     }
     
-    if (len > bufsize) {
+    if (len < 1 || len > bufsize) {
 	/* FIXME: We should drain the message. */
 	erl_errno = EMSGSIZE;
 	return ERL_ERROR;
@@ -2187,12 +2187,14 @@ static int recv_status(ei_cnode *ec, void *ctx,
     int is_static = 1;
     int buflen = DEFBUF_SIZ;
     int rlen;
+    int retval;
     
     if ((rlen = read_hs_package(ec->cbs, ctx, pkt_sz,
                                 &buf, &buflen, &is_static, ms)) <= 0) {
 	EI_TRACE_ERR1("recv_status",
 		      "<- RECV_STATUS socket read failed (%d)", rlen);
-	goto error;
+        retval = -1;
+        goto done;
     }
 
     EI_TRACE_CONN2("recv_status",
@@ -2201,33 +2203,37 @@ static int recv_status(ei_cnode *ec, void *ctx,
     if (ec->thisnodename[0]) {
         if (rlen >= 3 && buf[0] == 's' && buf[1] == 'o' && buf[2] == 'k') {
             /* Expecting "sok" or "sok_simultaneous" */
-            if (!is_static)
-                free(buf);
-            return 0;
+            retval = 0;
+        }
+        else  {
+            retval = -1;
         }
     }
     else { /* dynamic node name */
-        const char* at;
-        int namelen;
         if (rlen >= 7 && strncmp(buf, "snamed:", 7) == 0) {
-            buf += 7;
+            const char* buf_ptr = buf + 7;
+            const char* at;
+            int namelen;
+
             rlen -= 7;
-            namelen = get16be(buf);
+            namelen = get16be(buf_ptr);
             rlen -= 2;
             if (namelen > MAXNODELEN || (namelen+4) > rlen) {
                 EI_TRACE_ERR1("recv_status","<- RECV_STATUS nodename too long (%d)",
                               namelen);
-                goto error;
+                retval = -1;
+                goto done;
             }
-            memcpy(ec->thisnodename, buf, namelen);
+            memcpy(ec->thisnodename, buf_ptr, namelen);
             ec->thisnodename[namelen] = '\0';
-            buf += namelen;
-            ec->creation = get32be(buf);
+            buf_ptr += namelen;
+            ec->creation = get32be(buf_ptr);
 
             /* extract alive part from nodename */
             if (!(at = strchr(ec->thisnodename,'@'))) {
                 EI_TRACE_ERR0("ei_connect","Dynamic node name has no @ in name");
-                return ERL_ERROR;
+                retval = -1;
+                goto done;
             } else {
                 const int alen = at - ec->thisnodename;
                 strncpy(ec->thisalivename, ec->thisnodename, alen);
@@ -2238,13 +2244,16 @@ static int recv_status(ei_cnode *ec, void *ctx,
             ec->self.num = 0;
             ec->self.serial = 0;
             ec->self.creation = ec->creation;
-            return 0;
+            retval = 0;
+        }
+        else {
+            retval = -1;
         }
     }
-error:
+done:
     if (!is_static)
 	free(buf);
-    return -1;
+    return retval;
 }
 
 static DistFlags preferred_flags(void)
