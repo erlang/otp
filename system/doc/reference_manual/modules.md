@@ -65,7 +65,9 @@ but user-defined module attributes must have arity one.
 
 ### Pre-Defined Module Attributes
 
-Pre-defined module attributes are to be placed before any function declaration.
+Module attributes can be placed before, between, or after function declarations.
+The `-module` attribute must still be specified first. Attributes such as `-export`
+and `-import` apply to the whole module, regardless of their position.
 
 - **`-module(Module).`** - Module declaration, defining the name of the module.
   The name `Module`, an atom, is to be the same as the file name minus the extension
