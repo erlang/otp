@@ -1075,10 +1075,15 @@ is_not_wider(TA, TB) ->
     false = is_record(TB, ?MODULE, t_union),    %Assertion.
     glb(TA, TB) =:= TA.
 
-is_number_not_wider(#t_float{elements=R1}, #t_number{elements=R2}) ->
+is_number_not_wider(#t_float{elements=R1}=T1, #t_number{elements=R2}) ->
     NormR1 = case norm_number_range(R1) of
                  #t_number{elements={Min,Max}} when is_float(Min); is_float(Max) ->
-                     #t_float{elements={Min,Max}};
+                     %% At least one bound has a fractional part, so
+                     %% the range must remain a float range. Use the
+                     %% original bounds: glb/2 returns float bounds,
+                     %% which would never be equal to a bound that
+                     %% has been normalized to an integer.
+                     T1;
                  #t_number{}=Norm0 ->
                      Norm0
              end,

@@ -1810,6 +1810,10 @@ float_widens_seq() ->
     2.0 = float_widens_6a(id(2.0)),
     1.0e20 = float_widens_6a(id(1.0e20)),
     1 = float_widens_6b(),
+    [1] = float_widens_7([1]),
+    [0.5,2.0] = float_widens_7([0.5,2.0]),
+    [0.5,1.0e300] = float_widens_7([0.5,1.0e300]),
+    [-1.0e300,-0.5] = float_widens_7([-1.0e300,-0.5]),
     
     done.
 
@@ -1872,6 +1876,10 @@ float_widens_6b() ->
     float_widens_6(1).
 
 float_widens_6(I) -> I.
+
+%% GH-12287. A float range with one whole bound and one bound with a
+%% fractional part was always considered wider than a number range.
+float_widens_7(L) -> L.
 
 cover_is_not_wider() ->
     ?assertError(_, find(id(~""), id(""))).
