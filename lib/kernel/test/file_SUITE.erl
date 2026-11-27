@@ -4171,6 +4171,25 @@ do_large_file(Name) ->
     end,
     ok = ?FILE_MODULE:close(F2),
 
+    %% The same with pread; used to fail on macOS
+    {ok, F3} = ?FILE_MODULE:open(Name, [raw,read,binary]),
+    case {?FILE_MODULE:pread(F3, 0, P), erlang:system_info(wordsize)} of
+        {{ok, B3}, 8} ->
+            P = byte_size(B3);
+        {eof, 8} when IsWindows ->
+            ok;
+        {eof, 4} ->
+            ok;
+        {{error,enomem}, 8} ->
+            case memsize() of
+                MemSize3 when MemSize3 < 12_000_000_000 ->
+                    ok;
+                _ ->
+                    error(enomem)
+            end
+    end,
+    ok = ?FILE_MODULE:close(F3),
+
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -4202,6 +4221,12 @@ do_large_write(Name) ->
             %% Even multiples of MAX_SYSIOVEC_IOVLEN would cause a crash
             ok = file:write_file(Name, binary:part(Bin, 0, 1 bsl 31)),
 	    {ok,#file_info{size=1 bsl 31}} = file:read_file_info(Name),
+
+            %% pwrite of more than 2 GB used to fail on macOS
+            {ok,F} = file:open(Name, [raw,read,write,binary]),
+            ok = file:pwrite(F, 1, binary:part(Bin, 0, (1 bsl 31) + 1)),
+            ok = file:close(F),
+	    {ok,#file_info{size=(1 bsl 31) + 2}} = file:read_file_info(Name),
 	    ok
     end.
 

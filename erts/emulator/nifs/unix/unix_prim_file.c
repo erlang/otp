@@ -418,11 +418,28 @@ Sint64 efile_preadv(efile_data_t *d, Sint64 offset, SysIOVec *iov, int iovlen) {
 
 #if defined(HAVE_PREADV)
         result = preadv(u->fd, iov, MIN(IOV_MAX, iovlen), offset);
+
+        /* Fall back to using pread(2) if preadv(2) reports that the combined
+         * size of iov is greater than SSIZE_T_MAX. preadv(2) implies
+         * pread(2). */
+        if(result < 0 && errno == EINVAL) {
+            result = pread(u->fd, iov->iov_base, iov->iov_len, offset);
+        }
 #elif defined(HAVE_PREAD)
         result = pread(u->fd, iov->iov_base, iov->iov_len, offset);
 #else
         result = read(u->fd, iov->iov_base, iov->iov_len);
 #endif
+
+        /* Some OSs (e.g. macOS) does not allow reads greater than 2 GB,
+           so if we get EINVAL, we try with a smaller length */
+        if(result < 0 && errno == EINVAL && iov->iov_len > FALLBACK_RW_LENGTH) {
+#if defined(HAVE_PREADV) || defined(HAVE_PREAD)
+            result = pread(u->fd, iov->iov_base, FALLBACK_RW_LENGTH, offset);
+#else
+            result = read(u->fd, iov->iov_base, FALLBACK_RW_LENGTH);
+#endif
+        }
 
         if(result > 0) {
             shift_iov(&iov, &iovlen, result);
@@ -474,11 +491,28 @@ Sint64 efile_pwritev(efile_data_t *d, Sint64 offset, SysIOVec *iov, int iovlen) 
 
 #if defined(HAVE_PWRITEV)
         result = pwritev(u->fd, iov, MIN(IOV_MAX, iovlen), offset);
+
+        /* Fall back to using pwrite(2) if pwritev(2) reports that the combined
+         * size of iov is greater than SSIZE_T_MAX. pwritev(2) implies
+         * pwrite(2). */
+        if(result < 0 && errno == EINVAL) {
+            result = pwrite(u->fd, iov->iov_base, iov->iov_len, offset);
+        }
 #elif defined(HAVE_PWRITE)
         result = pwrite(u->fd, iov->iov_base, iov->iov_len, offset);
 #else
         result = write(u->fd, iov->iov_base, iov->iov_len);
 #endif
+
+        /* Some OSs (e.g. macOS) does not allow writes greater than 2 GB,
+           so if we get EINVAL, we try with a smaller length */
+        if(result < 0 && errno == EINVAL && iov->iov_len > FALLBACK_RW_LENGTH) {
+#if defined(HAVE_PWRITEV) || defined(HAVE_PWRITE)
+            result = pwrite(u->fd, iov->iov_base, FALLBACK_RW_LENGTH, offset);
+#else
+            result = write(u->fd, iov->iov_base, FALLBACK_RW_LENGTH);
+#endif
+        }
 
         if(result > 0) {
             shift_iov(&iov, &iovlen, result);
