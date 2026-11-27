@@ -305,14 +305,15 @@ rwmutex_freqread_rdrs_add(ethr_rwmutex *rwmtx,
     }
 }
 
+/* The reader count update needs a full barrier, check callers */
 static ETHR_INLINE void
-rwmutex_freqread_rdrs_inc(ethr_rwmutex *rwmtx, ethr_ts_event *tse)
+rwmutex_freqread_rdrs_inc_mb(ethr_rwmutex *rwmtx, ethr_ts_event *tse)
 {
     int ix;
     if (rwmtx->type == ETHR_RWMUTEX_TYPE_FREQUENT_READ) {
 	ix = tse->rgix;
     atomic_inc:
-	ethr_atomic32_inc(&rwmtx->tdata.ra[ix].data.readers);
+        ethr_atomic32_inc_mb(&rwmtx->tdata.ra[ix].data.readers);
     }
     else {
 	ix = tse->mtix;
@@ -320,7 +321,7 @@ rwmutex_freqread_rdrs_inc(ethr_rwmutex *rwmtx, ethr_ts_event *tse)
 	    goto atomic_inc;
 	ETHR_ASSERT(rwmtx->type == ETHR_RWMUTEX_TYPE_EXTREMELY_FREQUENT_READ);
 	ETHR_ASSERT(ethr_atomic32_read(&rwmtx->tdata.ra[ix].data.readers) == 0);
-	ethr_atomic32_set(&rwmtx->tdata.ra[ix].data.readers, (ethr_sint32_t) 1);
+        ethr_atomic32_set_mb(&rwmtx->tdata.ra[ix].data.readers, (ethr_sint32_t) 1);
     }
 }
 
@@ -368,13 +369,13 @@ rwmutex_freqread_rdrs_dec_read(ethr_rwmutex *rwmtx, ethr_ts_event *tse)
 }
 
 static ETHR_INLINE ethr_sint32_t
-rwmutex_freqread_rdrs_dec_read_relb(ethr_rwmutex *rwmtx, ethr_ts_event *tse)
+rwmutex_freqread_rdrs_dec_read_mb(ethr_rwmutex *rwmtx, ethr_ts_event *tse)
 {
     int ix;
     if (rwmtx->type == ETHR_RWMUTEX_TYPE_FREQUENT_READ) {
 	ix = tse->rgix;
     atomic_dec_read:
-	return ethr_atomic32_dec_read_relb(&rwmtx->tdata.ra[ix].data.readers);
+        return ethr_atomic32_dec_read_mb(&rwmtx->tdata.ra[ix].data.readers);
     }
     else {
 	ix = tse->mtix;
@@ -382,7 +383,7 @@ rwmutex_freqread_rdrs_dec_read_relb(ethr_rwmutex *rwmtx, ethr_ts_event *tse)
 	    goto atomic_dec_read;
 	ETHR_ASSERT(rwmtx->type == ETHR_RWMUTEX_TYPE_EXTREMELY_FREQUENT_READ);
 	ETHR_ASSERT(ethr_atomic32_read(&rwmtx->tdata.ra[ix].data.readers) == 1);
-	ethr_atomic32_set_relb(&rwmtx->tdata.ra[ix].data.readers,
+        ethr_atomic32_set_mb(&rwmtx->tdata.ra[ix].data.readers,
 			     (ethr_sint32_t) 0);
 	return (ethr_sint32_t) 0;
     }
@@ -2202,9 +2203,7 @@ rwmutex_freqread_rlock(ethr_rwmutex *rwmtx, ethr_ts_event *tse, int trylock)
     int res = 0;
     ethr_sint32_t act;
 
-    rwmutex_freqread_rdrs_inc(rwmtx, tse);
-
-    ETHR_MEMORY_BARRIER;
+    rwmutex_freqread_rdrs_inc_mb(rwmtx, tse);
 
     act = ethr_atomic32_read_acqb(&rwmtx->mtxb.flgs);
 
@@ -2934,11 +2933,9 @@ ethr_rwmutex_runlock(ethr_rwmutex *rwmtx)
     case ETHR_RWMUTEX_TYPE_EXTREMELY_FREQUENT_READ: {
 	ethr_ts_event *tse = ethr_peek_ts_event();
 
-	act = rwmutex_freqread_rdrs_dec_read_relb(rwmtx, tse);
+        act = rwmutex_freqread_rdrs_dec_read_mb(rwmtx, tse);
 
 	ETHR_ASSERT(act >= 0);
-
-	ETHR_MEMORY_BARRIER;
 
 	if (act == 0) {
 	    act = ethr_atomic32_read(&rwmtx->mtxb.flgs);
