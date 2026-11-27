@@ -903,9 +903,8 @@ universal_time_to_system_time(UniversalTime) ->
       Option :: {unit, erlang:time_unit()}.
 universal_time_to_system_time(DateTime, Options) ->
     Unit = proplists:get_value(unit, Options, second),
-    Factor = factor(Unit),
     Time = datetime_to_system_time(DateTime),
-    Time * Factor.
+    erlang:convert_time_unit(Time, second, Unit).
 
 %% universal_time_to_local_time(DateTime)
 %%
