@@ -76,7 +76,7 @@ groups() ->
 init_per_suite(Config) ->
     ?CHECK_CRYPTO(
        begin
-	   catch ssh:stop(),
+           ?OLD_CATCH(ssh:stop()),
 	   DataDir = proplists:get_value(data_dir, Config),
 	   FileAlt = filename:join(DataDir, "ssh_sftpd_file_alt.erl"),
 	   c:c(FileAlt),
@@ -145,10 +145,10 @@ init_per_testcase(TestCase, Config) ->
     [{port, Port}, {sftp, {ChannelPid, Connection}}, {sftpd, Sftpd} | NewConfig].
 
 end_per_testcase(_TestCase, Config) ->
-    catch ssh:stop_daemon(proplists:get_value(sftpd, Config)),
+    ?OLD_CATCH(ssh:stop_daemon(proplists:get_value(sftpd, Config))),
     {Sftp, Connection} = proplists:get_value(sftp, Config),
-    catch ssh_sftp:stop_channel(Sftp),
-    catch ssh:close(Connection),
+    ?OLD_CATCH(ssh_sftp:stop_channel(Sftp)),
+    ?OLD_CATCH(ssh:close(Connection)),
     ssh:stop().
 
 %%--------------------------------------------------------------------

@@ -151,6 +151,10 @@ with_retry/2, with_retry/3
          median/1,
          assert_timing_symmetry/3]).
 
+%% try_enable_fips_mode/0 switches FIPS mode at runtime, which the
+%% suggested replacement (the fips_mode config parameter) cannot do.
+-compile({nowarn_deprecated_function, [{crypto,enable_fips_mode,1}]}).
+
 -include_lib("common_test/include/ct.hrl").
 -include("ssh_transport.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -522,7 +526,7 @@ rcv_expected(Expect, SshPort, Timeout) ->
 	    case Expect(Recvd) of
 		true ->
                     ?CT_LOG("Got expected ~p from ~p",[Recvd,SshPort]),
-		    catch port_close(SshPort),
+                    ?OLD_CATCH(port_close(SshPort)),
 		    rcv_lingering(50);
 		false ->
                     ?CT_LOG("Got UNEXPECTED ~p~n",[Recvd]),
@@ -530,14 +534,14 @@ rcv_expected(Expect, SshPort, Timeout) ->
 	    end;
 	{SshPort, Expect} ->
             ?CT_LOG("Got expected ~p from ~p",[Expect,SshPort]),
-	    catch port_close(SshPort),
+            ?OLD_CATCH(port_close(SshPort)),
 	    rcv_lingering(50);
 	Other ->
             ?CT_LOG("Got UNEXPECTED ~p~nExpect ~p",[Other, {SshPort,Expect}]),
 	    rcv_expected(Expect, SshPort, Timeout)
 
     after Timeout ->
-	    catch port_close(SshPort),
+            ?OLD_CATCH(port_close(SshPort)),
 	    ct:fail("Did not receive answer")
     end.
 
@@ -1096,7 +1100,7 @@ mangle_connect_address1({0,0,0,0},         _) -> loopback(false);
 mangle_connect_address1({0,0,0,0,0,0,0,0}, _) -> loopback(true);
 mangle_connect_address1(       IP,     _) when is_tuple(IP) -> IP;
 mangle_connect_address1(A, _) ->
-    case catch inet:parse_address(A) of
+    case ?OLD_CATCH(inet:parse_address(A)) of
         {ok,         {0,0,0,0}} -> loopback(false);
         {ok, {0,0,0,0,0,0,0,0}} -> loopback(true);
         _ -> A

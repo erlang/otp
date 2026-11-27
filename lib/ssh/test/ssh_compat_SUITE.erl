@@ -113,7 +113,7 @@ end_per_suite(_Config) ->
 %%%    os:cmd("docker rm $(docker ps -aq -f status=exited)"),
     %% Remove dangling images:
 %%%    os:cmd("docker rmi $(docker images -f dangling=true -q)"),
-    catch ssh:stop(),
+    ?OLD_CATCH(ssh:stop()),
     ok.
 
 
@@ -193,7 +193,7 @@ init_per_group(G, Config0) ->
 end_per_group(G, Config) ->
     case lists:member(G, ssh_image_versions()) of
         true ->
-            catch stop_docker(proplists:get_value(id,Config));
+            ?OLD_CATCH(stop_docker(proplists:get_value(id,Config)));
         false ->
             ok
     end.
@@ -1400,7 +1400,7 @@ one_test_erl_client(SFTP, Id, C) when SFTP==sftp ; SFTP==sftp_async ->
         ok = ssh_sftp:make_dir(Ch, RootDir),
         {ok, #file_info{type=directory, access=read_write}} = ssh_sftp:read_file_info(Ch, RootDir),
         R = do_sftp_tests_erl_client(SFTP, C, Ch, Id, RootDir),
-        catch ssh_sftp:stop_channel(Ch),
+        ?OLD_CATCH(ssh_sftp:stop_channel(Ch)),
         R
     catch
         Class:Error:ST ->
@@ -1422,15 +1422,17 @@ do_sftp_tests_erl_client(sftp, _C, Ch, _Id, RootDir) ->
     F0 = filename:join(RootDir, FileName0),
 
     %% Create and write a file:
+    Data0 = mkbin(1234,240),
     ok = ssh_sftp:write_file(Ch,
                              F0 = filename:join(RootDir, FileName0),
-                             Data0 = mkbin(1234,240)),
+                             Data0),
     {ok,Data0} = ssh_sftp:read_file(Ch, F0),
     {ok, #file_info{type=regular, access=read_write, size=1234}} = ssh_sftp:read_file_info(Ch, F0),
 
     %% Re-write:
     {ok,Handle0} = ssh_sftp:open(Ch, F0, [write,read,binary]),
-    ok = ssh_sftp:pwrite(Ch, Handle0, 16, Data0_1=mkbin(10,255)),
+    Data0_1 = mkbin(10,255),
+    ok = ssh_sftp:pwrite(Ch, Handle0, 16, Data0_1),
 
     <<B1:16/binary, _:10/binary, B2:(1234-26)/binary>> = Data0,
     FileContents = <<B1:16/binary, Data0_1:10/binary, B2:(1234-26)/binary>>,
@@ -1498,9 +1500,8 @@ renegotiate_test(Kex1, ConnectionRef) ->
 %%                  'openssh8.8p1-openssl1.1.1l']
 
 log_image_versions(ImageVersions, Config) ->
-    case true == (catch
-                      lists:member({save_ssh_data,3},
-                                   ssh_collect_labmachine_info_SUITE:module_info(exports)))
+    case true == ?OLD_CATCH(lists:member({save_ssh_data,3},
+                                         ssh_collect_labmachine_info_SUITE:module_info(exports)))
     of
         true ->
             HostPfx = hostname()++"_docker",

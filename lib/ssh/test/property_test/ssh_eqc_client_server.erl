@@ -23,7 +23,7 @@
 
 -module(ssh_eqc_client_server).
 
--compile(export_all).
+-compile([export_all, nowarn_export_all]).
 
 -include_lib("common_test/include/ct.hrl").
 -include_lib("common_test/include/ct_property_test.hrl").
@@ -158,7 +158,7 @@ initial_state() ->
   #state{}.
 
 %%% called when using commands/2
-initial_state(DataDir) ->
+initial_state(_DataDir) ->
     application:stop(ssh),
     ssh:start().
 
@@ -279,14 +279,21 @@ client_init() -> client_loop().
 client_loop() ->
     receive
 	{please_do,Fun,Ref,Pid} ->
-	    Pid ! {my_pleasure, catch Fun(), Ref},
+            Result = try Fun()
+                     catch
+                         throw:T -> T;
+                         error:R:St -> {'EXIT', {R, St}};
+                         exit:R -> {'EXIT', R}
+                     end,
+            Pid ! {my_pleasure, Result, Ref},
 	    client_loop()
     end.
     
 do(Pid, Fun) -> do(Pid, Fun, 60?sec).
 
 do(Pid, Fun, Timeout) when is_function(Fun,0) ->
-    Pid ! {please_do,Fun,Ref=make_ref(),self()},
+    Ref = make_ref(),
+    Pid ! {please_do,Fun,Ref,self()},
     receive
 	{my_pleasure, Result, Ref} -> Result
     after

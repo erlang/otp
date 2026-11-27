@@ -2433,7 +2433,7 @@ to_lists(L) -> lists:map(fun erlang:atom_to_list/1, L).
 
 %%%---- init_suite and end_suite ---------------------------------------	
 start_apps(Config) ->
-    catch ssh:stop(),
+    ?OLD_CATCH(ssh:stop()),
     ok = ssh:start(),
     Config.
 

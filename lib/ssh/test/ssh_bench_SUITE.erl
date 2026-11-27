@@ -43,6 +43,7 @@
 -include("ssh_transport.hrl").
 -include("ssh_connect.hrl").
 -include("ssh_auth.hrl").
+-include("ssh_test_lib.hrl").
 
 %%%================================================================
 %%%
@@ -66,7 +67,7 @@ all() -> [connect,
 %%% 
 
 init_per_suite(Config) ->
-    catch ssh:stop(),
+    ?OLD_CATCH(ssh:stop()),
     try 
 	ok = ssh:start()
     of
@@ -96,7 +97,7 @@ init_per_suite(Config) ->
     end.
     
 end_per_suite(_Config) ->
-    catch ssh:stop(),
+    ?OLD_CATCH(ssh:stop()),
     ok.
 
 %%%================================================================

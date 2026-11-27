@@ -204,7 +204,7 @@ init_per_group(unicode, Config) ->
                           %%     )
 		],
 	    FN = fn(proplists:get_value(tar_F1_txt,NewConfig), NewConfig),
-	    case catch file:read_file(FN) of
+            case ?OLD_CATCH(file:read_file(FN)) of
 		{ok,FN_contents} ->
 		    ct:log("Readable file:read_file(~tp) ->~n~tp",[FN,FN_contents]),
 		    NewConfig;
@@ -370,8 +370,8 @@ init_per_testcase(Case, Config00) ->
             _ when Case == read_6GB_prepare_openssh_server ->
                 PrepareOpenSSHServer()
 	end,
-    case catch proplists:get_value(remote_tar,Config) of
-	%% The 'catch' is for the case of Config={skip,...}
+    case ?OLD_CATCH(proplists:get_value(remote_tar,Config)) of
+        %% ?OLD_CATCH is for the case of Config={skip,...}
 	true ->
 	    %% Provide a ChannelPid independent of the sftp-channel already opened.
 	    {ok,ChPid2} = ssh_sftp:start_channel(proplists:get_value(connection,Config)),
@@ -392,7 +392,7 @@ end_per_testcase(_, Config) ->
 end_per_testcase(Config) ->
     {Sftp, Connection} = proplists:get_value(sftp, Config),
     ok = ssh_sftp:stop_channel(Sftp),
-    catch ssh_sftp:stop_channel(proplists:get_value(channel_pid2, Config)),
+    ?OLD_CATCH(ssh_sftp:stop_channel(proplists:get_value(channel_pid2, Config))),
     ok = ssh:close(Connection).
 
 %%--------------------------------------------------------------------
@@ -1178,10 +1178,10 @@ prepare(Config0) ->
 			  Config1,
                           lists:zip(Keys, [proplists:get_value(K,Config0) || K<-Keys])),
 
-    catch ct:log("~p:~p Prepared filenames (Key -> Value):~n~ts",
-                 [?MODULE,?LINE,
-                  [io_lib:format("~p -> ~ts~n", [K,V]) || {K,V} <- Config2,
-                                                          lists:member(K, Keys)]]),
+    ?OLD_CATCH(ct:log("~p:~p Prepared filenames (Key -> Value):~n~ts",
+                      [?MODULE,?LINE,
+                       [io_lib:format("~p -> ~ts~n", [K,V]) || {K,V} <- Config2,
+                                                               lists:member(K, Keys)]])),
 
     DataDir =  proplists:get_value(data_dir, Config2),
     FilenameSrc = filename:join(DataDir, "sftp.txt"),
@@ -1309,13 +1309,13 @@ verify_openssh_loop(_Host, _Config, 0, _Delay) ->
     ?CT_LOG("verify_openssh: all retries exhausted"),
     {skip, "No openssh daemon (retries exhausted)"};
 verify_openssh_loop(Host, Config, Retries, Delay) ->
-    case (catch ssh_sftp:start_channel(Host,
-                                       [{user_interaction, false},
-                                        {silently_accept_hosts, true},
-                                        {save_accepted_host, false},
-                                        {connect_timeout, 10000},
-                                        {timeout, 10000}
-                                       ])) of
+    case ?OLD_CATCH(ssh_sftp:start_channel(Host,
+                                           [{user_interaction, false},
+                                            {silently_accept_hosts, true},
+                                            {save_accepted_host, false},
+                                            {connect_timeout, 10000},
+                                            {timeout, 10000}
+                                           ])) of
         {ok, _ChannelPid, Connection} ->
             [{peer, {_HostName,{IPx,Portx}}}] =
                 ssh:connection_info(Connection,[peer]),

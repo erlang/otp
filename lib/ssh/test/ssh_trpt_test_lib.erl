@@ -36,6 +36,7 @@
 -include("ssh.hrl").		% ?UINT32, ?BYTE, #ssh{} ...
 -include("ssh_transport.hrl").
 -include("ssh_auth.hrl").
+-include("ssh_test_lib.hrl").
 
 %%%----------------------------------------------------------------
 -record(s, {
@@ -137,8 +138,8 @@ op({connect,Host,Port,Opts}, S) when ?role(S) == undefined ->
 
 %%%---- ops for both client and server
 op(close_socket, S) ->
-    catch gen_tcp:close(S#s.socket),
-    catch gen_tcp:close(S#s.listen_socket),
+    ?OLD_CATCH(gen_tcp:close(S#s.socket)),
+    ?OLD_CATCH(gen_tcp:close(S#s.listen_socket)),
     S#s{socket = undefined,
 	listen_socket = undefined,
 	return_value = ok};
@@ -217,7 +218,7 @@ op('$$', S) ->
 
 
 op_val(E, S0) ->
-    case catch op(E, S0) of
+    case ?OLD_CATCH(op(E, S0)) of
 	{'EXIT',{function_clause,[{ssh_trpt_test_lib,op,[E,S0],_}|_]}} ->
 	    {instantiate(E,S0), S0};
 	S=#s{} ->
@@ -592,7 +593,7 @@ receive_binary_msg(S0=#s{}) ->
                        aead_data = <<>>,
                        encrypted_data_buffer = EncryptedDataRest},
              case
-                 catch ssh_message:decode(set_prefix_if_trouble(DecryptedBytes,S1))
+                 ?OLD_CATCH(ssh_message:decode(set_prefix_if_trouble(DecryptedBytes,S1)))
              of
                  {'EXIT',_} -> fail(decode_failed,S1);
 
@@ -635,7 +636,7 @@ set_prefix_if_trouble(Msg = <<?BYTE(Op),_/binary>>, #s{alg=#alg{kex=Kex}})
   when Op == 30;
        Op == 31
        ->
-    case catch atom_to_list(Kex) of
+    case ?OLD_CATCH(atom_to_list(Kex)) of
         "ecdh-sha2-" ++ _ ->
             <<"ecdh",Msg/binary>>;
         "curve25519-" ++ _ ->
