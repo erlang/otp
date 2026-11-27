@@ -2213,10 +2213,16 @@ static int select_chunk_on_loop_ended(traverse_context_t* ctx_base,
                 Eterm tmp = ctx->match_list;
                 rest = ctx->match_list;
                 while (got-- > ctx->chunk_size + 1) {
+                    if (is_not_list(tmp)) {
+                        goto bad_continuation;
+                    }
                     tmp = CDR(list_val(tmp));
                     ++rest_size;
                 }
                 ++rest_size;
+                if (is_not_list(tmp)) {
+                    goto bad_continuation;
+                }
                 ctx->match_list = CDR(list_val(tmp));
                 CDR(list_val(tmp)) = NIL; /* Destructive, the list has never
                                              been in 'user space' */
@@ -2256,6 +2262,10 @@ static int select_chunk_on_loop_ended(traverse_context_t* ctx_base,
         *ret = ctx->match_list;
         return DB_ERROR_NONE;
     }
+
+bad_continuation:
+    *ret = NIL;
+    return DB_ERROR_BADPARAM;
 }
 
 static int select_chunk_on_trap(traverse_context_t* ctx_base,
@@ -2365,15 +2375,22 @@ int select_chunk_continue_on_loop_ended(traverse_context_t* ctx_base,
     if (ctx->chunk_size) {
         Sint rest_size = 0;
         if (got > ctx->chunk_size) {
+            Eterm* hp_end;
             /* Cannot write destructively here,
                the list may have
                been in user space */
-            hp = HAlloc(ctx->base.p, (got - ctx->chunk_size) * 2);
-            while (got-- > ctx->chunk_size) {
+            rest_size = got - ctx->chunk_size;
+            hp = HAlloc(ctx->base.p, rest_size * 2);
+            hp_end = hp + rest_size * 2;
+            for (Sint i = 0; i < rest_size; i++) {
+                if (is_not_list(ctx->match_list)) {
+                    HRelease(ctx->base.p, hp_end, hp);
+                    *ret = NIL;
+                    return DB_ERROR_BADPARAM;
+                }
                 rest = CONS(hp, CAR(list_val(ctx->match_list)), rest);
                 hp += 2;
                 ctx->match_list = CDR(list_val(ctx->match_list));
-                ++rest_size;
             }
         }
         if (rest != NIL || slot_ix >= 0) {
