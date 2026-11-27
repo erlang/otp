@@ -508,7 +508,7 @@ select_extension(Id, [_ | Extensions]) ->
 
 %%--------------------------------------------------------------------
 -spec match_name(Type:: rfc822Name | directoryName | uniformResourceIdentifier |
-                 emailAddress | dNSName | x400Address | ipAdress,
+                 emailAddress | dNSName | x400Address | iPAddress,
                  Name::term(), Names::[term()]) -> boolean().
 %%
 %% Description: Does <Name> match any of name in Names according to
@@ -532,6 +532,9 @@ match_name(uniformResourceIdentifier, URI,  [PermittedName | Rest]) ->
             false
     end;
 
+%% TODO: Dead code — 'emailAddress' is not a GeneralName CHOICE member.
+%% This matching logic is correct per RFC 5280 but should be used by the
+%% rfc822Name clause above instead of is_valid_host_or_domain/2.
 match_name(emailAddress, Name, [PermittedName | Rest]) ->
     Fun = fun(Email, PermittedEmail) ->
                   is_valid_email_address(Email, PermittedEmail,
@@ -560,29 +563,8 @@ match_name(dNSName, Name, [PermittedName | Rest]) ->
 match_name(x400Address, OrAddress, [PermittedAddr | Rest]) ->
     match_name(fun is_or_address/2, OrAddress, PermittedAddr, Rest);
 
-match_name(ipAdress, IP, [PermittedIP | Rest]) ->
-    Fun = fun([IP1, IP2, IP3, IP4],
-	      [IP5, IP6, IP7, IP8, M1, M2, M3, M4]) ->
-		  is_permitted_ip([IP1, IP2, IP3, IP4],
-				  [IP5, IP6, IP7, IP8],
-				  [M1, M2, M3, M4]);
-	     ([IP1, IP2, IP3, IP4, IP5, IP6, IP7, IP8,
-	       IP9, IP10, IP11, IP12, IP13, IP14, IP15, IP16],
-	      [IP17, IP18, IP19, IP20, IP21, IP22, IP23, IP24,
-	       IP25, IP26, IP27, IP28, IP29, IP30, IP31, IP32,
-	       M1, M2, M3, M4, M5, M6, M7, M8,
-	       M9, M10, M11, M12, M13, M14, M15, M16]) ->
-		  is_permitted_ip([IP1, IP2, IP3, IP4, IP5, IP6, IP7, IP8,
-				   IP9, IP10, IP11, IP12, IP13,
-				   IP14, IP15, IP16],
-				  [IP17, IP18, IP19, IP20, IP21, IP22, IP23,
-				   IP24,IP25, IP26, IP27, IP28, IP29, IP30,
-				   IP31, IP32],
-				    [M1, M2, M3, M4, M5, M6, M7, M8, M9, M10,
-				     M11, M12, M13, M14, M15, M16]);
-	     (_,_) ->
-		  false
-	  end,
+match_name(iPAddress, IP, [PermittedIP | Rest]) ->
+    Fun = fun is_permitted_ip/2,
     match_name(Fun, IP, PermittedIP, Rest).
 
 %%====================================================================
@@ -1548,8 +1530,8 @@ is_valid_subject_alt_name({Name, Value}) when Name == rfc822Name;
 	    true
     end;
 
-is_valid_subject_alt_name({iPAdress, Addr}) ->
-    case length(Addr) of
+is_valid_subject_alt_name({iPAddress, Addr}) ->
+    case byte_size(Addr) of
         4 ->  %ipv4
 	    true;
 	16 -> %ipv6
@@ -1645,10 +1627,17 @@ is_in_intersection(#'GeneralSubtree'{base  =
 				   {directoryName, {rdnSequence,[none]}}}
 	     | Trees]
     end;
-is_in_intersection(#'GeneralSubtree'{base = {ipAdress, Ip}},
-		   Trees = [#'GeneralSubtree'{base = {ipAdress, Ip}} | _]) ->
-    %% BUGBUG
-    Trees;
+is_in_intersection(#'GeneralSubtree'{base = {iPAddress, IpMask1}} = Name,
+                   [#'GeneralSubtree'{base = {iPAddress, IpMask2}} | Trees])
+  when byte_size(IpMask1) =:= byte_size(IpMask2),
+       (byte_size(IpMask1) =:= 8 orelse byte_size(IpMask1) =:= 32) ->
+    %% Same address family (IPv4 or IPv6 address + mask)
+    [Name#'GeneralSubtree'{base = {iPAddress, ip_constraints_intersection(IpMask1, IpMask2)}}
+     | Trees];
+is_in_intersection(#'GeneralSubtree'{base = {iPAddress, _}} = Name,
+                   [#'GeneralSubtree'{base = {iPAddress, _}} | Trees]) ->
+    %% Different address families (or malformed), no address is in both
+    [Name#'GeneralSubtree'{base = {iPAddress, <<>>}} | Trees];
 is_in_intersection(#'GeneralSubtree'{base = {x400Address, OrAddr1}} = Addr,
 		   [#'GeneralSubtree'{base = {x400Address, OrAddr2}}
 		    | Trees]) ->
@@ -1677,19 +1666,34 @@ type_subtree_names(Type, SubTrees) ->
     [Name || #'GeneralSubtree'{base = {TreeType, Name}} <- SubTrees,
 	     TreeType =:= Type].
 
-is_permitted_ip([], [], []) ->
-    true;
-is_permitted_ip([CandidatIp | CandidatIpRest],
-		[PermittedIp | PermittedIpRest], [Mask | MaskRest] ) ->
-    case mask_cmp(CandidatIp, PermittedIp, Mask) of
-	true ->
-	    is_permitted_ip(CandidatIpRest, PermittedIpRest, MaskRest);
-	false ->
-	    false
+%% Intersection of two address ranges, given as address followed by
+%% subnet mask (RFC 5280 4.2.1.10), of the same address family.
+ip_constraints_intersection(IpMask1, IpMask2) ->
+    Bits = byte_size(IpMask1) * 4,
+    <<Ip1:Bits, Mask1:Bits>> = IpMask1,
+    <<Ip2:Bits, Mask2:Bits>> = IpMask2,
+    AndMask = Mask1 band Mask2,
+    if (Ip1 band AndMask) == (Ip2 band AndMask) ->
+            %% The bits that both specify are the same
+            Mask = Mask1 bor Mask2,                     % Both masks
+            Ip = (Ip1 band Mask1) bor (Ip2 band Mask2), % Both addresses
+            <<Ip:Bits, Mask:Bits>>;
+       true ->
+            %% No overlap, matches no address (see is_permitted_ip/2)
+            <<>>
     end.
 
-mask_cmp(Canditate, Permitted, Mask) ->
-    (Canditate band Mask) == Permitted.
+is_permitted_ip(<<IP:4/binary>>, <<Permitted:4/binary, Mask:4/binary>>) ->
+    ip_mask_match(IP, Permitted, Mask);
+is_permitted_ip(<<IP:16/binary>>, <<Permitted:16/binary, Mask:16/binary>>) ->
+    ip_mask_match(IP, Permitted, Mask);
+is_permitted_ip(_, _) ->
+    false.
+
+ip_mask_match(<<>>, <<>>, <<>>) -> true;
+ip_mask_match(<<A, IPRest/binary>>, <<B, PermRest/binary>>, <<M, MaskRest/binary>>) ->
+    %% Mask both sides to tolerate malformed constraints with host bits set
+    (A band M) == (B band M) andalso ip_mask_match(IPRest, PermRest, MaskRest).
 
 is_valid_host_or_domain([], _) ->
     false; %% Can happen if URI was not a HTTP URI
