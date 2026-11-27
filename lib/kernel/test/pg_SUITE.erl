@@ -68,7 +68,8 @@
     monitor/1,
     monitor_self/1,
     multi_monitor/1,
-    protocol_upgrade/1
+    protocol_upgrade/1,
+    local_data_version/1
 ]).
 
 -include_lib("common_test/include/ct.hrl").
@@ -97,7 +98,7 @@ all() ->
 groups() ->
     [
         {basic, [parallel], [errors, pg, leave_exit_race, single, overlay_missing,
-                             protocol_upgrade, monitor_self, multi_monitor]},
+                             protocol_upgrade, local_data_version, monitor_self, multi_monitor]},
         {performance, [], [thundering_herd]},
         {cluster, [parallel], [process_owner_check, two, initial, netsplit, trisplit, foursplit,
             exchange, nolocal, double, scope_restart, missing_scope_join, empty_group_by_remote_leave,
@@ -827,6 +828,19 @@ protocol_upgrade(Config) when is_list(Config) ->
     %% stop the peer
     peer:stop(Peer),
     ok.
+
+local_data_version(_Config) ->
+    Scope = ?FUNCTION_NAME,
+    Self = self(),
+    Version = pg:version(),
+    PgPid = whereis(Scope),
+    ok = pg:join(Scope, Scope, Self),
+    PgPid ! {discover, Self, Version + 1},
+    receive
+        {'$gen_cast', {local_data, PgPid, PeerVersion, LocalData}} ->
+            ?assertEqual(Version, PeerVersion),
+            ?assertEqual(#{Scope => [Self]}, LocalData)
+    end.
 
 
 %%--------------------------------------------------------------------
