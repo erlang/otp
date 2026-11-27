@@ -684,6 +684,52 @@ void BeamGlobalAssembler::emit_update_map_single_exact_body_shared() {
     }
 }
 
+/* TMP1 = untagged flat map
+ * TMP5 = size
+ *
+ * Copies the flat map to HTOP, sharing its keys, without bumping HTOP.
+ * Clobbers TMP3, ARG2, ARG5, ARG6, q30, and q31. */
+void BeamGlobalAssembler::emit_copy_flatmap_shared() {
+    Label no_single = a.new_label(), no_pair = a.new_label(),
+          copy = a.new_label(), copied = a.new_label();
+
+    /* Share the key tuple with the old map. */
+    ERTS_CT_ASSERT(offsetof(flatmap_t, thing_word) == 0);
+    ERTS_CT_ASSERT(offsetof(flatmap_t, keys) == 2 * sizeof(Eterm));
+    ERTS_CT_ASSERT(sizeof(flatmap_t) == 3 * sizeof(Eterm));
+    mov_imm(TMP3, MAP_HEADER_FLATMAP);
+    a.stp(TMP3, TMP5, a64::Mem(HTOP));
+    a.ldr(TMP3, a64::Mem(TMP1, offsetof(flatmap_t, keys)));
+    a.str(TMP3, a64::Mem(HTOP, offsetof(flatmap_t, keys)));
+
+    /* Copy all values. We must not over-read, as the old map may be a
+     * literal at the very end of a mapping. */
+    a.add(ARG5, TMP1, imm(sizeof(flatmap_t)));
+    a.add(ARG6, HTOP, imm(sizeof(flatmap_t)));
+    a.lsr(TMP3, TMP5, imm(2));
+
+    a.tbz(TMP5, imm(0), no_single);
+    a.ldr(ARG2, a64::Mem(ARG5).post(sizeof(Eterm)));
+    a.str(ARG2, a64::Mem(ARG6).post(sizeof(Eterm)));
+
+    a.bind(no_single);
+    a.tbz(TMP5, imm(1), no_pair);
+    a.ldr(a64::q30, a64::Mem(ARG5).post(sizeof(Eterm[2])));
+    a.str(a64::q30, a64::Mem(ARG6).post(sizeof(Eterm[2])));
+
+    a.bind(no_pair);
+    a.cbz(TMP3, copied);
+
+    a.bind(copy);
+    a.ldp(a64::q30, a64::q31, a64::Mem(ARG5).post(sizeof(Eterm[4])));
+    a.stp(a64::q30, a64::q31, a64::Mem(ARG6).post(sizeof(Eterm[4])));
+    a.subs(TMP3, TMP3, imm(1));
+    a.b_ne(copy);
+
+    a.bind(copied);
+    a.ret(a64::x30);
+}
+
 void BeamModuleAssembler::emit_update_map_exact(
         const ArgSource &Src,
         const ArgLabel &Fail,
@@ -691,7 +737,159 @@ void BeamModuleAssembler::emit_update_map_exact(
         const ArgWord &Live,
         const ArgWord &Size,
         const Span<const ArgVal> &args) {
+    Label generic = a.new_label(), next = a.new_label();
+
     ASSERT(Size.get() == args.size());
+    ASSERT((Size.get() % 2) == 0);
+
+    /* Inline updates of a handful of immediate keys in a flatmap. Note that
+     * the arguments come in flattened pairs of `{Key, Value}`.
+     *
+     * As we may garbage collect with the map in the register just past the
+     * live ones, the map must be at or below that register and any values in
+     * X registers must be live. This always holds for compiler-generated
+     * code. */
+    bool can_inline = args.size() < (8 * 2);
+
+    if (Src.isXRegister() && Src.as<ArgXRegister>().get() > Live.get()) {
+        can_inline = false;
+    }
+
+    for (size_t i = 0; i < args.size(); i += 2) {
+        const auto &Value = args[i + 1];
+
+        can_inline &= args[i].isImmed();
+
+        if (Value.isXRegister() &&
+            Value.as<ArgXRegister>().get() >= Live.get()) {
+            can_inline = false;
+        }
+    }
+
+    if (can_inline) {
+        Label retry = a.new_label(), changed = a.new_label(),
+              gc = a.new_label();
+        std::vector<Label> store, resume;
+
+        comment("simplified flatmap update");
+
+        mov_arg(ARG1, Src);
+
+        a.bind(retry);
+        emit_is_boxed(generic, Src, ARG1);
+        emit_untag_ptr(TMP1, ARG1);
+
+        ERTS_CT_ASSERT_FIELD_PAIR(flatmap_t, thing_word, size);
+        a.ldp(TMP2, TMP5, a64::Mem(TMP1, offsetof(flatmap_t, thing_word)));
+        a.and_(TMP2, TMP2, imm(_HEADER_MAP_SUBTAG_MASK));
+        a.cmp(TMP2, imm(HAMT_SUBTAG_HEAD_FLATMAP));
+        a.b_ne(generic);
+
+        check_pending_stubs();
+
+        /* The loader sorts the update keys in the same order as the keys of
+         * a flatmap (see `map_key_sort`), so a single forward pass suffices.
+         *
+         * TMP2 = next key, TMP4 = end of keys, TMP5 = map size, TMP6 = offset
+         * from TMP2 to the value of the previous key. */
+        a.ldr(TMP2, a64::Mem(TMP1, offsetof(flatmap_t, keys)));
+        emit_untag_ptr(TMP2, TMP2);
+        a.add(TMP2, TMP2, imm(sizeof(Eterm)));
+        a.add(TMP4, TMP2, TMP5, a64::lsl(3));
+        a.add(TMP6, TMP1, imm(sizeof(flatmap_t) - sizeof(Eterm)));
+        a.sub(TMP6, TMP6, TMP2);
+
+        /* Look for the first value that changes, returning the map as is if
+         * there is none. */
+        for (size_t i = 0; i < args.size(); i += 2) {
+            Label search = a.new_label();
+
+            store.push_back(a.new_label());
+            resume.push_back(a.new_label());
+
+            a.bind(search);
+            a.cmp(TMP2, TMP4);
+            a.b_hs(generic);
+            a.ldr(TMP3, a64::Mem(TMP2).post(sizeof(Eterm)));
+            cmp_arg(TMP3, args[i]);
+            a.b_ne(search);
+
+            auto value = load_source(args[i + 1], ARG2);
+            a.ldr(TMP3, a64::Mem(TMP2, TMP6));
+            a.cmp(TMP3, value.reg);
+            a.b_ne(resume.back());
+        }
+
+        mov_arg(Dst, ARG1);
+        a.b(next);
+
+        for (size_t i = 0; i < resume.size(); i++) {
+            a.bind(resume[i]);
+            a.adr(ARG4, store[i]);
+
+            if (i + 1 < resume.size()) {
+                a.b(changed);
+            }
+        }
+
+        /* Copy the map and resume at the store of the changed value. */
+        a.bind(changed);
+        {
+            /* ARG3 = HTOP + S_RESERVED + bytes needed, as expected by the GC
+             * fragment. */
+            a.add(ARG3, HTOP, TMP5, a64::lsl(3));
+            a.add(ARG3,
+                  ARG3,
+                  imm((MAP_HEADER_FLATMAP_SZ + S_RESERVED) * sizeof(Eterm)));
+            a.cmp(ARG3, E);
+            a.b_hi(gc);
+
+            fragment_call(ga->get_copy_flatmap_shared());
+
+            /* Make TMP6 refer to the values of the new map instead. */
+            a.add(TMP6, TMP6, HTOP);
+            a.sub(TMP6, TMP6, TMP1);
+            a.br(ARG4);
+        }
+
+        /* Store the remaining values in the new map. */
+        for (size_t i = 0; i < args.size(); i += 2) {
+            if (i > 0) {
+                Label search = a.new_label();
+
+                a.bind(search);
+                a.cmp(TMP2, TMP4);
+                a.b_hs(generic);
+                a.ldr(TMP3, a64::Mem(TMP2).post(sizeof(Eterm)));
+                cmp_arg(TMP3, args[i]);
+                a.b_ne(search);
+            }
+
+            a.bind(store[i / 2]);
+            auto value = load_source(args[i + 1], ARG2);
+            a.str(value.reg, a64::Mem(TMP2, TMP6));
+        }
+
+        /* The result must be in ARG1 like on the generic path, as both paths
+         * share the register cache at `next`. */
+        a.add(ARG1, HTOP, imm(TAG_PRIMARY_BOXED));
+        a.sub(HTOP, ARG3, imm(S_RESERVED * sizeof(Eterm)));
+        mov_arg(Dst, ARG1);
+        a.b(next);
+
+        /* Keep the map alive in the register just past the live ones, like
+         * the generic path does. */
+        a.bind(gc);
+        {
+            mov_arg(ArgXRegister(Live.get()), ARG1);
+            mov_imm(ARG4, Live.get() + 1);
+            fragment_call(ga->get_garbage_collect());
+            mov_arg(ARG1, ArgXRegister(Live.get()));
+            a.b(retry);
+        }
+    }
+
+    a.bind(generic);
 
     if (args.size() == 2 && Fail.get() == 0) {
         emit_load_args(args[0], ARG2, args[1], ARG3, Src, ARG4);
@@ -713,4 +911,6 @@ void BeamModuleAssembler::emit_update_map_exact(
     }
 
     mov_arg(Dst, ARG1);
+
+    a.bind(next);
 }
