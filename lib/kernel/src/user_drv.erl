@@ -157,9 +157,17 @@ flush() ->
 
 -spec whereis_group() -> pid() | undefined.
 whereis_group() ->
-    {dictionary, Dict} =
-        erlang:process_info(whereis(?MODULE), dictionary),
-    proplists:get_value(current_group, Dict).
+    case whereis(?MODULE) of
+        undefined ->
+            undefined;
+        Pid ->
+            case erlang:process_info(Pid, dictionary) of
+                {dictionary, Dict} ->
+                    proplists:get_value(current_group, Dict);
+                undefined ->
+                    undefined
+            end
+    end.
 
 %% Backwards compatibility with pre OTP-26 for Elixir/LFE etc
 -spec start(['tty_sl -c -e'| shell()]) -> pid();
