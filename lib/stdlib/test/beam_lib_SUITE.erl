@@ -228,6 +228,44 @@ error(Conf) when is_list(Conf) ->
     {Binary3, _} = split_binary(Binary, DebugInfoStart-4),
     verify(invalid_beam_file, beam_lib:chunks(Binary3, ["Dbgi"])),
 
+    %% GH-12220: An atom chunk that cannot be parsed must result in an
+    %% error return, not an exception.
+    BadAtomChunks =
+        [{"AtU8", <<>>},                        %Empty chunk.
+         {"AtU8", <<1:32,1,255>>},              %Invalid UTF-8.
+         {"AtU8", <<1:32,10,"ab">>},            %Name longer than chunk.
+         {"AtU8", <<-1:32,255>>},               %Bad long atom length.
+         {"Atom", <<1:32,10,"ab">>}],           %Name longer than chunk.
+    _ = [begin
+             BadBeam = atom_chunk_beam(Id, Chunk),
+             ok = file:write_file(BeamFile, BadBeam),
+             [begin
+                  {error,beam_lib,{invalid_chunk,_,Id}} = Res,
+                  verify(invalid_chunk, Res)
+              end || Res <- [beam_lib:chunks(BadBeam, [atoms]),
+                             beam_lib:chunks(BeamFile, [atoms]),
+                             beam_lib:info(BadBeam),
+                             beam_lib:md5(BadBeam),
+                             beam_lib:md5(BeamFile)]]
+         end || {Id, Chunk} <- BadAtomChunks],
+
+    %% The module name is fine, but a later atom is malformed.
+    BadLaterAtomChunks =
+        [{"AtU8", <<2:32,1,"m",1,255>>},            %Invalid UTF-8.
+         {"AtU8", <<2:32,1,"m",10,"ab">>},          %Name longer than chunk.
+         {"AtU8", <<-2:32,16#10,"m",16#A0,"ab">>},  %Long atom too long.
+         {"AtU8", <<-2:32,16#10,"m",16#18>>},       %Truncated long length.
+         {"Atom", <<2:32,1,"m",10,"ab">>}],         %Name longer than chunk.
+    _ = [begin
+             BadBeam = atom_chunk_beam(Id, Chunk),
+             ok = file:write_file(BeamFile, BadBeam),
+             [begin
+                  {error,beam_lib,{invalid_chunk,_,Id}} = Res,
+                  verify(invalid_chunk, Res)
+              end || Res <- [beam_lib:chunks(BadBeam, [atoms]),
+                             beam_lib:chunks(BeamFile, [atoms])]]
+         end || {Id, Chunk} <- BadLaterAtomChunks],
+
     %% Instead of the 5:32 field below, there used to be control characters
     %% (including zero bytes) directly in the string. Because inferior programs
     %% such as sed and clearcasediff don't like zero bytes in text files,
@@ -241,6 +279,14 @@ error(Conf) when is_list(Conf) ->
     file:delete(BeamFile),
     file:delete(ACopy),
     ok.
+
+%% Build a BEAM file consisting of a single atom chunk.
+atom_chunk_beam(Id, Chunk) ->
+    Size = byte_size(Chunk),
+    Pad = (4 - Size rem 4) rem 4,
+    Chunks = <<"BEAM",(list_to_binary(Id))/binary,Size:32,
+               Chunk/binary,0:Pad/unit:8>>,
+    <<"FOR1",(byte_size(Chunks)):32,Chunks/binary>>.
 
 last_chunk(Bin) ->
     L = beam_lib:info(Bin),
