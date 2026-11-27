@@ -94,7 +94,9 @@
 
          otp_6278/1, otp_10131/1, otp_16768/1, otp_16809/1,
         
-         decrease_size_with_chunk_step/1, decrease_size_twice/1]).
+         decrease_size_with_chunk_step/1, decrease_size_twice/1,
+
+         long_message_queue/1]).
 
 -export([head_fun/1, hf/0, hf_bin/0, lserv/1, 
 	 measure/0, init_m/1, xx/0]).
@@ -142,7 +144,7 @@ all() ->
      {group, open}, {group, close}, {group, error}, chunk,
      truncate, many_users, {group, info},
      {group, change_size}, change_attribute,
-     otp_6278, otp_10131, otp_16768, otp_16809].
+     otp_6278, otp_10131, otp_16768, otp_16809, long_message_queue].
 
 groups() -> 
     [{halt_int, [], [halt_int_inf, {group, halt_int_sz}]},
@@ -4516,6 +4518,49 @@ decrease_size_twice(Conf) when is_list(Conf) ->
     ok = disk_log:close(Log),
 
     del(File, 3).
+
+%% The time it takes to log should not depend on the length of the
+%% caller's message queue.
+long_message_queue(Conf) when is_list(Conf) ->
+    Dir = ?privdir(Conf),
+    Log = long_message_queue,
+    File = filename:join(Dir, lists:concat([Log, ".LOG"])),
+    EmptyTime = log_time(Log, File, 0),
+    LongTime = log_time(Log, File, 1_000_000),
+    ct:log("Empty queue: ~p us, long queue: ~p us", [EmptyTime, LongTime]),
+    true = LongTime =< 2 * EmptyTime,
+    true = EmptyTime =< 2 * LongTime,
+    ok.
+
+%% Returns the time (in microseconds) it takes to log 1000 terms to an
+%% empty log from a process having QueueLen messages in its queue.
+log_time(Log, File, QueueLen) ->
+    _ = file:delete(File),
+    {ok, Log} = disk_log:open([{name, Log}, {file, File}]),
+    Parent = self(),
+    {Pid, MRef} =
+        spawn_opt(fun() ->
+                          fill_message_queue(QueueLen),
+                          {Time, ok} = timer:tc(fun() -> log_n(Log, 1000) end),
+                          Parent ! {self(), Time}
+                  end, [monitor, {message_queue_data, off_heap}]),
+    Time = receive {Pid, T} -> T end,
+    receive {'DOWN', MRef, process, Pid, normal} -> ok end,
+    ok = disk_log:close(Log),
+    ok = file:delete(File),
+    Time.
+
+fill_message_queue(0) ->
+    ok;
+fill_message_queue(N) ->
+    self() ! {a, b, c},
+    fill_message_queue(N - 1).
+
+log_n(_Log, 0) ->
+    ok;
+log_n(Log, N) ->
+    ok = disk_log:log(Log, {a, b, c}),
+    log_n(Log, N - 1).
 
 mark(FileName, What) ->
     {ok,Fd} = file:open(FileName, [raw, binary, read, write]),
