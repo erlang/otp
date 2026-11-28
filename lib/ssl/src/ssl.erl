@@ -2646,6 +2646,10 @@ set: `[{active, false}, {packet, 0}, {mode, binary}]`.
 In case of downgrade, the close function might return some binary data that
 should be treated by the user as the first bytes received on the downgraded
 connection.
+
+When closing, `Timeout` bounds how long to wait for the close alert to be
+handed to the transport, which can be delayed if the peer does not read.
+`close/1` uses a timeout of 5000 milliseconds.
 """.
 -doc(#{group => <<"Client and Server API">>,
        since => <<"OTP 18.1">>}).

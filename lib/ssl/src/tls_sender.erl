@@ -38,6 +38,7 @@
          send_post_handshake/2,
          send_alert/2,
          send_and_ack_alert/2,
+         send_and_ack_alert/3,
          renegotiate/1,
          peer_renegotiate/1,
          downgrade/2,
@@ -154,7 +155,16 @@ send_alert(Pid, Alert) ->
 %% in the connection state and receive an ack.
 %%--------------------------------------------------------------------
 send_and_ack_alert(Pid, Alert) ->
-    gen_statem:call(Pid, {ack_alert, Alert}, ?DEFAULT_TIMEOUT).
+    send_and_ack_alert(Pid, Alert, ?DEFAULT_TIMEOUT).
+
+%%--------------------------------------------------------------------
+-spec send_and_ack_alert(pid(), #alert{}, timeout()) -> _.
+%% Description: As send_and_ack_alert/2 but waits at most Timeout
+%% milliseconds for the ack. The sender can be blocked by a peer
+%% that does not read, and the caller may not want to wait for that.
+%%--------------------------------------------------------------------
+send_and_ack_alert(Pid, Alert, Timeout) ->
+    gen_statem:call(Pid, {ack_alert, Alert}, Timeout).
 
 %%--------------------------------------------------------------------
 -spec renegotiate(pid()) -> {ok, WriteState::map()} | {error, closed}.

@@ -73,6 +73,7 @@
 %% Alert and close handling
 -export([send_alert/2,
          send_alert_in_connection/2,
+         send_alert_in_connection/3,
          close/4,
          protocol_name/0]).
 
@@ -644,6 +645,10 @@ send_alert(Alert, #state{static_env = #static_env{socket = Socket,
 send_alert_in_connection(Alert, State) ->
     _ = send_alert(Alert, State),
     ok.
+
+%% DTLS sends directly, there is no sender process to wait for.
+send_alert_in_connection(Alert, _Timeout, State) ->
+    send_alert_in_connection(Alert, State).
 
 close(downgrade, _,_,_) ->
     ok;
