@@ -967,6 +967,10 @@ otp_8130(Config) when is_list(Config) ->
             PreDefMacros = [{a,1},a],
             {error,{redefine,a}} = epp:open(File, [], PreDefMacros)
     end(),
+    {error,{bad,{a,b,c}}} = epp:parse_file(File, [{macros,[{a,b,c}]}]),
+    {error,{redefine,a}} = epp:parse_file(File, [], [{a,1},{a,2}]),
+    {error,{redefine_predef,'LINE'}} =
+        epp:scan_file(File, [{macros,['LINE']}]),
 
     {error,enoent} = epp:open("no such file", []),
     {error,enoent} = epp:parse_file("no such file", [], []),
