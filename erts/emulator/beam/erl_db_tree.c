@@ -427,6 +427,9 @@ static int db_member_tree(DbTable *tbl, Eterm key, Eterm *ret);
 static int db_get_element_tree(Process *p, DbTable *tbl, 
 			       Eterm key,int ndex,
 			       Eterm *ret);
+static int db_get_elements_tree(Process *p, DbTable *tbl, 
+                                Eterm key,Eterm *indexes, int index_cnt,
+                                Eterm *ret);
 static int db_erase_tree(DbTable *tbl, Eterm key, Eterm *ret);
 static int db_erase_object_tree(DbTable *tbl, Eterm object,Eterm *ret);
 static int db_slot_tree(Process *p, DbTable *tbl, 
@@ -507,6 +510,7 @@ DbTableMethod db_tree =
     db_put_tree,
     db_get_tree,
     db_get_element_tree,
+    db_get_elements_tree,
     db_member_tree,
     db_erase_tree,
     db_erase_object_tree,
@@ -1090,12 +1094,43 @@ int db_get_element_tree_common(Process *p, DbTableCommon *tb, TreeDbTerm *root, 
     return DB_ERROR_NONE;
 }
 
+int db_get_elements_tree_common(Process *p, DbTableCommon *tb, TreeDbTerm *root, Eterm key,
+                                Eterm *indexes, int index_cnt, Eterm *ret, DbTableTree *stack_container)
+{
+    /*
+     * Look the node up:
+     */
+    Eterm *hp;
+    TreeDbTerm *this;
+
+    this = find_node(tb,root,key,stack_container);
+    if (this == NULL) {
+        return DB_ERROR_BADKEY;
+    } else {
+        for(int i=0; i<index_cnt; i++){
+            if (signed_val(indexes[i]) > arityval(this->dbterm.tpl[0])) {
+                return DB_ERROR_BADPARAM;
+            }
+        }
+        *ret = db_copy_elements_from_ets(tb, p, &this->dbterm, indexes, index_cnt, &hp, 0);
+    }
+    return DB_ERROR_NONE;
+}
+
 static int db_get_element_tree(Process *p, DbTable *tbl,
 			       Eterm key, int ndex, Eterm *ret)
 {
     DbTableTree *tb = &tbl->tree;
     return db_get_element_tree_common(p, &tb->common, tb->root, key,
                                       ndex, ret, tb);
+}
+
+static int db_get_elements_tree(Process *p, DbTable *tbl,
+                                Eterm key, Eterm* indexes, int index_cnt, Eterm *ret)
+{
+    DbTableTree *tb = &tbl->tree;
+    return db_get_elements_tree_common(p, &tb->common, tb->root, key,
+                                      indexes, index_cnt, ret, tb);
 }
 
 int db_erase_tree_common(DbTable *tbl, TreeDbTerm **root, Eterm key, Eterm *ret,

@@ -360,6 +360,7 @@ bif ets:is_compiled_ms/1
 bif ets:lookup/2
 bif ets:lookup_element/3
 bif ets:lookup_element/4
+bif ets:lookup_elements/3
 bif ets:info/1
 bif ets:info/2
 bif ets:last/1

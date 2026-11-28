@@ -702,6 +702,26 @@ format_ets_error(lookup_element, [_,_,Pos]=Args, Cause) ->
 format_ets_error(lookup_element, [Tab, Key, Pos, _Default], Cause) ->
     % The default argument cannot cause an error.
     format_ets_error(lookup_element, [Tab, Key, Pos], Cause);
+format_ets_error(lookup_elements, [Tab,Key,{}], Cause) ->
+    %% 1 is always a valid pos - error must be in the table
+    format_ets_error(lookup_element, [Tab, Key, 1], Cause);
+format_ets_error(lookup_elements, [Tab,Key,Positions], Cause)
+  when is_tuple(Positions) ->
+    PosList = tuple_to_list(Positions),
+    InvalidPositions = [Pos || Pos <- PosList,
+                               format_non_negative_integer(Pos) =/= ""],
+    case InvalidPositions of
+        [] ->
+            format_ets_error(lookup_element,
+                             [Tab, Key, hd(PosList)],
+                             Cause);
+        [InvalidPos | _] ->
+            format_ets_error(lookup_element,
+                             [Tab, Key, InvalidPos],
+                             Cause)
+    end;
+format_ets_error(lookup_elements, [_,_,_]=Args, Cause) ->
+    [format_cause(Args, Cause), "", not_tuple];
 format_ets_error(match, [_], _Cause) ->
     [bad_continuation];
 format_ets_error(match, [_,_,_]=Args, Cause) ->
