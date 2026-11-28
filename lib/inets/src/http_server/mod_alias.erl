@@ -272,6 +272,8 @@ percent_decode_path(InitPath) ->
     case uri_string:percent_decode(InitPath) of
         {error, _} ->
             InitPath;
+        {error, _, _} ->
+            InitPath;
         Path0 -> %% Protect against vulnerabilities
             case uri_string:normalize(Path0) of
                 {error, _, _} ->
