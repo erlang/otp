@@ -1192,9 +1192,9 @@ exec_extended_req_reply(_, Error) ->
 
 do_simple_bind(Data, anon, anon, Controls) ->   %% For testing
     do_the_simple_bind(Data, "", "", Controls);
-do_simple_bind(Data, Dn, _Passwd,_) when Dn=="",Data#eldap.anon_auth==false ->
+do_simple_bind(Data, Dn, _Passwd,_) when (Dn =:= "" orelse Dn =:= <<>>), Data#eldap.anon_auth==false ->
     {{error,anonymous_auth},Data};
-do_simple_bind(Data, _Dn, Passwd,_) when Passwd=="",Data#eldap.anon_auth==false ->
+do_simple_bind(Data, _Dn, Passwd,_) when (Passwd =:= "" orelse Passwd =:= <<>>), Data#eldap.anon_auth==false ->
     {{error,anonymous_auth},Data};
 do_simple_bind(Data, Dn, Passwd, Controls) ->
     do_the_simple_bind(Data, Dn, Passwd, Controls).
