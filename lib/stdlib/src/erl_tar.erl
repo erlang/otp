@@ -558,14 +558,14 @@ check_extract(Name, #read_opts{files=Files}) ->
 
 %% Returns a list of names of the files in the tar file Name.
 -doc(#{equiv => table(Open, [])}).
--spec table(Open :: open_type()) -> {ok, [name_in_archive()]} | {error, term()}.
+-spec table(Open :: open_type() | tar_descriptor()) -> {ok, [name_in_archive()]} | {error, term()}.
 table(Name) ->
     table(Name, []).
 
 %% Returns a list of names of the files in the tar file Name.
 %% Options accepted: compressed, verbose, cooked.
 -doc "Retrieves the names of all files in the tar file `Name`.".
--spec table(Open :: open_type(), [compressed | verbose | cooked]) ->
+-spec table(Open :: open_type() | tar_descriptor(), [compressed | verbose | cooked]) ->
                    {ok, [name_in_archive() | tar_entry()]} | {error, term()}.
 table(Name, Opts) when is_list(Opts) ->
     foldl_read(Name, fun table1/4, [], table_opts(Opts)).
