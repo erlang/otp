@@ -4100,6 +4100,9 @@ format_error(Config) when is_list(Config) ->
                     Str = [C || C <- Str, is_integer(C)]
             end,
     [Check(Err) || Err <- Errors],
+    Unexpected = "Unexpected error: {unknown,reason}",
+    Unexpected = ssl:format_error({unknown, reason}),
+    Unexpected = ssl:format_error({error, {unknown, reason}}),
     ok.
 
 %%--------------------------------------------------------------------
