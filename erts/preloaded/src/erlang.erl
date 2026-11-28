@@ -13223,10 +13223,14 @@ More tuples in the returned list can be added in a future release.
 > #### Change {: .info }
 >
 > As from ERTS 5.6.4, `erlang:memory/0` requires that all
-> [`erts_alloc(3)`](erts_alloc.md) allocators are enabled (default behavior).
+> [`erts_alloc(3)`](erts_alloc.md) allocators provide memory accounting. This is
+> enabled by default for the standard ERTS allocators. Disabled ordinary
+> allocators can also be accounted for on 64-bit targets when the build detects
+> a supported system-malloc usable-size query; see
+> [`erts_alloc(3)`](erts_alloc.md).
 
 Failure: `notsup` if an [`erts_alloc(3)`](erts_alloc.md) allocator has been
-disabled.
+disabled without supported direct memory accounting.
 """.
 -doc #{ category => system }.
 -spec memory() -> [{Type, Size}] when
@@ -13257,7 +13261,11 @@ returned.
 > #### Change {: .info }
 >
 > As from ERTS 5.6.4, `erlang:memory/1` requires that all
-> [`erts_alloc(3)`](erts_alloc.md) allocators are enabled (default behavior).
+> [`erts_alloc(3)`](erts_alloc.md) allocators provide memory accounting. This is
+> enabled by default for the standard ERTS allocators. Disabled ordinary
+> allocators can also be accounted for on 64-bit targets when the build detects
+> a supported system-malloc usable-size query; see
+> [`erts_alloc(3)`](erts_alloc.md).
 
 Failures:
 
@@ -13268,7 +13276,7 @@ Failures:
   instrumented mode.
 
 - **`notsup`** - If an [`erts_alloc(3)`](erts_alloc.md) allocator has been
-  disabled.
+  disabled without supported direct memory accounting.
 
 See also [`erlang:memory/0`](`memory/0`).
 """.
@@ -13394,6 +13402,8 @@ au_mem_blocks_1([{Type, SizeList} | Rest], Mem) ->
 au_mem_blocks_1([], Mem) ->
     Mem.
 
+au_mem_current(Mem, Type, [{direct_blocks, Size} | Rest]) ->
+    au_mem_current(au_mem_acc(Mem, Type, [{size, Size}]), Type, Rest);
 au_mem_current(Mem, Type, [{mbcs_pool, Stats} | Rest]) ->
     au_mem_current(au_mem_blocks(Stats, Mem), Type, Rest);
 au_mem_current(Mem, Type, [{mbcs, Stats} | Rest]) ->

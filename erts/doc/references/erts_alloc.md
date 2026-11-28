@@ -75,6 +75,33 @@ that uses it is enabled. All other allocators can be
 When an allocator is disabled, `sys_alloc` is used instead of the disabled
 allocator.
 
+### System-malloc accounting
+
+Typed memory accounting for disabled ordinary allocators, including those
+disabled by `+Mea min`, is automatically enabled on 64-bit targets when configure
+detects a supported system allocation-size query: `malloc_usable_size`,
+`malloc_size` on macOS, or `_msize` on Windows. Replacing the malloc implementation
+must also provide a compatible size query for the same allocation family.
+Unsupported targets retain the previous `notsup` behavior when required
+allocators are disabled. No particular malloc implementation is selected.
+
+Accounting support does not disable ERTS allocators. The default configuration
+keeps them enabled; use `+Mea min` or individual allocator-enable options to
+select system malloc for ordinary allocation classes.
+
+`erlang:memory/0,1` reports live block sizes, including malloc size-class rounding,
+not retained pages or RSS. Fixed process-object attribution uses canonical payload
+sizes. The counters are sampled independently, as with the existing non-atomic
+memory accounting. Negative sampled cross-thread balances are reported as zero;
+the fixed-object breakdown is bounded by the sampled fixed-block total.
+Counter arithmetic is modulo the native word, and a reported live balance must
+fit its nonnegative signed range. Raw system calls and backing carriers of enabled
+allocators are not counted again.
+
+This does not recreate MBC/SBC carrier statistics, allocation tags, or instrument
+scans for a disabled allocator. Its ordinary allocator information still reports
+`false`; consumers of carrier statistics must handle disabled allocators.
+
 The main idea with the `erts_alloc` library is to separate memory blocks that
 are used differently into different memory areas, to achieve less memory
 fragmentation. By putting less effort in finding a good fit for memory blocks
