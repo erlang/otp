@@ -4330,6 +4330,7 @@ ERL_NIF_TERM essio_sendmmsg(ErlNifEnv*       env,
     ERL_NIF_TERM    writerCheck;
     unsigned int    i = 0;
     unsigned int    msgCount = 0;
+    unsigned int    totalCount;
     struct mmsghdr* sendMmsghdrs = NULL;
     ESockAddress*   addrs = NULL;
     char**          ctrlBufs = NULL;
@@ -4373,17 +4374,19 @@ ERL_NIF_TERM essio_sendmmsg(ErlNifEnv*       env,
         return esock_atom_ok;
     }
 
+    totalCount = msgCount;
     if (msgCount > ESOCK_MMSG_MAX)
         msgCount = ESOCK_MMSG_MAX;
 
     {
+        size_t wCtrlSz = descP->wCtrlSz;
         size_t mmsghdrs_sz     = msgCount * sizeof(struct mmsghdr);
         size_t addrs_sz        = msgCount * sizeof(ESockAddress);
         size_t ctrlBufs_sz     = msgCount * sizeof(char*);
         size_t ctrlBufLens_sz  = msgCount * sizeof(size_t);
         size_t ctrlBufUseds_sz = msgCount * sizeof(size_t);
         size_t iovecPtrs_sz    = msgCount * sizeof(ErlNifIOVec*);
-        size_t ctrlBufData_sz  = msgCount * descP->wCtrlSz;
+        size_t ctrlBufData_sz  = msgCount * wCtrlSz;
         size_t total_sz = mmsghdrs_sz + addrs_sz + ctrlBufs_sz + ctrlBufLens_sz + ctrlBufUseds_sz + iovecPtrs_sz + ctrlBufData_sz;
         ESOCK_ASSERT((heapPool = (char*) MALLOC(total_sz)) != NULL );
         sys_memzero(heapPool, total_sz);
@@ -4395,16 +4398,8 @@ ERL_NIF_TERM essio_sendmmsg(ErlNifEnv*       env,
         iovecPtrs    = (ErlNifIOVec**) (heapPool + mmsghdrs_sz + addrs_sz + ctrlBufs_sz + ctrlBufLens_sz + ctrlBufUseds_sz);
         ctrlBufData  = (char*) (heapPool + mmsghdrs_sz + addrs_sz + ctrlBufs_sz + ctrlBufLens_sz + ctrlBufUseds_sz + iovecPtrs_sz);
         for (i = 0; i < msgCount; i++) {
-            ctrlBufs[i] = ctrlBufData + (i * descP->wCtrlSz);
+            ctrlBufs[i] = ctrlBufData + (i * wCtrlSz);
         }
-    }
-
-    /* Initialize arrays to ensure safe cleanup on early exit.
-     * This is especially important for iovecPtrs which may not be
-     * set if validation fails before enif_inspect_iovec() is called.
-     */
-    for (i = 0; i < msgCount; i++) {
-        iovecPtrs[i] = NULL;
     }
 
     /* Process each message */
@@ -4474,41 +4469,60 @@ ERL_NIF_TERM essio_sendmmsg(ErlNifEnv*       env,
                                 sockRef, sendRef);
     } else {
         /*
-         * Same criterion as send_check_result: for each updated message,
-         * written < dataSize => partial. Only add partials to the result
-         * list; each element is {Index, Written} so Erlang can slice the
-         * right message. Two indexes: i over messages, resultIdx over
-         * result list (only incremented for partials).
+         * Same criterion as send_check_result: for each sent message,
+         * written < dataSize => partial. Partials are returned as a list of
+         * {Index, Written} in message order, so Erlang can slice the right message,
+         * together with the number of messages sent. Erlang derives the unsent
+         * messages from that count, either because sendmmsg() stopped early or
+         * because they were beyond ESOCK_MMSG_MAX.
          */
-        unsigned int updatedCount = (unsigned int) sendResult;
-        BOOLEAN_T allFull = TRUE;
-        ERL_NIF_TERM* resultElems = NULL;
-        unsigned int resultIdx = 0;
+        unsigned int sentCount = (unsigned int) sendResult;
+        ERL_NIF_TERM partials  = MKEL(env);
+        size_t       written   = 0;
+        size_t       maxLen    = 0;
         unsigned int k;
 
-        if (updatedCount > 0) {
-            ESOCK_ASSERT((resultElems = (ERL_NIF_TERM*) MALLOC(updatedCount * sizeof(ERL_NIF_TERM))) != NULL );
-            for (i = 0; i < updatedCount; i++) {
-                size_t expectedLen = 0;
-                for (k = 0; k < iovecPtrs[i]->iovcnt; k++) {
-                    expectedLen += iovecPtrs[i]->iov[k].iov_len;
-                }
-                if (sendMmsghdrs[i].msg_len != expectedLen) {
-                    allFull = FALSE;
-                    resultElems[resultIdx++] = MKT2(env, MKI(env, (int) i),
-                        MKI(env, (int) sendMmsghdrs[i].msg_len));
-                }
+        ESOCK_ASSERT( sentCount <= msgCount );
+        for (i = sentCount; i-- > 0; ) {
+            size_t expectedLen = 0;
+            for (k = 0; k < iovecPtrs[i]->iovcnt; k++) {
+                expectedLen += iovecPtrs[i]->iov[k].iov_len;
             }
-            if (allFull) {
-                enif_free(resultElems);
-                ret = esock_atom_ok;
-            } else {
-                ret = esock_make_ok2(env,
-                    enif_make_list_from_array(env, resultElems, resultIdx));
-                enif_free(resultElems);
+            written += sendMmsghdrs[i].msg_len;
+            if (sendMmsghdrs[i].msg_len > maxLen)
+                maxLen = sendMmsghdrs[i].msg_len;
+            if (sendMmsghdrs[i].msg_len != expectedLen) {
+                partials = MKC(env,
+                               MKT2(env, MKI(env, (int) i),
+                                    MKI(env, (int) sendMmsghdrs[i].msg_len)),
+                               partials);
             }
-        } else {
+        }
+        if ((sentCount == totalCount) && enif_is_empty_list(env, partials)) {
             ret = esock_atom_ok;
+        } else {
+            ret = MKT3(env, esock_atom_ok, partials, MKUI(env, sentCount));
+        }
+
+        /* Each sent message counts as a package, as in send_check_ok */
+        ESOCK_CNT_INC(env, descP, sockRef,
+                      esock_atom_write_pkg, &descP->writePkgCnt, sentCount);
+        ESOCK_CNT_INC(env, descP, sockRef,
+                      esock_atom_write_byte, &descP->writeByteCnt, written);
+        if (maxLen > descP->writePkgMax)
+            descP->writePkgMax = maxLen;
+
+        /* Done: release the current writer, as in send_check_ok */
+        if (descP->currentWriterP != NULL) {
+            ESOCK_ASSERT( DEMONP("essio_sendmmsg -> current writer",
+                                 env, descP, &descP->currentWriter.mon) == 0);
+        }
+        if (!esock_activate_next_writer(env, descP, sockRef)) {
+            SSDBG( descP,
+                   ("UNIX-ESSIO", "essio_sendmmsg(%T) {%d} -> no more writers\r\n",
+                    sockRef, descP->sock) );
+
+            descP->currentWriterP = NULL;
         }
     }
 
