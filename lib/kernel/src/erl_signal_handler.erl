@@ -31,7 +31,13 @@
 
 start() ->
     %% add signal handler
-    gen_event:add_handler(erl_signal_server, erl_signal_handler, []).
+    ok = gen_event:add_handler(erl_signal_server, erl_signal_handler, []),
+    %% Until now SIGTERM has had its default action, as a notification
+    %% sent before the handler was added would have been lost.
+    case os:type() of
+        {unix, _} -> os:set_signal(sigterm, handle);
+        _ -> ok
+    end.
 
 init(_Args) ->
     {ok, #state{}}.

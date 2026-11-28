@@ -41,6 +41,7 @@
          t_sigusr1/1,
          t_sigusr2/1,
          t_sigterm/1,
+         t_sigterm_during_boot/1,
          t_sigalrm/1,
          t_sigchld/1,
          t_sigchld_fork/1,
@@ -61,6 +62,7 @@ all() ->
               t_sigusr1,
               t_sigusr2,
               t_sigterm,
+              t_sigterm_during_boot,
               t_sigalrm,
               t_sigchld,
               t_sigchld_fork,
@@ -225,6 +227,38 @@ t_sigterm(_Config) ->
     %% reset to handle (it's the default)
     os:set_signal(sigterm, handle),
     ok.
+
+t_sigterm_during_boot(_Config) ->
+    %% A SIGTERM that arrives while the emulator is starting must not be
+    %% lost. Depending on how far the boot has come the node is either
+    %% killed by it or shut down through init:stop(), but it must not
+    %% keep running until the eval below halts it (GH-12204).
+    Cmd = ct:get_progname() ++
+        " -noshell -eval \"timer:sleep(60000), halt(0).\"",
+    Delays = lists:seq(0, 400, 20) ++ [600, 1000],
+    lists:foreach(fun(Delay) -> sigterm_during_boot(Cmd, Delay) end, Delays).
+
+sigterm_during_boot(Cmd, Delay) ->
+    Port = open_port({spawn, Cmd}, [exit_status]),
+    {os_pid, OsPid} = erlang:port_info(Port, os_pid),
+    receive after Delay -> ok end,
+    %% Not run/2, as its receive loop would eat the exit_status of Port.
+    "" = os:cmd("kill -s TERM " ++ integer_to_list(OsPid)),
+    case sigterm_during_boot_wait(Port, 20000) of
+        {ok, Status} ->
+            io:format("delay ~p ms: exit status ~p~n", [Delay, Status]);
+        timeout ->
+            _ = os:cmd("kill -s KILL " ++ integer_to_list(OsPid)),
+            ct:fail({sigterm_lost, Delay})
+    end.
+
+sigterm_during_boot_wait(Port, Timeout) ->
+    receive
+        {Port, {exit_status, Status}} -> {ok, Status};
+        {Port, {data, _}} -> sigterm_during_boot_wait(Port, Timeout)
+    after Timeout ->
+        timeout
+    end.
 
 t_sigchld(_Config) ->
     Pid1 = setup_service(),

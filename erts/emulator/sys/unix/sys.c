@@ -812,7 +812,8 @@ void sys_init_suspend_handler(void)
 void
 erts_sys_unix_later_init(void)
 {
-    sys_signal(SIGTERM, generic_signal_handler);
+    /* SIGTERM keeps its default action until Kernel has added the
+     * erl_signal_server handler, see erl_signal_handler:start/0. */
 #ifndef ETHR_UNUSABLE_SIGUSRX
    sys_signal(SIGUSR1, generic_signal_handler);
 #endif /* #ifndef ETHR_UNUSABLE_SIGUSRX */
