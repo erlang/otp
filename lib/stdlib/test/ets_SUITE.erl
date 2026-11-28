@@ -109,6 +109,7 @@
 -export([otp_9423/1]).
 -export([otp_10182/1]).
 -export([compress_magic_ref/1]).
+-export([compress_large_atom_index/1, compress_large_atom_index_do/0]).
 -export([ets_all/1]).
 -export([massive_ets_all/1]).
 -export([take/1]).
@@ -191,6 +192,7 @@ all() ->
      otp_9932,
      otp_9423,
      compress_magic_ref,
+     compress_large_atom_index,
      ets_all,
      massive_ets_all,
      take,
@@ -8265,6 +8267,69 @@ compress_magic_ref(Config) when is_list(Config)->
           end,
     repeat_for_opts(F, [[set, ordered_set], compressed]),
     ok.
+
+%% Atoms whose index does not fit in 24 bits (possible when +t allows more
+%% than 2^24 atoms) must survive a compressed table. They used to be stored
+%% with the index truncated to 24 bits and read back as another atom.
+compress_large_atom_index(Config) when is_list(Config) ->
+    case {erlang:system_info(wordsize), test_server:is_valgrind(),
+          test_server:is_asan()} of
+        {4, _, _} -> {skip, "Needs a 64-bit emulator"};
+        {_, true, _} -> {skip, "Too slow under valgrind"};
+        {_, _, true} -> {skip, "Too much memory under ASan"};
+        _ ->
+            %% The peer fills its atom table past 2^24 (about 2 GB). Atom
+            %% names are literals; a debug emulator needs more than the
+            %% default 1 GB literal area for that many.
+            Limit = integer_to_list((1 bsl 24) + 100000),
+            {ok, Peer, Node} = ?CT_PEER(["+t", Limit, "+MIscs", "4096"]),
+            try
+                ok = erpc:call(Node, ?MODULE, compress_large_atom_index_do, [],
+                               infinity)
+            after
+                peer:stop(Peer)
+            end
+    end.
+
+compress_large_atom_index_do() ->
+    fill_atom_table(1 bsl 24),
+    true = erlang:system_info(atom_count) >= (1 bsl 24),
+    %% Created after the table passed 2^24 entries, so their indices do not
+    %% fit in 24 bits.
+    [A, B, C] = [binary_to_atom(<<"ets_large_atom_index_",
+                                  (integer_to_binary(I))/binary>>)
+                 || I <- [1, 2, 3]],
+    Objs = [{k1, A}, {k2, [A, B]}, {k3, #{A => B, ok => [C]}},
+            {k4, {nested, [{C, <<"bin">>}], A}}, {C, value}],
+    F = fun(Opts) ->
+                T = ets:new(t, [compressed | Opts]),
+                true = ets:insert(T, Objs),
+                [[O] = ets:lookup(T, element(1, O)) || O <- Objs],
+                Sorted = lists:sort(Objs),
+                Sorted = lists:sort(ets:tab2list(T)),
+                Sorted = lists:sort(ets:match_object(T, '_')),
+                Sorted = lists:sort(ets:select(T, [{'$1', [], ['$1']}])),
+                [{k2, [A, B]}] = ets:match_object(T, {k2, [A, '_']}),
+                true = ets:member(T, C),
+                true = ets:delete(T),
+                ok
+        end,
+    [ok = F(Opts) || Opts <- [[set], [ordered_set], [bag]]],
+    ok.
+
+%% Create atoms until the table holds at least N. Every name is new, so the
+%% table grows on each step; atom_count is sampled now and then.
+fill_atom_table(N) ->
+    fill_atom_table(0, N).
+
+fill_atom_table(I, N) ->
+    case I band 16#ffff =:= 0 andalso erlang:system_info(atom_count) >= N of
+        true ->
+            ok;
+        false ->
+            _ = binary_to_atom(<<"ets_fill_", (integer_to_binary(I))/binary>>),
+            fill_atom_table(I + 1, N)
+    end.
 
 %% Test that ets:all include/exclude tables that we know are created/deleted
 ets_all(Config) when is_list(Config) ->
