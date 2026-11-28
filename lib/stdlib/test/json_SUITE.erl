@@ -50,6 +50,7 @@
     test_decode_arrays/1,
     test_decode_objects/1,
     test_decode_whitespace/1,
+    test_decode_indentation/1,
     test_decode_api/1,
     test_decode_api_stream/1,
     test_json_test_suite/1,
@@ -108,6 +109,7 @@ groups() ->
             test_decode_arrays,
             test_decode_objects,
             test_decode_whitespace,
+            test_decode_indentation,
             test_decode_api,
             test_decode_api_stream
         ]},
@@ -888,6 +890,53 @@ test_decode_whitespace(_Config) ->
     ?assertEqual(#{}, decode(ews(<<" { } ">>))),
     ?assertEqual([1, 2], decode(ews(<<" [ 1 , 2 ] ">>))),
     ?assertEqual(#{<<"foo">> => 1, <<"bar">> => 2}, decode(ews(<<" { \"foo\" : 1 , \"bar\" : 2 } ">>))).
+
+%% Indentation after a newline is skipped 4 spaces at a time, so try widths
+%% on both sides of those steps, in every place whitespace can appear.
+test_decode_indentation(_Config) ->
+    Layouts = [[$\n | lists:duplicate(N, $\s)] || N <- lists:seq(0, 13)] ++
+        [[$\r, $\n | lists:duplicate(N, $\s)] || N <- [4, 6]] ++
+        [[$\n | lists:duplicate(N, $\s)] ++ [$\t, $\s] || N <- [3, 4, 8]] ++
+        [[$\n, $\t, $\t], [$\n, $\n, $\s, $\s, $\s, $\s, $\n]],
+    Template = ~#_{_"a"_:_[_1_,_{_}_,_[_]_]_,_"b"_:_{_"c"_:_true_}_}_#,
+    Expected = #{<<"a">> => [1, #{}, []], <<"b">> => #{<<"c">> => true}},
+    lists:foreach(
+        fun(Ws) ->
+            Doc = iolist_to_binary(string:replace(Template, "_", Ws, all)),
+            ?assertEqual(Expected, decode(Doc)),
+            [?assertEqual(Expected, decode_split(Doc, Split))
+             || Split <- lists:seq(0, byte_size(Doc))],
+            [?assertEqual(byte_size(Prefix) + length(Ws),
+                          invalid_byte_position(<<Prefix/binary, (list_to_binary(Ws))/binary, "x">>))
+             || Prefix <- [<<>>, <<"[">>, <<"[1">>, <<"{">>, <<"{\"a\"">>, <<"{\"a\":">>,
+                           <<"{\"a\":1">>, <<"{\"a\":1,">>]]
+        end,
+        Layouts).
+
+decode_split(Bin, Split) ->
+    <<Head:Split/binary, Tail/binary>> = Bin,
+    {Result, ok, <<>>} =
+        case json:decode_start(Head, ok, #{}) of
+            {continue, State0} ->
+                case json:decode_continue(Tail, State0) of
+                    {continue, State} -> json:decode_continue(end_of_input, State);
+                    Done -> Done
+                end;
+            Done ->
+                Done
+        end,
+    Result.
+
+invalid_byte_position(Bin) ->
+    try json:decode(Bin) of
+        Result -> error({unexpected_success, Bin, Result})
+    catch
+        error:{invalid_byte, $x}:Stacktrace ->
+            [{json, _, _, Info} | _] = Stacktrace,
+            {error_info, #{cause := #{position := Position}}} =
+                lists:keyfind(error_info, 1, Info),
+            Position
+    end.
 
 %% add extra whitespace
 ews(Str) ->
