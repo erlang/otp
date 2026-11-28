@@ -758,6 +758,34 @@ t_string_to_integer(Config) when is_list(Config) ->
                    {"10",''}                    %Base 20
                   ]),
 
+    %% A sign is only allowed as the first character. Long numbers are
+    %% split into segments that are converted separately; a sign at
+    %% the start of a segment used to be accepted (GH-11946).
+    lists:foreach(fun(Value) ->
+                          ?assertError(badarg, bin_to_int(list_to_binary(Value))),
+                          ?assertError(badarg, list_to_integer(Value))
+                  end,
+                  ["1-0000000000000001",
+                   "1+0000000000000001",
+                   "-1-0000000000000001",
+                   "12345678901234567-0000000000000001",
+                   "123456789012345678-0000000000000001",
+                   "-+" ++ lists:duplicate(40, $1),
+                   "+-" ++ lists:duplicate(40, $1),
+                   "--" ++ lists:duplicate(40, $1),
+                   "++" ++ lists:duplicate(40, $1)]),
+    _ = [begin
+             Value = lists:duplicate(Pos, $1) ++ [Sign] ++
+                 lists:duplicate(Len - Pos, $1),
+             ?assertError(badarg,
+                          binary_to_integer(list_to_binary(Value), Base)),
+             ?assertError(badarg, list_to_integer(Value, Base)),
+             ok
+         end || Base <- [2, 10, 16, 36],
+                Sign <- [$-, $+],
+                Len <- lists:seq(1, 80),
+                Pos <- lists:seq(1, Len)],
+
     %% System limit
     Digits = lists:duplicate(3_000_000, $9),
     {'EXIT',{system_limit,_}} = catch list_to_integer(Digits),
