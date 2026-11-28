@@ -75,7 +75,7 @@
 -export([member/1]).
 -export([memory/1]).
 -export([select_fail/1]).
--export([t_insert_new/1]).
+-export([t_insert_new/1, insert_copy_reductions/1, default_copy_reductions/1]).
 -export([t_repair_continuation/1]).
 -export([t_match_spec_run/1]).
 -export([t_bucket_disappears/1]).
@@ -132,6 +132,211 @@
 
 -define(m(A,B), assert_eq(A,B)).
 -define(heap_binary_size, 64).
+
+insert_copy_reductions(_Config) ->
+    Small = lists:seq(1, 256),
+    Data = lists:seq(1, 1024),
+    SmallSend = send_copy_reductions(Small),
+    Send = send_copy_reductions(Data),
+    CopyGrowth = Send - SmallSend,
+    BatchData = lists:seq(1, 64),
+    BatchGrowth = SmallSend - send_copy_reductions(BatchData),
+    Binary = term_to_binary(Data),
+    Large = lists:seq(1, 262144),
+    Cases = [{insert, object, none}, {insert, object, old},
+             {insert_new, object, none}, {insert, 1, none}, {insert_new, 1, none}],
+    lists:foreach(
+      fun(Opts) ->
+              lists:foreach(
+                fun(Case) ->
+                        assert_copy_growth(CopyGrowth,
+                                           insert_copy_measure(Case, Opts, Small),
+                                           insert_copy_measure(Case, Opts, Data))
+                end, Cases),
+              lists:foreach(
+                fun(Function) ->
+                        Case = {Function, 16, none},
+                        assert_copy_growth(16 * BatchGrowth,
+                                           insert_copy_measure(Case, Opts, BatchData),
+                                           insert_copy_measure(Case, Opts, Small))
+                end, [insert, insert_new]),
+              ImmediateReds = insert_copy_measure({insert, object, none}, Opts, 42),
+              BinaryReds = insert_copy_measure({insert, object, none}, Opts, Binary),
+              ?assert(abs(BinaryReds - ImmediateReds) < CopyGrowth div 2),
+              assert_no_copy_growth(CopyGrowth,
+                                    insert_copy_measure({insert_new, object, old}, Opts, Small),
+                                    insert_copy_measure({insert_new, object, old}, Opts, Data)),
+              ?assert(insert_copy_measure({insert, object, none}, Opts, Large)
+                      > insert_copy_measure({insert, object, none}, Opts, Data)),
+              case lists:member(bag, Opts) of
+                  true ->
+                      assert_no_copy_growth(CopyGrowth,
+                                            insert_copy_measure({insert, object, same}, Opts, Small),
+                                            insert_copy_measure({insert, object, same}, Opts, Data)),
+                      assert_copy_growth(16 * BatchGrowth,
+                                         insert_copy_measure({insert_new, 16, conflict}, Opts, BatchData),
+                                         insert_copy_measure({insert_new, 16, conflict}, Opts, Small));
+                  false -> ok
+              end
+      end, copy_table_options()),
+    Count = 8 * erlang:system_info(context_reductions) + 1,
+    PreparedGrowth = send_copy_reductions(BatchData) - send_copy_reductions(42),
+    lists:foreach(
+      fun(Opts) ->
+              lists:foreach(
+                fun(Case) ->
+                        assert_copy_growth(Count * PreparedGrowth,
+                                           insert_copy_measure(Case, Opts, 42),
+                                           insert_copy_measure(Case, Opts, BatchData))
+                end, [{insert, Count, none}, {insert_new, Count, none},
+                      {insert_new, Count, conflict}])
+      end, [[ordered_set], [ordered_set, compressed],
+            [ordered_set, {write_concurrency, true}],
+            [ordered_set, {write_concurrency, true}, compressed]]),
+    ok.
+
+copy_table_options() ->
+    [Type ++ Compression || Type <- [[set], [ordered_set], [bag], [duplicate_bag],
+                                     [ordered_set, {write_concurrency, true}]],
+                            Compression <- [[], [compressed]]].
+
+assert_copy_growth(Expected, Small, Large) ->
+    Growth = Large - Small,
+    ?assert(Expected > 0),
+    ?assert(Growth > 0),
+    ?assert(abs(Growth - Expected) < Expected div 2).
+
+assert_no_copy_growth(CopyGrowth, Small, Large) ->
+    ?assert(abs(Large - Small) < CopyGrowth div 2).
+
+insert_copy_measure({Function, Shape, Existing}, Opts, Data) ->
+    measure_copy(fun() ->
+                         Tab = ets:new(insert_copy_test, Opts),
+                         try
+                             Object = {key, Data},
+                             Input = case Shape of
+                                         object -> Object;
+                                         1 -> [Object];
+                                         N -> [{K, Data} || K <- lists:seq(1, N)]
+                                     end,
+                             case Existing of
+                                 none -> ok;
+                                 old -> ets:insert(Tab, {key, old});
+                                 same -> ets:insert(Tab, Object);
+                                 conflict -> ets:insert(Tab, {1, old})
+                             end,
+                             {Result, Reds} = measure_reductions(fun() -> ets:Function(Tab, Input) end),
+                             case {Function, Existing} of
+                                 {insert_new, old} -> ?assertEqual(false, Result);
+                                 {insert_new, conflict} ->
+                                     ?assertEqual(false, Result),
+                                     ?assertEqual([{1, old}], ets:tab2list(Tab));
+                                 _ ->
+                                     ?assertEqual(true, Result),
+                                     case Shape of
+                                         Count when is_integer(Count), Count > 1 ->
+                                             ?assertEqual(Count, ets:info(Tab, size)),
+                                             ?assertEqual(Count, ets:select_count(Tab, [{{'_', Data}, [], [true]}]));
+                                         _ -> ?assert(lists:member(Object, ets:lookup(Tab, key)))
+                                     end
+                             end,
+                             Reds
+                         after
+                             ets:delete(Tab)
+                         end
+                 end).
+
+default_copy_reductions(_Config) ->
+    Small = lists:seq(1, 256),
+    Data = lists:seq(1, 1024),
+    CopyGrowth = send_copy_reductions(Data) - send_copy_reductions(Small),
+    Cases = [{update_counter, 3}, {update_element, 3},
+             {update_counter, 4}, {update_element, 4}],
+    lists:foreach(
+      fun(Opts) ->
+              lists:foreach(
+                fun(Case) ->
+                        assert_copy_growth(CopyGrowth,
+                                           default_copy_measure(Case, missing, Opts, Small),
+                                           default_copy_measure(Case, missing, Opts, Data)),
+                        assert_no_copy_growth(CopyGrowth,
+                                              default_copy_measure(Case, existing, Opts, Small),
+                                              default_copy_measure(Case, existing, Opts, Data)),
+                        case lists:member(set, Opts) of
+                            true ->
+                                assert_copy_growth(CopyGrowth,
+                                                   default_copy_measure(Case, deleted, Opts, Small),
+                                                   default_copy_measure(Case, deleted, Opts, Data));
+                            false -> ok
+                        end
+                end, Cases)
+      end, [Opts || Opts <- copy_table_options(),
+                    not lists:member(bag, Opts), not lists:member(duplicate_bag, Opts)]),
+    ok.
+
+default_copy_measure({Function, Position}, Presence, Opts, Data) ->
+    measure_copy(fun() ->
+                         Tab = ets:new(default_copy_test, [{keypos, 2} | Opts]),
+                         try
+                             Default = {Data, ignored, 0},
+                             case Presence of
+                                 missing -> ok;
+                                 existing -> ets:insert(Tab, {42, key, 0});
+                                 deleted ->
+                                     ets:insert(Tab, {42, key, 0}),
+                                     ets:safe_fixtable(Tab, true),
+                                     ets:delete(Tab, key)
+                             end,
+                             {Result, Reds} = measure_reductions(
+                                                fun() ->
+                                                        try ets:Function(Tab, key, {Position, 1}, Default)
+                                                        catch error:badarg -> badarg end
+                                                end),
+                             case Position of
+                                 4 ->
+                                     ?assertEqual(badarg, Result),
+                                     Expected = case Presence of existing -> [{42, key, 0}]; _ -> [] end,
+                                     ?assertEqual(Expected, ets:lookup(Tab, key));
+                                 _ ->
+                                     ExpectedResult = case Function of update_counter -> 1; update_element -> true end,
+                                     ?assertEqual(ExpectedResult, Result),
+                                     Payload = case Presence of existing -> 42; _ -> Data end,
+                                     ?assertEqual([{Payload, key, 1}], ets:lookup(Tab, key))
+                             end,
+                             Reds
+                         after
+                             ets:delete(Tab)
+                         end
+                 end).
+
+send_copy_reductions(Data) ->
+    measure_copy(fun() ->
+                         {Pid, Ref} = spawn_opt(fun() -> receive stop -> ok end end,
+                                               [link, monitor]),
+                         {Data, Reds} = measure_reductions(fun() -> Pid ! Data end),
+                         Pid ! stop,
+                         receive {'DOWN', Ref, process, Pid, normal} -> Reds end
+                 end).
+
+measure_reductions(Fun) ->
+    garbage_collect(),
+    erlang:yield(),
+    {reductions, Before} = process_info(self(), reductions),
+    Result = Fun(),
+    {reductions, After} = process_info(self(), reductions),
+    {Result, After - Before}.
+
+measure_copy(Fun) ->
+    Parent = self(),
+    {Pid, Ref} = spawn_opt(fun() ->
+                                  Result = Fun(),
+                                  unlink(Parent),
+                                  Parent ! {self(), Result}
+                          end, [link, monitor, {min_heap_size, 65536}]),
+    receive
+        {Pid, Result} -> receive {'DOWN', Ref, process, Pid, normal} -> Result end;
+        {'DOWN', Ref, process, Pid, Reason} -> error({copy_measurement_failed, Reason})
+    end.
 
 init_per_testcase(Case, Config) ->
     rand:seed(default),
@@ -214,7 +419,8 @@ groups() ->
     [{new, [],
       [default, setbag, badnew, verybadnew, named, keypos2,
        privacy]},
-     {insert, [], [empty, badinsert]},
+     {insert, [], [empty, badinsert, insert_copy_reductions,
+                   default_copy_reductions]},
      {lookup, [], [badlookup, lookup_order, ordered_set_cached_key]},
      {lookup_element, [], [lookup_element_mult, lookup_element_default]},
      {delete, [],

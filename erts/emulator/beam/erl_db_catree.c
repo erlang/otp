@@ -1738,7 +1738,7 @@ static int db_put_catree(DbTable *tbl, Eterm obj, bool key_clash_fail,
     FindBaseNode fbn;
     DbTableCATreeNode* node = find_wlock_valid_base_node(tb, key, &fbn);
     int result = db_put_tree_common(&tb->common, &node->u.base.root, obj,
-                                    key_clash_fail, NULL);
+                                    key_clash_fail, NULL, consumed_reds_p);
     wunlock_adapt_base_node(tb, node, fbn.parent, fbn.current_level);
     return result;
 }

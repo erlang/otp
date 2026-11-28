@@ -739,7 +739,8 @@ db_lookup_dbterm_hash(Process *p, DbTable *tbl, Eterm key, Eterm obj,
                       DbUpdateHandle* handle);
 static void
 db_finalize_dbterm_hash(int cret, DbUpdateHandle* handle);
-static void* db_eterm_to_dbterm_hash(bool compress, int keypos, Eterm obj);
+static void* db_eterm_to_dbterm_hash(bool compress, int keypos, Eterm obj,
+                                    SWord *copy_iterations_p);
 static void* db_dbterm_list_append_hash(void* last_term, void* db_term);
 static void* db_dbterm_list_remove_first_hash(void** list);
 static int db_put_dbterm_hash(DbTable* tb,
@@ -1404,6 +1405,7 @@ int db_put_hash(DbTable *tbl, Eterm obj, bool key_clash_fail,
 	    goto Ldone;
 	}
 	q = replace_dbterm(tb, b, obj);
+        *consumed_reds_p += db_insert_copy_iterations(q->dbterm.size);
 	q->next = bnext;
 	ASSERT(q->hvalue == hval);
 	*bp = q;
@@ -1446,6 +1448,7 @@ int db_put_hash(DbTable *tbl, Eterm obj, bool key_clash_fail,
 
 Lnew:
     q = new_dbterm(tb, obj);
+    *consumed_reds_p += db_insert_copy_iterations(q->dbterm.size);
     q->hvalue = hval;
     q->pseudo_deleted = false;
     q->next = b;
@@ -3937,6 +3940,8 @@ db_lookup_dbterm_hash(Process *p, DbTable *tbl, Eterm key, Eterm obj,
         }
 
         HRelease(p, hend, htop);
+        BUMP_REDS(p, db_insert_copy_iterations(b->dbterm.size)
+                     / DB_INSERT_ITERATIONS_PER_RED);
         flags |= DB_NEW_OBJECT;
     }
 
@@ -4234,10 +4239,12 @@ static int db_raw_next_hash(Process *p, DbTable *tbl, Eterm key, Eterm *ret)
     return DB_ERROR_NONE;
 }
 
-static void* db_eterm_to_dbterm_hash(bool compress, int keypos, Eterm obj)
+static void* db_eterm_to_dbterm_hash(bool compress, int keypos, Eterm obj,
+                                    SWord *copy_iterations_p)
 {
     HashDbTerm* term = new_dbterm_hash_no_tab(compress, keypos, obj);
     term->next = NULL;
+    *copy_iterations_p = db_insert_copy_iterations(term->dbterm.size);
     return term;
 }
 

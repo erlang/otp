@@ -1888,9 +1888,11 @@ static void* ets_insert_2_list_copy_term_list(DbTableMethod* meth,
     void *last_term;
     Eterm lst;
     for (lst = list; is_list(lst); lst = CDR(list_val(lst))) {
+        LOCAL_VARIABLE(SWord, copy_iterations);
         term = meth->db_eterm_to_dbterm(compress,
                                         keypos,
-                                        CAR(list_val(lst)));
+                                        CAR(list_val(lst)),
+                                        &copy_iterations);
         if (db_term_list != NULL) {
             last_term =
                 meth->db_dbterm_list_append(last_term, term);
@@ -1898,6 +1900,7 @@ static void* ets_insert_2_list_copy_term_list(DbTableMethod* meth,
             db_term_list = term;
             last_term = term;
         }
+        YCF_CONSUME_REDS(copy_iterations);
     }
 
     return db_term_list;
@@ -2054,8 +2057,6 @@ static BIF_RETTYPE ets_insert_2_list(Process* p,
     }
     if (can_insert_without_yield(tb_type, list_len, YCF_NR_OF_REDS_LEFT())) {
         long reds_boost;
-        /* There is enough reductions left to do the inserts directly
-           from the heap without yielding */
         if (!ets_insert_2_list_lock_tbl(btid, p, bif_ix, ETS_INSERT_2_LIST_PROCESS_LOCAL))
             return THE_NON_VALUE;
         /* Ensure that we will not yield while inserting from heap */
@@ -2154,7 +2155,7 @@ static int ets_insert_2_list_yield_dtor(Binary* bin)
     return 1;
 }
 
-#define ITERATIONS_PER_RED 8
+#define ITERATIONS_PER_RED DB_INSERT_ITERATIONS_PER_RED
 
 static BIF_RETTYPE
 ets_insert_2_list_continuation(Process* p,

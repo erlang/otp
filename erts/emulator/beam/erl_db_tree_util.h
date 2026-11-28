@@ -101,7 +101,8 @@ int db_prev_tree_common(Process *p, DbTable *tbl, TreeDbTerm *root, Eterm key,
                         Eterm *ret, DbTreeStack* stack,
                         Eterm (*func)(Process *, DbTable *, TreeDbTerm *));
 int db_put_tree_common(DbTableCommon *tb, TreeDbTerm **root, Eterm obj,
-                       bool key_clash_fail, DbTableTree *stack_container);
+                       bool key_clash_fail, DbTableTree *stack_container,
+                       SWord *consumed_reds_p);
 int db_get_tree_common(Process *p, DbTableCommon *tb, TreeDbTerm *root, Eterm key,
                        Eterm *ret, DbTableTree *stack_container);
 int db_get_element_tree_common(Process *p, DbTableCommon *tb, TreeDbTerm *root, Eterm key,
@@ -177,7 +178,8 @@ void db_finalize_dbterm_tree_common(int cret,
                                     DbUpdateHandle *handle,
                                     TreeDbTerm **root,
                                     DbTableTree *stack_container);
-void* db_eterm_to_dbterm_tree_common(bool compress, int keypos, Eterm obj);
+void* db_eterm_to_dbterm_tree_common(bool compress, int keypos, Eterm obj,
+                                    SWord *copy_iterations_p);
 void* db_dbterm_list_append_tree_common(void* last_term, void* db_term);
 void* db_dbterm_list_remove_first_tree_common(void **list);
 int db_put_dbterm_tree_common(DbTableCommon *tb, TreeDbTerm **root, TreeDbTerm *value_to_insert,
