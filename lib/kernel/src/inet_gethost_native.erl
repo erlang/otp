@@ -177,7 +177,13 @@ run_once() ->
 	    {ReqH, {?OP_GETHOSTBYADDR, Proto1, Data1}}
               when is_reference(ReqH) ->
 		{ReqH,
-                 <<RID:32, ?OP_GETHOSTBYADDR:8, Proto1:8, Data1/binary>>}
+                 <<RID:32, ?OP_GETHOSTBYADDR:8, Proto1:8, Data1/binary>>};
+            {ReqH, {?OP_CONTROL, _, _}} when is_reference(ReqH) ->
+                ReqH ! {ReqH, {error, notsup}},
+                exit(normal);
+            {ReqH, restart_port} when is_reference(ReqH) ->
+                ReqH ! {ReqH, {error, notsup}},
+                exit(normal)
 	after Timeout ->
 		exit(normal)
 	end,
