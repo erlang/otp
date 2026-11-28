@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 #
-# Copyright Ericsson AB 2017-2025. All Rights Reserved.
+# Copyright Ericsson AB 2026. All Rights Reserved.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -17,8 +17,9 @@
 # limitations under the License.
 #
 # %CopyrightEnd%
------BEGIN EC PRIVATE KEY-----
-MHcCAQEEIC557KPgmq+pWOAh1L8DV8GWW0u7W5vz6mim3FFB1l8koAoGCCqGSM49
-AwEHoUQDQgAEC3J5fQ8+8xQso0lhBdoLdvD14oSsQiMuweXq+Dy2+4Mjdw2/bbw0
-CvbE2+KWNcgwxRLycNGcMCBdf/cOgNyGkA==
------END EC PRIVATE KEY-----
+#
+# Version of the image build recipe. It is appended to all docker image
+# tags (e.g. ssh_compat_suite_img-ssh:openssh10.2p1-openssl3.5.4-22.04-r1).
+# Increase it when a change in build_scripts/ changes the produced images,
+# otherwise hosts that already have the images keep using the old ones.
+1
